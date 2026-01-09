@@ -117,7 +117,7 @@ export default function RunDashboard() {
                 }`}>
                   {(activeLap.distanceMeters / 1000).toFixed(2)}
                 </div>
-                <div className="text-gray-400 text-[10px] font-black uppercase mt-1 mb-4">ק"מ הקפה</div>
+                <div className="text-gray-400 text-[10px] font-black uppercase mt-1 mb-4">{"ק״מ הקפה"}</div>
                 <div className="flex justify-around border-t border-gray-50 pt-4">
                   <div>
                     <div className={`text-2xl font-[1000] ${isPaused ? 'text-[#FF6B00]' : 'text-[#1A1F36]'}`}>

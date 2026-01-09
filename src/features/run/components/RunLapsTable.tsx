@@ -57,7 +57,7 @@ export default function RunLapsTable() {
             <div className="text-xl font-[950] text-[#1A1F36]">
               {(lap.distanceMeters / 1000).toFixed(2)}
             </div>
-            <div className="text-[10px] text-gray-400 font-bold uppercase">ק״מ</div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase">{"ק״מ"}</div>
           </div>
         </div>
       ))}

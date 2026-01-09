@@ -52,9 +52,9 @@ export const RoutePreviewDrawer: React.FC<Props> = ({ route, onClose, onStart })
       <div className="px-6 pb-4 border-b border-gray-100">
         <h2 className="text-xl font-bold text-gray-900">{route.name}</h2>
         <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-          <span className="flex items-center gap-1">🕒 {route.duration} דק׳</span>
-          <span className="flex items-center gap-1">👣 {route.distance} ק״מ</span>
-          <span className="flex items-center gap-1 text-purple-600 font-medium">✨ {route.score} נק׳</span>
+          <span className="flex items-center gap-1">🕒 {route.duration} {"דק׳"}</span>
+          <span className="flex items-center gap-1">👣 {route.distance} {"ק״מ"}</span>
+          <span className="flex items-center gap-1 text-purple-600 font-medium">✨ {route.score} {"נק׳"}</span>
         </div>
       </div>
 

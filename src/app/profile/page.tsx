@@ -54,7 +54,7 @@ export default function ProfilePage() {
             {profile?.core?.weight && (
               <div>
                 <label className="text-sm text-gray-500">משקל</label>
-                <p className="text-gray-900 font-medium">{profile.core.weight} ק&quot;ג</p>
+                <p className="text-gray-900 font-medium">{profile.core.weight} {"ק&quot;ג"}</p>
               </div>
             )}
           </div>

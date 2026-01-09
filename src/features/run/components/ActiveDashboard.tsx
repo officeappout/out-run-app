@@ -55,7 +55,7 @@ export const ActiveDashboard: React.FC<Props> = ({
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold">{distance.toFixed(2)}</span>
-              <span className="text-sm font-medium opacity-60">ק״מ</span>
+              <span className="text-sm font-medium opacity-60">{"ק״מ"}</span>
             </div>
           </div>
         </div>

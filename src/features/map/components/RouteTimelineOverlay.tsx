@@ -97,7 +97,7 @@ export default function RouteTimelineOverlay({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {route.duration} דק׳
+              {route.duration} {"דק׳"}
             </span>
             <span className="flex items-center gap-1">
               {isCycling ? (
@@ -105,13 +105,13 @@ export default function RouteTimelineOverlay({
               ) : (
                 <Footprints className="w-4 h-4" />
               )}
-              {route.distance} ק״מ
+              {route.distance} {"ק״מ"}
               {isCycling && averageSpeed !== null && (
-                <span className="text-gray-400"> • {averageSpeed} קמ&quot;ש</span>
+                <span className="text-gray-400"> • {averageSpeed} {"קמ&quot;ש"}</span>
               )}
             </span>
             <span className="flex items-center gap-1 text-purple-600 font-medium">
-              ✨ {route.score} נק׳
+              ✨ {route.score} {"נק׳"}
             </span>
           </div>
         </div>

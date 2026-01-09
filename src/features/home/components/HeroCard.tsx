@@ -137,7 +137,7 @@ export default function HeroCard({
           <div className="absolute top-4 end-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-2 shadow-md">
             <span className="text-yellow-600 font-bold">$</span>
             <span className="text-sm font-bold text-gray-900">
-              {workout.coins} = {workout.calories} קל&apos;
+              {workout.coins} = {workout.calories} {"קל׳"}
             </span>
           </div>
         </div>

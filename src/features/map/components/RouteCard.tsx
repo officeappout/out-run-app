@@ -76,13 +76,13 @@ export const RouteCard: React.FC<Props> = ({ route, onClick }) => {
              ) : (
                <Footprints className="w-3.5 h-3.5 text-blue-600" />
              )}
-             <span className="text-gray-900">{route.distance} ק&quot;מ</span>
+             <span className="text-gray-900">{route.distance} {"ק&quot;מ"}</span>
              {isCycling && speed !== null && (
-               <span className="text-gray-500">({speed} קמ&quot;ש)</span>
+               <span className="text-gray-500">({speed} {"קמ&quot;ש"})</span>
              )}
            </div>
            <div className="w-px h-3 bg-gray-300"></div>
-           <div>{route.duration} דק&apos;</div>
+           <div>{route.duration} {"דק׳"}</div>
            {hasRanking && rankedRoute.estimatedCoins > 0 && (
              <>
                <div className="w-px h-3 bg-gray-300"></div>
