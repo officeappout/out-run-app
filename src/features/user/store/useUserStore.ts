@@ -25,6 +25,7 @@ interface UserState {
 // ==========================================
 const customStorage = {
   getItem: (name: string): string | null => {
+    if (typeof window === 'undefined') return null;
     const str = localStorage.getItem(name);
     if (!str) return null;
     
@@ -72,6 +73,7 @@ const customStorage = {
   },
   
   setItem: (name: string, value: string): void => {
+    if (typeof window === 'undefined') return;
     try {
       const parsed = JSON.parse(value);
       const state = parsed?.state;
@@ -100,6 +102,7 @@ const customStorage = {
   },
   
   removeItem: (name: string): void => {
+    if (typeof window === 'undefined') return;
     localStorage.removeItem(name);
   },
 };

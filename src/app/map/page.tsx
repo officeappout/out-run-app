@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/features/user/store/useUserStore';
 import { useMapStore } from '@/features/map/store/useMapStore';
@@ -22,7 +22,7 @@ const DEFAULT_LOCATION = { lat: 32.0853, lng: 34.7818 };
 
 type TabMode = 'free' | 'plan' | 'my';
 
-export default function MapPage() {
+function MapPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useUserStore();
@@ -389,5 +389,17 @@ export default function MapPage() {
       {/* Bottom Navigation Bar */}
       <BottomNavigation />
     </main>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen w-full flex items-center justify-center bg-[#f3f4f6]">
+        <p className="text-gray-500">טוען מפה...</p>
+      </div>
+    }>
+      <MapPageContent />
+    </Suspense>
   );
 }
