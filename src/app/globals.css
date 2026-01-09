@@ -21,7 +21,43 @@ body {
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* מסתיר את פס הגלילה בכרום/ספארי/אדג' */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* מסתיר בפיירפוקס */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* בתוך globals.css */
+.dashed-line {
+  background-image: linear-gradient(to bottom, currentColor 50%, transparent 50%);
+  background-size: 2px 10px;
+  background-repeat: repeat-y;
+  background-color: transparent !important; /* דורס את צבע הרקע הרגיל */
+  color: #93C5FD; /* צבע כחול בהיר */
+}
+
+/* אנימציות Onboarding */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
