@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNavigation from "@/components/BottomNavigation"; // 1. ייבוא הקומפוננטה
+import BottomNavigation from "@/features/navigation/BottomNavbar"; // 1. ייבוא הקומפוננטה
 
 export const metadata: Metadata = {
   title: "Out Run App",
