@@ -1,5 +1,6 @@
 'use client';
 
+// Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';

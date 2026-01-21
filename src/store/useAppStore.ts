@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // ==========================================
 // App Global State (i18n, Direction, etc.)
@@ -12,6 +12,15 @@ interface AppState {
   direction: Direction;
   setLanguage: (lang: Language) => void;
 }
+
+// Safe storage that checks for window
+const safeStorage = typeof window !== 'undefined' 
+  ? createJSONStorage(() => localStorage)
+  : createJSONStorage(() => ({
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    }));
 
 // ==========================================
 // App Store עם Persist
@@ -30,6 +39,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'out-app-storage',
+      storage: safeStorage,
     }
   )
 );

@@ -206,6 +206,7 @@ export const useUserStore = create<UserState>()(
     {
       name: 'out-user-storage', // שם המפתח ב-localStorage
       storage: createJSONStorage(() => customStorage),
+      skipHydration: typeof window === 'undefined', // Skip hydration during SSR
       onRehydrateStorage: () => (state, error) => {
         if (error) {
           console.error('Error rehydrating user store:', error);

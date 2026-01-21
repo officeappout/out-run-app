@@ -1,7 +1,10 @@
 "use client";
 
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
 import React, { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { useMapLogic } from '@/features/parks';
 
 // UI Components
@@ -20,7 +23,7 @@ import { WorkoutPlan } from '@/features/parks';
 import { useSessionStore } from '@/features/workout-engine';
 
 // טוען את המפה החדשה והמהירה
-const AppMap = dynamic(() => import('@/features/parks/core/components/AppMap'), {
+const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
   loading: () => <div className="h-full w-full bg-[#f3f4f6]" />,
   ssr: false,
 });

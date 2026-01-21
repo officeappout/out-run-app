@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
 import React, { useRef, useEffect, useState } from 'react';
 import { WorkoutPlan } from '@/features/parks';
 import { WorkoutTimeline, WorkoutHeader, WorkoutStickyNav } from '@/features/workout-engine/players/strength';
