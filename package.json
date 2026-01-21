@@ -15,6 +15,7 @@
     "@tsparticles/slim": "^3.9.1",
     "@turf/distance": "^7.3.1",
     "@turf/helpers": "^7.3.1",
+    "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
     "date-fns": "^4.1.0",

@@ -225,6 +225,12 @@ export default function AppMap({
 
     // Also listen for style changes to reapply Hebrew labels
     map.on('style.load', applyHebrewLabels);
+    
+    // Also reapply when data loads (for dynamic label updates)
+    map.on('data', () => {
+      // Debounce to avoid excessive calls
+      setTimeout(applyHebrewLabels, 100);
+    });
 
     setIsMapLoaded(true);
   };

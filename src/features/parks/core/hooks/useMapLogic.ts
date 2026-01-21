@@ -38,7 +38,7 @@ export const useMapLogic = () => {
 
   // Stores
   const { triggerLap, addCoord, updateRunData } = useRunningPlayer();
-  const { status, startSession, pauseSession, resumeSession, endSession } = useSessionStore();
+  const { status, startSession, pauseSession, resumeSession, endSession, updateDistance } = useSessionStore();
   const { profile } = useUserStore();
 
   // Local State
@@ -119,67 +119,126 @@ export const useMapLogic = () => {
   // ✅ AUTOMATIC STARTUP: Immediate geolocation on mount (if permission already granted)
   const hasRequestedLocation = useRef(false);
   const hasGeneratedInitialRoutes = useRef(false);
+  
+  // Fallback location: Tel Aviv center (if GPS unavailable)
+  const FALLBACK_LOCATION = { lat: 32.0853, lng: 34.7818 };
 
   useEffect(() => {
-    if (hasRequestedLocation.current || typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    if (hasRequestedLocation.current || typeof window === 'undefined' || !('geolocation' in navigator)) {
+      // Set fallback location if geolocation is not available
+      if (!currentUserPos) {
+        setCurrentUserPos(FALLBACK_LOCATION);
+      }
+      return;
+    }
     
     hasRequestedLocation.current = true;
     
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setCurrentUserPos(loc);
-        
-        // Auto-generate routes immediately after getting location
-        if (!hasGeneratedInitialRoutes.current && workoutMode !== 'free') {
-          hasGeneratedInitialRoutes.current = true;
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setCurrentUserPos(loc);
           
-          // Generate routes asynchronously
-          setTimeout(async () => {
-            try {
-              const targetDistance = (preferences.duration || 30) * ((preferences.activity === 'cycling' ? 20 : 6) / 60);
-              const newRoutes = await generateDynamicRoutes({
-                userLocation: loc,
-                targetDistance,
-                activity: preferences.activity || 'running',
-                routeGenerationIndex: 0,
-                preferences: {
-                  includeStrength: preferences.includeStrength || false,
-                  surface: preferences.surface as 'road' | 'trail'
-                },
-                parks: MOCK_PARKS
-              });
+          // Auto-generate routes immediately after getting location
+          if (!hasGeneratedInitialRoutes.current && workoutMode !== 'free') {
+            hasGeneratedInitialRoutes.current = true;
+            
+            // Generate routes asynchronously
+            setTimeout(async () => {
+              try {
+                const targetDistance = (preferences.duration || 30) * ((preferences.activity === 'cycling' ? 20 : 6) / 60);
+                const newRoutes = await generateDynamicRoutes({
+                  userLocation: loc,
+                  targetDistance,
+                  activity: preferences.activity || 'running',
+                  routeGenerationIndex: 0,
+                  preferences: {
+                    includeStrength: preferences.includeStrength || false,
+                    surface: preferences.surface as 'road' | 'trail'
+                  },
+                  parks: MOCK_PARKS
+                });
 
-              if (newRoutes.length > 0) {
-                setAllRoutes(newRoutes);
-                setFocusedRoute(newRoutes[0]);
-                setSelectedRoute(newRoutes[0]);
-              } else {
-                // Fallback to mock routes
+                if (newRoutes.length > 0) {
+                  setAllRoutes(newRoutes);
+                  setFocusedRoute(newRoutes[0]);
+                  setSelectedRoute(newRoutes[0]);
+                } else {
+                  // Fallback to mock routes
+                  setAllRoutes(MOCK_ROUTES);
+                  if (MOCK_ROUTES.length > 0) {
+                    setFocusedRoute(MOCK_ROUTES[0]);
+                    setSelectedRoute(MOCK_ROUTES[0]);
+                  }
+                }
+              } catch (error) {
+                console.error('[useMapLogic] Auto-route generation error:', error);
+                // Fallback to mock routes on error
                 setAllRoutes(MOCK_ROUTES);
                 if (MOCK_ROUTES.length > 0) {
                   setFocusedRoute(MOCK_ROUTES[0]);
                   setSelectedRoute(MOCK_ROUTES[0]);
                 }
               }
-            } catch (error) {
-              console.error('[useMapLogic] Auto-route generation error:', error);
-              // Fallback to mock routes on error
-              setAllRoutes(MOCK_ROUTES);
-              if (MOCK_ROUTES.length > 0) {
-                setFocusedRoute(MOCK_ROUTES[0]);
-                setSelectedRoute(MOCK_ROUTES[0]);
+            }, 100); // Small delay to ensure state is set
+          }
+        },
+        (error) => {
+          // Graceful fallback: Use default location instead of crashing
+          console.warn('[useMapLogic] Geolocation unavailable (code:', error.code, '). Using fallback location.');
+          setCurrentUserPos(FALLBACK_LOCATION);
+          setLocationError(error.message);
+          
+          // Still generate routes with fallback location
+          if (!hasGeneratedInitialRoutes.current && workoutMode !== 'free') {
+            hasGeneratedInitialRoutes.current = true;
+            setTimeout(async () => {
+              try {
+                const targetDistance = (preferences.duration || 30) * ((preferences.activity === 'cycling' ? 20 : 6) / 60);
+                const newRoutes = await generateDynamicRoutes({
+                  userLocation: FALLBACK_LOCATION,
+                  targetDistance,
+                  activity: preferences.activity || 'running',
+                  routeGenerationIndex: 0,
+                  preferences: {
+                    includeStrength: preferences.includeStrength || false,
+                    surface: preferences.surface as 'road' | 'trail'
+                  },
+                  parks: MOCK_PARKS
+                });
+
+                if (newRoutes.length > 0) {
+                  setAllRoutes(newRoutes);
+                  setFocusedRoute(newRoutes[0]);
+                  setSelectedRoute(newRoutes[0]);
+                } else {
+                  setAllRoutes(MOCK_ROUTES);
+                  if (MOCK_ROUTES.length > 0) {
+                    setFocusedRoute(MOCK_ROUTES[0]);
+                    setSelectedRoute(MOCK_ROUTES[0]);
+                  }
+                }
+              } catch (err) {
+                console.error('[useMapLogic] Route generation with fallback failed:', err);
+                setAllRoutes(MOCK_ROUTES);
+                if (MOCK_ROUTES.length > 0) {
+                  setFocusedRoute(MOCK_ROUTES[0]);
+                  setSelectedRoute(MOCK_ROUTES[0]);
+                }
               }
-            }
-          }, 100); // Small delay to ensure state is set
-        }
-      },
-      (error) => {
-        console.warn('[useMapLogic] Geolocation error (user may need to grant permission):', error);
-        setLocationError(error.message);
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
-    );
+            }, 100);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+      );
+    } catch (err) {
+      // Final safety net: if geolocation API itself throws, use fallback
+      console.warn('[useMapLogic] Geolocation API error:', err);
+      if (!currentUserPos) {
+        setCurrentUserPos(FALLBACK_LOCATION);
+      }
+    }
   }, []); // Run once on mount
 
   // ✅ Timer - updates elapsed time locally and syncs session duration
@@ -202,45 +261,83 @@ export const useMapLogic = () => {
   // ✅ FIX: WatchPosition - removed distanceFilter (not supported in web)
   useEffect(() => {
     if (!isWorkoutActive || isWorkoutPaused) {
-      if (workoutWatchId) { navigator.geolocation.clearWatch(workoutWatchId); setWorkoutWatchId(null); }
+      if (workoutWatchId && typeof window !== 'undefined' && 'geolocation' in navigator) {
+        try {
+          navigator.geolocation.clearWatch(workoutWatchId);
+        } catch (e) {
+          console.warn('[useMapLogic] Error clearing watch:', e);
+        }
+        setWorkoutWatchId(null);
+      }
       return;
     }
-    const id = navigator.geolocation.watchPosition((pos) => {
-      const newLat = pos.coords.latitude;
-      const newLng = pos.coords.longitude;
 
-      const prev = currentUserPos;
-      const hasPrev = !!prev;
+    // Safety check: ensure geolocation is available
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      console.warn('[useMapLogic] Geolocation not available during workout');
+      return;
+    }
 
-      // Only update if we have a previous point and the delta is significant
-      if (hasPrev) {
-        const dist = getDistanceFromLatLonInKm(prev.lat, prev.lng, newLat, newLng);
-        // Manual filtering: 15 meters threshold to avoid jitter
-        if (dist > 0.015) {
-          setRunDistance(prevDist => prevDist + dist);
-          setLivePath(prevPath => [...prevPath, [newLng, newLat]]);
-          addCoord([newLng, newLat]);
+    let id: number | null = null;
+    
+    try {
+      id = navigator.geolocation.watchPosition(
+        (pos) => {
+          const newLat = pos.coords.latitude;
+          const newLng = pos.coords.longitude;
 
-          // ✅ Sync distance delta to RunningPlayer for RunSummary
-          if (status === 'running') {
-            updateRunData(dist, elapsedTime);
+          const prev = currentUserPos;
+          const hasPrev = !!prev;
+
+          // Only update if we have a previous point and the delta is significant
+          if (hasPrev) {
+            const dist = getDistanceFromLatLonInKm(prev.lat, prev.lng, newLat, newLng);
+            // Manual filtering: 15 meters threshold to avoid jitter
+            if (dist > 0.015) {
+              setRunDistance(prevDist => prevDist + dist);
+              setLivePath(prevPath => [...prevPath, [newLng, newLat]]);
+              addCoord([newLng, newLat]);
+
+              // ✅ Sync distance delta to RunningPlayer and SessionStore
+              if (status === 'running' || status === 'active') {
+                updateRunData(dist, elapsedTime);
+                updateDistance(dist); // Update global session store
+              }
+
+              const newLoc = { lat: newLat, lng: newLng };
+              setCurrentUserPos(newLoc);
+              if (pos.coords.heading) setUserBearing(pos.coords.heading);
+            }
+          } else {
+            // First point: seed location & live path without incrementing distance
+            const seedLoc = { lat: newLat, lng: newLng };
+            setCurrentUserPos(seedLoc);
+            setLivePath([[newLng, newLat]]);
+            if (pos.coords.heading) setUserBearing(pos.coords.heading);
           }
+        },
+        (error) => {
+          // Graceful error handling: log but don't crash
+          console.warn('[useMapLogic] watchPosition error (code:', error.code, '):', error.message);
+          // Don't clear the watch on error - let it retry
+        },
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
 
-          const newLoc = { lat: newLat, lng: newLng };
-          setCurrentUserPos(newLoc);
-          if (pos.coords.heading) setUserBearing(pos.coords.heading);
+      setWorkoutWatchId(id);
+    } catch (err) {
+      console.error('[useMapLogic] Failed to start watchPosition:', err);
+    }
+
+    return () => {
+      if (id !== null && typeof window !== 'undefined' && 'geolocation' in navigator) {
+        try {
+          navigator.geolocation.clearWatch(id);
+        } catch (e) {
+          console.warn('[useMapLogic] Error clearing watch on cleanup:', e);
         }
-      } else {
-        // First point: seed location & live path without incrementing distance
-        const seedLoc = { lat: newLat, lng: newLng };
-        setCurrentUserPos(seedLoc);
-        setLivePath([[newLng, newLat]]);
-        if (pos.coords.heading) setUserBearing(pos.coords.heading);
       }
-    }, null, { enableHighAccuracy: true, maximumAge: 0 }); // Fixed options
-
-    setWorkoutWatchId(id);
-    return () => navigator.geolocation.clearWatch(id);
+    };
   }, [isWorkoutActive, isWorkoutPaused, currentUserPos, status, runDistance]);
 
   const startActiveWorkout = () => {
