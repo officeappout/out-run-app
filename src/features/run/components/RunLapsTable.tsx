@@ -33,11 +33,11 @@ export default function RunLapsTable() {
           }`}
         >
           {/* מספר הקפה (ימין) */}
-          <div className="flex-1 text-right">
+          <div className="flex-1 text-end">
             <span className={`text-xl font-[950] ${lap.isActive ? 'text-[#00B2FF]' : 'text-[#1A1F36]'}`}>
               {lap.number}
             </span>
-            <span className="text-[10px] text-gray-400 font-bold mr-2 uppercase">הקפה</span>
+            <span className="text-[10px] text-gray-400 font-bold me-2 uppercase">הקפה</span>
           </div>
 
           {/* זמן (מרכז-ימין) */}
@@ -53,7 +53,7 @@ export default function RunLapsTable() {
           </div>
 
           {/* מרחק (שמאל) */}
-          <div className="flex-1 text-left">
+          <div className="flex-1 text-start">
             <div className="text-xl font-[950] text-[#1A1F36]">
               {(lap.distanceMeters / 1000).toFixed(2)}
             </div>

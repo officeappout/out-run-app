@@ -25,7 +25,7 @@ export default function LoaderScreen({ onComplete }: LoaderScreenProps) {
       // חכה שניה וחצי בין שלב לשלב
       const timeout = setTimeout(() => {
         setCurrentStep((prev) => prev + 1);
-      }, 1500); 
+      }, 2500);
       return () => clearTimeout(timeout);
     } else {
       // סיימנו הכל! נחכה רגע קטן ואז נעבור מסך
@@ -38,14 +38,14 @@ export default function LoaderScreen({ onComplete }: LoaderScreenProps) {
 
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6" dir="rtl">
-      
+
       {/* --- לוגו ואנימציה ראשית --- */}
       <div className="mb-12 relative">
         {/* לוגו מהבהב */}
         <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center animate-pulse">
-           <span className="text-3xl font-black text-[#4FB4F7]">OUT</span>
+          <span className="text-3xl font-black text-[#4FB4F7]">OUT</span>
         </div>
-        
+
         {/* טבעת מסתובבת סביב הלוגו */}
         <div className="absolute inset-0 border-4 border-[#4FB4F7]/20 border-t-[#4FB4F7] rounded-full w-24 h-24 animate-spin"></div>
       </div>
@@ -59,8 +59,8 @@ export default function LoaderScreen({ onComplete }: LoaderScreenProps) {
           const isPending = index > currentStep;     // האם זה שלב עתידי?
 
           return (
-            <div 
-              key={step.id} 
+            <div
+              key={step.id}
               className={`flex items-center gap-4 transition-all duration-500 ease-out
                 ${isPending ? 'opacity-40 translate-y-2' : 'opacity-100 translate-y-0'}
               `}
@@ -93,7 +93,7 @@ export default function LoaderScreen({ onComplete }: LoaderScreenProps) {
       </div>
 
       <div className="mt-16 text-center opacity-60">
-         <p className="text-xs text-gray-400 animate-pulse">בונה את חווית ה-OUT שלך...</p>
+        <p className="text-xs text-gray-400 animate-pulse">בונה את חווית ה-OUT שלך...</p>
       </div>
 
     </div>

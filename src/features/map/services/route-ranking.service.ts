@@ -45,12 +45,19 @@ export function calculateRouteRewards(
   const routeActivityType = activityType || route.activityType || route.type;
   const MET = getMET(routeActivityType, route.difficulty);
   const durationHours = route.duration / 60; // דקות -> שעות
-  
+
   // נוסחת קלוריות: MET * weight(kg) * time(hours)
   const calories = Math.round(MET * userWeight * durationHours);
-  
-  // מטבעות שווים לקלוריות (1:1)
-  const coins = calories;
+
+  // נוסחת מטבעות: מרחק (ק"מ) * מקדם פעילות
+  // ריצה: 20 מטבעות לק"מ
+  // רכיבה: 15 מטבעות לק"מ
+  // הליכה: 10 מטבעות לק"מ
+  let coinMultiplier = 10; // Default (Walking)
+  if (routeActivityType === 'running') coinMultiplier = 20;
+  if (routeActivityType === 'cycling') coinMultiplier = 15;
+
+  const coins = Math.round(route.distance * coinMultiplier);
 
   return { calories, coins };
 }
@@ -112,21 +119,21 @@ export function rankRoutes(
   const ranked = routes.map((route) => {
     // ציון התאמה למשתמש (0-10)
     const userMatchScore = calculateMatchScore(route, userProfile, targetDuration);
-    
+
     // ציון אדמין (0-10), ברירת מחדל 0
     const adminRating = route.adminRating ?? 0;
-    
+
     // נוסחת Hybrid: 70% ציון משתמש + 30% ציון אדמין
     let finalScore = (userMatchScore * 0.7) + (adminRating * 0.3);
-    
+
     // בונוס למסלולים מקודמים
     if (route.isPromoted) {
       finalScore += 1.5;
     }
-    
+
     // הגבל את הציון ל-10
     const matchScore = Math.min(10, finalScore);
-    
+
     const rewards = calculateRouteRewards(route, userWeight);
 
     return {

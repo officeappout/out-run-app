@@ -16,30 +16,30 @@ export interface Lap {
 interface RunState {
   // סטטוסים
   status: 'idle' | 'running' | 'paused' | 'finished';
-  runMode: 'free' | 'plan' | 'my_routes'; 
-  activityType: 'running' | 'walking'; 
-  
+  runMode: 'free' | 'plan' | 'my_routes';
+  activityType: 'running' | 'walking';
+
   // נתונים שוטפים
   startTime: number | null;
   totalDuration: number;
   totalDistance: number;
   currentPace: number;
-  
+
   // נתונים גיאוגרפיים ומסלולים
-  laps: Lap[]; 
+  laps: Lap[];
   view: 'main' | 'laps';
   routeCoords: number[][]; // הקו שנצבר בפועל
   lastViewport: { latitude: number; longitude: number; zoom: number };
 
   suggestedRoutes: Route[]; // <--- שינוי לטיפוס החדש
   activeRoutePath: number[][]; // הקו המתוכנן (כחול)
-  
+
   // פעולות (Setters)
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
   setActivityType: (type: 'running' | 'walking') => void;
   setSuggestedRoutes: (routes: Route[]) => void; // <--- שינוי לטיפוס החדש
   setActiveRoutePath: (path: number[][]) => void;
-  
+
   // לוגיקה עסקית (נשאר ללא שינוי)
   calculatePace: (dist: number, dur: number) => number;
   startRun: () => void;
@@ -53,6 +53,7 @@ interface RunState {
   addCoord: (coord: number[]) => void;
   setLastViewport: (vp: any) => void;
   injectMockData: () => void;
+  clearCurrentWorkout: () => void;
 }
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -66,12 +67,12 @@ export const useRunStore = create<RunState>((set, get) => ({
   currentPace: 0,
   view: 'main',
   laps: [{ number: 1, distanceMeters: 0, duration: 0, splitPace: 0, isActive: true }],
-  routeCoords: [],     
-  
+  routeCoords: [],
+
   // אתחול עם הנתונים החדשים
-  suggestedRoutes: INITIAL_ROUTES, 
-  activeRoutePath: [], 
-  
+  suggestedRoutes: INITIAL_ROUTES,
+  activeRoutePath: [],
+
   lastViewport: { latitude: 32.0853, longitude: 34.7818, zoom: 15 },
 
   // מימושים (Setters)
@@ -110,8 +111,8 @@ export const useRunStore = create<RunState>((set, get) => ({
     set({
       totalDistance: newDist,
       currentPace: newPace,
-      laps: laps.map(lap => lap.isActive ? { 
-        ...lap, 
+      laps: laps.map(lap => lap.isActive ? {
+        ...lap,
         distanceMeters: lap.distanceMeters + (distanceDelta * 1000),
         splitPace: calculatePace((lap.distanceMeters / 1000) + distanceDelta, lap.duration)
       } : lap)
@@ -126,8 +127,8 @@ export const useRunStore = create<RunState>((set, get) => ({
     set({
       totalDuration: nextDuration,
       currentPace: nextPace,
-      laps: laps.map(lap => lap.isActive ? { 
-        ...lap, 
+      laps: laps.map(lap => lap.isActive ? {
+        ...lap,
         duration: lap.duration + 1,
         splitPace: nextDuration % 3 === 0 ? calculatePace(lap.distanceMeters / 1000, lap.duration + 1) : lap.splitPace
       } : lap)
@@ -137,9 +138,19 @@ export const useRunStore = create<RunState>((set, get) => ({
   injectMockData: () => set({
     status: 'finished',
     totalDistance: 4.01,
-    totalDuration: 1201, 
-    currentPace: 5.05, 
+    totalDuration: 1201,
+    currentPace: 5.05,
     routeCoords: [[34.7818, 32.0853], [34.7825, 32.0858], [34.7835, 32.0865], [34.7845, 32.0875], [34.7818, 32.0853]],
     laps: [{ number: 1, distanceMeters: 1000, duration: 301, splitPace: 5.01, isActive: false }]
   }),
+
+  clearCurrentWorkout: () => set({
+    status: 'idle',
+    startTime: null,
+    totalDuration: 0,
+    totalDistance: 0,
+    currentPace: 0,
+    routeCoords: [],
+    laps: [{ number: 1, distanceMeters: 0, duration: 0, splitPace: 0, isActive: true }]
+  })
 }));

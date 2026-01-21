@@ -1,14 +1,33 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Map, { Source, Layer, Marker } from 'react-map-gl';
+import Map, { Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useRunStore } from '../store/useRunStore';
-import { Share2, Trophy, Clock, Zap, TrendingUp, ChevronUp } from 'lucide-react';
+import { Share2, Trophy, Clock, Zap, TrendingUp, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useUserStore } from '@/features/user/store/useUserStore';
+import { calculateCalories } from '@/lib/calories.utils';
+import { updateUserProgression } from '@/lib/firestore.service';
+import { auth } from '@/lib/firebase';
+import { saveWorkout } from '@/features/workout/services/WorkoutStorageService';
 
-export default function RunSummary() {
-  const { totalDistance, totalDuration, currentPace, routeCoords, laps } = useRunStore();
-  const [drawerPosition, setDrawerPosition] = useState('half'); // 'half' | 'full'
+interface Props {
+  onFinish: () => void;
+}
+
+export default function RunSummary({ onFinish }: Props) {
+  const router = useRouter();
+  const { totalDistance, totalDuration, currentPace, routeCoords, activityType, clearCurrentWorkout } = useRunStore();
+  const { profile, updateProfile } = useUserStore();
+  const [drawerPosition, setDrawerPosition] = useState('half');
+
+  // Calculate calories and coins
+  const userWeight = profile?.core?.weight || 70;
+  // totalDuration is in seconds, calculateCalories expects minutes
+  const calories = calculateCalories(activityType, Math.floor(totalDuration / 60), userWeight);
+  // New Formula: 1 Coin per 1 Full Calorie
+  const earnedCoins = Math.floor(calories);
 
   const formatTime = (s: number) => {
     const mins = Math.floor(s / 60);
@@ -16,150 +35,163 @@ export default function RunSummary() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Guest Logic detection
+  const isGuest = profile?.id && !profile.core?.email;
+
+  const handleFinish = async () => {
+    if (isGuest) {
+      // Basic Guest Finish:
+      clearCurrentWorkout();
+      onFinish();
+      router.push('/home');
+      return;
+    }
+
+    // 1. Data Reward: Update User Store and Firestore (EXISTING LOGIC)
+    if (profile) {
+      const currentCoins = profile.progression?.coins || 0;
+      const currentCalories = profile.progression?.totalCaloriesBurned || 0;
+
+      const newCoins = currentCoins + earnedCoins;
+      const newTotalCalories = currentCalories + calories;
+
+      // Update local store (Zustand)
+      updateProfile({
+        progression: {
+          ...profile.progression,
+          coins: newCoins,
+          totalCaloriesBurned: newTotalCalories,
+        }
+      });
+
+      // Sync to Firestore if user is authenticated
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          // Update user progression (coins & calories)
+          await updateUserProgression(currentUser.uid, {
+            coins: newCoins,
+            totalCaloriesBurned: newTotalCalories,
+          });
+          console.log('✅ Coins and calories synced to Firestore');
+
+          // ✅ Save workout to history
+          await saveWorkout({
+            userId: currentUser.uid,
+            activityType: activityType || 'running',
+            distance: totalDistance,
+            duration: totalDuration,
+            calories: calories,
+            pace: currentPace || 0,
+            routePath: routeCoords.length > 0 ? routeCoords as [number, number][] : undefined,
+            earnedCoins: earnedCoins,
+          });
+          console.log('✅ Workout saved to history');
+        } catch (error) {
+          console.error('❌ Error syncing to Firestore:', error);
+          // Continue anyway - local update succeeded
+        }
+      }
+    }
+
+    // 2. State Reset
+    clearCurrentWorkout();
+
+    // 3. Smart Navigation -> Home
+    onFinish(); // Cleans up local state in page.tsx
+    router.push('/home'); // Navigates to Home Tab
+  };
+
+  const handleClaim = () => {
+    // Redirect to Onboarding with fixed bonus for Guest signup
+    const queryParams = new URLSearchParams({
+      claim: 'true',
+      coins: '20', // Fixed bonus as requested
+      calories: calories.toString() // Keep calories for record
+    }).toString();
+
+    router.push(`/onboarding?${queryParams}`);
+  };
+
+  // Hydration check
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+
+  if (!isMounted) return null;
+
   return (
-    <div className="fixed inset-0 z-[200] bg-white flex flex-col overflow-hidden">
-      
-      {/* 1. המפה כרקע (סטייל Strava) */}
-      <div className="absolute inset-0 h-[60%] w-full">
-        <Map
-          initialViewState={{
-            longitude: routeCoords[0]?.[0] || 34.7818,
-            latitude: routeCoords[0]?.[1] || 32.0853,
-            zoom: 14.5
-          }}
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
-          mapStyle="mapbox://styles/mapbox/dark-v11" // סטייל כהה מבליט את הקו הכחול
-          interactive={true}
-        >
-         {/* וידוא שיש נתונים לפני רינדור השכבות */}
-{routeCoords && routeCoords.length > 1 && routeCoords[0] && (
-  <Source 
-    id="final-route" 
-    type="geojson" 
-    data={{ 
-      type: 'Feature', 
-      properties: {}, 
-      geometry: { 
-        type: 'LineString', 
-        coordinates: routeCoords 
-      } 
-    } as any}
-  >
-    <Layer 
-      id="line" 
-      type="line" 
-      paint={{ 
-        'line-color': '#00B2FF', 
-        'line-width': 5 
-      }} 
-      layout={{
-        'line-cap': 'round',
-        'line-join': 'round'
-      }}
-    />
-  </Source>
-)}
-        </Map>
-        
-        {/* כפתורי פעולה צפים על המפה */}
-        <div className="absolute top-12 left-4 right-4 flex justify-between items-start pointer-events-none">
-          <button className="p-3 bg-white/90 backdrop-blur rounded-full shadow-lg pointer-events-auto active:scale-90">
-            <Share2 size={20} className="text-slate-800" />
-          </button>
-          <div className="bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-lg flex items-center gap-2 pointer-events-auto">
-             <div className="w-8 h-8 bg-blue-500 rounded-full border-2 border-white shadow-sm overflow-hidden">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="profile" />
-             </div>
-             <span className="text-xs font-black text-slate-800">הריצה שלי</span>
+    <div dir="rtl" className="fixed inset-0 z-[100] bg-black text-white flex flex-col h-[100dvh] font-sans animate-in slide-in-from-bottom duration-500">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto px-6 pt-8 pb-32">
+        <h1 className="text-5xl font-black italic mb-2 tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-l from-white to-gray-400">
+          האימון<br />הושלם!
+        </h1>
+        <p className="text-gray-400 mb-8 text-lg font-medium">
+          {new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Stats Cards */}
+          <div className="bg-[#111] p-4 rounded-3xl border border-white/10">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">מרחק</span>
+            <div className="text-4xl font-black mt-1 font-mono tracking-tight">{totalDistance.toFixed(2)}<span className="text-base text-gray-500 me-1 font-sans">ק"מ</span></div>
+          </div>
+          <div className="bg-[#111] p-4 rounded-3xl border border-white/10">
+            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">קלוריות</span>
+            <div className="text-4xl font-black mt-1 font-mono tracking-tight text-orange-500">{calories}<span className="text-base text-gray-500 me-1 font-sans">kcal</span></div>
+          </div>
+          <div className="col-span-2 bg-[#1C1C1E] p-5 rounded-3xl border border-white/10 flex items-center justify-between shadow-2xl shadow-black/50">
+            <div>
+              <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">הרווחת</span>
+              <div className="text-5xl font-black mt-1 font-mono text-[#00E5FF] drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] flex items-baseline">
+                +{earnedCoins} <span className="text-sm text-gray-500 me-2 font-sans font-bold">מטבעות</span>
+              </div>
+            </div>
+            {isGuest && (
+              <span className="text-xs bg-gray-800/80 text-gray-400 px-3 py-1.5 rounded-full border border-gray-700 font-medium">מצב אורח (Guest)</span>
+            )}
           </div>
         </div>
+
+        {isGuest && (
+          <div className="mb-6 bg-gradient-to-l from-yellow-900/30 to-orange-900/30 border border-orange-500/30 rounded-3xl p-5 flex items-start gap-4 backdrop-blur-sm">
+            <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 text-2xl shrink-0 border border-orange-500/20">🔒</div>
+            <div>
+              <h4 className="font-bold text-orange-100 text-lg leading-tight mb-1">התחברו ושמרו את המטבעות</h4>
+              <p className="text-sm text-orange-200/70 leading-relaxed">
+                צרו חשבון כדי לשמור את {earnedCoins} המטבעות שהרווחתם כעת ולעקוב אחר ההתקדמות שלכם לאורך זמן.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 2. המגירה הנגררת (Bottom Sheet) */}
-      <motion.div 
-        initial={{ y: '100%' }}
-        animate={{ y: drawerPosition === 'half' ? '50%' : '10%' }}
-        transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-        className="absolute inset-0 bg-white rounded-t-[40px] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col z-30"
-      >
-        {/* ידית גרירה */}
-        <div 
-          onClick={() => setDrawerPosition(prev => prev === 'half' ? 'full' : 'half')}
-          className="w-full py-4 flex flex-col items-center cursor-pointer"
-        >
-          <div className="w-12 h-1.5 bg-slate-200 rounded-full mb-1" />
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">נתוני אימון חופשי</span>
-        </div>
-
-        <div className="px-6 overflow-y-auto pb-20">
-          
-          {/* עיגולי הנתונים (הפאזל שלך) */}
-          <div className="flex justify-between items-center mt-4">
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full border-2 border-slate-100 flex items-center justify-center mb-1">
-                <Clock size={20} className="text-blue-500" />
-              </div>
-              <span className="text-lg font-black text-slate-800">{formatTime(totalDuration)}</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">זמן</span>
-            </div>
-
-            <div className="flex flex-col items-center transform -translate-y-2">
-              <div className="w-24 h-24 rounded-full border-[6px] border-[#00B2FF] flex items-center justify-center mb-1 bg-white shadow-xl">
-                <span className="text-3xl font-[1000] text-slate-800">{totalDistance.toFixed(2)}</span>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">קילומטרים</span>
-            </div>
-
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full border-2 border-slate-100 flex items-center justify-center mb-1">
-                <Zap size={20} className="text-orange-500" />
-              </div>
-              <span className="text-lg font-black text-slate-800">{currentPace.toFixed(2)}</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">קצב</span>
-            </div>
+      {/* Footer Actions */}
+      <div className="p-6 pb-20 bg-gradient-to-t from-black via-black to-transparent z-[101]">
+        {isGuest ? (
+          <div className="flex gap-4">
+            <button
+              onClick={handleFinish}
+              className="flex-1 py-4 rounded-2xl font-bold text-gray-500 hover:bg-white/10 transition-colors border border-white/5"
+            >
+              וותר
+            </button>
+            <button
+              onClick={handleClaim}
+              className="flex-[2] py-4 rounded-2xl font-black text-lg bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-[0_0_25px_rgba(0,229,255,0.3)] hover:scale-[1.02] active:scale-95"
+            >
+              השלם פרופיל וקבל בונוס (+20 מטבעות)
+            </button>
           </div>
-
-          {/* גרף מהירות (דמה - סטייל גרמין) */}
-          <div className="mt-8 bg-slate-50 p-5 rounded-[30px] border border-slate-100">
-            <div className="flex justify-between items-center mb-4 px-2">
-              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                <TrendingUp size={16} className="text-blue-500" />
-                ניתוח מהירות
-              </h3>
-              <span className="text-[10px] font-bold text-blue-500">שיא: 4:20</span>
-            </div>
-            <div className="h-24 w-full flex items-end gap-1 px-1">
-              {[40, 70, 45, 90, 65, 80, 30, 50, 85, 40].map((h, i) => (
-                <div key={i} style={{ height: `${h}%` }} className="flex-1 bg-blue-400/20 rounded-t-sm border-t-2 border-blue-500" />
-              ))}
-            </div>
-          </div>
-
-          {/* כרטיס הסטרייק הכתום (החתימה שלך) */}
-          <div className="mt-6 bg-gradient-to-r from-[#FFB800] to-[#FF8000] p-6 rounded-[30px] shadow-lg flex items-center justify-between text-white overflow-hidden relative">
-            <div className="relative z-10">
-              <span className="text-5xl font-[1000] leading-none">123</span>
-              <p className="text-sm font-black opacity-90">אימונים ברצף!</p>
-            </div>
-            <div className="text-right relative z-10">
-              <div className="p-2 bg-white/20 rounded-xl mb-1 flex items-center justify-center">
-                <Trophy size={24} />
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest">+2,000 עמירם</span>
-            </div>
-            {/* אפקט דקורטיבי ברקע הכרטיס */}
-            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-          </div>
-
-          {/* כפתור המשך סופי */}
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full mt-8 bg-slate-900 text-white py-5 rounded-[25px] font-black text-xl shadow-xl active:scale-95 transition-all mb-10"
+        ) : (
+          <button
+            onClick={handleFinish}
+            className="w-full py-4 rounded-xl font-bold bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-[0_0_20px_rgba(0,229,255,0.3)]"
           >
-            סגירה וחזרה
+            סיום וחזרה לבית
           </button>
-        </div>
-      </motion.div>
+        )}
+      </div>
     </div>
   );
 }

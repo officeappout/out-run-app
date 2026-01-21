@@ -6,6 +6,17 @@ import { Home, Map, User } from 'lucide-react'; // וודא שחבילת lucide-
 export default function BottomNavigation() {
   const pathname = usePathname();
 
+  // Hide on specific paths
+  if (
+    pathname?.startsWith('/onboarding') ||
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/run') ||
+    pathname?.startsWith('/auth') ||
+    pathname?.startsWith('/admin')
+  ) {
+    return null;
+  }
+
   const navItems = [
     { name: 'פרופיל', href: '/profile', icon: User },
     { name: 'מפה', href: '/map', icon: Map },
@@ -19,12 +30,11 @@ export default function BottomNavigation() {
         const isActive = pathname === item.href;
 
         return (
-          <Link 
-            key={item.href} 
-            href={item.href} 
-            className={`flex flex-col items-center gap-1 ${
-              isActive ? 'text-blue-600 font-bold' : 'text-gray-400'
-            }`}
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex flex-col items-center gap-1 ${isActive ? 'text-blue-600 font-bold' : 'text-gray-400'
+              }`}
           >
             <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
             <span className="text-[10px]">{item.name}</span>

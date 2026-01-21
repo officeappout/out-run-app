@@ -1,404 +1,262 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useUserStore } from '@/features/user/store/useUserStore';
-import { useMapStore } from '@/features/map/store/useMapStore';
-import { RouteService } from '@/features/map/services/route.service';
-import { rankRoutes, RankedRoute } from '@/features/map/services/route-ranking.service';
-import { MOCK_PARKS } from '@/features/map/data/mock-locations';
-import { MapPark, Route, RouteSegment } from '@/features/map/types/map-objects.type';
+import React, { Suspense } from 'react';
+import dynamic from 'next/dynamic';
+import { useMapLogic } from '@/features/map/hooks/useMapLogic';
 
-// ייבוא הקומפוננטות
-import AppMap from '@/features/map/components/AppMap';
-import MapTabs from '@/features/map/components/MapTabs';
-import RouteTimelineOverlay from '@/features/map/components/RouteTimelineOverlay';
-import { MapRouteCarousel } from '@/features/map/components/MapRouteCarousel';
+// UI Components
 import BottomNavigation from '@/components/BottomNavigation';
+import BottomJourneyContainer from '@/features/map/components/BottomJourneyContainer';
+import WorkoutPreferencesModal from '@/features/map/components/WorkoutPreferencesModal';
+import LiveWorkoutOverlay from '@/features/workout/components/LiveWorkoutOverlay';
+import RunSummary from '@/features/run/components/RunSummary';
+import ParticleBackground from '@/components/ParticleBackground';
+import WorkoutPreviewDrawer from '@/features/workout/components/WorkoutPreviewDrawer';
+import ChatDrawer from '@/features/map/components/ChatDrawer';
+import NavigationHub from '@/features/map/components/NavigationHub';
+import RouteGenerationLoader from '@/features/map/components/RouteGenerationLoader';
+import { Search, SlidersHorizontal, Navigation, Sparkles, Home, Briefcase, Bookmark, MapPin, X } from 'lucide-react';
+import { WorkoutPlan } from '@/features/map/types/map-objects.type';
+import { useRunStore } from '@/features/run/store/useRunStore';
+
+// טוען את המפה החדשה והמהירה
+const AppMap = dynamic(() => import('@/features/map/components/AppMap'), {
+  loading: () => <div className="h-full w-full bg-[#f3f4f6]" />,
+  ssr: false,
+});
 
 const BRAND_COLOR = '#00E5FF';
 const GRAY_COLOR = '#6B7280';
-const DEFAULT_LOCATION = { lat: 32.0853, lng: 34.7818 };
 
-type TabMode = 'free' | 'plan' | 'my';
+// תכנית אימון לדוגמה (יוצג בדרואר אם אין תכנית ספציפית למסלול)
+const demoWorkoutPlan: WorkoutPlan = {
+  id: 'demo-workout-1',
+  name: 'אימון בוקר משולב',
+  totalDuration: 45,
+  difficulty: 'medium',
+  segments: [
+    { id: 'seg-1', type: 'travel', title: 'חימום - הליכה מהירה', subTitle: 'התחילו בהליכה נמרצת', icon: 'run', target: { type: 'time', value: 5, unit: 'דק׳' }, isCompleted: false, paceTarget: 'קצב נוח' },
+    { id: 'seg-2', type: 'station', title: 'תחנה 1: ספסל בפארק', subTitle: 'תרגילי חזה וכתפיים', icon: 'bench', target: { type: 'time', value: 10, unit: 'דק׳' }, isCompleted: false, exercises: [{ id: 'ex-1', name: 'שכיבות סמיכה', reps: '15 חזרות', icon: 'dumbbell' }] },
+    { id: 'seg-3', type: 'travel', title: 'ריצה - קצב גבוה', subTitle: 'ריצה בקצב גבוה עד לתחנה הבאה', icon: 'run', target: { type: 'distance', value: 800, unit: 'מ׳' }, isCompleted: false, paceTarget: '4:45', heartRateTarget: '150-165' },
+    { id: 'seg-4', type: 'station', title: 'תחנה 2: גינת כושר', subTitle: 'תרגילי משיכה וליבה', icon: 'gym', target: { type: 'time', value: 12, unit: 'דק׳' }, isCompleted: false, exercises: [{ id: 'ex-3', name: 'מתח', reps: 'מקסימום חזרות', icon: 'dumbbell' }] },
+  ]
+};
 
 function MapPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { profile } = useUserStore();
-  const { selectedPark, triggerUserLocation, isFollowing, setUserLocation } = useMapStore();
-  
-  const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [rankedRoutes, setRankedRoutes] = useState<RankedRoute[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<RankedRoute | null>(null);
-  const [activeTab, setActiveTab] = useState<TabMode>('plan');
-  const [focusedRoute, setFocusedRoute] = useState<RankedRoute | null>(null);
-
-  // טעינת מיקום
-  useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setCoords(location);
-        setUserLocation(location);
-      },
-      (err) => {
-        console.log("Error:", err);
-        setCoords(DEFAULT_LOCATION);
-        setUserLocation(DEFAULT_LOCATION);
-      }
-    );
-  }, [setUserLocation]);
-
-  // יצירת מסלולים חכמים
-  useEffect(() => {
-    if (!coords || !profile) return;
-    if (routes.length > 0) return; // כבר נוצרו
-
-    const generateRoutes = async () => {
-      const targetParks = MOCK_PARKS.slice(0, 4) as MapPark[];
-      
-      const promises = targetParks.map(async (park) => {
-        const segment = park.segmentEndpoints ? { start: park.segmentEndpoints.start, end: park.segmentEndpoints.end } : undefined;
-        const routeData = await RouteService.getSmartRoute(coords, park.location, segment);
-        if (!routeData) return null;
-
-        const totalDistanceKm = parseFloat((routeData.distance / 1000).toFixed(1));
-        const totalRunDuration = Math.round(routeData.duration / 60);
-        const workoutDuration = 15;
-
-        const legDistance = (totalDistanceKm / 2).toFixed(1);
-        const legTime = Math.round(totalRunDuration / 2);
-
-        const equipmentList = park.devices && park.devices.length > 0
-          ? park.devices.slice(0, 2).map(d => d.name).join(', ')
-          : 'תרגילי משקל גוף';
-
-        const generatedSegments: RouteSegment[] = [
-          {
-            type: 'run',
-            title: `ריצה ל${park.name}`,
-            subTitle: 'חימום וריצה בקצב נוח',
-            distance: `${legDistance} ק״מ`,
-            duration: `${legTime} דק׳`
-          },
-          {
-            type: 'workout',
-            title: `אימון ב${park.name}`,
-            subTitle: `כולל: ${equipmentList}`,
-            duration: `${workoutDuration} דק׳`,
-            exercises: park.devices?.slice(0, 3).map(d => ({
-              name: d.name,
-              reps: '3x10',
-            })) || []
-          },
-          {
-            type: 'run',
-            title: 'ריצה בחזרה לנקודת ההתחלה',
-            distance: `${legDistance} ק״מ`,
-            duration: `${legTime} דק׳`
-          },
-          {
-            type: 'finish',
-            title: 'סיום וסיכום',
-            subTitle: 'מתיחות ושחרור'
-          }
-        ];
-
-        let difficulty: 'easy' | 'medium' | 'hard' = 'easy';
-        if (totalDistanceKm > 3) difficulty = 'medium';
-        if (totalDistanceKm > 6) difficulty = 'hard';
-
-        return {
-          id: park.id,
-          name: `סיבוב ל${park.name}`,
-          description: park.description || `מסלול המשלב ריצה ואימון ב${park.name}`,
-          distance: totalDistanceKm,
-          duration: totalRunDuration + workoutDuration,
-          score: Math.round(totalDistanceKm * 50 + (park.adminQualityScore || 0) * 10),
-          type: 'running' as const,
-          activityType: 'running' as const,
-          difficulty: difficulty,
-          path: routeData.coordinates as [number, number][],
-          segments: generatedSegments
-        } as Route;
-      });
-
-      const results = await Promise.all(promises);
-      const validRoutes = results.filter((r): r is Route => r !== null);
-      
-      // הוספת מסלול אופניים מומלץ (Curator Mode)
-      const cyclingRoute: Route = {
-        id: 'cycling-tel-aviv-loop',
-        name: 'Tel Aviv Cycling Loop',
-        description: 'מסלול אופניים מומלץ סביב תל אביב - נוף מדהים ודרך חלקה',
-        distance: 12.5,
-        duration: 45, // 45 דקות
-        score: 950,
-        type: 'cycling',
-        activityType: 'cycling',
-        difficulty: 'medium',
-        adminRating: 9,
-        isPromoted: true,
-        path: [
-          [34.7818, 32.0853], // Start point (Tel Aviv center)
-          [34.7900, 32.0900],
-          [34.8000, 32.0950],
-          [34.8100, 32.1000],
-          [34.8200, 32.1050],
-          [34.8300, 32.1100],
-          [34.8400, 32.1150],
-          [34.8500, 32.1200],
-          [34.8600, 32.1250],
-          [34.8700, 32.1300],
-          [34.8600, 32.1250],
-          [34.8500, 32.1200],
-          [34.8400, 32.1150],
-          [34.8300, 32.1100],
-          [34.8200, 32.1050],
-          [34.8100, 32.1000],
-          [34.8000, 32.0950],
-          [34.7900, 32.0900],
-          [34.7818, 32.0853] // Back to start
-        ],
-        segments: [
-          {
-            type: 'run', // For display purposes, cycling uses 'run' type in segments
-            title: 'התחלה - כיכר רבין',
-            subTitle: 'נקודת התחלה נוחה עם חניה',
-            distance: '0 ק״מ',
-            duration: '0 דק׳'
-          },
-          {
-            type: 'run',
-            title: 'רכיבה על הטיילת',
-            subTitle: 'נוף ים מדהים ודרך חלקה',
-            distance: '6 ק״מ',
-            duration: '20 דק׳'
-          },
-          {
-            type: 'run',
-            title: 'סיבוב בפארק הירקון',
-            subTitle: 'שבילי אופניים ייעודיים',
-            distance: '4 ק״מ',
-            duration: '15 דק׳'
-          },
-          {
-            type: 'run',
-            title: 'חזרה לנקודת ההתחלה',
-            subTitle: 'דרך עירונית נוחה',
-            distance: '2.5 ק״מ',
-            duration: '10 דק׳'
-          },
-          {
-            type: 'finish',
-            title: 'סיום',
-            subTitle: 'סיכום ומתיחות'
-          }
-        ]
-      };
-      
-      setRoutes([...validRoutes, cyclingRoute]);
-    };
-
-    generateRoutes();
-  }, [coords, profile, routes.length]);
-
-  // דירוג מסלולים לפי פרופיל המשתמש
-  useEffect(() => {
-    if (!profile || routes.length === 0) return;
-
-    // קבלת פרמטרים מ-URL (אם יש)
-    const targetDuration = searchParams.get('duration') 
-      ? parseInt(searchParams.get('duration')!) 
-      : undefined;
-
-    const ranked = rankRoutes(routes, profile, targetDuration);
-    setRankedRoutes(ranked);
-  }, [routes, profile, searchParams]);
-
-  // Force Auto-Focus: מרכוז אוטומטי על המסלולים כשהם נטענים
-  useEffect(() => {
-    if (rankedRoutes.length > 0) {
-      // חישוב bounding box של המסלול הראשון
-      const firstRoute = rankedRoutes[0];
-      if (firstRoute?.path && firstRoute.path.length > 0) {
-        const bounds = firstRoute.path.reduce((acc, coord) => {
-          return {
-            minLng: Math.min(acc.minLng, coord[0]),
-            minLat: Math.min(acc.minLat, coord[1]),
-            maxLng: Math.max(acc.maxLng, coord[0]),
-            maxLat: Math.max(acc.maxLat, coord[1]),
-          };
-        }, {
-          minLng: Infinity,
-          minLat: Infinity,
-          maxLng: -Infinity,
-          maxLat: -Infinity,
-        });
-
-        if (bounds.minLng !== Infinity) {
-          // נשלח event ש-AppMap יקשיב לו
-          // במקום זאת, נשתמש ב-focusRoute כדי לכפות את התצוגה
-          setFocusedRoute(firstRoute);
-          
-          console.log('MapPage: Auto-focusing on first route:', firstRoute.name);
-          console.log('MapPage: Route bounds:', bounds);
-          console.log('MapPage: Route path length:', firstRoute.path.length);
-        }
-      }
-    }
-  }, [rankedRoutes]);
-
-  const handleLocationClick = () => {
-    if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-      (DeviceOrientationEvent as any).requestPermission().catch(console.error);
-    }
-    triggerUserLocation();
-  };
-
-  const handleRouteSelect = (route: Route) => {
-    const ranked = rankedRoutes.find(r => r.id === route.id);
-    if (ranked) {
-      setSelectedRoute(ranked);
-    }
-  };
-
-  const handleRouteFocus = (route: Route) => {
-    const ranked = rankedRoutes.find(r => r.id === route.id);
-    if (ranked) {
-      setFocusedRoute(ranked);
-      // עדכון המפה להתמקד במסלול (זה יטופל ב-AppMap דרך lineCoordinates)
-    }
-  };
-
-  const handleSegmentClick = (segment: RouteSegment, index: number) => {
-    if (selectedRoute && segment.location) {
-      // הזזת המפה למיקום התחנה
-      // זה יטופל ב-AppMap דרך callback
-    }
-  };
-
-  const handleStartWorkout = () => {
-    if (selectedRoute) {
-      // שמירת המסלול ב-Store והתחלת אימון
-      router.push('/run');
-    }
-  };
-
-  // FitBounds לכל המסלולים (מצב A)
-  const allRoutesBounds = useMemo(() => {
-    if (rankedRoutes.length === 0) return null;
-    
-    const allCoords = rankedRoutes.flatMap(r => r.path);
-    if (allCoords.length === 0) return null;
-
-    const bounds = allCoords.reduce((acc, coord) => {
-      return {
-        minLng: Math.min(acc.minLng, coord[0]),
-        minLat: Math.min(acc.minLat, coord[1]),
-        maxLng: Math.max(acc.maxLng, coord[0]),
-        maxLat: Math.max(acc.maxLat, coord[1]),
-      };
-    }, {
-      minLng: Infinity,
-      minLat: Infinity,
-      maxLng: -Infinity,
-      maxLat: -Infinity,
-    });
-
-    return bounds;
-  }, [rankedRoutes]);
+  const logic = useMapLogic();
+  const { status: runStatus } = useRunStore();
 
   return (
     <main className="relative h-[100dvh] w-full bg-[#f3f4f6] overflow-hidden font-sans">
-      
-      {/* Layer 0: Live Map - z-index 0 */}
+      {!logic.isWorkoutActive && <div className="absolute inset-0 z-[-1] pointer-events-none"><ParticleBackground /></div>}
+
+      {/* --- המפה (THE MAP) --- */}
       <div className="absolute inset-0 z-0">
-        <AppMap 
-          routes={rankedRoutes}
-          showCarousel={false}
-          onRouteSelect={handleRouteSelect}
-          onRouteFocus={handleRouteFocus}
-          focusedRoute={focusedRoute}
-          selectedRoute={selectedRoute}
+        <AppMap
+          // מעביר רק את המסלולים הרלוונטיים
+          routes={logic.isWorkoutActive ? (logic.focusedRoute ? [logic.focusedRoute] : []) : logic.routesToDisplay}
+          
+          // נתונים חיים
+          currentLocation={logic.currentUserPos}
+          userBearing={logic.userBearing}
+          livePath={logic.isWorkoutActive ? logic.livePath : undefined}
+          
+          // מצבי מצלמה
+          isActiveWorkout={logic.isWorkoutActive}
+          isNavigationMode={logic.isNavigationMode}
+          
+          // אינטראקציה (קריטי כדי שתוכל לבחור מסלול ולהתחיל)
+          onRouteSelect={logic.setSelectedRoute}
+          selectedRoute={logic.selectedRoute}
         />
       </div>
 
-      {/* Layer 1: UI Overlays */}
-      
-      {/* Top Bar - Search & Tabs */}
-      <div className="absolute top-0 left-0 right-0 z-10 pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pointer-events-none">
-        <div className="max-w-md mx-auto w-full pointer-events-auto flex flex-col gap-3">
-          {/* Search Bar */}
-          <div className="flex items-center gap-3">
-            <button className="h-12 w-12 rounded-2xl bg-white shadow-md flex items-center justify-center border border-gray-200 shrink-0 text-gray-700 active:scale-95 transition-transform">
-              <span className="material-icons-round text-xl">tune</span>
+      {/* --- שכבת ה-Waze בזמן ריצה --- */}
+      {logic.isWorkoutActive && logic.workoutStartTime && !logic.showSummary && (
+        <LiveWorkoutOverlay
+          plan={demoWorkoutPlan}
+          currentSegmentIndex={0}
+          elapsedTime={logic.elapsedTime} // משתמש בחישוב המדויק מה-Hook
+          currentPace={logic.runPace || "0:00"} // משתמש בקצב האמיתי
+          distanceToNext={500} // כרגע קבוע, בהמשך נחבר ללוגיקה
+          distanceCovered={logic.runDistance} // מרחק GPS אמיתי
+          isPaused={logic.isWorkoutPaused || runStatus === 'paused'}
+          onPause={() => { logic.setIsWorkoutPaused(true); logic.pauseRun(); }}
+          onResume={() => { logic.setIsWorkoutPaused(false); logic.resumeRun(); }}
+          onStop={() => {
+            // ✅ Final sync: Ensure RunStore has latest distance/duration before summary
+            // Data is already synced via updateRunData and updateDuration during workout
+            // But we ensure final values are set
+            const { updateRunData } = useRunStore.getState();
+            // Final sync to ensure RunStore has latest values
+            const storeState = useRunStore.getState();
+            const finalDistanceDelta = logic.runDistance - (storeState.totalDistance || 0);
+            if (finalDistanceDelta > 0 && runStatus === 'running') {
+              updateRunData(finalDistanceDelta);
+            }
+            
+            logic.setIsWorkoutActive(false);
+            logic.setIsNavigationMode(false);
+            logic.stopRun();
+            logic.setShowSummary(true);
+          }}
+        />
+      )}
+
+      {/* --- ממשק רגיל (כשלא רצים) --- */}
+      {!logic.isWorkoutActive && !logic.showSummary && (
+        <>
+          <NavigationHub
+            navState={logic.navState}
+            onStateChange={logic.setNavState}
+            searchQuery={logic.searchQuery}
+            onSearchChange={logic.setSearchQuery}
+            suggestions={logic.suggestions}
+            onAddressSelect={logic.handleAddressSelect}
+            navigationRoutes={logic.navigationRoutes}
+            selectedActivity={logic.selectedNavActivity}
+            onActivitySelect={(type) => { logic.setSelectedNavActivity(type); logic.setFocusedRoute(logic.navigationRoutes[type]); }}
+            isLoading={logic.isGenerating}
+            isSearching={logic.isSearching}
+            onShuffle={logic.handleShuffle}
+            onStart={logic.startActiveWorkout}
+            inputRef={logic.searchInputRef}
+          />
+
+          <div className={`absolute top-0 left-0 right-0 z-[70] pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pointer-events-none transition-opacity`}>
+            <div className="max-w-md mx-auto w-full pointer-events-auto flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => logic.setIsFilterOpen(true)} className="h-12 w-12 rounded-2xl bg-white shadow-lg flex items-center justify-center border border-gray-100 text-gray-700 active:scale-95 transition-all">
+                  <SlidersHorizontal size={22} />
+                </button>
+
+                <div className="flex-1 relative">
+                  <div className="bg-white shadow-lg rounded-2xl h-12 flex items-center px-2 border border-gray-100 overflow-hidden">
+                    <div className="flex-1 flex items-center h-full">
+                      <Search className="text-gray-400 ms-2 shrink-0" size={20} />
+                      <input
+                        ref={logic.searchInputRef}
+                        type="text"
+                        placeholder={logic.navState === 'idle' ? "חיפוש מסלול..." : "לאן רוצים להגיע?"}
+                        value={logic.searchQuery}
+                        onFocus={() => { if (logic.navState === 'idle') logic.setNavState('searching'); }}
+                        onChange={(e) => logic.setSearchQuery(e.target.value)}
+                        className="w-full h-full bg-transparent border-none outline-none text-sm text-gray-700 px-2 placeholder:text-gray-400 text-right font-bold"
+                      />
+                    </div>
+                    {logic.navState !== 'idle' ? (
+                      <button
+                        onClick={() => {
+                          logic.setNavState('idle');
+                          logic.setSearchQuery('');
+                          if (logic.searchInputRef.current) logic.searchInputRef.current.blur();
+                        }}
+                        className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors me-2"
+                      >
+                        <X size={20} className="text-gray-400" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          const prompt = logic.searchQuery.trim() || "תן לי מוטיבציה לאימון!";
+                          await logic.handleAICoachRequest(prompt);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white text-[11px] font-bold shadow-md hover:shadow-purple-500/40 active:scale-95 transition-all whitespace-nowrap ms-1"
+                      >
+                        <Sparkles size={14} fill="currentColor" className="animate-pulse" />
+                        <span>AI Coach</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {logic.navState === 'idle' && logic.suggestions.length > 0 && logic.searchQuery.length > 2 && (
+                    <div className="absolute top-14 left-0 right-0 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {logic.suggestions.map((s, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => logic.handleAddressSelect(s)}
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 text-right transition-colors border-b last:border-none border-gray-50"
+                          dir="rtl"
+                        >
+                          <MapPin size={16} className="text-gray-400" />
+                          <span className="text-sm font-medium text-gray-700 truncate">{s.text}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {logic.navState === 'idle' && (
+                <div className="flex gap-2" dir="rtl">
+                  <button onClick={() => console.log("Home")} className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"><Home size={14} className="text-cyan-500" /><span>בית</span></button>
+                  <button onClick={() => console.log("Work")} className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"><Briefcase size={14} className="text-purple-500" /><span>עבודה</span></button>
+                  <button onClick={() => console.log("Saved")} className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"><Bookmark size={14} className="text-amber-500" /><span>שמורים</span></button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="absolute right-4 z-40 bottom-[350px]">
+            <button onClick={logic.handleLocationClick} className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white pointer-events-auto active:scale-95 transition-all">
+              <Navigation size={20} fill={logic.isFollowing ? BRAND_COLOR : "none"} color={logic.isFollowing ? BRAND_COLOR : GRAY_COLOR} />
             </button>
-            <div className="flex-1 bg-white shadow-md rounded-2xl h-12 flex items-center px-4 border border-gray-200 text-gray-700">
-              <span className="material-icons-round text-gray-400 text-lg ms-2">search</span>
-              <span className="text-sm font-bold text-gray-700 text-end flex-1">חיפוש...</span>
-            </div>
           </div>
-          
-          {/* Tabs */}
-          <MapTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        </div>
-      </div>
 
-      {/* Location Button - Adjusted for bottom nav */}
-      <div className={`absolute right-4 z-30 pointer-events-auto transition-all duration-500 ease-in-out ${selectedRoute ? 'bottom-[28rem]' : 'bottom-[22rem]'}`}>
-        <button 
-          onClick={handleLocationClick} 
-          className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 bg-white"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'rotate(0deg)', transition: 'all 0.3s ease' }}>
-            <path d="M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z" fill={isFollowing ? BRAND_COLOR : "white"} stroke={isFollowing ? "none" : GRAY_COLOR} strokeWidth={isFollowing ? "0" : "2"} strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Bottom Layer: Carousel or Timeline - z-index 50 with visible background */}
-      {/* Add padding bottom to account for navigation bar (68px) */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 pb-20 pointer-events-none">
-        {selectedRoute ? (
-          // מצב B: Timeline Overlay
-          <div className="pointer-events-auto">
-            <RouteTimelineOverlay
-              route={selectedRoute}
-              onClose={() => setSelectedRoute(null)}
-              onStart={handleStartWorkout}
-              onSegmentClick={handleSegmentClick}
+          {logic.navState === 'idle' && (
+            <BottomJourneyContainer
+              routes={logic.workoutMode === 'free' ? [] : logic.routesToDisplay}
+              currentActivity={logic.preferences.activity}
+              onActivityChange={logic.handleActivityChange}
+              userLocation={logic.currentUserPos}
+              onShuffle={() => { logic.setRouteGenerationIndex(prev => prev + 1); logic.setSmartPaths({}); }}
+              onRouteFocus={(r) => { logic.setFocusedRoute(r); logic.setSelectedRoute(r); }}
+              focusedRouteId={logic.focusedRoute?.id || null}
+              workoutMode={logic.workoutMode}
+              onModeChange={(mode) => { logic.setWorkoutMode(mode); if (mode === 'free') { logic.setFocusedRoute(null); logic.setSelectedRoute(null); } }}
+              loadingRouteIds={logic.loadingRouteIds}
+              onShowDetails={() => logic.setShowDetailsDrawer(true)}
+              onStartWorkout={logic.startActiveWorkout}
             />
-          </div>
-        ) : (
-          // מצב A: Routes Carousel with gradient background
-          rankedRoutes.length > 0 && (
-            <div className="pointer-events-auto bg-gradient-to-t from-white via-white/95 to-transparent pt-4">
-              <MapRouteCarousel
-                routes={rankedRoutes}
-                onRouteSelect={handleRouteSelect}
-                onRouteFocus={handleRouteFocus}
-              />
-            </div>
-          )
-        )}
-      </div>
+          )}
+          {logic.navState === 'idle' && !logic.isGenerating && <BottomNavigation />}
+        </>
+      )}
 
-      {/* Bottom Navigation Bar */}
-      <BottomNavigation />
+      {/* MODALS & DRAWERS */}
+      {logic.isGenerating && <RouteGenerationLoader />}
+      {logic.showSummary && <RunSummary onFinish={() => { logic.setShowSummary(false); logic.setIsWorkoutActive(false); }} />}
+
+      <WorkoutPreferencesModal
+        isOpen={logic.isFilterOpen}
+        onClose={() => logic.setIsFilterOpen(false)}
+        onUpdate={(newPrefs) => { logic.setSmartPaths({}); logic.setFocusedRoute(null); logic.setRouteGenerationIndex(0); logic.updateFilter(newPrefs); logic.setIsFilterOpen(false); }}
+      />
+
+      <ChatDrawer
+        isOpen={logic.isChatOpen}
+        onClose={() => logic.setIsChatOpen(false)}
+        messages={logic.chatMessages}
+        onSendMessage={logic.handleAICoachRequest}
+        isLoading={logic.isAILoading}
+      />
+
+      <WorkoutPreviewDrawer
+        isOpen={logic.showDetailsDrawer}
+        onClose={() => logic.setShowDetailsDrawer(false)}
+        onStart={() => {
+          logic.setShowDetailsDrawer(false);
+          logic.startActiveWorkout();
+        }}
+        plan={logic.showDetailsDrawer ? demoWorkoutPlan : null}
+      />
     </main>
   );
 }
 
 export default function MapPage() {
   return (
-    <Suspense fallback={
-      <div className="h-screen w-full flex items-center justify-center bg-[#f3f4f6]">
-        <p className="text-gray-500">טוען מפה...</p>
-      </div>
-    }>
+    <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-[#f3f4f6]">טוען...</div>}>
       <MapPageContent />
     </Suspense>
   );

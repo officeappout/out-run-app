@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { UserFullProfile } from '@/types/user-profile';
+import { auth } from '@/lib/firebase';
+import { getUserFromFirestore } from '@/lib/firestore.service';
 
 // ==========================================
 // State Interface
@@ -17,6 +19,7 @@ interface UserState {
   updateProfile: (updates: Partial<UserFullProfile>) => void;
   hasCompletedOnboarding: () => boolean;
   resetProfile: () => void;
+  refreshProfile: () => Promise<void>;
   setHasHydrated: (state: boolean) => void;
 }
 
@@ -171,12 +174,33 @@ export const useUserStore = create<UserState>()(
       // בדיקה אם המשתמש השלים Onboarding
       hasCompletedOnboarding: () => {
         const profile = get().profile;
-        return profile !== null && profile?.core?.name !== '';
+        // משתמש נחשב כמי שהשלים Onboarding אם יש לו ימי אימון מוגדרים בלייפסטייל
+        return !!(
+          profile &&
+          profile.lifestyle?.scheduleDays &&
+          profile.lifestyle.scheduleDays.length > 0
+        );
       },
 
       // איפוס פרופיל (לצורך logout או reset)
       resetProfile: () => {
         set({ profile: null });
+      },
+
+      // רענון פרופיל מה-Firestore (כדי למשוך scheduleDays ועוד שדות מעודכנים)
+      refreshProfile: async () => {
+        try {
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            return;
+          }
+          const freshProfile = await getUserFromFirestore(currentUser.uid);
+          if (freshProfile) {
+            set({ profile: freshProfile });
+          }
+        } catch (error) {
+          console.error('[useUserStore] Error refreshing profile from Firestore:', error);
+        }
       },
     }),
     {

@@ -162,7 +162,7 @@ export default function RunDashboard() {
                 <div className="text-xl font-black text-[#1A1F36]">{formatTime(lastLap.duration)}</div>
               </div>
             </div>
-            <div className="text-left font-black text-[#FF6B00]">
+            <div className="text-start font-black text-[#FF6B00]">
               {formatPace(lastLap.splitPace)} <span className="text-[10px] block">קצב</span>
             </div>
           </motion.div>

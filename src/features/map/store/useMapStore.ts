@@ -1,8 +1,8 @@
 import { create } from 'zustand';
+import { MapFacility, FacilityType } from '../types/map-objects.type';
 
-// --- הגדרות טיפוסים ---
 type MapPark = any;
-type MuscleGroup = string; 
+type MuscleGroup = string;
 
 interface MapState {
   // 1. הפארק שנבחר כרגע
@@ -14,8 +14,17 @@ interface MapState {
   setUserLocation: (loc: { lat: number; lng: number } | null) => void;
   // ----------------------------------
 
+  // מתקנים (Facilities)
+  facilities: MapFacility[];
+  setFacilities: (facilities: MapFacility[]) => void;
+  addFacilities: (facilities: MapFacility[]) => void;
+
+  // שכבות נראות (Visible Layers)
+  visibleLayers: string[];
+  toggleLayer: (layerId: string) => void;
+
   // טריגר למירכוז
-  triggerCenter: number; 
+  triggerCenter: number;
   triggerUserLocation: () => void;
 
   // האם אנחנו עוקבים אחרי המשתמש?
@@ -41,7 +50,9 @@ interface MapState {
 export const useMapStore = create<MapState>((set) => ({
   // ערכים התחלתיים
   selectedPark: null,
-  userLocation: null, // הוספנו: מתחיל כ-null
+  userLocation: null,
+  facilities: [],
+  visibleLayers: ['routes', 'water', 'toilet', 'gym', 'parking'],
   muscleFilter: 'all',
   searchQuery: '',
   isShowingRoute: false,
@@ -50,26 +61,32 @@ export const useMapStore = create<MapState>((set) => ({
 
   // פעולות (Actions)
   setSelectedPark: (park) => set({ selectedPark: park }),
-  
-  // הוספנו: הפעולה שמעדכנת את המיקום
   setUserLocation: (loc) => set({ userLocation: loc }),
 
-  triggerUserLocation: () => set({ triggerCenter: Date.now(), isFollowing: true }),
+  setFacilities: (facilities) => set({ facilities }),
+  addFacilities: (newFacilities) => set((state) => ({
+    facilities: [...state.facilities, ...newFacilities]
+  })),
 
+  toggleLayer: (layerId) => set((state) => ({
+    visibleLayers: state.visibleLayers.includes(layerId)
+      ? state.visibleLayers.filter(l => l !== layerId)
+      : [...state.visibleLayers, layerId]
+  })),
+
+  triggerUserLocation: () => set({ triggerCenter: Date.now(), isFollowing: true }),
   setIsFollowing: (isFollowing) => set({ isFollowing }),
-  
   setMuscleFilter: (filter) => set({ muscleFilter: filter }),
-  
   setSearchQuery: (query) => set({ searchQuery: query }),
-  
   setIsShowingRoute: (val) => set({ isShowingRoute: val }),
 
-  resetMapState: () => set({ 
-    selectedPark: null, 
-    muscleFilter: 'all', 
-    searchQuery: '', 
+  resetMapState: () => set({
+    selectedPark: null,
+    muscleFilter: 'all',
+    searchQuery: '',
     isShowingRoute: false,
     isFollowing: true,
-    userLocation: null // מאפסים גם את המיקום בניקוי
+    userLocation: null,
+    facilities: []
   }),
 }));

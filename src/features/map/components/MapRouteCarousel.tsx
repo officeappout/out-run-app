@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Route } from '@/features/map/types/map-objects.type';
-import { RouteCard } from './RouteCard';
+import RouteCard from '@/features/map/components/RouteCard';
 
 interface Props {
   routes: Route[];

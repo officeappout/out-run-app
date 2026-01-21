@@ -2,7 +2,7 @@
 // Mock Schedule Data - לבדיקת מצבים שונים
 // ==========================================
 
-export type ScheduleScenario = 
+export type ScheduleScenario =
   | 'standard'        // מצב רגיל - יש אימון מתוכנן
   | 'rest'           // יום מנוחה
   | 'missed'         // פספוס אימון אתמול
@@ -38,7 +38,7 @@ export const MOCK_WORKOUTS: Record<string, MockWorkout> = {
     duration: 45,
     calories: 350,
     coins: 350,
-    imageUrl: '/images/workouts/legs.jpg',
+    imageUrl: 'https://images.unsplash.com/photo-1434608519344-49d77a699ded?q=80&w=2074&auto=format&fit=crop',
     description: 'אימון ממוקד לפלג גוף תחתון',
   },
   recovery: {
@@ -49,7 +49,8 @@ export const MOCK_WORKOUTS: Record<string, MockWorkout> = {
     duration: 60,
     calories: 300,
     coins: 300,
-    imageUrl: '/images/workouts/recovery.jpg',
+    imageUrl:
+      'https://www.kan-ashkelon.co.il/wp-content/uploads/2025/09/60555fe0f5af3f9222dcfc72692f5f55-845x845.jpeg',
     description: 'אימון קל להחלמה ומתיחות',
   },
   comeback: {
@@ -60,7 +61,7 @@ export const MOCK_WORKOUTS: Record<string, MockWorkout> = {
     duration: 30,
     calories: 150,
     coins: 150,
-    imageUrl: '/images/workouts/comeback.jpg',
+    imageUrl: 'https://images.unsplash.com/photo-1552674605-46d50400f0bc?q=80&w=2940&auto=format&fit=crop',
     description: 'אימון קצר לחזרה לשגרה',
   },
 };

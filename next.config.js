@@ -8,6 +8,12 @@ const nextConfig = {
     // מתעלם משגיאות TypeScript בזמן הבנייה ב-Vercel
     ignoreBuildErrors: true,
   },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.cache = false;
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

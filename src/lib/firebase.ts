@@ -1,0 +1,55 @@
+// Firebase configuration and initialization
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { getAnalytics, Analytics } from "firebase/analytics";
+import { getAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore, initializeFirestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCezG55zVQEZWCEs-lHzx_yQldg-Ej2X60",
+  authDomain: "appout-1.firebaseapp.com",
+  projectId: "appout-1",
+  storageBucket: "appout-1.firebasestorage.app",
+  messagingSenderId: "371293978848",
+  appId: "1:371293978848:web:c5281b7834ecd5398b1085",
+  measurementId: "G-DVL9P34LK4"
+};
+
+// Initialize Firebase (only if not already initialized)
+let app: FirebaseApp;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
+}
+
+// Initialize services
+let analytics: Analytics | null = null;
+if (typeof window !== 'undefined') {
+  analytics = getAnalytics(app);
+}
+
+export const auth = getAuth(app);
+
+// Initialize Firestore with experimentalAutoDetectLongPolling to fix BloomFilter errors
+let db: Firestore;
+if (typeof window !== 'undefined') {
+  try {
+    // Try to initialize with persistent cache and long polling detection
+    db = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+    });
+  } catch (error) {
+    // Fallback to default initialization if experimental features fail
+    console.warn('Failed to initialize Firestore with experimental features, using default:', error);
+    db = getFirestore(app);
+  }
+} else {
+  // Server-side: use default initialization
+  db = getFirestore(app);
+}
+
+export { db };
+export const storage = getStorage(app);
+export { app, analytics };

@@ -1,8 +1,10 @@
+// src/features/onboarding/types/onboarding.types.ts
+
 // ==========================================
 // Types לשאלון Onboarding דינמי
 // ==========================================
 
-export type QuestionViewType = 
+export type QuestionViewType =
   | 'cards_with_image'   // כרטיסי בחירה עם תמונה (כמו "מה המטרה שלך")
   | 'simple_selection'   // כפתורים רגילים (כמו "מגדר")
   | 'text_input'         // שדה טקסט (כמו שם)
@@ -17,6 +19,7 @@ export type QuestionViewType =
   | 'otp_input'         // הזנת קוד OTP
   | 'loader'            // מסך טעינה ("מחשבים לך את התוכנית...")
   | 'summary_reveal'     // מסך סיכום עם הרמה והניתוח
+  | 'health_declaration_strict' // הצהרת בריאות מחמירה (צ'קבוקס)
   | 'save_progress';     // מסך הסבר על שמירת התקדמות
 
 // ==========================================
@@ -50,24 +53,29 @@ export interface QuestionnaireNode {
   subtitleKey?: string;          // מפתח תת-כותרת (אופציונלי)
   descriptionKey?: string;       // מפתח תיאור (אופציונלי)
   nextStepId?: string;
+  
   // אפשרויות בחירה (רק אם viewType תומך)
   options?: QuestionOption[];
-  
+
   // לוגיקה מותנית לדילוג
   conditionalLogic?: ConditionalLogic;
-  
-  // שדות מיוחדים לפי סוג
+
+  // שדות מיוחדים לפי סוג + אימות
   validation?: {
     required?: boolean;
     minLength?: number;
     maxLength?: number;
     pattern?: string;
     minAge?: number;  // לתאריך לידה
+    
+    // ✅ הוספתי את אלו כדי לתמוך במשקל/גובה
+    min?: number;     
+    max?: number;
   };
-  
+
   // ערך ברירת מחדל
   defaultValue?: any;
-  
+
   // האם ניתן לדלג על השאלה
   skippable?: boolean;
 }
@@ -88,3 +96,34 @@ export interface OnboardingState {
   visitedSteps: string[];  // מעקב על צעדים שביקרנו בהם
   isComplete: boolean;
 }
+
+// ==========================================
+// Types for the new Onboarding Wizard Flow
+// ==========================================
+
+export interface OnboardingData {
+  locationAllowed: boolean;
+  city: string;
+  hasEquipment: boolean;
+  equipmentList: string[]; // Array of gear definition IDs
+  hasGym?: boolean; // User also trains at gym
+  trainingDays: number;
+  trainingTime: string;
+  scheduleDays?: string[]; // Array of Hebrew day letters like ['א', 'ג', 'ה'] - actual selected days
+  scheduleDayIndices?: number[]; // Array of day indices (0-6) for reference
+  onboardingCoins?: number; // Total coins earned during onboarding wizard
+  pastActivityLevel: string;
+  historyFrequency?: string; // Frequency of past workouts ('none', '1-2', '3+')
+  historyTypes?: string[]; // Past workout locations/types ('gym', 'street', 'studio', 'home', 'cardio')
+  healthKitConnected: boolean;
+}
+
+export type OnboardingStepId = 
+  | 'LOCATION' 
+  | 'EQUIPMENT' 
+  | 'HISTORY'
+  | 'SCHEDULE' 
+  | 'SOCIAL_MAP'
+  | 'COMMUNITY' 
+  | 'COMPLETED'
+  | 'SUMMARY';

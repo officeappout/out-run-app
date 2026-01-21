@@ -26,6 +26,9 @@ export default function TextInput({
   // 2. לוגיקת ה-Fallback: אם התרגום החזיר מחרוזת ריקה או את המפתח המקורי, נשתמש ב-placeholderKey כטקסט פשוט
   const finalPlaceholder = translated || placeholderKey || '';
 
+  // Determine direction based on language
+  const direction = language === 'he' ? 'rtl' : 'ltr';
+
   return (
     <input
       type={type}
@@ -34,8 +37,8 @@ export default function TextInput({
       // שימוש במשתנה הנכון שחישבנו למעלה
       placeholder={String(finalPlaceholder)} 
       maxLength={maxLength}
-      className="w-full px-4 py-4 rounded-2xl border-2 border-gray-200 focus:border-[#00E5FF] focus:outline-none text-lg bg-white"
-      dir="rtl"
+      className={`w-full px-4 py-4 rounded-2xl border-2 border-gray-200 focus:border-[#5BC2F2] focus:outline-none text-lg bg-white text-black placeholder-gray-400 font-medium font-simpler ${direction === 'rtl' ? 'text-right' : 'text-left'}`}
+      dir={direction}
     />
   );
 }

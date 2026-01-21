@@ -1,126 +1,8 @@
-// ==========================================
-// Mock Questionnaire Data
-// לפי התמונות והזרימה המלאה
-// ==========================================
-
 import { QuestionnaireNode } from '../types';
 
 export const ONBOARDING_QUESTIONNAIRE: QuestionnaireNode[] = [
   // ==========================================
-  // 1. מסך פתיחה (מידע כללי)
-  // ==========================================
-  {
-    id: 'welcome',
-    viewType: 'info_screen',
-    titleKey: 'onboarding.welcome.title',
-    subtitleKey: 'onboarding.welcome.subtitle',
-    skippable: false,
-  },
-
-  // ==========================================
-  // 2. פרטים אישיים - שם
-  // ==========================================
-  {
-    id: 'personal_name',
-    viewType: 'text_input',
-    titleKey: 'onboarding.personal.title',
-    subtitleKey: 'onboarding.personal.name.question',
-    validation: {
-      required: true,
-      minLength: 2,
-      maxLength: 50,
-    },
-    skippable: false,
-  },
-
-  // ==========================================
-  // 3. תאריך לידה
-  // ==========================================
-  {
-    id: 'personal_birthdate',
-    viewType: 'date_picker',
-    titleKey: 'onboarding.personal.birthdate.question',
-    descriptionKey: 'onboarding.personal.birthdate.minAge',
-    validation: {
-      required: true,
-      minAge: 14,
-    },
-    skippable: false,
-  },
-
-  // ==========================================
-  // 4. מגדר
-  // ==========================================
-  {
-    id: 'personal_gender',
-    viewType: 'simple_selection',
-    titleKey: 'onboarding.personal.gender.question',
-    options: [
-      {
-        id: 'male',
-        labelKey: 'onboarding.personal.gender.male',
-        value: 'male',
-        nextStepId: 'goal',
-      },
-      {
-        id: 'female',
-        labelKey: 'onboarding.personal.gender.female',
-        value: 'female',
-        nextStepId: 'goal',
-      },
-      {
-        id: 'other',
-        labelKey: 'onboarding.personal.gender.other',
-        value: 'other',
-        nextStepId: 'goal',
-      },
-    ],
-    skippable: false,
-  },
-
-  // ==========================================
-  // 5. מטרה (cards with images)
-  // ==========================================
-  {
-    id: 'goal',
-    viewType: 'cards_with_image',
-    titleKey: 'onboarding.goal.title',
-    subtitleKey: 'onboarding.goal.subtitle',
-    options: [
-      {
-        id: 'healthy_lifestyle',
-        labelKey: 'onboarding.goal.healthy_lifestyle',
-        value: 'healthy_lifestyle',
-        imageRes: '/images/goals/healthy-lifestyle.jpg',
-        nextStepId: 'fitness_level', // דילוג על ציוד
-      },
-      {
-        id: 'performance_boost',
-        labelKey: 'onboarding.goal.performance_boost',
-        value: 'performance_boost',
-        imageRes: '/images/goals/performance.jpg',
-        nextStepId: 'fitness_level',
-      },
-      {
-        id: 'weight_loss',
-        labelKey: 'onboarding.goal.weight_loss',
-        value: 'weight_loss',
-        imageRes: '/images/goals/weight-loss.jpg',
-        nextStepId: 'fitness_level',
-      },
-      {
-        id: 'skill_mastery',
-        labelKey: 'onboarding.goal.skill_mastery',
-        value: 'skill_mastery',
-        imageRes: '/images/goals/skill-mastery.jpg',
-        nextStepId: 'fitness_level',
-      },
-    ],
-    skippable: false,
-  },
-
-  // ==========================================
-  // 6. רמת כושר (cards with images)
+  // 1. רמת כושר (התחלה חדשה)
   // ==========================================
   {
     id: 'fitness_level',
@@ -132,168 +14,128 @@ export const ONBOARDING_QUESTIONNAIRE: QuestionnaireNode[] = [
         id: 'beginner',
         labelKey: 'onboarding.fitness.beginner.title' as any,
         value: 1, // initialFitnessTier: 1
-        imageRes: '/images/fitness/beginner.jpg',
-        nextStepId: 'schedule_frequency',
+        imageRes: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&q=80&w=400', // Jogging/Walking
+        nextStepId: 'personal_gender',
       },
       {
         id: 'intermediate',
         labelKey: 'onboarding.fitness.intermediate.title' as any,
         value: 2, // initialFitnessTier: 2
-        imageRes: '/images/fitness/intermediate.jpg',
-        nextStepId: 'schedule_frequency',
+        imageRes: 'https://images.unsplash.com/photo-1552674605-46d536d2f6d1?auto=format&fit=crop&q=80&w=400', // Runner at gym
+        nextStepId: 'personal_gender',
       },
       {
         id: 'advanced',
         labelKey: 'onboarding.fitness.advanced.title' as any,
         value: 3, // initialFitnessTier: 3
-        imageRes: '/images/fitness/advanced.jpg',
-        nextStepId: 'schedule_frequency',
+        imageRes: 'https://images.unsplash.com/photo-1599058945522-28d584b6f0ff?auto=format&fit=crop&q=80&w=400', // Sprinter/Athlete
+        nextStepId: 'personal_gender',
       },
     ],
     skippable: false,
   },
 
   // ==========================================
-  // 7. תדירות אימון (כמה פעמים בשבוע)
+  // 2. סטטיסטיקות: מגדר -> משקל -> גיל
   // ==========================================
   {
-    id: 'schedule_frequency',
+    id: 'personal_gender',
     viewType: 'simple_selection',
-    titleKey: 'onboarding.schedule.frequency.question',
-    subtitleKey: 'onboarding.schedule.frequency.subtitle',
-    options: Array.from({ length: 7 }, (_, i) => ({
-      id: `freq_${i + 1}`,
-      labelKey: `${i + 1}` as any, // מספר פשוט
-      value: i + 1,
-      nextStepId: 'schedule_days',
-    })),
-    skippable: false,
-  },
-
-  // ==========================================
-  // 8. ימי אימון (multi-select)
-  // ==========================================
-  {
-    id: 'schedule_days',
-    viewType: 'multi_day_selector',
-    titleKey: 'onboarding.schedule.days.question',
-    descriptionKey: 'onboarding.schedule.days.restRecommendation',
-    defaultValue: [],
-    skippable: false,
-  },
-
-  // ==========================================
-  // 9. שעת אימון
-  // ==========================================
-  {
-    id: 'schedule_time',
-    viewType: 'time_picker',
-    titleKey: 'onboarding.schedule.time.question',
-    defaultValue: { hour: 20, minute: 0 }, // 20:00
-    skippable: false,
-  },
-
-  // ==========================================
-  // 10. ציוד (רק אם לא דילגנו)
-  // ==========================================
-  {
-    id: 'equipment',
-    viewType: 'equipment_selector',
-    titleKey: 'onboarding.equipment.title',
+    titleKey: 'onboarding.personal.gender.question',
     options: [
-      {
-        id: 'none',
-        labelKey: 'onboarding.equipment.none',
-        value: 'none',
-        nextStepId: 'health_declaration',
-      },
-      {
-        id: 'home',
-        labelKey: 'onboarding.equipment.home',
-        value: 'home',
-        nextStepId: 'health_declaration',
-      },
-      {
-        id: 'gym',
-        labelKey: 'onboarding.equipment.gym',
-        value: 'gym',
-        nextStepId: 'health_declaration',
-      },
+      { id: 'male', labelKey: 'onboarding.personal.gender.male', value: 'male', nextStepId: 'personal_weight' },
+      { id: 'female', labelKey: 'onboarding.personal.gender.female', value: 'female', nextStepId: 'personal_weight' },
+      { id: 'other', labelKey: 'onboarding.personal.gender.other', value: 'other', nextStepId: 'personal_weight' },
     ],
-    conditionalLogic: {
-      dependsOnQuestionId: 'goal',
-      matchValue: 'healthy_lifestyle',
-      jumpToStepId: 'health_declaration', // דילוג על ציוד
+    skippable: false,
+  },
+  {
+    id: 'personal_weight',
+    viewType: 'text_input', // Or dedicated weight picker if available, strictly text for now
+    titleKey: 'onboarding.personal.weight.title',
+    subtitleKey: 'onboarding.personal.weight.question',
+    validation: {
+      required: true,
+      min: 30,
+      max: 300,
+      pattern: '^[0-9]+$',
     },
-    skippable: true,
+    skippable: false,
+    nextStepId: 'personal_birthdate', // Link manually if needed or engine handles linear? Engine is graph based.
+    // We need to ensure engine handles nextStepId or we rely on flow.
+    // The engine usually looks up nextStepId from option OR relies on index if linear?
+    // Looking at previous mock, mostly options have nextStepId.
+    // For text_input, nextStepId should be defined on the node if supported, or we need a default flow.
+    // I'll add a custom property `nextStepId` to the node for my updated engine logic if needed, 
+    // or rely on the `onNext` finding the next node in array?
+    // The previous `mock-questionnaire.ts` didn't have `nextStepId` on `personal_name`.
+    // Let's rely on array order if nextStepId is missing, commonly implemented in engines.
+    // But I will be explicit where I can.
   },
-
-  // ==========================================
-  // 11. תנאי שימוש
-  // ==========================================
   {
-    id: 'terms_of_use',
-    viewType: 'terms_of_use',
-    titleKey: 'onboarding.terms.title',
+    id: 'personal_birthdate',
+    viewType: 'date_picker',
+    titleKey: 'onboarding.personal.birthdate.question',
+    descriptionKey: 'onboarding.personal.birthdate.minAge',
+    validation: { required: true, minAge: 14 },
     skippable: false,
   },
 
   // ==========================================
-  // 12. הצהרת בריאות
+  // 3. מטרה
   // ==========================================
   {
-    id: 'health_declaration',
-    viewType: 'boolean_toggle',
-    titleKey: 'onboarding.health.title',
-    descriptionKey: 'onboarding.health.disclaimer',
+    id: 'goal',
+    viewType: 'cards_with_image',
+    titleKey: 'onboarding.goal.title',
+    subtitleKey: 'onboarding.goal.subtitle',
     options: [
       {
-        id: 'heart_disease',
-        labelKey: 'onboarding.health.heartDisease',
-        value: false, // ברירת מחדל: לא
-        nextStepId: 'health_declaration',
+        id: 'healthy_lifestyle',
+        labelKey: 'onboarding.goal.healthy_lifestyle',
+        value: 'healthy_lifestyle',
+        imageRes: 'https://images.unsplash.com/photo-1544367563-12123d8965cd?auto=format&fit=crop&q=80&w=400', // Yoga/Meditation/Health
+        nextStepId: 'health_declaration_strict',
       },
       {
-        id: 'chest_pain_rest',
-        labelKey: 'onboarding.health.chestPainRest',
-        value: false,
-        nextStepId: 'health_declaration',
+        id: 'performance_boost',
+        labelKey: 'onboarding.goal.performance_boost',
+        value: 'performance_boost',
+        imageRes: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&q=80&w=400', // Gym/Weights
+        nextStepId: 'health_declaration_strict',
       },
       {
-        id: 'chest_pain_activity',
-        labelKey: 'onboarding.health.chestPainActivity',
-        value: false,
-        nextStepId: 'loader', // מעבר ל-Loader במקום location
+        id: 'weight_loss',
+        labelKey: 'onboarding.goal.weight_loss',
+        value: 'weight_loss',
+        imageRes: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=400', // Cardio/Sweat
+        nextStepId: 'health_declaration_strict',
+      },
+      {
+        id: 'skill_mastery',
+        labelKey: 'onboarding.goal.skill_mastery',
+        value: 'skill_mastery',
+        imageRes: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=400', // Calisthenics/Skill
+        nextStepId: 'health_declaration_strict',
       },
     ],
     skippable: false,
   },
 
   // ==========================================
-  // 13. Loader - "מחשבים לך את התוכנית..."
+  // 4. הצהרת בריאות (Strict)
   // ==========================================
   {
-    id: 'loader',
-    viewType: 'loader',
-    titleKey: 'onboarding.summary.loading',
-    nextStepId: 'summary_reveal',
+    id: 'health_declaration_strict',
+    viewType: 'health_declaration_strict',
+    titleKey: 'onboarding.health.title',
+    descriptionKey: 'onboarding.health.strictTerms',
     skippable: false,
-    defaultValue: true, // מתחיל אוטומטית
+    // No options needed, it's a checkbox
   },
 
   // ==========================================
-  // 14. Summary Reveal - הרמה והניתוח
-  // ==========================================
-  {
-    id: 'summary_reveal',
-    viewType: 'summary_reveal',
-    titleKey: 'onboarding.summary.welcome',
-    subtitleKey: 'onboarding.summary.greeting',
-    skippable: false,
-  },
-
-  // ==========================================
-  // 15. שמירת התקדמות - הסבר לפני OTP
+  // 5. סיום / התחברות
   // ==========================================
   {
     id: 'save_progress',
@@ -303,52 +145,23 @@ export const ONBOARDING_QUESTIONNAIRE: QuestionnaireNode[] = [
     skippable: false,
   },
 
-  // ==========================================
-  // 16. OTP - טלפון
-  // ==========================================
+  // Keeping these for legacy/fallback structure if referenced, but main flow ends at save_progress logic
   {
-    id: 'phone',
-    viewType: 'phone_input',
-    titleKey: 'onboarding.otp.title',
-    subtitleKey: 'onboarding.otp.description',
-    validation: {
-      required: true,
-      pattern: '^[0-9]{10}$', // 10 ספרות
-    },
+    id: 'loader',
+    viewType: 'loader',
+    titleKey: 'onboarding.summary.loading',
+    nextStepId: 'summary_reveal',
     skippable: false,
+    defaultValue: true,
   },
-
-  // ==========================================
-  // 17. OTP - קוד אימות
-  // ==========================================
   {
-    id: 'otp_verify',
-    viewType: 'otp_input',
-    titleKey: 'onboarding.otp.verify',
-    validation: {
-      required: true,
-      pattern: '^[0-9]{4}$', // 4 ספרות
-    },
+    id: 'summary_reveal',
+    viewType: 'summary_reveal',
+    titleKey: 'onboarding.summary.welcome',
+    subtitleKey: 'onboarding.summary.greeting',
     skippable: false,
-  },
-
-  // ==========================================
-  // 18. מיקום (אחרי OTP)
-  // ==========================================
-  {
-    id: 'location',
-    viewType: 'text_input',
-    titleKey: 'onboarding.location.title',
-    subtitleKey: 'onboarding.location.question',
-    descriptionKey: 'onboarding.location.description',
-    validation: {
-      required: false, // ניתן לדלג
-    },
-    skippable: true,
   },
 ];
 
-// ==========================================
-// מזהה השאלה הראשונה
-// ==========================================
-export const START_NODE_ID = 'welcome';
+export const START_NODE_ID = 'fitness_level';
+

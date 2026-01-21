@@ -15,6 +15,8 @@ import TermsOfUse from './TermsOfUse';
 import HealthDeclaration from './HealthDeclaration';
 import BlockingErrorModal from './BlockingErrorModal';
 import LoaderScreen from './LoaderScreen';
+import HealthDeclarationStep from './HealthDeclarationStep';
+import SaveProgressStep from './SaveProgressStep';
 
 interface QuestionRendererProps {
   node: QuestionnaireNode;
@@ -37,9 +39,9 @@ export default function QuestionRenderer({
 }: QuestionRendererProps) {
   const router = useRouter();
   const { language } = useAppStore();
-  
+
   const title = getTranslation(node.titleKey as DictionaryKey, language);
-  const subtitle = node.subtitleKey 
+  const subtitle = node.subtitleKey
     ? getTranslation(node.subtitleKey as DictionaryKey, language)
     : null;
   const description = node.descriptionKey
@@ -207,7 +209,7 @@ export default function QuestionRenderer({
       return (
         <TermsOfUse
           onApprove={() => handleAnswer(true)}
-          onBack={() => {}}
+          onBack={() => { }}
           currentStep={currentStep}
           totalSteps={totalSteps}
         />
@@ -243,28 +245,37 @@ export default function QuestionRenderer({
       return (
         <div className="w-full h-full flex flex-col relative">
           <div className="shrink-0 mb-4 px-1 text-center">
-             <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-             {subtitle && <p className="text-gray-500 text-sm mt-1">{subtitle}</p>}
+            <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+            {subtitle && <p className="text-gray-500 text-sm mt-1">{subtitle}</p>}
           </div>
-          
+
           <HealthDeclaration
             value={answers[node.id] as Record<string, boolean>}
             onChange={handleHealthChange}
-            isSigned={!!signatureData} 
-            onSignatureChange={setSignatureData} 
+            isSigned={!!signatureData}
+            onSignatureChange={setSignatureData}
           />
 
           <div className="mt-4 shrink-0">
-             <button
-               onClick={onApprove}
-               className="w-full bg-[#4FB4F7] hover:bg-blue-400 text-white font-bold py-4 rounded-2xl shadow-sm text-lg transition-colors"
-             >
-               מאשר.ת
-             </button>
+            <button
+              onClick={onApprove}
+              className="w-full bg-[#4FB4F7] hover:bg-blue-400 text-white font-bold py-4 rounded-2xl shadow-sm text-lg transition-colors"
+            >
+              מאשר.ת
+            </button>
           </div>
 
           <BlockingErrorModal isOpen={showBlockingModal} onBack={() => setShowBlockingModal(false)} />
         </div>
+      );
+
+    case 'health_declaration_strict':
+      return (
+        <HealthDeclarationStep
+          title={title}
+          description={description || undefined}
+          onContinue={handleAnswer}
+        />
       );
 
     // --- שלבים חדשים שהוספנו לזרימה ---
@@ -275,8 +286,8 @@ export default function QuestionRenderer({
           <h1 className="text-3xl font-black text-gray-900">{title}</h1>
           <p className="text-lg text-gray-600 leading-relaxed px-4">{subtitle}</p>
           <div className="bg-blue-50 p-8 rounded-[32px] border border-blue-100">
-             <span className="text-blue-500 font-bold text-sm uppercase">הרמה ההתחלתית שלך</span>
-             <h2 className="text-5xl font-black text-gray-900 mt-2">רמה 5</h2>
+            <span className="text-blue-500 font-bold text-sm uppercase">הרמה ההתחלתית שלך</span>
+            <h2 className="text-5xl font-black text-gray-900 mt-2">רמה 5</h2>
           </div>
           <button
             onClick={() => onNext()}
@@ -289,17 +300,11 @@ export default function QuestionRenderer({
 
     case 'save_progress':
       return (
-        <div className="w-full text-center space-y-6 py-10">
-          <div className="text-6xl mb-4">🛡️</div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          <p className="text-gray-600 leading-relaxed px-2">{subtitle}</p>
-          <button
-            onClick={() => onNext()}
-            className="w-full bg-[#4FB4F7] text-white font-bold py-4 rounded-2xl shadow-lg mt-6"
-          >
-            אני רוצה לשמור את הרמה שלי
-          </button>
-        </div>
+        <SaveProgressStep
+          title={title}
+          subtitle={subtitle || undefined}
+          onSave={() => onNext()}
+        />
       );
 
     case 'phone_input':
@@ -338,7 +343,7 @@ export default function QuestionRenderer({
 
     case 'loader':
       return (
-        <LoaderScreen 
+        <LoaderScreen
           onComplete={() => {
             handleAnswer(true);
             setTimeout(() => onNext(), 150);

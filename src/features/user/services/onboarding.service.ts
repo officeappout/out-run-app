@@ -70,6 +70,9 @@ export function createInitialProgression(
     domains,
     activePrograms: [],
     unlockedBonusExercises: [],
+    coins: 0,
+    totalCaloriesBurned: 0,
+    hasUnlockedAdvancedStats: false,
   };
 }
 
@@ -77,33 +80,11 @@ export function createInitialProgression(
 // פונקציה: יצירת פרופיל ציוד ברירת מחדל
 // ==========================================
 function createDefaultEquipmentProfile(): EquipmentProfile {
+  // New structure: Array of gear definition IDs
   return {
-    home: {
-      dumbbells: false,
-      bands: false,
-      pullUpBar: false,
-      mat: false,
-      kettlebell: false,
-    },
-    office: {
-      stableChair: false,
-      desk: false,
-      privateSpace: false,
-      stairs: false,
-    },
-    studies: {
-      stableChair: false,
-      stairs: false,
-      campusOutdoorArea: false,
-    },
-    outdoor: {
-      bench: false,
-      lowBar: false,
-      highBar: false,
-      dipStation: false,
-      wall: false,
-      stairs: false,
-    },
+    home: [],
+    office: [],
+    outdoor: [],
   };
 }
 
@@ -142,32 +123,14 @@ function updateEquipmentProfile(
     equipmentItems = answersAny.equipment_items;
   }
 
-  // אם נבחר ציוד בית
+  // אם נבחר ציוד בית - items should be gear definition IDs
   if (equipmentValue === 'home' && equipmentItems && Array.isArray(equipmentItems)) {
-    equipmentItems.forEach((item: string) => {
-      switch (item) {
-        case 'pullUpBar':
-          updated.home.pullUpBar = true;
-          break;
-        case 'parallelBars':
-          // אין שדה ספציפי - נשמור ב-outdoor
-          updated.outdoor.lowBar = true;
-          break;
-        case 'resistanceBand':
-          updated.home.bands = true;
-          break;
-        case 'weights':
-          updated.home.dumbbells = true;
-          break;
-        case 'trx':
-          updated.home.bands = true; // TRX נחשב כגומייה
-          break;
-        case 'rings':
-          updated.home.pullUpBar = true; // טבעות דורשות מתח
-          break;
-      }
-    });
+    // equipmentItems are now gear definition IDs (strings)
+    updated.home = [...equipmentItems];
   }
+
+  // Note: office and outdoor equipment would be set elsewhere if needed
+  // For now, we only handle home equipment from onboarding
 
   return updated;
 }
@@ -176,13 +139,145 @@ function updateEquipmentProfile(
 // פונקציה ראשית: תרגום תשובות לפרופיל מלא
 // ==========================================
 export function mapAnswersToProfile(
-  answers: OnboardingAnswers
+  answers: OnboardingAnswers,
+  assignedLevel?: number,
+  assignedProgramId?: string,
+  masterProgramSubLevels?: {
+    upper_body_level?: number;
+    lower_body_level?: number;
+    core_level?: number;
+  },
+  assignedResults?: Array<{
+    programId: string;
+    levelId: string;
+    masterProgramSubLevels?: {
+      upper_body_level?: number;
+      lower_body_level?: number;
+      core_level?: number;
+    };
+  }>
 ): UserFullProfile {
   const answersAny = answers as any;
   
-  // מיפוי רמת כושר ל-initialFitnessTier
-  const initialFitnessTier = answersAny.fitness_level || 1;
+  // ✅ מיפוי רמת כושר ל-initialFitnessTier עם default
+  // Priority: assignedLevel (from dynamic questionnaire) > answers.fitness_level > default 1
+  const initialFitnessTier = assignedLevel 
+    ? (Math.min(Math.max(assignedLevel, 1), 3) as 1 | 2 | 3) // Clamp to 1-3
+    : (Number(answersAny.fitness_level) as 1 | 2 | 3) || 1;
   const progression = createInitialProgression(initialFitnessTier);
+  
+  // ✅ Handle multiple assignedResults (NEW) or legacy single assignment
+  if (assignedResults && assignedResults.length > 0) {
+    // Process all results - add each program to active programs
+    assignedResults.forEach((result) => {
+      const programExists = progression.activePrograms?.some(
+        p => p.templateId === result.programId || p.id === result.programId
+      );
+      if (!programExists && progression.activePrograms) {
+        progression.activePrograms.push({
+          id: `program-${result.programId}-${Date.now()}`,
+          templateId: result.programId,
+          name: 'Active Program', // Will be fetched from program doc
+          startDate: new Date(),
+          durationWeeks: 12, // Default
+          currentWeek: 1,
+          focusDomains: ['full_body'], // Default, will be updated from program doc
+        });
+      }
+
+      // ✅ Initialize Master Program Sub-Levels if provided for this result
+      if (result.masterProgramSubLevels && result.programId) {
+        if (!progression.masterProgramSubLevels) {
+          progression.masterProgramSubLevels = {};
+        }
+        progression.masterProgramSubLevels[result.programId] = {
+          upper_body_level: result.masterProgramSubLevels.upper_body_level || 1,
+          lower_body_level: result.masterProgramSubLevels.lower_body_level || 1,
+          core_level: result.masterProgramSubLevels.core_level || 1,
+        };
+
+        // ✅ Update domain levels to match sub-levels (for workout generator)
+        if (result.masterProgramSubLevels.upper_body_level) {
+          const existing = progression.domains.upper_body;
+          progression.domains.upper_body = {
+            currentLevel: result.masterProgramSubLevels.upper_body_level,
+            maxLevel: existing?.maxLevel || 22,
+            isUnlocked: existing?.isUnlocked !== false,
+          };
+        }
+        if (result.masterProgramSubLevels.lower_body_level) {
+          const existing = progression.domains.lower_body;
+          progression.domains.lower_body = {
+            currentLevel: result.masterProgramSubLevels.lower_body_level,
+            maxLevel: existing?.maxLevel || 10,
+            isUnlocked: existing?.isUnlocked !== false,
+          };
+        }
+        if (result.masterProgramSubLevels.core_level) {
+          const existing = progression.domains.core;
+          progression.domains.core = {
+            currentLevel: result.masterProgramSubLevels.core_level,
+            maxLevel: existing?.maxLevel || 18,
+            isUnlocked: existing?.isUnlocked !== false,
+          };
+        }
+      }
+    });
+  } else if (assignedProgramId) {
+    // Legacy: single assignment
+    // Add program to active programs if it doesn't exist
+    // Note: UserActiveProgram uses 'id' and 'templateId', not 'programId'
+    const programExists = progression.activePrograms?.some(p => p.templateId === assignedProgramId || p.id === assignedProgramId);
+    if (!programExists && progression.activePrograms) {
+      progression.activePrograms.push({
+        id: `program-${assignedProgramId}-${Date.now()}`,
+        templateId: assignedProgramId,
+        name: 'Active Program', // Will be fetched from program doc
+        startDate: new Date(),
+        durationWeeks: 12, // Default
+        currentWeek: 1,
+        focusDomains: ['full_body'], // Default, will be updated from program doc
+      });
+    }
+
+    // ✅ Initialize Master Program Sub-Levels if provided
+    if (masterProgramSubLevels && assignedProgramId) {
+      if (!progression.masterProgramSubLevels) {
+        progression.masterProgramSubLevels = {};
+      }
+      progression.masterProgramSubLevels[assignedProgramId] = {
+        upper_body_level: masterProgramSubLevels.upper_body_level || 1,
+        lower_body_level: masterProgramSubLevels.lower_body_level || 1,
+        core_level: masterProgramSubLevels.core_level || 1,
+      };
+
+      // ✅ Update domain levels to match sub-levels (for workout generator)
+      if (masterProgramSubLevels.upper_body_level) {
+        const existing = progression.domains.upper_body;
+        progression.domains.upper_body = {
+          currentLevel: masterProgramSubLevels.upper_body_level,
+          maxLevel: existing?.maxLevel || 22,
+          isUnlocked: existing?.isUnlocked !== false,
+        };
+      }
+      if (masterProgramSubLevels.lower_body_level) {
+        const existing = progression.domains.lower_body;
+        progression.domains.lower_body = {
+          currentLevel: masterProgramSubLevels.lower_body_level,
+          maxLevel: existing?.maxLevel || 10,
+          isUnlocked: existing?.isUnlocked !== false,
+        };
+      }
+      if (masterProgramSubLevels.core_level) {
+        const existing = progression.domains.core;
+        progression.domains.core = {
+          currentLevel: masterProgramSubLevels.core_level,
+          maxLevel: existing?.maxLevel || 18,
+          isUnlocked: existing?.isUnlocked !== false,
+        };
+      }
+    }
+  }
   
   // וידוא שה-XP מאותחל ל-0
   progression.globalXP = 0;
@@ -217,16 +312,24 @@ export function mapAnswersToProfile(
     ? { lat: 0, lng: 0 } // TODO: Geocode את המיקום
     : undefined;
 
+  // ✅ FIXED: All numeric fields have safe defaults
+  // וודא שכל ה-numeric fields לא null
+  const weight = Number(answersAny.weight) || 70;
+  const name = answersAny.personal_name || 'משתמש';
+  const gender = answersAny.personal_gender || 'other';
+  const mainGoal = answersAny.goal || 'healthy_lifestyle';
+  const birthDate = answersAny.personal_birthdate || undefined;
+
   const profile: UserFullProfile = {
     id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // מזהה ייחודי
     core: {
-      name: (answers as any).personal_name || 'משתמש',
+      name,
       initialFitnessTier,
       trackingMode,
-      mainGoal: (answers as any).goal || 'healthy_lifestyle',
-      gender: (answers as any).personal_gender || 'other',
-      weight: 70, // ברירת מחדל - ניתן להוסיף שאלה
-      birthDate: (answers as any).personal_birthdate,
+      mainGoal,
+      gender,
+      weight, // ✅ עם default fallback
+      birthDate,
     },
     progression,
     equipment: equipmentProfile,
@@ -243,7 +346,7 @@ export function mapAnswersToProfile(
       connectedWatch: 'none',
     },
     running: createDefaultRunningProfile(),
-    coins: 0, // מתחיל מאפס - בונוס הרשמה יוסף מאוחר יותר
+     // מתחיל מאפס - בונוס הרשמה יוסף מאוחר יותר
   };
   
   return profile;

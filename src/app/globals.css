@@ -5,6 +5,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Font families */
+  --font-hebrew: 'Assistant', 'Rubik', 'Arial Hebrew', 'David', sans-serif;
+  --font-english: 'Inter', 'Arial', 'Helvetica', sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,7 +20,20 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-hebrew);
+  transition: font-family 0.2s ease;
+}
+
+/* Font switching based on language */
+html[lang="he"] body,
+html[dir="rtl"] body {
+  font-family: var(--font-hebrew);
+}
+
+html[lang="en"] body,
+html[lang="es"] body,
+html[dir="ltr"] body {
+  font-family: var(--font-english);
 }
 
 @layer utilities {
@@ -29,6 +45,39 @@ body {
   .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
+  }
+  
+  /* Scrollbar hide utility (matching HTML) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Progress segment utility (matching HTML) */
+  .progress-segment {
+    height: 4px;
+    flex: 1;
+    border-radius: 2px;
+  }
+  
+  /* Time picker gradient mask */
+  .time-picker-mask {
+    background: linear-gradient(to bottom, 
+      rgba(248, 250, 252, 1) 0%, 
+      rgba(248, 250, 252, 0) 40%, 
+      rgba(248, 250, 252, 0) 60%, 
+      rgba(248, 250, 252, 1) 100%);
+  }
+  
+  .dark .time-picker-mask {
+    background: linear-gradient(to bottom, 
+      rgba(15, 23, 42, 1) 0%, 
+      rgba(15, 23, 42, 0) 40%, 
+      rgba(15, 23, 42, 0) 60%, 
+      rgba(15, 23, 42, 1) 100%);
   }
 }
 

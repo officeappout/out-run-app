@@ -37,28 +37,66 @@ export function useSmartSchedule(): ScheduleState {
   // קביעת trackingMode מה-Store
   const trackingMode = profile?.core?.trackingMode || 'performance';
 
+  // Generate week schedule from user profile schedule days
+  const weekSchedule = useMemo(() => {
+    const dayMap = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+    const today = new Date();
+    const todayDayIndex = (today.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    
+    // Get schedule days from profile (array of Hebrew day letters like ['א', 'ב', 'ג'])
+    const scheduleDays = profile?.lifestyle?.scheduleDays || [];
+    
+    // Build week schedule based on user's selected days
+    const schedule: DaySchedule[] = dayMap.map((day, index) => {
+      const isSelectedDay = scheduleDays.includes(day);
+      const isToday = index === todayDayIndex;
+      
+      // Determine status based on day selection and today
+      let status: DaySchedule['status'] = 'rest';
+      if (isSelectedDay) {
+        if (isToday) {
+          status = 'today';
+        } else if (index < todayDayIndex) {
+          status = 'completed'; // Past workout days are marked as completed (can be enhanced later with actual workout data)
+        } else {
+          status = 'scheduled';
+        }
+      }
+      
+      return {
+        day,
+        date: index + 1,
+        status,
+        workoutId: isSelectedDay ? 'w1' : undefined,
+      };
+    });
+    
+    return schedule;
+  }, [profile?.lifestyle?.scheduleDays]);
+
   // חישוב מצב היום
   const todayStatus = useMemo(() => {
-    const today = MOCK_WEEK_SCHEDULE.find(d => d.status === 'today');
-    return today?.status || 'scheduled';
-  }, []);
+    const today = weekSchedule.find(d => d.status === 'today');
+    return today?.status || 'rest';
+  }, [weekSchedule]);
 
   // זיהוי מצב פספוס
   const showMissedAlert = useMemo(() => {
     if (scenario !== 'missed') return false;
     // בדיקה אם אתמול היה אימון ולא בוצע
-    const yesterday = MOCK_WEEK_SCHEDULE.find(d => d.date === 2); // אתמול
+    const yesterdayIndex = ((new Date().getDay() + 6) % 7) - 1; // Yesterday's day index
+    const yesterday = yesterdayIndex >= 0 ? weekSchedule[yesterdayIndex] : null;
     return yesterday?.status === 'missed' || scenario === 'missed';
-  }, [scenario]);
+  }, [scenario, weekSchedule]);
 
   // זיהוי חזרה מפגרה
   const showComebackAlert = useMemo(() => {
     if (scenario !== 'long_absence') return false;
     // בדיקה אם המשתמש לא התאמן זמן רב
-    const lastWorkout = MOCK_WEEK_SCHEDULE.find(d => d.status === 'completed');
+    const lastWorkout = weekSchedule.find(d => d.status === 'completed');
     const daysSinceLastWorkout = lastWorkout ? 7 : 14; // Mock - במקרה אמיתי נחשב לפי תאריכים
     return daysSinceLastWorkout > 5;
-  }, [scenario]);
+  }, [scenario, weekSchedule]);
 
   // זיהוי סיום אימון
   const showPostWorkout = useMemo(() => {
@@ -119,7 +157,7 @@ export function useSmartSchedule(): ScheduleState {
   return {
     scenario,
     currentWorkout,
-    weekSchedule: MOCK_WEEK_SCHEDULE,
+    weekSchedule, // Use real schedule from profile
     todayStatus,
     showMissedAlert,
     showComebackAlert,
