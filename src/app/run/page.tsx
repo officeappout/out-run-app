@@ -1,12 +1,20 @@
 "use client";
+
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';
 import { Pause, Play, StopCircle } from 'lucide-react';
+import dynamicImport from 'next/dynamic';
 
-// ייבוא קומפוננטות
-import AppMap from '@/features/parks/core/components/AppMap';
+// ייבוא קומפוננטות - Dynamic import to avoid SSR issues
+const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
+  loading: () => <div className="h-full w-full bg-[#f3f4f6]" />,
+  ssr: false,
+});
 import { ActiveDashboard } from '@/features/workout-engine/players/running';
 
 export default function RunPage() {

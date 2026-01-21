@@ -17,12 +17,25 @@ export default function DopamineScreen({ onContinue }: DopamineScreenProps) {
   const [totalCoins, setTotalCoins] = useState(0);
   const [activeBonus, setActiveBonus] = useState<string | null>(null);
   const [showContinue, setShowContinue] = useState(false);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   
   // רפרנס לאודיו כדי למנוע טעינה מחדש
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Check if this is a "super" activity (full workout)
   const isSuper = lastActivityType === 'super';
+
+  // Get window size safely (only in browser)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+      const handleResize = () => {
+        setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   const handleContinue = () => {
     if (onContinue) {
@@ -90,20 +103,20 @@ export default function DopamineScreen({ onContinue }: DopamineScreenProps) {
       </div>
       
       {/* Stronger Flame Effect for 'super' workouts */}
-      {isSuper && (
+      {isSuper && windowSize.width > 0 && windowSize.height > 0 && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {[...Array(15)].map((_, i) => (
             <motion.div
               key={`sparkle-${i}`}
               initial={{ 
-                y: Math.random() * window.innerHeight, 
-                x: Math.random() * window.innerWidth,
+                y: Math.random() * windowSize.height, 
+                x: Math.random() * windowSize.width,
                 opacity: 0,
                 scale: 0 
               }}
               animate={{
-                y: [null, Math.random() * window.innerHeight],
-                x: [null, Math.random() * window.innerWidth],
+                y: [null, Math.random() * windowSize.height],
+                x: [null, Math.random() * windowSize.width],
                 opacity: [0, 1, 0],
                 scale: [0, 1.5, 0],
               }}
