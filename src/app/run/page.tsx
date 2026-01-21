@@ -1,26 +1,29 @@
 "use client";
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRunStore } from '@/features/run/store/useRunStore';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { useSessionStore } from '@/features/workout-engine';
 import { Pause, Play, StopCircle } from 'lucide-react';
 
 // ייבוא קומפוננטות
-import AppMap from '@/features/map/components/AppMap';
-import { ActiveDashboard } from '@/features/run/components/ActiveDashboard';
+import AppMap from '@/features/parks/core/components/AppMap';
+import { ActiveDashboard } from '@/features/workout-engine/players/running';
 
 export default function RunPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   
-  // שליפת נתונים מה-Store
-  const { 
-    status, 
-    startTime, 
-    totalDistance, 
-    activityType, 
-    pauseRun, 
-    resumeRun, 
-    stopRun
-  } = useRunStore();
+  // שליפת נתונים מה-Stores
+  const { status, totalDistance, startTime } = useSessionStore();
+  const { activityType, currentPace } = useRunningPlayer();
+  
+  const pauseRun = () => useSessionStore.getState().pauseSession();
+  const resumeRun = () => useSessionStore.getState().resumeSession();
+  const stopRun = () => useSessionStore.getState().endSession();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // הגנה: אם אין ריצה פעילה, תחזור למפה
   useEffect(() => {
@@ -31,7 +34,7 @@ export default function RunPage() {
   }, [status, router]);
 
   const handleTogglePause = () => {
-    if (status === 'running') {
+    if (status === 'active') {
       pauseRun();
     } else {
       resumeRun();
@@ -44,6 +47,10 @@ export default function RunPage() {
     // router.push('/run/summary'); 
     router.replace('/map'); // בינתיים חוזרים למפה
   };
+
+  if (!mounted) {
+    return <div className="h-screen w-full bg-white" />;
+  }
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden flex flex-col font-sans">
@@ -59,14 +66,7 @@ export default function RunPage() {
 
       {/* 2. דשבורד עליון (זמן, מרחק, תחנה הבאה) */}
       {/* מציגים רק אם הריצה התחילה (יש startTime) */}
-      {startTime && (
-        <ActiveDashboard 
-          mode={activityType} // 'running' או 'walking'
-          startTime={startTime}
-          distance={totalDistance}
-          nextStation="גינת שנקין" // בהמשך נחבר לוגיקה שמחשבת את התחנה הבאה מהמסלול
-        />
-      )}
+      {startTime && <ActiveDashboard />}
 
       {/* 3. כפתורי שליטה (למטה) */}
       <div className="absolute bottom-10 left-0 right-0 z-20 px-6 pointer-events-none">
@@ -86,11 +86,11 @@ export default function RunPage() {
           <button 
             onClick={handleTogglePause}
             className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-xl transition-all active:scale-95 duration-200
-              ${status === 'running' 
+              ${status === 'active' 
                 ? 'bg-black shadow-black/20' 
                 : 'bg-[#00E5FF] shadow-[#00E5FF]/40'}`}
           >
-            {status === 'running' ? (
+            {status === 'active' ? (
               <Pause size={40} fill="currentColor" />
             ) : (
               <Play size={40} fill="currentColor" className="ml-1" />

@@ -1,0 +1,371 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DynamicOnboardingEngine, DynamicQuestionNode } from '@/features/user/onboarding/engine/DynamicOnboardingEngine';
+import { useUserStore } from '@/features/user';
+import { mapAnswersToProfile } from '@/features/user/identity/services/profile.service';
+import { getOnboardingLocale } from '@/lib/i18n/onboarding-locales';
+import DynamicQuestionRenderer from '@/features/user/onboarding/components/DynamicQuestionRenderer';
+import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
+import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
+import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
+
+/**
+ * Dynamic Onboarding Page
+ * Part 1: Dynamic assessment questions from Firestore
+ * Part 2: Static personal details, health, permissions
+ */
+export default function DynamicOnboardingPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { hasCompletedOnboarding, initializeProfile } = useUserStore();
+
+  // Claim params (from Guest Mode)
+  const claimCoins = searchParams.get('coins');
+  const claimCalories = searchParams.get('calories');
+
+  // Engine state
+  const [engine] = useState(() => new DynamicOnboardingEngine());
+  const [currentQuestion, setCurrentQuestion] = useState<DynamicQuestionNode | null>(null);
+  const [selectedAnswerId, setSelectedAnswerId] = useState<string | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Part 2 is now skipped - state removed
+  const [isPart1Complete, setIsPart1Complete] = useState(false);
+  const [assignedLevel, setAssignedLevel] = useState<number | undefined>();
+  const [assignedLevelId, setAssignedLevelId] = useState<string | undefined>();
+  const [assignedProgramId, setAssignedProgramId] = useState<string | undefined>();
+  const [masterProgramSubLevels, setMasterProgramSubLevels] = useState<{
+    upper_body_level?: number;
+    lower_body_level?: number;
+    core_level?: number;
+  } | undefined>();
+
+  // Reveal screen state
+  const [showResultLoading, setShowResultLoading] = useState(false);
+  const [showProgramResult, setShowProgramResult] = useState(false);
+  const [finalLevelNumber, setFinalLevelNumber] = useState<number>(1);
+
+  // UI state
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = isPart1Complete ? 7 : 100; // Dynamic steps for Part 1
+  
+  // Get language and direction - memoized at component level
+  const savedLanguage = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('onboarding_language') || 'he') as 'he' | 'en' | 'ru'
+    : 'he';
+  const direction = savedLanguage === 'he' ? 'rtl' : 'ltr';
+
+  // Save claim params
+  useEffect(() => {
+    if (claimCoins) sessionStorage.setItem('onboarding_claim_coins', claimCoins);
+    if (claimCalories) sessionStorage.setItem('onboarding_claim_calories', claimCalories);
+  }, [claimCoins, claimCalories]);
+
+  // Initialize engine - load first question with language and gender from sessionStorage
+  useEffect(() => {
+    const init = async () => {
+      try {
+        setLoading(true);
+        // Get language from sessionStorage (set in intro page) or default to 'he'
+        const currentLang = (sessionStorage.getItem('onboarding_language') || 'he') as 'he' | 'en' | 'ru';
+        // Get gender from sessionStorage (set in roadmap page) or default to 'neutral'
+        const savedGender = sessionStorage.getItem('onboarding_personal_gender');
+        const gender: 'male' | 'female' | 'neutral' = 
+          savedGender === 'male' ? 'male' : 
+          savedGender === 'female' ? 'female' : 
+          'neutral';
+        
+        await engine.initialize('assessment', undefined, currentLang, gender);
+        const question = engine.getCurrentQuestion();
+        setCurrentQuestion(question);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error initializing engine:', err);
+        setError(err.message || 'שגיאה בטעינת השאלון');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!hasCompletedOnboarding()) {
+      init();
+    } else {
+      router.replace('/home');
+    }
+  }, []);
+
+  // Handle answer selection in Part 1
+  const handleAnswer = async (answerId: string) => {
+    if (!currentQuestion) return;
+
+    setSelectedAnswerId(answerId);
+    setIsAnimating(true);
+
+    // Wait a bit for animation
+    setTimeout(async () => {
+      try {
+        const result = await engine.answer(answerId);
+        
+        if (result.isPart1Complete) {
+          // Part 1 complete - skip Part 2 and go directly to reveal screens
+          setIsPart1Complete(true);
+          setAssignedLevel(result.assignedLevel);
+          setAssignedLevelId(result.assignedLevelId);
+          setAssignedProgramId(result.assignedProgramId);
+          setMasterProgramSubLevels(result.masterProgramSubLevels);
+          setCurrentQuestion(null);
+          // Trigger completion flow immediately (skips Part 2)
+          await handleComplete();
+        } else if (result.nextQuestion) {
+          // Continue Part 1
+          setCurrentQuestion(result.nextQuestion);
+          setSelectedAnswerId(undefined);
+          setCurrentStep(prev => prev + 1);
+        } else {
+          // No next question (shouldn't happen) - trigger completion
+          setIsPart1Complete(true);
+          setAssignedLevel(result.assignedLevel);
+          setAssignedLevelId(result.assignedLevelId);
+          setAssignedProgramId(result.assignedProgramId);
+          setCurrentQuestion(null);
+          await handleComplete();
+        }
+      } catch (err: any) {
+        console.error('Error processing answer:', err);
+        setError(err.message || 'שגיאה בעיבוד התשובה');
+      } finally {
+        setIsAnimating(false);
+      }
+    }, 300);
+  };
+
+  // Part 2 navigation removed - Part 2 is now skipped
+
+  // Handle final completion - show reveal screens
+  const handleComplete = useCallback(async () => {
+    try {
+      // Collect all answers
+      const dynamicAnswers = engine.getAllAnswers();
+      
+      // Get name and gender from sessionStorage (set in roadmap page)
+      const savedName = typeof window !== 'undefined' 
+        ? sessionStorage.getItem('onboarding_personal_name') || ''
+        : '';
+      const savedGender = typeof window !== 'undefined'
+        ? sessionStorage.getItem('onboarding_personal_gender') || ''
+        : '';
+      
+      // Validate required fields
+      if (!savedName) {
+        alert('יש למלא את השם כדי להמשיך');
+        return;
+      }
+
+      // Combine answers - use sessionStorage data instead of part2Data
+      const allAnswers = {
+        ...dynamicAnswers,
+        personal_name: savedName,
+        personal_gender: savedGender || 'neutral',
+        // Optional fields can be empty if not collected
+        weight: '',
+        height: '',
+        personal_birthdate: null,
+        location: '',
+      };
+
+      // Get level number - use assignedLevel if available, otherwise fetch from levelId
+      let levelNumber = assignedLevel || 1;
+      if (!levelNumber && assignedLevelId) {
+        const { getLevel } = await import('@/features/content/programs/core/level.service');
+        const levelDoc = await getLevel(assignedLevelId);
+        if (levelDoc) {
+          levelNumber = levelDoc.order || 1;
+        }
+      }
+      setFinalLevelNumber(levelNumber);
+
+      // Create profile with assigned level and program
+      const profile = mapAnswersToProfile(
+        allAnswers as any,
+        assignedLevel,
+        assignedProgramId,
+        masterProgramSubLevels
+      );
+
+      // Inject claim rewards if available
+      const storedCoins = sessionStorage.getItem('onboarding_claim_coins');
+      const storedCalories = sessionStorage.getItem('onboarding_claim_calories');
+      if (storedCoins && !isNaN(Number(storedCoins))) {
+        profile.progression = {
+          ...profile.progression,
+          coins: (profile.progression?.coins || 0) + Number(storedCoins),
+          totalCaloriesBurned: (profile.progression?.totalCaloriesBurned || 0) + Number(storedCalories || 0),
+        };
+        sessionStorage.removeItem('onboarding_claim_coins');
+        sessionStorage.removeItem('onboarding_claim_calories');
+      }
+
+      // Save profile
+      await initializeProfile(profile);
+      
+      console.log('✅ Profile initialized with Level:', assignedLevel, 'LevelId:', assignedLevelId, 'Program:', assignedProgramId, 'SubLevels:', masterProgramSubLevels);
+
+      // Show result loading animation
+      setShowResultLoading(true);
+    } catch (err: any) {
+      console.error('Error completing onboarding:', err);
+      alert('שגיאה בשמירת הפרופיל. אנא נסה שוב.');
+    }
+  }, [assignedLevel, assignedLevelId, assignedProgramId, masterProgramSubLevels, engine, initializeProfile]);
+
+  // Handle result loading complete - show program result
+  const handleResultLoadingComplete = useCallback(() => {
+    setShowResultLoading(false);
+    setShowProgramResult(true);
+  }, []);
+
+  // Handle program result continue - navigate to Phase 2 Intro (Bridge Screen)
+  const handleProgramResultContinue = useCallback(() => {
+    router.push('/onboarding-new/phase2-intro');
+  }, [router]);
+
+  // Show reveal screens if active
+  if (showResultLoading) {
+    const savedName = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('onboarding_personal_name') || ''
+      : '';
+    return (
+      <ResultLoading
+        targetLevel={finalLevelNumber}
+        onComplete={handleResultLoadingComplete}
+        language={savedLanguage}
+      />
+    );
+  }
+
+  if (showProgramResult) {
+    const savedName = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('onboarding_personal_name') || ''
+      : '';
+    return (
+      <ProgramResult
+        levelNumber={finalLevelNumber}
+        levelId={assignedLevelId}
+        programId={assignedProgramId}
+        userName={savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend')}
+        language={savedLanguage}
+        onContinue={handleProgramResultContinue}
+      />
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-gray-500">טוען שאלון...</div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-red-500 text-xl font-bold">שגיאה</div>
+          <div className="text-gray-600">{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-cyan-500 text-white rounded-xl font-bold"
+          >
+            נסה שוב
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Get saved name for personalization
+  const savedName = typeof window !== 'undefined' 
+    ? sessionStorage.getItem('onboarding_personal_name') || ''
+    : '';
+  
+  // Get locale for welcome message
+  const locale = getOnboardingLocale(savedLanguage);
+  
+  // Personalized welcome message (only show on first question)
+  // Safe implementation to prevent crash: use fallback if locale is missing
+  const isFirstQuestion = currentStep === 1;
+  const userName = savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend');
+  const welcomeTemplate = locale?.common?.welcomeMessage || "מעולה {name}, בואו נתחיל לדייק את רמת הכושר שלך";
+  const welcomeMessage = isFirstQuestion && welcomeTemplate 
+    ? (welcomeTemplate.includes('{name}') ? welcomeTemplate.replace('{name}', userName) : welcomeTemplate)
+    : null;
+
+  // Part 1: Dynamic questions
+  if (!isPart1Complete && currentQuestion) {
+    // Pass isPart1Complete flag for progress calculation
+    return (
+      <OnboardingLayout
+        headerType="progress"
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        isPart1Complete={false}
+        progressIcon={currentQuestion.progressIcon}
+        progressIconSvg={currentQuestion.progressIconSvg}
+        onContinue={() => {}}
+        onBack={() => {}}
+        canContinue={!!selectedAnswerId}
+        showBack={false}
+        hideContinueButton={true}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestion.id}
+            initial={{ x: direction === 'rtl' ? 20 : -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: direction === 'rtl' ? -20 : 20, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className={`w-full font-simpler ${
+              isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+            } transition-all duration-300`}
+          >
+            {/* Personalized Welcome Header - Only on first question */}
+            {welcomeMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className={`mb-6 text-center ${direction === 'rtl' ? 'text-right' : 'text-left'}`}
+              >
+                <h2 className="text-xl font-black text-slate-900 leading-tight font-simpler">
+                  {welcomeMessage}
+                </h2>
+              </motion.div>
+            )}
+            
+            <DynamicQuestionRenderer
+              question={currentQuestion}
+              selectedAnswerId={selectedAnswerId}
+              onAnswer={handleAnswer}
+            />
+          </motion.div>
+        </AnimatePresence>
+      </OnboardingLayout>
+    );
+  }
+
+  // Part 2 is now skipped - if we reach here, something went wrong
+  // This should not happen, but provide a fallback
+  return (
+    <div className="h-screen flex items-center justify-center">
+      <div className="text-gray-500">טוען תוצאות...</div>
+    </div>
+  );
+}

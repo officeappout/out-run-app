@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/features/user/store/useUserStore';
+import { useUserStore } from '@/features/user';
 import BottomNavigation from '@/components/BottomNavigation';
 
 export default function ProfilePage() {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNavigation from "@/features/navigation/BottomNavbar"; // 1. ייבוא הקומפוננטה
+import BottomNavigation from "@/features/navigation/BottomNavbar";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 export const metadata: Metadata = {
   title: "Out Run App",
@@ -13,17 +14,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="he" dir="rtl">
+    <html lang="he" dir="rtl" className="light" suppressHydrationWarning>
       <head>
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+        {/* Hebrew Font */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        {/* English Font */}
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        {/* Mapbox DNS Prefetch for faster map loading */}
+        <link rel="dns-prefetch" href="https://api.mapbox.com" />
+        <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />
       </head>
       
-      <body className="antialiased pb-20"> {/* הוספנו pb-20 כדי שהתוכן לא יוסתר ע"י הבר התחתון */}
-        <main>
-          {children}
-        </main>
-        
-        <BottomNavigation /> {/* 2. הזרקת הניווט שיופיע בכל הדפים */}
+      <body className="antialiased pb-20">
+        <LanguageProvider>
+          <main>
+            {children}
+          </main>
+          
+          <BottomNavigation />
+        </LanguageProvider>
       </body>
     </html>
   );
