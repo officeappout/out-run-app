@@ -73,6 +73,7 @@ export const useMapLogic = () => {
   // Workout State
   const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   const [isNavigationMode, setIsNavigationMode] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false); // Track if map is following user location
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [isWorkoutPaused, setIsWorkoutPaused] = useState(false);
@@ -529,6 +530,8 @@ export const useMapLogic = () => {
   }; 
   const handleLocationClick = () => {
     if (!('geolocation' in navigator)) return;
+    // Toggle following state
+    setIsFollowing(prev => !prev);
     navigator.geolocation.getCurrentPosition((pos) => {
       const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       setCurrentUserPos(loc);
@@ -542,7 +545,7 @@ export const useMapLogic = () => {
     routeGenerationIndex, allRoutes, smartPaths, loadingRouteIds,
     selectedRoute, focusedRoute, workoutMode, navState, searchQuery, suggestions, selectedAddress,
     isFilterOpen, isChatOpen, chatMessages, isAILoading, navigationRoutes, selectedNavActivity,
-    showDetailsDrawer, isNavigationMode, workoutStartTime, isWorkoutActive, isWorkoutPaused, livePath, showSummary, showDopamine, userBearing,
+    showDetailsDrawer, isNavigationMode, isFollowing, workoutStartTime, isWorkoutActive, isWorkoutPaused, livePath, showSummary, showDopamine, userBearing,
     preferences, isGenerating: isGenerating || isGeneratingRoutes, routesToDisplay, searchInputRef, userWeight,
     isSearching,
     

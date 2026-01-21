@@ -14,6 +14,10 @@ const nextConfig = {
     }
     return config;
   },
+  // Skip static generation for admin routes (they require auth)
+  generateBuildId: async () => {
+    return 'build-' + Date.now();
+  },
 };
 
 export default nextConfig;

@@ -58,11 +58,13 @@ export default function RoadmapPage() {
       setCurrentStep(2);
     } else {
       // Save personal details to sessionStorage for the dynamic questionnaire
-      if (formData.name) {
-        sessionStorage.setItem('onboarding_personal_name', formData.name);
-      }
-      if (formData.gender) {
-        sessionStorage.setItem('onboarding_personal_gender', formData.gender);
+      if (typeof window !== 'undefined') {
+        if (formData.name) {
+          sessionStorage.setItem('onboarding_personal_name', formData.name);
+        }
+        if (formData.gender) {
+          sessionStorage.setItem('onboarding_personal_gender', formData.gender);
+        }
       }
       
       // Show loading AI screen before navigating

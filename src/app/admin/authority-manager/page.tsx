@@ -28,7 +28,9 @@ export default function AuthorityManagerDashboard() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
         // User is not authenticated, redirect to authority login
-        window.location.href = '/admin/authority-login';
+        if (typeof window !== 'undefined') {
+          window.location.href = '/admin/authority-login';
+        }
         return;
       }
       setUser(currentUser);

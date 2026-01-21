@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
@@ -11,7 +11,7 @@ import { Loader2 } from 'lucide-react';
  * If there's an invitation token, redirect to authority portal (maintains old behavior)
  * Otherwise, redirect to authority portal by default
  */
-export default function AuthorityLoginPage() {
+function AuthorityLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -35,5 +35,20 @@ export default function AuthorityLoginPage() {
         <p className="text-gray-600">מעביר לפורטל ההתחברות...</p>
       </div>
     </div>
+  );
+}
+
+export default function AuthorityLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-cyan-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">טוען...</p>
+        </div>
+      </div>
+    }>
+      <AuthorityLoginContent />
+    </Suspense>
   );
 }

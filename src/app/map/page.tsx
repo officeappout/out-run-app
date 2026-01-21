@@ -9,6 +9,7 @@ import BottomNavigation from '@/components/BottomNavigation';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPreferencesModal';
 import { LiveWorkoutOverlay, WorkoutPreviewDrawer } from '@/features/workout-engine/players/strength';
+
 import { RunSummary, DopamineScreen, ActiveDashboard } from '@/features/workout-engine/players/running';
 import ParticleBackground from '@/components/ParticleBackground';
 import ChatDrawer from '@/features/parks/core/components/ChatDrawer';

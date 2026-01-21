@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -44,7 +46,9 @@ export default function AdminLayout({
                 // User is not authenticated
                 // If trying to access authority-manager, redirect to login
                 if (pathname?.startsWith('/admin/authority-manager')) {
-                    window.location.href = '/admin/authority-login';
+                    if (typeof window !== 'undefined') {
+                        window.location.href = '/admin/authority-login';
+                    }
                     return;
                 }
                 setRoleInfo({
@@ -132,7 +136,9 @@ export default function AdminLayout({
                 if (unauthorizedPaths.some(path => pathname?.startsWith(path))) {
                     // Redirect to authority portal login instead of authority-manager dashboard
                     if (pathname?.startsWith('/admin/login') || pathname?.startsWith('/admin/system-settings')) {
-                        window.location.href = '/authority-portal/login';
+                        if (typeof window !== 'undefined') {
+                            window.location.href = '/authority-portal/login';
+                        }
                         return;
                     }
                     router.replace('/admin/authority-manager');

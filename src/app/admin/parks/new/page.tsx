@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
@@ -37,7 +37,7 @@ interface ParkFormData extends Omit<Park, 'id' | 'facilities' | 'gymEquipment'> 
 
 const storage = getStorage();
 
-export default function AddParkPage() {
+function AddParkPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const authorityId = searchParams.get('authorityId');
@@ -672,5 +672,17 @@ export default function AddParkPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function AddParkPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-12 h-12 text-cyan-600 animate-spin" />
+            </div>
+        }>
+            <AddParkPageContent />
+        </Suspense>
     );
 }
