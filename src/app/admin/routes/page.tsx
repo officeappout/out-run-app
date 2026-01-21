@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
 import { useState, useRef } from 'react';
 import {
     Plus,
@@ -21,7 +24,7 @@ import {
     MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
 import { Route, ActivityType, MapFacility, FacilityType } from '@/features/parks';
 import { useMapStore } from '@/features/parks';
@@ -32,19 +35,19 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 
 // Dynamic import for Map to avoid SSR issues
-const Map = dynamic(
+const Map = dynamicImport(
     () => import('react-map-gl').then(mod => mod.default),
     { ssr: false, loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-2xl" /> }
 );
-const Source = dynamic(
+const Source = dynamicImport(
     () => import('react-map-gl').then(mod => mod.Source),
     { ssr: false }
 );
-const Layer = dynamic(
+const Layer = dynamicImport(
     () => import('react-map-gl').then(mod => mod.Layer),
     { ssr: false }
 );
-const Marker = dynamic(
+const Marker = dynamicImport(
     () => import('react-map-gl').then(mod => mod.Marker),
     { ssr: false }
 );

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNavigation from "@/features/navigation/BottomNavbar";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import ClientLayout from "./ClientLayout";
 
 export const metadata: Metadata = {
   title: "Out Run App",
@@ -29,13 +28,7 @@ export default function RootLayout({
       </head>
       
       <body className="antialiased pb-20">
-        <LanguageProvider>
-          <main>
-            {children}
-          </main>
-          
-          <BottomNavigation />
-        </LanguageProvider>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
 import { useAuthorities } from '@/features/admin/hooks/useAuthorities';
 import AuthoritiesHeader from '@/features/admin/components/authorities/AuthoritiesHeader';
 import AuthorityFilters from '@/features/admin/components/authorities/AuthorityFilters';

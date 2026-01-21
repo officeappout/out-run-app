@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, Suspense } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -11,11 +14,11 @@ import { ParkGymEquipment } from '@/features/content/equipment/gym';
 import { getAllGymEquipment } from '@/features/content/equipment/gym';
 import { GymEquipment } from '@/features/content/equipment/gym';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { Plus, Trash2, Save, Image as ImageIcon, Loader2, X, Sun, Lightbulb, Droplet, Toilet, Building2 } from 'lucide-react';
 
 // Dynamic import for Map to avoid SSR issues
-const LocationPicker = dynamic(
+const LocationPicker = dynamicImport(
     () => import('@/features/admin/components/LocationPicker'),
     { ssr: false, loading: () => <div className="h-64 bg-gray-100 animate-pulse rounded-2xl" /> }
 );
