@@ -1,6 +1,9 @@
 'use client';
 
-import React from 'react';
+// Force dynamic rendering to prevent SSR issues with window/localStorage
+export const dynamic = 'force-dynamic';
+
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Target, Footprints } from 'lucide-react';
@@ -11,6 +14,15 @@ import { CheckCircle2, Target, Footprints } from 'lucide-react';
  */
 export default function RoadmapPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div className="h-screen w-full bg-gradient-to-br from-slate-50 to-blue-50" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6" dir="rtl">

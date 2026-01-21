@@ -18,8 +18,8 @@ interface ProgramResultProps {
 }
 
 // Confetti particle component
-const ConfettiParticle = ({ delay, x, color }: { delay: number; x: number; color: string }) => {
-  if (typeof window === 'undefined') return null;
+const ConfettiParticle = ({ delay, x, color, windowHeight }: { delay: number; x: number; color: string; windowHeight: number }) => {
+  if (typeof window === 'undefined' || windowHeight === 0) return null;
   
   return (
     <motion.div
@@ -30,7 +30,7 @@ const ConfettiParticle = ({ delay, x, color }: { delay: number; x: number; color
       }}
       initial={{ y: 0, rotate: 0, opacity: 1 }}
       animate={{
-        y: window.innerHeight + 100,
+        y: windowHeight + 100,
         rotate: 360,
         opacity: [1, 1, 0],
       }}
@@ -55,6 +55,7 @@ export default function ProgramResult({
   const [level, setLevel] = useState<Level | null>(null);
   const [loading, setLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(true);
+  const [windowHeight, setWindowHeight] = useState(0);
 
   const locale = getOnboardingLocale(language);
   const direction = language === 'he' ? 'rtl' : 'ltr';
@@ -84,6 +85,18 @@ export default function ProgramResult({
 
     fetchData();
   }, [programId, levelId]);
+
+  // Get window height safely (only in browser)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setWindowHeight(window.innerHeight);
+      const handleResize = () => {
+        setWindowHeight(window.innerHeight);
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   // Hide confetti after animation
   useEffect(() => {
@@ -226,6 +239,7 @@ export default function ProgramResult({
                 delay={particle.delay}
                 x={particle.x}
                 color={particle.color}
+                windowHeight={windowHeight}
               />
             ))}
           </div>
