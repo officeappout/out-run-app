@@ -22,10 +22,10 @@ import {
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
   Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 
 // Dynamic import for map to avoid SSR issues
-const RunMapBlock = dynamic(
+const RunMapBlock = dynamicImport(
   () => import('@/features/workout-engine/summary/components/running/RunMapBlock'),
   { ssr: false }
 );
