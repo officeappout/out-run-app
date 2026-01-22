@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
 
@@ -7,11 +8,17 @@ export const metadata: Metadata = {
   description: "Your personal running companion",
 };
 
+// Force dynamic rendering to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Force dynamic rendering by calling headers() - this prevents static generation
+  // and ensures the layout is always rendered dynamically
+  headers();
   return (
     <html lang="he" dir="rtl" className="light" suppressHydrationWarning>
       <head>

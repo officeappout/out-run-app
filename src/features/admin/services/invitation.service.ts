@@ -26,7 +26,18 @@ const INVITATIONS_COLLECTION = 'admin_invitations';
  * Generate a random token for invitation
  */
 function generateToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)))
+  // Use crypto API if available (browser), otherwise fallback to Math.random
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+    return Array.from(window.crypto.getRandomValues(new Uint8Array(32)))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  // Fallback for SSR or environments without crypto API
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }

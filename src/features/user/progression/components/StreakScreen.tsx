@@ -6,7 +6,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Footprints, Mountain, TrendingUp, Calendar } from 'lucide-react';
 import type { ActivityType } from '../store/useProgressionStore';
@@ -32,6 +32,19 @@ export default function StreakScreen({
   coinsEarned = 0,
   onClose,
 }: StreakScreenProps) {
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+
+  // Get window size safely (only in browser)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+      const handleResize = () => {
+        setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
   // Configuration for each activity type
   const activityConfig = {
     super: {
@@ -92,20 +105,20 @@ export default function StreakScreen({
   return (
     <div className={`fixed inset-0 z-[400] bg-gradient-to-b ${config.bgGradient} flex flex-col items-center justify-center p-6`}>
       {/* Sparkles Animation (only for 'super') */}
-      {config.sparkles && (
+      {config.sparkles && windowSize.width > 0 && windowSize.height > 0 && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {[...Array(20)].map((_, i) => (
             <motion.div
               key={i}
               initial={{ 
-                y: Math.random() * window.innerHeight, 
-                x: Math.random() * window.innerWidth,
+                y: Math.random() * windowSize.height, 
+                x: Math.random() * windowSize.width,
                 opacity: 0,
                 scale: 0 
               }}
               animate={{
-                y: [null, Math.random() * window.innerHeight],
-                x: [null, Math.random() * window.innerWidth],
+                y: [null, Math.random() * windowSize.height],
+                x: [null, Math.random() * windowSize.width],
                 opacity: [0, 1, 0],
                 scale: [0, 1, 0],
               }}

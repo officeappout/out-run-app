@@ -40,6 +40,7 @@ export const useAppStore = create<AppState>()(
     {
       name: 'out-app-storage',
       storage: safeStorage,
+      skipHydration: typeof window === 'undefined', // Skip hydration during SSR
     }
   )
 );

@@ -17,6 +17,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (only if not already initialized)
+// This is safe for SSR - Firebase SDK handles server-side initialization
 let app: FirebaseApp;
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
@@ -24,19 +25,27 @@ if (getApps().length === 0) {
   app = getApps()[0];
 }
 
-// Initialize services
+// Initialize services - all are SSR-safe
+// Analytics only works in browser, so we guard it
 let analytics: Analytics | null = null;
 if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
+  try {
+    analytics = getAnalytics(app);
+  } catch (error) {
+    // Analytics initialization can fail in some environments
+    console.warn('Analytics initialization failed:', error);
+  }
 }
 
+// Auth and Firestore are SSR-safe - Firebase SDK handles server-side initialization
+// They can be initialized on server but will only work when called from client components
 export const auth = getAuth(app);
 
 // Initialize Firestore with experimentalAutoDetectLongPolling to fix BloomFilter errors
 let db: Firestore;
 if (typeof window !== 'undefined') {
   try {
-    // Try to initialize with persistent cache and long polling detection
+    // Try to initialize with persistent cache and long polling detection (browser only)
     db = initializeFirestore(app, {
       experimentalAutoDetectLongPolling: true,
     });
@@ -46,10 +55,14 @@ if (typeof window !== 'undefined') {
     db = getFirestore(app);
   }
 } else {
-  // Server-side: use default initialization
+  // Server-side: use default initialization (SSR-safe)
   db = getFirestore(app);
 }
 
 export { db };
+
+// Storage is SSR-safe - Firebase SDK handles server-side initialization
+// It will only work when called from client components
 export const storage = getStorage(app);
+
 export { app, analytics };
