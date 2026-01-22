@@ -285,6 +285,12 @@ export default function LocationStep({ onNext }: LocationStepProps) {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        // Log permission granted
+        const { Analytics } = await import('@/features/analytics/AnalyticsService');
+        Analytics.logPermissionLocationStatus('granted', 'onboarding_location_step').catch((error) => {
+          console.error('[LocationStep] Error logging permission status:', error);
+        });
+        
         // Success: Update store and fetch nearby parks
         const { latitude, longitude } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
@@ -324,10 +330,22 @@ export default function LocationStep({ onNext }: LocationStepProps) {
           setIsLoadingParks(false);
         }
       },
-      (error) => {
+      async (error) => {
+        // Log permission denied
+        const { Analytics } = await import('@/features/analytics/AnalyticsService');
+        const status = error.code === 1 ? 'denied' : 'prompt';
+        Analytics.logPermissionLocationStatus(status, 'onboarding_location_step').catch((err) => {
+          console.error('[LocationStep] Error logging permission status:', err);
+        });
+        
         // Error: Show error message
         setIsLocating(false);
         setLocationError('לא הצלחנו לקבל את המיקום שלך. אנא נסה שוב.');
+        
+        // Update store to indicate location was denied
+        updateData({
+          locationAllowed: false,
+        });
       },
       {
         enableHighAccuracy: true,

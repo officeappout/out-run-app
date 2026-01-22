@@ -266,13 +266,14 @@ export default function OnboardingLayout({
   // Simple mode (Setup Wizard) - with segmented progress bar
   if (headerType === 'progress' && !isDynamicMode && (title || subtitle)) {
     return (
-      <div dir={direction} className="min-h-screen bg-white flex flex-col">
+      <div dir={direction} className="min-h-[100dvh] bg-white flex flex-col" style={{ minHeight: '100dvh' }}>
         {/* Sticky Header with Segmented Progress Bar */}
         <motion.header
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           className="sticky top-0 z-50 bg-white shadow-sm"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           {/* Segmented Progress Bar */}
           {renderSegmentedProgressBar()}
@@ -295,7 +296,7 @@ export default function OnboardingLayout({
                 onClick={onBack}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors"
+                className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors min-h-[44px] min-w-[44px] justify-center"
               >
                 <ArrowRight size={18} className={direction === 'rtl' ? 'rotate-180' : ''} />
                 <span className="font-simpler text-sm">{direction === 'rtl' ? 'חזור' : 'Back'}</span>
@@ -305,8 +306,8 @@ export default function OnboardingLayout({
         </motion.header>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <main className="flex-1 flex flex-col items-center justify-center px-4 py-4 md:py-8 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-4 md:p-6 lg:p-8">
             {/* Title */}
             {title && (
               <motion.h1
@@ -350,13 +351,14 @@ export default function OnboardingLayout({
 
   // Progress mode (Dynamic Questionnaire/Wizard) - New layout with segmented progress bar
   return (
-    <div dir={direction} className="min-h-screen bg-white flex flex-col">
+    <div dir={direction} className="min-h-[100dvh] bg-white flex flex-col" style={{ minHeight: '100dvh' }}>
       {/* Sticky Header with Segmented Progress Bar */}
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className="sticky top-0 z-50 bg-white shadow-sm"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         {/* Segmented Progress Bar */}
         {renderSegmentedProgressBar()}
@@ -379,7 +381,7 @@ export default function OnboardingLayout({
               onClick={onBack}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors"
+              className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors min-h-[44px] min-w-[44px] justify-center"
             >
               <ArrowRight size={18} className={direction === 'rtl' ? 'rotate-180' : ''} />
               <span className="font-simpler text-sm">{direction === 'rtl' ? 'חזור' : 'Back'}</span>
@@ -389,7 +391,7 @@ export default function OnboardingLayout({
       </motion.header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col px-4 py-6 relative z-10 max-w-md mx-auto w-full overflow-hidden min-h-0">
+      <main className="flex-1 flex flex-col px-4 py-4 md:py-6 relative z-10 max-w-md mx-auto w-full overflow-y-auto min-h-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {children}
       </main>
     </div>

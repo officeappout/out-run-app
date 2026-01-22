@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/features/user';
+import { useUserStore, useProgressionStore } from '@/features/user';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS, MOCK_PROGRESS } from '@/features/home/data/mock-schedule-data';
 import CoinPill from '@/features/home/components/CoinPill';
@@ -27,6 +27,7 @@ import { UserFullProfile } from '@/types/user-profile';
 export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, resetProfile, refreshProfile } = useUserStore();
+  const { goalHistory } = useProgressionStore(); // Listen to progression changes
   const { reset: resetOnboarding } = useOnboardingStore();
   const scheduleState = useSmartSchedule();
   const [showAlert, setShowAlert] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export default function HomePage() {
   // מצב טעינה - הצג loading screen עד שה-Store טוען מה-localStorage
   if (!_hasHydrated) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-[100dvh] flex items-center justify-center" style={{ height: '100dvh' }}>
         <p className="text-gray-500">טוען...</p>
       </div>
     );
@@ -126,7 +127,7 @@ export default function HomePage() {
   // אם אין פרופיל אחרי rehydration - מציג loading עד redirect
   if (!profile) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-[100dvh] flex items-center justify-center" style={{ height: '100dvh' }}>
         <p className="text-gray-500">מעביר להרשמה...</p>
       </div>
     );
@@ -194,7 +195,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F3F5F9] pb-20">
+    <div className="min-h-[100dvh] bg-[#F3F5F9] pb-20" style={{ minHeight: '100dvh', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
       {/* Header - Sticky with Gradient Logo and CoinPill */}
       <header className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-gray-100 dark:border-slate-800">
         <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">

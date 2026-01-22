@@ -75,9 +75,9 @@ export async function getUserFromFirestore(userId: string): Promise<UserFullProf
         normalizedLifestyle.scheduleDays = (data as any).scheduleDays;
       }
       
-      // Log warning if equipment is missing or empty
+      // Log info if equipment is missing or empty (silenced warning)
       if (!data.equipment || (!normalizedEquipment.home.length && !normalizedEquipment.office.length && !normalizedEquipment.outdoor.length)) {
-        console.warn(
+        console.info(
           `[User Service] User ${userId} has missing or empty equipment profile. ` +
             `This may affect Smart Swap functionality. Please update user equipment in the admin panel.`
         );

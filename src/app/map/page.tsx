@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { Suspense } from 'react';
 import dynamicImport from 'next/dynamic';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useMapLogic } from '@/features/parks';
 
 // UI Components
@@ -13,7 +14,8 @@ import BottomJourneyContainer from '@/features/parks/core/components/BottomJourn
 import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPreferencesModal';
 import { LiveWorkoutOverlay, WorkoutPreviewDrawer } from '@/features/workout-engine/players/strength';
 
-import { RunSummary, DopamineScreen, ActiveDashboard } from '@/features/workout-engine/players/running';
+import { DopamineScreen, ActiveDashboard } from '@/features/workout-engine/players/running';
+import WorkoutSummaryPage from '@/features/workout-engine/summary/WorkoutSummaryPage';
 import ParticleBackground from '@/components/ParticleBackground';
 import ChatDrawer from '@/features/parks/core/components/ChatDrawer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
@@ -55,11 +57,11 @@ function MapPageContent() {
   }, []);
 
   if (!mounted) {
-    return <div className="h-screen w-full bg-white" />;
+    return <div className="h-[100dvh] w-full bg-white" />;
   }
 
   return (
-    <main className="relative h-[100dvh] w-full bg-[#f3f4f6] overflow-hidden font-sans">
+    <main className="relative h-[100dvh] w-full bg-[#f3f4f6] overflow-hidden font-sans" style={{ height: '100dvh' }}>
       {!logic.isWorkoutActive && <div className="absolute inset-0 z-[-1] pointer-events-none"><ParticleBackground /></div>}
 
       {/* --- המפה (THE MAP) --- */}
@@ -175,12 +177,47 @@ function MapPageContent() {
                 </div>
               </div>
 
-              {logic.navState === 'idle' && (
-                <div className="flex gap-2" dir="rtl">
-                  <button onClick={() => console.log("Home")} className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"><Home size={14} className="text-cyan-500" /><span>בית</span></button>
-                  <button onClick={() => console.log("Work")} className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"><Briefcase size={14} className="text-purple-500" /><span>עבודה</span></button>
-                  <button onClick={() => console.log("Saved")} className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"><Bookmark size={14} className="text-amber-500" /><span>שמורים</span></button>
-                </div>
+              {/* Quick Access Buttons - Only show when search is focused */}
+              {logic.navState === 'searching' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex gap-2" 
+                  dir="rtl"
+                >
+                  <button 
+                    onClick={() => {
+                      logic.setSearchQuery('בית');
+                      if (logic.searchInputRef.current) logic.searchInputRef.current.focus();
+                    }} 
+                    className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"
+                  >
+                    <Home size={14} className="text-cyan-500" />
+                    <span>בית</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      logic.setSearchQuery('עבודה');
+                      if (logic.searchInputRef.current) logic.searchInputRef.current.focus();
+                    }} 
+                    className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"
+                  >
+                    <Briefcase size={14} className="text-purple-500" />
+                    <span>עבודה</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      logic.setSearchQuery('שמורים');
+                      if (logic.searchInputRef.current) logic.searchInputRef.current.focus();
+                    }} 
+                    className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-sm border border-gray-100 text-gray-600 text-[11px] font-bold hover:bg-white transition-all active:scale-95"
+                  >
+                    <Bookmark size={14} className="text-amber-500" />
+                    <span>שמורים</span>
+                  </button>
+                </motion.div>
               )}
             </div>
           </div>
@@ -213,15 +250,24 @@ function MapPageContent() {
 
       {/* MODALS & DRAWERS */}
       {logic.isGenerating && <RouteGenerationLoader />}
-      {logic.showSummary && <RunSummary onFinish={() => { 
-        logic.setShowSummary(false); 
-        logic.setShowDopamine(true); // Show dopamine screen after summary
-      }} />}
-      {logic.showDopamine && <DopamineScreen onContinue={() => {
-        logic.setShowDopamine(false);
-        logic.setIsWorkoutActive(false);
-        // Navigation to home happens in RunSummary
-      }} />}
+      {logic.showSummary && (
+        <WorkoutSummaryPage
+          onFinish={() => {
+            logic.setShowSummary(false);
+            logic.setShowDopamine(true); // Show dopamine screen after summary
+          }}
+          workoutType={logic.workoutMode === 'free' ? 'FREE_RUN' : 'PLAN_RUN'}
+        />
+      )}
+      {logic.showDopamine && (
+        <DopamineScreen
+          onContinue={() => {
+            logic.setShowDopamine(false);
+            logic.setIsWorkoutActive(false);
+            // Navigation to home happens in WorkoutSummaryPage
+          }}
+        />
+      )}
 
       <WorkoutPreferencesModal
         isOpen={logic.isFilterOpen}
@@ -252,7 +298,7 @@ function MapPageContent() {
 
 export default function MapPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-[#f3f4f6]">טוען...</div>}>
+    <Suspense fallback={<div className="h-[100dvh] w-full flex items-center justify-center bg-[#f3f4f6]">טוען...</div>}>
       <MapPageContent />
     </Suspense>
   );

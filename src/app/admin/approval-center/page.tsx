@@ -218,21 +218,21 @@ export default function ApprovalCenterPage() {
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-4 md:space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">מרכז אישורים</h1>
-          <p className="text-sm text-gray-500 mt-1">ניהול בקשות עריכה מנציגי רשויות</p>
+          <h1 className="text-xl md:text-2xl font-black text-gray-900">מרכז אישורים</h1>
+          <p className="text-xs md:text-sm text-gray-500 mt-1">ניהול בקשות עריכה מנציגי רשויות</p>
         </div>
 
         {/* Status Filter */}
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-bold text-gray-700">סטטוס:</label>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <label className="text-xs md:text-sm font-bold text-gray-700 whitespace-nowrap">סטטוס:</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as EditRequestStatus | 'all')}
-            className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none font-bold text-sm"
+            className="flex-1 sm:flex-none px-3 md:px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none font-bold text-xs md:text-sm"
           >
             <option value="all">הכל</option>
             <option value="pending">ממתין</option>
@@ -244,7 +244,7 @@ export default function ApprovalCenterPage() {
 
       {/* Requests List */}
       {requests.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-12 text-center">
           <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-2">אין בקשות</h3>
           <p className="text-gray-500">אין בקשות עריכה ממתינות לאישור</p>
@@ -261,21 +261,21 @@ export default function ApprovalCenterPage() {
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
               >
                 {/* Request Header */}
-                <div className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-2 ${getStatusColor(request.status)}`}>
+                <div className="p-4 md:p-6">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                    <div className="flex-1 w-full">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
+                        <div className={`px-2 md:px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-2 ${getStatusColor(request.status)}`}>
                           {getStatusIcon(request.status)}
                           {getStatusLabel(request.status)}
                         </div>
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                        <span className="px-2 md:px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                           {request.entityType === 'park' ? 'פארק' : 'מסלול'}
                         </span>
-                        <h3 className="text-lg font-bold text-gray-900">{request.entityName}</h3>
+                        <h3 className="text-base md:text-lg font-bold text-gray-900 break-words">{request.entityName}</h3>
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mt-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs md:text-sm text-gray-600 mt-3">
                         <span>
                           <strong>נשלח על ידי:</strong> {request.requestedByName || request.requestedByEmail || 'לא ידוע'}
                         </span>

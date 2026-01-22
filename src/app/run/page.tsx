@@ -57,11 +57,11 @@ export default function RunPage() {
   };
 
   if (!mounted) {
-    return <div className="h-screen w-full bg-white" />;
+    return <div className="h-[100dvh] w-full bg-white" />;
   }
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden flex flex-col font-sans">
+    <div className="relative h-[100dvh] w-full overflow-hidden flex flex-col font-sans" style={{ height: '100dvh' }}>
       
       {/* 1. שכבת המפה (רקע) */}
       <div className="absolute inset-0 z-0">
@@ -77,14 +77,14 @@ export default function RunPage() {
       {startTime && <ActiveDashboard />}
 
       {/* 3. כפתורי שליטה (למטה) */}
-      <div className="absolute bottom-10 left-0 right-0 z-20 px-6 pointer-events-none">
+      <div className="absolute bottom-10 left-0 right-0 z-20 px-6 pointer-events-none" style={{ bottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="flex items-center justify-center gap-6 pointer-events-auto">
           
           {/* כפתור סיום (מופיע רק כשעוצרים - להגנה מטעות) */}
           {status === 'paused' && (
             <button 
               onClick={handleStop}
-              className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-red-500/30 animate-in zoom-in duration-200 active:scale-95 transition-transform"
+              className="min-w-[44px] min-h-[44px] w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-red-500/30 animate-in zoom-in duration-200 active:scale-95 transition-transform"
             >
               <StopCircle size={32} fill="currentColor" />
             </button>
@@ -93,7 +93,7 @@ export default function RunPage() {
           {/* כפתור ראשי: הפסקה / המשך */}
           <button 
             onClick={handleTogglePause}
-            className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-xl transition-all active:scale-95 duration-200
+            className={`min-w-[44px] min-h-[44px] w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-white shadow-xl transition-all active:scale-95 duration-200
               ${status === 'active' 
                 ? 'bg-black shadow-black/20' 
                 : 'bg-[#00E5FF] shadow-[#00E5FF]/40'}`}

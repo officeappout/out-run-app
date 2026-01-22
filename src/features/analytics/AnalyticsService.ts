@@ -15,12 +15,17 @@ export type AnalyticsEventType =
   | 'app_close'
   | 'login'
   | 'logout'
+  | 'onboarding_start'
   | 'onboarding_step_complete'
+  | 'onboarding_step_completed'
+  | 'onboarding_completed'
   | 'workout_start'
+  | 'workout_session_started'
   | 'workout_complete'
   | 'workout_abandoned'
   | 'profile_created'
   | 'profile_updated'
+  | 'permission_location_status'
   | 'error_occurred';
 
 /**
@@ -42,16 +47,29 @@ export interface SessionEvent extends BaseAnalyticsEvent {
   eventName: 'app_open' | 'app_close' | 'login' | 'logout';
 }
 
+export interface OnboardingStartEvent extends BaseAnalyticsEvent {
+  eventName: 'onboarding_start';
+  source?: string; // Where they came from (e.g., 'landing_page', 'direct')
+}
+
 export interface OnboardingStepCompleteEvent extends BaseAnalyticsEvent {
-  eventName: 'onboarding_step_complete';
+  eventName: 'onboarding_step_complete' | 'onboarding_step_completed';
   step_name: string;
+  step_index?: number; // Order of the step in the flow
   time_spent: number; // seconds
 }
 
+export interface OnboardingCompletedEvent extends BaseAnalyticsEvent {
+  eventName: 'onboarding_completed';
+  total_time_spent?: number; // Total seconds from start to completion
+  steps_completed?: number;
+}
+
 export interface WorkoutStartEvent extends BaseAnalyticsEvent {
-  eventName: 'workout_start';
+  eventName: 'workout_start' | 'workout_session_started';
   level?: number;
   location?: string;
+  workout_type?: string; // e.g., 'running', 'calisthenics'
 }
 
 export interface WorkoutCompleteEvent extends BaseAnalyticsEvent {
@@ -73,6 +91,12 @@ export interface ProfileEvent extends BaseAnalyticsEvent {
   profile_fields?: string[]; // Which fields were updated
 }
 
+export interface PermissionLocationStatusEvent extends BaseAnalyticsEvent {
+  eventName: 'permission_location_status';
+  status: 'granted' | 'denied' | 'prompt';
+  source?: string; // Where the permission was requested
+}
+
 export interface ErrorEvent extends BaseAnalyticsEvent {
   eventName: 'error_occurred';
   error_code: string;
@@ -85,11 +109,14 @@ export interface ErrorEvent extends BaseAnalyticsEvent {
  */
 export type AnalyticsEvent =
   | SessionEvent
+  | OnboardingStartEvent
   | OnboardingStepCompleteEvent
+  | OnboardingCompletedEvent
   | WorkoutStartEvent
   | WorkoutCompleteEvent
   | WorkoutAbandonedEvent
   | ProfileEvent
+  | PermissionLocationStatusEvent
   | ErrorEvent;
 
 /**
@@ -123,6 +150,73 @@ function getSessionId(): string {
 }
 
 /**
+ * Get user level from stores (with fallback)
+ */
+function getUserLevel(): number {
+  if (typeof window === 'undefined') return 1; // SSR fallback
+  
+  try {
+    // Dynamically import stores to avoid circular dependencies
+    // Try to get from user store first (most reliable)
+    const userStoreModule = require('@/features/user/identity/store/useUserStore');
+    const userStore = userStoreModule.useUserStore?.getState();
+    
+    if (userStore?.profile?.progression?.globalLevel) {
+      const level = userStore.profile.progression.globalLevel;
+      if (typeof level === 'number' && level > 0) {
+        return level;
+      }
+    }
+    
+    // Fallback: try progression store domain level
+    try {
+      const progressionStoreModule = require('@/features/user/progression/store/useProgressionStore');
+      const progressionStore = progressionStoreModule.useProgressionStore?.getState();
+      
+      if (progressionStore?.domainProgress?.['running']?.level) {
+        const level = progressionStore.domainProgress['running'].level;
+        if (typeof level === 'number' && level > 0) {
+          return level;
+        }
+      }
+    } catch (progError) {
+      // Ignore progression store errors
+    }
+    
+    // Default fallback
+    return 1;
+  } catch (error) {
+    console.warn('[Analytics] Could not get user level, defaulting to 1:', error);
+    return 1;
+  }
+}
+
+/**
+ * Sanitize object by removing undefined and null values
+ */
+function sanitizeParams(params: Record<string, any>): Record<string, any> {
+  const sanitized: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(params)) {
+    // Skip undefined and null values
+    if (value !== undefined && value !== null) {
+      // Recursively sanitize nested objects
+      if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        const nestedSanitized = sanitizeParams(value);
+        // Only include if nested object has at least one property
+        if (Object.keys(nestedSanitized).length > 0) {
+          sanitized[key] = nestedSanitized;
+        }
+      } else {
+        sanitized[key] = value;
+      }
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
  * Log an analytics event
  * @param eventName Name of the event
  * @param params Additional parameters for the event
@@ -136,17 +230,32 @@ export async function logEvent(
     const userId = currentUser?.uid || undefined;
     const sessionId = getSessionId();
 
+    // Get user level if not provided in params (for workout events)
+    let level = params.level;
+    if (level === undefined && (
+      eventName === 'workout_start' || 
+      eventName === 'workout_session_started' ||
+      eventName === 'workout_complete'
+    )) {
+      level = getUserLevel();
+    }
+
     const eventData: Omit<BaseAnalyticsEvent, 'id'> = {
       userId,
       eventName,
       timestamp: new Date(),
       sessionId,
       ...params,
+      // Override level if we fetched it
+      ...(level !== undefined ? { level } : {}),
     };
+
+    // Sanitize params to remove undefined/null values before sending to Firestore
+    const sanitizedParams = sanitizeParams(eventData);
 
     // Convert Date to Timestamp for Firestore
     const firestoreData = {
-      ...eventData,
+      ...sanitizedParams,
       timestamp: toTimestamp(eventData.timestamp),
     };
 
@@ -154,12 +263,12 @@ export async function logEvent(
     
     // Console log in development
     if (process.env.NODE_ENV === 'development') {
-      console.log('[Analytics]', eventName, params);
+      console.log('[Analytics]', eventName, sanitizedParams);
     }
 
     return true;
   } catch (error) {
-    console.error('Error logging analytics event:', error);
+    console.error('[Analytics] Error logging analytics event:', error);
     // Don't throw - analytics failures shouldn't break the app
     return false;
   }
@@ -266,12 +375,18 @@ export const Analytics = {
   logLogout: () => logEvent('logout'),
 
   // Onboarding events
-  logOnboardingStepComplete: (stepName: string, timeSpent: number) =>
-    logEvent('onboarding_step_complete', { step_name: stepName, time_spent: timeSpent }),
+  logOnboardingStart: (source?: string) =>
+    logEvent('onboarding_start', { source }),
+  logOnboardingStepComplete: (stepName: string, timeSpent: number, stepIndex?: number) =>
+    logEvent('onboarding_step_completed', { step_name: stepName, step_index: stepIndex, time_spent: timeSpent }),
+  logOnboardingCompleted: (totalTimeSpent?: number, stepsCompleted?: number) =>
+    logEvent('onboarding_completed', { total_time_spent: totalTimeSpent, steps_completed: stepsCompleted }),
 
   // Workout events
-  logWorkoutStart: (level?: number, location?: string) =>
-    logEvent('workout_start', { level, location }),
+  logWorkoutStart: (location?: string) =>
+    logEvent('workout_start', { location }),
+  logWorkoutSessionStarted: (routeId?: string, workoutType?: string, activityType?: string) =>
+    logEvent('workout_session_started', { route_id: routeId, workout_type: workoutType, activity_type: activityType }),
   logWorkoutComplete: (workoutId?: string, duration?: number, calories?: number, earnedCoins?: number) =>
     logEvent('workout_complete', { workout_id: workoutId, duration, calories, earned_coins: earnedCoins }),
   logWorkoutAbandoned: (workoutId?: string, durationBeforeAbandon?: number) =>
@@ -282,6 +397,10 @@ export const Analytics = {
     logEvent('profile_created', { profile_fields: fields }),
   logProfileUpdated: (fields?: string[]) =>
     logEvent('profile_updated', { profile_fields: fields }),
+
+  // Permission events
+  logPermissionLocationStatus: (status: 'granted' | 'denied' | 'prompt', source?: string) =>
+    logEvent('permission_location_status', { status, source }),
 
   // Error events
   logError: (errorCode: string, screen?: string, errorMessage?: string) =>

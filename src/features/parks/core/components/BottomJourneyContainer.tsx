@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Navigation, Bike, Footprints, Activity, ChevronDown, Coins, Timer, Car, Shuffle } from 'lucide-react';
+import { Play, Navigation, Bike, Footprints, Activity, ChevronDown, Coins, Timer, Car, Shuffle, Settings } from 'lucide-react';
 import { Route, ActivityType } from '../types/route.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import WorkoutSettingsDrawer from '@/features/workout-engine/players/running/components/FreeRun/WorkoutSettingsDrawer';
 
 interface BottomJourneyContainerProps {
   routes: Route[];
@@ -39,6 +40,7 @@ export default function BottomJourneyContainer({
 }: BottomJourneyContainerProps) {
 
   const [internalMode, setInternalMode] = useState<'free' | 'discover'>('discover');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const mode = externalMode ?? internalMode;
 
   const setMode = (newMode: 'free' | 'discover') => {
@@ -133,7 +135,7 @@ export default function BottomJourneyContainer({
     <div className="fixed inset-0 z-40 pointer-events-none">
 
       {/* --- Header: Activity & Mode --- */}
-      <div className="absolute top-[110px] left-0 right-0 px-4 flex justify-between items-start pointer-events-auto z-50">
+      <div className="absolute top-[140px] left-0 right-0 px-4 flex justify-between items-start pointer-events-auto z-50">
 
         <div className="relative z-50">
           <button
@@ -327,7 +329,16 @@ export default function BottomJourneyContainer({
 
         ) : mode === 'free' ? (
           <div className="px-4">
-            <div className="max-w-md mx-auto bg-white rounded-3xl p-6 shadow-2xl text-center border border-gray-100">
+            <div className="max-w-md mx-auto bg-white rounded-3xl p-6 shadow-2xl text-center border border-gray-100 relative">
+              {/* Settings Icon - Top Right */}
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="absolute top-4 left-4 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px]"
+                aria-label="הגדרות אימון"
+              >
+                <Settings size={20} className="text-gray-600" />
+              </button>
+              
               <h3 className="text-xl font-black mb-2 text-gray-900">
                 {currentActivity === 'running' ? 'ריצה חופשית' :
                   currentActivity === 'cycling' ? 'רכיבה חופשית' :
@@ -335,7 +346,13 @@ export default function BottomJourneyContainer({
               </h3>
               <p className="text-gray-500 text-sm mb-6">ללא יעדים מוגדרים, רק אתה והדרך.</p>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  // Unlock audio engine for iOS Safari (must be in user gesture handler)
+                  if (typeof window !== 'undefined') {
+                    const { audioService } = await import('@/features/workout-engine/core/services/AudioService');
+                    audioService.unlock();
+                  }
+                  
                   // Force Premium Free Run UI
                   useRunningPlayer.getState().setRunMode('free');
                   if (onStartWorkout) onStartWorkout();
@@ -348,6 +365,12 @@ export default function BottomJourneyContainer({
           </div>
         ) : null}
       </div>
+
+      {/* Settings Drawer */}
+      <WorkoutSettingsDrawer
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div >
   );
 }

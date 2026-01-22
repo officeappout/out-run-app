@@ -328,7 +328,17 @@ export default function NavigationHub({
                                         </div>
 
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); onStart(); }}
+                                            onClick={async (e) => { 
+                                              e.stopPropagation(); 
+                                              
+                                              // Unlock audio engine for iOS Safari (must be in user gesture handler)
+                                              if (typeof window !== 'undefined') {
+                                                const { audioService } = await import('@/features/workout-engine/core/services/AudioService');
+                                                audioService.unlock();
+                                              }
+                                              
+                                              onStart(); 
+                                            }}
                                             disabled={isLoading || !route}
                                             className={`
                                                 mt-6 w-full h-14 rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all

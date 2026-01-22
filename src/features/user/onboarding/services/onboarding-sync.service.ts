@@ -8,6 +8,18 @@ import { signInAnonymously, User } from 'firebase/auth';
 import { OnboardingData, OnboardingStepId } from '../types';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 
+// Step order mapping for analytics
+const STEP_ORDER: Record<OnboardingStepId, number> = {
+  'LOCATION': 1,
+  'EQUIPMENT': 2,
+  'HISTORY': 3,
+  'SCHEDULE': 4,
+  'SOCIAL_MAP': 5,
+  'COMMUNITY': 6,
+  'COMPLETED': 7,
+  'SUMMARY': 8,
+};
+
 const USERS_COLLECTION = 'users';
 
 /**
@@ -60,6 +72,20 @@ export async function syncOnboardingToFirestore(
       ? sessionStorage.getItem('onboarding_personal_name') 
       : null;
     
+    // Get gender from sessionStorage (set during roadmap page) or from data
+    // Priority: sessionStorage > data.personal_gender > data.gender > null
+    let userGender: 'male' | 'female' | 'other' | null = null;
+    if (typeof window !== 'undefined') {
+      userGender = (sessionStorage.getItem('onboarding_personal_gender') || null) as 'male' | 'female' | 'other' | null;
+    }
+    // Fallback: check if gender is in the data object (from dynamic questionnaire answers)
+    if (!userGender && (data as any).personal_gender) {
+      userGender = (data as any).personal_gender as 'male' | 'female' | 'other';
+    }
+    if (!userGender && (data as any).gender) {
+      userGender = (data as any).gender as 'male' | 'female' | 'other';
+    }
+    
     const updateData: any = {
       id: user.uid,
       lastActive: serverTimestamp(),
@@ -85,11 +111,16 @@ export async function syncOnboardingToFirestore(
         initialFitnessTier: 1,
         trackingMode: 'wellness',
         mainGoal: 'healthy_lifestyle',
-        ...(data.pastActivityLevel ? { gender: 'other' } : {}), // Only include gender if we have data
+        gender: userGender || (data.gender as 'male' | 'female' | 'other') || 'other', // Get gender from sessionStorage or data, default to 'other'
         weight: 70,
         isAnonymous: isAnonymous,
         ...(selectedAuthorityId ? { authorityId: selectedAuthorityId } : {}), // Link to authority for B2G billing
       };
+      
+      // Ensure gender is always set (even if it's 'other')
+      if (!updateData.core.gender) {
+        updateData.core.gender = 'other';
+      }
       // Initialize progression, using onboarding coins as starting balance if available
       const initialCoins = typeof data.onboardingCoins === 'number' && data.onboardingCoins > 0
         ? data.onboardingCoins
@@ -129,6 +160,11 @@ export async function syncOnboardingToFirestore(
       // Update existing document - merge with existing data
       const existingData = userDoc.data();
       
+      // Ensure createdAt exists (set it if missing for existing users)
+      if (!existingData?.createdAt) {
+        updateData.createdAt = serverTimestamp();
+      }
+      
       // Preserve core structure if it exists
       if (existingData?.core) {
         const coreUpdate: any = {
@@ -150,6 +186,17 @@ export async function syncOnboardingToFirestore(
           coreUpdate.name = userName;
         }
         
+        // Update gender if we have it from sessionStorage and it's not already set
+        if (userGender && !coreUpdate.gender) {
+          coreUpdate.gender = userGender;
+        } else if ((data as any).gender && !coreUpdate.gender) {
+          // Fallback: use gender from data if available
+          coreUpdate.gender = (data as any).gender as 'male' | 'female' | 'other';
+        } else if (!coreUpdate.gender) {
+          // Ensure gender is always set (default to 'other' if missing)
+          coreUpdate.gender = 'other';
+        }
+        
         // Update authority ID from sessionStorage if set during city selection (for B2G billing)
         const selectedAuthorityId = typeof window !== 'undefined' 
           ? sessionStorage.getItem('selected_authority_id') 
@@ -168,9 +215,27 @@ export async function syncOnboardingToFirestore(
         updateData.core = coreUpdate;
       }
       
-      // Preserve progression if it exists
+      // Preserve progression if it exists, but ensure globalLevel is set
       if (existingData?.progression) {
-        updateData.progression = existingData.progression;
+        updateData.progression = {
+          ...existingData.progression,
+          // Ensure globalLevel is set (default to 1 if missing)
+          globalLevel: existingData.progression.globalLevel || 1,
+        };
+      } else {
+        // If no progression exists, initialize it with level 1
+        updateData.progression = {
+          globalLevel: 1,
+          globalXP: 0,
+          coins: 0,
+          totalCaloriesBurned: 0,
+          hasUnlockedAdvancedStats: false,
+          avatarId: 'default',
+          unlockedBadges: [],
+          domains: {},
+          activePrograms: [],
+          unlockedBonusExercises: [],
+        };
       }
       
       // Preserve other structures
@@ -249,6 +314,16 @@ export async function syncOnboardingToFirestore(
       updateData.core.name = userName;
     }
     
+    // Update gender if we have it and it's not already set (final check)
+    if (userGender && updateData.core && !updateData.core.gender) {
+      updateData.core.gender = userGender;
+    }
+    
+    // Ensure gender is always set (final safeguard - default to 'other' if still missing)
+    if (updateData.core && !updateData.core.gender) {
+      updateData.core.gender = 'other';
+    }
+    
     // Sanitize all undefined values before saving to Firestore
     // Firestore doesn't accept undefined - we need to either omit or use null
     const sanitizeObject = (obj: any): any => {
@@ -276,8 +351,15 @@ export async function syncOnboardingToFirestore(
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
 
-    // Log analytics event
-    await Analytics.logOnboardingStepComplete(step, 0); // Time spent can be calculated if needed
+    // Log analytics event with step index
+    const stepIndex = STEP_ORDER[step] || 0;
+    if (step === 'COMPLETED') {
+      // Log completion event
+      await Analytics.logOnboardingCompleted(undefined, stepIndex);
+    } else {
+      // Log step completion event
+      await Analytics.logOnboardingStepComplete(step, 0, stepIndex); // Time spent can be calculated if needed
+    }
 
     console.log(`[OnboardingSync] Synced step "${step}" to Firestore for user ${user.uid}`);
     return true;

@@ -172,4 +172,9 @@ export interface UserFullProfile {
   health: { injuries: string[]; connectedWatch: 'apple' | 'garmin' | 'none' };
 
   running: RunningProfile; // מתוך קובץ הריצה הנפרד
+
+  // Timestamps
+  createdAt?: any; // Firebase serverTimestamp() - user registration/joining date
+  updatedAt?: any; // Firebase serverTimestamp() - last profile update
+  lastActive?: any; // Firebase serverTimestamp() - last active timestamp
 }

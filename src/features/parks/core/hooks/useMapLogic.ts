@@ -342,11 +342,19 @@ export const useMapLogic = () => {
   }, [isWorkoutActive, isWorkoutPaused, currentUserPos, status, runDistance]);
 
   const startActiveWorkout = () => {
+    // Clear any old running data and initialize fresh
+    const runningPlayer = useRunningPlayer.getState();
+    runningPlayer.clearRunningData();
+    runningPlayer.initializeRunningData();
+    
     // Always start unified workout session (running)
     startSession('running');
 
     // Tell the running player to show the Free Run UI
-    useRunningPlayer.getState().setRunMode('free');
+    runningPlayer.setRunMode('free');
+
+    // Start GPS tracking
+    runningPlayer.startGPSTracking();
 
     setWorkoutStartTime(Date.now());
     setIsWorkoutActive(true);

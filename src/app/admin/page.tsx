@@ -23,6 +23,8 @@ import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard
 import ProductInsights from '@/features/admin/components/cpo-dashboard/ProductInsights';
 import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
 import PremiumConversion from '@/features/admin/components/cpo-dashboard/PremiumConversion';
+import OnboardingFunnel from '@/features/admin/components/cpo-dashboard/OnboardingFunnel';
+import PeakHours from '@/features/admin/components/cpo-dashboard/PeakHours';
 
 export default function AdminDashboardPage() {
     const router = useRouter();
@@ -194,6 +196,12 @@ export default function AdminDashboardPage() {
                         <span>תובנות אסטרטגיות</span>
                     </Link>
                 </div>
+            </div>
+
+            {/* Analytics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <OnboardingFunnel />
+                <PeakHours />
             </div>
 
             {/* Quick Access Cards */}

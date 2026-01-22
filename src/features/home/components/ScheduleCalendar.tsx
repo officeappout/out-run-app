@@ -2,10 +2,11 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Lock, Footprints, Flame } from 'lucide-react';
+import { Check, Lock, Footprints, Flame, Move, Bike, Activity, Dumbbell } from 'lucide-react';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { ActivityType } from '@/features/user';
+import { useDailyProgress } from '../hooks/useDailyProgress';
 
 interface ScheduleCalendarProps {
   schedule: DaySchedule[];
@@ -15,6 +16,7 @@ interface ScheduleCalendarProps {
 export default function ScheduleCalendar({ schedule, onDayClick }: ScheduleCalendarProps) {
   const { profile } = useUserStore();
   const { goalHistory } = useProgressionStore();
+  const todayProgress = useDailyProgress();
   const isGuest = profile?.id && !profile.core?.email; // Guest detection logic
 
   if (isGuest) {
@@ -97,13 +99,51 @@ export default function ScheduleCalendar({ schedule, onDayClick }: ScheduleCalen
           </div>
         );
       case 'today':
+        // Show workout type icon if completed, otherwise show progress ring
+        // Debug log
+        console.log('[ScheduleCalendar] Rendering tile for today. Workout status:', {
+          workoutCompleted: todayProgress?.workoutCompleted,
+          workoutType: todayProgress?.workoutType,
+          todayProgress
+        });
+        
+        if (todayProgress?.workoutCompleted) {
+          const getWorkoutIcon = (workoutType?: string) => {
+            const iconProps = { className: "w-5 h-5 text-white", size: 20 };
+            if (workoutType) {
+              switch (workoutType) {
+                case 'running':
+                  return <Footprints {...iconProps} />;
+                case 'walking':
+                  return <Move {...iconProps} />;
+                case 'cycling':
+                  return <Bike {...iconProps} />;
+                case 'strength':
+                  return <Dumbbell {...iconProps} />;
+                case 'hybrid':
+                  return <Activity {...iconProps} />;
+                default:
+                  return <Check className="w-5 h-5 text-white stroke-[3]" />;
+              }
+            }
+            // Default to checkmark if no workoutType
+            return <Check className="w-5 h-5 text-white stroke-[3]" />;
+          };
+          
+          return (
+            <div className="w-9 h-9 rounded-full bg-[#00ADEF] flex items-center justify-center shadow-md border-2 border-blue-300 relative z-10">
+              {getWorkoutIcon(todayProgress.workoutType)}
+            </div>
+          );
+        }
         return (
           <div className="w-9 h-9 flex items-center justify-center relative">
             {/* טבעת התקדמות עם חיתוך כמו בתמונה */}
             <svg className="absolute w-full h-full -rotate-90">
               <circle cx="18" cy="18" r="16" stroke="#E0F7FA" strokeWidth="3" fill="transparent" />
               <circle
-                cx="18" cy="18" r="16"
+                cx="18" cy="18"
+                r="16"
                 stroke="#00E5FF" strokeWidth="3"
                 fill="transparent"
                 strokeDasharray="100"

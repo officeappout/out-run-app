@@ -59,6 +59,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       totalDistance: 0,
       pausedTime: 0,
     });
+    
+    // Log workout session started event
+    if (typeof window !== 'undefined') {
+      import('@/features/analytics/AnalyticsService').then(({ Analytics }) => {
+        Analytics.logWorkoutSessionStarted(undefined, mode, mode).catch((error) => {
+          console.error('[SessionStore] Error logging workout session started:', error);
+        });
+      });
+    }
   },
   
   // Pause the session

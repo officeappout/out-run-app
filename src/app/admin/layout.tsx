@@ -182,37 +182,37 @@ export default function AdminLayout({
     // Show loading state but still render layout to prevent white screen
     if (loading) {
         return (
-            <div className="flex h-screen bg-gray-100 overflow-hidden" dir="rtl">
-                <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:block relative h-screen overflow-y-auto flex flex-col">
-                    <div className="p-6 border-b border-slate-800">
+            <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:block relative min-h-[100dvh] overflow-y-auto flex flex-col">
+                    <div className="p-4 md:p-6 border-b border-slate-800">
                     {onlyAuthorityManager && authorityName ? (
                         <div>
-                            <h1 className="text-xl font-black tracking-tight text-white mb-1">
+                            <h1 className="text-lg md:text-xl font-black tracking-tight text-white mb-1">
                                 OUT RUN <span className="text-cyan-400">Admin</span>
                             </h1>
-                            <p className="text-sm text-slate-300 font-medium">
+                            <p className="text-xs md:text-sm text-slate-300 font-medium">
                                 פורטל ניהול: {authorityName}
                             </p>
                         </div>
                     ) : (
-                        <h1 className="text-2xl font-black tracking-tight text-white">
+                        <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
                             OUT RUN <span className="text-cyan-400">Admin</span>
                         </h1>
                     )}
                     </div>
-                    <div className="p-8">
+                    <div className="p-4 md:p-8">
                         <div className="animate-pulse space-y-4">
                             <div className="h-4 bg-slate-700 rounded w-3/4"></div>
                             <div className="h-4 bg-slate-700 rounded w-1/2"></div>
                         </div>
                     </div>
                 </aside>
-                <main className="flex-1 overflow-y-auto h-screen">
-                    <div className="p-8 min-h-full">
+                <main className="flex-1 overflow-y-auto min-h-[100dvh]">
+                    <div className="p-4 md:p-8 min-h-full">
                         <div className="flex items-center justify-center h-64">
                             <div className="text-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-                                <p className="text-gray-600">בודק הרשאות...</p>
+                                <p className="text-sm md:text-base text-gray-600">בודק הרשאות...</p>
                             </div>
                         </div>
                     </div>
@@ -222,16 +222,16 @@ export default function AdminLayout({
     }
 
     return (
-        <div className="flex h-screen bg-gray-100 overflow-hidden" dir="rtl">
+        <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
             {/* Sidebar - Fixed/Sticky */}
-            <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:block relative h-screen overflow-y-auto flex flex-col">
-                <div className="p-6 border-b border-slate-800 flex-shrink-0">
-                    <h1 className="text-2xl font-black tracking-tight text-white">
+            <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:block relative min-h-[100dvh] overflow-y-auto flex flex-col">
+                <div className="p-4 md:p-6 border-b border-slate-800 flex-shrink-0">
+                    <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
                         OUT RUN <span className="text-cyan-400">Admin</span>
                     </h1>
                 </div>
 
-                <nav className="p-4 space-y-2 flex flex-col flex-1 min-h-0">
+                <nav className="p-2 md:p-4 space-y-2 flex flex-col flex-1 min-h-0">
                     {showSimplifiedSidebar ? (
                         <>
                             {/* Dedicated sidebar for Authority Managers - Only relevant items */}
@@ -504,8 +504,8 @@ export default function AdminLayout({
             </aside>
 
             {/* Main Content - Scrollable */}
-            <main className="flex-1 overflow-y-auto h-screen">
-                <div className="p-8 pb-16 min-h-full">
+            <main className="flex-1 overflow-y-auto min-h-[100dvh]">
+                <div className="p-4 md:p-8 pb-16 min-h-full">
                     {children}
                 </div>
             </main>

@@ -16,7 +16,7 @@ export const MapLayersControl: React.FC = () => {
     const { visibleLayers, toggleLayer } = useMapStore();
 
     return (
-        <div className="absolute top-24 right-4 z-50">
+        <div className="absolute top-28 right-4 z-50">
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${isOpen ? 'bg-cyan-500 text-white' : 'bg-white text-gray-600'

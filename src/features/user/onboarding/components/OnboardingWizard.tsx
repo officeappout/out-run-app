@@ -15,6 +15,7 @@ import CalculatingProfileScreen from '@/components/CalculatingProfileScreen';
 import SummaryReveal from './SummaryReveal';
 import { syncOnboardingToFirestore } from '../services/onboarding-sync.service';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
+import { Analytics } from '@/features/analytics/AnalyticsService';
 
 export default function OnboardingWizard() {
   const router = useRouter();
@@ -43,6 +44,11 @@ export default function OnboardingWizard() {
 
   // Sync to Firestore on initial load (first step) to ensure user appears in admin panel
   useEffect(() => {
+    // Log onboarding start event
+    Analytics.logOnboardingStart('onboarding_wizard').catch((error) => {
+      console.error('[OnboardingWizard] Error logging onboarding start:', error);
+    });
+    
     // Sync current step on mount to ensure user appears in admin panel immediately
     syncOnboardingToFirestore(currentStep, data).catch((error) => {
       console.error('[OnboardingWizard] Error syncing on mount:', error);

@@ -183,7 +183,14 @@ export default function RouteTimelineOverlay({
       {/* כפתור התחלה - צף למטה */}
       <div className="p-5 border-t border-gray-100 bg-white safe-area-bottom sticky bottom-0">
         <button
-          onClick={onStart}
+          onClick={async () => {
+            // Unlock audio engine for iOS Safari (must be in user gesture handler)
+            if (typeof window !== 'undefined') {
+              const { audioService } = await import('@/features/workout-engine/core/services/AudioService');
+              audioService.unlock();
+            }
+            onStart();
+          }}
           className="w-full bg-gradient-to-r from-[#00E5FF] to-[#00B8D4] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 text-lg shadow-lg shadow-[#00E5FF]/30 transition-transform active:scale-95"
         >
           <Play className="w-6 h-6 fill-current" />

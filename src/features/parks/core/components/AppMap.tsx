@@ -114,6 +114,20 @@ export default function AppMap({
     }
   }, [isNavigationMode, currentLocation, userBearing, isMapLoaded]);
 
+  // Smooth camera following during active workout (industry-standard GPS tracking)
+  useEffect(() => {
+    if (isActiveWorkout && currentLocation && mapRef.current && isMapLoaded && !isNavigationMode) {
+      // Use easeTo for smooth, continuous following (like Strava/Nike)
+      mapRef.current.easeTo({
+        center: [currentLocation.lng, currentLocation.lat],
+        zoom: 17, // Slightly zoomed in for active tracking
+        duration: 500, // Smooth 500ms transition
+        easing: (t) => t * (2 - t), // Ease-out curve for natural movement
+        essential: true, // Continue even if user interacts
+      });
+    }
+  }, [isActiveWorkout, currentLocation, isMapLoaded, isNavigationMode]);
+
   useEffect(() => {
     if (destinationMarker && mapRef.current && isMapLoaded && !focusedRoute) {
       mapRef.current.flyTo({
@@ -236,7 +250,7 @@ export default function AppMap({
   };
 
   return (
-    <div className="w-full h-full relative bg-[#f3f4f6]">
+    <div className="w-full h-full relative bg-[#f3f4f6] overflow-hidden">
       <Map
         ref={mapRef}
         onLoad={handleMapLoad}
@@ -245,9 +259,10 @@ export default function AppMap({
           latitude: 32.0853,
           zoom: 13
         }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
+        locale="he"
         onClick={() => onRouteSelect && focusedRoute && onRouteSelect(null as any)}
       >
         {isMapLoaded && (

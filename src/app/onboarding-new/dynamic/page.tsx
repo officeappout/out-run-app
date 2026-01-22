@@ -14,6 +14,7 @@ import DynamicQuestionRenderer from '@/features/user/onboarding/components/Dynam
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
+import { Analytics } from '@/features/analytics/AnalyticsService';
 
 /**
  * Dynamic Onboarding Page
@@ -74,6 +75,12 @@ export default function DynamicOnboardingPage() {
     const init = async () => {
       try {
         setLoading(true);
+        
+        // Log onboarding start event
+        Analytics.logOnboardingStart('dynamic_questionnaire').catch((error) => {
+          console.error('[DynamicOnboarding] Error logging onboarding start:', error);
+        });
+        
         // Get language from sessionStorage (set in intro page) or default to 'he'
         const currentLang = (sessionStorage.getItem('onboarding_language') || 'he') as 'he' | 'en' | 'ru';
         // Get gender from sessionStorage (set in roadmap page) or default to 'neutral'

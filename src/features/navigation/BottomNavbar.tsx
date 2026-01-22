@@ -31,7 +31,7 @@ export default function BottomNavigation() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-around items-center z-50 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-around items-center z-50 shadow-lg" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
@@ -40,7 +40,7 @@ export default function BottomNavigation() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-1 ${isActive ? 'text-blue-600 font-bold' : 'text-gray-400'
+            className={`flex flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] ${isActive ? 'text-blue-600 font-bold' : 'text-gray-400'
               }`}
           >
             <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />

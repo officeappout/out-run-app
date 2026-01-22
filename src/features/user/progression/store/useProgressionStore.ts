@@ -9,6 +9,9 @@ import type { UserFullProfile } from '../../core/types/user.types';
 import { getLemurStage, recordActivity as recordLemurActivity } from '../services/lemur-evolution.service';
 import { awardCoins as awardCoinsToFirestore } from '../services/coin-calculator.service';
 import { checkAndUnlockAchievements } from '../services/achievement.service';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getUserProgression } from '@/lib/firestore.service';
 
 export interface GoalHistoryEntry {
   date: string;           // 'YYYY-MM-DD'
@@ -44,13 +47,17 @@ interface ProgressionState {
 
   // Loading state
   isLoaded: boolean;
+  isHydrated: boolean; // Flag to prevent UI jumping before initial fetch
 
   // Actions
   addCoins: (amount: number) => void;
+  hydrateFromFirestore: (userId: string) => Promise<void>;
   recordActivity: (userId: string) => Promise<{ evolved: boolean; lemurStage: number }>;
   unlockBadge: (badgeId: string) => void;
   syncFromProfile: (profile: UserFullProfile | null) => void;
   awardWorkoutRewards: (userId: string, calories: number) => Promise<void>;
+  awardWorkoutCoins: (calories: number) => Promise<void>;
+  markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
   reset: () => void;
@@ -71,6 +78,7 @@ const initialState = {
   domainProgress: {},
   unlockedBadges: [],
   isLoaded: false,
+  isHydrated: false,
 };
 
 export const useProgressionStore = create<ProgressionState>((set, get) => ({
@@ -148,7 +156,7 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
    */
   syncFromProfile: (profile: UserFullProfile | null) => {
     if (!profile) {
-      set({ ...initialState, isLoaded: true });
+      set({ ...initialState, isLoaded: true, isHydrated: false });
       return;
     }
 
@@ -176,7 +184,111 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       goalHistory: progression.goalHistory || [],
       lastActivityType: 'none', // Reset on load
       isLoaded: true,
+      // Don't set isHydrated here - it should be set after Firestore fetch
     });
+  },
+
+  /**
+   * Hydrate progression store from Firestore
+   * Called on app load to sync coins and calories
+   */
+  hydrateFromFirestore: async (userId: string) => {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      const progression = await getUserProgression(userId);
+      if (progression) {
+        set({
+          coins: progression.coins || 0,
+          totalCaloriesBurned: progression.totalCaloriesBurned || 0,
+          isHydrated: true,
+        });
+        console.log(`✅ [ProgressionStore] Hydrated from Firestore: ${progression.coins} coins, ${progression.totalCaloriesBurned} calories`);
+      } else {
+        // No progression data yet, mark as hydrated anyway
+        set({ isHydrated: true });
+      }
+    } catch (error) {
+      console.error('[ProgressionStore] Error hydrating from Firestore:', error);
+      // Mark as hydrated even on error to prevent infinite loading
+      set({ isHydrated: true });
+    }
+  },
+
+  /**
+   * Award workout coins (coins = calories, 1:1 ratio)
+   * Also marks today as completed and updates progression
+   */
+  awardWorkoutCoins: async (calories: number) => {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+      const userState = useUserStore.getState();
+      const userId = userState.profile?.id;
+      
+      if (!userId) {
+        console.warn('[ProgressionStore] No user ID available for awarding coins');
+        return;
+      }
+      
+      // Award coins to Firestore using atomic increment
+      const { coins, success } = await awardCoinsToFirestore(userId, calories);
+      
+      if (success) {
+        // Refresh from Firestore to get the updated value (ensures accuracy after increment)
+        const updatedProgression = await getUserProgression(userId);
+        if (updatedProgression) {
+          set({
+            coins: updatedProgression.coins || 0,
+            totalCaloriesBurned: updatedProgression.totalCaloriesBurned || 0,
+            lastActivityType: 'super' as ActivityType, // Trigger "Stronger Flame"
+          });
+        } else {
+          // Fallback: optimistic update if refresh fails
+          set((state) => ({
+            coins: state.coins + coins,
+            totalCaloriesBurned: state.totalCaloriesBurned + calories,
+            lastActivityType: 'super' as ActivityType,
+          }));
+        }
+        
+        // Record activity (updates daysActive and lemurStage)
+        const result = await get().recordActivity(userId);
+        
+        // Record this as a 'super' workout in goalHistory for calendar
+        const state = get();
+        const today = new Date().toISOString().split('T')[0];
+        const existingEntry = state.goalHistory.find(entry => entry.date === today);
+        
+        if (existingEntry) {
+          // Update existing entry to mark as super
+          const updatedHistory = state.goalHistory.map(entry =>
+            entry.date === today ? { ...entry, isSuper: true } : entry
+          );
+          set({ goalHistory: updatedHistory });
+        } else {
+          // Create new entry for super workout
+          const newEntry: GoalHistoryEntry = {
+            date: today,
+            stepsAchieved: 0,
+            floorsAchieved: 0,
+            stepGoalMet: false,
+            floorGoalMet: false,
+            isSuper: true,
+          };
+          const updatedHistory = [newEntry, ...state.goalHistory].slice(0, 3);
+          set({ goalHistory: updatedHistory });
+        }
+        
+        console.log(
+          `✅ [ProgressionStore] Coins successfully added to User Profile: ${coins} coins (${calories} calories) for user ${userId}` +
+            (result.evolved ? ` 🎉 Lemur evolved to stage ${result.lemurStage}!` : '')
+        );
+      }
+    } catch (error) {
+      console.error('[ProgressionStore] Error awarding workout coins:', error);
+    }
   },
 
   /**
@@ -272,6 +384,97 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
     set({
       goalHistory: updatedHistory,
     });
+  },
+
+  /**
+   * Mark today as completed (workout done)
+   * Syncs to Firestore dailyProgress collection
+   */
+  markTodayAsCompleted: async (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+      const userState = useUserStore.getState();
+      const userId = userState.profile?.id;
+      
+      if (!userId) {
+        console.warn('[ProgressionStore] No user ID available for marking today as completed');
+        return;
+      }
+      
+      console.log('[ProgressionStore] Syncing progression to Firestore...');
+      
+      const today = new Date().toISOString().split('T')[0];
+      const dailyProgressRef = doc(db, 'dailyProgress', `${userId}_${today}`);
+      
+      // Get existing daily progress or create new
+      const existingDoc = await getDoc(dailyProgressRef);
+      const existingData = existingDoc.exists() ? existingDoc.data() : {};
+      
+      // Get workout metadata for icon display
+      const getWorkoutIcon = (workoutType: string): string => {
+        switch (workoutType) {
+          case 'running': return 'run-fast';
+          case 'walking': return 'walk';
+          case 'cycling': return 'bike';
+          case 'strength': return 'dumbbell';
+          case 'hybrid': return 'activity';
+          default: return 'run-fast';
+        }
+      };
+
+      // Update with workout completion
+      await setDoc(dailyProgressRef, {
+        userId,
+        date: today,
+        workoutCompleted: true,
+        workoutType: type,
+        displayIcon: getWorkoutIcon(type),
+        ...existingData, // Preserve other fields (steps, floors, etc.)
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      
+      // Also update goalHistory in user document
+      const state = get();
+      const todayEntry = state.goalHistory.find(entry => entry.date === today);
+      
+      if (todayEntry) {
+        // Update existing entry to mark as super
+        const updatedHistory = state.goalHistory.map(entry =>
+          entry.date === today ? { ...entry, isSuper: true } : entry
+        );
+        set({ goalHistory: updatedHistory });
+        
+        // Sync goalHistory to Firestore
+        const userDocRef = doc(db, 'users', userId);
+        await updateDoc(userDocRef, {
+          'progression.goalHistory': updatedHistory,
+        });
+      } else {
+        // Create new entry for super workout
+        const newEntry: GoalHistoryEntry = {
+          date: today,
+          stepsAchieved: existingData.stepsAchieved || 0,
+          floorsAchieved: existingData.floorsAchieved || 0,
+          stepGoalMet: existingData.stepGoalMet || false,
+          floorGoalMet: existingData.floorGoalMet || false,
+          isSuper: true,
+        };
+        const updatedHistory = [newEntry, ...state.goalHistory].slice(0, 3);
+        set({ goalHistory: updatedHistory });
+        
+        // Sync goalHistory to Firestore
+        const userDocRef = doc(db, 'users', userId);
+        await updateDoc(userDocRef, {
+          'progression.goalHistory': updatedHistory,
+        });
+      }
+      
+      console.log('[ProgressionStore] Syncing progression to Firestore... Done.');
+    } catch (error) {
+      console.error('[ProgressionStore] Error marking today as completed:', error);
+    }
   },
 
   /**

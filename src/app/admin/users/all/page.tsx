@@ -20,8 +20,15 @@ import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/sto
 import { 
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
-  Building2, Clock, CheckCircle2, AlertCircle, Dumbbell
+  Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// Dynamic import for map to avoid SSR issues
+const RunMapBlock = dynamic(
+  () => import('@/features/workout-engine/summary/components/running/RunMapBlock'),
+  { ssr: false }
+);
 import { logAction } from '@/features/admin/services/audit.service';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import { GearDefinition } from '@/features/content/equipment/gear';
@@ -31,6 +38,8 @@ import { getProgram, getAllPrograms } from '@/features/content/programs';
 import { Program } from '@/features/content/programs';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
+import { formatFirebaseTimestamp } from '@/lib/utils/date-formatter';
+import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 
 interface UserDetailModalProps {
   user: AdminUserListItem | null;
@@ -803,38 +812,181 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          {workoutHistory.map((workout) => (
-                            <div
-                              key={workout.id}
-                              className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-bold text-gray-900 font-simpler">
-                                  {workout.routeName || workout.activityType}
-                                </div>
-                                <div className="text-sm text-gray-500 font-simpler">
-                                  {new Date(workout.date).toLocaleDateString('he-IL')}
+                          {workoutHistory.map((workout) => {
+                            // Get workout type icon
+                            const getWorkoutIcon = () => {
+                              const iconProps = { size: 20, className: 'text-gray-600' };
+                              switch (workout.workoutType) {
+                                case 'running':
+                                  return <Footprints {...iconProps} />;
+                                case 'walking':
+                                  return <Move {...iconProps} />;
+                                case 'cycling':
+                                  return <Bike {...iconProps} />;
+                                case 'strength':
+                                  return <Dumbbell {...iconProps} />;
+                                case 'hybrid':
+                                  return <Activity {...iconProps} />;
+                                default:
+                                  return <Activity {...iconProps} />;
+                              }
+                            };
+
+                            // Get workout type label
+                            const getWorkoutTypeLabel = () => {
+                              switch (workout.workoutType) {
+                                case 'running':
+                                  return 'ריצה חופשית';
+                                case 'walking':
+                                  return 'הליכה';
+                                case 'cycling':
+                                  return 'רכיבה';
+                                case 'strength':
+                                  return 'אימון כוח';
+                                case 'hybrid':
+                                  return 'אימון משולב';
+                                default:
+                                  return workout.activityType || 'פעילות';
+                              }
+                            };
+
+                            // Format duration as MM:SS
+                            const formatDuration = (seconds: number): string => {
+                              if (!seconds || seconds < 0) return '00:00';
+                              const mins = Math.floor(seconds / 60);
+                              const secs = Math.floor(seconds % 60);
+                              return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                            };
+
+                            // Format completion time (HH:MM)
+                            const formatCompletionTime = (date: Date): string => {
+                              const hours = date.getHours().toString().padStart(2, '0');
+                              const minutes = date.getMinutes().toString().padStart(2, '0');
+                              return `${hours}:${minutes}`;
+                            };
+
+                            // Convert routePath to number[][] for RunMapBlock
+                            const routeCoords: number[][] = (() => {
+                              if (!workout.routePath || !Array.isArray(workout.routePath) || workout.routePath.length === 0) {
+                                return [];
+                              }
+                              
+                              try {
+                                return workout.routePath
+                                  .map((coord: any) => {
+                                    // New format: {lat, lng}
+                                    if (coord && typeof coord === 'object' && 'lat' in coord && 'lng' in coord) {
+                                      return [Number(coord.lng), Number(coord.lat)]; // Mapbox expects [lng, lat]
+                                    }
+                                    // Old format: [lat, lng] or [lng, lat]
+                                    if (Array.isArray(coord) && coord.length >= 2) {
+                                      return [Number(coord[0]), Number(coord[1])];
+                                    }
+                                    return null;
+                                  })
+                                  .filter((coord: number[] | null): coord is number[] => 
+                                    coord !== null && !isNaN(coord[0]) && !isNaN(coord[1])
+                                  );
+                              } catch (error) {
+                                console.error('[Admin] Error parsing routePath:', error);
+                                return [];
+                              }
+                            })();
+
+                            const workoutDate = workout.date instanceof Date ? workout.date : new Date(workout.date);
+                            const completionTime = formatCompletionTime(workoutDate);
+
+                            return (
+                              <div
+                                key={workout.id}
+                                className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex items-start gap-4">
+                                  {/* Left: Mini Map (for running workouts) */}
+                                  {(workout.workoutType === 'running' || workout.workoutType === 'walking' || workout.workoutType === 'cycling') && routeCoords.length > 1 && (
+                                    <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                      <RunMapBlock
+                                        routeCoords={routeCoords}
+                                        startCoord={routeCoords[0]}
+                                        endCoord={routeCoords[routeCoords.length - 1]}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Right: Workout Details */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center gap-2">
+                                        {getWorkoutIcon()}
+                                        <div className="font-bold text-gray-900 font-simpler">
+                                          {getWorkoutTypeLabel()}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 text-sm text-gray-500 font-simpler">
+                                        <Clock size={12} />
+                                        <span>{new Date(workout.date).toLocaleDateString('he-IL')} • {completionTime}</span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4 text-sm text-gray-600 font-simpler flex-wrap">
+                                      {/* Show stats based on workout type */}
+                                      {workout.workoutType === 'running' || workout.workoutType === 'walking' || workout.workoutType === 'cycling' ? (
+                                        <>
+                                          {workout.distance > 0 && (
+                                            <span className="flex items-center gap-1">
+                                              <MapPin size={14} />
+                                              <span className="font-bold">{workout.distance.toFixed(2)} ק"מ</span>
+                                            </span>
+                                          )}
+                                          {workout.duration > 0 && (
+                                            <span className="flex items-center gap-1">
+                                              <Clock size={14} />
+                                              <span className="font-bold">{formatDuration(workout.duration)}</span>
+                                            </span>
+                                          )}
+                                          {workout.pace > 0 && (
+                                            <span className="flex items-center gap-1">
+                                              ⚡ {formatPace(workout.pace)} /ק"מ
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : workout.workoutType === 'strength' ? (
+                                        <>
+                                          {workout.duration > 0 && (
+                                            <span className="flex items-center gap-1">
+                                              <Clock size={14} />
+                                              <span className="font-bold">{formatDuration(workout.duration)}</span>
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <>
+                                          {workout.duration > 0 && (
+                                            <span className="flex items-center gap-1">
+                                              <Clock size={14} />
+                                              <span className="font-bold">{formatDuration(workout.duration)}</span>
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                      {workout.calories > 0 && (
+                                        <span className="flex items-center gap-1">
+                                          <Activity size={14} className="text-orange-500" />
+                                          {workout.calories} קלוריות
+                                        </span>
+                                      )}
+                                      {workout.earnedCoins > 0 && (
+                                        <span className="flex items-center gap-1">
+                                          <Coins size={14} className="text-yellow-600" />
+                                          <span className="font-bold">+{workout.earnedCoins} מטבעות</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-gray-600 font-simpler">
-                                {workout.duration > 0 && (
-                                  <span>⏱️ {Math.floor(workout.duration / 60)} דקות</span>
-                                )}
-                                {workout.distance > 0 && (
-                                  <span>📏 {workout.distance.toFixed(2)} ק"מ</span>
-                                )}
-                                {workout.calories > 0 && (
-                                  <span>🔥 {workout.calories} קלוריות</span>
-                                )}
-                                {workout.earnedCoins > 0 && (
-                                  <span className="flex items-center gap-1">
-                                    <Coins size={14} className="text-yellow-600" />
-                                    +{workout.earnedCoins}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -945,6 +1097,7 @@ export default function AllUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter]);
 
+
   const loadUsers = async (filterByAuthority: boolean = false, authorityIds: string[] = []) => {
     try {
       setLoading(true);
@@ -978,7 +1131,8 @@ export default function AllUsersPage() {
           photoURL: core.photoURL || undefined,
           coins: progression.coins || 0,
           level: calculatedLevel,
-          joinDate: data?.createdAt?.toDate?.() || undefined,
+          joinDate: data?.createdAt ? data.createdAt : undefined,
+          lastActive: data?.lastActive ? data.lastActive : undefined,
           isSuperAdmin: core.isSuperAdmin === true,
           isApproved: core.isApproved === true,
           onboardingStep: data?.onboardingStep || undefined,
@@ -1241,13 +1395,14 @@ export default function AllUsersPage() {
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">רמה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מטבעות</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תאריך הצטרפות</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">פעילות אחרונה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">פעולות</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-500 font-simpler">
+                  <td colSpan={9} className="text-center py-12 text-gray-500 font-simpler">
                     {searchTerm ? 'לא נמצאו משתמשים התואמים לחיפוש' : 'אין משתמשים'}
                   </td>
                 </tr>
@@ -1331,9 +1486,10 @@ export default function AllUsersPage() {
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-black font-simpler">
-                      {user.joinDate
-                        ? new Date(user.joinDate).toLocaleDateString('he-IL')
-                        : '-'}
+                      {formatFirebaseTimestamp(user.joinDate)}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-black font-simpler">
+                      {formatFirebaseTimestamp((user as any).lastActive)}
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
