@@ -140,12 +140,21 @@ export default function AdminLayout({
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            // Skip auth check for login-related pages
+            const publicPaths = ['/admin/login', '/admin/auth/callback', '/admin/authority-login', '/admin/pending-approval'];
+            const isPublicPath = publicPaths.some(path => pathname?.startsWith(path));
+            
             if (!user) {
-                if (pathname?.startsWith('/admin/authority-manager')) {
-                    if (typeof window !== 'undefined') {
-                        window.location.href = '/admin/authority-login';
+                // Not authenticated - redirect to login (unless on public path)
+                if (!isPublicPath) {
+                    if (pathname?.startsWith('/admin/authority-manager')) {
+                        if (typeof window !== 'undefined') {
+                            window.location.href = '/admin/authority-login';
+                        }
+                    } else {
+                        // Redirect to admin login for all other admin routes
+                        router.push('/admin/login');
                     }
-                    return;
                 }
                 setRoleInfo({
                     role: 'none',
@@ -162,8 +171,19 @@ export default function AdminLayout({
             }
 
             try {
-                const info = await checkUserRole(user.uid);
+                // Pass user email for allowlist check
+                const info = await checkUserRole(user.uid, user.email);
                 setRoleInfo(info);
+                
+                // Check if user has NO admin access at all
+                if (!info.isSuperAdmin && !info.isSystemAdmin && !info.isAuthorityManager && !isPublicPath) {
+                    // User is authenticated but not an admin - show access denied
+                    console.warn('Access denied: User is not an authorized admin');
+                    router.push('/admin/login');
+                    setLoading(false);
+                    return;
+                }
+                
                 const isOnly = await isOnlyAuthorityManager(user.uid);
                 setOnlyAuthorityManager(isOnly);
                 const isSystemOnly = await checkIsSystemAdmin(user.uid);
@@ -197,7 +217,7 @@ export default function AdminLayout({
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [pathname]);
+    }, [pathname, router]);
 
     const isSuperAdmin = roleInfo?.isSuperAdmin ?? false;
     const isSystemAdmin = roleInfo?.isSystemAdmin ?? false;

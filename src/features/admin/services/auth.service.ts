@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getAuthoritiesByManager } from './authority.service';
 import { getAuthorityStats } from './analytics.service';
+import { isAdminEmailAllowed } from '@/config/feature-flags';
 
 export type UserRole = 'super_admin' | 'system_admin' | 'authority_manager' | 'none';
 
@@ -31,23 +32,17 @@ export const toDate = (timestamp: any): Date => {
 };
 
 /**
- * Check if user is a super admin - WITH MASTER BYPASS
+ * Check if user is a super admin - WITH EMAIL ALLOWLIST
  */
-export async function checkUserRole(userId: string): Promise<UserRoleInfo> {
+export async function checkUserRole(userId: string, userEmail?: string | null): Promise<UserRoleInfo> {
   try {
-    // ============================================
-    // ⚠️ MASTER SECURITY BYPASS - OPEN ACCESS
-    // ============================================
-    // פתיחה זמנית של כל המערכת כדי שתוכל להיכנס ולנהל משתמשים
-    // גם אם לא הזדהית עם מייל תקין בכניסה.
-    console.warn("⚠️ MASTER BYPASS ACTIVE: All users granted Super Admin access.");
-    
     // Get authorities for this user
     const authorities = await getAuthoritiesByManager(userId);
     const isAuthorityManager = authorities.length > 0;
     let isSuperAdmin = false;
     let isSystemAdmin = false;
     let isApproved = false;
+    let emailFromProfile: string | null = null;
 
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
@@ -58,10 +53,22 @@ export async function checkUserRole(userId: string): Promise<UserRoleInfo> {
         isSystemAdmin = (userProfile.core as any)?.isSystemAdmin === true || 
                         (userProfile.core as any)?.role === 'system_admin';
         isApproved = (userProfile.core as any)?.isApproved === true;
+        emailFromProfile = (userProfile.core as any)?.email || null;
         await logAdminLogin(userId);
       }
     } catch (error) {
       console.error('Error checking user profile:', error);
+    }
+
+    // Check email allowlist for super admin access
+    const emailToCheck = userEmail || emailFromProfile;
+    const isEmailAllowed = isAdminEmailAllowed(emailToCheck);
+    
+    // If email is in allowlist and user doesn't have explicit super_admin flag,
+    // grant them super_admin access
+    if (isEmailAllowed && !isSuperAdmin) {
+      isSuperAdmin = true;
+      isApproved = true;
     }
 
     // Determine role priority: super_admin > system_admin > authority_manager > none
@@ -144,9 +151,22 @@ export function useUserRole() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // גם אם user הוא null, ה-MASTER BYPASS ייתן הרשאות
-      const uid = user ? user.uid : 'bypass-user';
-      const info = await checkUserRole(uid);
+      if (!user) {
+        // No authenticated user - return no access
+        setRoleInfo({
+          role: 'none',
+          isSuperAdmin: false,
+          isSystemAdmin: false,
+          isAuthorityManager: false,
+          authorityIds: [],
+          isApproved: false,
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Check role with user's email for allowlist validation
+      const info = await checkUserRole(user.uid, user.email);
       setRoleInfo(info);
       setLoading(false);
     });
