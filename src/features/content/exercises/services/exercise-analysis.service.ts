@@ -189,29 +189,40 @@ export interface TaskListSummary {
 
 /**
  * Determine production status for a method based on workflow and media
+ * 
+ * Priority logic:
+ * 1. If media exists (video OR image), check if workflow is complete
+ * 2. If workflow.uploaded === true OR media exists → 'ready'
+ * 3. If workflow.filmed but not uploaded → 'in_post_production'
+ * 4. If no media at all → 'needs_media'
+ * 5. Otherwise → 'not_started'
  */
 function getMethodProductionStatus(
   workflow: ContentMatrixLocation['workflow'],
   hasVideo: boolean,
   hasImage: boolean
 ): MethodProductionStatus {
-  // Ready = uploaded AND has media
-  if (workflow.uploaded && (hasVideo || hasImage)) {
+  const hasMedia = hasVideo || hasImage;
+  
+  // Ready = has media (regardless of workflow state, since media is the actual deliverable)
+  // This ensures that if someone uploads media directly in the editor, it shows as ready
+  if (hasMedia && (workflow.uploaded || workflow.edited)) {
     return 'ready';
   }
   
-  // In post-production = filmed but not uploaded yet
+  // Also mark as ready if media exists even without workflow flags
+  // (covers cases where media was uploaded directly without workflow tracking)
+  if (hasMedia) {
+    return 'ready';
+  }
+  
+  // In post-production = filmed but not uploaded yet AND no media yet
   if (workflow.filmed && !workflow.uploaded) {
     return 'in_post_production';
   }
   
   // Needs media = method exists but no media uploaded
-  if (!hasVideo && !hasImage) {
-    return 'needs_media';
-  }
-  
-  // Not started
-  return 'not_started';
+  return 'needs_media';
 }
 
 /**

@@ -13,8 +13,11 @@ import { getAllGearDefinitions } from '../../equipment/gear/core/gear-definition
 import { GymEquipment } from '../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../equipment/gear/core/gear-definition.types';
 import { BasicsSection, MethodsSection, ContentSection, GeneralMetricsSection, TechnicalClassificationSection, MuscleSelectionSection, ExecutionDetailsSection, MobilePreview, CollapsibleSection } from './components/exercise-editor';
+import DraftStatusIndicator from './components/exercise-editor/DraftStatusIndicator';
+import { useAutoSaveDraft } from './hooks/useAutoSaveDraft';
+import { discardExerciseDraft } from '../core/exercise.service';
 import { safeRenderText } from '@/utils/render-helpers';
-import { Check, Dumbbell, Settings2 } from 'lucide-react';
+import { Check, Dumbbell, Settings2, Send, Cloud } from 'lucide-react';
 import { 
   MUSCLE_GROUP_LABELS, 
   NOISE_LEVEL_LABELS, 
@@ -28,6 +31,7 @@ interface ExerciseEditorFormProps {
   onSubmit: (data: ExerciseFormData) => void;
   isSubmitting: boolean;
   initialData?: ExerciseFormData;
+  exerciseId?: string; // Required for auto-save (null for new exercises)
   contextLocation?: string; // Location from query params (for deep-linking from Content Status)
   contextPersona?: string; // Persona from query params (for deep-linking from Content Status)
   onFormDataChange?: (data: ExerciseFormData) => void; // Callback to update preview
@@ -111,11 +115,13 @@ export default function ExerciseEditorForm({
   onSubmit,
   isSubmitting,
   initialData,
+  exerciseId,
   contextLocation,
   contextPersona,
   onFormDataChange,
 }: ExerciseEditorFormProps) {
   const [activeLang, setActiveLang] = useState<AppLanguage>('he');
+  const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
   
   // Track if this is the initial mount to prevent calling parent callback during first render
   const isInitialMount = useRef(true);
@@ -154,8 +160,8 @@ export default function ExerciseEditorForm({
     // === MOVEMENT CLASSIFICATION ===
     base_movement_id: initialData?.base_movement_id,
     movementGroup: initialData?.movementGroup, // קבוצת תנועה (squat, hinge, push, pull, etc.)
-    movementType: initialData?.movementType, // מורכב/מבודד (compound/isolation)
-    symmetry: initialData?.symmetry, // סימטריה (bilateral/unilateral)
+    movementType: initialData?.movementType ?? 'compound', // מורכב/מבודד - default to compound (תרגיל מורכב)
+    symmetry: initialData?.symmetry ?? 'bilateral', // סימטריה - default to bilateral (דו צדדי)
     
     // === EXECUTION METHODS (deep cloned) ===
     execution_methods: initialData?.execution_methods ? deepClone(initialData.execution_methods) : undefined,
@@ -211,6 +217,67 @@ export default function ExerciseEditorForm({
     initialData?.targetPrograms || []
   );
   const [baseMovementQuery, setBaseMovementQuery] = useState<string>('');
+
+  // =========================================================================
+  // AUTO-SAVE DRAFT HOOK
+  // =========================================================================
+  const { state: draftState, hasDraft, setHasDraft, loadDraft } = useAutoSaveDraft(
+    formData,
+    {
+      exerciseId: exerciseId || null,
+      debounceMs: 2000,
+      enabled: !!exerciseId, // Only enable for existing exercises
+    }
+  );
+
+  // Handle discard draft
+  const handleDiscardDraft = async () => {
+    if (!exerciseId) return;
+    
+    setIsDiscardingDraft(true);
+    try {
+      await discardExerciseDraft(exerciseId);
+      setHasDraft(false);
+      // Reload the page to reset to live data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error discarding draft:', error);
+      alert('שגיאה בביטול הטיוטה');
+    } finally {
+      setIsDiscardingDraft(false);
+    }
+  };
+
+  // Load draft data on mount if it exists
+  useEffect(() => {
+    const checkAndLoadDraft = async () => {
+      if (!exerciseId) return;
+      
+      const draft = await loadDraft();
+      if (draft && draft.data) {
+        // Ask user if they want to continue with draft
+        const useDraft = window.confirm(
+          `נמצאה טיוטה שנשמרה ב-${draft.savedAt.toLocaleString('he-IL')}.\nהאם לטעון את הטיוטה? (לחיצה על "ביטול" תטען את הנתונים המפורסמים)`
+        );
+        
+        if (useDraft) {
+          // Update form data with draft
+          setFormDataInternal(draft.data);
+          if (draft.data.content?.highlights) {
+            setHighlights(sanitizeInitialHighlights(draft.data.content.highlights));
+          }
+          if (draft.data.execution_methods) {
+            setExecutionMethods(sanitizeAndCloneExecutionMethods(draft.data.execution_methods));
+          }
+          if (draft.data.targetPrograms) {
+            setTargetPrograms(draft.data.targetPrograms);
+          }
+        }
+      }
+    };
+    
+    checkAndLoadDraft();
+  }, [exerciseId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showBaseMovementSuggestions, setShowBaseMovementSuggestions] = useState(false);
   const [focusedMethodIndex, setFocusedMethodIndex] = useState<number | null>(null);
 
@@ -423,9 +490,17 @@ export default function ExerciseEditorForm({
       // Deep clone to preserve all nested objects
       const clonedMethod = deepClone(method);
       
-      // Only filter empty cues and highlights
-      clonedMethod.specificCues = (clonedMethod.specificCues || []).filter((c: string) => c.trim());
-      clonedMethod.highlights = (clonedMethod.highlights || []).filter((h: string) => h.trim());
+      // Only filter empty cues and highlights (handle both string and GenderedText)
+      clonedMethod.specificCues = (clonedMethod.specificCues || []).filter((c) => {
+        if (typeof c === 'string') return c.trim();
+        // GenderedText: check if either male or female has content
+        return c?.male?.trim() || c?.female?.trim();
+      });
+      clonedMethod.highlights = (clonedMethod.highlights || []).filter((h) => {
+        if (typeof h === 'string') return h.trim();
+        // GenderedText: check if either male or female has content
+        return h?.male?.trim() || h?.female?.trim();
+      });
       
       // Ensure workflow is preserved (never deleted)
       if (!clonedMethod.workflow) {
@@ -814,17 +889,48 @@ export default function ExerciseEditorForm({
     </form>
 
     {/* Fixed Save Bar (Bottom) */}
-    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/90 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-4 flex justify-center shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-      <button 
-        type="submit" 
-        form="exercise-form"
-        disabled={isSubmitting}
-        className="w-full max-w-lg h-14 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-        style={{ fontFamily: 'var(--font-simpler)' }}
-      >
-        <Check size={20} />
-        {isSubmitting ? 'שומר...' : 'שמור שינויים (Save)'}
-      </button>
+    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/90 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+      <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+        {/* Draft Status Indicator */}
+        {exerciseId && (
+          <DraftStatusIndicator
+            state={draftState}
+            hasDraft={hasDraft}
+            onDiscard={handleDiscardDraft}
+            isPublishing={isSubmitting}
+          />
+        )}
+        
+        {/* Publish Button */}
+        <button 
+          type="submit" 
+          form="exercise-form"
+          disabled={isSubmitting || isDiscardingDraft}
+          className={`flex-1 max-w-md h-14 ${
+            hasDraft 
+              ? 'bg-green-600 hover:bg-green-700' 
+              : 'bg-cyan-600 hover:bg-cyan-700'
+          } disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-lg font-bold rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2`}
+          style={{ fontFamily: 'var(--font-simpler)' }}
+        >
+          {isSubmitting ? (
+            <>
+              <Cloud size={20} className="animate-pulse" />
+              מפרסם...
+            </>
+          ) : hasDraft ? (
+            <>
+              <Send size={20} />
+              פרסם שינויים
+            </>
+          ) : (
+            <>
+              <Check size={20} />
+              שמור שינויים
+            </>
+          )}
+        </button>
+      </div>
     </div>
   </>
   );

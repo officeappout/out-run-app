@@ -322,6 +322,7 @@ export default function EditExercisePage() {
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
               initialData={initialData}
+              exerciseId={exerciseId}
               contextLocation={contextLocation || undefined}
               contextPersona={contextPersona || undefined}
               onFormDataChange={setFormData}

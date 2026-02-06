@@ -74,33 +74,48 @@ export const MOVEMENT_GROUP_LABELS: Record<MovementGroup, { label: string; descr
   isolation: { label: 'איסוליישן', description: 'תרגיל מבודד לשריר אחד' },
 };
 
-// Predefined Base Movement IDs with Hebrew labels
+/**
+ * Base Movement ID Labels - Progression Families for Smart Swap
+ * 
+ * These represent specific exercise progressions (not broad patterns).
+ * Each family contains exercises that can be swapped based on difficulty.
+ * 
+ * Categories:
+ * - דחיפה (Push): Push-up variations, planche, handstand, dips
+ * - משיכה (Pull): Pull-up variations, muscle-up, rows, front lever
+ * - רגליים (Legs): Pistol squat, shrimp squat
+ * - ליבה ומיומנויות (Core & Skills): Human flag, L-sit, ring work
+ */
 export const BASE_MOVEMENT_LABELS: Record<string, string> = {
-  // Strength - Main patterns
-  push_up: 'דחיפה אופקית (שכיבות סמיכה)',
-  pull_up: 'משיכה אנכית (מתח)',
-  squat: 'סקוואט / גוף תחתון',
-  dip: 'מקבילים / דחיפה אנכית מטה',
-  row: 'משיכה אופקית (חתירה)',
-  overhead_push: 'דחיפה אנכית (מעל הראש)',
-  hinge: 'הינג\' (כפיפת ירכיים)',
-  lunge: 'לאנג\' / מכרעים',
-  plank: 'פלאנק / יציבות ליבה',
-  leg_raise: 'הרמת רגליים',
-  // Calisthenics Skills
-  planche: 'פלאנש',
+  // === דחיפה (PUSH) ===
+  push_up: 'שכיבות סמיכה',
+  planche: 'פלאנץ׳',
+  handstand: 'עמידת ידיים',
+  dip: 'מקבילים',
+  
+  // === משיכה (PULL) ===
+  pull_up: 'מתח',
+  one_arm_pull: 'מתח יד אחת',
+  muscle_up: 'עליות כוח',
+  row: 'חתירה',
   front_lever: 'פרונט ליבר',
-  back_lever: 'בק ליבר',
+  
+  // === רגליים (LEGS) ===
+  pistol_squat: 'פיסטול סקוואט',
+  shrimp_squat: 'שרימפס סקוואט',
+  
+  // === ליבה ומיומנויות (CORE & SKILLS) ===
   human_flag: 'דגל אדם',
   l_sit: 'ישיבת L',
-  handstand: 'עמידת ידיים',
-  one_arm_pull: 'מתח יד אחת',
-  muscle_up: 'מאסל אפ',
-  // Runner's Power
-  explosive_leg: 'רגליים נפיצות',
-  single_leg_stability: 'יציבות רגל בודדת',
-  calf_work: 'עבודת שוקיים',
-  pistol_squat: 'פיסטול סקוואט',
+  ring_work: 'סיבובים על טבעות',
+};
+
+// Group labels for display in dropdown
+export const BASE_MOVEMENT_GROUPS: Record<string, string[]> = {
+  'דחיפה': ['push_up', 'planche', 'handstand', 'dip'],
+  'משיכה': ['pull_up', 'one_arm_pull', 'muscle_up', 'row', 'front_lever'],
+  'רגליים': ['pistol_squat', 'shrimp_squat'],
+  'ליבה ומיומנויות': ['human_flag', 'l_sit', 'ring_work'],
 };
 
 // Predefined Base Movement IDs

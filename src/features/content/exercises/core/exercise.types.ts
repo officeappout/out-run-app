@@ -9,6 +9,87 @@ import { LocalizedText, AppLanguage, getLocalizedText } from '../../shared/local
 export type { LocalizedText, AppLanguage };
 export { getLocalizedText };
 
+// ============================================================================
+// GENDERED TEXT TYPES
+// ============================================================================
+
+/**
+ * Gender type for user profiles
+ */
+export type UserGender = 'male' | 'female';
+
+/**
+ * Text that can be gender-specific
+ * Used for exercise cues, highlights, and notifications
+ */
+export interface GenderedText {
+  male: string;
+  female: string;
+}
+
+/**
+ * Helper function to check if a value is a GenderedText object
+ */
+export function isGenderedText(value: unknown): value is GenderedText {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'male' in value &&
+    'female' in value &&
+    typeof (value as GenderedText).male === 'string' &&
+    typeof (value as GenderedText).female === 'string'
+  );
+}
+
+/**
+ * Get the appropriate text based on user's gender
+ * Supports both simple strings and GenderedText objects
+ * 
+ * @param text - Either a simple string or a GenderedText object
+ * @param gender - User's gender (defaults to 'male' for neutral/unknown)
+ * @returns The appropriate string for the user's gender
+ */
+export function getGenderedText(
+  text: string | GenderedText | undefined | null,
+  gender: UserGender = 'male'
+): string {
+  if (!text) return '';
+  
+  // Simple string - return as-is
+  if (typeof text === 'string') return text;
+  
+  // GenderedText object - return appropriate version
+  if (isGenderedText(text)) {
+    return text[gender] || text.male || '';
+  }
+  
+  return '';
+}
+
+/**
+ * Convert a simple string to a GenderedText object (same text for both genders)
+ */
+export function toGenderedText(text: string): GenderedText {
+  return { male: text, female: text };
+}
+
+/**
+ * Normalize a value that could be string or GenderedText to a consistent format
+ * Returns the text as-is if it's already in the desired format
+ */
+export function normalizeGenderedText(
+  value: string | GenderedText | undefined | null
+): GenderedText | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') return { male: value, female: value };
+  if (isGenderedText(value)) return value;
+  return undefined;
+}
+
+// ============================================================================
+// EXERCISE TYPES
+// ============================================================================
+
 export type ExerciseType = 'reps' | 'time' | 'rest';
 
 export type LoggingMode = 'reps' | 'completion';
@@ -225,7 +306,13 @@ export type ExplanationStatus = 'missing' | 'ready';
 
 export interface ExecutionMethod {
   methodName?: string; // Hebrew name for this execution method variant
-  notificationText?: string; // Text shown in push notification (max 100 chars)
+  
+  /**
+   * Text shown in push notification (max 100 chars)
+   * Can be a simple string or gender-specific: { male: "...", female: "..." }
+   */
+  notificationText?: string | GenderedText;
+  
   location: ExecutionLocation;
   requiredGearType: RequiredGearType;
   
@@ -251,16 +338,21 @@ export interface ExecutionMethod {
   brandId?: string | null; // Reference to outdoorBrands collection (for fixed_equipment with specific brand)
   locationMapping?: ExecutionLocation[]; // Array of locations where this method is available (e.g., ['home', 'office'])
   lifestyleTags?: string[]; // Array of lifestyle tags (e.g., ['student', 'parent', 'office_worker'])
+  
   /**
    * Specific execution cues for THIS method variant.
    * Short, actionable coaching points (e.g., "Keep elbows tight", "Squeeze at the top")
+   * Each cue can be a simple string or gender-specific: { male: "...", female: "..." }
    */
-  specificCues?: string[];
+  specificCues?: (string | GenderedText)[];
+  
   /**
    * Highlights/key points for THIS method variant.
    * Benefits, tips, or important notes specific to this execution method.
+   * Each highlight can be a simple string or gender-specific: { male: "...", female: "..." }
    */
-  highlights?: string[];
+  highlights?: (string | GenderedText)[];
+  
   media: {
     /**
      * Main video that plays in the in-app player.

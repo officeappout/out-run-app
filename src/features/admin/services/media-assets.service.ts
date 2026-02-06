@@ -8,6 +8,25 @@ import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, orderBy, where, doc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject, UploadMetadata } from 'firebase/storage';
 
+/**
+ * Location type for media assets
+ * Used to categorize where the exercise/content was filmed
+ */
+export type MediaAssetLocation = 'park' | 'home' | 'gym' | 'office' | 'street' | 'studio' | 'other';
+
+/**
+ * Labels for media asset locations (for UI display)
+ */
+export const MEDIA_LOCATION_LABELS: Record<MediaAssetLocation, string> = {
+  park: 'פארק',
+  home: 'בית',
+  gym: 'חדר כושר',
+  office: 'משרד',
+  street: 'רחוב',
+  studio: 'סטודיו',
+  other: 'אחר',
+};
+
 export interface MediaAsset {
   id: string;
   name: string;
@@ -16,11 +35,55 @@ export interface MediaAsset {
   createdAt: Date;
   fileSize?: number;
   mimeType?: string;
+  /** Optional thumbnail URL for videos (generated or uploaded separately) */
+  thumbnailUrl?: string;
+  /** Optional poster URL for videos */
+  posterUrl?: string;
+  /** Video duration in seconds (if available) */
+  durationSeconds?: number;
+  /** Location where the content was filmed */
+  location?: MediaAssetLocation;
+  /** Tags for categorization (e.g., exercise name, muscle group) */
+  tags?: string[];
 }
 
 export interface MediaAssetFormData {
   name: string;
   file: File;
+  /** Location where the content was filmed */
+  location?: MediaAssetLocation;
+  /** Tags for categorization */
+  tags?: string[];
+}
+
+/**
+ * Parse filename to detect location hints
+ * Recognizes patterns like: "pushup_park_v1.mp4", "home_stretching.mov", etc.
+ */
+export function parseLocationFromFilename(filename: string): MediaAssetLocation | undefined {
+  const lowerName = filename.toLowerCase();
+  
+  // Check for location keywords in filename
+  if (lowerName.includes('park') || lowerName.includes('פארק') || lowerName.includes('outdoor')) {
+    return 'park';
+  }
+  if (lowerName.includes('home') || lowerName.includes('בית') || lowerName.includes('indoor')) {
+    return 'home';
+  }
+  if (lowerName.includes('gym') || lowerName.includes('כושר') || lowerName.includes('חדר')) {
+    return 'gym';
+  }
+  if (lowerName.includes('office') || lowerName.includes('משרד') || lowerName.includes('work')) {
+    return 'office';
+  }
+  if (lowerName.includes('street') || lowerName.includes('רחוב')) {
+    return 'street';
+  }
+  if (lowerName.includes('studio') || lowerName.includes('סטודיו')) {
+    return 'studio';
+  }
+  
+  return undefined;
 }
 
 /**
@@ -28,7 +91,7 @@ export interface MediaAssetFormData {
  */
 export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaAsset> {
   try {
-    const { name, file } = data;
+    const { name, file, location, tags } = data;
     
     // Validate file type - support all video formats and images
     const isImage = file.type.startsWith('image/');
@@ -60,8 +123,8 @@ export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaA
     // Get download URL
     const downloadURL = await getDownloadURL(storageRef);
     
-    // Save metadata to Firestore
-    const assetData = {
+    // Save metadata to Firestore (only include defined fields)
+    const assetData: Record<string, any> = {
       name,
       url: downloadURL,
       type: isImage ? 'image' : 'video',
@@ -70,12 +133,21 @@ export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaA
       mimeType: file.type,
     };
     
+    // Add optional fields only if they have values
+    if (location) {
+      assetData.location = location;
+    }
+    if (tags && tags.length > 0) {
+      assetData.tags = tags;
+    }
+    
     const docRef = await addDoc(collection(db, 'mediaAssets'), assetData);
     
     return {
       id: docRef.id,
       ...assetData,
-    };
+      createdAt: assetData.createdAt,
+    } as MediaAsset;
   } catch (error: any) {
     console.error('Error uploading media asset:', error);
     throw new Error(`נכשלה העלאת הקובץ: ${error.message}`);

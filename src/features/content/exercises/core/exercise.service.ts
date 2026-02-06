@@ -638,6 +638,7 @@ export async function deleteExercise(
 
 /**
  * Duplicate an exercise (create a copy with "Copy of" prefix)
+ * Preserves ALL metadata fields from the original exercise
  */
 export async function duplicateExercise(exerciseId: string): Promise<string> {
   try {
@@ -647,6 +648,7 @@ export async function duplicateExercise(exerciseId: string): Promise<string> {
     }
 
     const duplicateData: ExerciseFormData = {
+      // === BASIC FIELDS ===
       name: {
         he: `עותק של ${originalExercise.name.he || originalExercise.name.en || ''}`,
         en: `Copy of ${originalExercise.name.en || originalExercise.name.he || ''}`,
@@ -655,26 +657,70 @@ export async function duplicateExercise(exerciseId: string): Promise<string> {
       type: originalExercise.type,
       loggingMode: originalExercise.loggingMode || 'reps',
       equipment: [...originalExercise.equipment],
-      muscleGroups: [...originalExercise.muscleGroups],
       programIds: [...originalExercise.programIds],
       media: {
         videoUrl: originalExercise.media?.videoUrl,
         imageUrl: originalExercise.media?.imageUrl,
       },
+      
+      // === MUSCLE FIELDS ===
+      muscleGroups: [...originalExercise.muscleGroups],
+      primaryMuscle: originalExercise.primaryMuscle,
+      secondaryMuscles: originalExercise.secondaryMuscles ? [...originalExercise.secondaryMuscles] : [],
+      
+      // === CONTENT ===
       content: {
         goal: originalExercise.content?.goal,
+        description: originalExercise.content?.description,
+        instructions: originalExercise.content?.instructions,
+        specificCues: originalExercise.content?.specificCues ? [...originalExercise.content.specificCues] : [],
         notes: originalExercise.content?.notes ? [...originalExercise.content.notes] : [],
         highlights: originalExercise.content?.highlights
           ? [...originalExercise.content.highlights]
           : [],
       },
+      
+      // === EQUIPMENT REQUIREMENTS ===
+      requiredGymEquipment: originalExercise.requiredGymEquipment,
+      requiredUserGear: originalExercise.requiredUserGear ? [...originalExercise.requiredUserGear] : [],
+      
+      // === MOVEMENT CLASSIFICATION ===
+      base_movement_id: originalExercise.base_movement_id,
+      movementGroup: originalExercise.movementGroup,
+      movementType: originalExercise.movementType, // מורכב/מבודד (compound/isolation)
+      symmetry: originalExercise.symmetry, // סימטריה (bilateral/unilateral)
+      
+      // === TECHNICAL CLASSIFICATION ===
+      mechanicalType: originalExercise.mechanicalType, // יד כפופה/ישרה (straight_arm/bent_arm/hybrid)
+      fieldReady: originalExercise.fieldReady,
+      
+      // === EXECUTION METHODS (deep cloned) ===
+      execution_methods: originalExercise.execution_methods,
+      targetPrograms: originalExercise.targetPrograms,
+      
+      // === TAGS & ROLE ===
+      tags: originalExercise.tags ? [...originalExercise.tags] : [],
+      exerciseRole: originalExercise.exerciseRole,
+      isFollowAlong: originalExercise.isFollowAlong,
+      
+      // === TIMING ===
+      secondsPerRep: originalExercise.secondsPerRep,
+      defaultRestSeconds: originalExercise.defaultRestSeconds,
+      
+      // === GENERAL METRICS (Effort/Indicators) ===
+      noiseLevel: originalExercise.noiseLevel,
+      sweatLevel: originalExercise.sweatLevel,
+      
+      // === SAFETY / SENSITIVITY ZONES ===
+      injuryShield: originalExercise.injuryShield ? [...originalExercise.injuryShield] : [],
+      
+      // === PRODUCTION REQUIREMENTS ===
+      requiredLocations: originalExercise.requiredLocations ? [...originalExercise.requiredLocations] : [],
+      
+      // === STATS (Reset for duplicate) ===
       stats: {
-        views: 0, // Reset views for duplicate
+        views: 0,
       },
-      base_movement_id: originalExercise.base_movement_id, // Preserve base_movement_id
-      execution_methods: originalExercise.execution_methods, // Preserve execution methods
-      targetPrograms: originalExercise.targetPrograms, // Preserve target programs
-      movementGroup: originalExercise.movementGroup, // Preserve movement group
     };
 
     return await createExercise(duplicateData);
@@ -782,6 +828,135 @@ export async function batchUpdateWorkflow(
   }
 
   return results;
+}
+
+// ============================================================================
+// DRAFT / AUTO-SAVE OPERATIONS
+// ============================================================================
+
+/**
+ * Draft metadata for tracking auto-save state
+ */
+export interface ExerciseDraft {
+  data: ExerciseFormData;
+  savedAt: Date;
+  savedBy?: string;
+}
+
+/**
+ * Save exercise data to draft field (auto-save)
+ * This does NOT affect the live exercise data
+ */
+export async function saveExerciseDraft(
+  exerciseId: string,
+  draftData: ExerciseFormData
+): Promise<void> {
+  try {
+    const docRef = doc(db, EXERCISES_COLLECTION, exerciseId);
+    
+    // Sanitize the draft data
+    const sanitized = sanitizeExerciseData(draftData);
+    
+    await updateDoc(docRef, {
+      draft: {
+        data: sanitized,
+        savedAt: serverTimestamp(),
+      },
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error saving exercise draft:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the draft data for an exercise (if it exists)
+ */
+export async function getExerciseDraft(exerciseId: string): Promise<ExerciseDraft | null> {
+  try {
+    const docRef = doc(db, EXERCISES_COLLECTION, exerciseId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) return null;
+    
+    const data = docSnap.data();
+    if (!data.draft || !data.draft.data) return null;
+    
+    return {
+      data: data.draft.data as ExerciseFormData,
+      savedAt: data.draft.savedAt?.toDate?.() || new Date(),
+      savedBy: data.draft.savedBy,
+    };
+  } catch (error) {
+    console.error('Error fetching exercise draft:', error);
+    return null;
+  }
+}
+
+/**
+ * Publish draft to live exercise data
+ * Copies draft.data to the main exercise fields and clears the draft
+ */
+export async function publishExerciseDraft(
+  exerciseId: string,
+  adminInfo?: { adminId: string; adminName: string }
+): Promise<void> {
+  try {
+    // First, get the draft
+    const draft = await getExerciseDraft(exerciseId);
+    if (!draft) {
+      throw new Error('No draft found to publish');
+    }
+    
+    // Use the existing updateExercise function to apply the draft
+    await updateExercise(exerciseId, draft.data, adminInfo);
+    
+    // Clear the draft after successful publish
+    const docRef = doc(db, EXERCISES_COLLECTION, exerciseId);
+    await updateDoc(docRef, {
+      draft: null,
+    });
+    
+    // Log the publish action
+    if (adminInfo) {
+      const exerciseName = getLocalizedText(draft.data.name);
+      await logAction({
+        adminId: adminInfo.adminId,
+        adminName: adminInfo.adminName,
+        actionType: 'UPDATE',
+        targetEntity: 'Exercise',
+        targetId: exerciseId,
+        details: `Published draft for exercise: ${exerciseName}`,
+      });
+    }
+  } catch (error) {
+    console.error('Error publishing exercise draft:', error);
+    throw error;
+  }
+}
+
+/**
+ * Discard draft without publishing (revert to live data)
+ */
+export async function discardExerciseDraft(exerciseId: string): Promise<void> {
+  try {
+    const docRef = doc(db, EXERCISES_COLLECTION, exerciseId);
+    await updateDoc(docRef, {
+      draft: null,
+    });
+  } catch (error) {
+    console.error('Error discarding exercise draft:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if an exercise has unsaved draft changes
+ */
+export async function hasExerciseDraft(exerciseId: string): Promise<boolean> {
+  const draft = await getExerciseDraft(exerciseId);
+  return draft !== null;
 }
 
 // ============================================================================

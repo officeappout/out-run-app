@@ -12,6 +12,7 @@ import {
   MOVEMENT_GROUP_LABELS,
   BASE_MOVEMENT_OPTIONS,
   BASE_MOVEMENT_LABELS,
+  BASE_MOVEMENT_GROUPS,
 } from './shared/constants';
 import { ExerciseEditorSectionProps } from './shared/types';
 import MobilePreview from './MobilePreview';
@@ -509,17 +510,19 @@ export default function BasicsSection({
           </div>
         </div>
 
-        {/* Full Width: Base Movement ID */}
+        {/* Full Width: Exercise Progression Family (for Smart Swap) */}
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2 mb-2">
             <label className="text-sm font-bold text-gray-700">
-              משפחת תרגיל (Base Movement ID)
+              התאמת תרגיל ספציפי
             </label>
             <div className="group relative">
               <HelpCircle size={16} className="text-gray-400 cursor-help" />
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg max-w-xs">
-                  ה-DNA של התרגיל. בחר את המשפחה (למשל pull_up) כדי לאפשר החלפה אוטומטית לווריאציות קלות/קשות יותר.
+                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-normal shadow-lg max-w-xs">
+                  בחר את משפחת ההתקדמות של התרגיל (למשל: מתח, שכיבות סמיכה, פלאנץ׳).
+                  <br /><br />
+                  תרגילים מאותה משפחה יוחלפו אוטומטית לפי רמת הקושי (Smart Swap).
                   <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
                     <div className="border-4 border-transparent border-t-gray-900"></div>
                   </div>
@@ -527,7 +530,7 @@ export default function BasicsSection({
               </div>
             </div>
             <span className="text-xs font-normal text-gray-500">
-              (לצורך התאמת תרגילים - Smart Swap)
+              (Smart Swap - החלפת תרגילים חכמה)
             </span>
           </div>
           <div className="relative">
@@ -551,7 +554,7 @@ export default function BasicsSection({
                 className="w-full border-none outline-none bg-transparent"
                 placeholder={formData.base_movement_id 
                   ? `${BASE_MOVEMENT_LABELS[formData.base_movement_id] || formData.base_movement_id}` 
-                  : 'חפש או בחר משפחת תרגיל...'}
+                  : 'בחר משפחת התקדמות (מתח, שכיבות סמיכה, פלאנץ׳...)'}
               />
               {formData.base_movement_id && !baseMovementQuery && (
                 <div className="absolute top-0 left-0 right-0 bottom-0 flex items-center px-4 pointer-events-none">
@@ -565,7 +568,7 @@ export default function BasicsSection({
               )}
             </div>
             {showBaseMovementSuggestions && (
-              <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg text-sm">
+              <div className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg text-sm">
                 {/* Clear option */}
                 {formData.base_movement_id && (
                   <button
@@ -582,41 +585,56 @@ export default function BasicsSection({
                     ✕ נקה בחירה
                   </button>
                 )}
-                {BASE_MOVEMENT_OPTIONS.filter((id) =>
-                  baseMovementQuery.length === 0
-                    ? true
-                    : id.toLowerCase().includes(baseMovementQuery.toLowerCase()) ||
-                      (BASE_MOVEMENT_LABELS[id] || '').includes(baseMovementQuery)
-                ).map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      setFormData({ ...formData, base_movement_id: id });
-                      setBaseMovementQuery('');
-                      setShowBaseMovementSuggestions(false);
-                    }}
-                    className={`w-full text-right px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                      formData.base_movement_id === id 
-                        ? 'bg-cyan-50 text-cyan-700 font-bold' 
-                        : ''
-                    }`}
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">{BASE_MOVEMENT_LABELS[id] || id}</span>
-                      <span className="text-xs text-gray-400">{id}</span>
+                {/* Grouped options */}
+                {Object.entries(BASE_MOVEMENT_GROUPS).map(([groupName, ids]) => {
+                  // Filter items in this group based on search query
+                  const filteredIds = ids.filter((id) =>
+                    baseMovementQuery.length === 0
+                      ? true
+                      : id.toLowerCase().includes(baseMovementQuery.toLowerCase()) ||
+                        (BASE_MOVEMENT_LABELS[id] || '').includes(baseMovementQuery)
+                  );
+                  
+                  // Don't render group if no items match
+                  if (filteredIds.length === 0) return null;
+                  
+                  return (
+                    <div key={groupName}>
+                      {/* Group header */}
+                      <div className="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide sticky top-0">
+                        {groupName}
+                      </div>
+                      {/* Group items */}
+                      {filteredIds.map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setFormData({ ...formData, base_movement_id: id });
+                            setBaseMovementQuery('');
+                            setShowBaseMovementSuggestions(false);
+                          }}
+                          className={`w-full text-right px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                            formData.base_movement_id === id 
+                              ? 'bg-cyan-50 text-cyan-700 font-bold' 
+                              : ''
+                          }`}
+                        >
+                          <span className="font-medium">{BASE_MOVEMENT_LABELS[id] || id}</span>
+                          {formData.base_movement_id === id && (
+                            <span className="text-cyan-600">✓</span>
+                          )}
+                        </button>
+                      ))}
                     </div>
-                    {formData.base_movement_id === id && (
-                      <span className="text-cyan-600">✓</span>
-                    )}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            מזהה משותף לתרגילים מאותה משפחה. בחר מהרשימה המוגדרת מראש.
+            תרגילים מאותה משפחה יוחלפו אוטומטית לפי רמת קושי (Smart Swap).
           </p>
         </div>
 

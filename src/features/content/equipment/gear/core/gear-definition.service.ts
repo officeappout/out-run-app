@@ -29,6 +29,74 @@ function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
 }
 
 /**
+ * Sanitize gear definition data for Firestore
+ * Removes undefined values (Firebase doesn't accept them) and provides defaults
+ */
+function sanitizeGearData(data: GearDefinitionFormData | Partial<GearDefinitionFormData>): Record<string, any> {
+  const sanitized: Record<string, any> = {};
+  
+  // Copy all defined values, converting undefined to null or providing defaults
+  if (data.name !== undefined) {
+    sanitized.name = {
+      he: data.name.he || '',
+      en: data.name.en || '',
+    };
+  }
+  
+  if (data.description !== undefined) {
+    sanitized.description = {
+      he: data.description?.he || '',
+      en: data.description?.en || '',
+    };
+  }
+  
+  // Simple string fields - use null if undefined
+  if (data.icon !== undefined) sanitized.icon = data.icon;
+  if (data.customIconUrl !== undefined) sanitized.customIconUrl = data.customIconUrl || null;
+  if (data.category !== undefined) sanitized.category = data.category || null;
+  if (data.shopLink !== undefined) sanitized.shopLink = data.shopLink || null;
+  if (data.tutorialVideo !== undefined) sanitized.tutorialVideo = data.tutorialVideo || null;
+  
+  // Location fields - provide sensible defaults
+  if (data.defaultLocation !== undefined) {
+    sanitized.defaultLocation = data.defaultLocation || 'home';
+  }
+  if (data.allowedLocations !== undefined) {
+    sanitized.allowedLocations = Array.isArray(data.allowedLocations) ? data.allowedLocations : [];
+  }
+  if (data.lifestyleTags !== undefined) {
+    sanitized.lifestyleTags = Array.isArray(data.lifestyleTags) ? data.lifestyleTags : [];
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Sanitize gear definition data for CREATE operation
+ * Ensures all required fields have values
+ */
+function sanitizeGearDataForCreate(data: GearDefinitionFormData): Record<string, any> {
+  return {
+    name: {
+      he: data.name?.he || '',
+      en: data.name?.en || '',
+    },
+    description: data.description ? {
+      he: data.description.he || '',
+      en: data.description.en || '',
+    } : null,
+    icon: data.icon || 'Package',
+    customIconUrl: data.customIconUrl || null,
+    category: data.category || 'accessories',
+    shopLink: data.shopLink || null,
+    tutorialVideo: data.tutorialVideo || null,
+    defaultLocation: data.defaultLocation || 'home',
+    allowedLocations: Array.isArray(data.allowedLocations) ? data.allowedLocations : [],
+    lifestyleTags: Array.isArray(data.lifestyleTags) ? data.lifestyleTags : [],
+  };
+}
+
+/**
  * Get all gear definitions (sorted by name)
  */
 export async function getAllGearDefinitions(): Promise<GearDefinition[]> {
@@ -77,8 +145,11 @@ export async function createGearDefinition(
   data: GearDefinitionFormData
 ): Promise<string> {
   try {
+    // Sanitize data to remove undefined values (Firebase doesn't accept them)
+    const sanitizedData = sanitizeGearDataForCreate(data);
+    
     const docRef = await addDoc(collection(db, GEAR_DEFINITIONS_COLLECTION), {
-      ...data,
+      ...sanitizedData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -97,9 +168,12 @@ export async function updateGearDefinition(
   data: Partial<GearDefinitionFormData>
 ): Promise<void> {
   try {
+    // Sanitize data to remove undefined values (Firebase doesn't accept them)
+    const sanitizedData = sanitizeGearData(data);
+    
     const docRef = doc(db, GEAR_DEFINITIONS_COLLECTION, gearId);
     await updateDoc(docRef, {
-      ...data,
+      ...sanitizedData,
       updatedAt: serverTimestamp(),
     });
   } catch (error) {

@@ -446,6 +446,7 @@ export default function ContentMatrixPage() {
   const [currentLocationFilter, setCurrentLocationFilter] = useState<ExecutionLocation | 'all'>('all');
   const [showGapsOnly, setShowGapsOnly] = useState(false);
   const [workflowFilter, setWorkflowFilter] = useState<'all' | 'not_filmed' | 'filmed_not_edited' | 'edited_not_uploaded'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ready' | 'in_post_production' | 'needs_media'>('all');
   const [refreshKey, setRefreshKey] = useState(0);
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -470,15 +471,36 @@ export default function ContentMatrixPage() {
   const filteredRows = useMemo(() => {
     let result = rows;
     
-    // Search filter
+    // Search filter - filter by exercise name
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       result = result.filter((row) => row.name.toLowerCase().includes(lowerSearch));
     }
     
-    // Location filter
+    // Location filter - only show exercises that have at least one method for the selected location
     if (currentLocationFilter !== 'all') {
-      result = result.filter((row) => row.locations[currentLocationFilter] !== null);
+      result = result.filter((row) => {
+        const locMethods = row.locations[currentLocationFilter];
+        return locMethods && locMethods.length > 0;
+      });
+    }
+    
+    // Production Status filter - filter by method production status
+    if (statusFilter !== 'all') {
+      result = result.filter((row) => {
+        // Check locations based on current location filter
+        const locationsToCheck = currentLocationFilter !== 'all' 
+          ? [currentLocationFilter] 
+          : CONTENT_LOCATIONS;
+        
+        for (const loc of locationsToCheck) {
+          const locMethods = row.locations[loc];
+          for (const locData of locMethods) {
+            if (locData.productionStatus === statusFilter) return true;
+          }
+        }
+        return false;
+      });
     }
     
     // Gaps filter - only show exercises with critical gaps (missing media or required methods)
@@ -489,9 +511,13 @@ export default function ContentMatrixPage() {
     // Workflow filter
     if (workflowFilter !== 'all') {
       result = result.filter((row) => {
-        for (const loc of CONTENT_LOCATIONS) {
+        // Check locations based on current location filter
+        const locationsToCheck = currentLocationFilter !== 'all' 
+          ? [currentLocationFilter] 
+          : CONTENT_LOCATIONS;
+        
+        for (const loc of locationsToCheck) {
           const locMethods = row.locations[loc];
-          // Now iterates over ALL methods at each location
           for (const locData of locMethods) {
             if (workflowFilter === 'not_filmed' && !locData.workflow.filmed) return true;
             if (workflowFilter === 'filmed_not_edited' && locData.workflow.filmed && !locData.workflow.edited) return true;
@@ -503,24 +529,30 @@ export default function ContentMatrixPage() {
     }
     
     return result;
-  }, [rows, searchTerm, currentLocationFilter, showGapsOnly, workflowFilter]);
+  }, [rows, searchTerm, currentLocationFilter, statusFilter, showGapsOnly, workflowFilter]);
 
-  // Stats
+  // Stats - computed from filteredRows so they reflect current filters
   const stats = useMemo(() => {
-    const total = rows.length;
-    const withCriticalGaps = rows.filter((r) => r.criticalGapCount > 0).length;
-    const withWorkflowGaps = rows.filter((r) => r.workflowGapCount > 0).length;
-    const readyCount = rows.filter((r) => r.criticalGapCount === 0 && r.workflowGapCount === 0).length;
+    const total = filteredRows.length;
+    const withCriticalGaps = filteredRows.filter((r) => r.criticalGapCount > 0).length;
+    const withWorkflowGaps = filteredRows.filter((r) => r.workflowGapCount > 0).length;
+    const readyCount = filteredRows.filter((r) => r.criticalGapCount === 0 && r.workflowGapCount === 0).length;
     
     let totalMethods = 0;
     let filmedCount = 0;
     let editedCount = 0;
     let uploadedCount = 0;
+    let readyMethodCount = 0;
     let inPostProduction = 0;
     let needsMedia = 0;
     
-    for (const row of rows) {
-      for (const loc of CONTENT_LOCATIONS) {
+    // Determine which locations to count based on current filter
+    const locationsToCount = currentLocationFilter !== 'all' 
+      ? [currentLocationFilter] 
+      : CONTENT_LOCATIONS;
+    
+    for (const row of filteredRows) {
+      for (const loc of locationsToCount) {
         const locMethods = row.locations[loc];
         // Now iterates over ALL methods at each location
         for (const locData of locMethods) {
@@ -528,6 +560,7 @@ export default function ContentMatrixPage() {
           if (locData.workflow.filmed) filmedCount++;
           if (locData.workflow.edited) editedCount++;
           if (locData.workflow.uploaded) uploadedCount++;
+          if (locData.productionStatus === 'ready') readyMethodCount++;
           if (locData.productionStatus === 'in_post_production') inPostProduction++;
           if (locData.productionStatus === 'needs_media') needsMedia++;
         }
@@ -543,10 +576,11 @@ export default function ContentMatrixPage() {
       filmedCount,
       editedCount,
       uploadedCount,
+      readyMethodCount,
       inPostProduction,
       needsMedia,
     };
-  }, [rows]);
+  }, [filteredRows, currentLocationFilter]);
 
   // Handle workflow update
   const handleWorkflowUpdate = useCallback(async (
@@ -697,23 +731,27 @@ export default function ContentMatrixPage() {
         </div>
       </div>
 
-      {/* Stats Bar */}
+      {/* Stats Bar - updates based on current filters */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="text-2xl font-black text-gray-900">{stats.total}</div>
-          <div className="text-xs text-gray-500">תרגילים</div>
+          <div className="text-xs text-gray-500">תרגילים{currentLocationFilter !== 'all' ? ` (${LOCATION_LABELS[currentLocationFilter]})` : ''}</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="text-2xl font-black text-purple-600">{stats.totalMethods}</div>
           <div className="text-xs text-gray-500">שיטות</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-green-100">
-          <div className="text-2xl font-black text-green-600">{stats.uploadedCount}</div>
-          <div className="text-xs text-gray-500">✓ מוכנים</div>
+          <div className="text-2xl font-black text-green-600">{stats.readyMethodCount}</div>
+          <div className="text-xs text-gray-500">✅ מוכנים</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-amber-100">
           <div className="text-2xl font-black text-amber-600">{stats.inPostProduction}</div>
-          <div className="text-xs text-gray-500">בפוסט</div>
+          <div className="text-xs text-gray-500">🎬 בפוסט</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-red-100">
+          <div className="text-2xl font-black text-red-600">{stats.needsMedia}</div>
+          <div className="text-xs text-gray-500">❌ חסרה מדיה</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="text-2xl font-black text-blue-600">{stats.filmedCount}</div>
@@ -722,10 +760,6 @@ export default function ContentMatrixPage() {
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="text-2xl font-black text-indigo-600">{stats.editedCount}</div>
           <div className="text-xs text-gray-500">נערכו</div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-red-100">
-          <div className="text-2xl font-black text-red-600">{stats.needsMedia}</div>
-          <div className="text-xs text-gray-500">⚠️ חסרה מדיה</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-red-100">
           <div className="text-2xl font-black text-red-600">{stats.withCriticalGaps}</div>
@@ -768,13 +802,25 @@ export default function ContentMatrixPage() {
             ))}
           </select>
 
+          {/* Production Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+          >
+            <option value="all">כל הסטטוסים</option>
+            <option value="ready">✅ מוכן</option>
+            <option value="in_post_production">🎬 בפוסט-פרודקשן</option>
+            <option value="needs_media">❌ חסרה מדיה</option>
+          </select>
+
           {/* Workflow Filter */}
           <select
             value={workflowFilter}
             onChange={(e) => setWorkflowFilter(e.target.value as typeof workflowFilter)}
             className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
           >
-            <option value="all">כל הסטטוסים</option>
+            <option value="all">שלב עבודה</option>
             <option value="not_filmed">לא צולם</option>
             <option value="filmed_not_edited">צולם - לא נערך</option>
             <option value="edited_not_uploaded">נערך - לא הועלה</option>

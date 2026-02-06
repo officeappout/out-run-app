@@ -30,6 +30,8 @@ import {
   Plus,
   HelpCircle,
   Copy,
+  Trees,
+  Dumbbell,
 } from 'lucide-react';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -39,6 +41,8 @@ import ImagePreview from './helpers/ImagePreview';
 import InstructionalVideosEditor from './helpers/InstructionalVideosEditor';
 import MediaLibraryModal from '@/features/admin/components/MediaLibraryModal';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
+import GenderedTextInput, { GenderedTextListInput } from './shared/GenderedTextInput';
+import { GenderedText, isGenderedText, getGenderedText } from '../../../core/exercise.types';
 
 interface ExecutionMethodCardProps {
   method: ExecutionMethod;
@@ -128,11 +132,11 @@ export default function ExecutionMethodCard({
 
   const locationLabels: Record<ExecutionLocation, { label: string; icon: React.ReactNode }> = {
     home: { label: 'בית', icon: <Home size={16} /> },
-    park: { label: 'פארק', icon: <MapPin size={16} /> },
+    park: { label: 'פארק', icon: <Trees size={16} /> },
     street: { label: 'רחוב', icon: <Navigation size={16} /> },
     office: { label: 'משרד', icon: <Building2 size={16} /> },
     school: { label: 'בית ספר', icon: <Building2 size={16} /> },
-    gym: { label: 'חדר כושר', icon: <User size={16} /> },
+    gym: { label: 'חדר כושר', icon: <Dumbbell size={16} /> },
     airport: { label: 'שדה תעופה', icon: <Plane size={16} /> },
   };
 
@@ -317,31 +321,17 @@ export default function ExecutionMethodCard({
           </div>
           <span className="text-gray-400 font-normal text-xs">(עד 100 תווים)</span>
         </div>
-        <textarea
-          value={method.notificationText || ''}
-          onChange={(e) => {
-            const text = e.target.value.slice(0, 100); // Enforce 100 char limit
-            safeUpdate({ ...method, notificationText: text });
-          }}
-          maxLength={100}
-          rows={2}
-          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+        <GenderedTextInput
+          value={method.notificationText}
+          onChange={(value) => safeUpdate({ ...method, notificationText: value })}
           placeholder="למשל: הגב תפוס מהישיבה? בוא נתמתח על הכיסא..."
+          multiline
+          rows={2}
+          maxLength={100}
         />
-        <div className="flex justify-between items-center mt-1">
-          <p className="text-[10px] text-gray-500">
-            טקסט זה יוצג בהתראה לפני תחילת התרגיל
-          </p>
-          <span className={`text-[10px] font-bold ${
-            (method.notificationText?.length || 0) >= 90 
-              ? 'text-red-500' 
-              : (method.notificationText?.length || 0) >= 70 
-              ? 'text-yellow-500' 
-              : 'text-gray-400'
-          }`}>
-            {(method.notificationText?.length || 0)}/100
-          </span>
-        </div>
+        <p className="text-[10px] text-gray-500 mt-1">
+          טקסט זה יוצג בהתראה לפני תחילת התרגיל. ניתן לפצל לפי מגדר עם כפתור "פיצול מגדרי".
+        </p>
       </div>
 
       {/* Mixed Equipment Selection - Supports Fixed + Personal simultaneously */}
@@ -855,106 +845,40 @@ export default function ExecutionMethodCard({
           <div className="mt-3 space-y-4">
             {/* Specific Cues */}
             <div>
-              <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <AlertCircle size={12} className="text-amber-500" />
-                דגשי ביצוע (Specific Cues)
-              </label>
-              <p className="text-[10px] text-gray-500 mb-2">
-                נקודות קצרות לביצוע נכון בשיטה זו
-              </p>
-              <div className="space-y-1.5">
-                {(method.specificCues || []).map((cue, cueIndex) => (
-                  <div key={cueIndex} className="flex items-center gap-1.5">
-                    <div className="flex items-center justify-center w-5 h-5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold flex-shrink-0">
-                      {cueIndex + 1}
-                    </div>
-                    <input
-                      type="text"
-                      value={cue}
-                      onChange={(e) => {
-                        const newCues = [...(method.specificCues || [])];
-                        newCues[cueIndex] = e.target.value;
-                        safeUpdate({ ...method, specificCues: newCues });
-                      }}
-                      className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                      placeholder="דגש ביצוע..."
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newCues = (method.specificCues || []).filter((_, i) => i !== cueIndex);
-                        safeUpdate({ ...method, specificCues: newCues });
-                      }}
-                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newCues = [...(method.specificCues || []), ''];
-                    safeUpdate({ ...method, specificCues: newCues });
-                  }}
-                  className="flex items-center gap-1 px-2 py-1.5 text-amber-600 hover:bg-amber-50 rounded-lg font-bold text-xs transition-colors"
-                >
-                  <Plus size={12} />
-                  הוסף דגש
-                </button>
+                <label className="text-xs font-bold text-gray-500">
+                  דגשי ביצוע (Specific Cues)
+                </label>
               </div>
+              <p className="text-[10px] text-gray-500 mb-2">
+                נקודות קצרות לביצוע נכון בשיטה זו. ניתן לפצל כל דגש לפי מגדר.
+              </p>
+              <GenderedTextListInput
+                value={method.specificCues}
+                onChange={(newCues) => safeUpdate({ ...method, specificCues: newCues })}
+                placeholder="הוסף דגש ביצוע..."
+                maxItems={8}
+              />
             </div>
 
             {/* Highlights */}
             <div>
-              <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <Star size={12} className="text-green-500" />
-                נקודות מרכזיות (Highlights)
-              </label>
-              <p className="text-[10px] text-gray-500 mb-2">
-                יתרונות וטיפים לשיטת ביצוע זו
-              </p>
-              <div className="space-y-1.5">
-                {(method.highlights || []).map((highlight, highlightIndex) => (
-                  <div key={highlightIndex} className="flex items-center gap-1.5">
-                    <div className="flex items-center justify-center w-5 h-5 bg-green-100 text-green-700 rounded-full flex-shrink-0">
-                      <Star size={10} />
-                    </div>
-                    <input
-                      type="text"
-                      value={highlight}
-                      onChange={(e) => {
-                        const newHighlights = [...(method.highlights || [])];
-                        newHighlights[highlightIndex] = e.target.value;
-                        safeUpdate({ ...method, highlights: newHighlights });
-                      }}
-                      className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="נקודה מרכזית..."
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newHighlights = (method.highlights || []).filter((_, i) => i !== highlightIndex);
-                        safeUpdate({ ...method, highlights: newHighlights });
-                      }}
-                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newHighlights = [...(method.highlights || []), ''];
-                    safeUpdate({ ...method, highlights: newHighlights });
-                  }}
-                  className="flex items-center gap-1 px-2 py-1.5 text-green-600 hover:bg-green-50 rounded-lg font-bold text-xs transition-colors"
-                >
-                  <Plus size={12} />
-                  הוסף נקודה
-                </button>
+                <label className="text-xs font-bold text-gray-500">
+                  נקודות מרכזיות (Highlights)
+                </label>
               </div>
+              <p className="text-[10px] text-gray-500 mb-2">
+                יתרונות וטיפים לשיטת ביצוע זו. ניתן לפצל כל נקודה לפי מגדר.
+              </p>
+              <GenderedTextListInput
+                value={method.highlights}
+                onChange={(newHighlights) => safeUpdate({ ...method, highlights: newHighlights })}
+                placeholder="הוסף נקודה מרכזית..."
+                maxItems={6}
+              />
             </div>
           </div>
         )}

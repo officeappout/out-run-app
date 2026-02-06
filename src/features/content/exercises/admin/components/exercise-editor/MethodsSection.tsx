@@ -7,7 +7,7 @@ import { GearDefinition } from '../../../../equipment/gear/core/gear-definition.
 import { 
   Plus, Info, Zap, Target, MapPin, Users, Package, ArrowDown, Copy, 
   ChevronDown, ChevronRight, Home, Navigation, Building2, User, Plane, X,
-  Video, VideoOff, ListChecks, AlertCircle, Image, ImageOff
+  Video, VideoOff, ListChecks, AlertCircle, Image, ImageOff, Dumbbell, Trees
 } from 'lucide-react';
 import ExecutionMethodCard from './ExecutionMethodCard';
 
@@ -26,14 +26,14 @@ function deepClone<T>(obj: T): T {
   return cloned;
 }
 
-// Location labels for display
+// Location labels for display with appropriate icons
 const LOCATION_LABELS: Record<ExecutionLocation, { label: string; icon: React.ReactNode }> = {
   home: { label: 'בית', icon: <Home size={14} /> },
-  park: { label: 'פארק', icon: <MapPin size={14} /> },
+  park: { label: 'פארק', icon: <Trees size={14} /> },
   street: { label: 'רחוב', icon: <Navigation size={14} /> },
   office: { label: 'משרד', icon: <Building2 size={14} /> },
   school: { label: 'בית ספר', icon: <Building2 size={14} /> },
-  gym: { label: 'ג\'ים', icon: <User size={14} /> },
+  gym: { label: 'חדר כושר', icon: <Dumbbell size={14} /> },
   airport: { label: 'שדה תעופה', icon: <Plane size={14} /> },
 };
 
@@ -249,7 +249,14 @@ export default function MethodsSection({
           const isJustDuplicated = justDuplicatedIndex === index;
           const isExpanded = expandedMethods.has(index);
           const isFocused = focusedMethodIndex === index;
-          const locationLabel = LOCATION_LABELS[sanitizedMethod.location] || LOCATION_LABELS.home;
+          // Use locationMapping (array of available locations) instead of deprecated location property
+          const locationMappingArr = sanitizedMethod.locationMapping || [];
+          // Get primary location for display (first in mapping, or fallback to legacy location property)
+          const primaryLocation = locationMappingArr.length > 0 
+            ? locationMappingArr[0] 
+            : (sanitizedMethod.location || 'home');
+          const locationLabel = LOCATION_LABELS[primaryLocation] || LOCATION_LABELS.home;
+          const hasMultipleLocations = locationMappingArr.length > 1;
           const methodDisplayName = sanitizedMethod.methodName || `שיטת ביצוע ${index + 1}`;
           const equipmentNames = getEquipmentNames(sanitizedMethod);
           const status = getMethodStatus(sanitizedMethod);
@@ -309,11 +316,34 @@ export default function MethodsSection({
                     {methodDisplayName}
                   </span>
                   
-                  {/* Location Badge - Dynamic based on method.location */}
-                  <span className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
-                    {locationLabel.icon}
-                    {locationLabel.label}
-                  </span>
+                  {/* Location Badge(s) - Dynamic based on method.locationMapping */}
+                  {locationMappingArr.length > 0 ? (
+                    <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+                      {locationMappingArr.slice(0, 2).map((loc) => {
+                        const locData = LOCATION_LABELS[loc] || LOCATION_LABELS.home;
+                        return (
+                          <span 
+                            key={loc}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium"
+                          >
+                            {locData.icon}
+                            {locData.label}
+                          </span>
+                        );
+                      })}
+                      {locationMappingArr.length > 2 && (
+                        <span className="text-[10px] text-gray-500">
+                          +{locationMappingArr.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">
+                      {locationLabel.icon}
+                      {locationLabel.label}
+                      <span className="text-[9px]">(לא הוגדר)</span>
+                    </span>
+                  )}
                   
                   {/* Equipment Tags - Show actual names instead of count */}
                   {equipmentNames.length > 0 && (
