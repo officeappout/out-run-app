@@ -16,8 +16,10 @@ export const IS_COIN_SYSTEM_ENABLED = false;
  */
 export const ADMIN_ALLOWED_EMAILS: string[] = [
   // Primary admins - add your actual admin emails here
-  'gal@outrun.co.il',
-  'admin@outrun.co.il',
+  'gal@appout.co.il',
+  'office@appout.co.il',
+  'david@appout.co.il'
+  'matan.danan@appout.co.il',
   // Add more admin emails below:
   // 'your-email@gmail.com',
 ];
