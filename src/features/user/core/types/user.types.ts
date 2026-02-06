@@ -1,5 +1,5 @@
 import { RunningProfile } from '../../../workout-engine/core/types/running.types';
-import { DomainTrackProgress } from './progression.types';
+import { DomainTrackProgress, ReadyForSplitStatus } from './progression.types';
 
 // ==========================================
 // 1. הגדרת התחומים המקצועיים (Skill Tree Domains)
@@ -109,6 +109,11 @@ export interface UserProgression {
   tracks?: {
     [programId: string]: DomainTrackProgress;
   };
+
+  // --- Ready for Split Recommendation ---
+  // Triggered when full_body level reaches threshold (10)
+  // Suggests transitioning to split training (upper/lower)
+  readyForSplit?: ReadyForSplitStatus;
 }
 
 // ==========================================
@@ -161,13 +166,21 @@ export interface UserFullProfile {
     // More goals can be added here later (e.g., weeklyMinutes, weeklyRuns)
   };
 
+  // User selected fitness goals (up to 3)
+  selectedGoals?: string[]; // ['glutes_abs', 'skills', 'mass_building', 'fat_loss']
+
   lifestyle: {
     hasDog: boolean;
     commute: { method: 'bus' | 'car' | 'bike' | 'walk'; workLocation?: { lat: number; lng: number }; enableChallenges: boolean };
     scheduleDays?: string[]; // Array of Hebrew day letters: ['א', 'ב', 'ג'] - workout days
     trainingTime?: string; // HH:MM format - preferred workout time
     dashboardMode?: DashboardMode; // Explicit dashboard mode override (DEFAULT/RUNNING/PERFORMANCE)
+    lifestyleTags?: string[]; // Lifestyle tags from selected persona (e.g., ['office_worker', 'student'])
   };
+  
+  // Persona (Lemur) selection
+  personaId?: string; // ID of selected persona
+  profileCompleted?: boolean; // Whether deep dive refinement questionnaire was completed
 
   health: { injuries: string[]; connectedWatch: 'apple' | 'garmin' | 'none' };
 

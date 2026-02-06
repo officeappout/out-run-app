@@ -5,8 +5,13 @@ import { useUserStore } from '../../identity/store/useUserStore';
 import { getUserProgression } from '@/lib/firestore.service';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChange } from '@/lib/auth.service';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 export default function CoinPill() {
+  // COIN_SYSTEM_PAUSED: Re-enable in April
+  if (!IS_COIN_SYSTEM_ENABLED) {
+    return null;
+  }
   const { profile, updateProfile } = useUserStore();
   const [coins, setCoins] = useState(profile?.progression?.coins || 0);
   const [isLoading, setIsLoading] = useState(false);

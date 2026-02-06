@@ -2,12 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   Simpler Pro Font Family - @font-face definitions
+   ============================================ */
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Map additional weights to available fonts for flexibility */
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Regular.otf') format('opentype');
+  font-weight: 300; /* Light maps to Regular */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Semibold.otf') format('opentype');
+  font-weight: 500; /* Medium maps to Semibold */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Bold.otf') format('opentype');
+  font-weight: 800; /* Extra Bold maps to Bold */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Simpler Pro';
+  src: url('./fonts/SimplerPro-Bold.otf') format('opentype');
+  font-weight: 900; /* Black maps to Bold */
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* Font families */
-  --font-hebrew: 'Assistant', 'Rubik', 'Arial Hebrew', 'David', sans-serif;
-  --font-english: 'Inter', 'Arial', 'Helvetica', sans-serif;
+  /* Font families - Simpler Pro as primary */
+  --font-simpler: 'Simpler Pro', sans-serif;
+  --font-hebrew: 'Simpler Pro', 'Assistant', 'Rubik', 'Arial Hebrew', 'David', sans-serif;
+  --font-english: 'Simpler Pro', 'Inter', 'Arial', 'Helvetica', sans-serif;
   /* Safe area insets for mobile devices with notches */
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
@@ -22,23 +83,115 @@
   }
 }
 
+/* ============================================
+   Global Body Styles with Simpler Pro
+   ============================================ */
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-hebrew);
+  font-family: var(--font-simpler);
   transition: font-family 0.2s ease;
 }
 
-/* Font switching based on language */
+/* Apply Simpler Pro to all elements */
+*, *::before, *::after {
+  font-family: inherit;
+}
+
+/* Font switching based on language - with Simpler Pro first */
 html[lang="he"] body,
 html[dir="rtl"] body {
   font-family: var(--font-hebrew);
+  /* RTL Optimization for Hebrew - prevent letter clipping */
+  line-height: 1.6;
+  letter-spacing: 0.01em;
 }
 
 html[lang="en"] body,
 html[lang="es"] body,
 html[dir="ltr"] body {
   font-family: var(--font-english);
+}
+
+/* ============================================
+   RTL Hebrew Text Optimization
+   ============================================ */
+[dir="rtl"] {
+  /* Improved line-height for Hebrew characters */
+  line-height: 1.6;
+  /* Slight letter-spacing to prevent clipping */
+  letter-spacing: 0.01em;
+}
+
+/* Headers in RTL need extra breathing room */
+[dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, 
+[dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6 {
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+/* Utility class for Simpler Pro with optimal RTL settings */
+.font-simpler {
+  font-family: 'Simpler Pro', sans-serif !important;
+  line-height: 1.5;
+}
+
+/* Specific weight utility classes */
+.font-simpler-regular {
+  font-family: 'Simpler Pro', sans-serif !important;
+  font-weight: 400;
+}
+
+.font-simpler-semibold {
+  font-family: 'Simpler Pro', sans-serif !important;
+  font-weight: 600;
+}
+
+.font-simpler-bold {
+  font-family: 'Simpler Pro', sans-serif !important;
+  font-weight: 700;
+}
+
+/* ============================================
+   Premium OUT Design System - Card Components
+   ============================================ */
+.premium-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 20px; /* matches rounded-3xl */
+  box-shadow: 0 4px 20px rgba(91, 194, 242, 0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.premium-card:hover {
+  box-shadow: 0 8px 30px rgba(91, 194, 242, 0.10);
+}
+
+.premium-card-sm {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 14px; /* matches rounded-2xl */
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Premium bottom sheet style */
+.premium-sheet {
+  background: white;
+  border-radius: 20px 20px 0 0;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  border-bottom: none;
+  box-shadow: 0 -8px 30px rgba(91, 194, 242, 0.08);
+}
+
+/* Premium button base */
+.premium-btn {
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.premium-btn:active {
+  transform: scale(0.98);
 }
 
 @layer utilities {
@@ -59,6 +212,45 @@ html[dir="ltr"] body {
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  
+  /* Custom thin scrollbar for Kanban boards */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db #f3f4f6;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+    border: 2px solid #f3f4f6;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+  
+  /* Scrollbar color utilities */
+  .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+  }
+  .scrollbar-thumb-gray-400::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+  }
+  .scrollbar-track-gray-100::-webkit-scrollbar-track {
+    background: #f3f4f6;
+  }
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .hover\:scrollbar-thumb-gray-400:hover::-webkit-scrollbar-thumb {
+    background: #9ca3af;
   }
   
   /* Progress segment utility (matching HTML) */

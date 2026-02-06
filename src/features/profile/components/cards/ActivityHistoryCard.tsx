@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Coins, Flame, Clock } from 'lucide-react';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface ActivityHistoryCardProps {
   workout: WorkoutHistoryEntry;
@@ -91,10 +92,13 @@ export default function ActivityHistoryCard({ workout, onClick }: ActivityHistor
 
             {/* Coins Badge */}
             {workout.earnedCoins > 0 && (
-              <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
-                <Coins size={14} className="text-yellow-600" />
-                <span className="text-xs font-bold text-yellow-700">+{workout.earnedCoins} מטבעות</span>
-              </div>
+              {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+              {IS_COIN_SYSTEM_ENABLED && (
+                <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
+                  <Coins size={14} className="text-yellow-600" />
+                  <span className="text-xs font-bold text-yellow-700">+{workout.earnedCoins} מטבעות</span>
+                </div>
+              )}
             )}
           </div>
         </div>

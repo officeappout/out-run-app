@@ -14,8 +14,9 @@ import BottomJourneyContainer from '@/features/parks/core/components/BottomJourn
 import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPreferencesModal';
 import { LiveWorkoutOverlay, WorkoutPreviewDrawer } from '@/features/workout-engine/players/strength';
 
-import { DopamineScreen, ActiveDashboard } from '@/features/workout-engine/players/running';
+import { ActiveDashboard } from '@/features/workout-engine/players/running';
 import WorkoutSummaryPage from '@/features/workout-engine/summary/WorkoutSummaryPage';
+import { StrengthDopamineScreen, StrengthSummaryPage } from '@/features/workout-engine/components/strength';
 import ParticleBackground from '@/components/ParticleBackground';
 import ChatDrawer from '@/features/parks/core/components/ChatDrawer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
@@ -250,22 +251,56 @@ function MapPageContent() {
 
       {/* MODALS & DRAWERS */}
       {logic.isGenerating && <RouteGenerationLoader />}
-      {logic.showSummary && (
-        <WorkoutSummaryPage
-          onFinish={() => {
-            logic.setShowSummary(false);
-            logic.setShowDopamine(true); // Show dopamine screen after summary
+      
+      {/* WORKOUT COMPLETION FLOW: Dopamine First → Summary Second */}
+      {/* Step 1: Show Dopamine/Celebration Screen immediately after saving */}
+      {logic.showDopamine && (
+        <StrengthDopamineScreen
+          initialProgress={63}
+          currentLevel={5}
+          programName={logic.workoutMode === 'free' ? 'אימון חופשי' : 'אימון מסלול'}
+          onShare={() => {
+            // Share functionality (can be implemented later)
+            console.log('Share clicked');
           }}
-          workoutType={logic.workoutMode === 'free' ? 'FREE_RUN' : 'PLAN_RUN'}
+          onBack={() => {
+            // Transition from Dopamine → Summary
+            logic.setShowDopamine(false);
+            logic.setShowSummary(true);
+          }}
         />
       )}
-      {logic.showDopamine && (
-        <DopamineScreen
-          onContinue={() => {
-            logic.setShowDopamine(false);
+      
+      {/* Step 2: Show Summary Screen with detailed stats */}
+      {/* Strength Flow - Use StrengthSummaryPage for plan-based workouts */}
+      {logic.showSummary && logic.workoutMode !== 'free' && (
+        <StrengthSummaryPage
+          duration={logic.elapsedTime || 0}
+          totalReps={0} // TODO: Get from workout store
+          completedExercises={[]} // TODO: Get from workout store
+          difficulty="medium"
+          streak={3} // TODO: Get from user progression
+          programName="תוכנית כל הגוף"
+          currentLevel={5}
+          maxLevel={10}
+          progressToNextLevel={80}
+          onFinish={() => {
+            // End the workout completion flow
+            logic.setShowSummary(false);
             logic.setIsWorkoutActive(false);
-            // Navigation to home happens in WorkoutSummaryPage
           }}
+        />
+      )}
+      
+      {/* Running Flow - Use WorkoutSummaryPage for free run */}
+      {logic.showSummary && logic.workoutMode === 'free' && (
+        <WorkoutSummaryPage
+          onFinish={() => {
+            // End the workout completion flow
+            logic.setShowSummary(false);
+            logic.setIsWorkoutActive(false);
+          }}
+          workoutType="FREE_RUN"
         />
       )}
 

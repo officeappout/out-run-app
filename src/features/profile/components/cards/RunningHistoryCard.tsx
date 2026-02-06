@@ -6,6 +6,7 @@ import { MapPin, Coins, Clock } from 'lucide-react';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import dynamic from 'next/dynamic';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 // Dynamic import for map to avoid SSR issues
 const RunMapBlock = dynamic(
@@ -124,8 +125,8 @@ export default function RunningHistoryCard({ workout, onClick }: RunningHistoryC
               )}
             </div>
 
-            {/* Coins Badge */}
-            {workout.earnedCoins > 0 && (
+            {/* Coins Badge - COIN_SYSTEM_PAUSED: Re-enable in April */}
+            {IS_COIN_SYSTEM_ENABLED && workout.earnedCoins > 0 && (
               <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
                 <Coins size={14} className="text-yellow-600" />
                 <span className="text-xs font-bold text-yellow-700">+{workout.earnedCoins} מטבעות</span>

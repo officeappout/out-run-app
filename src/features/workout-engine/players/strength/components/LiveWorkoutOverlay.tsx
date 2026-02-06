@@ -218,13 +218,13 @@ export default function LiveWorkoutOverlay({
                     <div className="text-center mb-6">
                         <h1
                             className="text-3xl font-extrabold text-slate-800 dark:text-white mb-1"
-                            style={{ fontFamily: 'Assistant, sans-serif' }}
+                            style={{ fontFamily: 'var(--font-simpler)' }}
                         >
                             {getExerciseTypeLabel()}
                         </h1>
                         <p
                             className="text-slate-500 dark:text-zinc-400 text-lg mb-2"
-                            style={{ fontFamily: 'Assistant, sans-serif' }}
+                            style={{ fontFamily: 'var(--font-simpler)' }}
                         >
                             {exerciseName}
                         </p>
@@ -251,7 +251,7 @@ export default function LiveWorkoutOverlay({
                                     onChange={(e) => setRepsInput(e.target.value)}
                                     placeholder="כמות חזרות"
                                     className="flex-1 h-full bg-transparent text-center text-xl font-bold text-slate-800 dark:text-white focus:outline-none"
-                                    style={{ fontFamily: 'Assistant, sans-serif' }}
+                                    style={{ fontFamily: 'var(--font-simpler)' }}
                                 />
                                 <button
                                     onClick={handleComplete}
@@ -265,7 +265,7 @@ export default function LiveWorkoutOverlay({
                             <button
                                 onClick={handleComplete}
                                 className="flex-1 h-14 bg-white dark:bg-zinc-800 border-2 border-slate-100 dark:border-zinc-700 rounded-2xl flex items-center justify-center gap-2 font-bold text-slate-800 dark:text-white shadow-sm active:scale-[0.98] transition-transform"
-                                style={{ fontFamily: 'Assistant, sans-serif' }}
+                                style={{ fontFamily: 'var(--font-simpler)' }}
                             >
                                 <span>סיימתי</span>
                                 <Check size={20} className="text-[#00AEEF]" />
@@ -297,7 +297,7 @@ export default function LiveWorkoutOverlay({
                         <div className="mb-8">
                             <h3
                                 className="text-lg font-bold mb-4 text-slate-800 dark:text-white"
-                                style={{ fontFamily: 'Assistant, sans-serif' }}
+                                style={{ fontFamily: 'var(--font-simpler)' }}
                             >
                                 שרירי התרגיל
                             </h3>
@@ -335,7 +335,7 @@ export default function LiveWorkoutOverlay({
                         <div className="mb-8">
                             <h3
                                 className="text-lg font-bold mb-2 text-slate-800 dark:text-white"
-                                style={{ fontFamily: 'Assistant, sans-serif' }}
+                                style={{ fontFamily: 'var(--font-simpler)' }}
                             >
                                 מטרת התרגיל
                             </h3>
@@ -352,7 +352,7 @@ export default function LiveWorkoutOverlay({
                         <div className="mb-10">
                             <h3
                                 className="text-lg font-bold mb-4 text-slate-800 dark:text-white"
-                                style={{ fontFamily: 'Assistant, sans-serif' }}
+                                style={{ fontFamily: 'var(--font-simpler)' }}
                             >
                                 דגשים
                             </h3>

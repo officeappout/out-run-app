@@ -10,11 +10,12 @@ import {
   duplicateExercise,
   searchExercises,
   getExercisesByProgram,
+  getExerciseProductionReadiness,
 } from '@/features/content/exercises';
 import { getAllPrograms } from '@/features/content/programs';
 import { Exercise, getLocalizedText, MovementGroup } from '@/features/content/exercises';
 import { Program } from '@/features/content/programs';
-import { Plus, Edit2, Trash2, Copy, Search, Eye, Image as ImageIcon, HelpCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Search, Eye, Image as ImageIcon, HelpCircle, PlayCircle, Download, AlertCircle, CheckCircle, Camera } from 'lucide-react';
 
 const MOVEMENT_GROUP_LABELS: Record<MovementGroup, string> = {
   squat: 'סקוואט',
@@ -138,13 +139,22 @@ export default function ExercisesAdminPage() {
           <h1 className="text-3xl font-black text-gray-900">ניהול תרגילים</h1>
           <p className="text-gray-500 mt-2">צור וערוך תרגילי אימון</p>
         </div>
-        <Link
-          href="/admin/exercises/new"
-          className="flex items-center gap-2 px-6 py-3 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-colors shadow-lg"
-        >
-          <Plus size={20} />
-          תרגיל חדש
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/export-exercises"
+            className="flex items-center gap-2 px-5 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+          >
+            <Download size={18} />
+            ייצוא CSV
+          </Link>
+          <Link
+            href="/admin/exercises/new"
+            className="flex items-center gap-2 px-6 py-3 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-colors shadow-lg"
+          >
+            <Plus size={20} />
+            תרגיל חדש
+          </Link>
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -210,6 +220,7 @@ export default function ExercisesAdminPage() {
                   <th className="px-6 py-4 rounded-tr-2xl">ID</th>
                   <th className="px-6 py-4">תצוגה מקדימה</th>
                   <th className="px-6 py-4">שם התרגיל</th>
+                  <th className="px-6 py-4">סטטוס מדיה</th>
                   <th className="px-6 py-4">
                     <div className="flex items-center gap-2 justify-end">
                       <span>קבוצת תנועה</span>
@@ -240,11 +251,25 @@ export default function ExercisesAdminPage() {
                       {exercise.id.substring(0, 8)}...
                     </td>
                     <td className="px-6 py-4">
-                      <ExercisePreviewThumbnail imageUrl={exercise.media?.imageUrl} />
+                      <ExercisePreviewThumbnail 
+                        imageUrl={
+                          exercise.media?.imageUrl || 
+                          exercise.executionMethods?.[0]?.media?.imageUrl ||
+                          exercise.execution_methods?.[0]?.media?.imageUrl ||
+                          exercise.executionMethods?.[0]?.media?.mainVideoUrl ||
+                          exercise.execution_methods?.[0]?.media?.mainVideoUrl
+                        }
+                      />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-bold text-gray-900">
+                      <div className="font-bold text-gray-900 flex items-center gap-2">
                         {getLocalizedText(exercise.name, 'he')}
+                        {exercise.isFollowAlong && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold" title="Follow-Along Video">
+                            <PlayCircle size={12} />
+                            Follow-Along
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         {exercise.type} • {exercise.muscleGroups.length} שרירים
@@ -252,6 +277,9 @@ export default function ExercisesAdminPage() {
                           <span> • {exercise.targetPrograms.length} שיוכי תוכנית</span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <ProductionStatusBadge exercise={exercise} />
                     </td>
                     <td className="px-6 py-4">
                       {exercise.movementGroup ? (
@@ -306,15 +334,18 @@ export default function ExercisesAdminPage() {
   );
 }
 
-// Exercise Preview Thumbnail Component
-function ExercisePreviewThumbnail({ imageUrl }: { imageUrl?: string }) {
+// Exercise Preview Thumbnail Component - handles null/missing media gracefully
+function ExercisePreviewThumbnail({ imageUrl, isMissing = false }: { imageUrl?: string | null; isMissing?: boolean }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  if (!imageUrl) {
+  // Handle null, undefined, or empty string as missing media
+  const hasValidUrl = imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '';
+
+  if (!hasValidUrl || isMissing) {
     return (
-      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-        <ImageIcon size={20} className="text-gray-400" />
+      <div className="w-12 h-12 rounded-lg bg-amber-50 border-2 border-dashed border-amber-300 flex items-center justify-center" title="חסרה תמונה">
+        <Camera size={18} className="text-amber-500" />
       </div>
     );
   }
@@ -327,8 +358,8 @@ function ExercisePreviewThumbnail({ imageUrl }: { imageUrl?: string }) {
         </div>
       )}
       {imageError ? (
-        <div className="w-full h-full flex items-center justify-center">
-          <ImageIcon size={20} className="text-gray-400" />
+        <div className="w-full h-full flex items-center justify-center bg-red-50 border-2 border-dashed border-red-300">
+          <AlertCircle size={18} className="text-red-500" />
         </div>
       ) : (
         <img
@@ -343,5 +374,36 @@ function ExercisePreviewThumbnail({ imageUrl }: { imageUrl?: string }) {
         />
       )}
     </div>
+  );
+}
+
+// Production Status Badge Component
+function ProductionStatusBadge({ exercise }: { exercise: Exercise }) {
+  const readiness = getExerciseProductionReadiness(exercise);
+  
+  if (readiness.status === 'production_ready') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold" title="מוכן לפרודקשן">
+        <CheckCircle size={12} />
+        מוכן
+      </span>
+    );
+  }
+  
+  if (readiness.status === 'pending_filming') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold" title={`חסרים ${readiness.missingCount} מדיה`}>
+        <Camera size={12} />
+        ממתין לצילום ({readiness.missingCount})
+      </span>
+    );
+  }
+  
+  // missing_all_media
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold" title="חסרה כל המדיה">
+      <AlertCircle size={12} />
+      ללא מדיה
+    </span>
   );
 }

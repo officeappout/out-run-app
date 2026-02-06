@@ -285,7 +285,7 @@ export default function QuestionRenderer({
           <div className="text-6xl mb-4">🏆</div>
           <h1 className="text-3xl font-black text-gray-900">{title}</h1>
           <p className="text-lg text-gray-600 leading-relaxed px-4">{subtitle}</p>
-          <div className="bg-blue-50 p-8 rounded-[32px] border border-blue-100">
+          <div className="bg-blue-50 p-8 rounded-2xl border border-blue-100/80">
             <span className="text-blue-500 font-bold text-sm uppercase">הרמה ההתחלתית שלך</span>
             <h2 className="text-5xl font-black text-gray-900 mt-2">רמה 5</h2>
           </div>

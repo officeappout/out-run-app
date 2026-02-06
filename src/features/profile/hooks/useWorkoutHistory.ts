@@ -16,12 +16,12 @@ export function useWorkoutHistory(limit: number = 50) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setWorkouts([]);
-        setIsLoading(false);
-        return;
-      }
+      setIsLoading(false);
+      return;
+    }
 
-      setIsLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
 
       try {
         const data = await getWorkoutHistory(user.uid, limit);
@@ -32,7 +32,7 @@ export function useWorkoutHistory(limit: number = 50) {
         setError(err instanceof Error ? err : new Error('Failed to fetch workout history'));
         setIsLoading(false);
       }
-    });
+      });
 
     return () => unsubscribe();
   }, [limit]);

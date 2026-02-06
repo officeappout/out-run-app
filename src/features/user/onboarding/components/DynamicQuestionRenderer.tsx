@@ -2,16 +2,15 @@
 
 import React from 'react';
 import { DynamicQuestionNode } from '../engine/DynamicOnboardingEngine';
-import { ImageIcon, Coins } from 'lucide-react';
+import { Coins } from 'lucide-react';
 import { MultilingualText } from '@/types/onboarding-questionnaire';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface DynamicQuestionRendererProps {
   question: DynamicQuestionNode;
   selectedAnswerId?: string;
   onAnswer: (answerId: string) => void;
 }
-
-const PLACEHOLDER_IMAGE = 'https://placehold.co/400x300/00BFFF/FFFFFF?text=No+Image';
 
 type AppLanguage = 'he' | 'en' | 'ru';
 
@@ -110,17 +109,20 @@ export default function DynamicQuestionRenderer({
               const isSelected = selectedAnswerId === answer.id;
               const answerText = getTextValue(answer.text as any, language, gender);
               const coinReward = (answer as any).coinReward ?? 10; // Default to 10 coins
+              const hasImage = !!answer.imageUrl;
               
               return (
                 <label
                   key={answer.id}
                   className={`
-                    group relative w-full h-40 rounded-2xl overflow-hidden cursor-pointer
+                    group relative w-full rounded-2xl overflow-hidden cursor-pointer
                     border-2 transition-all duration-200 active:scale-[0.98]
+                    shadow-[0_10px_40px_rgba(91,194,242,0.12)]
+                    ${hasImage ? 'h-40' : 'h-auto py-6'}
                     ${
                       isSelected
                         ? 'border-[#5BC2F2] shadow-[0_0_20px_-5px_rgba(91,194,242,0.6)]'
-                        : 'border-transparent hover:border-[#5BC2F2]/50 bg-white shadow-md'
+                        : 'border-transparent hover:border-[#5BC2F2]/50 bg-white'
                     }
                   `}
                 >
@@ -133,43 +135,47 @@ export default function DynamicQuestionRenderer({
                     className="sr-only peer"
                   />
                   
-                  {/* Coin Reward Badge - Top Left */}
-                  {coinReward > 0 && (
+                  {/* Coin Reward Badge - Top Left - COIN_SYSTEM_PAUSED: Re-enable in April */}
+                  {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
                     <div className="absolute top-3 left-3 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
                       <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
                       <span className="text-xs font-bold font-simpler">+{coinReward}</span>
                     </div>
                   )}
                   
-                  {/* Background Image - Full Coverage */}
-                  {answer.imageUrl ? (
+                  {/* Background Image - Only if has valid URL */}
+                  {hasImage && (
                     <img
                       alt={answerText}
                       src={answer.imageUrl}
                       className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                       onError={(e) => {
+                        // Hide the broken image - don't use placeholder
                         const target = e.target as HTMLImageElement;
-                        target.src = PLACEHOLDER_IMAGE;
+                        target.style.display = 'none';
                       }}
                     />
-                  ) : (
-                    <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                      <ImageIcon className="w-12 h-12 text-gray-400" />
-                    </div>
                   )}
 
-                  {/* Gradient Overlay - Bottom to Top */}
-                  <div
-                    className={`absolute inset-0 transition-opacity duration-200 ${
-                      isSelected
-                        ? 'bg-gradient-to-t from-white via-white/90 to-transparent'
-                        : 'bg-gradient-to-t from-white via-white/85 to-white/10'
-                    }`}
-                  />
+                  {/* Gradient Overlay - Only for cards with images */}
+                  {hasImage && (
+                    <div
+                      className={`absolute inset-0 transition-opacity duration-200 ${
+                        isSelected
+                          ? 'bg-gradient-to-t from-white via-white/90 to-transparent'
+                          : 'bg-gradient-to-t from-white via-white/85 to-white/10'
+                      }`}
+                    />
+                  )}
 
-                  {/* Text Content - Positioned at Bottom */}
-                  <div className={`absolute inset-0 p-5 flex flex-col justify-end ${language === 'he' ? 'text-right' : 'text-left'}`}>
-                    <h3 className="text-lg font-black text-slate-900 mb-1">
+                  {/* Text Content - Centered when no image, at bottom when has image */}
+                  <div className={`
+                    ${hasImage 
+                      ? `absolute inset-0 p-5 flex flex-col justify-end ${language === 'he' ? 'text-right' : 'text-left'}`
+                      : 'flex items-center justify-center text-center px-5'
+                    }
+                  `}>
+                    <h3 className="text-lg font-black text-slate-900">
                       {answerText}
                     </h3>
                   </div>
@@ -186,6 +192,7 @@ export default function DynamicQuestionRenderer({
               const isSelected = selectedAnswerId === answer.id;
               const answerText = getTextValue(answer.text as any, language, gender);
               const coinReward = (answer as any).coinReward ?? 10; // Default to 10 coins
+              const hasImage = !!answer.imageUrl;
               
               return (
                 <label
@@ -201,8 +208,8 @@ export default function DynamicQuestionRenderer({
                     className="sr-only peer"
                   />
                   
-                  {/* Coin Reward Badge - Top Left (absolute positioned) */}
-                  {coinReward > 0 && (
+                  {/* Coin Reward Badge - Top Left (absolute positioned) - COIN_SYSTEM_PAUSED: Re-enable in April */}
+                  {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
                     <div className="absolute top-2 left-2 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
                       <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
                       <span className="text-xs font-bold font-simpler">+{coinReward}</span>
@@ -212,10 +219,11 @@ export default function DynamicQuestionRenderer({
                   {/* Card Container - Flex Row */}
                   <div
                     className={`
-                      bg-white rounded-xl h-20 shadow-[0_2px_10px_rgba(0,0,0,0.03)] 
-                      flex items-center justify-between overflow-hidden
+                      bg-white rounded-xl h-20 shadow-[0_10px_40px_rgba(91,194,242,0.12)]
+                      flex items-center overflow-hidden
                       border transition-all duration-200
                       ${language === 'he' ? 'flex-row-reverse' : 'flex-row'}
+                      ${hasImage ? 'justify-between' : 'justify-center'}
                       ${
                         isSelected
                           ? 'border-[#5BC2F2] ring-2 ring-[#5BC2F2]/30'
@@ -223,27 +231,30 @@ export default function DynamicQuestionRenderer({
                       }
                     `}
                   >
-                    {/* Image - Fixed Width */}
-                    <div className="h-full w-24 relative flex-shrink-0">
-                      {answer.imageUrl ? (
+                    {/* Image - Only show if has valid URL */}
+                    {hasImage && (
+                      <div className="h-full w-24 relative flex-shrink-0">
                         <img
                           alt={answerText}
                           src={answer.imageUrl}
                           className="h-full w-full object-cover"
                           onError={(e) => {
+                            // Hide the broken image container
                             const target = e.target as HTMLImageElement;
-                            target.src = PLACEHOLDER_IMAGE;
+                            if (target.parentElement) {
+                              target.parentElement.style.display = 'none';
+                            }
                           }}
                         />
-                      ) : (
-                        <div className="h-full w-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                          <ImageIcon className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
-                    {/* Title - Flexible */}
-                    <span className={`text-sm font-medium px-5 flex-grow text-slate-800 ${language === 'he' ? 'text-right' : 'text-left'}`}>
+                    {/* Title - Centered when no image, flexible when has image */}
+                    <span className={`text-sm font-medium px-5 text-slate-800 ${
+                      hasImage 
+                        ? `flex-grow ${language === 'he' ? 'text-right' : 'text-left'}`
+                        : 'text-center'
+                    }`}>
                       {answerText}
                     </span>
                   </div>

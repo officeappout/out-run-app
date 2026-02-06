@@ -29,7 +29,7 @@ export default function RunLapsList() {
 
   if (allLaps.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white" style={{ fontFamily: 'Assistant, sans-serif' }}>
+      <div className="w-full h-full flex items-center justify-center bg-white" style={{ fontFamily: 'var(--font-simpler)' }}>
         <div className="text-center text-gray-400">
           <p className="text-lg font-medium mb-2">אין הקפות עדיין</p>
           <p className="text-sm">ההקפות יופיעו כאן לאחר התחלת האימון</p>
@@ -39,7 +39,7 @@ export default function RunLapsList() {
   }
 
   return (
-    <div className="w-full h-full bg-white overflow-y-auto" style={{ fontFamily: 'Assistant, sans-serif' }}>
+    <div className="w-full h-full bg-white overflow-y-auto" style={{ fontFamily: 'var(--font-simpler)' }}>
       {/* Table Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 z-10 px-6 py-4">
         <div className="flex items-center text-right text-xs font-bold text-gray-500 uppercase tracking-wider">

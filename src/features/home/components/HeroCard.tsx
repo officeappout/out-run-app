@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface HeroCardProps {
   workout: MockWorkout;
@@ -133,12 +134,20 @@ export default function HeroCard({
             }}
           />
           
-          {/* Badge */}
+          {/* Badge - COIN_SYSTEM_PAUSED: Show only calories when coins disabled */}
           <div className="absolute top-4 end-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-2 shadow-md">
+            {IS_COIN_SYSTEM_ENABLED ? (
+              <>
             <span className="text-yellow-600 font-bold">$</span>
             <span className="text-sm font-bold text-gray-900">
               {workout.coins} = {workout.calories} {"קל׳"}
             </span>
+              </>
+            ) : (
+              <span className="text-sm font-bold text-gray-900">
+                {workout.calories} {"קל׳"}
+              </span>
+            )}
           </div>
         </div>
       </div>

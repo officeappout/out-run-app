@@ -11,6 +11,7 @@ import { Exercise as ExerciseDoc, ExecutionMethod, ExecutionLocation, RequiredGe
 import { Park } from '@/types/admin-types';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import { GearDefinition } from '@/features/content/equipment/gear';
+import { getAllGymEquipment, GymEquipment } from '@/features/content/equipment/gym';
 
 export interface Exercise {
   id: string;
@@ -19,6 +20,7 @@ export interface Exercise {
   difficulty: number; // 1-5
   equipment?: string[];
   selectedExecutionMethod?: ExecutionMethod; // The execution method selected for this exercise
+  matchesUserEquipment?: boolean; // Whether this exercise was selected because of user-owned equipment
 }
 
 export interface WorkoutPlan {
@@ -239,6 +241,47 @@ async function getGearDefinitions(): Promise<GearDefinition[]> {
   return gearDefinitionsCache;
 }
 
+/**
+ * Infer user lifestyle tags from profile
+ */
+function inferUserLifestyleTags(userProfile: UserFullProfile): string[] {
+  const tags: string[] = [];
+  
+  // Check core.mainGoal for lifestyle hints
+  if (userProfile.core.mainGoal === 'healthy_lifestyle') {
+    tags.push('athlete');
+  }
+  
+  // Check lifestyle.commute for office worker
+  if (userProfile.lifestyle?.commute?.method === 'car' || 
+      userProfile.lifestyle?.commute?.method === 'bus') {
+    tags.push('office_worker');
+  }
+  
+  // Check if user has schedule (might indicate student/parent)
+  if (userProfile.lifestyle?.scheduleDays && userProfile.lifestyle.scheduleDays.length > 0) {
+    // Could be student or parent - we'll match both
+    tags.push('student', 'parent');
+  }
+  
+  return tags;
+}
+
+/**
+ * Check if user owns specific equipment
+ */
+function userOwnsEquipment(equipmentId: string, userProfile: UserFullProfile): boolean {
+  if (!userProfile.equipment) return false;
+  
+  const allOwnedEquipment = [
+    ...(userProfile.equipment.home || []),
+    ...(userProfile.equipment.office || []),
+    ...(userProfile.equipment.outdoor || []),
+  ];
+  
+  return allOwnedEquipment.includes(equipmentId);
+}
+
 export async function selectExecutionMethod(
   exercise: ExerciseDoc,
   location: ExecutionLocation,
@@ -249,67 +292,160 @@ export async function selectExecutionMethod(
     return null; // No execution methods defined
   }
 
-  // Filter methods by location
-  const locationMethods = exercise.execution_methods.filter((m) => m.location === location);
-  if (locationMethods.length === 0) {
+  // Get user lifestyle tags
+  const userLifestyleTags = inferUserLifestyleTags(userProfile);
+
+  // Step 1: Filter methods by locationMapping (if specified) OR location
+  const locationFilteredMethods = exercise.execution_methods.filter((m) => {
+    if (m.locationMapping && m.locationMapping.length > 0) {
+      return m.locationMapping.includes(location);
+    }
+    // Fallback to old location field for backward compatibility
+    return m.location === location;
+  });
+
+  if (locationFilteredMethods.length === 0) {
     return null; // No methods for this location
   }
 
-  // Priority order based on location
+  // Step 2: Filter by lifestyle tags (if specified)
+  const lifestyleFilteredMethods = locationFilteredMethods.filter((m) => {
+    if (!m.lifestyleTags || m.lifestyleTags.length === 0) {
+      return true; // No lifestyle filter means available to all
+    }
+    // Method is available if user has at least one matching lifestyle tag
+    return m.lifestyleTags.some(tag => userLifestyleTags.includes(tag));
+  });
+
+  // Step 3: Filter by equipment availability
+  const equipmentFilteredMethods = lifestyleFilteredMethods.filter((m) => {
+    // If method has specific equipmentId, check if user owns it
+    if (m.equipmentId) {
+      return userOwnsEquipment(m.equipmentId, userProfile);
+    }
+    // If no equipmentId specified, method is available
+    return true;
+  });
+
+  // Use equipment-filtered methods if available, otherwise fall back to lifestyle-filtered
+  const candidateMethods = equipmentFilteredMethods.length > 0 
+    ? equipmentFilteredMethods 
+    : lifestyleFilteredMethods;
+
+  if (candidateMethods.length === 0) {
+    return null;
+  }
+
+  // Step 4: Priority order based on location and gear type
   let priorityOrder: RequiredGearType[];
   if (location === 'home' || location === 'office' || location === 'school') {
-    // At home / office / school: prioritize user gear, then improvised
     priorityOrder = ['user_gear', 'improvised'];
   } else if (location === 'park' || location === 'gym') {
-    // At park or gym: prioritize fixed equipment, then user gear, then improvised
     priorityOrder = ['fixed_equipment', 'user_gear', 'improvised'];
   } else {
-    // On street and other outdoor contexts: prioritize user gear, then improvised
     priorityOrder = ['user_gear', 'improvised'];
   }
 
   // Try each priority in order
   for (const gearType of priorityOrder) {
-    const methodsOfType = locationMethods.filter((m) => m.requiredGearType === gearType);
+    const methodsOfType = candidateMethods.filter((m) => m.requiredGearType === gearType);
 
     for (const method of methodsOfType) {
-      if (method.requiredGearType === 'fixed_equipment' && method.gearId) {
-        // Check if park has this equipment
-        if (park && park.gymEquipment) {
-          const hasEquipment = park.gymEquipment.some(
-            (eq) => eq.equipmentId === method.gearId
+      // Use new array-based gearIds/equipmentIds, with fallback to legacy single fields
+      const gearIdsToCheck = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
+      const equipmentIdsToCheck = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
+      const allEquipmentIds = [...equipmentIdsToCheck, ...gearIdsToCheck];
+      
+      if (method.requiredGearType === 'fixed_equipment' && allEquipmentIds.length > 0) {
+        // Check if park has ANY of the required equipment
+        if (park && park.gymEquipment && park.gymEquipment.length > 0) {
+          const parkGymEquipment = park.gymEquipment; // Capture for TypeScript
+          const hasEquipment = allEquipmentIds.some(id =>
+            parkGymEquipment.some((eq) => eq.equipmentId === id)
           );
           if (hasEquipment) {
             return method; // Found matching park equipment
           }
         }
-      } else if (method.requiredGearType === 'user_gear' && method.gearId) {
-        // Check if user has this gear
-        // TODO: Implement proper gear checking
-        // Option 1: Add userGearIds: string[] to UserFullProfile
-        // Option 2: Map gear IDs to EquipmentProfile boolean fields
-        // For "Door Pull-up Bar" example:
-        // const userGearIds = userProfile.userGearIds || [];
-        // if (userGearIds.includes(method.gearId)) {
-        //   return method;
-        // }
-        
-        // Placeholder: For now, return method (you should implement actual check)
-        // The system will prioritize user_gear methods when at home
-        return method;
-      } else if (method.requiredGearType === 'improvised' && method.gearId) {
-        // Improvised items are always available (door, chair, wall, etc.)
+      } else if (method.requiredGearType === 'user_gear' && gearIdsToCheck.length > 0) {
+        // Check if user has ANY of the required gear
+        const userHasGear = gearIdsToCheck.some(id => userOwnsGear(id, userProfile));
+        if (userHasGear) {
+          return method;
+        }
+      } else if (method.requiredGearType === 'improvised' && gearIdsToCheck.length > 0) {
+        // Improvised items are always available
         return method;
       }
     }
   }
 
-  return null; // No suitable method found
+  // Fallback: return first available method if no priority match
+  return candidateMethods[0] || null;
+}
+
+/**
+ * Map ExecutionLocation to EquipmentLocation
+ */
+function mapExecutionLocationToEquipmentLocation(location: ExecutionLocation): 'home' | 'park' | 'office' | 'gym' {
+  switch (location) {
+    case 'home':
+      return 'home';
+    case 'park':
+    case 'street':
+      return 'park';
+    case 'office':
+    case 'school':
+      return 'office';
+    case 'gym':
+      return 'gym';
+    default:
+      return 'park';
+  }
+}
+
+/**
+ * Check if equipment is available in the given location
+ */
+async function isEquipmentAvailableInLocation(
+  equipmentId: string,
+  location: ExecutionLocation
+): Promise<boolean> {
+  try {
+    const allEquipment = await getAllGymEquipment();
+    const equipment = allEquipment.find(eq => eq.id === equipmentId);
+    if (!equipment) return false;
+    
+    const equipmentLocation = mapExecutionLocationToEquipmentLocation(location);
+    return equipment.availableInLocations?.includes(equipmentLocation) ?? true; // Default to true if not specified
+  } catch (error) {
+    console.error('Error checking equipment availability:', error);
+    return true; // Default to available on error
+  }
+}
+
+/**
+ * Check if user owns the required gear
+ */
+function userOwnsGear(gearId: string, userProfile: UserFullProfile): boolean {
+  // Check if gearId is in user's equipment profile
+  const equipment = userProfile.equipment;
+  if (!equipment) return false;
+  
+  // Check all location arrays (home, office, outdoor)
+  const allOwnedGear = [
+    ...(equipment.home || []),
+    ...(equipment.office || []),
+    ...(equipment.outdoor || []),
+  ];
+  
+  return allOwnedGear.includes(gearId);
 }
 
 /**
  * Check if an exercise can be performed based on alternative requirements
  * Checks requirements in priority order (1, 2, 3) and returns true if ANY requirement is met
+ * Also checks location-based equipment availability
  */
 export async function canPerformExercise(
   exercise: ExerciseDoc,
@@ -332,13 +468,29 @@ export async function canPerformExercise(
     // Check each requirement in priority order - return true if ANY is met
     for (const requirement of sortedRequirements) {
       if (requirement.type === 'gym_equipment' && requirement.equipmentId) {
-        // Priority 1: Check if park has the specific gym equipment
+        // Priority 1: Check if park has the specific gym equipment AND it's available in location
         if (park && park.gymEquipment) {
           const hasEquipment = park.gymEquipment.some(
             (eq) => eq.equipmentId === requirement.equipmentId
           );
           if (hasEquipment) {
-            return true; // Found a match - exercise can be performed
+            // Also check if equipment is available in this location
+            const isAvailable = await isEquipmentAvailableInLocation(requirement.equipmentId, location);
+            if (isAvailable) {
+              return true; // Found a match - exercise can be performed
+            }
+          }
+        }
+        // Also check if user owns this equipment and it's available in location
+        const userOwnedGear = userProfile.equipment?.home || [];
+        const userOwnedOffice = userProfile.equipment?.office || [];
+        const userOwnedOutdoor = userProfile.equipment?.outdoor || [];
+        const allUserEquipment = [...userOwnedGear, ...userOwnedOffice, ...userOwnedOutdoor];
+        
+        if (allUserEquipment.includes(requirement.equipmentId)) {
+          const isAvailable = await isEquipmentAvailableInLocation(requirement.equipmentId, location);
+          if (isAvailable) {
+            return true;
           }
         }
       } else if (requirement.type === 'urban_asset' && requirement.urbanAssetName) {
@@ -358,15 +510,9 @@ export async function canPerformExercise(
         return true; // Default: assume urban assets are available
       } else if (requirement.type === 'user_gear' && requirement.gearId) {
         // Priority 3: Check if user has the required gear
-        // TODO: Implement proper gear checking
-        // For now, we'll need to add userGearIds to UserFullProfile or map to EquipmentProfile
-        // Placeholder: Assume user has gear (you should implement actual check)
-        // const userGearIds = userProfile.userGearIds || [];
-        // if (userGearIds.includes(requirement.gearId)) {
-        //   return true;
-        // }
-        // For now, return true as placeholder
-        return true;
+        if (userOwnsGear(requirement.gearId, userProfile)) {
+          return true;
+        }
       }
     }
 
@@ -511,6 +657,30 @@ async function fetchExercisesForDomain(
       const canPerform = await canPerformExercise(ex, park, userProfile, location);
       if (canPerform) {
         const selectedMethod = await selectExecutionMethod(ex, location, park, userProfile);
+        
+        // Check if exercise uses user-owned equipment
+        let matchesUserEquipment = false;
+        if (ex.alternativeEquipmentRequirements) {
+          for (const req of ex.alternativeEquipmentRequirements) {
+            if (req.type === 'user_gear' && req.gearId) {
+              if (userOwnsGear(req.gearId, userProfile)) {
+                matchesUserEquipment = true;
+                break;
+              }
+            } else if (req.type === 'gym_equipment' && req.equipmentId) {
+              const userOwnedGear = [
+                ...(userProfile.equipment?.home || []),
+                ...(userProfile.equipment?.office || []),
+                ...(userProfile.equipment?.outdoor || []),
+              ];
+              if (userOwnedGear.includes(req.equipmentId)) {
+                matchesUserEquipment = true;
+                break;
+              }
+            }
+          }
+        }
+        
         filteredExercises.push({
           id: ex.id,
           name: getLocalizedText(ex.name, 'he'),
@@ -518,9 +688,33 @@ async function fetchExercisesForDomain(
           difficulty: getExerciseMinLevel(ex, activeProgramId),
           equipment: ex.equipment,
           selectedExecutionMethod: selectedMethod || undefined,
+          matchesUserEquipment,
         });
       }
     }
+    
+    // Fallback: If no exercises found, try bodyweight-only exercises
+    if (filteredExercises.length === 0) {
+      // Filter for bodyweight exercises (no equipment required)
+      const bodyweightExercises = candidateExercises.filter(ex => {
+        const hasNoEquipment = !ex.alternativeEquipmentRequirements || 
+          ex.alternativeEquipmentRequirements.length === 0;
+        const hasOnlyImprovised = ex.alternativeEquipmentRequirements?.every(req => 
+          req.type === 'urban_asset' || req.type === 'improvised'
+        );
+        return hasNoEquipment || hasOnlyImprovised;
+      });
+      
+      // Return bodyweight exercises for the same movement pattern
+      return bodyweightExercises.slice(0, Math.min(3, bodyweightExercises.length)).map((ex) => ({
+        id: ex.id,
+        name: getLocalizedText(ex.name, 'he'),
+        domain,
+        difficulty: getExerciseMinLevel(ex, activeProgramId),
+        equipment: ex.equipment,
+      }));
+    }
+    
     return filteredExercises;
   }
 

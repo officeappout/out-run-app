@@ -10,7 +10,7 @@ import { initializeAuthoritiesSchema } from '@/features/admin/services/schema-in
 import { seedIsraeliAuthorities } from '@/features/admin/services/seed-israeli-authorities';
 import { reSeedIsraeliAuthorities } from '@/features/admin/services/re-seed-authorities';
 import { repairTelAvivAuthorities, formatRepairReport } from '@/features/admin/services/repair-authorities';
-import { Authority, AuthorityType } from '@/types/admin-types';
+import { Authority, AuthorityType, PipelineStatus, hasOverdueInstallments } from '@/types/admin-types';
 import { ISRAELI_LOCATIONS, SubLocation } from '@/lib/data/israel-locations';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -42,8 +42,12 @@ export function useAuthorities() {
   const [reSeeding, setReSeeding] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [typeFilter, setTypeFilter] = useState<AuthorityType | 'all'>('all');
-  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
+  const [viewMode, setViewMode] = useState<'grouped' | 'flat' | 'board'>('flat');
+  const [ownerFilter, setOwnerFilter] = useState<string>('');
+  const [pipelineStatusFilter, setPipelineStatusFilter] = useState<PipelineStatus | 'all'>('all');
+  const [overdueInstallmentsFilter, setOverdueInstallmentsFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [authorityIdsFilter, setAuthorityIdsFilter] = useState<string[] | null>(null);
   const [expandedCouncils, setExpandedCouncils] = useState<Set<string>>(new Set());
   const [expandedCities, setExpandedCities] = useState<Set<string>>(new Set());
   const [loadingSubLocations, setLoadingSubLocations] = useState<Set<string>>(new Set());
@@ -351,6 +355,35 @@ export function useAuthorities() {
     );
   }, [enhancedAuthorities]);
 
+  const matchesOwner = useCallback(
+    (authority: Authority) => !ownerFilter || authority.managerIds?.includes(ownerFilter),
+    [ownerFilter]
+  );
+
+  const matchesPipelineStatus = useCallback(
+    (authority: Authority) =>
+      pipelineStatusFilter === 'all' ||
+      (authority.pipelineStatus || 'lead') === pipelineStatusFilter,
+    [pipelineStatusFilter]
+  );
+
+  const matchesOverdueInstallmentsFilterFn = useCallback(
+    (authority: Authority) =>
+      !overdueInstallmentsFilter || hasOverdueInstallments(authority),
+    [overdueInstallmentsFilter]
+  );
+
+  const matchesAuthorityIdsFilterFn = useCallback(
+    (authority: Authority) =>
+      !authorityIdsFilter || authorityIdsFilter.length === 0 || authorityIdsFilter.includes(authority.id),
+    [authorityIdsFilter]
+  );
+
+  // Clear authority IDs filter (used to reset after clicking on forecast)
+  const clearAuthorityIdsFilter = useCallback(() => {
+    setAuthorityIdsFilter(null);
+  }, []);
+
   // CRITICAL FIX: Filter cities with sub-locations based on type filter and search query
   const filteredCitiesWithSubLocations = useMemo(() => {
     let filtered = citiesWithSubLocations.filter(auth => 
@@ -371,9 +404,14 @@ export function useAuthorities() {
       !auth.id.includes('__SCHEMA_INIT__') && 
       !auth.name.includes('__SCHEMA_INIT__')
     );
+
+    // Filter by owner, pipeline status, overdue installments, and authority IDs
+    filtered = filtered.filter(auth => 
+      matchesOwner(auth) && matchesPipelineStatus(auth) && matchesOverdueInstallmentsFilterFn(auth) && matchesAuthorityIdsFilterFn(auth)
+    );
     
     return filtered;
-  }, [citiesWithSubLocations, typeFilter, searchQuery]);
+  }, [citiesWithSubLocations, typeFilter, searchQuery, matchesOwner, matchesPipelineStatus, matchesOverdueInstallmentsFilterFn, matchesAuthorityIdsFilterFn]);
 
   // Filter authorities based on type filter and search query
   // In flat view, hide neighborhoods/settlements unless searching
@@ -407,15 +445,23 @@ export function useAuthorities() {
       !a.id.includes('__SCHEMA_INIT__') && 
       !a.name.includes('__SCHEMA_INIT__')
     );
+
+    // Filter by owner, pipeline status, overdue installments, and authority IDs
+    filtered = filtered.filter(a => 
+      matchesOwner(a) && matchesPipelineStatus(a) && matchesOverdueInstallmentsFilterFn(a) && matchesAuthorityIdsFilterFn(a)
+    );
     
     return filtered;
-  }, [enhancedAuthorities, typeFilter, searchQuery]);
+  }, [enhancedAuthorities, typeFilter, searchQuery, matchesOwner, matchesPipelineStatus, matchesOverdueInstallmentsFilterFn, matchesAuthorityIdsFilterFn]);
 
   const filteredGroupedData = useMemo(() => {
     if (!groupedData) return null;
     
     const queryLower = searchQuery.toLowerCase().trim();
     
+    const matchesGroupedFilters = (authority: Authority) =>
+      matchesOwner(authority) && matchesPipelineStatus(authority) && matchesOverdueInstallmentsFilterFn(authority) && matchesAuthorityIdsFilterFn(authority);
+
     return {
       regionalCouncils: groupedData.regionalCouncils
         .filter(council => {
@@ -433,8 +479,15 @@ export function useAuthorities() {
           const matchesSearch = !queryLower || 
                 council.name.toLowerCase().includes(queryLower) ||
                 council.settlements.some(s => s.name.toLowerCase().includes(queryLower));
+
+          const matchesSelf = matchesGroupedFilters(council) && matchesType && matchesSearch;
+          const matchesChildren = council.settlements.some(settlement =>
+            (typeFilter === 'all' || settlement.type === typeFilter) &&
+            (!queryLower || settlement.name.toLowerCase().includes(queryLower)) &&
+            matchesGroupedFilters(settlement)
+          );
           
-          return matchesType && matchesSearch;
+          return matchesSelf || matchesChildren;
         })
         .map(council => ({
           ...council,
@@ -442,7 +495,8 @@ export function useAuthorities() {
             ? council.settlements
             : council.settlements.filter(s => s.type === typeFilter)
           ).filter(settlement => 
-            !queryLower || settlement.name.toLowerCase().includes(queryLower)
+            (!queryLower || settlement.name.toLowerCase().includes(queryLower)) &&
+            matchesGroupedFilters(settlement)
           ),
         })),
       cities: (groupedData.cities || [])
@@ -460,8 +514,15 @@ export function useAuthorities() {
           const matchesSearch = !queryLower || 
                 city.name.toLowerCase().includes(queryLower) ||
                 city.neighborhoods.some(n => n.name.toLowerCase().includes(queryLower));
+
+          const matchesSelf = matchesGroupedFilters(city) && matchesType && matchesSearch;
+          const matchesChildren = city.neighborhoods.some(neighborhood =>
+            (typeFilter === 'all' || neighborhood.type === typeFilter) &&
+            (!queryLower || neighborhood.name.toLowerCase().includes(queryLower)) &&
+            matchesGroupedFilters(neighborhood)
+          );
           
-          return matchesType && matchesSearch;
+          return matchesSelf || matchesChildren;
         })
         .map(city => ({
           ...city,
@@ -469,7 +530,8 @@ export function useAuthorities() {
             ? city.neighborhoods
             : city.neighborhoods.filter(n => n.type === typeFilter)
           ).filter(neighborhood => 
-            !queryLower || neighborhood.name.toLowerCase().includes(queryLower)
+            (!queryLower || neighborhood.name.toLowerCase().includes(queryLower)) &&
+            matchesGroupedFilters(neighborhood)
           ),
         })),
       standaloneAuthorities: groupedData.standaloneAuthorities
@@ -490,10 +552,10 @@ export function useAuthorities() {
           // Filter by search query
           const matchesSearch = !queryLower || a.name.toLowerCase().includes(queryLower);
           
-          return matchesType && matchesSearch;
+          return matchesType && matchesSearch && matchesGroupedFilters(a);
         }),
     };
-  }, [groupedData, typeFilter, searchQuery]);
+  }, [groupedData, typeFilter, searchQuery, matchesOwner, matchesPipelineStatus, matchesOverdueInstallmentsFilterFn, matchesAuthorityIdsFilterFn]);
 
   return {
     // State
@@ -515,10 +577,19 @@ export function useAuthorities() {
     filteredCitiesWithSubLocations,
     filteredGroupedData,
     searchQuery,
+    ownerFilter,
+    pipelineStatusFilter,
+    overdueInstallmentsFilter,
+    authorityIdsFilter,
     // Actions
     setTypeFilter,
     setViewMode,
     setSearchQuery,
+    setOwnerFilter,
+    setPipelineStatusFilter,
+    setOverdueInstallmentsFilter,
+    setAuthorityIdsFilter,
+    clearAuthorityIdsFilter,
     toggleCouncil,
     toggleCity,
     handleDelete,

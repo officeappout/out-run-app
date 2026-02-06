@@ -1,12 +1,13 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Play } from 'lucide-react';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 export default function GuestHeroCard() {
     const router = useRouter();
 
     return (
-        <div className="relative w-full h-[320px] rounded-[32px] overflow-hidden shadow-xl mb-6 group">
+        <div className="relative w-full h-[320px] rounded-3xl overflow-hidden shadow-premium mb-6 group">
             {/* Background Gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-orange-500 animate-gradient-xy">
                 {/* Abstract Pattern Overlay */}
@@ -19,7 +20,10 @@ export default function GuestHeroCard() {
                     בא לך לזוז?
                 </h2>
                 <p className="text-white/90 font-medium mb-6 text-sm max-w-[80%] leading-relaxed drop-shadow-sm">
-                    צור מסלול מותאם אישית והתחל להרוויח מטבעות.
+                    {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+                    {IS_COIN_SYSTEM_ENABLED 
+                      ? 'צור מסלול מותאם אישית והתחל להרוויח מטבעות.'
+                      : 'צור מסלול מותאם אישית והתחל לזוז!'}
                 </p>
 
                 <button

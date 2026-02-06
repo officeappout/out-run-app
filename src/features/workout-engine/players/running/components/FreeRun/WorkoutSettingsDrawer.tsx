@@ -82,7 +82,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
             className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[100000] overflow-y-auto pointer-events-auto"
-            style={{ fontFamily: 'Assistant, sans-serif', isolation: 'isolate' }}
+            style={{ fontFamily: 'var(--font-simpler)', isolation: 'isolate' }}
             dir="rtl"
           >
             {/* Header */}

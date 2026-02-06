@@ -6,9 +6,15 @@ import { ExerciseType, MuscleGroup } from '../../../exercises/core/exercise.type
 
 export interface EquipmentBrand {
   brandName: string; // e.g., "Ludos", "Urbanics"
+  brandId?: string; // Reference to outdoorBrands collection ID (optional for backward compatibility)
   imageUrl?: string;
   videoUrl?: string;
 }
+
+/**
+ * Location where equipment is available
+ */
+export type EquipmentLocation = 'home' | 'park' | 'office' | 'gym';
 
 /**
  * Gym Equipment document structure in Firestore
@@ -21,6 +27,8 @@ export interface GymEquipment {
   isFunctional: boolean; // Functional equipment toggle
   muscleGroups: MuscleGroup[]; // Array of muscle groups this equipment targets
   brands: EquipmentBrand[]; // Array of manufacturers/brands for this equipment
+  availableInLocations?: EquipmentLocation[]; // Locations where this equipment is available
+  defaultLocation?: EquipmentLocation; // Default/primary location for this equipment
   createdAt?: Date;
   updatedAt?: Date;
 }

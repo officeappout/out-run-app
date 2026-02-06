@@ -17,9 +17,17 @@ import {
   X,
   Image as ImageIcon,
   Loader2,
+  Home,
+  Building2,
+  MapPin,
+  Building,
+  Navigation,
+  Check,
+  User,
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
+import { safeRenderText } from '@/utils/render-helpers';
 
 interface GearDefinitionEditorFormProps {
   onSubmit: (data: GearDefinitionFormData) => void;
@@ -50,6 +58,26 @@ const CATEGORIES = [
   { value: 'improvised', label: 'Improvised (אלתור - כיסא, שולחן, קיר)' },
 ];
 
+// Location labels (matching ExecutionMethodCard style)
+type GearLocation = 'home' | 'park' | 'office' | 'street' | 'gym';
+const LOCATION_LABELS: Record<GearLocation, { label: string; icon: React.ReactNode }> = {
+  home: { label: 'בית', icon: <Home size={18} /> },
+  park: { label: 'פארק', icon: <MapPin size={18} /> },
+  office: { label: 'משרד', icon: <Building2 size={18} /> },
+  street: { label: 'רחוב', icon: <Navigation size={18} /> },
+  gym: { label: 'מכון כושר', icon: <Building size={18} /> },
+};
+
+// Lifestyle tags (matching ExecutionMethodCard style)
+const LIFESTYLE_TAGS = [
+  { id: 'parent', label: 'הורה', icon: <User size={14} /> },
+  { id: 'student', label: 'סטודנט', icon: <Building2 size={14} /> },
+  { id: 'office_worker', label: 'עובד משרד', icon: <Building2 size={14} /> },
+  { id: 'remote_worker', label: 'עובד מהבית', icon: <Home size={14} /> },
+  { id: 'athlete', label: 'ספורטאי', icon: <User size={14} /> },
+  { id: 'senior', label: 'גיל הזהב', icon: <User size={14} /> },
+];
+
 export default function GearDefinitionEditorForm({
   onSubmit,
   isSubmitting,
@@ -66,6 +94,9 @@ export default function GearDefinitionEditorForm({
     shopLink: '',
     tutorialVideo: '',
     customIconUrl: '',
+    allowedLocations: [],
+    defaultLocation: undefined,
+    lifestyleTags: [],
     ...initialData,
   });
 
@@ -79,6 +110,9 @@ export default function GearDefinitionEditorForm({
         shopLink: initialData.shopLink || '',
         tutorialVideo: initialData.tutorialVideo || '',
         customIconUrl: initialData.customIconUrl || '',
+        allowedLocations: initialData.allowedLocations || [],
+        defaultLocation: initialData.defaultLocation || undefined,
+        lifestyleTags: initialData.lifestyleTags || [],
       });
     }
   }, [initialData]);
@@ -204,13 +238,13 @@ export default function GearDefinitionEditorForm({
           </div>
           <input
             type="text"
-            value={formData.name?.[activeLang as 'he' | 'en'] || ''}
+            value={safeRenderText(formData.name?.[activeLang as 'he' | 'en']) || ''}
             onChange={(e) =>
               setFormData({
                 ...formData,
                 name: {
-                  he: formData.name?.he || '',
-                  en: formData.name?.en || '',
+                  he: safeRenderText(formData.name?.he) || '',
+                  en: safeRenderText(formData.name?.en) || '',
                   [activeLang]: e.target.value,
                 },
               })
@@ -225,13 +259,13 @@ export default function GearDefinitionEditorForm({
               תיאור ({activeLang === 'he' ? 'HE' : 'EN'})
             </label>
             <textarea
-              value={formData.description?.[activeLang as 'he' | 'en'] || ''}
+              value={safeRenderText(formData.description?.[activeLang as 'he' | 'en']) || ''}
               onChange={(e) =>
                 setFormData({
                   ...formData,
                   description: {
-                    he: formData.description?.he || '',
-                    en: formData.description?.en || '',
+                    he: safeRenderText(formData.description?.he) || '',
+                    en: safeRenderText(formData.description?.en) || '',
                     [activeLang]: e.target.value,
                   },
                 })
@@ -423,6 +457,134 @@ export default function GearDefinitionEditorForm({
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               placeholder="https://youtube.com/watch?v=..."
             />
+          </div>
+        </div>
+
+        {/* Available Locations Section */}
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 mb-4">
+            <MapPin size={20} className="text-green-500" />
+            זמינות במיקומים
+          </h3>
+
+          <div className="space-y-6">
+            {/* Default Location Dropdown */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <MapPin size={16} />
+                מיקום ברירת מחדל (Default Location)
+              </label>
+              <select
+                value={formData.defaultLocation || ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    defaultLocation: e.target.value || undefined,
+                  })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+              >
+                <option value="">ללא מיקום ברירת מחדל</option>
+                {(Object.keys(LOCATION_LABELS) as GearLocation[]).map((location) => (
+                  <option key={location} value={location}>
+                    {safeRenderText(LOCATION_LABELS[location].label)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                המיקום העיקרי שבו הציוד הזה נמצא בדרך כלל
+              </p>
+            </div>
+
+            {/* Allowed Locations Multi-select */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <MapPin size={16} />
+                מיקומים זמינים (Allowed Locations)
+              </label>
+              <p className="text-sm text-gray-600 mb-4">
+                בחר את כל המיקומים שבהם הציוד הזה זמין (ניתן לבחור מספר מיקומים)
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {(Object.keys(LOCATION_LABELS) as GearLocation[]).map((location) => (
+                  <button
+                    key={location}
+                    type="button"
+                    onClick={() => {
+                      const currentLocations = formData.allowedLocations || [];
+                      const newLocations = currentLocations.includes(location)
+                        ? currentLocations.filter(l => l !== location)
+                        : [...currentLocations, location];
+                      setFormData({ ...formData, allowedLocations: newLocations });
+                    }}
+                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      (formData.allowedLocations || []).includes(location)
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`${(formData.allowedLocations || []).includes(location) ? 'text-blue-600' : 'text-gray-400'}`}>
+                      {LOCATION_LABELS[location].icon}
+                    </div>
+                    <span className="text-sm font-bold">{safeRenderText(LOCATION_LABELS[location].label)}</span>
+                    {(formData.allowedLocations || []).includes(location) && (
+                      <Check size={14} className="text-blue-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Lifestyle Tags Section */}
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 mb-4">
+            <User size={20} className="text-purple-500" />
+            מוצע עבור פרסונה
+          </h3>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <User size={16} />
+              תגיות אורח חיים (Suggested for Persona)
+            </label>
+            <p className="text-sm text-gray-600 mb-4">
+              תגיות אלה משמשות כ<strong>רמזי חיפוש</strong> (Search Hints) ולא כפילטרים נוקשים. 
+              ציוד זה יוצע למשתמשים עם פרסונה תואמת, אך לא ייחסם למשתמשים אחרים. 
+              לדוגמה: ציוד עם תגית "airport" יועדף כאשר המשתמש נמצא בשדה תעופה.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {LIFESTYLE_TAGS.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => {
+                    const currentTags = formData.lifestyleTags || [];
+                    const newTags = currentTags.includes(tag.id)
+                      ? currentTags.filter(t => t !== tag.id)
+                      : [...currentTags, tag.id];
+                    setFormData({ ...formData, lifestyleTags: newTags });
+                  }}
+                  className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border-2 transition-all text-xs ${
+                    (formData.lifestyleTags || []).includes(tag.id)
+                      ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`${(formData.lifestyleTags || []).includes(tag.id) ? 'text-purple-600' : 'text-gray-400'}`}>
+                    {tag.icon}
+                  </div>
+                  <span className="font-bold">{safeRenderText(tag.label)}</span>
+                  {(formData.lifestyleTags || []).includes(tag.id) && (
+                    <Check size={12} className="text-purple-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500 mt-2">
+              בחר את תגיות אורח החיים המתאימות לציוד הזה
+            </p>
           </div>
         </div>
       </div>

@@ -14,7 +14,7 @@ export default function DopamineStreakBlock({ streakDays }: DopamineStreakBlockP
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3 }}
       className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-sm p-6 mb-6 text-white"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

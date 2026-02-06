@@ -51,7 +51,7 @@ export default function MainStatsGrid({ time, distance, calories }: MainStatsGri
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1 }}
       className="bg-white rounded-xl shadow-sm p-6 mb-6"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <div className="grid grid-cols-3 gap-4">
         {stats.map((stat, index) => {

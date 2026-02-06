@@ -4,8 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChange } from '@/lib/auth.service';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 export default function CoinPill() {
+  // COIN_SYSTEM_PAUSED: Re-enable in April
+  if (!IS_COIN_SYSTEM_ENABLED) {
+    return null;
+  }
   const { profile } = useUserStore();
   const { coins, isHydrated, hydrateFromFirestore } = useProgressionStore();
   const [isLoading, setIsLoading] = useState(true);

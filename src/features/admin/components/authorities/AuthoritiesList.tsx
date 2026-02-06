@@ -1,7 +1,15 @@
 import Link from 'next/link';
-import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle } from 'lucide-react';
-import { Authority, AuthorityType } from '@/types/admin-types';
+import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle } from 'lucide-react';
+import { 
+  Authority, 
+  AuthorityType, 
+  getPrimaryContact, 
+  hasOverdueTasks, 
+  PIPELINE_STATUS_LABELS, 
+  PIPELINE_STATUS_COLORS 
+} from '@/types/admin-types';
 import { AuthorityWithSubLocations, SubLocationStats } from '@/features/admin/hooks/useAuthorities';
+import { safeRenderText } from '@/utils/render-helpers';
 
 interface AuthoritiesListProps {
   // Data
@@ -28,10 +36,61 @@ interface AuthoritiesListProps {
   onToggleCity: (id: string) => void;
   onDelete: (id: string, name: string) => void;
   onToggleActiveClient: (id: string, currentValue: boolean) => void;
+  onOpenDrawer?: (authority: Authority) => void; // New: Open detail drawer
   
   // Helpers
   getTypeLabel: (type: AuthorityType) => string;
   getTypeColor: (type: AuthorityType) => string;
+}
+
+/**
+ * Render pipeline status badge
+ */
+function PipelineStatusBadge({ status }: { status: Authority['pipelineStatus'] }) {
+  const currentStatus = status || 'lead';
+  const colors = PIPELINE_STATUS_COLORS[currentStatus];
+  return (
+    <span className={`px-2 py-1 rounded-md text-xs font-bold border ${colors.bg} ${colors.text} ${colors.border}`}>
+      {PIPELINE_STATUS_LABELS[currentStatus]}
+    </span>
+  );
+}
+
+/**
+ * Render primary contact info
+ */
+function PrimaryContactInfo({ authority }: { authority: Authority }) {
+  const contact = getPrimaryContact(authority);
+  if (!contact) return <span className="text-gray-400 text-sm">-</span>;
+  
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="font-medium text-gray-700 truncate max-w-[120px]">{contact.name}</span>
+      {contact.phone && (
+        <a 
+          href={`tel:${contact.phone}`} 
+          onClick={(e) => e.stopPropagation()}
+          className="text-gray-400 hover:text-cyan-600 transition-colors"
+          title={contact.phone}
+        >
+          <Phone size={14} />
+        </a>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Overdue alert badge
+ */
+function OverdueAlertBadge({ authority }: { authority: Authority }) {
+  if (!hasOverdueTasks(authority)) return null;
+  
+  return (
+    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold animate-pulse">
+      <AlertCircle size={12} />
+    </span>
+  );
 }
 
 export default function AuthoritiesList({
@@ -50,6 +109,7 @@ export default function AuthoritiesList({
   onToggleCity,
   onDelete,
   onToggleActiveClient,
+  onOpenDrawer,
   getTypeLabel,
   getTypeColor,
 }: AuthoritiesListProps) {
@@ -86,10 +146,13 @@ export default function AuthoritiesList({
           return (
             <div key={city.id} className="border-b border-gray-200 last:border-b-0">
               {/* City Row */}
-              <div className="hover:bg-purple-50/50 transition-colors group">
+              <div 
+                className="hover:bg-purple-50/50 transition-colors group cursor-pointer"
+                onClick={() => onOpenDrawer?.(city)}
+              >
                 <div className="flex items-center px-6 py-4">
                   <button
-                    onClick={() => onToggleCity(city.id)}
+                    onClick={(e) => { e.stopPropagation(); onToggleCity(city.id); }}
                     className="p-1 hover:bg-purple-100 rounded-lg transition-colors mr-2"
                   >
                     {isExpanded ? (
@@ -113,31 +176,30 @@ export default function AuthoritiesList({
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-gray-900">{city.name}</span>
-                      <span className={`px-2 py-1 rounded-md text-xs font-bold border ${getTypeColor(city.type)}`}>
-                        {getTypeLabel(city.type)}
-                      </span>
+                      <OverdueAlertBadge authority={city} />
+                      <PipelineStatusBadge status={city.pipelineStatus} />
                       {city.neighborhoods && city.neighborhoods.length > 0 && (
                         <span className="text-xs text-gray-500">
                           ({city.neighborhoods.length} שכונות)
                         </span>
                       )}
                     </div>
+                    <div className="mt-1">
+                      <PrimaryContactInfo authority={city} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-6 px-4">
                     <div className="flex items-center gap-2 text-gray-600">
                       <Users size={16} />
-                      <span className="font-bold">{city.aggregatedUsersCount ?? city.userCount ?? 0}</span>
+                      <span className="font-bold">{(city as any).aggregatedUsersCount ?? city.userCount ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-600">
                       <Map size={16} />
-                      <span className="font-bold">{city.aggregatedParksCount ?? 0}</span>
+                      <span className="font-bold">{(city as any).aggregatedParksCount ?? 0}</span>
                       <span className="text-xs text-gray-500">גינות</span>
                     </div>
-                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">
-                      {city.managerIds?.length || 0} מנהלים
-                    </span>
                     {/* Active Client Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={city.isActiveClient || false}
@@ -146,7 +208,7 @@ export default function AuthoritiesList({
                       />
                       <span className="text-sm text-gray-700 font-medium">לקוח פעיל</span>
                     </label>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <Link
                         href={`/admin/authorities/${city.id}`}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -172,10 +234,11 @@ export default function AuthoritiesList({
                   {city.neighborhoods.map((neighborhood, idx) => (
                       <div
                         key={neighborhood.id}
-                        className={`flex items-center px-6 py-3 hover:bg-gray-100 transition-colors group ${
+                        className={`flex items-center px-6 py-3 hover:bg-gray-100 transition-colors group cursor-pointer ${
                         idx < city.neighborhoods!.length - 1 ? 'border-b border-gray-200' : ''
                         }`}
                         style={{ paddingRight: '3rem' }} // Indent child items
+                        onClick={() => onOpenDrawer?.(neighborhood)}
                       >
                         <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0 mr-4 ml-16">
                           <MapPin size={14} className="text-gray-500" />
@@ -183,6 +246,7 @@ export default function AuthoritiesList({
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
                             <span className="font-semibold text-gray-700">{neighborhood.name}</span>
+                            <OverdueAlertBadge authority={neighborhood} />
                           <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getTypeColor(neighborhood.type)}`}>
                             {getTypeLabel(neighborhood.type)}
                             </span>
@@ -201,7 +265,7 @@ export default function AuthoritiesList({
                         <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">
                           {neighborhood.managerIds?.length || 0} מנהלים
                         </span>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                           <Link
                             href={`/admin/authorities/${neighborhood.id}`}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -239,10 +303,13 @@ export default function AuthoritiesList({
           return (
             <div key={council.id} className="border-b border-gray-200 last:border-b-0">
               {/* Regional Council Row */}
-              <div className="hover:bg-blue-50/50 transition-colors group">
+              <div 
+                className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                onClick={() => onOpenDrawer?.(council)}
+              >
                 <div className="flex items-center px-6 py-4">
                   <button
-                    onClick={() => onToggleCouncil(council.id)}
+                    onClick={(e) => { e.stopPropagation(); onToggleCouncil(council.id); }}
                     className="p-1 hover:bg-blue-100 rounded-lg transition-colors mr-2"
                   >
                     {isExpanded ? (
@@ -266,14 +333,16 @@ export default function AuthoritiesList({
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-gray-900">{council.name}</span>
-                      <span className={`px-2 py-1 rounded-md text-xs font-bold border ${getTypeColor(council.type)}`}>
-                        {getTypeLabel(council.type)}
-                      </span>
+                      <OverdueAlertBadge authority={council} />
+                      <PipelineStatusBadge status={council.pipelineStatus} />
                       {council.settlements.length > 0 && (
                         <span className="text-xs text-gray-500">
                           ({council.settlements.length} יישובים)
                         </span>
                       )}
+                    </div>
+                    <div className="mt-1">
+                      <PrimaryContactInfo authority={council} />
                     </div>
                   </div>
                   <div className="flex items-center gap-6 px-4">
@@ -291,11 +360,8 @@ export default function AuthoritiesList({
                         <span className="text-xs text-gray-500">גינות</span>
                       </div>
                     )}
-                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">
-                      {council.managerIds?.length || 0} מנהלים
-                    </span>
                     {/* Active Client Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={council.isActiveClient || false}
@@ -304,7 +370,7 @@ export default function AuthoritiesList({
                       />
                       <span className="text-sm text-gray-700 font-medium">לקוח פעיל</span>
                     </label>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <Link
                         href={`/admin/authorities/${council.id}`}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -330,10 +396,11 @@ export default function AuthoritiesList({
                   {council.settlements.map((settlement, idx) => (
                     <div
                       key={settlement.id}
-                      className={`flex items-center px-6 py-3 hover:bg-gray-100 transition-colors group ${
+                      className={`flex items-center px-6 py-3 hover:bg-gray-100 transition-colors group cursor-pointer ${
                         idx < council.settlements.length - 1 ? 'border-b border-gray-200' : ''
                       }`}
                       style={{ paddingRight: '3rem' }} // Indent child items
+                      onClick={() => onOpenDrawer?.(settlement)}
                     >
                       <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0 mr-4 ml-16">
                         <Building2 size={14} className="text-gray-500" />
@@ -341,6 +408,7 @@ export default function AuthoritiesList({
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <span className="font-semibold text-gray-700">{settlement.name}</span>
+                          <OverdueAlertBadge authority={settlement} />
                           <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getTypeColor(settlement.type)}`}>
                             {getTypeLabel(settlement.type)}
                           </span>
@@ -359,7 +427,7 @@ export default function AuthoritiesList({
                         <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">
                           {settlement.managerIds?.length || 0} מנהלים
                         </span>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                           <Link
                             href={`/admin/authorities/${settlement.id}`}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -388,7 +456,8 @@ export default function AuthoritiesList({
         {filteredGroupedData.standaloneAuthorities.map((authority) => (
           <div
             key={authority.id}
-            className="hover:bg-blue-50/50 transition-colors group px-6 py-4"
+            className="hover:bg-blue-50/50 transition-colors group px-6 py-4 cursor-pointer"
+            onClick={() => onOpenDrawer?.(authority)}
           >
             <div className="flex items-center">
               <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 mr-4">
@@ -396,7 +465,7 @@ export default function AuthoritiesList({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={authority.logoUrl}
-                    alt={authority.name}
+                    alt={safeRenderText(authority.name)}
                     className="w-12 h-12 rounded-lg object-cover"
                   />
                 ) : (
@@ -405,10 +474,12 @@ export default function AuthoritiesList({
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-gray-900">{authority.name}</span>
-                  <span className={`px-2 py-1 rounded-md text-xs font-bold border ${getTypeColor(authority.type)}`}>
-                    {getTypeLabel(authority.type)}
-                  </span>
+                  <span className="font-bold text-gray-900">{safeRenderText(authority.name)}</span>
+                  <OverdueAlertBadge authority={authority} />
+                  <PipelineStatusBadge status={authority.pipelineStatus} />
+                </div>
+                <div className="mt-1">
+                  <PrimaryContactInfo authority={authority} />
                 </div>
               </div>
               <div className="flex items-center gap-6 px-4">
@@ -420,7 +491,7 @@ export default function AuthoritiesList({
                   {authority.managerIds?.length || 0} מנהלים
                 </span>
                 {/* Active Client Toggle */}
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={authority.isActiveClient || false}
@@ -429,7 +500,7 @@ export default function AuthoritiesList({
                   />
                   <span className="text-sm text-gray-700 font-medium">לקוח פעיל</span>
                 </label>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                   <Link
                     href={`/admin/authorities/${authority.id}`}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -461,10 +532,9 @@ export default function AuthoritiesList({
           <tr>
             <th className="px-6 py-4 rounded-tr-2xl">לוגו</th>
             <th className="px-6 py-4">שם הרשות</th>
-            <th className="px-6 py-4">סוג</th>
+            <th className="px-6 py-4">סטטוס CRM</th>
+            <th className="px-6 py-4">איש קשר</th>
             <th className="px-6 py-4">משתמשים</th>
-            <th className="px-6 py-4">גינות כושר</th>
-            <th className="px-6 py-4">מנהלים</th>
             <th className="px-6 py-4 text-center">סטטוס לקוח</th>
             <th className="px-6 py-4 rounded-tl-2xl text-center">פעולות</th>
           </tr>
@@ -473,14 +543,15 @@ export default function AuthoritiesList({
           {filteredAuthorities.map((authority) => (
             <tr
               key={authority.id}
-              className="hover:bg-blue-50/50 transition-colors group"
+              className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+              onClick={() => onOpenDrawer?.(authority)}
             >
               <td className="px-6 py-4">
                 {authority.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={authority.logoUrl}
-                    alt={authority.name}
+                    alt={safeRenderText(authority.name)}
                     className="w-12 h-12 rounded-lg object-cover bg-gray-100"
                   />
                 ) : (
@@ -490,15 +561,19 @@ export default function AuthoritiesList({
                 )}
               </td>
               <td className="px-6 py-4">
-                <div className="font-bold text-gray-900">{authority.name}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-bold text-gray-900">{safeRenderText(authority.name)}</div>
+                  <OverdueAlertBadge authority={authority} />
+                </div>
                 {authority.parentAuthorityId && (
                   <div className="text-xs text-gray-500 mt-1">שייך למועצה אזורית</div>
                 )}
               </td>
               <td className="px-6 py-4">
-                <span className={`px-2 py-1 rounded-md text-xs font-bold border ${getTypeColor(authority.type)}`}>
-                  {getTypeLabel(authority.type)}
-                </span>
+                <PipelineStatusBadge status={authority.pipelineStatus} />
+              </td>
+              <td className="px-6 py-4">
+                <PrimaryContactInfo authority={authority} />
               </td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2 text-gray-600">
@@ -506,18 +581,7 @@ export default function AuthoritiesList({
                   <span className="font-bold">{authority.userCount || 0}</span>
                 </div>
               </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Map size={16} />
-                  <span className="font-bold">-</span>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold">
-                  {authority.managerIds?.length || 0} מנהלים
-                </span>
-              </td>
-              <td className="px-6 py-4 text-center">
+              <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                 <label className="flex items-center justify-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -540,7 +604,7 @@ export default function AuthoritiesList({
                   </span>
                 </label>
               </td>
-              <td className="px-6 py-4">
+              <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Link
                     href={`/admin/authorities/${authority.id}`}

@@ -17,6 +17,7 @@ import {
 } from '@/features/admin/services/users.service';
 import { UserFullProfile } from '@/types/user-profile';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { safeRenderText } from '@/utils/render-helpers';
 import { 
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
@@ -370,7 +371,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             <div className="text-sm text-gray-600">רשות משויכת</div>
                           </div>
                             <div className="font-bold text-gray-900 text-base">
-                            {authority.name}
+                            {safeRenderText(authority.name)}
                             {authority.type === 'city' && ' (עירייה)'}
                             {authority.type === 'regional_council' && ' (מועצה אזורית)'}
                             {authority.type === 'local_council' && ' (מועצה מקומית)'}
@@ -897,10 +898,10 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             const completionTime = formatCompletionTime(workoutDate);
 
                             return (
-                              <div
-                                key={workout.id}
-                                className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors"
-                              >
+                            <div
+                              key={workout.id}
+                              className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors"
+                            >
                                 <div className="flex items-start gap-4">
                                   {/* Left: Mini Map (for running workouts) */}
                                   {(workout.workoutType === 'running' || workout.workoutType === 'walking' || workout.workoutType === 'cycling') && routeCoords.length > 1 && (
@@ -915,17 +916,17 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
 
                                   {/* Right: Workout Details */}
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-2">
                                         {getWorkoutIcon()}
-                                        <div className="font-bold text-gray-900 font-simpler">
+                                <div className="font-bold text-gray-900 font-simpler">
                                           {getWorkoutTypeLabel()}
-                                        </div>
-                                      </div>
+                                </div>
+                                </div>
                                       <div className="flex items-center gap-1 text-sm text-gray-500 font-simpler">
                                         <Clock size={12} />
                                         <span>{new Date(workout.date).toLocaleDateString('he-IL')} • {completionTime}</span>
-                                      </div>
+                              </div>
                                     </div>
                                     
                                     <div className="flex items-center gap-4 text-sm text-gray-600 font-simpler flex-wrap">
@@ -938,7 +939,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                                               <span className="font-bold">{workout.distance.toFixed(2)} ק"מ</span>
                                             </span>
                                           )}
-                                          {workout.duration > 0 && (
+                                {workout.duration > 0 && (
                                             <span className="flex items-center gap-1">
                                               <Clock size={14} />
                                               <span className="font-bold">{formatDuration(workout.duration)}</span>
@@ -948,7 +949,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                                             <span className="flex items-center gap-1">
                                               ⚡ {formatPace(workout.pace)} /ק"מ
                                             </span>
-                                          )}
+                                )}
                                         </>
                                       ) : workout.workoutType === 'strength' ? (
                                         <>
@@ -968,21 +969,21 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                                             </span>
                                           )}
                                         </>
-                                      )}
-                                      {workout.calories > 0 && (
+                                )}
+                                {workout.calories > 0 && (
                                         <span className="flex items-center gap-1">
                                           <Activity size={14} className="text-orange-500" />
                                           {workout.calories} קלוריות
                                         </span>
-                                      )}
-                                      {workout.earnedCoins > 0 && (
-                                        <span className="flex items-center gap-1">
-                                          <Coins size={14} className="text-yellow-600" />
+                                )}
+                                {workout.earnedCoins > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Coins size={14} className="text-yellow-600" />
                                           <span className="font-bold">+{workout.earnedCoins} מטבעות</span>
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                                 </div>
                               </div>
                             );

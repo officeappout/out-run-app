@@ -4,126 +4,188 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface ResultLoadingProps {
-  targetLevel: number; // The final level number to count to
+  targetLevel: number;
   onComplete: () => void;
   language?: 'he' | 'en' | 'ru';
 }
 
+// Dynamic analysis phrases
+const ANALYSIS_PHRASES = {
+  he: [
+    "מנתח את מספר המתחים...",
+    "מחשב את נפח האימון האופטימלי...",
+    "בונה את פרופיל האתלט שלך...",
+    "מתאים תוכנית אישית...",
+  ],
+  en: [
+    "Analyzing your movements...",
+    "Calculating optimal training volume...",
+    "Building your athlete profile...",
+    "Customizing your personal program...",
+  ],
+  ru: [
+    "Анализируем ваши движения...",
+    "Рассчитываем оптимальный объем...",
+    "Создаем ваш профиль атлета...",
+    "Подбираем персональную программу...",
+  ],
+};
+
 export default function ResultLoading({ targetLevel, onComplete, language = 'he' }: ResultLoadingProps) {
-  const [currentNumber, setCurrentNumber] = useState(1);
-  const [isComplete, setIsComplete] = useState(false);
+  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+  const [progress, setProgress] = useState(30); // Start at 30% (personal details done)
+  
+  const phrases = ANALYSIS_PHRASES[language] || ANALYSIS_PHRASES.he;
+  const direction = language === 'he' ? 'rtl' : 'ltr';
 
+  // Cycle through phrases every 800ms
   useEffect(() => {
-    if (currentNumber >= targetLevel) {
-      setIsComplete(true);
-      // Wait a bit after reaching target, then call onComplete
-      const timeout = setTimeout(() => {
-        onComplete();
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
+    const interval = setInterval(() => {
+      setCurrentPhraseIndex((prev) => (prev + 1) % phrases.length);
+    }, 800);
+    return () => clearInterval(interval);
+  }, [phrases.length]);
 
-    // Calculate duration: 4 seconds total, split evenly across all numbers
-    const totalNumbers = Math.max(targetLevel, 1);
-    const duration = 4000; // 4 seconds
-    const interval = duration / totalNumbers;
-    
-    // Speed up as we get closer (easing effect)
-    const progress = currentNumber / targetLevel;
-    const easeFactor = 1 - (progress * 0.7); // Slow down at the end
-    const adjustedInterval = Math.max(interval * easeFactor, 30); // Minimum 30ms
+  // Animate progress from 30% to 100% over 3 seconds, then call onComplete
+  useEffect(() => {
+    const totalDuration = 3000; // 3 seconds
+    const startProgress = 30;
+    const endProgress = 100;
+    const startTime = Date.now();
 
-    const timer = setTimeout(() => {
-      setCurrentNumber((prev) => Math.min(prev + 1, targetLevel));
-    }, adjustedInterval);
+    const animateProgress = () => {
+      const elapsed = Date.now() - startTime;
+      const progressRatio = Math.min(elapsed / totalDuration, 1);
+      // Easing: ease-out
+      const eased = 1 - Math.pow(1 - progressRatio, 3);
+      const currentProgress = startProgress + (endProgress - startProgress) * eased;
+      
+      setProgress(currentProgress);
 
-    return () => clearTimeout(timer);
-  }, [currentNumber, targetLevel, onComplete]);
+      if (progressRatio < 1) {
+        requestAnimationFrame(animateProgress);
+      } else {
+        // Wait a bit after reaching 100%, then call onComplete
+        setTimeout(() => {
+          onComplete();
+        }, 500);
+      }
+    };
 
-  // Scanning line effect
-  const scanningLineVariants = {
-    animate: {
-      y: ['0%', '100%', '0%'],
-      opacity: [0.3, 0.8, 0.3],
-    },
-  };
+    requestAnimationFrame(animateProgress);
+  }, [onComplete]);
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center font-simpler">
-      {/* Scanning Effect Background */}
-      <div className="absolute inset-0 overflow-hidden">
+    <div 
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center font-simpler overflow-hidden"
+      style={{
+        background: 'linear-gradient(to bottom, #D8F3FF, #F8FDFF, white)',
+      }}
+      dir={direction}
+    >
+      {/* 3-Segment Progress Bar at top */}
+      <div className="absolute top-0 left-0 right-0 px-4 pt-3 pb-2">
+        <div className={`flex gap-1.5 ${direction === 'rtl' ? 'flex-row-reverse' : 'flex-row'}`}>
+          {[0, 1, 2].map((index) => {
+            // In RTL: index 0 is rightmost (phase 1), in LTR: index 0 is leftmost (phase 1)
+            const segmentPhase = direction === 'rtl' ? 2 - index : index;
+            let fillPercent = 0;
+            
+            if (segmentPhase === 0) {
+              // Phase 1 - filling to 100% during calculation
+              fillPercent = progress;
+            } else {
+              // Future phases
+              fillPercent = 0;
+            }
+            
+            return (
+              <div
+                key={index}
+                className="h-1.5 flex-1 rounded-full bg-slate-200 overflow-hidden"
+              >
+                <motion.div
+                  className="h-full rounded-full bg-[#5BC2F2]"
+                  initial={{ width: '30%' }}
+                  animate={{ width: `${fillPercent}%` }}
+                  transition={{ duration: 0.1 }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Central Content */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Pulsing OUT Logo */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-b from-transparent via-[#5BC2F2]/10 to-transparent"
-          variants={scanningLineVariants}
-          animate="animate"
+          className="relative mb-12"
+          animate={{
+            scale: [1, 1.05, 1],
+          }}
           transition={{
-            duration: 1.5,
+            duration: 2,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
-        />
-      </div>
-
-      {/* Central Number Display */}
-      <div className="relative z-10 text-center">
-        {/* Pulse ring around number */}
-        <motion.div
-          className="absolute inset-0 rounded-full border-4 border-[#5BC2F2]"
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.5, 0, 0.5],
-          }}
-          transition={{
-            duration: 1,
-            repeat: Infinity,
-            ease: 'easeOut',
-          }}
-          style={{
-            width: '200px',
-            height: '200px',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-
-        {/* Number Display */}
-        <motion.div
-          key={currentNumber}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 1.2, opacity: 0 }}
-          transition={{
-            type: 'spring',
-            stiffness: 300,
-            damping: 25,
-          }}
-          className="relative"
         >
-          <div className="text-9xl font-black text-[#5BC2F2] mb-4">
-            {currentNumber}
-          </div>
+          {/* Outer glow ring */}
+          <motion.div
+            className="absolute inset-0 rounded-full"
+            style={{
+              width: '160px',
+              height: '160px',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'radial-gradient(circle, rgba(91, 194, 242, 0.3) 0%, transparent 70%)',
+            }}
+            animate={{
+              scale: [1, 1.4, 1],
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+          
+          {/* OUT Logo */}
+          <h1 className="text-6xl font-black text-[#5BC2F2] tracking-tight italic drop-shadow-lg">
+            OUT
+          </h1>
         </motion.div>
 
-        {/* Level Label */}
-        <div className="text-xl font-bold text-slate-700 mt-4">
-          {language === 'he' ? 'רמה' : language === 'ru' ? 'Уровень' : 'Level'}
+        {/* Dynamic Analysis Text */}
+        <div className="h-8 relative overflow-hidden">
+          <motion.p
+            key={currentPhraseIndex}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="text-lg font-medium text-slate-600 text-center"
+          >
+            {phrases[currentPhraseIndex]}
+          </motion.p>
         </div>
 
-        {/* Scanning dots */}
+        {/* Animated dots */}
         <div className="flex gap-2 justify-center mt-8">
-          {[0, 1, 2].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <motion.div
               key={i}
               className="w-2 h-2 rounded-full bg-[#5BC2F2]"
               animate={{
                 opacity: [0.3, 1, 0.3],
-                scale: [1, 1.2, 1],
+                scale: [1, 1.3, 1],
               }}
               transition={{
-                duration: 1.2,
+                duration: 1,
                 repeat: Infinity,
-                delay: i * 0.2,
+                delay: i * 0.15,
                 ease: 'easeInOut',
               }}
             />

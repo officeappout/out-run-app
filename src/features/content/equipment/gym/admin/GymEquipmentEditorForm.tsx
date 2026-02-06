@@ -13,7 +13,16 @@ import {
   Plus,
   Video,
   Image as ImageIcon,
+  Home,
+  Building2,
+  MapPin,
+  Building,
+  Navigation,
+  Search,
 } from 'lucide-react';
+import { EquipmentLocation } from '../core/gym-equipment.types';
+import { safeRenderText } from '@/utils/render-helpers';
+import { getAllOutdoorBrands, OutdoorBrand } from '../../../equipment/brands';
 
 interface GymEquipmentEditorFormProps {
   onSubmit: (data: GymEquipmentFormData) => void;
@@ -49,6 +58,15 @@ const EXERCISE_TYPE_LABELS: Record<ExerciseType, { label: string; icon: React.Re
   rest: { label: 'מנוחה', icon: <Pause size={18} /> },
 };
 
+// Location labels in Hebrew (matching ExecutionMethodCard style)
+const LOCATION_LABELS: Record<EquipmentLocation | 'street', { label: string; icon: React.ReactNode }> = {
+  home: { label: 'בית', icon: <Home size={18} /> },
+  park: { label: 'פארק', icon: <MapPin size={18} /> },
+  office: { label: 'משרד', icon: <Building2 size={18} /> },
+  gym: { label: 'מכון כושר', icon: <Building size={18} /> },
+  street: { label: 'רחוב', icon: <Navigation size={18} /> },
+};
+
 export default function GymEquipmentEditorForm({
   onSubmit,
   isSubmitting,
@@ -61,14 +79,53 @@ export default function GymEquipmentEditorForm({
     isFunctional: false,
     muscleGroups: [],
     brands: [],
+    availableInLocations: [],
+    defaultLocation: undefined,
     ...initialData,
   });
+  const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
+  const [brandSearchTerm, setBrandSearchTerm] = useState<Record<number, string>>({});
+  const [focusedBrandIndex, setFocusedBrandIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadOutdoorBrands();
+  }, []);
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      // CRITICAL: Sanitize name if it comes as an object
+      const sanitizedData = {
+        ...initialData,
+        name: typeof initialData.name === 'object' && initialData.name !== null
+          ? (initialData.name as any).he || (initialData.name as any).en || String(initialData.name)
+          : initialData.name || '',
+        muscleGroups: initialData.muscleGroups || [],
+        brands: initialData.brands?.map((brand) => ({
+          ...brand,
+          brandId: brand.brandId || undefined, // Ensure brandId is preserved
+        })) || [],
+      };
+      setFormData(sanitizedData);
+      
+      // Initialize search terms for existing brands
+      const searchTerms: Record<number, string> = {};
+      sanitizedData.brands.forEach((brand, index) => {
+        if (brand.brandName) {
+          searchTerms[index] = brand.brandName;
+        }
+      });
+      setBrandSearchTerm(searchTerms);
     }
   }, [initialData]);
+
+  const loadOutdoorBrands = async () => {
+    try {
+      const brands = await getAllOutdoorBrands();
+      setOutdoorBrands(brands);
+    } catch (error) {
+      console.error('Error loading outdoor brands:', error);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +141,7 @@ export default function GymEquipmentEditorForm({
       ...formData,
       brands: [...formData.brands, { brandName: '', imageUrl: '', videoUrl: '' }],
     });
+    setBrandSearchTerm({ ...brandSearchTerm, [formData.brands.length]: '' });
   };
 
   const removeBrand = (index: number) => {
@@ -91,11 +149,36 @@ export default function GymEquipmentEditorForm({
       ...formData,
       brands: formData.brands.filter((_, i) => i !== index),
     });
+    const newSearchTerms = { ...brandSearchTerm };
+    delete newSearchTerms[index];
+    // Reindex remaining search terms
+    const reindexed: Record<number, string> = {};
+    Object.keys(newSearchTerms).forEach((key) => {
+      const oldIndex = parseInt(key);
+      if (oldIndex > index) {
+        reindexed[oldIndex - 1] = newSearchTerms[oldIndex];
+      } else if (oldIndex < index) {
+        reindexed[oldIndex] = newSearchTerms[oldIndex];
+      }
+    });
+    setBrandSearchTerm(reindexed);
   };
 
   const updateBrand = (index: number, field: keyof EquipmentBrand, value: string) => {
     const updatedBrands = [...formData.brands];
     updatedBrands[index] = { ...updatedBrands[index], [field]: value };
+    setFormData({ ...formData, brands: updatedBrands });
+  };
+
+  const updateBrandWithId = (index: number, brand: OutdoorBrand) => {
+    const updatedBrands = [...formData.brands];
+    updatedBrands[index] = {
+      ...updatedBrands[index],
+      brandName: brand.name,
+      brandId: brand.id, // CRITICAL: Save brandId for linking to outdoorBrands collection
+      imageUrl: brand.logoUrl || updatedBrands[index].imageUrl,
+      videoUrl: brand.videoUrl || updatedBrands[index].videoUrl,
+    };
     setFormData({ ...formData, brands: updatedBrands });
   };
 
@@ -114,10 +197,10 @@ export default function GymEquipmentEditorForm({
             <label className="block text-sm font-bold text-gray-700 mb-2">שם הציוד *</label>
             <input
               type="text"
-              value={formData.name}
+              value={safeRenderText(formData.name)}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               placeholder="לדוגמה: Bench Press Machine"
             />
           </div>
@@ -156,7 +239,7 @@ export default function GymEquipmentEditorForm({
                   setFormData({ ...formData, recommendedLevel: parseInt(e.target.value) || 1 })
                 }
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -191,19 +274,99 @@ export default function GymEquipmentEditorForm({
               onClick={() =>
                 setFormData({
                   ...formData,
-                  muscleGroups: toggleArrayItem(formData.muscleGroups, muscle),
+                  muscleGroups: toggleArrayItem(formData.muscleGroups || [], muscle),
                 })
               }
               className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                formData.muscleGroups.includes(muscle)
+                (formData.muscleGroups || []).includes(muscle)
                   ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              {formData.muscleGroups.includes(muscle) && <Check size={16} />}
+              {(formData.muscleGroups || []).includes(muscle) && <Check size={16} />}
               <span className="text-sm font-bold">{MUSCLE_GROUP_LABELS[muscle]}</span>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Available Locations Section */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 mb-6">
+          <span className="w-1 h-6 bg-green-500 rounded-full"></span>
+          <MapPin size={20} className="text-green-500" />
+          זמינות במיקומים
+        </h2>
+
+        <div className="space-y-6">
+          {/* Default Location Dropdown */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+              <MapPin size={16} />
+              מיקום ברירת מחדל (Default Location)
+            </label>
+            <select
+              value={formData.defaultLocation || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  defaultLocation: (e.target.value || undefined) as EquipmentLocation | undefined,
+                })
+              }
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+            >
+              <option value="">ללא מיקום ברירת מחדל</option>
+              {(Object.keys(LOCATION_LABELS).filter(loc => loc !== 'street') as EquipmentLocation[]).map((location) => (
+                <option key={location} value={location}>
+                  {safeRenderText(LOCATION_LABELS[location].label)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-2">
+              המיקום העיקרי שבו הציוד הזה נמצא בדרך כלל
+            </p>
+          </div>
+
+          {/* Allowed Locations Multi-select */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <MapPin size={16} />
+              מיקומים זמינים (Allowed Locations)
+            </label>
+            <p className="text-sm text-gray-600 mb-4">
+              בחר את כל המיקומים שבהם הציוד הזה זמין (ניתן לבחור מספר מיקומים)
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {(Object.keys(LOCATION_LABELS).filter(loc => loc !== 'street') as EquipmentLocation[]).map((location) => (
+                <button
+                  key={location}
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      availableInLocations: toggleArrayItem(
+                        formData.availableInLocations || [],
+                        location
+                      ),
+                    })
+                  }
+                  className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                    (formData.availableInLocations || []).includes(location)
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`${(formData.availableInLocations || []).includes(location) ? 'text-blue-600' : 'text-gray-400'}`}>
+                    {LOCATION_LABELS[location].icon}
+                  </div>
+                  <span className="text-sm font-bold">{safeRenderText(LOCATION_LABELS[location].label)}</span>
+                  {(formData.availableInLocations || []).includes(location) && (
+                    <Check size={14} className="text-blue-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -247,17 +410,89 @@ export default function GymEquipmentEditorForm({
                 </button>
               </div>
 
-              {/* Brand Name */}
+              {/* Brand Selection */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">שם החברה *</label>
-                <input
-                  type="text"
-                  value={brand.brandName}
-                  onChange={(e) => updateBrand(index, 'brandName', e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  placeholder="לדוגמה: Ludos, Urbanics, Life Fitness"
-                />
+                <label className="block text-sm font-bold text-gray-700 mb-2">מותג *</label>
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    value={brandSearchTerm[index] !== undefined ? brandSearchTerm[index] : (brand.brandName || '')}
+                    onChange={(e) => {
+                      setBrandSearchTerm({ ...brandSearchTerm, [index]: e.target.value });
+                    }}
+                    onFocus={() => {
+                      setFocusedBrandIndex(index);
+                      if (brandSearchTerm[index] === undefined && brand.brandName) {
+                        setBrandSearchTerm({ ...brandSearchTerm, [index]: brand.brandName });
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on dropdown item
+                      setTimeout(() => setFocusedBrandIndex(null), 200);
+                    }}
+                    className="w-full px-4 py-3 pr-10 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    placeholder="חפש מותג..."
+                    required
+                  />
+                </div>
+                {focusedBrandIndex === index && (
+                  <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg z-10 relative">
+                    {outdoorBrands
+                      .filter((ob) => {
+                        const search = (brandSearchTerm[index] || '').toLowerCase();
+                        return !search || ob.name.toLowerCase().includes(search);
+                      })
+                      .slice(0, 10)
+                      .map((outdoorBrand) => (
+                        <button
+                          key={outdoorBrand.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Prevent blur
+                            updateBrandWithId(index, outdoorBrand);
+                            setBrandSearchTerm({ ...brandSearchTerm, [index]: outdoorBrand.name });
+                            setFocusedBrandIndex(null);
+                          }}
+                          className={`w-full text-right px-4 py-2 hover:bg-cyan-50 transition-colors ${
+                            brand.brandName === outdoorBrand.name ? 'bg-cyan-100 font-bold' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-900">{outdoorBrand.name}</span>
+                            {outdoorBrand.logoUrl && (
+                              <img
+                                src={outdoorBrand.logoUrl}
+                                alt={outdoorBrand.name}
+                                className="w-6 h-6 object-contain rounded"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    {outdoorBrands.filter((ob) => {
+                      const search = (brandSearchTerm[index] || '').toLowerCase();
+                      return !search || ob.name.toLowerCase().includes(search);
+                    }).length === 0 && (
+                      <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                        לא נמצאו מותגים
+                      </div>
+                    )}
+                  </div>
+                )}
+                {brand.brandName && focusedBrandIndex !== index && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="text-xs text-gray-500">
+                      מותג נבחר: <span className="font-bold text-cyan-600">{brand.brandName}</span>
+                    </p>
+                    {brand.brandId && (
+                      <span className="text-xs text-gray-400">(ID: {brand.brandId})</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Image and Video in Grid */}
@@ -272,7 +507,7 @@ export default function GymEquipmentEditorForm({
                     type="url"
                     value={brand.imageUrl || ''}
                     onChange={(e) => updateBrand(index, 'imageUrl', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     placeholder="https://example.com/image.jpg"
                   />
                   {brand.imageUrl && (
@@ -299,7 +534,7 @@ export default function GymEquipmentEditorForm({
                     type="url"
                     value={brand.videoUrl || ''}
                     onChange={(e) => updateBrand(index, 'videoUrl', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-4 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     placeholder="https://youtube.com/watch?v=... או https://vimeo.com/..."
                   />
                   {brand.videoUrl && (

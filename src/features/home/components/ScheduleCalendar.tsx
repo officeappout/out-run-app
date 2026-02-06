@@ -172,7 +172,7 @@ export default function ScheduleCalendar({ schedule, onDayClick }: ScheduleCalen
   };
 
   return (
-    <div className="bg-white rounded-[32px] p-5 shadow-sm border border-gray-50/50">
+    <div className="bg-white rounded-3xl p-5 shadow-card border border-gray-50/50">
       {/* כותרת עליונה */}
       <div className="flex items-center justify-between mb-5 px-1">
         <div className="flex flex-col">

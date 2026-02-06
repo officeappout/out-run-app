@@ -50,7 +50,7 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
     return (
       <div
         className="w-full h-full bg-gray-200 flex items-center justify-center"
-        style={{ fontFamily: 'Assistant, sans-serif' }}
+        style={{ fontFamily: 'var(--font-simpler)' }}
       >
         <p className="text-gray-400">טוען מפה...</p>
       </div>
@@ -62,7 +62,7 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
     return (
       <div
         className="w-full h-full bg-gray-200 flex items-center justify-center"
-        style={{ fontFamily: 'Assistant, sans-serif' }}
+        style={{ fontFamily: 'var(--font-simpler)' }}
       >
         <p className="text-gray-400">אין נתוני מסלול</p>
       </div>
@@ -158,7 +158,7 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
   return (
     <div
       className="w-full h-full relative"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {!isMapLoaded && (
         <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-10">

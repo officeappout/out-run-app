@@ -16,6 +16,7 @@ import { GymEquipment } from '@/features/content/equipment/gym';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import dynamicImport from 'next/dynamic';
 import { Plus, Trash2, Save, Image as ImageIcon, Loader2, X, Sun, Lightbulb, Droplet, Toilet, Building2 } from 'lucide-react';
+import { safeRenderText } from '@/utils/render-helpers';
 
 // Dynamic import for Map to avoid SSR issues
 const LocationPicker = dynamicImport(
@@ -293,7 +294,7 @@ function AddParkPageContent() {
                             <option value="">בחר רשות...</option>
                             {authorities.map((authority) => (
                                 <option key={authority.id} value={authority.id}>
-                                    {authority.name} {authority.type === 'regional_council' ? '(מועצה אזורית)' : authority.type === 'city' ? '(עירייה)' : '(מועצה מקומית)'}
+                                    {safeRenderText(authority.name)} {authority.type === 'regional_council' ? '(מועצה אזורית)' : authority.type === 'city' ? '(עירייה)' : '(מועצה מקומית)'}
                                 </option>
                             ))}
                         </select>

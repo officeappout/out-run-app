@@ -14,6 +14,7 @@ import SummaryOrchestrator, {
   WorkoutData,
   WorkoutType,
 } from './components/SummaryOrchestrator';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
@@ -39,7 +40,8 @@ export default function WorkoutSummaryPage({
     Math.floor(totalDuration / 60),
     userWeight
   );
-  const earnedCoins = Math.floor(calories);
+  // COIN_SYSTEM_PAUSED: Re-enable in April
+  const earnedCoins = IS_COIN_SYSTEM_ENABLED ? Math.floor(calories) : 0;
 
   // Guest Logic detection
   const isGuest = profile?.id && !profile.core?.email;
@@ -63,6 +65,7 @@ export default function WorkoutSummaryPage({
     if (currentUser && profile) {
       try {
         // Award workout rewards (coins + lemur evolution)
+        // COIN_SYSTEM_PAUSED: awardWorkoutRewards already checks IS_COIN_SYSTEM_ENABLED
         const { useProgressionStore } = await import(
           '@/features/user/progression/store/useProgressionStore'
         );
@@ -72,7 +75,9 @@ export default function WorkoutSummaryPage({
         );
 
         console.log(
-          `✅ [WorkoutSummary] Awarded ${earnedCoins} coins and recorded activity`
+          IS_COIN_SYSTEM_ENABLED 
+            ? `✅ [WorkoutSummary] Awarded ${earnedCoins} coins and recorded activity`
+            : `[WorkoutSummary] COIN_SYSTEM_PAUSED - Recorded activity only (${calories} calories)`
         );
 
         // Legacy: Also update local profile for immediate UI update
@@ -81,7 +86,8 @@ export default function WorkoutSummaryPage({
         updateProfile({
           progression: {
             ...profile.progression,
-            coins: currentCoins + earnedCoins,
+            // COIN_SYSTEM_PAUSED: Don't increment coins when system is disabled
+            coins: IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins,
             totalCaloriesBurned: currentCalories + calories,
           },
         });
@@ -95,7 +101,9 @@ export default function WorkoutSummaryPage({
       const currentUser = auth.currentUser;
       if (currentUser) {
         try {
-          const newCoins = (profile.progression?.coins || 0) + earnedCoins;
+          const currentCoins = profile.progression?.coins || 0;
+          // COIN_SYSTEM_PAUSED: Don't increment coins when system is disabled
+          const newCoins = IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins;
           const newTotalCalories =
             (profile.progression?.totalCaloriesBurned || 0) + calories;
 
@@ -103,7 +111,10 @@ export default function WorkoutSummaryPage({
             coins: newCoins,
             totalCaloriesBurned: newTotalCalories,
           });
-          console.log('✅ Coins and calories synced to Firestore');
+          console.log(IS_COIN_SYSTEM_ENABLED 
+            ? '✅ Coins and calories synced to Firestore'
+            : '✅ COIN_SYSTEM_PAUSED - Calories only synced to Firestore'
+          );
 
           // Save workout to history
           await saveWorkout({
@@ -117,7 +128,8 @@ export default function WorkoutSummaryPage({
               routeCoords.length > 0
                 ? (routeCoords as [number, number][])
                 : undefined,
-            earnedCoins: earnedCoins,
+            // COIN_SYSTEM_PAUSED: Record 0 coins when system is disabled
+            earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
           });
           console.log('✅ Workout saved to history');
         } catch (error) {
@@ -170,7 +182,7 @@ export default function WorkoutSummaryPage({
     <div
       dir="rtl"
       className="fixed inset-0 z-[100] bg-gray-50 text-gray-900 flex flex-col h-[100dvh] overflow-y-auto"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-32">

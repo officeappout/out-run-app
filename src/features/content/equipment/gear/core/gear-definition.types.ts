@@ -48,6 +48,19 @@ export interface GearDefinition {
    * Can be a YouTube/Vimeo link or any video URL
    */
   tutorialVideo?: string;
+  /**
+   * Locations where this gear is allowed/available
+   * Options: 'home' | 'park' | 'office' | 'street' | 'gym'
+   */
+  allowedLocations?: string[];
+  /**
+   * Default/primary location for this gear
+   */
+  defaultLocation?: string;
+  /**
+   * Lifestyle tags for this gear (e.g., ['student', 'parent', 'office_worker'])
+   */
+  lifestyleTags?: string[];
   createdAt?: Date;
   updatedAt?: Date;
 }

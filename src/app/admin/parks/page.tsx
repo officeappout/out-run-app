@@ -17,6 +17,7 @@ import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { remapParksToAuthorities } from '@/features/admin/services/remap-parks-to-authorities';
 import { Authority } from '@/types/admin-types';
 import { RefreshCw } from 'lucide-react';
+import { safeRenderText } from '@/utils/render-helpers';
 
 export default function ParksListPage() {
     const [parks, setParks] = useState<Park[]>([]);
@@ -86,7 +87,14 @@ export default function ParksListPage() {
     const getAuthorityName = (authorityId?: string): string | null => {
         if (!authorityId) return null;
         const authority = authorities.find(a => a.id === authorityId);
-        return authority?.name || null;
+        if (!authority) return null;
+        // CRITICAL: Sanitize name to prevent Error #31
+        const name = authority.name;
+        if (typeof name === 'string') return name;
+        if (typeof name === 'object' && name !== null) {
+            return name.he || name.en || String(name);
+        }
+        return String(name || '');
     };
 
     const handleDelete = async (id: string) => {
@@ -244,7 +252,7 @@ export default function ParksListPage() {
                                                 <div className="flex items-center gap-2">
                                                     <Building2 size={16} className="text-blue-500" />
                                                     <span className="text-sm font-semibold text-gray-700">
-                                                        {getAuthorityName(park.authorityId) || park.authorityId}
+                                                        {safeRenderText(getAuthorityName(park.authorityId)) || park.authorityId}
                                                     </span>
                                                 </div>
                                             ) : (

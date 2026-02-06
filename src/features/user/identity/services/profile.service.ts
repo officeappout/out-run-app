@@ -329,6 +329,17 @@ export function mapAnswersToProfile(
   const mainGoal = answersAny.goal || 'healthy_lifestyle';
   const birthDate = answersAny.personal_birthdate || undefined;
 
+  // Get selected goals from answers
+  const selectedGoals = Array.isArray(answersAny.selected_goals) && answersAny.selected_goals.length > 0
+    ? answersAny.selected_goals
+    : undefined;
+
+  // Get selected persona from answers
+  const personaId = answersAny.selected_persona_id || undefined;
+  const personaTags = Array.isArray(answersAny.selected_persona_tags) && answersAny.selected_persona_tags.length > 0
+    ? answersAny.selected_persona_tags
+    : undefined;
+
   const profile: UserFullProfile = {
     id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // מזהה ייחודי
     core: {
@@ -349,12 +360,16 @@ export function mapAnswersToProfile(
         workLocation,
         enableChallenges: true,
       },
+      ...(personaTags ? { lifestyleTags: personaTags } : {}),
     },
     health: {
       injuries: healthInjuries,
       connectedWatch: 'none',
     },
     running: createDefaultRunningProfile(),
+    ...(selectedGoals ? { selectedGoals } : {}),
+    ...(personaId ? { personaId } : {}),
+    profileCompleted: false, // Will be set to true after refinement questionnaire
      // מתחיל מאפס - בונוס הרשמה יוסף מאוחר יותר
   };
   

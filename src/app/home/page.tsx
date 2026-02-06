@@ -8,13 +8,15 @@ import { useRouter } from 'next/navigation';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS, MOCK_PROGRESS } from '@/features/home/data/mock-schedule-data';
-import CoinPill from '@/features/home/components/CoinPill';
+import UserHeaderPill from '@/features/home/components/UserHeaderPill';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import StatsOverview from '@/features/home/components/StatsOverview';
 import GuestHeroCard from '@/features/home/components/GuestHeroCard';
 import ProgressCard from '@/features/home/components/ProgressCard';
 import AlertModal from '@/features/home/components/AlertModal';
 import SettingsModal from '@/features/home/components/SettingsModal';
+import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
+import { SmartGreeting } from '@/features/messages';
 // BottomNavigation removed (rendered in layout)
 
 import { LogOut, RefreshCcw, Settings } from 'lucide-react';
@@ -32,6 +34,7 @@ export default function HomePage() {
   const scheduleState = useSmartSchedule();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
   
   // Check if in development mode
   const isDev = process.env.NODE_ENV === 'development';
@@ -55,8 +58,25 @@ export default function HomePage() {
   }, [_hasHydrated, profile?.id, refreshProfile]);
 
   const handleStartWorkout = () => {
-    // מעבר למסך האימון
-    router.push('/run');
+    console.log("[HomePage] Opening Drawer with dynamic workout...");
+    
+    // Generate a unique workout ID based on date and user
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
+    
+    // Create workout metadata (the drawer will fetch actual exercises from Firestore)
+    const workoutMetadata = {
+      id: uniqueWorkoutId,
+      title: scheduleState.currentWorkout?.title || 'אימון כוח',
+      description: scheduleState.currentWorkout?.description || 'אימון מותאם אישית על פי הרמה שלך',
+      level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
+      difficulty: scheduleState.currentWorkout?.difficulty || 'medium',
+      duration: scheduleState.currentWorkout?.duration || 45,
+      coverImage: scheduleState.currentWorkout?.imageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+      segments: [], // Will be populated by the drawer from Firestore
+    };
+    
+    setSelectedWorkout(workoutMetadata);
   };
 
   const handleLogout = async () => {
@@ -196,7 +216,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] bg-[#F3F5F9] pb-20" style={{ minHeight: '100dvh', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
-      {/* Header - Sticky with Gradient Logo and CoinPill */}
+      {/* Header - Sticky with Gradient Logo and UserHeaderPill */}
       <header className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-gray-100 dark:border-slate-800">
         <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">
           {/* Left: Settings & Logout */}
@@ -222,40 +242,20 @@ export default function HomePage() {
             OUT
           </h1>
 
-          {/* Right: Coins Pill */}
-          <CoinPill />
+          {/* Right: User Header Pill with Avatar, Coins & Dynamic Flame */}
+          <UserHeaderPill compact />
         </div>
       </header>
 
       {/* Main Content */}
       <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* Greeting */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">
-              היי {profile?.core?.name || userName}!
-            </h2>
-            {profile?.progression && hasCompletedOnboarding(profile) && (
-              <p className="text-sm text-gray-500 mt-1">
-                רמה {getFitnessLevel(profile)}
-                {profile.progression.globalLevel && profile.progression.globalLevel > 0 && (
-                  <span className="text-xs text-gray-400"> • רוב המשתמשים מגיעים לרמה {getFitnessLevel(profile) + 1} תוך 6 שבועות</span>
-                )}
-              </p>
-            )}
-          </div>
-          <div className="w-10 h-10 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
-            {profile?.core?.photoURL ? (
-              <img src={profile.core.photoURL} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Smart Greeting - Dynamic context-aware message */}
+        <SmartGreeting 
+          variant="default"
+          showIcon={true}
+          level={getFitnessLevel(profile)}
+          program={Object.keys(profile?.progression?.domains || {})[0] || 'full_body'}
+        />
 
         {/* Guest Lock Overlay Logic */}
         {/* Guest Lock Overlay REMOVED */}
@@ -310,6 +310,16 @@ export default function HomePage() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      {/* Workout Preview Drawer */}
+      <WorkoutPreviewDrawer
+        isOpen={selectedWorkout !== null}
+        onClose={() => setSelectedWorkout(null)}
+        workout={selectedWorkout}
+        onStartWorkout={(workoutId) => {
+          router.push(`/workouts/${workoutId}/active`);
+        }}
       />
 
       {/* Dev-Only Reset Button */}

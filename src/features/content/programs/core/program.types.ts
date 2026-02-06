@@ -23,3 +23,33 @@ export interface Program {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+/**
+ * Program Level Settings
+ * Stores metadata for a specific level within a specific program
+ * This is separate from exercise assignment - focuses on level configuration
+ */
+export interface ProgramLevelSettings {
+  id: string;
+  programId: string;           // Reference to Program
+  levelNumber: number;          // The level number (1, 2, 3, etc.)
+  levelDescription: string;     // Instructional/contextual text for this level
+  progressionWeight: number;    // How much completing a workout contributes (0.0 - 1.0, default 1.0)
+  
+  // Future-proofing fields for intensity modifiers
+  intensityModifier?: number;   // Optional intensity multiplier (default 1.0)
+  restMultiplier?: number;      // Optional rest time multiplier (default 1.0)
+  volumeAdjustment?: number;    // Optional volume adjustment percentage (-50 to +50)
+  focusAreas?: string[];        // Optional focus areas for this level
+  prerequisites?: string[];     // Optional: level descriptions that should be completed first
+  
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/**
+ * Program Level Settings with resolved program name (for UI display)
+ */
+export interface ProgramLevelSettingsWithProgram extends ProgramLevelSettings {
+  programName: string;
+}

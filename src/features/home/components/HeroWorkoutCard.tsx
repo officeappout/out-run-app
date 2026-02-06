@@ -1,8 +1,8 @@
- "use client";
+"use client";
 
 import React from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
-import { Play, Clock, Zap } from 'lucide-react';
+import { Play, Clock, Zap, Dumbbell } from 'lucide-react';
 
 interface HeroWorkoutCardProps {
   workout: MockWorkout;
@@ -10,15 +10,53 @@ interface HeroWorkoutCardProps {
   onStart: () => void;
 }
 
-export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }: HeroWorkoutCardProps) {
-  const getDifficultyLabel = (difficulty: string) => {
-    const labels: Record<string, string> = {
-      easy: 'קל',
-      medium: 'בינוני',
-      hard: 'קשה',
-    };
-    return labels[difficulty] || difficulty;
+/**
+ * Render difficulty as bolts (⚡)
+ * 1 = Easy (1 bolt, green)
+ * 2 = Normal (2 bolts, yellow)
+ * 3 = Intense (3 bolts, red/orange)
+ */
+function DifficultyBolts({ difficulty }: { difficulty: 1 | 2 | 3 }) {
+  const configs = {
+    1: { count: 1, color: 'text-green-400', bgColor: 'bg-green-500/20', label: 'קל' },
+    2: { count: 2, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', label: 'רגיל' },
+    3: { count: 3, color: 'text-orange-400', bgColor: 'bg-orange-500/20', label: 'אינטנסיבי' },
   };
+  
+  const config = configs[difficulty] || configs[2];
+  
+  return (
+    <span className={`flex items-center gap-1 ${config.bgColor} px-2.5 py-1 rounded-lg backdrop-blur-sm`}>
+      <span className="flex items-center">
+        {Array.from({ length: config.count }).map((_, i) => (
+          <Zap key={i} size={12} className={`${config.color} ${i > 0 ? '-ml-1' : ''}`} fill="currentColor" />
+        ))}
+        {/* Dim remaining bolts */}
+        {Array.from({ length: 3 - config.count }).map((_, i) => (
+          <Zap key={`dim-${i}`} size={12} className="text-gray-500/30 -ml-1" fill="currentColor" />
+        ))}
+      </span>
+      <span className={`text-xs font-medium ${config.color} mr-1`}>{config.label}</span>
+    </span>
+  );
+}
+
+export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }: HeroWorkoutCardProps) {
+  // Handle both old string format and new number format
+  const getDifficultyNumber = (difficulty: string | number): 1 | 2 | 3 => {
+    if (typeof difficulty === 'number') {
+      return Math.min(3, Math.max(1, difficulty)) as 1 | 2 | 3;
+    }
+    // Legacy string format
+    const mapping: Record<string, 1 | 2 | 3> = {
+      easy: 1,
+      medium: 2,
+      hard: 3,
+    };
+    return mapping[difficulty] || 2;
+  };
+
+  const difficultyNum = getDifficultyNumber(workout.difficulty);
 
   return (
     <div className="mb-8 px-5">
@@ -63,20 +101,36 @@ export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }:
         <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col justify-end h-full">
           <div className="mb-4">
             <h4 className="text-2xl font-bold text-white mb-2">{workout.title}</h4>
+            
+            {/* AI Cue (if available) */}
+            {workout.aiCue && (
+              <p className="text-sm text-cyan-300 mb-2 font-medium">
+                {workout.aiCue}
+              </p>
+            )}
+            
             <p className="text-sm text-gray-200 line-clamp-2 mb-3 opacity-90">
               {workout.description || 'האימון היומי שלך מוכן. בוא נתחיל לזוז!'}
             </p>
 
-            {/* Metadata tags */}
+            {/* Metadata tags - Updated with bolt system */}
             <div className="flex items-center gap-3 text-xs text-white/80">
-              <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
-                <Zap size={12} className="text-yellow-400" />
-                {getDifficultyLabel(workout.difficulty)}
-              </span>
+              {/* Difficulty Bolts */}
+              <DifficultyBolts difficulty={difficultyNum} />
+              
+              {/* Duration */}
               <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
                 <Clock size={12} className="text-blue-300" />
                 {workout.duration} דקות
               </span>
+              
+              {/* Exercise Count (if available) */}
+              {workout.exerciseCount && (
+                <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                  <Dumbbell size={12} className="text-purple-300" />
+                  {workout.exerciseCount} תרגילים
+                </span>
+              )}
             </div>
           </div>
 

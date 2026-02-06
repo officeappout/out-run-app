@@ -168,9 +168,9 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
     let docRef;
     try {
       docRef = await addDoc(collection(db, 'workouts'), {
-        ...workoutData,
-        date: serverTimestamp(), // Use server timestamp for consistency
-      });
+      ...workoutData,
+      date: serverTimestamp(), // Use server timestamp for consistency
+    });
     } catch (saveError) {
       console.error('❌ [DB] Firestore addDoc error:', saveError);
       throw saveError; // Re-throw to be caught by outer catch
@@ -213,7 +213,7 @@ export async function getWorkoutHistory(userId: string, limitCount: number = 50)
 
     snapshot.docs.forEach((docSnap) => {
       try {
-        const data = docSnap.data();
+      const data = docSnap.data();
         
         // Handle routePath - support both old format [[lat, lng]] and new format [{lat, lng}]
         let routePath: RoutePoint[] | [number, number][] | undefined;
@@ -228,23 +228,23 @@ export async function getWorkoutHistory(userId: string, limitCount: number = 50)
           }
         }
         
-        workouts.push({
-          id: docSnap.id,
-          userId: data.userId,
-          date: toDate(data.date) || new Date(),
-          activityType: data.activityType || 'running',
-          workoutType: data.workoutType || 'running',
-          category: data.category || 'cardio',
-          displayIcon: data.displayIcon || 'run-fast',
-          distance: data.distance || 0,
-          duration: data.duration || 0,
-          calories: data.calories || 0,
-          pace: data.pace || 0,
+      workouts.push({
+        id: docSnap.id,
+        userId: data.userId,
+        date: toDate(data.date) || new Date(),
+        activityType: data.activityType || 'running',
+        workoutType: data.workoutType || 'running',
+        category: data.category || 'cardio',
+        displayIcon: data.displayIcon || 'run-fast',
+        distance: data.distance || 0,
+        duration: data.duration || 0,
+        calories: data.calories || 0,
+        pace: data.pace || 0,
           routePath: routePath,
-          routeId: data.routeId,
-          routeName: data.routeName,
-          earnedCoins: data.earnedCoins || 0,
-        });
+        routeId: data.routeId,
+        routeName: data.routeName,
+        earnedCoins: data.earnedCoins || 0,
+      });
       } catch (error) {
         console.error('[WorkoutStorage] Error parsing workout document:', docSnap.id, error);
         // Skip malformed documents instead of crashing

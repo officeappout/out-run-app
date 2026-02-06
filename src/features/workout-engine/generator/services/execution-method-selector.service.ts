@@ -54,37 +54,45 @@ export async function selectExecutionMethodWithBrand(
     
     // First, try to find exact brand match
     for (const method of locationMethods) {
-      if (method.requiredGearType === 'fixed_equipment' && method.gearId) {
-        // Find the park equipment entry
-        const parkEquipment = park.gymEquipment.find(
-          (eq) => eq.equipmentId === method.gearId
-        );
-        
-        if (parkEquipment) {
-          // Find the gym equipment definition
-          const equipmentDef = gymEquipmentList.find((eq) => eq.id === method.gearId);
+      // Use new array-based fields, with fallback to legacy single fields
+      const gearIdsToCheck = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
+      const equipmentIdsToCheck = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
+      const allEquipmentIds = [...equipmentIdsToCheck, ...gearIdsToCheck];
+      
+      if (method.requiredGearType === 'fixed_equipment' && allEquipmentIds.length > 0) {
+        // Check each equipment ID for park availability
+        for (const eqId of allEquipmentIds) {
+          // Find the park equipment entry
+          const parkEquipment = park.gymEquipment.find(
+            (eq) => eq.equipmentId === eqId
+          );
           
-          if (equipmentDef) {
-            // Check if the park's brand matches any brand in the equipment definition
-            const brandMatch = equipmentDef.brands.find(
-              (brand) => brand.brandName === parkEquipment.brandName
-            );
+          if (parkEquipment) {
+            // Find the gym equipment definition
+            const equipmentDef = gymEquipmentList.find((eq) => eq.id === eqId);
             
-            // If brand matches and has a video URL, prefer this method
-            if (brandMatch && brandMatch.videoUrl) {
-              // Return method with brand-specific main video
-              return {
-                ...method,
-                media: {
-                  ...method.media,
-                  mainVideoUrl: brandMatch.videoUrl,
-                },
-              };
+            if (equipmentDef) {
+              // Check if the park's brand matches any brand in the equipment definition
+              const brandMatch = equipmentDef.brands.find(
+                (brand) => brand.brandName === parkEquipment.brandName
+              );
+              
+              // If brand matches and has a video URL, prefer this method
+              if (brandMatch && brandMatch.videoUrl) {
+                // Return method with brand-specific main video
+                return {
+                  ...method,
+                  media: {
+                    ...method.media,
+                    mainVideoUrl: brandMatch.videoUrl,
+                  },
+                };
+              }
             }
+            
+            // If equipment matches but no brand-specific video, still return this method
+            return method;
           }
-          
-          // If equipment matches but no brand-specific video, still return this method
-          return method;
         }
       }
     }
@@ -108,19 +116,25 @@ export async function selectExecutionMethodWithBrand(
     const methodsOfType = locationMethods.filter((m) => m.requiredGearType === gearType);
 
     for (const method of methodsOfType) {
-      if (method.requiredGearType === 'fixed_equipment' && method.gearId) {
-        if (park && park.gymEquipment) {
-          const hasEquipment = park.gymEquipment.some(
-            (eq) => eq.equipmentId === method.gearId
+      // Use new array-based fields, with fallback to legacy single fields
+      const gearIdsToCheck = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
+      const equipmentIdsToCheck = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
+      const allEquipmentIds = [...equipmentIdsToCheck, ...gearIdsToCheck];
+      
+      if (method.requiredGearType === 'fixed_equipment' && allEquipmentIds.length > 0) {
+        if (park && park.gymEquipment && park.gymEquipment.length > 0) {
+          const parkGymEquipment = park.gymEquipment; // Capture for TypeScript
+          const hasEquipment = allEquipmentIds.some(id =>
+            parkGymEquipment.some((eq) => eq.equipmentId === id)
           );
           if (hasEquipment) {
             return method;
           }
         }
-      } else if (method.requiredGearType === 'user_gear' && method.gearId) {
+      } else if (method.requiredGearType === 'user_gear' && gearIdsToCheck.length > 0) {
         // TODO: Implement proper user gear checking
         return method;
-      } else if (method.requiredGearType === 'improvised' && method.gearId) {
+      } else if (method.requiredGearType === 'improvised' && gearIdsToCheck.length > 0) {
         return method;
       }
     }

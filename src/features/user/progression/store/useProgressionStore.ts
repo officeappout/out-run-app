@@ -12,6 +12,7 @@ import { checkAndUnlockAchievements } from '../services/achievement.service';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUserProgression } from '@/lib/firestore.service';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 export interface GoalHistoryEntry {
   date: string;           // 'YYYY-MM-DD'
@@ -23,6 +24,15 @@ export interface GoalHistoryEntry {
 }
 
 export type ActivityType = 'micro' | 'super' | 'survival' | 'none';
+
+// Session progress tracking for real-time updates
+interface SessionProgressState {
+  baselinePercent: number;      // Percent at start of session
+  baselineLevel: number;        // Level at start of session
+  currentSets: number;          // Sets completed so far
+  requiredSets: number;         // Required sets for full gain
+  baseGain: number;             // Base session gain %
+}
 
 interface ProgressionState {
   // Gamification Metrics
@@ -41,6 +51,9 @@ interface ProgressionState {
 
   // Level Progress (from domain tracks)
   domainProgress: { [domain: string]: { level: number; percent: number } };
+  
+  // Session tracking for real-time progress updates
+  sessionProgress: { [domain: string]: SessionProgressState };
 
   // Badges
   unlockedBadges: string[];
@@ -60,6 +73,10 @@ interface ProgressionState {
   markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
+  updateDomainProgress: (domain: string, level: number, percent: number) => void;
+  startSession: (domain: string, baseGain: number, requiredSets: number) => void;
+  updateSessionSets: (domain: string, currentSets: number) => void;
+  endSession: (domain: string) => void;
   reset: () => void;
 }
 
@@ -76,6 +93,7 @@ const initialState = {
   currentStreak: 0,
   goalHistory: [] as GoalHistoryEntry[],
   domainProgress: {},
+  sessionProgress: {} as { [domain: string]: SessionProgressState },
   unlockedBadges: [],
   isLoaded: false,
   isHydrated: false,
@@ -239,15 +257,17 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         // Refresh from Firestore to get the updated value (ensures accuracy after increment)
         const updatedProgression = await getUserProgression(userId);
         if (updatedProgression) {
-          set({
-            coins: updatedProgression.coins || 0,
+          // COIN_SYSTEM_PAUSED: Only update coins if system is enabled, always update calories
+          set((state) => ({
+            coins: IS_COIN_SYSTEM_ENABLED ? (updatedProgression.coins || 0) : state.coins,
             totalCaloriesBurned: updatedProgression.totalCaloriesBurned || 0,
             lastActivityType: 'super' as ActivityType, // Trigger "Stronger Flame"
-          });
+          }));
         } else {
           // Fallback: optimistic update if refresh fails
+          // COIN_SYSTEM_PAUSED: Only add coins if system is enabled
           set((state) => ({
-            coins: state.coins + coins,
+            coins: IS_COIN_SYSTEM_ENABLED ? state.coins + coins : state.coins,
             totalCaloriesBurned: state.totalCaloriesBurned + calories,
             lastActivityType: 'super' as ActivityType,
           }));
@@ -297,13 +317,14 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
    */
   awardWorkoutRewards: async (userId: string, calories: number) => {
     try {
-      // 1. Award coins to Firestore
+      // 1. Award coins to Firestore (respects IS_COIN_SYSTEM_ENABLED)
       const { coins, success } = await awardCoinsToFirestore(userId, calories);
 
       if (success) {
         // 2. Update local state optimistically
+        // COIN_SYSTEM_PAUSED: Only add coins to local state if system is enabled
         set((state) => ({
-          coins: state.coins + coins,
+          coins: IS_COIN_SYSTEM_ENABLED ? state.coins + coins : state.coins,
           totalCaloriesBurned: state.totalCaloriesBurned + calories,
           lastActivityType: 'super' as ActivityType, // Trigger "Stronger Flame"
         }));
@@ -475,6 +496,108 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
     } catch (error) {
       console.error('[ProgressionStore] Error marking today as completed:', error);
     }
+  },
+
+  /**
+   * Update domain progress directly (for UI sync after workout completion)
+   */
+  updateDomainProgress: (domain: string, level: number, percent: number) => {
+    set((state) => ({
+      domainProgress: {
+        ...state.domainProgress,
+        [domain]: { level, percent },
+      },
+    }));
+  },
+
+  /**
+   * Start a workout session - record baseline progress
+   * Call this when workout begins to capture starting state
+   * 
+   * @param domain - The program/domain ID
+   * @param baseGain - The base session gain for the current level (%)
+   * @param requiredSets - Total sets required for 100% gain
+   */
+  startSession: (domain: string, baseGain: number, requiredSets: number) => {
+    set((state) => {
+      const currentDomain = state.domainProgress[domain] || { level: 1, percent: 0 };
+      
+      return {
+        sessionProgress: {
+          ...state.sessionProgress,
+          [domain]: {
+            baselinePercent: currentDomain.percent,
+            baselineLevel: currentDomain.level,
+            currentSets: 0,
+            requiredSets,
+            baseGain,
+          },
+        },
+      };
+    });
+  },
+
+  /**
+   * Update session sets and recalculate domain progress in real-time
+   * Call this after each set completion for immediate visual feedback
+   * 
+   * @param domain - The program/domain ID
+   * @param currentSets - Total sets completed so far in this session
+   */
+  updateSessionSets: (domain: string, currentSets: number) => {
+    set((state) => {
+      const session = state.sessionProgress[domain];
+      if (!session) {
+        console.warn(`[ProgressionStore] No session found for domain ${domain}`);
+        return state;
+      }
+      
+      // Calculate progress using volume-based formula
+      const volumeRatio = Math.min(1, currentSets / session.requiredSets);
+      const sessionGain = volumeRatio * session.baseGain;
+      
+      // Calculate new progress from baseline
+      let newPercent = session.baselinePercent + sessionGain;
+      let newLevel = session.baselineLevel;
+      
+      // Handle level up
+      if (newPercent >= 100) {
+        newLevel = session.baselineLevel + 1;
+        newPercent = newPercent - 100;
+      }
+      
+      return {
+        sessionProgress: {
+          ...state.sessionProgress,
+          [domain]: {
+            ...session,
+            currentSets,
+          },
+        },
+        domainProgress: {
+          ...state.domainProgress,
+          [domain]: {
+            level: newLevel,
+            percent: Math.round(newPercent * 10) / 10, // Round to 1 decimal
+          },
+        },
+      };
+    });
+  },
+
+  /**
+   * End a workout session - clear session tracking state
+   * The final progress has already been applied to domainProgress
+   * 
+   * @param domain - The program/domain ID
+   */
+  endSession: (domain: string) => {
+    set((state) => {
+      const { [domain]: removed, ...remainingSessions } = state.sessionProgress;
+      return {
+        sessionProgress: remainingSessions,
+      };
+    });
   },
 
   /**

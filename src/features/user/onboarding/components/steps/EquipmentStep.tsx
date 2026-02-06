@@ -4,13 +4,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Dumbbell, Circle, Activity, Package, Anchor, Search, X,
-  ArrowRight, Coins, Check
+  ArrowRight, Coins, Check, Home, Building
 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import { GearDefinition } from '@/features/content/equipment/gear';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import * as LucideIcons from 'lucide-react';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface EquipmentStepProps {
   onNext: () => void;
@@ -306,95 +307,125 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
   }
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-6 py-6 pb-8 space-y-4 flex flex-col min-h-screen bg-white">
-      {/* Title with Coins - Left aligned */}
-      <div className="mb-6 relative">
-        <div className="flex items-center justify-start gap-2">
-          <div className="relative">
-            <motion.div
-              initial={false}
-              animate={{
-                opacity: hasEarnedReward ? 1 : 0.4,
-                scale: showCoinAnimation ? [1, 1.2, 1] : 1,
-              }}
-              transition={{
-                opacity: { duration: 0.3 },
-                scale: { duration: 0.4, times: [0, 0.5, 1] }
-              }}
-              className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
-                hasEarnedReward 
-                  ? 'bg-amber-100 text-amber-700 border-amber-200' 
-                  : 'bg-gray-100 text-gray-400 border-gray-200'
-              }`}
-            >
-              <Coins 
-                size={16} 
-                className={hasEarnedReward ? 'text-amber-700' : 'text-gray-400'} 
-                strokeWidth={2.5} 
-              />
-              <span className={`text-sm font-bold font-simpler ${hasEarnedReward ? 'text-amber-700' : 'text-gray-400'}`}>
-                +10
-              </span>
-            </motion.div>
-            {/* Float animation */}
-            <AnimatePresence>
-              {showCoinAnimation && (
-                <motion.div
-                  initial={{ opacity: 1, y: 0, scale: 1 }}
-                  animate={{ opacity: 0, y: -30, scale: 1.2 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.6, ease: 'easeOut' }}
-                  className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none z-20"
-                >
-                  <div className="flex items-center gap-1 bg-amber-200 text-amber-800 rounded-full px-2 py-1 shadow-lg border border-amber-300">
-                    <Coins size={16} className="text-amber-800" strokeWidth={2.5} />
-                    <span className="text-sm font-bold font-simpler">+10</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 font-simpler">
-            {locale.equipment.title}
-          </h1>
-        </div>
-      </div>
+    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-6 pb-8 space-y-4 flex flex-col min-h-screen">
+      {/* Header with Icon */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mb-4"
+      >
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+          className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#5BC2F2] to-[#4AADE3] rounded-full mb-4 shadow-lg shadow-[#5BC2F2]/30"
+        >
+          <Dumbbell size={28} className="text-white" />
+        </motion.div>
+        <h2 className="text-2xl font-black text-slate-900 mb-2">
+          {locale.equipment.title}
+        </h2>
+        <p className="text-sm text-slate-500">
+          {savedLanguage === 'he' ? 'בחר את הציוד הזמין לך' : 'Select your available equipment'}
+        </p>
+      </motion.div>
 
-      {/* Card A: No Equipment */}
+      {/* Coin Animation - COIN_SYSTEM_PAUSED */}
+      {IS_COIN_SYSTEM_ENABLED && (
+        <AnimatePresence>
+          {showCoinAnimation && (
+            <motion.div
+              initial={{ opacity: 1, y: 0, scale: 1 }}
+              animate={{ opacity: 0, y: -30, scale: 1.2 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none z-50"
+            >
+              <div className="flex items-center gap-1 bg-amber-200 text-amber-800 rounded-full px-3 py-2 shadow-lg border border-amber-300">
+                <Coins size={18} className="text-amber-800" strokeWidth={2.5} />
+                <span className="text-sm font-bold font-simpler">+10</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+
+      {/* Card A: No Equipment - Premium Styling */}
       <motion.button
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         onClick={handleNoEquipment}
-        className={`w-full bg-white p-5 rounded-2xl shadow-sm border transition-all min-h-[64px] flex items-center justify-center ${
+        className={`w-full bg-white p-5 rounded-[24px] transition-all duration-300 min-h-[80px] flex items-center gap-4 ${
           selectedType === 'NONE'
-            ? 'border-[#60A5FA] bg-[#60A5FA]/5'
-            : 'border-slate-100 hover:border-slate-200'
+            ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
+            : 'border-2 border-transparent shadow-md hover:shadow-lg hover:border-slate-200'
         }`}
       >
-        <p className="text-lg font-medium text-center font-simpler text-slate-900">
-          {t('אין לי ציוד — מתאמן בבית בלי אביזרים', 'אין לי ציוד — מתאמנת בבית בלי אביזרים')}
-        </p>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+          selectedType === 'NONE' ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
+        }`}>
+          <Circle size={24} className={selectedType === 'NONE' ? 'text-[#5BC2F2]' : 'text-slate-500'} />
+        </div>
+        <div className="flex-1 text-right">
+          <p className={`text-base font-bold ${selectedType === 'NONE' ? 'text-slate-900' : 'text-slate-700'}`}>
+            {t('אין לי ציוד', 'אין לי ציוד')}
+          </p>
+          <p className="text-sm text-slate-500">
+            {t('מתאמן בבית בלי אביזרים', 'מתאמנת בבית בלי אביזרים')}
+          </p>
+        </div>
+        {selectedType === 'NONE' && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center"
+          >
+            <Check size={14} className="text-white" strokeWidth={3} />
+          </motion.div>
+        )}
       </motion.button>
 
-      {/* Card B: Home Equipment (Accordion) */}
+      {/* Card B: Home Equipment (Accordion) - Premium Styling */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className={`bg-white rounded-2xl shadow-sm border transition-all ${
+        className={`bg-white rounded-[24px] transition-all duration-300 ${
           selectedEquipmentIds.length > 0 || selectedType === 'HOME'
-            ? 'border-[#60A5FA]/40'
-            : 'border-slate-100'
+            ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
+            : 'border-2 border-transparent shadow-md'
         }`}
       >
         {/* Accordion Header - Always visible */}
         <motion.button
           onClick={handleHomeEquipmentToggle}
-          className="w-full p-5 text-center min-h-[64px] flex items-center justify-center"
+          className="w-full p-5 min-h-[80px] flex items-center gap-4"
         >
-          <h3 className="text-lg font-bold font-simpler text-slate-900">
-            {t('יש לי ציוד אישי בבית — מתאמן בבית', 'יש לי ציוד אישי בבית — מתאמנת בבית')}
-          </h3>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+            selectedType === 'HOME' || selectedEquipmentIds.length > 0 ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
+          }`}>
+            <Home size={24} className={selectedType === 'HOME' || selectedEquipmentIds.length > 0 ? 'text-[#5BC2F2]' : 'text-slate-500'} />
+          </div>
+          <div className="flex-1 text-right">
+            <p className={`text-base font-bold ${selectedType === 'HOME' || selectedEquipmentIds.length > 0 ? 'text-slate-900' : 'text-slate-700'}`}>
+              {t('יש לי ציוד אישי בבית', 'יש לי ציוד אישי בבית')}
+            </p>
+            <p className="text-sm text-slate-500">
+              {selectedEquipmentIds.length > 0 
+                ? `${selectedEquipmentIds.length} פריטים נבחרו`
+                : t('מתאמן בבית עם אביזרים', 'מתאמנת בבית עם אביזרים')
+              }
+            </p>
+          </div>
+          {selectedEquipmentIds.length > 0 && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center"
+            >
+              <Check size={14} className="text-white" strokeWidth={3} />
+            </motion.div>
+          )}
         </motion.button>
 
         {/* Accordion Content - Only visible when expanded */}
@@ -417,28 +448,28 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
                   const Icon = getIconForEquipment(gear);
                   const isSelected = isEquipmentSelected(gear.id);
 
-                  return (
+                    return (
                     <motion.button
                       key={gear.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => toggleEquipment(gear.id)}
-                      className={`flex items-center justify-between p-3 rounded-xl transition-all border h-14 shadow-lg ${
+                      className={`flex items-center justify-between p-3 rounded-2xl transition-all h-14 ${
                         isSelected
-                          ? 'bg-[#60A5FA]/5 border-2 border-[#60A5FA]'
-                          : 'bg-white border border-slate-200 hover:bg-slate-50'
+                          ? 'bg-[#5BC2F2]/10 border-2 border-[#5BC2F2] shadow-[0_4px_15px_rgba(91,194,242,0.15)]'
+                          : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
                       }`}
                     >
                       <span
-                        className={`text-sm font-simpler text-slate-900 ${
-                          isSelected ? 'font-bold text-[#60A5FA]' : 'font-medium'
+                        className={`text-sm font-simpler ${
+                          isSelected ? 'font-bold text-[#5BC2F2]' : 'font-medium text-slate-700'
                         }`}
                       >
                         {getEquipmentName(gear)}
                       </span>
                       <Icon
                         size={20}
-                        className={isSelected ? 'text-[#60A5FA]' : 'text-slate-500'}
+                        className={isSelected ? 'text-[#5BC2F2]' : 'text-slate-400'}
                         strokeWidth={2}
                       />
                     </motion.button>
@@ -450,40 +481,57 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
         </AnimatePresence>
       </motion.div>
 
-      {/* Card C: Gym */}
+      {/* Card C: Gym - Premium Styling */}
       <motion.button
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         onClick={handleGymToggle}
-        className={`w-full bg-white p-5 rounded-2xl shadow-sm border transition-all min-h-[64px] flex items-center justify-center ${
+        className={`w-full bg-white p-5 rounded-[24px] transition-all duration-300 min-h-[80px] flex items-center gap-4 ${
           selectedType === 'GYM'
-            ? 'border-[#60A5FA] bg-[#60A5FA]/5'
-            : 'border-slate-100 hover:border-slate-200'
+            ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
+            : 'border-2 border-transparent shadow-md hover:shadow-lg hover:border-slate-200'
         }`}
       >
-        <p className="text-lg font-medium text-center font-simpler text-slate-900">
-          {t('אני מתאמן גם בחדר כושר עם ציוד', 'אני מתאמנת גם בחדר כושר עם ציוד')}
-        </p>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+          selectedType === 'GYM' ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
+        }`}>
+          <Building size={24} className={selectedType === 'GYM' ? 'text-[#5BC2F2]' : 'text-slate-500'} />
+        </div>
+        <div className="flex-1 text-right">
+          <p className={`text-base font-bold ${selectedType === 'GYM' ? 'text-slate-900' : 'text-slate-700'}`}>
+            {t('מתאמן גם בחדר כושר', 'מתאמנת גם בחדר כושר')}
+          </p>
+          <p className="text-sm text-slate-500">
+            {savedLanguage === 'he' ? 'יש לי גישה לציוד מקצועי' : 'I have access to gym equipment'}
+          </p>
+        </div>
+        {selectedType === 'GYM' && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center"
+          >
+            <Check size={14} className="text-white" strokeWidth={3} />
+          </motion.div>
+        )}
       </motion.button>
 
       {/* Spacer to push button to bottom */}
       <div className="flex-grow"></div>
 
-      {/* Continue Button - Fixed at bottom */}
+      {/* Continue Button - Premium Styling */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="mt-auto pb-10"
+        className="mt-auto pt-4 pb-6"
       >
         <button
           onClick={handleContinue}
-          className="relative w-full bg-[#60A5FA] hover:bg-[#4a90d9] text-white font-bold py-4 rounded-2xl text-xl shadow-lg shadow-[#60A5FA]/20 transition-all active:scale-[0.98] overflow-hidden"
+          className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-black py-4 rounded-2xl text-lg shadow-xl shadow-[#5BC2F2]/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
         >
-          <span className="relative z-10 font-bold font-simpler">
-            {locale.common.continue}
-          </span>
+          {locale.common.continue}
         </button>
       </motion.div>
 

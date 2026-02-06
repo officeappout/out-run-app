@@ -36,7 +36,7 @@ export default function LapTableBlock({ laps }: LapTableBlockProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.2 }}
       className="bg-white rounded-xl shadow-sm p-6 mb-6"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <h3 className="text-xl font-black text-gray-900 mb-4">הקפות</h3>
       <div className="space-y-3">

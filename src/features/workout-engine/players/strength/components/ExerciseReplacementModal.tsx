@@ -94,8 +94,10 @@ export default function ExerciseReplacementModal({
           if (option.exercise.execution_methods) {
             const method = option.exercise.execution_methods.find((m) => m.location === location);
             if (method) {
+              // Use new array-based gearIds, fall back to legacy gearId
+              const gearIdForLabel = method.gearIds?.[0] || method.gearId || '';
               gearLabelPromises.push(
-                getGearBadgeProps(method.requiredGearType, method.gearId).then((props) => [
+                getGearBadgeProps(method.requiredGearType, gearIdForLabel).then((props) => [
                   option.exercise.id,
                   props,
                 ])
@@ -107,10 +109,12 @@ export default function ExerciseReplacementModal({
         // For alternative exercises, use selected execution method
         for (const option of alternatives) {
           if (option.selectedExecutionMethod) {
+            // Use new array-based gearIds, fall back to legacy gearId
+            const gearIdForLabel = option.selectedExecutionMethod.gearIds?.[0] || option.selectedExecutionMethod.gearId || '';
             gearLabelPromises.push(
               getGearBadgeProps(
                 option.selectedExecutionMethod.requiredGearType,
-                option.selectedExecutionMethod.gearId
+                gearIdForLabel
               ).then((props) => [option.exercise.id, props])
             );
           }

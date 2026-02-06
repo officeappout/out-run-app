@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Check } from 'lucide-react';
+import { Coins, Check, Calendar, Clock, ChevronDown, Lightbulb, Bell, RefreshCw } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface ScheduleStepProps {
   onNext: () => void;
@@ -13,7 +14,7 @@ interface ScheduleStepProps {
 
 const DAYS_HEBREW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
-// Coin Fly Animation Component
+// Coin Fly Animation Component - COIN_SYSTEM_PAUSED: Hidden when disabled
 function CoinFly({ 
   startPos, 
   endPos, 
@@ -25,18 +26,26 @@ function CoinFly({
   amount: number;
   onComplete: () => void;
 }) {
+  // COIN_SYSTEM_PAUSED: Re-enable in April
+  if (!IS_COIN_SYSTEM_ENABLED) {
+    // Still trigger onComplete to not break the flow
+    React.useEffect(() => {
+      onComplete();
+    }, [onComplete]);
+    return null;
+  }
   if (!startPos || !endPos) return null;
 
   return (
     <motion.div
       initial={{ 
-        x: startPos.x - 30, // Center the coin on the badge
+        x: startPos.x - 30,
         y: startPos.y - 12,
         scale: 1,
         opacity: 1
       }}
       animate={{ 
-        x: endPos.x - 30, // Center the coin on the target
+        x: endPos.x - 30,
         y: endPos.y - 12,
         scale: [1, 1.3, 0.8],
         opacity: [1, 1, 0]
@@ -44,15 +53,11 @@ function CoinFly({
       exit={{ opacity: 0, scale: 0 }}
       transition={{ 
         duration: 0.9,
-        ease: [0.25, 0.46, 0.45, 0.94], // Creates smooth curved arc effect
+        ease: [0.25, 0.46, 0.45, 0.94],
       }}
       onAnimationComplete={onComplete}
       className="fixed pointer-events-none z-[9999]"
-      style={{ 
-        left: 0, 
-        top: 0,
-        pointerEvents: 'none' // Force pointer-events none
-      }}
+      style={{ left: 0, top: 0, pointerEvents: 'none' }}
     >
       <motion.div 
         className="flex items-center gap-1 bg-yellow-200 text-yellow-800 rounded-full px-2 py-1 shadow-lg"
@@ -75,6 +80,7 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
     ? (sessionStorage.getItem('onboarding_language') || 'he') as OnboardingLanguage
     : 'he';
   const locale = getOnboardingLocale(savedLanguage);
+  const isHebrew = savedLanguage === 'he';
 
   // Get gender from sessionStorage
   const gender = typeof window !== 'undefined'
@@ -84,17 +90,31 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
   // Gender-aware translation helper
   const t = (male: string, female: string) => gender === 'female' ? female : male;
 
-  // State
-  const [frequency, setFrequency] = useState<number>(data.trainingDays || 3);
+  // Recommended frequency (default 3, can be based on goal)
+  const RECOMMENDED_FREQUENCY = 3;
+  
+  // State - Default to recommended frequency
+  const [frequency, setFrequency] = useState<number>(data.trainingDays || RECOMMENDED_FREQUENCY);
   const [selectedDays, setSelectedDays] = useState<number[]>(() => {
-    // Initialize from existing data or default to first N days
-    if (data.trainingDays) {
-      return Array.from({ length: Math.min(data.trainingDays, 7) }, (_, i) => i);
+    if (data.scheduleDayIndices && data.scheduleDayIndices.length > 0) {
+      return data.scheduleDayIndices;
     }
-    return [];
+    // Pre-select smart default days for recommended frequency
+    return [0, 2, 4]; // Sun, Tue, Thu for 3 days
   });
   const [time, setTime] = useState<string>(data.trainingTime || '18:00');
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true); // Default to checked (dev bypass)
+  // Initialize toggle states - BOTH ON by default for recommended experience
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    return (data as any).notificationsEnabled ?? true;
+  });
+  const [calendarSyncEnabled, setCalendarSyncEnabled] = useState<boolean>(() => {
+    return (data as any).calendarSyncEnabled ?? true; // ON by default
+  });
+  const [showRecommendation, setShowRecommendation] = useState<boolean>(false);
+  
+  // Auto-reveal animation states
+  const [showDaysSection, setShowDaysSection] = useState<boolean>(false);
+  const [daysPulse, setDaysPulse] = useState<boolean>(false);
   
   // Coin animation states
   const [flyingCoin, setFlyingCoin] = useState<{ 
@@ -103,134 +123,105 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
     amount: number;
   } | null>(null);
   
-  // Refs for badge positions (for coin fly animation)
+  // Refs for badge positions
   const frequencyBadgeRef = useRef<HTMLDivElement>(null);
   const daysBadgeRef = useRef<HTMLDivElement>(null);
   const timeBadgeRef = useRef<HTMLDivElement>(null);
-  const notificationBadgeRef = useRef<HTMLDivElement>(null);
-  
-  // Target position for coins (top-right corner where counter would be)
+  const notificationBadgeRef = useRef<HTMLButtonElement>(null);
   const coinTargetPos = useRef<{ x: number; y: number }>({ x: 50, y: 50 });
   
-  // Update target position on mount
   useEffect(() => {
-    // Target is top-right corner (adjust based on your header layout)
     coinTargetPos.current = { 
       x: typeof window !== 'undefined' ? window.innerWidth - 80 : 300,
       y: 80
     };
   }, []);
   
-  // Trigger coin fly animation
-  const triggerCoinFly = (badgeRef: React.RefObject<HTMLDivElement>, amount: number) => {
+  const triggerCoinFly = (badgeRef: React.RefObject<HTMLDivElement | HTMLButtonElement>, amount: number) => {
     if (!badgeRef.current) return;
-    
     const badgeRect = badgeRef.current.getBoundingClientRect();
-    const startPos = {
-      x: badgeRect.left + badgeRect.width / 2,
-      y: badgeRect.top + badgeRect.height / 2
-    };
-    
     setFlyingCoin({
-      startPos,
+      startPos: { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 },
       endPos: coinTargetPos.current,
       amount
     });
   };
   
-  // Handle coin fly complete
-  const handleCoinFlyComplete = () => {
-    setFlyingCoin(null);
-  };
+  const handleCoinFlyComplete = () => setFlyingCoin(null);
   
-  // Progressive disclosure states
-  const [showDaysSection, setShowDaysSection] = useState(false);
+  // Progressive disclosure - Show time section when days are fully selected
   const [showTimeSection, setShowTimeSection] = useState(false);
 
-  // Derived variables - parse time
   const [hours, minutes] = time.split(':').map(Number);
 
-  // Smart default day selection based on frequency (with rest day logic)
+  // Smart default day selection
   const getSmartDefaultDays = (freq: number): number[] => {
     switch (freq) {
-      case 2: return [0, 3]; // Sunday (א) and Wednesday (ד)
-      case 3: return [0, 2, 4]; // Sunday (א), Tuesday (ג), Thursday (ה)
-      case 4: return [0, 1, 3, 4]; // Sunday (א), Monday (ב), Wednesday (ד), Thursday (ה)
-      case 5: return [0, 1, 2, 4, 5]; // Sunday (א), Monday (ב), Tuesday (ג), Thursday (ה), Friday (ו)
-      case 6: return [0, 1, 2, 3, 4, 5]; // Sun-Fri (Saturday ש as rest day)
+      case 2: return [0, 3];
+      case 3: return [0, 2, 4];
+      case 4: return [0, 1, 3, 4];
+      case 5: return [0, 1, 2, 4, 5];
+      case 6: return [0, 1, 2, 3, 4, 5];
       default: return Array.from({ length: Math.min(freq, 7) }, (_, i) => i);
     }
   };
 
-  // Initialize selectedDays from frequency if not set
+  // Strict Progressive Disclosure - Auto-reveal Days section after 800ms on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowDaysSection(true);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Initialize selectedDays if empty
   useEffect(() => {
     if (selectedDays.length === 0 && frequency > 0) {
       setSelectedDays(getSmartDefaultDays(frequency));
     }
   }, []);
 
-  // Progressive disclosure: Show/hide time section based on days matching frequency
+  // Show time section with staggered delay after days section appears
   useEffect(() => {
-    if (selectedDays.length === frequency && frequency > 0) {
-      // Show time section after 600ms if days match
+    // Only reveal time section if:
+    // 1. Days section is visible
+    // 2. AND days selection matches frequency (can continue)
+    if (showDaysSection && selectedDays.length === frequency && frequency > 0) {
       if (!showTimeSection) {
-        const timer = setTimeout(() => {
-          setShowTimeSection(true);
-        }, 600);
+        // Wait 400ms after days are ready to reveal time picker
+        const timer = setTimeout(() => setShowTimeSection(true), 400);
         return () => clearTimeout(timer);
       }
     } else {
-      // Hide time section immediately if days don't match
-      if (showTimeSection) {
-        setShowTimeSection(false);
-      }
+      if (showTimeSection) setShowTimeSection(false);
     }
-  }, [selectedDays.length, frequency, showTimeSection]);
+  }, [showDaysSection, selectedDays.length, frequency, showTimeSection]);
 
-  // Handle frequency selection
   const handleFrequencySelect = (value: number) => {
     setFrequency(value);
-    // Auto-select smart default days if current selection is empty or doesn't match
     if (selectedDays.length !== value) {
       setSelectedDays(getSmartDefaultDays(value));
+      // Trigger pulse animation on Days section
+      setDaysPulse(true);
+      setTimeout(() => setDaysPulse(false), 500);
     }
-    
-    // Hide time section when frequency changes (will show again if days match)
     if (showTimeSection && selectedDays.length !== value) {
       setShowTimeSection(false);
     }
-    
-    // Trigger coin animation and award coins only once using claimReward
     if (!hasClaimedReward('SCHEDULE_FREQUENCY_REWARD')) {
       const wasClaimed = claimReward('SCHEDULE_FREQUENCY_REWARD', 20);
-      if (wasClaimed) {
-        triggerCoinFly(frequencyBadgeRef, 20);
-      }
-    }
-    
-    // Progressive disclosure: Show days section after 600ms
-    if (!showDaysSection) {
-      setTimeout(() => {
-        setShowDaysSection(true);
-      }, 600);
+      if (wasClaimed) triggerCoinFly(frequencyBadgeRef, 20);
     }
   };
 
-  // Handle day toggle
   const handleDayToggle = (dayIndex: number) => {
     let newSelectedDays: number[];
     
     if (selectedDays.includes(dayIndex)) {
-      // Allow deselecting - user can swap days
-      // Only prevent if we're trying to go below 1 day
-      if (selectedDays.length <= 1) {
-        return; // Must have at least 1 day selected
-      }
+      if (selectedDays.length <= 1) return;
       newSelectedDays = selectedDays.filter((i) => i !== dayIndex);
     } else {
-      // Allow selecting up to frequency, but if at max, replace the last one
       if (selectedDays.length >= frequency) {
-        // Replace the last selected day with the new one
         newSelectedDays = [...selectedDays.slice(0, -1), dayIndex];
       } else {
         newSelectedDays = [...selectedDays, dayIndex];
@@ -239,126 +230,44 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
     
     setSelectedDays(newSelectedDays);
     
-    // Trigger coin animation and award coins only once using claimReward
     if (newSelectedDays.length === frequency && !hasClaimedReward('SCHEDULE_DAYS_REWARD')) {
       const wasClaimed = claimReward('SCHEDULE_DAYS_REWARD', 30);
-      if (wasClaimed) {
-        triggerCoinFly(daysBadgeRef, 30);
-      }
-    }
-    
-    // Time section visibility is handled by useEffect based on selectedDays.length === frequency
-  };
-
-
-  // Handle notification toggle - request permission first (Desktop-friendly with fallback)
-  const handleNotificationToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isChecked = e.target.checked;
-    
-    // If unchecking, just toggle the state
-    if (!isChecked) {
-      setNotificationsEnabled(false);
-      return;
-    }
-
-    // If checking, request permission first
-    if ('Notification' in window && window.Notification) {
-      try {
-        let permission = Notification.permission;
-        
-        // Request permission if not already asked
-        if (permission === 'default') {
-          try {
-            permission = await Notification.requestPermission();
-          } catch (permError) {
-            console.warn('Permission request failed, using fallback:', permError);
-            // Fallback: Allow toggle for development/testing
-            setNotificationsEnabled(true);
-            return;
-          }
-        }
-        
-        if (permission === 'granted') {
-          setNotificationsEnabled(true);
-          // Award coins only if permission was granted using claimReward
-          if (!hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD')) {
-            const wasClaimed = claimReward('SCHEDULE_NOTIFICATION_REWARD', 100);
-            if (wasClaimed) {
-              triggerCoinFly(notificationBadgeRef, 100);
-            }
-          }
-        } else if (permission === 'denied') {
-          // Permission denied - keep checkbox unchecked
-          setNotificationsEnabled(false);
-          // Reset the checkbox visually
-          e.target.checked = false;
-        } else {
-          // Default state or unknown - allow toggle as fallback
-          setNotificationsEnabled(true);
-        }
-      } catch (error) {
-        console.error('Error requesting notification permission:', error);
-        // Fallback: Allow toggle even if permission request fails
-        setNotificationsEnabled(true);
-      }
-    } else {
-      // Notifications not supported - allow toggle for testing
-      setNotificationsEnabled(true);
+      if (wasClaimed) triggerCoinFly(daysBadgeRef, 30);
     }
   };
 
-  // Handle continue
   const handleContinue = async () => {
-    // Validate
-    if (selectedDays.length !== frequency) {
-      return;
-    }
+    if (selectedDays.length !== frequency) return;
 
-    // Convert selected day indices to Hebrew day letters
     const dayMap = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
     const scheduleDays = selectedDays.map(index => dayMap[index]).sort();
 
-    // Save to store - include both frequency and actual selected days
     updateData({
       trainingDays: frequency,
       trainingTime: time,
-      scheduleDayIndices: selectedDays, // Save indices for reference
-      scheduleDays: scheduleDays, // Save Hebrew day letters
+      scheduleDayIndices: selectedDays,
+      scheduleDays: scheduleDays,
       ...(notificationsEnabled && { notificationsEnabled: true } as any),
+      ...(calendarSyncEnabled && { calendarSyncEnabled: true } as any),
     });
 
-    // Log analytics
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);
-    
-    // Don't add coins here - they should have been awarded when selections were made
-    // Only add notification bonus if it wasn't already awarded
-    // (Individual rewards are already handled in their respective handlers)
-    
-    // Move to next step
     onNext();
   };
 
-  // Validation - All conditions must be met:
-  // 1. Frequency is selected (always true if frequency > 0, but checking explicitly)
-  // 2. Days match the frequency
-  // 3. Time is selected (time is always set, but checking if user has interacted)
-  // 4. Smart Reminders checkbox is checked
+  // Can continue when frequency and days are set - time is pre-selected, no need to wait for reward
   const canContinue = 
     frequency > 0 && 
-    selectedDays.length === frequency && 
-    hasClaimedReward('SCHEDULE_TIME_REWARD') && // Time has been selected/interacted with
-    notificationsEnabled; // Smart Reminders must be checked
+    selectedDays.length === frequency;
 
-  // Get history frequency for smart recommendations
+  // Recommendation logic
   const historyFrequency = data.historyFrequency || '';
-  
-  // Calculate recommendation messages
   const showRecommendationA = historyFrequency === 'none' && frequency >= 3;
   const showRecommendationB = (historyFrequency === '1-2' || historyFrequency === '3+') && frequency === 1;
-  
+  const hasRecommendation = showRecommendationA || showRecommendationB;
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-6 py-6 pb-8 flex flex-col min-h-screen bg-white relative">
+    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-screen relative">
       {/* Coin Fly Animation */}
       <AnimatePresence>
         {flyingCoin && (
@@ -370,165 +279,248 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
           />
         )}
       </AnimatePresence>
-      {/* Header */}
-      <div className="pt-4 mb-8">
-        {/* Progress Dots - 4/6 active (Dots only, no background bars) */}
-        <div className="flex gap-2 mb-6 justify-center">
-          <div className="w-2 h-2 bg-[#60A5FA] rounded-full"></div>
-          <div className="w-2 h-2 bg-[#60A5FA] rounded-full"></div>
-          <div className="w-2 h-2 bg-[#60A5FA] rounded-full"></div>
-          <div className="w-2 h-2 bg-[#60A5FA] rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-200 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-200 rounded-full"></div>
+      
+      {/* Compact Header - Icon Inline with Title */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-4"
+      >
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 bg-[#5BC2F2]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Calendar size={20} className="text-[#5BC2F2]" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900">
+            {isHebrew ? 'מתי נתאמן?' : 'When do we train?'}
+          </h2>
         </div>
-        
-        {/* Title */}
-        <div className="relative flex justify-center items-center">
-          <h1 className="text-4xl font-extrabold tracking-tighter text-[#60A5FA]">OUT</h1>
-        </div>
-      </div>
+        <p className="text-sm text-slate-500 mr-[52px]">
+          {isHebrew ? 'נתאים את התוכנית לזמינות שלך' : "We'll adapt to your availability"}
+        </p>
+      </motion.div>
+
+      {/* Collapsible Recommendation ("Smart Tip") */}
+      <AnimatePresence>
+        {hasRecommendation && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4"
+          >
+            <button
+              onClick={() => setShowRecommendation(!showRecommendation)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 transition-all hover:bg-amber-100"
+            >
+              <div className="flex items-center gap-2">
+                <Lightbulb size={16} className="text-amber-600" />
+                <span className="text-sm font-bold">{isHebrew ? 'המלצה שלנו' : 'Our Recommendation'}</span>
+              </div>
+              <motion.div
+                animate={{ rotate: showRecommendation ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown size={18} className="text-amber-600" />
+              </motion.div>
+            </button>
+            
+            <AnimatePresence>
+              {showRecommendation && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-2 px-3 pb-3 text-sm text-amber-800 bg-amber-50/50 rounded-b-xl border-x border-b border-amber-200 -mt-1">
+                    {showRecommendationA && (
+                      <p className="font-medium font-simpler">
+                        {isHebrew 
+                          ? 'היי, שמנו לב שלא התאמנת הרבה זמן. אנחנו ממליצים להתחיל מ-1-2 פעמים בשבוע כדי לבנות בסיס חזק.'
+                          : "Hey, we noticed you haven't trained in a while. We recommend starting with 1-2 times a week to build a strong foundation."
+                        }
+                      </p>
+                    )}
+                    {showRecommendationB && (
+                      <p className="font-medium font-simpler">
+                        {t(
+                          'שים לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!',
+                          'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!'
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Section 1: Frequency */}
-      <section className="mb-10 text-right">
-        <div className="flex items-center justify-start gap-2 mb-1">
-          <div className="relative">
-            <motion.div
-              initial={false}
-              animate={{
-                opacity: hasClaimedReward('SCHEDULE_FREQUENCY_REWARD') ? 1 : 0.4,
-              }}
-              transition={{
-                opacity: { duration: 0.3 },
-                scale: { duration: 0.4, times: [0, 0.5, 1] }
-              }}
-              className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
-                hasClaimedReward('SCHEDULE_FREQUENCY_REWARD')
-                  ? 'bg-amber-100 text-amber-700 border-amber-200' 
-                  : 'bg-gray-100 text-gray-400 border-gray-200'
-              }`}
-            >
-              <Coins size={14} className={hasClaimedReward('SCHEDULE_FREQUENCY_REWARD') ? 'text-amber-700' : 'text-gray-400'} strokeWidth={2.5} />
-              <span className={`text-xs font-bold font-simpler ${hasClaimedReward('SCHEDULE_FREQUENCY_REWARD') ? 'text-amber-700' : 'text-gray-400'}`}>
-                {hasClaimedReward('SCHEDULE_FREQUENCY_REWARD') ? '20 🪙' : '+20'}
-              </span>
-            </motion.div>
-          </div>
-          <h2 className="text-xl font-bold text-slate-900">כמה פעמים בשבוע נוח לך להתאמן?</h2>
+      <section className="mb-5 text-right">
+        <div className="flex items-center justify-start gap-2 mb-2">
+          {IS_COIN_SYSTEM_ENABLED && (
+            <div className="relative" ref={frequencyBadgeRef}>
+              <motion.div
+                initial={false}
+                animate={{ opacity: hasClaimedReward('SCHEDULE_FREQUENCY_REWARD') ? 1 : 0.4 }}
+                className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
+                  hasClaimedReward('SCHEDULE_FREQUENCY_REWARD')
+                    ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                    : 'bg-gray-100 text-gray-400 border-gray-200'
+                }`}
+              >
+                <Coins size={14} strokeWidth={2.5} />
+                <span className="text-xs font-bold font-simpler">
+                  {hasClaimedReward('SCHEDULE_FREQUENCY_REWARD') ? '20 🪙' : '+20'}
+                </span>
+              </motion.div>
+            </div>
+          )}
+          <h3 className="text-base font-bold text-slate-900">
+            {isHebrew ? 'כמה פעמים בשבוע?' : 'How many times a week?'}
+          </h3>
         </div>
-        <p className="text-sm text-slate-500 mb-4">ניתן לבחור מטרה אחת</p>
+        
         <div className="flex flex-wrap justify-center gap-2">
-          {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-            <motion.button
-              key={num}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleFrequencySelect(num)}
-              className={`w-14 h-14 flex items-center justify-center bg-white border rounded-xl shadow-lg text-2xl font-bold transition-all ${
-                frequency === num
-                  ? 'border-2 border-[#60A5FA] ring-2 ring-[#60A5FA]/10 text-[#60A5FA]'
-                  : 'border-slate-100 text-slate-700'
-              }`}
-            >
-              {num}
-            </motion.button>
-          ))}
+          {[1, 2, 3, 4, 5, 6, 7].map((num) => {
+            const isRecommended = num === RECOMMENDED_FREQUENCY;
+            const isSelected = frequency === num;
+            
+            return (
+              <div key={num} className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => handleFrequencySelect(num)}
+                  className={`w-11 h-11 flex items-center justify-center rounded-2xl text-lg transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-[#5BC2F2] text-white shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                  }`}
+                  style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}
+                >
+                  {num}
+                </motion.button>
+                
+                {/* "מומלץ עבורך" badge for recommended frequency */}
+                {isRecommended && isSelected && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                  >
+                    <span 
+                      className="text-[10px] px-2 py-0.5 rounded-full bg-[#5BC2F2]/10 text-[#5BC2F2]"
+                      style={{ fontWeight: 600 }}
+                    >
+                      {isHebrew ? 'מומלץ עבורך' : 'Recommended'}
+                    </span>
+                  </motion.div>
+                )}
+              </div>
+            );
+          })}
         </div>
         
-        {/* Conditional Recommendation A: Long break + 3+ days */}
-        <AnimatePresence>
-          {showRecommendationA && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl text-sm text-orange-800"
-            >
-              <p className="font-medium font-simpler">
-                היי, שמנו לב שלא התאמנת הרבה זמן. אנחנו ממליצים להתחיל מ-1-2 פעמים בשבוע כדי לבנות בסיס חזק.
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        
-        {/* Conditional Recommendation B: Active background + only 1 day */}
-        <AnimatePresence>
-          {showRecommendationB && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl text-sm text-orange-800"
-            >
-              <p className="font-medium font-simpler">
-                {t(
-                  'שימו לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!',
-                  'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!'
-                )}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Spacer for the badge */}
+        <div className="h-3" />
       </section>
 
-      {/* Section 2: Days Selection - Progressive Disclosure */}
+      {/* Section 2: Days Selection - Auto-reveal after 800ms with height animation */}
       <AnimatePresence>
         {showDaysSection && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="mb-10 text-right"
-          >
-        <div className="flex items-center justify-start gap-2 mb-1">
-          <div className="relative" ref={daysBadgeRef}>
-            <motion.div
-              initial={false}
-              animate={{
-                opacity: hasClaimedReward('SCHEDULE_DAYS_REWARD') ? 1 : 0.4,
-              }}
-              transition={{
-                opacity: { duration: 0.3 },
-                scale: { duration: 0.4, times: [0, 0.5, 1] }
-              }}
-              className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
-                hasClaimedReward('SCHEDULE_DAYS_REWARD')
-                  ? 'bg-amber-100 text-amber-700 border-amber-200' 
-                  : 'bg-gray-100 text-gray-400 border-gray-200'
-              }`}
-            >
-              <Coins size={14} className={hasClaimedReward('SCHEDULE_DAYS_REWARD') ? 'text-amber-700' : 'text-gray-400'} strokeWidth={2.5} />
-              <span className={`text-xs font-bold font-simpler ${hasClaimedReward('SCHEDULE_DAYS_REWARD') ? 'text-amber-700' : 'text-gray-400'}`}>
-                {hasClaimedReward('SCHEDULE_DAYS_REWARD') ? '30 🪙' : '+30'}
-              </span>
-            </motion.div>
+      <motion.section
+        initial={{ opacity: 0, height: 0, y: 10 }}
+        animate={{ 
+          opacity: 1, 
+          height: 'auto',
+          y: 0,
+          scale: daysPulse ? [1, 1.02, 1] : 1
+        }}
+        exit={{ opacity: 0, height: 0, y: -10 }}
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        className="mb-5 text-right overflow-hidden"
+      >
+        <div className="flex items-center justify-between mb-2">
+          {/* Right side: Title with coin badge */}
+          <div className="flex items-center gap-2">
+            {IS_COIN_SYSTEM_ENABLED && (
+              <div className="relative" ref={daysBadgeRef}>
+                <motion.div
+                  initial={false}
+                  animate={{ opacity: hasClaimedReward('SCHEDULE_DAYS_REWARD') ? 1 : 0.4 }}
+                  className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
+                    hasClaimedReward('SCHEDULE_DAYS_REWARD')
+                      ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                      : 'bg-gray-100 text-gray-400 border-gray-200'
+                  }`}
+                >
+                  <Coins size={14} strokeWidth={2.5} />
+                  <span className="text-xs font-bold font-simpler">
+                    {hasClaimedReward('SCHEDULE_DAYS_REWARD') ? '30 🪙' : '+30'}
+                  </span>
+                </motion.div>
+              </div>
+            )}
+            <h3 className="text-base font-bold text-slate-900">
+              {isHebrew ? 'באילו ימים?' : 'Which days?'}
+            </h3>
           </div>
-          <h2 className="text-xl font-bold text-slate-900">באילו ימים?</h2>
+          
+          {/* Left side: Calendar Sync Toggle (inline) - Delicate styling */}
+          <button
+            onClick={() => {
+              const newValue = !calendarSyncEnabled;
+              setCalendarSyncEnabled(newValue);
+              // Sync to store immediately
+              updateData({ calendarSyncEnabled: newValue } as any);
+            }}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
+              calendarSyncEnabled 
+                ? 'bg-[#5BC2F2]/10 text-[#5BC2F2]' 
+                : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            <RefreshCw size={10} strokeWidth={1.5} className={calendarSyncEnabled ? 'text-[#5BC2F2]' : 'text-slate-400'} />
+            <span className="text-[11px] font-medium">{isHebrew ? 'סנכרון ליומן' : 'Sync'}</span>
+            {/* Subtle check mark indicator */}
+            <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
+              calendarSyncEnabled 
+                ? 'bg-[#5BC2F2]' 
+                : 'bg-slate-200'
+            }`}>
+              {calendarSyncEnabled && <Check size={7} className="text-white" strokeWidth={2.5} />}
+            </div>
+          </button>
         </div>
-        <p className={`text-sm font-bold mb-4 ${
-            selectedDays.length === frequency 
-              ? 'text-green-600' 
-              : 'text-orange-500'
-          }`}>
-          נבחרו {selectedDays.length} מתוך {frequency} ימים
+        
+        <p className={`text-xs font-bold mb-2 ${
+          selectedDays.length === frequency ? 'text-green-600' : 'text-orange-500'
+        }`}>
+          {isHebrew 
+            ? `נבחרו ${selectedDays.length} מתוך ${frequency} ימים`
+            : `${selectedDays.length} of ${frequency} days selected`
+          }
         </p>
-        <p className="text-sm text-slate-500 mb-4">מומלץ לנוח בין 24-48 שעות בין האימונים.</p>
+        
         <div className="flex flex-wrap justify-center gap-2">
           {DAYS_HEBREW.map((day, index) => {
             const isSelected = selectedDays.includes(index);
             return (
               <motion.button
                 key={index}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => handleDayToggle(index)}
-                className={`w-14 h-14 flex items-center justify-center bg-white border rounded-xl shadow-lg text-2xl font-bold transition-all ${
+                className={`w-11 h-11 flex items-center justify-center rounded-xl text-lg transition-all duration-200 ${
                   isSelected
-                    ? 'border-2 border-[#60A5FA] text-[#60A5FA]'
-                    : 'border-slate-100 text-slate-700'
+                    ? 'bg-[#5BC2F2] text-white shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
                 }`}
+                style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}
               >
                 {day}
               </motion.button>
@@ -539,217 +531,231 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
         )}
       </AnimatePresence>
 
-      {/* Section 3: Time Picker - Progressive Disclosure */}
+      {/* Section 3: Time Picker - Progressive Disclosure with height animation */}
       <AnimatePresence>
         {showTimeSection && (
           <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="mb-6 text-right"
+            initial={{ opacity: 0, height: 0, y: 10 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -10 }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+            className="mb-5 text-right overflow-hidden"
           >
-        <div className="flex items-center justify-start gap-2 mb-6">
-          <div className="relative" ref={timeBadgeRef}>
-            <motion.div
-              initial={false}
-              animate={{
-                opacity: hasClaimedReward('SCHEDULE_TIME_REWARD') ? 1 : 0.4,
-              }}
-              transition={{
-                opacity: { duration: 0.3 },
-                scale: { duration: 0.4, times: [0, 0.5, 1] }
-              }}
-              className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
-                hasClaimedReward('SCHEDULE_TIME_REWARD')
-                  ? 'bg-amber-100 text-amber-700 border-amber-200' 
-                  : 'bg-gray-100 text-gray-400 border-gray-200'
-              }`}
-            >
-              <Coins size={14} className={hasClaimedReward('SCHEDULE_TIME_REWARD') ? 'text-amber-700' : 'text-gray-400'} strokeWidth={2.5} />
-              <span className={`text-xs font-bold font-simpler ${hasClaimedReward('SCHEDULE_TIME_REWARD') ? 'text-amber-700' : 'text-gray-400'}`}>
-                {hasClaimedReward('SCHEDULE_TIME_REWARD') ? '20 🪙' : '+20'}
-              </span>
-            </motion.div>
-          </div>
-          <h2 className="text-xl font-bold text-slate-900">
-            באיזו שעה {t('אתה מתאמן', 'את מתאמנת')} בדרך כלל?
-          </h2>
-        </div>
-        
-        {/* Compact Time Picker - 3 Row Display */}
-        <div className="relative py-4 flex justify-center items-center select-none">
-          <div className="flex gap-8 items-center">
-            {/* Hours */}
-            <div className="flex flex-col gap-1">
-              {[hours - 1, hours, hours + 1].map((h, idx) => {
-                const displayHour = h < 0 ? 23 : h > 23 ? 0 : h;
-                const isSelected = displayHour === hours;
-                return (
-                  <button
-                    key={`${displayHour}-${idx}`}
-                    onClick={() => {
-                      const newHours = displayHour;
-                      setTime((prevTime) => {
-                        const [, prevMinutes] = prevTime.split(':');
-                        return `${String(newHours).padStart(2, '0')}:${prevMinutes}`;
-                      });
-                      if (!hasClaimedReward('SCHEDULE_TIME_REWARD')) {
-                        const wasClaimed = claimReward('SCHEDULE_TIME_REWARD', 20);
-                        if (wasClaimed) {
-                          triggerCoinFly(timeBadgeRef, 20);
-                        }
-                      }
-                    }}
-                    className={`w-16 h-10 rounded-lg flex items-center justify-center font-bold transition-all ${
-                      isSelected
-                        ? 'bg-[#60A5FA] text-white border-2 border-[#60A5FA] text-lg shadow-md font-black'
-                        : 'bg-slate-100 text-slate-400 text-sm border border-slate-200 hover:bg-slate-200'
-                    }`}
-                  >
-                    {String(displayHour).padStart(2, '0')}
-                  </button>
-                );
-              })}
-            </div>
-            
-            {/* Separator */}
-            <span className="text-2xl font-bold text-slate-900">:</span>
-            
-            {/* Minutes */}
-            <div className="flex flex-col gap-1">
-              {[
-                Math.round(minutes / 5) * 5 - 5,
-                Math.round(minutes / 5) * 5,
-                Math.round(minutes / 5) * 5 + 5
-              ].map((m, idx) => {
-                let displayMinute = m;
-                if (m < 0) displayMinute = 55;
-                else if (m > 55) displayMinute = 0;
-                const roundedMinutes = Math.round(minutes / 5) * 5;
-                const isSelected = displayMinute === roundedMinutes;
-                return (
-                  <button
-                    key={`${displayMinute}-${idx}`}
-                    onClick={() => {
-                      const newMinutes = displayMinute;
-                      setTime((prevTime) => {
-                        const [prevHours] = prevTime.split(':');
-                        return `${prevHours}:${String(newMinutes).padStart(2, '0')}`;
-                      });
-                      if (!hasClaimedReward('SCHEDULE_TIME_REWARD')) {
-                        const wasClaimed = claimReward('SCHEDULE_TIME_REWARD', 20);
-                        if (wasClaimed) {
-                          triggerCoinFly(timeBadgeRef, 20);
-                        }
-                      }
-                    }}
-                    className={`w-16 h-10 rounded-lg flex items-center justify-center font-bold transition-all ${
-                      isSelected
-                        ? 'bg-[#60A5FA] text-white border-2 border-[#60A5FA] text-lg shadow-md font-black'
-                        : 'bg-slate-100 text-slate-400 text-sm border border-slate-200 hover:bg-slate-200'
-                    }`}
-                  >
-                    {String(displayMinute).padStart(2, '0')}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </motion.section>
-        )}
-      </AnimatePresence>
-
-      {/* Section 4: Habit Builder Checkbox - Progressive Disclosure */}
-      <AnimatePresence>
-        {showTimeSection && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="mb-6"
-          >
-        <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl py-3 px-4 border border-yellow-200 shadow-sm">
-          <div className="flex items-center justify-between gap-3 relative" style={{ pointerEvents: 'auto' }}>
-            {/* Left: Coin Badge */}
-            <motion.div
-              ref={notificationBadgeRef}
-              initial={false}
-              animate={{
-                opacity: hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD') ? 1 : 0.4,
-              }}
-              transition={{
-                opacity: { duration: 0.3 },
-              }}
-              className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm transition-colors ${
-                hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD')
-                  ? 'bg-yellow-200 text-yellow-800' 
-                  : 'bg-gray-200 text-gray-500'
-              }`}
-            >
-              <Coins size={14} className={hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD') ? 'text-yellow-800' : 'text-gray-500'} strokeWidth={2.5} />
-              <span className={`text-xs font-bold font-simpler ${hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD') ? 'text-yellow-800' : 'text-gray-500'}`}>
-                {hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD') ? '100 🪙' : '+100 🪙'}
-              </span>
-            </motion.div>
-            
-            {/* Center: Label & Description */}
-            <div className="flex-1 text-right">
-              <label 
-                htmlFor="smart-reminders-checkbox"
-                className="text-base font-bold text-slate-900 font-simpler cursor-pointer block mb-1"
-              >
-                {t('אשר תזכורות חכמות', 'אשרי תזכורות חכמות')}
-              </label>
-              <p className="text-xs text-slate-600 font-simpler">
-                {t(
-                  'אנחנו כאן כדי לעזור לך, OUTer, לייצר הרגל מנצח! 🏆',
-                  'אנחנו כאן כדי לעזור לך, OUTer, לייצר הרגל מנצח! 🏆'
+            <div className="flex items-center justify-between mb-3">
+              {/* Right side: Title with coin badge */}
+              <div className="flex items-center gap-2">
+                {IS_COIN_SYSTEM_ENABLED && (
+                  <div className="relative" ref={timeBadgeRef}>
+                    <motion.div
+                      initial={false}
+                      animate={{ opacity: hasClaimedReward('SCHEDULE_TIME_REWARD') ? 1 : 0.4 }}
+                      className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
+                        hasClaimedReward('SCHEDULE_TIME_REWARD')
+                          ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                          : 'bg-gray-100 text-gray-400 border-gray-200'
+                      }`}
+                    >
+                      <Coins size={14} strokeWidth={2.5} />
+                      <span className="text-xs font-bold font-simpler">
+                        {hasClaimedReward('SCHEDULE_TIME_REWARD') ? '20 🪙' : '+20'}
+                      </span>
+                    </motion.div>
+                  </div>
                 )}
-              </p>
+                <div className="flex items-center gap-2">
+                  <Clock size={16} className="text-[#5BC2F2]" />
+                  <h3 className="text-base font-bold text-slate-900">
+                    {isHebrew 
+                      ? t('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?')
+                      : 'What time do you train?'
+                    }
+                  </h3>
+                </div>
+              </div>
+              
+              {/* Left side: Reminders Toggle (inline) - Delicate styling */}
+              <button
+                onClick={async () => {
+                  if (notificationsEnabled) {
+                    setNotificationsEnabled(false);
+                    // Sync to store immediately
+                    updateData({ notificationsEnabled: false } as any);
+                    return;
+                  }
+                  
+                  if ('Notification' in window && window.Notification) {
+                    try {
+                      let permission = Notification.permission;
+                      if (permission === 'default') {
+                        try {
+                          permission = await Notification.requestPermission();
+                        } catch {
+                          setNotificationsEnabled(true);
+                          updateData({ notificationsEnabled: true } as any);
+                          return;
+                        }
+                      }
+                      
+                      if (permission === 'granted') {
+                        setNotificationsEnabled(true);
+                        updateData({ notificationsEnabled: true } as any);
+                        if (!hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD')) {
+                          const wasClaimed = claimReward('SCHEDULE_NOTIFICATION_REWARD', 100);
+                          if (wasClaimed) triggerCoinFly(notificationBadgeRef, 100);
+                        }
+                      } else if (permission === 'denied') {
+                        setNotificationsEnabled(false);
+                        updateData({ notificationsEnabled: false } as any);
+                      } else {
+                        setNotificationsEnabled(true);
+                        updateData({ notificationsEnabled: true } as any);
+                      }
+                    } catch {
+                      setNotificationsEnabled(true);
+                      updateData({ notificationsEnabled: true } as any);
+                    }
+                  } else {
+                    setNotificationsEnabled(true);
+                    updateData({ notificationsEnabled: true } as any);
+                  }
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
+                  notificationsEnabled 
+                    ? 'bg-amber-50 text-amber-700' 
+                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                }`}
+                ref={notificationBadgeRef}
+              >
+                <Bell size={10} strokeWidth={1.5} className={notificationsEnabled ? 'text-amber-600' : 'text-slate-400'} />
+                <span className="text-[11px] font-medium">{isHebrew ? 'תזכורת' : 'Reminder'}</span>
+                {/* Subtle check mark indicator */}
+                <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
+                  notificationsEnabled 
+                    ? 'bg-amber-500' 
+                    : 'bg-slate-200'
+                }`}>
+                  {notificationsEnabled && <Check size={7} className="text-white" strokeWidth={2.5} />}
+                </div>
+              </button>
             </div>
             
-            {/* Right: Checkbox */}
-            <div className="flex-shrink-0 relative z-[100]">
-              <input
-                id="smart-reminders-checkbox"
-                type="checkbox"
-                checked={notificationsEnabled}
-                onChange={handleNotificationToggle}
-                onClick={(e) => e.stopPropagation()}
-                className="w-5 h-5 rounded border-slate-300 text-[#60A5FA] focus:ring-2 focus:ring-[#60A5FA] cursor-pointer relative z-[100]"
-                style={{ pointerEvents: 'auto', position: 'relative' }}
-              />
+            {/* Time Picker - Fixed: HH : MM (Hours LEFT, Minutes RIGHT) */}
+            <div className="relative py-3 flex justify-center items-center select-none">
+              <div className="flex items-center gap-4" style={{ direction: 'ltr' }}>
+                {/* Hours Column (LEFT - first in LTR) */}
+                <div className="flex flex-col gap-1">
+                  {[hours - 1, hours, hours + 1].map((h, idx) => {
+                    const displayHour = h < 0 ? 23 : h > 23 ? 0 : h;
+                    const isSelected = displayHour === hours;
+                    return (
+                      <button
+                        key={`hour-${displayHour}-${idx}`}
+                        onClick={() => {
+                          setTime((prevTime) => {
+                            const [, prevMinutes] = prevTime.split(':');
+                            return `${String(displayHour).padStart(2, '0')}:${prevMinutes}`;
+                          });
+                          if (!hasClaimedReward('SCHEDULE_TIME_REWARD')) {
+                            const wasClaimed = claimReward('SCHEDULE_TIME_REWARD', 20);
+                            if (wasClaimed) triggerCoinFly(timeBadgeRef, 20);
+                          }
+                        }}
+                        className={`w-14 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-[#5BC2F2] text-white text-lg shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                            : 'bg-white text-slate-400 text-sm border border-slate-200 hover:border-slate-300'
+                        }`}
+                        style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}
+                      >
+                        {String(displayHour).padStart(2, '0')}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Separator */}
+                <span className="text-2xl font-bold text-slate-900">:</span>
+                
+                {/* Minutes Column (RIGHT - second in LTR) */}
+                <div className="flex flex-col gap-1">
+                  {[
+                    Math.round(minutes / 5) * 5 - 5,
+                    Math.round(minutes / 5) * 5,
+                    Math.round(minutes / 5) * 5 + 5
+                  ].map((m, idx) => {
+                    let displayMinute = m;
+                    if (m < 0) displayMinute = 55;
+                    else if (m > 55) displayMinute = 0;
+                    const roundedMinutes = Math.round(minutes / 5) * 5;
+                    const isSelected = displayMinute === roundedMinutes;
+                    return (
+                      <button
+                        key={`min-${displayMinute}-${idx}`}
+                        onClick={() => {
+                          setTime((prevTime) => {
+                            const [prevHours] = prevTime.split(':');
+                            return `${prevHours}:${String(displayMinute).padStart(2, '0')}`;
+                          });
+                          if (!hasClaimedReward('SCHEDULE_TIME_REWARD')) {
+                            const wasClaimed = claimReward('SCHEDULE_TIME_REWARD', 20);
+                            if (wasClaimed) triggerCoinFly(timeBadgeRef, 20);
+                          }
+                        }}
+                        className={`w-14 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-[#5BC2F2] text-white text-lg shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
+                            : 'bg-white text-slate-400 text-sm border border-slate-200 hover:border-slate-300'
+                        }`}
+                        style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}
+                      >
+                        {String(displayMinute).padStart(2, '0')}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </motion.section>
+          </motion.section>
         )}
       </AnimatePresence>
 
-      {/* Spacer to push button to bottom */}
+      {/* Section 4 removed - Calendar Sync & Reminders are now inline in their respective section headers */}
+
+      {/* Spacer */}
       <div className="flex-grow"></div>
 
-      {/* Footer - Continue Button */}
+      {/* Footer - Continue Button with Pulse Animation */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mt-auto pb-8"
+        transition={{ delay: 0.3 }}
+        className="mt-auto pt-4 pb-6"
       >
-        <button
+        <motion.button
           onClick={handleContinue}
           disabled={!canContinue}
-          className={`w-full font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] text-xl ${
+          animate={canContinue ? {
+            boxShadow: [
+              '0 10px 25px rgba(91, 194, 242, 0.3)',
+              '0 15px 35px rgba(91, 194, 242, 0.5)',
+              '0 10px 25px rgba(91, 194, 242, 0.3)',
+            ],
+          } : {}}
+          transition={canContinue ? {
+            boxShadow: {
+              repeat: Infinity,
+              duration: 2,
+              ease: 'easeInOut',
+            },
+          } : {}}
+          className={`w-full font-black py-4 rounded-2xl text-lg transition-all duration-300 ${
             canContinue 
-              ? 'bg-[#60A5FA] hover:bg-[#4a90d9] text-white shadow-[#60A5FA]/20' 
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-[#5BC2F2] hover:bg-[#4AADE3] text-white hover:scale-[1.02] active:scale-[0.98]' 
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
         >
-          המשך
-        </button>
+          {locale.common.continue}
+        </motion.button>
       </motion.div>
     </div>
   );

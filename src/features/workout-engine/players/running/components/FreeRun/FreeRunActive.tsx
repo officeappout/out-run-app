@@ -42,7 +42,7 @@ export default function FreeRunActive({ onBack }: FreeRunActiveProps) {
   return (
     <div
       className="absolute inset-0 z-20 flex flex-col overflow-hidden font-sans pointer-events-none"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {/* HEADER: Fixed cyan header with back button and settings */}
       <header className="bg-[#00ADEF] text-white h-14 min-h-[3.5rem] flex items-center justify-between px-4 shadow-sm z-30 shrink-0 pointer-events-auto">

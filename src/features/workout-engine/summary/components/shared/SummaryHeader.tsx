@@ -25,7 +25,7 @@ export default function SummaryHeader({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
       className="bg-white rounded-xl shadow-sm p-6 mb-6"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 leading-tight">
         {title}

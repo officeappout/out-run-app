@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ImageIcon, Coins } from 'lucide-react';
 import { QuestionLayoutType } from '@/types/onboarding-questionnaire';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface ChoiceCardProps {
   id: string;
@@ -33,8 +34,10 @@ export default function ChoiceCard({
 }: ChoiceCardProps) {
   const [imageError, setImageError] = useState(false);
   
-  // Render coin reward badge
+  // COIN_SYSTEM_PAUSED: Render coin reward badge only if system is enabled
   const renderCoinBadge = () => {
+    // COIN_SYSTEM_PAUSED: Re-enable in April
+    if (!IS_COIN_SYSTEM_ENABLED) return null;
     if (coinReward === 0) return null;
     
     return (
@@ -128,8 +131,8 @@ export default function ChoiceCard({
       />
 
       {/* Card Container - Flex Row */}
-      {/* Coin Reward Badge - Top Left (absolute positioned) */}
-      {coinReward > 0 && (
+      {/* Coin Reward Badge - Top Left (absolute positioned) - COIN_SYSTEM_PAUSED: Hidden when disabled */}
+      {IS_COIN_SYSTEM_ENABLED && coinReward > 0 && (
         <div className="absolute top-2 left-2 z-20 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
           <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
           <span className="text-xs font-bold font-simpler">+{coinReward}</span>

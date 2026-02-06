@@ -36,7 +36,7 @@ export default function StatsCarousel() {
   };
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ fontFamily: 'Assistant, sans-serif' }}>
+    <div className="relative w-full overflow-hidden" style={{ fontFamily: 'var(--font-simpler)' }}>
       <motion.div
         className="flex"
         animate={{

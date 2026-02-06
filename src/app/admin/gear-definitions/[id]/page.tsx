@@ -35,14 +35,26 @@ export default function EditGearDefinitionPage() {
         router.push('/admin/gear-definitions');
         return;
       }
+      // CRITICAL: Sanitize name and description if they come as objects
+      const sanitizedName = typeof gear.name === 'object' && gear.name !== null
+        ? { he: gear.name.he || '', en: gear.name.en || '' }
+        : gear.name || { he: '', en: '' };
+      
+      const sanitizedDescription = typeof gear.description === 'object' && gear.description !== null
+        ? { he: gear.description.he || '', en: gear.description.en || '' }
+        : gear.description || { he: '', en: '' };
+
       setInitialData({
-        name: gear.name,
-        description: gear.description,
-        icon: gear.icon,
-        category: gear.category,
-        shopLink: gear.shopLink,
-        tutorialVideo: gear.tutorialVideo,
-        customIconUrl: gear.customIconUrl,
+        name: sanitizedName,
+        description: sanitizedDescription,
+        icon: gear.icon || '',
+        category: gear.category || '',
+        shopLink: gear.shopLink || '',
+        tutorialVideo: gear.tutorialVideo || '',
+        customIconUrl: gear.customIconUrl || '',
+        allowedLocations: Array.isArray(gear.allowedLocations) ? gear.allowedLocations : [],
+        defaultLocation: gear.defaultLocation || undefined,
+        lifestyleTags: Array.isArray(gear.lifestyleTags) ? gear.lifestyleTags : [],
       });
     } catch (error) {
       console.error('Error loading gear definition:', error);

@@ -29,7 +29,7 @@ export default function MainMetrics() {
   const paceText = formatPace(safePace);
 
   return (
-    <div className="w-full min-h-[180px] flex flex-col justify-center" style={{ fontFamily: 'Assistant, sans-serif' }}>
+    <div className="w-full min-h-[180px] flex flex-col justify-center" style={{ fontFamily: 'var(--font-simpler)' }}>
       {/* Divider with "נתונים כלליים" */}
       <div className="flex items-center justify-center gap-4 mb-2">
         <div className="h-[1px] bg-gray-300 flex-grow max-w-[5rem]"></div>

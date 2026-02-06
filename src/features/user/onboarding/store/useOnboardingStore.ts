@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { OnboardingData, OnboardingStepId } from '../types';
 import { syncOnboardingToFirestore } from '../services/onboarding-sync.service';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface OnboardingStore {
   // State
@@ -8,6 +9,9 @@ interface OnboardingStore {
   data: Partial<OnboardingData>;
   coins: number;
   completedStepsRewards: string[]; // Track which step rewards have been claimed
+  
+  // Major roadmap step tracking (0=אבחון, 1=התאמה, 2=שריון)
+  majorRoadmapStep: number;
 
   // Actions
   setStep: (step: OnboardingStepId) => void;
@@ -15,14 +19,16 @@ interface OnboardingStore {
   addCoins: (amount: number) => void;
   hasClaimedReward: (stepRewardId: string) => boolean;
   claimReward: (stepRewardId: string, coinAmount: number) => boolean; // Returns true if reward was claimed (first time)
+  setMajorRoadmapStep: (step: number) => void;
   reset: () => void;
 }
 
 const initialState = {
-  currentStep: 'LOCATION' as OnboardingStepId,
+  currentStep: 'PERSONA' as OnboardingStepId, // Start at PERSONA for Phase 2
   data: {} as Partial<OnboardingData>,
   coins: 0,
   completedStepsRewards: [] as string[],
+  majorRoadmapStep: 0, // Start at step 0 (אבחון ודירוג יכולות)
 };
 
 export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
@@ -51,9 +57,13 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
     });
   },
   
-  addCoins: (amount) => set((state) => ({
+  // COIN_SYSTEM_PAUSED: Re-enable in April
+  addCoins: (amount) => {
+    if (!IS_COIN_SYSTEM_ENABLED) return; // Don't add coins when system is disabled
+    set((state) => ({
     coins: state.coins + amount
-  })),
+    }));
+  },
   
   hasClaimedReward: (stepRewardId) => {
     const state = get();
@@ -67,13 +77,22 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       return false; // Reward already claimed
     }
     
-    // Claim reward (first time)
+    // COIN_SYSTEM_PAUSED: Re-enable in April
+    // Still track claimed rewards (for state), but don't add coins when disabled
     set({
       completedStepsRewards: [...state.completedStepsRewards, stepRewardId],
-      coins: state.coins + coinAmount
+      coins: IS_COIN_SYSTEM_ENABLED ? state.coins + coinAmount : state.coins
     });
     
-    return true; // Reward claimed successfully
+    return true; // Reward claimed successfully (even if coins weren't added)
+  },
+  
+  setMajorRoadmapStep: (step) => {
+    set({ majorRoadmapStep: step });
+    // Also persist to sessionStorage for page refreshes
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('onboarding_major_step', String(step));
+    }
   },
   
   reset: () => set(initialState),

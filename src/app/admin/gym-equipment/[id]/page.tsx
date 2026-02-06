@@ -69,13 +69,20 @@ export default function EditGymEquipmentPage() {
     return null;
   }
 
+  // CRITICAL: Sanitize name if it comes as an object
+  const sanitizedName = typeof equipment.name === 'object' && equipment.name !== null
+    ? (equipment.name as any).he || (equipment.name as any).en || String(equipment.name)
+    : equipment.name || '';
+
   const initialData: GymEquipmentFormData = {
-    name: equipment.name,
+    name: sanitizedName,
     type: equipment.type,
     recommendedLevel: equipment.recommendedLevel,
     isFunctional: equipment.isFunctional,
     muscleGroups: equipment.muscleGroups,
     brands: equipment.brands,
+    availableInLocations: equipment.availableInLocations || [],
+    defaultLocation: equipment.defaultLocation || undefined,
   };
 
   return (
@@ -90,7 +97,7 @@ export default function EditGymEquipmentPage() {
             חזור לרשימת הציוד
           </Link>
           <h1 className="text-3xl font-black text-gray-900">עריכת מתקן</h1>
-          <p className="text-gray-500 mt-2">{equipment.name}</p>
+          <p className="text-gray-500 mt-2">{sanitizedName}</p>
         </div>
         <div className="flex items-center gap-3">
           <Link

@@ -4,7 +4,7 @@
  */
 
 export type MuscleGroup =
-  | 'chest' | 'back' | 'shoulders' | 'abs' | 'obliques'
+  | 'chest' | 'back' | 'middle_back' | 'shoulders' | 'rear_delt' | 'abs' | 'obliques'
   | 'forearms' | 'biceps' | 'triceps' | 'quads'
   | 'hamstrings' | 'glutes' | 'calves' | 'traps'
   | 'cardio' | 'full_body' | 'core' | 'legs';

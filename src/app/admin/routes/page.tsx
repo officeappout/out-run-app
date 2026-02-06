@@ -282,7 +282,7 @@ export default function AdminRouteManager() {
                 {/* Sidebar Controls - Only show in 'add' tab */}
                 {activeTab === 'add' && (
                     <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-white p-6 rounded-[32px] shadow-xl border border-gray-50 space-y-8">
+                        <div className="bg-white p-6 rounded-3xl shadow-premium border border-gray-50 space-y-8">
                             <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                 <Plus className="text-cyan-500" size={20} />
                                 הגדרות קליטת נתונים
@@ -489,7 +489,7 @@ export default function AdminRouteManager() {
 
                 {/* Main Content Area */}
                 <div className={`${activeTab === 'add' ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-6`}>
-                    <div className="bg-white rounded-[32px] shadow-xl border border-gray-50 overflow-hidden flex flex-col h-[700px]">
+                    <div className="bg-white rounded-3xl shadow-premium border border-gray-50 overflow-hidden flex flex-col h-[700px]">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white z-10">
                             <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                 <Eye className="text-cyan-500" size={20} />
@@ -626,7 +626,7 @@ export default function AdminRouteManager() {
 
                     {/* Inventory Table (When in Inventory Tab) */}
                     {activeTab === 'inventory' && (
-                        <div className="bg-white rounded-[32px] shadow-xl border border-gray-50 p-6">
+                        <div className="bg-white rounded-3xl shadow-premium border border-gray-50 p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                     <Database size={24} className="text-cyan-500" />

@@ -6,6 +6,7 @@ import { Coins, ArrowRight, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, A
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { DictionaryKey, getTranslation } from '@/lib/i18n/dictionaries';
 import { useAppStore } from '@/store/useAppStore';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface OnboardingLayoutProps {
   // Header type selection
@@ -28,6 +29,10 @@ interface OnboardingLayoutProps {
   continueLabel?: string;
   hideContinueButton?: boolean;
   
+  // 3-Step Roadmap Progress (1=אבחון, 2=התאמה, 3=שריון)
+  onboardingPhase?: 1 | 2 | 3;
+  phaseProgress?: number; // 0-100 progress within current phase
+  
   // Stepper mode props (for roadmap)
   activeStepNumber?: number; // Which step is active (1, 2, or 3)
   
@@ -47,6 +52,8 @@ export default function OnboardingLayout({
   initialProgress = 0, // Default to 0% (no offset)
   progressIcon,
   progressIconSvg,
+  onboardingPhase = 1, // Default to phase 1
+  phaseProgress = 0, // Progress within current phase
   onContinue,
   canContinue = true,
   continueLabelKey,
@@ -153,34 +160,70 @@ export default function OnboardingLayout({
     return 0;
   }, [currentStep, totalSteps, isPart1Complete, initialProgress]);
 
-  // Render segmented progress bar (always show when headerType is 'progress')
+  // Get majorRoadmapStep from store for progress sync
+  const majorRoadmapStep = useOnboardingStore((state) => state.majorRoadmapStep);
+  
+  // Render 3-segment progress bar matching the roadmap steps
   const renderSegmentedProgressBar = () => {
-    // Always show progress bar when headerType is 'progress'
     if (headerType !== 'progress') return null;
     
-    // Use totalSteps or default to 15 for early steps (intro/roadmap)
-    const effectiveTotalSteps = totalSteps || 15;
-    const numSegments = Math.min(10, Math.max(5, Math.ceil(effectiveTotalSteps / 2))); // 5-10 segments
-    const filledSegments = Math.floor((progressPercentage / 100) * numSegments);
+    // Fixed 3 segments matching the roadmap:
+    // 1. אבחון ודירוג יכולות (Personal + Fitness Quiz)
+    // 2. התאמה לסגנון החיים (Persona, Stats, Location, Equipment, Schedule)
+    // 3. שריון התוכנית ויציאה לדרך (Summary & Account)
+    const numSegments = 3;
+    
+    // Calculate fill percentage for each segment based on majorRoadmapStep
+    const getSegmentFill = (segmentIndex: number): number => {
+      // segmentIndex is 0, 1, or 2 (left to right in LTR, right to left in RTL)
+      const phase = segmentIndex + 1; // 1, 2, or 3
+      
+      // Use majorRoadmapStep (0=אבחון, 1=התאמה, 2=שריון) to determine completion
+      // majorRoadmapStep 0 = phase 1 active
+      // majorRoadmapStep 1 = phase 1 complete, phase 2 active
+      // majorRoadmapStep 2 = phases 1&2 complete, phase 3 active
+      const currentPhase = majorRoadmapStep + 1; // Convert 0-indexed to 1-indexed
+      
+      if (phase < currentPhase) {
+        return 100; // Completed phases are fully filled
+      } else if (phase === currentPhase) {
+        // For the active phase, use phaseProgress from props
+        // Phase 2 has 5 steps: Persona, PersonalStats, Location, Equipment, Schedule
+        // Calculate relative progress within the phase
+        if (phaseProgress > 0) {
+          return phaseProgress;
+        }
+        // Default to small partial fill to show we're in this phase
+        return onboardingPhase === phase ? 5 : 0;
+      } else {
+        return 0; // Future phases are empty
+      }
+    };
     
     return (
       <div className="w-full px-4 pt-3 pb-2">
-        <div className={`flex gap-1 ${direction === 'rtl' ? 'flex-row-reverse' : 'flex-row'}`}>
+        <div className={`flex gap-1.5 ${direction === 'rtl' ? 'flex-row-reverse' : 'flex-row'}`}>
           {Array.from({ length: numSegments }).map((_, index) => {
-            const isFilled = index < filledSegments;
-            const segmentIndex = direction === 'rtl' ? numSegments - 1 - index : index;
-            const isActive = segmentIndex === filledSegments - 1;
+            // In RTL, segment 0 is rightmost (phase 1), in LTR, segment 0 is leftmost (phase 1)
+            const segmentPhaseIndex = direction === 'rtl' ? numSegments - 1 - index : index;
+            const fillPercent = getSegmentFill(segmentPhaseIndex);
+            const isComplete = fillPercent === 100;
+            const isActive = fillPercent > 0 && fillPercent < 100;
             
             return (
               <div
                 key={index}
-                className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                  isFilled ? 'bg-[#5BC2F2]' : 'bg-gray-200'
+                className="h-1.5 flex-1 rounded-full bg-slate-200 overflow-hidden"
+              >
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${
+                    isComplete ? 'bg-[#10B981]' : isActive ? 'bg-[#5BC2F2]' : 'bg-transparent'
                 }`}
                 style={{
-                  backgroundColor: isFilled ? '#5BC2F2' : '#E5E7EB',
+                    width: `${fillPercent}%`,
                 }}
               />
+              </div>
             );
           })}
         </div>
@@ -266,13 +309,13 @@ export default function OnboardingLayout({
   // Simple mode (Setup Wizard) - with segmented progress bar
   if (headerType === 'progress' && !isDynamicMode && (title || subtitle)) {
     return (
-      <div dir={direction} className="min-h-[100dvh] bg-white flex flex-col" style={{ minHeight: '100dvh' }}>
-        {/* Sticky Header with Segmented Progress Bar */}
+      <div dir={direction} className="min-h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col" style={{ minHeight: '100dvh' }}>
+        {/* Sticky Header with Segmented Progress Bar - Fully Transparent Glass */}
         <motion.header
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="sticky top-0 z-50 bg-white shadow-sm"
+          className="sticky top-0 z-50 bg-transparent backdrop-blur-2xl"
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           {/* Segmented Progress Bar */}
@@ -280,7 +323,8 @@ export default function OnboardingLayout({
           
           {/* Coin Counter and Back Button Row - Coins ALWAYS on LEFT */}
           <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between">
-            {/* Coin Counter - ALWAYS LEFT (yellow) */}
+            {/* Coin Counter - ALWAYS LEFT (yellow) - COIN_SYSTEM_PAUSED: Hidden when disabled */}
+            {IS_COIN_SYSTEM_ENABLED ? (
             <motion.div
               animate={coinBounce ? { scale: [1, 1.2, 1] } : {}}
               transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -289,6 +333,9 @@ export default function OnboardingLayout({
               <Coins size={20} className="text-yellow-500" />
               <span className="text-yellow-500 font-bold font-simpler text-lg">{coins}</span>
             </motion.div>
+            ) : (
+              <div /> // Empty placeholder to maintain layout
+            )}
 
             {/* Back Button - ALWAYS RIGHT */}
             {showBack && onBack && (
@@ -351,13 +398,13 @@ export default function OnboardingLayout({
 
   // Progress mode (Dynamic Questionnaire/Wizard) - New layout with segmented progress bar
   return (
-    <div dir={direction} className="min-h-[100dvh] bg-white flex flex-col" style={{ minHeight: '100dvh' }}>
-      {/* Sticky Header with Segmented Progress Bar */}
+    <div dir={direction} className="min-h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col" style={{ minHeight: '100dvh' }}>
+      {/* Sticky Header with Segmented Progress Bar - Fully Transparent Glass */}
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="sticky top-0 z-50 bg-white shadow-sm"
+        className="sticky top-0 z-50 bg-transparent backdrop-blur-2xl"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         {/* Segmented Progress Bar */}
@@ -365,7 +412,8 @@ export default function OnboardingLayout({
         
         {/* Coin Counter and Back Button Row - Coins ALWAYS on LEFT */}
         <div className="w-full px-4 pb-3 flex items-center justify-between">
-          {/* Coin Counter - ALWAYS LEFT (yellow) */}
+          {/* Coin Counter - ALWAYS LEFT (yellow) - COIN_SYSTEM_PAUSED: Hidden when disabled */}
+          {IS_COIN_SYSTEM_ENABLED ? (
           <motion.div
             animate={coinBounce ? { scale: [1, 1.2, 1] } : {}}
             transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -374,6 +422,9 @@ export default function OnboardingLayout({
             <Coins size={20} className="text-yellow-500" />
             <span className="text-yellow-500 font-bold font-simpler text-lg">{coins}</span>
           </motion.div>
+          ) : (
+            <div /> // Empty placeholder to maintain layout
+          )}
 
           {/* Back Button - ALWAYS RIGHT */}
           {showBack && onBack && (

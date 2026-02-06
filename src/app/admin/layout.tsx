@@ -2,16 +2,64 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, MapPin, Dumbbell, Waypoints, Signal, ClipboardList, Package, LogOut, Shield, Users, BarChart3, Lightbulb } from 'lucide-react';
+import { 
+    LayoutDashboard, 
+    MapPin, 
+    Dumbbell, 
+    Waypoints, 
+    ClipboardList, 
+    Package, 
+    LogOut, 
+    Shield, 
+    Users, 
+    TrendingUp, 
+    MessageCircle, 
+    ListTodo,
+    Building2,
+    Camera,
+    Video,
+    Megaphone,
+    Settings,
+    ChevronDown,
+    Zap,
+    Bell,
+    FileText,
+    LayoutGrid
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager, isSystemAdmin as checkIsSystemAdmin, UserRoleInfo } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
 import { signOutUser } from '@/lib/auth.service';
+
+// Section IDs for collapsible state
+type SectionId = 'overview' | 'municipalities' | 'appCore' | 'production' | 'brandComm' | 'system';
+
+// Helper to check if a section contains the active path
+const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boolean => {
+    if (!pathname) return false;
+    
+    const sectionPaths: Record<SectionId, string[]> = {
+        overview: ['/admin', '/admin/roadmap'],
+        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager'],
+        appCore: ['/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/progression-manager', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire'],
+        production: ['/admin/content-matrix', '/admin/content-status'],
+        brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator'],
+        system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs'],
+    };
+    
+    const paths = sectionPaths[sectionId];
+    return paths.some(path => {
+        if (path === '/admin') {
+            return pathname === '/admin';
+        }
+        return pathname.startsWith(path);
+    });
+};
 
 export default function AdminLayout({
     children,
@@ -25,11 +73,61 @@ export default function AdminLayout({
     const [isSystemAdminOnly, setIsSystemAdminOnly] = useState(false);
     const [loading, setLoading] = useState(true);
     const [authorityName, setAuthorityName] = useState<string | null>(null);
+    
+    // Collapsible sections state
+    const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['overview']));
+
+    // Load expanded sections from localStorage on mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('adminSidebarSections');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setExpandedSections(new Set(parsed));
+                } catch {
+                    // Invalid JSON, use default
+                }
+            }
+        }
+    }, []);
+
+    // Auto-expand section containing active path
+    useEffect(() => {
+        if (pathname) {
+            const sections: SectionId[] = ['overview', 'municipalities', 'appCore', 'production', 'brandComm', 'system'];
+            for (const section of sections) {
+                if (sectionContainsPath(section, pathname)) {
+                    setExpandedSections(prev => {
+                        const next = new Set(prev);
+                        next.add(section);
+                        return next;
+                    });
+                    break;
+                }
+            }
+        }
+    }, [pathname]);
+
+    // Save expanded sections to localStorage
+    const toggleSection = useCallback((sectionId: SectionId) => {
+        setExpandedSections(prev => {
+            const next = new Set(prev);
+            if (next.has(sectionId)) {
+                next.delete(sectionId);
+            } else {
+                next.add(sectionId);
+            }
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('adminSidebarSections', JSON.stringify([...next]));
+            }
+            return next;
+        });
+    }, []);
 
     const handleLogout = async () => {
         try {
             await signOutUser();
-            // Redirect to appropriate portal based on role
             if (onlyAuthorityManager) {
                 router.push('/authority-portal/login');
             } else {
@@ -43,8 +141,6 @@ export default function AdminLayout({
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                // User is not authenticated
-                // If trying to access authority-manager, redirect to login
                 if (pathname?.startsWith('/admin/authority-manager')) {
                     if (typeof window !== 'undefined') {
                         window.location.href = '/admin/authority-login';
@@ -65,23 +161,21 @@ export default function AdminLayout({
                 return;
             }
 
-            // User is authenticated
             try {
                 const info = await checkUserRole(user.uid);
                 setRoleInfo(info);
-                // Check if user should be restricted to only authority manager features
                 const isOnly = await isOnlyAuthorityManager(user.uid);
                 setOnlyAuthorityManager(isOnly);
-                // Check if user is system admin only (not super admin)
                 const isSystemOnly = await checkIsSystemAdmin(user.uid);
                 setIsSystemAdminOnly(isSystemOnly);
                 
-                // Load authority name for Authority Managers
                 if (isOnly || info.isAuthorityManager) {
                     try {
                         const authorities = await getAuthoritiesByManager(user.uid);
                         if (authorities.length > 0) {
-                            setAuthorityName(authorities[0].name);
+                            const name = authorities[0].name;
+                            const sanitizedName = typeof name === 'object' && name !== null ? (name.he || name.en || '') : (name || '');
+                            setAuthorityName(sanitizedName);
                         }
                     } catch (error) {
                         console.error('Error loading authority name:', error);
@@ -109,32 +203,29 @@ export default function AdminLayout({
     const isSystemAdmin = roleInfo?.isSystemAdmin ?? false;
     const isAuthorityManager = roleInfo?.isAuthorityManager ?? false;
     
-    // Show simplified sidebar if user is ONLY an authority manager (not super admin or system admin)
-    const showFullSidebar = !onlyAuthorityManager; // Show full sidebar unless user is ONLY authority manager
-    const showSimplifiedSidebar = onlyAuthorityManager; // Show simplified sidebar for authority managers only
-    const showAuthorityManagerLink = isAuthorityManager; // Authority managers see their dashboard link
+    const showFullSidebar = !onlyAuthorityManager;
+    const showSimplifiedSidebar = onlyAuthorityManager;
+    const showAuthorityManagerLink = isAuthorityManager;
     
-    // Route protection: Redirect users away from unauthorized pages
+    // Route protection
     useEffect(() => {
         if (!loading && roleInfo) {
-            // Strict redirect for authority_manager: Block system settings and admin login
             if (onlyAuthorityManager) {
                 const unauthorizedPaths = [
                     '/admin/exercises',
                     '/admin/gym-equipment',
                     '/admin/gear-definitions',
-                    '/admin/levels',
+                    '/admin/progression-manager',
                     '/admin/programs',
                     '/admin/questionnaire',
                     '/admin/authorities',
                     '/admin/admins-management',
                     '/admin/system-settings',
-                    '/admin/login', // Block admin login for authority managers
-                    '/admin/approval-center', // Block approval center for authority managers
+                    '/admin/login',
+                    '/admin/approval-center',
                 ];
                 
                 if (unauthorizedPaths.some(path => pathname?.startsWith(path))) {
-                    // Redirect to authority portal login instead of authority-manager dashboard
                     if (pathname?.startsWith('/admin/login') || pathname?.startsWith('/admin/system-settings')) {
                         if (typeof window !== 'undefined') {
                             window.location.href = '/authority-portal/login';
@@ -145,14 +236,12 @@ export default function AdminLayout({
                     return;
                 }
                 
-                // Block main admin dashboard access
                 if (pathname === '/admin' || pathname === '/admin/') {
                     router.replace('/admin/authority-manager');
                     return;
                 }
             }
             
-            // Redirect system_admin away from unauthorized pages
             if (isSystemAdminOnly) {
                 const unauthorizedPaths = [
                     '/admin/authorities',
@@ -166,7 +255,6 @@ export default function AdminLayout({
                 }
             }
             
-            // Redirect super/system admins away from authority portal
             if ((isSuperAdmin || isSystemAdmin) && pathname?.startsWith('/authority-portal')) {
                 router.replace('/admin/login');
                 return;
@@ -174,31 +262,69 @@ export default function AdminLayout({
         }
     }, [pathname, loading, roleInfo, onlyAuthorityManager, isSystemAdminOnly, isSuperAdmin, isSystemAdmin, router]);
 
-    // Exclude authority-login and pending-approval pages from admin layout
     if (pathname?.startsWith('/admin/authority-login') || pathname?.startsWith('/admin/pending-approval')) {
         return <>{children}</>;
     }
 
-    // Show loading state but still render layout to prevent white screen
+    // Helper component for sidebar links
+    const SidebarLink = ({ href, icon: Icon, label, isActive }: { href: string; icon: React.ElementType; label: string; isActive?: boolean }) => {
+        const active = isActive ?? (href === '/admin' ? pathname === '/admin' : pathname?.startsWith(href));
+        return (
+            <Link
+                href={href}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all text-sm ${
+                    active
+                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+            >
+                <Icon size={18} />
+                <span>{label}</span>
+            </Link>
+        );
+    };
+
+    // Helper component for collapsible section headers
+    const SectionHeader = ({ sectionId, icon: Icon, label }: { sectionId: SectionId; icon: React.ElementType; label: string }) => {
+        const isExpanded = expandedSections.has(sectionId);
+        const hasActiveChild = sectionContainsPath(sectionId, pathname);
+        
+        return (
+            <button
+                onClick={() => toggleSection(sectionId)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    hasActiveChild ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+            >
+                <Icon size={18} />
+                <span className="flex-1 text-right">{label}</span>
+                <ChevronDown 
+                    size={16} 
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+                />
+            </button>
+        );
+    };
+
     if (loading) {
         return (
             <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:block relative min-h-[100dvh] overflow-y-auto flex flex-col">
+                <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col relative min-h-[100dvh] overflow-y-auto">
                     <div className="p-4 md:p-6 border-b border-slate-800">
-                    {onlyAuthorityManager && authorityName ? (
-                        <div>
-                            <h1 className="text-lg md:text-xl font-black tracking-tight text-white mb-1">
+                        {onlyAuthorityManager && authorityName ? (
+                            <div>
+                                <h1 className="text-lg md:text-xl font-black tracking-tight text-white mb-1">
+                                    OUT RUN <span className="text-cyan-400">Admin</span>
+                                </h1>
+                                <p className="text-xs md:text-sm text-slate-300 font-medium">
+                                    פורטל ניהול: {authorityName || ''}
+                                </p>
+                            </div>
+                        ) : (
+                            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
                                 OUT RUN <span className="text-cyan-400">Admin</span>
                             </h1>
-                            <p className="text-xs md:text-sm text-slate-300 font-medium">
-                                פורטל ניהול: {authorityName}
-                            </p>
-                        </div>
-                    ) : (
-                        <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                            OUT RUN <span className="text-cyan-400">Admin</span>
-                        </h1>
-                    )}
+                        )}
                     </div>
                     <div className="p-4 md:p-8">
                         <div className="animate-pulse space-y-4">
@@ -207,12 +333,12 @@ export default function AdminLayout({
                         </div>
                     </div>
                 </aside>
-                <main className="flex-1 overflow-y-auto min-h-[100dvh]">
-                    <div className="p-4 md:p-8 min-h-full">
+                <main className="flex-1 overflow-y-auto min-h-[100dvh] bg-white">
+                    <div className="p-4 md:p-8 min-h-full bg-white text-slate-900" style={{ colorScheme: 'light' }}>
                         <div className="flex items-center justify-center h-64">
                             <div className="text-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-                                <p className="text-sm md:text-base text-gray-600">בודק הרשאות...</p>
+                                <p className="text-sm md:text-base text-slate-700">בודק הרשאות...</p>
                             </div>
                         </div>
                     </div>
@@ -223,274 +349,127 @@ export default function AdminLayout({
 
     return (
         <div className="flex min-h-[100dvh] bg-gray-100 overflow-hidden" dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            {/* Sidebar - Fixed/Sticky */}
-            <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:block relative min-h-[100dvh] overflow-y-auto flex flex-col">
+            {/* Sidebar */}
+            <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col relative min-h-[100dvh]">
                 <div className="p-4 md:p-6 border-b border-slate-800 flex-shrink-0">
                     <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
                         OUT RUN <span className="text-cyan-400">Admin</span>
                     </h1>
                 </div>
 
-                <nav className="p-2 md:p-4 space-y-2 flex flex-col flex-1 min-h-0">
+                <nav className="p-2 md:p-3 flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-thin">
                     {showSimplifiedSidebar ? (
-                        <>
-                            {/* Dedicated sidebar for Authority Managers - Only relevant items */}
-                            <Link
-                                href="/admin/authority-manager"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname === '/admin/authority-manager'
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <LayoutDashboard size={20} />
-                                <span>דשבורד</span>
-                            </Link>
-
-                            <Link
-                                href="/admin/parks"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname?.startsWith('/admin/parks')
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <MapPin size={20} />
-                                <span>פארקים</span>
-                            </Link>
-
-                            <Link
-                                href="/admin/users/all"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname?.startsWith('/admin/users/all')
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <Users size={20} />
-                                <span>משתמשים</span>
-                            </Link>
-
-                            <Link
-                                href="/admin/insights"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname?.startsWith('/admin/insights')
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <Lightbulb size={20} />
-                                <span>תובנות</span>
-                            </Link>
-
-                            <Link
-                                href="/admin/statistics"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname?.startsWith('/admin/statistics')
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <BarChart3 size={20} />
-                                <span>סטטיסטיקה</span>
-                            </Link>
-                        </>
+                        /* Simplified sidebar for Authority Managers */
+                        <div className="space-y-1">
+                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד" />
+                            <SidebarLink href="/admin/parks" icon={MapPin} label="פארקים" />
+                            <SidebarLink href="/admin/users/all" icon={Users} label="משתמשים" />
+                        </div>
                     ) : showFullSidebar ? (
-                        <>
-                            <Link
-                                href="/admin"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname === '/admin'
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <LayoutDashboard size={20} />
-                                <span>דשבורד</span>
-                            </Link>
+                        /* Full sidebar for Super Admins */
+                        <div className="space-y-1">
+                            {/* Section 1: אסטרטגיה ומבט על (Overview) */}
+                            <SectionHeader sectionId="overview" icon={TrendingUp} label="אסטרטגיה ומבט על" />
+                            {expandedSections.has('overview') && (
+                                <div className="pr-2 space-y-0.5 pb-2">
+                                    <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד" />
+                                    <SidebarLink href="/admin/roadmap" icon={ListTodo} label="מפת דרכים ופידבקים" />
+                                </div>
+                            )}
 
-                            <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                ניהול תוכן
-                            </div>
-
-                            <Link
-                                href="/admin/parks"
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                            >
-                                <MapPin size={20} />
-                                <span>פארקים</span>
-                            </Link>
-
-                            {/* Hide exercises, gear, levels, programs, questionnaire for authority_manager */}
-                            {!onlyAuthorityManager && (
+                            {/* Section 2: מערך רשויות (Municipalities Hub) */}
+                            {!isSystemAdminOnly && (
                                 <>
-                                    <Link
-                                        href="/admin/exercises"
-                                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                    >
-                                        <Dumbbell size={20} />
-                                        <span>תרגילים</span>
-                                    </Link>
-
-                                    <Link
-                                        href="/admin/gym-equipment"
-                                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                    >
-                                        <Dumbbell size={20} />
-                                        <span>מתקני כושר</span>
-                                    </Link>
-
-                                    <Link
-                                        href="/admin/gear-definitions"
-                                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                    >
-                                        <Package size={20} />
-                                        <span>ניהול ציוד אישי</span>
-                                    </Link>
+                                    <SectionHeader sectionId="municipalities" icon={Building2} label="מערך רשויות" />
+                                    {expandedSections.has('municipalities') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות - CRM" />
+                                            {(isSuperAdmin || isSystemAdmin) && (
+                                                <SidebarLink href="/admin/approval-center" icon={Shield} label="מרכז אישורים" />
+                                            )}
+                                            {showAuthorityManagerLink && (
+                                                <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="לוח בקרה למנהל רשות" />
+                                            )}
+                                        </div>
+                                    )}
                                 </>
                             )}
 
-                            <Link
-                                href="/admin/routes"
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                            >
-                                <Waypoints size={20} />
-                                <span>מסלולים</span>
-                            </Link>
-
-                            {/* Hide levels, programs, questionnaire for authority_manager */}
+                            {/* Section 3: ליבת האפליקציה (App Core) */}
                             {!onlyAuthorityManager && (
                                 <>
-                                    <Link
-                                        href="/admin/levels"
-                                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                    >
-                                        <Signal size={20} />
-                                        <span>רמות</span>
-                                    </Link>
-
-                                    <Link
-                                        href="/admin/programs"
-                                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                    >
-                                        <ClipboardList size={20} />
-                                        <span>תוכניות</span>
-                                    </Link>
-
-                                    <Link
-                                        href="/admin/questionnaire"
-                                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                    >
-                                        <LayoutDashboard size={20} />
-                                        <span>שאלון Onboarding</span>
-                                    </Link>
+                                    <SectionHeader sectionId="appCore" icon={Zap} label="ליבת האפליקציה" />
+                                    {expandedSections.has('appCore') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/parks" icon={MapPin} label="פארקים" />
+                                            <SidebarLink href="/admin/routes" icon={Waypoints} label="מסלולים" />
+                                            <SidebarLink href="/admin/exercises" icon={Dumbbell} label="בנק תרגילים" />
+                                            <SidebarLink href="/admin/programs" icon={ClipboardList} label="תוכניות אימון" />
+                                            <SidebarLink href="/admin/questionnaire" icon={ClipboardList} label="ניהול שאלון דינמי" />
+                                            <SidebarLink href="/admin/progression-manager" icon={TrendingUp} label="מנהל התקדמות" />
+                                            
+                                            {/* Equipment Sub-items */}
+                                            <div className="pt-1 pr-2">
+                                                <p className="text-xs font-medium text-slate-500 px-4 py-1">ניהול ציוד וכושר</p>
+                                                <SidebarLink href="/admin/gym-equipment" icon={Dumbbell} label="מתקני כושר" />
+                                                <SidebarLink href="/admin/brands" icon={Package} label="מותגי ציוד" />
+                                                <SidebarLink href="/admin/gear-definitions" icon={Package} label="ציוד אישי" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </>
                             )}
 
-                            {/* Hide authorities for system_admin */}
-                            {!isSystemAdminOnly && (
-                                <Link
-                                    href="/admin/authorities"
-                                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                                >
-                                    <Package size={20} />
-                                    <span>רשויות</span>
-                                </Link>
+                            {/* Section 4: סטודיו והפקה (Production Hub) */}
+                            {!onlyAuthorityManager && (
+                                <>
+                                    <SectionHeader sectionId="production" icon={Camera} label="סטודיו והפקה" />
+                                    {expandedSections.has('production') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/content-matrix" icon={Video} label="ניהול ימי צילום" />
+                                            <SidebarLink href="/admin/content-status" icon={LayoutGrid} label="מאגר מדיה" />
+                                        </div>
+                                    )}
+                                </>
                             )}
 
-                            <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                ניהול מערכת
-                            </div>
-
-                            {/* Hide "All Users" for system_admin */}
-                            {!isSystemAdminOnly && (
-                                <Link
-                                    href="/admin/users/all"
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                        pathname?.startsWith('/admin/users/all')
-                                            ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                    }`}
-                                >
-                                    <Users size={20} />
-                                    <span>כל המשתמשים</span>
-                                </Link>
+                            {/* Section 5: שפה, מיתוג ותקשורת (Brand & Comm) */}
+                            {!onlyAuthorityManager && (
+                                <>
+                                    <SectionHeader sectionId="brandComm" icon={Megaphone} label="שפה, מיתוג ותקשורת" />
+                                    {expandedSections.has('brandComm') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/messages" icon={MessageCircle} label="תקשורת חכמה" />
+                                            <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
+                                            <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראות" />
+                                        </div>
+                                    )}
+                                </>
                             )}
 
-                            <Link
-                                href="/admin/users"
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                    pathname === '/admin/users'
-                                        ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            >
-                                <Shield size={20} />
-                                <span>אישורים ממתינים</span>
-                            </Link>
-
-                            <Link
-                                href="/admin/admins-management"
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                            >
-                                <Shield size={20} />
-                                <span>ניהול מנהלים</span>
-                            </Link>
-
-                            <Link
-                                href="/admin/audit-logs"
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                            >
-                                <Package size={20} />
-                                <span>יומן ביקורת</span>
-                            </Link>
-
-                            {/* Approval Center - Only for Super Admin and System Admin */}
-                            {(!onlyAuthorityManager && (isSuperAdmin || isSystemAdmin)) && (
-                                <Link
-                                    href="/admin/approval-center"
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-                                        pathname?.startsWith('/admin/approval-center')
-                                            ? 'bg-slate-800/50 text-cyan-400 font-bold'
-                                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                    }`}
-                                >
-                                    <Shield size={20} />
-                                    <span>מרכז אישורים</span>
-                                </Link>
+                            {/* Section 6: ניהול מערכת (System) */}
+                            <SectionHeader sectionId="system" icon={Settings} label="ניהול מערכת" />
+                            {expandedSections.has('system') && (
+                                <div className="pr-2 space-y-0.5 pb-2">
+                                    {!isSystemAdminOnly && (
+                                        <SidebarLink href="/admin/admins-management" icon={Shield} label="מנהלי מערכת" />
+                                    )}
+                                    {!isSystemAdminOnly && (
+                                        <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
+                                    )}
+                                    <SidebarLink href="/admin/users" icon={Shield} label="אישורים ממתינים" />
+                                    <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />
+                                </div>
                             )}
-                        </>
+                        </div>
                     ) : (
-                        <>
-                            {/* Simplified sidebar for Authority Managers only */}
-                            <Link
-                                href="/admin/authority-manager"
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/50 text-cyan-400 font-bold transition-all hover:bg-slate-800"
-                            >
-                                <LayoutDashboard size={20} />
-                                <span>לוח בקרה למנהל רשות</span>
-                            </Link>
-                        </>
+                        /* Fallback simplified sidebar */
+                        <div className="space-y-1">
+                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="לוח בקרה למנהל רשות" />
+                        </div>
                     )}
 
-                    {/* Show authority manager link for super admins too */}
-                    {showFullSidebar && showAuthorityManagerLink && (
-                        <>
-                            <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                מנהלי רשויות
-                            </div>
-
-                            <Link
-                                href="/admin/authority-manager"
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 font-medium transition-all hover:bg-slate-800 hover:text-white"
-                            >
-                                <Package size={20} />
-                                <span>לוח בקרה למנהל רשות</span>
-                            </Link>
-                        </>
-                    )}
-
-                    {/* Logout Button - Always visible at bottom */}
+                    {/* Logout Button */}
                     <div className="mt-auto pt-4 border-t border-slate-800">
                         <button
                             onClick={handleLogout}
@@ -503,10 +482,21 @@ export default function AdminLayout({
                 </nav>
             </aside>
 
-            {/* Main Content - Scrollable */}
-            <main className="flex-1 overflow-y-auto min-h-[100dvh]">
-                <div className="p-4 md:p-8 pb-16 min-h-full">
-                    {children}
+            {/* Main Content */}
+            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden min-h-[100dvh] bg-white">
+                <div 
+                    className="p-4 md:p-8 pb-16 min-h-full min-w-0 bg-white text-slate-900" 
+                    style={{ 
+                        colorScheme: 'light',
+                        color: '#0f172a'
+                    }}
+                >
+                    <div 
+                        className="min-w-0 text-slate-900 [&_*]:!text-slate-900 [&_input]:!text-slate-900 [&_textarea]:!text-slate-900 [&_select]:!text-slate-900 [&_label]:!text-slate-900 [&_p]:!text-slate-900 [&_span]:!text-slate-900 [&_td]:!text-slate-900 [&_th]:!text-slate-900 [&_h1]:!text-slate-900 [&_h2]:!text-slate-900 [&_h3]:!text-slate-900 [&_div]:!text-slate-900 [&_li]:!text-slate-900"
+                        style={{ color: '#0f172a' }}
+                    >
+                        {children}
+                    </div>
                 </div>
             </main>
         </div>

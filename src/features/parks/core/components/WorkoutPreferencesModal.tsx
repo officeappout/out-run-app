@@ -50,7 +50,7 @@ export default function WorkoutPreferencesModal({ isOpen, onClose, onUpdate }: W
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-[32px] sm:rounded-[32px] shadow-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-10 duration-300">
+      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-premium-hover max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-10 duration-300">
 
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-900 z-10 px-6 pt-6 pb-2 flex justify-between items-center">

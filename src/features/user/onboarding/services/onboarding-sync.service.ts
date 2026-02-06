@@ -7,6 +7,7 @@ import { db, auth } from '@/lib/firebase';
 import { signInAnonymously, User } from 'firebase/auth';
 import { OnboardingData, OnboardingStepId } from '../types';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 // Step order mapping for analytics
 const STEP_ORDER: Record<OnboardingStepId, number> = {
@@ -121,8 +122,9 @@ export async function syncOnboardingToFirestore(
       if (!updateData.core.gender) {
         updateData.core.gender = 'other';
       }
+      // COIN_SYSTEM_PAUSED: Re-enable in April
       // Initialize progression, using onboarding coins as starting balance if available
-      const initialCoins = typeof data.onboardingCoins === 'number' && data.onboardingCoins > 0
+      const initialCoins = IS_COIN_SYSTEM_ENABLED && typeof data.onboardingCoins === 'number' && data.onboardingCoins > 0
         ? data.onboardingCoins
         : 0;
       updateData.progression = {
@@ -275,6 +277,13 @@ export async function syncOnboardingToFirestore(
     }
     if (data.historyTypes && data.historyTypes.length > 0) {
       updateData.historyTypes = data.historyTypes;
+    }
+    // Store new history fields (locations and sports)
+    if (data.historyLocations && data.historyLocations.length > 0) {
+      updateData.historyLocations = data.historyLocations;
+    }
+    if (data.historySports && data.historySports.length > 0) {
+      updateData.historySports = data.historySports;
     }
 
     // Store city name (for location display)

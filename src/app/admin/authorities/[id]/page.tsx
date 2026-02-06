@@ -8,6 +8,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { getAuthority, updateAuthority, createAuthority } from '@/features/admin/services/authority.service';
 import { Authority, AuthorityType } from '@/types/admin-types';
 import { Save, X, Loader2, ArrowRight, Upload, Building2, Users, Search } from 'lucide-react';
+import { safeRenderText } from '@/utils/render-helpers';
 import Link from 'next/link';
 import { ref, uploadBytesResumable, getDownloadURL, getStorage } from 'firebase/storage';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
@@ -224,7 +225,7 @@ export default function EditAuthorityPage() {
             {isNew ? 'יצירת רשות חדשה' : 'עריכת רשות'}
           </h1>
           {authority && (
-            <p className="text-gray-500 mt-2">{authority.name}</p>
+            <p className="text-gray-500 mt-2">{safeRenderText(authority.name)}</p>
           )}
         </div>
         <div className="flex items-center gap-3">

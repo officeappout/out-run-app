@@ -274,8 +274,8 @@ export default function NavigationHub({
                                         key={`nav-card-${type}-${typeIndex}`}
                                         onClick={() => onActivitySelect(type)}
                                         className={`
-                                            min-w-[85vw] md:min-w-[320px] snap-center p-6 rounded-[32px] transition-all duration-300 flex flex-col justify-between relative overflow-hidden cursor-pointer
-                                            bg-white shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-2
+                                            min-w-[85vw] md:min-w-[320px] snap-center p-6 rounded-3xl transition-all duration-300 flex flex-col justify-between relative overflow-hidden cursor-pointer
+                                            bg-white shadow-premium-hover border-2
                                             ${isActive ? 'border-blue-400 scale-100 opacity-100' : 'border-transparent scale-95 opacity-80'}
                                         `}
                                     >

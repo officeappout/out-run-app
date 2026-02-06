@@ -32,10 +32,22 @@ export default function Phase2IntroPage() {
   const locale = getOnboardingLocale(selectedLanguage);
   const direction = selectedLanguage === 'he' ? 'rtl' : 'ltr';
 
-  // Handle continue to Phase 2 Setup Wizard
+  // Handle continue to Phase 2 Setup Wizard or Persona Selection
   const handleContinue = () => {
     addCoins(10); // Add coins reward
-    router.push('/onboarding-new/setup');
+    
+    // Check if persona was already selected
+    const savedPersonaId = typeof window !== 'undefined'
+      ? sessionStorage.getItem('onboarding_selected_persona_id')
+      : null;
+    
+    if (!savedPersonaId) {
+      // Navigate to persona selection first
+      router.push('/onboarding-new/persona-selection');
+    } else {
+      // Persona already selected, go to setup
+      router.push('/onboarding-new/setup');
+    }
   };
 
   // Roadmap steps

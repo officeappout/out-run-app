@@ -1,25 +1,37 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { OnboardingStepId } from '../types';
 import OnboardingLayout from './OnboardingLayout';
-import LocationStep from './steps/LocationStep';
+import PersonaStep from './steps/PersonaStep';
+import PersonalStatsStep from './steps/PersonalStatsStep';
+import UnifiedLocationStep from './steps/UnifiedLocationStep';
 import EquipmentStep from './steps/EquipmentStep';
-import HistoryStep from './steps/HistoryStep';
 import ScheduleStep from './steps/ScheduleStep';
-import CitySelectionStep from './steps/CitySelectionStep';
 import CalculatingProfileScreen from '@/components/CalculatingProfileScreen';
-import SummaryReveal from './SummaryReveal';
+import SummaryStep from './steps/SummaryStep';
 import { syncOnboardingToFirestore } from '../services/onboarding-sync.service';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
+/**
+ * Phase 2 Onboarding Wizard - Lifestyle Adaptation
+ * 
+ * Updated sequence (Location as Grand Finale):
+ * 1. Persona Selection (Mad-libs style)
+ * 2. Personal Stats (Weight + Training History)
+ * 3. Equipment (None/Home/Gym)
+ * 4. Schedule (Days + Time)
+ * 5. Location (GPS/Map) - Grand Finale: Find your nearby parks!
+ * 6. Summary
+ */
 export default function OnboardingWizard() {
   const router = useRouter();
-  const { currentStep, setStep, addCoins, updateData, data, coins } = useOnboardingStore();
+  const { currentStep, setStep, addCoins, updateData, data, coins, majorRoadmapStep } = useOnboardingStore();
   const [isCalculating, setIsCalculating] = useState(false);
 
   // Get current language - ensure locale is always available
@@ -27,6 +39,31 @@ export default function OnboardingWizard() {
     ? (sessionStorage.getItem('onboarding_language') || 'he')
     : 'he') as OnboardingLanguage;
   const locale = getOnboardingLocale(savedLanguage);
+
+  // Phase 2 wizard steps - Unified Location as grand finale
+  const wizardSteps: OnboardingStepId[] = [
+    'PERSONA',
+    'PERSONAL_STATS',
+    'EQUIPMENT',
+    'SCHEDULE',
+    'LOCATION',         // Unified Location Step: GPS + City Search + Parks
+    'COMPLETED',
+    'SUMMARY',
+  ];
+
+  // Calculate current step index
+  const currentStepIndex = wizardSteps.indexOf(currentStep);
+  
+  // Calculate progress for Phase 2 (5 visible steps, excluding COMPLETED)
+  const visibleSteps = wizardSteps.filter(step => step !== 'COMPLETED' && step !== 'SUMMARY') as OnboardingStepId[];
+  const visibleStepIndex = visibleSteps.indexOf(currentStep as typeof visibleSteps[number]);
+  
+  // Phase 2 progress: 0-100% within the second segment
+  const phaseProgress = useMemo(() => {
+    if (visibleStepIndex < 0) return 0;
+    // 5 steps: 0%, 20%, 40%, 60%, 80%, then COMPLETED brings it to 100%
+    return Math.min((visibleStepIndex / visibleSteps.length) * 100 + 10, 95);
+  }, [visibleStepIndex, visibleSteps.length]);
 
   // Save user data and show calculating screen
   const handleFinish = async () => {
@@ -45,7 +82,7 @@ export default function OnboardingWizard() {
   // Sync to Firestore on initial load (first step) to ensure user appears in admin panel
   useEffect(() => {
     // Log onboarding start event
-    Analytics.logOnboardingStart('onboarding_wizard').catch((error) => {
+    Analytics.logOnboardingStart('onboarding_wizard_phase2').catch((error) => {
       console.error('[OnboardingWizard] Error logging onboarding start:', error);
     });
     
@@ -56,6 +93,15 @@ export default function OnboardingWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
+  // Initialize to PERSONA step if coming from roadmap
+  useEffect(() => {
+    // If we're at majorRoadmapStep 1 (Phase 2) and currentStep is not a Phase 2 step
+    if (majorRoadmapStep === 1 && !wizardSteps.includes(currentStep)) {
+      setStep('PERSONA');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [majorRoadmapStep]);
+
   // Trigger calculating screen when COMPLETED step is reached
   useEffect(() => {
     if (currentStep === 'COMPLETED' && !isCalculating) {
@@ -64,31 +110,13 @@ export default function OnboardingWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, isCalculating]);
 
-  // Phase 2 wizard steps (after Phase 1 questionnaire completion)
-  const wizardSteps: OnboardingStepId[] = [
-    'LOCATION',
-    'EQUIPMENT',
-    'HISTORY',
-    'SCHEDULE',
-    'SOCIAL_MAP',
-    'COMPLETED',
-    'SUMMARY',
-  ];
-
-  // Calculate progress for Phase 2
-  const currentWizardStepIndex = wizardSteps.indexOf(currentStep);
-  // Exclude 'COMPLETED' from progress (it's a loading state, not a visible step)
-  // Include 'SUMMARY' in progress
-  const totalWizardSteps = wizardSteps.filter(step => step !== 'COMPLETED').length;
-  
-  // Phase 2 starts at 50% (Phase 1 completed) and goes to 100%
-  // Pass initialProgress=50 and let OnboardingLayout map currentStep to 50-100% range
-  const initialProgress = 50; // Representing completed Phase 1
-
   const handleNext = (nextStepId?: OnboardingStepId, coinReward?: number) => {
-    // Add coins when moving to next step
-    const coinsToAdd = coinReward || 10;
-    addCoins(coinsToAdd);
+    // COIN_SYSTEM_PAUSED: Re-enable in April
+    // Add coins when moving to next step (only if coin system is enabled)
+    if (IS_COIN_SYSTEM_ENABLED) {
+      const coinsToAdd = coinReward || 10;
+      addCoins(coinsToAdd);
+    }
     
     // Determine next step
     if (nextStepId) {
@@ -96,122 +124,75 @@ export default function OnboardingWizard() {
       return;
     }
     
-    // Fallback: Determine next step based on current step
-    const stepOrder: Array<typeof currentStep> = [
-      'LOCATION',
-      'EQUIPMENT',
-      'HISTORY',
-      'SCHEDULE',
-      'SOCIAL_MAP',
-      'COMPLETED',
-      'SUMMARY',
-    ];
-    
-    const currentIndex = stepOrder.indexOf(currentStep);
-    if (currentIndex < stepOrder.length - 1) {
-      setStep(stepOrder[currentIndex + 1]);
+    // Fallback: Determine next step based on current step index
+    if (currentStepIndex >= 0 && currentStepIndex < wizardSteps.length - 1) {
+      setStep(wizardSteps[currentStepIndex + 1]);
     }
   };
 
   const handleBack = () => {
-    const stepOrder: Array<typeof currentStep> = [
-      'LOCATION',
-      'EQUIPMENT',
-      'HISTORY',
-      'SCHEDULE',
-      'SOCIAL_MAP',
-      'COMPLETED',
-      'SUMMARY',
-    ];
-    
-    const currentIndex = stepOrder.indexOf(currentStep);
-    if (currentIndex > 0) {
-      setStep(stepOrder[currentIndex - 1]);
+    if (currentStepIndex > 0) {
+      setStep(wizardSteps[currentStepIndex - 1]);
+    } else {
+      // Go back to roadmap if on first step
+      router.push('/onboarding-new/roadmap');
     }
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 'LOCATION':
+      case 'PERSONA':
         return (
-          <LocationStep onNext={() => handleNext('EQUIPMENT', 10)} />
+          <PersonaStep onNext={() => handleNext('PERSONAL_STATS', 10)} />
+        );
+
+      case 'PERSONAL_STATS':
+        return (
+          <PersonalStatsStep onNext={() => handleNext('EQUIPMENT', 10)} />
         );
 
       case 'EQUIPMENT':
         return (
-          <EquipmentStep onNext={() => handleNext('HISTORY', 10)} />
-        );
-
-      case 'HISTORY':
-        return (
-          <HistoryStep onNext={() => handleNext('SCHEDULE', 10)} />
+          <EquipmentStep onNext={() => handleNext('SCHEDULE', 10)} />
         );
 
       case 'SCHEDULE':
-        return <ScheduleStep onNext={() => handleNext('SOCIAL_MAP', 0)} />;
+        return (
+          <ScheduleStep onNext={() => handleNext('LOCATION', 10)} />
+        );
 
-      case 'SOCIAL_MAP':
-        return <CitySelectionStep onNext={() => handleFinish()} />;
+      case 'LOCATION':
+        // Unified Location step - GPS, City Search, and Park Discovery (Grand Finale)
+        return (
+          <UnifiedLocationStep onNext={() => handleFinish()} />
+        );
 
       case 'COMPLETED':
         // This case is handled by useEffect - calculating screen will show
         return null;
 
       case 'SUMMARY':
-        // Convert OnboardingData to OnboardingAnswers format for SummaryReveal
-        // Calculate fitness level from history frequency
-        let fitnessLevel = 1; // Default
-        if (data.historyFrequency === 'none') {
-          fitnessLevel = 1; // Beginner
-        } else if (data.historyFrequency === '1-2') {
-          fitnessLevel = 2; // Intermediate
-        } else if (data.historyFrequency === '3+') {
-          fitnessLevel = 3; // Advanced
-        }
-        
-        // Use actual selected days if available, otherwise reconstruct from frequency
-        const dayMap = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-        let scheduleDays: string[] = [];
-        
-        if (data.scheduleDays && Array.isArray(data.scheduleDays) && data.scheduleDays.length > 0) {
-          // Use the actual selected days from ScheduleStep
-          scheduleDays = data.scheduleDays;
-        } else if (data.scheduleDayIndices && Array.isArray(data.scheduleDayIndices)) {
-          // Convert indices to Hebrew day letters
-          scheduleDays = data.scheduleDayIndices.map((index: number) => dayMap[index]).sort();
-        } else if (data.trainingDays) {
-          // Fallback: reconstruct from frequency (first N days) - legacy behavior
-          scheduleDays = Array.from({ length: Math.min(data.trainingDays, 7) }, (_, i) => dayMap[i]);
-        }
-
-        const answers = {
-          fitness_level: fitnessLevel,
-          schedule_days: scheduleDays,
-          schedule_frequency: data.trainingDays || 0,
-          schedule_time: data.trainingTime || '',
-          equipmentList: data.equipmentList || [],
-          hasGym: data.hasGym || false,
-          historyFrequency: data.historyFrequency || 'none',
-          historyTypes: data.historyTypes || [],
-        };
-
+        // New Grand Finale SummaryStep
         return (
-          <SummaryReveal
-            titleKey="onboarding.summary.title"
-            answers={answers}
-            onContinue={() => {
+          <SummaryStep
+            onNext={() => {
+              // Update majorRoadmapStep to 2 (Phase 3 - Summary)
+              useOnboardingStore.getState().setMajorRoadmapStep(2);
+              
               // Final sync before redirect
               syncOnboardingToFirestore('COMPLETED', data).catch((error) => {
                 console.error('[OnboardingWizard] Error syncing final data:', error);
               });
-              // Final redirect to roadmap when user clicks "Let's Start"
-              router.push('/roadmap');
+              
+              // Final redirect to home when user clicks "Let's Start"
+              router.push('/home');
             }}
           />
         );
 
       default:
-        return null;
+        // If step is not recognized, default to PERSONA
+        return <PersonaStep onNext={() => handleNext('PERSONAL_STATS', 10)} />;
     }
   };
 
@@ -219,18 +200,18 @@ export default function OnboardingWizard() {
   if (isCalculating && currentStep === 'COMPLETED') {
     // Get user data from sessionStorage or store
     const userName = typeof window !== 'undefined'
-      ? sessionStorage.getItem('onboarding_personal_name') || data.name || 'OUTer'
+      ? sessionStorage.getItem('onboarding_personal_name') || (data as any).name || 'OUTer'
       : 'OUTer';
     
     // Get workout type from data or default
-    const workoutType = data.preferredWorkout || data.workoutType || 'כושר';
+    const workoutType = (data as any).preferredWorkout || (data as any).workoutType || 'כושר';
 
     return (
       <CalculatingProfileScreen
         userName={userName}
         workoutType={workoutType}
         onComplete={() => {
-          // Navigate to SUMMARY step (not roadmap yet)
+          // Navigate to SUMMARY step (not home yet)
           setIsCalculating(false);
           setStep('SUMMARY');
         }}
@@ -238,36 +219,35 @@ export default function OnboardingWizard() {
     );
   }
 
+  // Get step title based on current step
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 'PERSONA':
+        return savedLanguage === 'he' ? 'ספר/י לנו על עצמך' : 'Tell us about yourself';
+      case 'PERSONAL_STATS':
+        return savedLanguage === 'he' ? 'נתונים אישיים' : 'Personal Stats';
+      case 'EQUIPMENT':
+        return locale.equipment.title;
+      case 'SCHEDULE':
+        return savedLanguage === 'he' ? 'לוח זמנים' : 'Schedule';
+      case 'LOCATION':
+        return savedLanguage === 'he' ? 'המיקום שלך' : 'Your Location';
+      case 'SUMMARY':
+        return savedLanguage === 'he' ? 'סיכום' : 'Summary';
+      default:
+        return '';
+    }
+  };
+
   return (
     <OnboardingLayout
       headerType="progress"
-      initialProgress={initialProgress} // Starts at 50% (Phase 1 completed)
-      currentStep={currentWizardStepIndex >= 0 ? currentWizardStepIndex + 1 : 0}
-      totalSteps={totalWizardSteps}
-      title={
-        currentStep === 'LOCATION'
-          ? 'איפה את/ה גר?'
-          : currentStep === 'EQUIPMENT'
-          ? locale.equipment.title
-          : currentStep === 'HISTORY'
-          ? locale.history.title
-          : currentStep === 'SCHEDULE'
-          ? 'לוח זמנים'
-          : currentStep === 'SOCIAL_MAP'
-          ? 'בחר עיר'
-          : currentStep === 'SUMMARY'
-          ? 'סיכום'
-          : 'השלמת'
-      }
-      subtitle={
-        currentStep === 'LOCATION'
-          ? 'אנחנו שואלים כדי לעזור לך להצטרף לקהילה המקומית ולהתאים לך מסלולי אימון קרובים'
-          : currentStep === 'HISTORY'
-          ? locale.history.subtitle
-          : undefined
-      }
+      onboardingPhase={2} // Phase 2 - Lifestyle Adaptation
+      phaseProgress={phaseProgress}
+      currentStep={visibleStepIndex >= 0 ? visibleStepIndex + 1 : 1}
+      totalSteps={visibleSteps.length}
       onBack={handleBack}
-      showBack={currentStep !== 'LOCATION'}
+      showBack={currentStepIndex > 0}
     >
       {renderStepContent()}
     </OnboardingLayout>

@@ -9,6 +9,7 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import RunLapsList from './RunLapsList';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import RunMapBlock from '@/features/workout-engine/summary/components/running/RunMapBlock';
 
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
@@ -150,7 +151,7 @@ export default function FreeRunSummary({
   return (
     <div
       className="fixed inset-0 z-20 flex flex-col h-screen bg-gray-50 font-sans pointer-events-auto"
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
       dir="rtl"
     >
       {/* Confetti Effect */}
@@ -216,7 +217,8 @@ export default function FreeRunSummary({
             <p className="text-center text-gray-500 text-sm mb-4">כל הכבוד על ההתמדה</p>
 
             {/* Coin Badge */}
-            {calories > 0 && (
+            {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+            {IS_COIN_SYSTEM_ENABLED && calories > 0 && (
               <motion.div
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}

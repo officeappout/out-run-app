@@ -5,6 +5,7 @@ import { Flame } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '../../../core/store/useSessionStore';
 import { useProgressionStore } from '@/features/user';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface DopamineScreenProps {
   onContinue?: () => void;
@@ -14,6 +15,7 @@ export default function DopamineScreen({ onContinue }: DopamineScreenProps) {
   const router = useRouter();
   const { totalDistance } = useSessionStore();
   const { lastActivityType, coins } = useProgressionStore();
+  // COIN_SYSTEM_PAUSED: Show 0 coins when system is disabled
   const [totalCoins, setTotalCoins] = useState(0);
   const [activeBonus, setActiveBonus] = useState<string | null>(null);
   const [showContinue, setShowContinue] = useState(false);
@@ -57,6 +59,16 @@ export default function DopamineScreen({ onContinue }: DopamineScreenProps) {
   ];
 
   useEffect(() => {
+    // COIN_SYSTEM_PAUSED: Skip coin celebration and go directly to continue
+    if (!IS_COIN_SYSTEM_ENABLED) {
+      setShowContinue(true);
+      // Auto-redirect after a short delay when coins are disabled
+      setTimeout(() => {
+        handleContinue();
+      }, 1500);
+      return;
+    }
+    
     // טעינת הסאונד
     audioRef.current = new Audio('/sounds/coin-clink.mp3');
     
@@ -83,6 +95,7 @@ export default function DopamineScreen({ onContinue }: DopamineScreenProps) {
     setTimeout(() => {
       setShowContinue(true);
     }, (lastStepDelay + 1.5) * 1000); // Wait 1.5s after last bonus
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

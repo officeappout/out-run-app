@@ -6,14 +6,37 @@
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
 
+/**
+ * Enriched Exercise interface for WorkoutPlan
+ * Contains all metadata needed for UI rendering - Single Source of Truth
+ */
 export interface Exercise {
   id: string;
   name: string;
   reps?: string;
   duration?: string;
   videoUrl?: string;
+  imageUrl?: string;
   instructions?: string[];
   icon?: string;
+  
+  // Enriched metadata from Firestore Exercise
+  /** Exercise type: 'reps' | 'time' */
+  exerciseType?: 'reps' | 'time';
+  /** Exercise role: 'warmup' | 'main' | 'cooldown' */
+  exerciseRole?: 'warmup' | 'main' | 'cooldown';
+  /** Is this a follow-along exercise? */
+  isFollowAlong?: boolean;
+  /** Execution highlights (tips) */
+  highlights?: string[];
+  /** Primary and secondary muscle groups */
+  muscleGroups?: string[];
+  /** Exercise goal/description */
+  goal?: string;
+  /** Detailed description */
+  description?: string;
+  /** Equipment required for this exercise */
+  equipment?: string[];
 }
 
 export interface RouteSegment {
@@ -44,6 +67,8 @@ export interface WorkoutSegment {
   isCompleted: boolean;
   heartRateTarget?: string;
   paceTarget?: string;
+  /** Rest time between exercises in seconds. Defaults to 10. Set to 0 to skip rest. */
+  restBetweenExercises?: number;
 }
 
 export interface WorkoutPlan {

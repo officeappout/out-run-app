@@ -1,0 +1,2616 @@
+[
+  {
+    "name": "פלאנץ בפישוק פייק",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12
+    }
+  },
+  {
+    "name": "פלאנץ בפישוק - בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12
+    }
+  },
+  {
+    "name": "לחיצת פלאנץ בטאק מתקדם + וריאציה עם גומייה",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12
+    }
+  },
+  {
+    "name": "מתח יד אחת שלילי עם עצירות",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12,
+      "one_arm_pullup": 12
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פייק עם החזקה",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12,
+      "hspu": 12
+    }
+  },
+  {
+    "name": "סיבוב על טבעות בפישוק",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12
+    }
+  },
+  {
+    "name": "לחיצת פלאנץ בטאק + וריאציה עם גומייה",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "החזקה על המתח יד אחת ב-15 עם תמיכה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "one_arm_pullup": 8
+    }
+  },
+  {
+    "name": "לחיצת פלאנץ בפישוק + וריאציה עם גומייה",
+    "programLevels": {
+      "upper_body": 23,
+      "calisthenics": 14
+    }
+  },
+  {
+    "name": "פלאנץ בפישוק",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13
+    }
+  },
+  {
+    "name": "פלאנץ מלא",
+    "programLevels": {
+      "upper_body": 24,
+      "calisthenics": 15
+    }
+  },
+  {
+    "name": "החזקה על מתח יד אחת ב-90° עם תמיכה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "one_arm_pullup": 8
+    }
+  },
+  {
+    "name": "החזקה על מתח יד אחת ב-120° עם תמיכה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "one_arm_pullup": 8
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בעמידת ידיים חזה לקיר",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11,
+      "hspu": 11
+    }
+  },
+  {
+    "name": "שכיבות סמיכה עמוקות בעמידת ידיים חזה לקיר",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12,
+      "hspu": 12
+    }
+  },
+  {
+    "name": "ישיבת L לעמידת ידיים עם מרפקים כפופים",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13,
+      "hspu": 13
+    }
+  },
+  {
+    "name": "שכיבות סמיכה עמוקות בעמידת ידיים",
+    "programLevels": {
+      "upper_body": 24,
+      "calisthenics": 14,
+      "hspu": 14
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פייק עם עלייה לע״י",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13
+    }
+  },
+  {
+    "name": "לחיצת פייק חצי טווח",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "מתח יד אחת - שלילי",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "מתח יד אחת על מוט",
+    "programLevels": {
+      "upper_body": 24,
+      "calisthenics": 13,
+      "one_arm_pullup": 15
+    }
+  },
+  {
+    "name": "מקבילים עמוקים על טבעות",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "שכיבות סמיכה על טבעות",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "דרגון",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11
+    }
+  },
+  {
+    "name": "סיבוב על המתח בטאק",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "דגל בפישוק - בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "הרמות דגל בטאק",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "סיבוב על טבעות רגל אחת",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11
+    }
+  },
+  {
+    "name": "סיבוב על טבעות גוף ישר (מלא)",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13
+    }
+  },
+  {
+    "name": "חתירות Y - רצועות",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "טיפוס על חבל בעזרת הרגליים",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "טיפוס על חבל בלי רגליים",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "טיפוס על חבל בישיבת l",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "שכיבות שמיכה בזווית 75",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "חתירות בכפיפה עם גומייה",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "מתח אוסטרלי 60 מעלות",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "פלאנק עם תמיכה של הברכיים",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "שולחן הפוך",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "שכיבות שמיכה בזווית 60",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "תלייה פאסיבית עם עזרה של הרגליים",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "חתירות בזווית 75 מעלות",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "חתירות בזווית 60 מעלות",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "פשיטת מרפקים על הרצפה",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "חתירות בזווית 45 מעלות עם ברכיים מכופפות",
+    "programLevels": {
+      "upper_body": 1
+    }
+  },
+  {
+    "name": "חתירות בזווית 45 מעלות",
+    "programLevels": {
+      "upper_body": 2
+    }
+  },
+  {
+    "name": "שכיבות שמיכה בזווית 45",
+    "programLevels": {
+      "upper_body": 2
+    }
+  },
+  {
+    "name": "פלאנק",
+    "programLevels": {
+      "upper_body": 2
+    }
+  },
+  {
+    "name": "תלייה פסיבית",
+    "programLevels": {
+      "upper_body": 2,
+      "handstand": 5
+    }
+  },
+  {
+    "name": "שכיבות שמיכה בזווית 30",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "מתח אוסטרלי 30 מעלות",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "חתירות בזווית 30 מעלות",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "החזקה בחתירות ב90 מעלות במרפק",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "פלאנק עליות + נגיעות בכתפיים",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "החזקה בשכיבות סמיכה ב90 מעלות במרפק",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "פשיטת מרפק על ספסל",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "ישיבת L בעזרת תמיכה של הרגליים",
+    "programLevels": {
+      "upper_body": 3
+    }
+  },
+  {
+    "name": "ישיבת L עם עליות רגל אחת",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "חתירות בזווית 15 מעלות עם ברכיים מכופפות",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "שכיבות שמיכה בזווית 15",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה טווח תנועה חלקי חלק עליון",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בטווח תנועה חלקי חלק תחתון",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "שכיבות שמיכה שלילי",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בעזרת תמיכה של הברכיים",
+    "programLevels": {
+      "upper_body": 4
+    }
+  },
+  {
+    "name": "החזקה על המתח ב- 15 עם עזרה",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "החזקה על המתח ב- 90 עם עזרה",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "החזקה על המתח ב- 120 עם עזרה",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "החזקה על המקבילים ב- 15 בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "החזקה על המקבילים ב- 90 בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "החזקה על המקבילים ב- 120 בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "חתירות בזווית 15 מעלות",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "תלייה אקטיבת/פאסיבית",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "מתח אוסטרלי 15 מעלות",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "החזקה אקטיבת על המקבילים",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפיסוק",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "מתח שלילי עם תמיכה של הרגליים",
+    "programLevels": {
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "שכיבות סמיכה",
+    "programLevels": {
+      "upper_body": 5,
+      "handstand": 6
+    }
+  },
+  {
+    "name": "החזקה על מקבילים בזווית 120",
+    "programLevels": {
+      "upper_body": 6
+    }
+  },
+  {
+    "name": "החזקה על המתח בזווית 15 מעלות",
+    "programLevels": {
+      "upper_body": 6
+    }
+  },
+  {
+    "name": "החזקה על המתח בזווית 120 מעלות",
+    "programLevels": {
+      "upper_body": 6
+    }
+  },
+  {
+    "name": "מתח בעזרת גומיה בהתנגדות גבוהה",
+    "programLevels": {
+      "upper_body": 6
+    }
+  },
+  {
+    "name": "מקבילים בעזרת גומיה בהתנגדות גבוהה",
+    "programLevels": {
+      "upper_body": 6
+    }
+  },
+  {
+    "name": "החזקה על מקבילים בזווית 90 מעלות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "החזקה על המתח בזווית 90 מעלות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "מקבילים בעזרת גומיה בהתנגדות בינונית",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "מתח בעזרת גומיה בהתנגדות בינונית",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "מתח טווח תנועה חלקי חלק עליון",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "החזקה אקטיבית על מקבילים בזווית 15 מעלות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "ישבה בL עם ברכיים מכופפות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "שכיבות סמיכה - רצועות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "פרפר - רצועות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "שכיבות סמיכה עם מרפקים צמודים",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "עמידת פייק",
+    "programLevels": {
+      "upper_body": 7,
+      "handstand": 1
+    }
+  },
+  {
+    "name": "עמידת פלאנק על טבעות",
+    "programLevels": {
+      "upper_body": 7
+    }
+  },
+  {
+    "name": "מתח טווח תנועה חלקי חלק תחתון",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "מקבילים בטווח תנועה חלקי עליון",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "מקבילים בטווח תנועה חלקי חלק תחתון",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "מקבילים שלילי",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "מתח שלילי",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "עליות 2 רגליים בישבת L",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "שכיבות סמיכה יהלום",
+    "programLevels": {
+      "upper_body": 8
+    }
+  },
+  {
+    "name": "מקבילים בעזרת גומיה בהתנגדות נמוכה",
+    "programLevels": {
+      "upper_body": 9
+    }
+  },
+  {
+    "name": "מתח בעזרת גומיה בהתנגדות נמוכה",
+    "programLevels": {
+      "upper_body": 9
+    }
+  },
+  {
+    "name": "מתח שלילי עם החזקות",
+    "programLevels": {
+      "upper_body": 9
+    }
+  },
+  {
+    "name": "החזקה תמיכה על הטבעות עם הרגליים",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה מתפרץ",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "עמידת פייק מוגבה בגובה שוק",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "מקבילים",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1,
+      "hspu": 1
+    }
+  },
+  {
+    "name": "משיכות לפנים עם טבעות",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בשיפוע שלילי 30 מעלות",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "חתירות Y",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1,
+      "front_lever": 1
+    }
+  },
+  {
+    "name": "בננה סופרמן על מתח",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "ישבה בL עם רגל אחת ישרה",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "מתח באחיזה הפוכה",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1,
+      "front_lever": 1,
+      "one_arm_pullup": 1
+    }
+  },
+  {
+    "name": "מקבילים שלילי עם החזקות",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה יד הפוכה",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "משיכות פנים עם רצועות",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1,
+      "front_lever": 1
+    }
+  },
+  {
+    "name": "פרפר הפוך - רצועות",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה רחב",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה יד אחורית",
+    "programLevels": {
+      "upper_body": 11,
+      "calisthenics": 2
+    }
+  },
+  {
+    "name": "מתח",
+    "programLevels": {
+      "upper_body": 11,
+      "calisthenics": 2,
+      "front_lever": 2,
+      "one_arm_pullup": 2
+    }
+  },
+  {
+    "name": "מתח קומנדו",
+    "programLevels": {
+      "upper_body": 11,
+      "calisthenics": 2,
+      "front_lever": 2,
+      "one_arm_pullup": 2
+    }
+  },
+  {
+    "name": "מתח קשתים לשכמות",
+    "programLevels": {
+      "upper_body": 11,
+      "calisthenics": 2,
+      "one_arm_pullup": 2
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפייק",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "סיבוב על טבעות שלילי",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "ישיבה בL רגליים ישרות",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "דגל פלאנק צידי",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "עמידת תמיכה על הטבעות",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "מתח מתפרץ בתפיסה הפוכה",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "front_lever": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "חתירות בתפיסה עמוקה",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "מתח רחב",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "מתח רחב עם מוט",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "front_lever": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "חתירות קשתים ב45 מעלות",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "front_lever": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "חתירות קשתים - רצועות",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "front_lever": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "תלייה פאסיבית ביד אחת",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "מתח שכמות יד אחת עם תמיכת אצבעות",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "הכנה לעליית כוח נדנוד/תנופה",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3
+    }
+  },
+  {
+    "name": "מתח צר",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "front_lever": 3,
+      "one_arm_pullup": 3
+    }
+  },
+  {
+    "name": "מקבילים על טבעות בעזרת גומיה בהתנגדות נמוכה",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "תלייה על הטבעות בתפיסה עמוקה",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "כפיפת מרפק עם טבעות בזווית 45",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4,
+      "front_lever": 4,
+      "one_arm_pullup": 4
+    }
+  },
+  {
+    "name": "כפיפת מרפק על רצועות",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4,
+      "front_lever": 4,
+      "one_arm_pullup": 4
+    }
+  },
+  {
+    "name": "מתח באחיזה משולבת",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4,
+      "front_lever": 4,
+      "one_arm_pullup": 4
+    }
+  },
+  {
+    "name": "פוסידו פלאנץ",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פייק גובה שוק",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "מתח מתפרץ בעזרת גומיה",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4,
+      "front_lever": 4,
+      "one_arm_pullup": 4
+    }
+  },
+  {
+    "name": "דגל ב-45°",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "תלייה גרמנית על מוט",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "ישיבת l - על הרצפה",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה קשתים עם פיסוק ברגליים",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "עמידת פייק מוגבה גובה ברך",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "פשיטת מרפקים למתקדמים",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "באק ברכיים כפופות",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "תלייה הפוכה על טבעות",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "סיבוב על טבעות טאק",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4
+    }
+  },
+  {
+    "name": "עמידת פייק מוגבה בגובה האגן",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "שכיבות סמיכה קשתים",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "מתח עם עצירות",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5,
+      "front_lever": 5,
+      "one_arm_pullup": 5
+    }
+  },
+  {
+    "name": "דרגון בטאק",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "דגל נמוך",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "הליכות קיר",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "עמידת ידיים עם החזה לקיר ב45 מעלות",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "מקבילים על טבעות",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "פרונט בטאק",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5,
+      "front_lever": 5
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפייק בהגבה גובה ברך",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5
+    }
+  },
+  {
+    "name": "עליות פרונט ברכיים כפופות חלק תחתון",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5,
+      "front_lever": 5
+    }
+  },
+  {
+    "name": "דרגון בטאק מתקדם",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "שכיבות סמיכה קשתים - רצועות",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פייק הגבה בגובה אגן",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "עמידת ידיים עם החזה לקיר",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "באק לבר טאק מתקדם",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "עליית כוח בקפיצה על טבעות",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "חתירות יד אחת ב-45° - טבעות",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "one_arm_pullup": 6
+    }
+  },
+  {
+    "name": "חתירות יד אחת ב-45° - רצועות",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "one_arm_pullup": 6
+    }
+  },
+  {
+    "name": "פלאנץ טאק בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פסודו פלאנץ׳",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פסודו פלאנץ׳׳",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 6
+    }
+  },
+  {
+    "name": "פרונט ברכיים בזווית 90 מעלות בעזרת גומיה בהתנגדות נמוכה",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "front_lever": 6
+    }
+  },
+  {
+    "name": "כפיפת מרפק עם טבעות בזווית 30",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "one_arm_pullup": 6
+    }
+  },
+  {
+    "name": "מתח שכמות יד אחת",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "one_arm_pullup": 6
+    }
+  },
+  {
+    "name": "דד ליפט על המתח",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "front_lever": 7
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פייק -גובה אגן ידיים ב-10 ס\"מ",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "עליית כוח עם קפיצה",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "דגל עם ברכיים כפופות",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "פלאנץ טאק",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "מתח הזזת ידיים על טבעות",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "one_arm_pullup": 7
+    }
+  },
+  {
+    "name": "לחיצה מישבת L לפלאנץ ברכיים מכופפות",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "מקבילים על מוט",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "מתח מתפרץ גבוה",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "front_lever": 7,
+      "one_arm_pullup": 7
+    }
+  },
+  {
+    "name": "פרונט בטאק מתקדם",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7
+    }
+  },
+  {
+    "name": "חתירות פרונט בטאק",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "front_lever": 7
+    }
+  },
+  {
+    "name": "מתח קשתים על מוט",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "one_arm_pullup": 7
+    }
+  },
+  {
+    "name": "מתח מעבר מצד לצד",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "one_arm_pullup": 7
+    }
+  },
+  {
+    "name": "מתח יד אחת בעזרת חולצה",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "one_arm_pullup": 7
+    }
+  },
+  {
+    "name": "מתח מתפרץ על טבעות",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "one_arm_pullup": 7
+    }
+  },
+  {
+    "name": "לחיצה מישבת L לפייק",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "מקבילים על טבעות T",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "באק לבר בפישוק",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "סיבוב על טבעות טאק מתקדם",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "חתירות פרונט בטאק מתקדם עם גומייה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "front_lever": 8
+    }
+  },
+  {
+    "name": "מתח יד אחת בעזרת 4 אצבעות",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "one_arm_pullup": 8
+    }
+  },
+  {
+    "name": "הרמות פרונט טאק מתקדם",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "front_lever": 8
+    }
+  },
+  {
+    "name": "פרונט יהלום בעזרת גומיה בהתנגדות נמוכה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "front_lever": 8
+    }
+  },
+  {
+    "name": "עליית כוח שלילית על טבעות",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "עליית כוח על טבעות בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8
+    }
+  },
+  {
+    "name": "דרגון בפישוק",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "פלאנץ טאק מתקדם בעזרת גומיה",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "עליית כוח על טבעות",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "מתח לא שוויני על טבעות",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9,
+      "one_arm_pullup": 9
+    }
+  },
+  {
+    "name": "פרונט יהלום",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9,
+      "front_lever": 9
+    }
+  },
+  {
+    "name": "פרונט במנח רגל אחת בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9,
+      "front_lever": 9
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בטאק פלאנץ",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "עליית כוח שלילית על מתח",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "עליית כוח על מתח בעזרת גומיה בהתנגדות נמוכה",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "החזקה על מתח יד אחת ב-15°",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9,
+      "one_arm_pullup": 9
+    }
+  },
+  {
+    "name": "דגל שלילי בטאק",
+    "programLevels": {
+      "upper_body": 18,
+      "calisthenics": 9
+    }
+  },
+  {
+    "name": "החזקה על מתח יד אחת ב-120°",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 9,
+      "one_arm_pullup": 9
+    }
+  },
+  {
+    "name": "החזקה על מתח יד אחת ב-90°",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 9,
+      "one_arm_pullup": 9
+    }
+  },
+  {
+    "name": "פרונט בפישוק בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10,
+      "front_lever": 10
+    }
+  },
+  {
+    "name": "מתח יד אחת בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10,
+      "one_arm_pullup": 10
+    }
+  },
+  {
+    "name": "פרונט - רגל אחת",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10,
+      "front_lever": 10
+    }
+  },
+  {
+    "name": "שכיבות סמיכה שלילי בע״י חזה לקיר",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10,
+      "hspu": 10
+    }
+  },
+  {
+    "name": "דגל מלא בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "עליית כוח בעזרת תנופה/נדנוד",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "פלאנץ ברכיים בזווית 90 מעלות",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "עליית כוח על מתח",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "חתירות פרונט בטאק מתקדם",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10,
+      "front_lever": 10
+    }
+  },
+  {
+    "name": "באק לבר מלא",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10
+    }
+  },
+  {
+    "name": "דגל בפישוק",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11
+    }
+  },
+  {
+    "name": "הרמות פרונט - רגל אחת",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11,
+      "front_lever": 11
+    }
+  },
+  {
+    "name": "פלאנץ יהלום בעזרת גומייה",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בטאק פלאנץ מתקדם",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11
+    }
+  },
+  {
+    "name": "פרונט בפישוק",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11,
+      "front_lever": 11
+    }
+  },
+  {
+    "name": "עמידת ידיים חופשית",
+    "programLevels": {
+      "upper_body": 20,
+      "calisthenics": 11,
+      "handstand": 10
+    }
+  },
+  {
+    "name": "חצי פרונט",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12,
+      "front_lever": 12
+    }
+  },
+  {
+    "name": "ירידות חצי פרונט",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12,
+      "front_lever": 12
+    }
+  },
+  {
+    "name": "הרמות פרונט בפישוק",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12,
+      "front_lever": 12
+    }
+  },
+  {
+    "name": "סיבוב על טבעות חצי גוף",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12
+    }
+  },
+  {
+    "name": "דגל אנושי",
+    "programLevels": {
+      "upper_body": 21,
+      "calisthenics": 12
+    }
+  },
+  {
+    "name": "פרונט לבר מלא",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13,
+      "front_lever": 13
+    }
+  },
+  {
+    "name": "הרמות חצי פרונט",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13,
+      "front_lever": 13
+    }
+  },
+  {
+    "name": "סקוואט על ספסל",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "עליית מדרגה",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "עליות תאומים",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "היפ טראסט על הרצפה",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "סקוואט בעזרת רצועות",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "לאנץ אחורי",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "גוד מורנינג בישיבה",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "דדליפט רומני",
+    "programLevels": {
+      "lower_body": 1
+    }
+  },
+  {
+    "name": "לאנג׳ קידמי",
+    "programLevels": {
+      "lower_body": 2
+    }
+  },
+  {
+    "name": "סקוואט עד 90",
+    "programLevels": {
+      "lower_body": 2
+    }
+  },
+  {
+    "name": "היפ טראסט רגל אחת",
+    "programLevels": {
+      "lower_body": 2
+    }
+  },
+  {
+    "name": "ישיבת סקוואט כנגד קיר",
+    "programLevels": {
+      "lower_body": 2
+    }
+  },
+  {
+    "name": "סקוואט",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "קפיצה על ספסל גובה שוק",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "סקוואט קפיצה",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "כפיפת ירך בשכיבה עם גומיה",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "עליות ספסל גובה ברך",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "עליות תאומים על מדרגה",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "דדליפט בהתנגדות גומייה",
+    "programLevels": {
+      "lower_body": 3
+    }
+  },
+  {
+    "name": "סקוואט בהתנגדות גומייה",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "דדליפט על רגל אחת",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "סקוואט עמוק",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "לאנג' בולגרי חצי טווח",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "כפיפת ירך על ספסל",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "סומו סקוואט",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "לאנג' אחורי בהצלבה",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "כפיפת ברך בשכיבה עם גומייה",
+    "programLevels": {
+      "lower_body": 4
+    }
+  },
+  {
+    "name": "דדליפט רגל אחת בהתנגדות גומייה",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "ישיבת סקוואט כנגד קיר רגל אחת",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "גמישות קרסול - ברך לעמוד",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "לאנג' בולגרי",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "שרימפ סקוואט בלי ידיים- חצי טווח",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "פשיטת ירך על ספסל",
+    "programLevels": {
+      "lower_body": 5,
+      "upper_body": 5
+    }
+  },
+  {
+    "name": "היפ טראסט מוגבה",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "עליות תאומים על מדרגה רגל אחת",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "עליות רגליים בישיבת פייק",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "קפיצה על ספסל גובה ברך",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "לאנג' בקפיצה",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "הרמת רגל בדרגון",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "סיסי לאנג׳",
+    "programLevels": {
+      "lower_body": 5
+    }
+  },
+  {
+    "name": "לחיצת רגליים כנגד קיר/עמוד",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "סקוואט בהונות",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "נורדיק מתחילים",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "שרימפ סקוואט - בעזרת עמוד",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "קוזאק סקוואט חצי טווח",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "היפ טראסט מוגבהה רגל אחת",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "קפיצה על ספסל - גובה אגן",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "שרימפ סקוואט - תמיכת רגל",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "פיסטול סקוואט ישבה על ספסל",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "היפ טראסט - הליכות",
+    "programLevels": {
+      "lower_body": 6
+    }
+  },
+  {
+    "name": "סיסי סקוואט גובה שוק",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "עליות ספסל - גובה אגן",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "כפיפת ברך בשכיבה עם טבעות",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "נורדיק אחורי בעזרת גומיה",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "שרימפ סקוואט - יד אחת -גובה ברך",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "פיסטול סקוואט החזקה",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "לאנג' עמוק",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "פלאנק צידי - מקרבים",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "היפ טראסט - מאורך",
+    "programLevels": {
+      "lower_body": 7
+    }
+  },
+  {
+    "name": "שרימפ סקוואט - בלי ידיים",
+    "programLevels": {
+      "lower_body": 8
+    }
+  },
+  {
+    "name": "נורדיק בעזרת גומיה",
+    "programLevels": {
+      "lower_body": 8
+    }
+  },
+  {
+    "name": "פיסטול סקוואט מוגבה",
+    "programLevels": {
+      "lower_body": 8
+    }
+  },
+  {
+    "name": "קוזק סקוואט",
+    "programLevels": {
+      "lower_body": 8
+    }
+  },
+  {
+    "name": "קפיצה על ספסל רגל אחת בגובה ברך",
+    "programLevels": {
+      "lower_body": 8
+    }
+  },
+  {
+    "name": "פיסטול סקוואט מוגבה רגל לפנים",
+    "programLevels": {
+      "lower_body": 9
+    }
+  },
+  {
+    "name": "שרימפ סקוואט - יד אחת",
+    "programLevels": {
+      "lower_body": 9
+    }
+  },
+  {
+    "name": "סיסי סקוואט עם עזרה של קיר",
+    "programLevels": {
+      "lower_body": 9
+    }
+  },
+  {
+    "name": "שרימפ סקוואט עמוק- בלי ידיים",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "שרימפ סקוואט עמוק יד אחת",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "סיסי סקוואט שלילי",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "נורדיק אחורי",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "קוזק סקוואט בהגבהה",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "נורדיק עד 45 מעלות",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "פיסטול סקוואט",
+    "programLevels": {
+      "lower_body": 10
+    }
+  },
+  {
+    "name": "סיסי סקוואט",
+    "programLevels": {
+      "lower_body": 12
+    }
+  },
+  {
+    "name": "שרימפ סקוואט- 2 ידיים",
+    "programLevels": {
+      "lower_body": 13
+    }
+  },
+  {
+    "name": "נורדיק שלילי",
+    "programLevels": {
+      "lower_body": 13
+    }
+  },
+  {
+    "name": "סיסי סקוואט עמוק",
+    "programLevels": {
+      "lower_body": 15
+    }
+  },
+  {
+    "name": "נורדיק",
+    "programLevels": {
+      "lower_body": 15
+    }
+  },
+  {
+    "name": "שרימפ עמוק שתי ידיים",
+    "programLevels": {
+      "lower_body": 15
+    }
+  },
+  {
+    "name": "פול פלאנץ",
+    "programLevels": {
+      "upper_body": 24,
+      "calisthenics": 15
+    }
+  },
+  {
+    "name": "מתח יד אחת - שלילי+תמיכה אם קשה",
+    "programLevels": {
+      "upper_body": 19,
+      "calisthenics": 10,
+      "one_arm_pullup": 10
+    }
+  },
+  {
+    "name": "מתח יד אחת באחיזה הפוכה",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13,
+      "one_arm_pullup": 13
+    }
+  },
+  {
+    "name": "מתח יד אחת על טבעות",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13,
+      "one_arm_pullup": 13
+    }
+  },
+  {
+    "name": "חימום כף יד למתחילים",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "חימום כתף למתחילים",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה שכמות",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "ישיבת L עם תמיכת רגליים",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "החזקת גוף חלול טאק 45°",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "תלייה פסיבית עם תמיכה מהרגליים",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "פלאנק גבוה (החזקת פלאנק ידיים ישרות)",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "החזקת גוף חלול טאק 90°",
+    "programLevels": {
+      "handstand": 1
+    }
+  },
+  {
+    "name": "ישיבת L עם תמיכת רגל אחת",
+    "programLevels": {
+      "handstand": 2
+    }
+  },
+  {
+    "name": "הרמת שכמות בעמידת פייק",
+    "programLevels": {
+      "handstand": 2
+    }
+  },
+  {
+    "name": "פתיחת כתף עם קיר או מוט",
+    "programLevels": {
+      "handstand": 2
+    }
+  },
+  {
+    "name": "נגיעות כתפיים בפלאנק גבוה",
+    "programLevels": {
+      "handstand": 2
+    }
+  },
+  {
+    "name": "עמידת צפרדע ניתוקי רגליים",
+    "programLevels": {
+      "handstand": 2
+    }
+  },
+  {
+    "name": "עמידת ידיים חזה לקיר ב 45°",
+    "programLevels": {
+      "handstand": 3
+    }
+  },
+  {
+    "name": "עמידת פייק בהגבהה גובה שוק",
+    "programLevels": {
+      "handstand": 3
+    }
+  },
+  {
+    "name": "ישיבת L ברכיים כפופות",
+    "programLevels": {
+      "handstand": 3
+    }
+  },
+  {
+    "name": "הרמות ידיים בשכיבה על הבטן",
+    "programLevels": {
+      "handstand": 3
+    }
+  },
+  {
+    "name": "נגיעות כתפיים בפייק",
+    "programLevels": {
+      "handstand": 3
+    }
+  },
+  {
+    "name": "שכיבות סמיכה 45°",
+    "programLevels": {
+      "handstand": 3
+    }
+  },
+  {
+    "name": "עמידת צפרדע",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "מתיחת מתפלל",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "תרגול נפילה ברכיים כפופות חזה לקיר",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "פלאנק לעמידת פייק",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "החזקת גוף חלול על הבטן",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה ברכיים",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "עמידת ידיים חזה לקיר",
+    "programLevels": {
+      "handstand": 4
+    }
+  },
+  {
+    "name": "תרגול נפילה צידי חזה לקיר",
+    "programLevels": {
+      "handstand": 5
+    }
+  },
+  {
+    "name": "מתיחת גב צידית",
+    "programLevels": {
+      "handstand": 5
+    }
+  },
+  {
+    "name": "החזקת גוף חלול טאק 135°",
+    "programLevels": {
+      "handstand": 5
+    }
+  },
+  {
+    "name": "עמידת פייק גובה ברך",
+    "programLevels": {
+      "handstand": 5,
+      "upper_body": 13,
+      "calisthenics": 4,
+      "hspu": 4
+    }
+  },
+  {
+    "name": "תלייה פסיבית סופינציה",
+    "programLevels": {
+      "handstand": 6
+    }
+  },
+  {
+    "name": "ישיבת סייזה לעמידת פייק",
+    "programLevels": {
+      "handstand": 6
+    }
+  },
+  {
+    "name": "עמידת עורב",
+    "programLevels": {
+      "handstand": 6
+    }
+  },
+  {
+    "name": "תרגול נפילה קדמי חזה לקיר",
+    "programLevels": {
+      "handstand": 6
+    }
+  },
+  {
+    "name": "הליכות חזה לקיר",
+    "programLevels": {
+      "handstand": 7
+    }
+  },
+  {
+    "name": "קוברה תלוייה",
+    "programLevels": {
+      "handstand": 7
+    }
+  },
+  {
+    "name": "ניתוקי מספריים חזה לקיר",
+    "programLevels": {
+      "handstand": 7
+    }
+  },
+  {
+    "name": "ניתוקי מספריים גב לקיר",
+    "programLevels": {
+      "handstand": 7
+    }
+  },
+  {
+    "name": "החזקת גוף חלול",
+    "programLevels": {
+      "handstand": 7
+    }
+  },
+  {
+    "name": "חצי קיק אפ",
+    "programLevels": {
+      "handstand": 8
+    }
+  },
+  {
+    "name": "הרמת שכמות בעמידת ידיים חזה לקיר",
+    "programLevels": {
+      "handstand": 8
+    }
+  },
+  {
+    "name": "מתיחת קצבים",
+    "programLevels": {
+      "handstand": 8
+    }
+  },
+  {
+    "name": "ניתוקי בהונות",
+    "programLevels": {
+      "handstand": 9
+    }
+  },
+  {
+    "name": "עמידת ידיים עזרת חבר",
+    "programLevels": {
+      "handstand": 9
+    }
+  },
+  {
+    "name": "קיק אפ מהגבהה גובה שוק",
+    "programLevels": {
+      "handstand": 9
+    }
+  },
+  {
+    "name": "ניתוקי עקבים",
+    "programLevels": {
+      "handstand": 9
+    }
+  },
+  {
+    "name": "קיק אפ מלא",
+    "programLevels": {
+      "handstand": 10
+    }
+  },
+  {
+    "name": "זמן משחק",
+    "programLevels": {
+      "handstand": 10
+    }
+  },
+  {
+    "name": "לחיצת L בהגבהה גובה אגן",
+    "programLevels": {
+      "handstand": 10
+    }
+  },
+  {
+    "name": "שיבולים חזה לקיר מתחילים",
+    "programLevels": {
+      "handstand": 10
+    }
+  },
+  {
+    "name": "החלקות פישוק חזה לקיר",
+    "programLevels": {
+      "handstand": 11
+    }
+  },
+  {
+    "name": "החלקות טאק חזה לקיר",
+    "programLevels": {
+      "handstand": 12
+    }
+  },
+  {
+    "name": "הליכות חזה לקיר + החלקת טאק",
+    "programLevels": {
+      "handstand": 13
+    }
+  },
+  {
+    "name": "עמידת פייק גובה שוק",
+    "programLevels": {
+      "upper_body": 10,
+      "calisthenics": 1,
+      "hspu": 1
+    }
+  },
+  {
+    "name": "שכיבות סמיכה פייק",
+    "programLevels": {
+      "upper_body": 12,
+      "calisthenics": 3,
+      "hspu": 3
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפייק גובה שוק",
+    "programLevels": {
+      "upper_body": 13,
+      "calisthenics": 4,
+      "hspu": 4
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפייק גובה ברך",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5,
+      "hspu": 5
+    }
+  },
+  {
+    "name": "עמידת ידיים חזה לקיר ב45 מעלות",
+    "programLevels": {
+      "upper_body": 14,
+      "calisthenics": 5,
+      "hspu": 5
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפייק גובה אגן",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "hspu": 6
+    }
+  },
+  {
+    "name": "עמידת ידים חזקה לקיר",
+    "programLevels": {
+      "upper_body": 15,
+      "calisthenics": 6,
+      "hspu": 6
+    }
+  },
+  {
+    "name": "לחיצה מl לפלאנץ טאק",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "hspu": 7
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בפייק גובה הגבה לידיים",
+    "programLevels": {
+      "upper_body": 16,
+      "calisthenics": 7,
+      "hspu": 7
+    }
+  },
+  {
+    "name": "לחיצה מL לפייק",
+    "programLevels": {
+      "upper_body": 17,
+      "calisthenics": 8,
+      "hspu": 8
+    }
+  },
+  {
+    "name": "שכיבות סמיכה בעמידת ידיים",
+    "programLevels": {
+      "upper_body": 22,
+      "calisthenics": 13,
+      "hspu": 13
+    }
+  }
+]

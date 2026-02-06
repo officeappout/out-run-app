@@ -72,7 +72,7 @@ export default function RoutePlannerCard({ address, userPos, userWeight, onClose
 
     return (
         <div className="absolute bottom-[90px] left-4 right-4 z-[60] animate-in slide-in-from-bottom-5 duration-300">
-            <div className="max-w-md mx-auto bg-white/90 backdrop-blur-xl rounded-[32px] p-5 shadow-2xl border border-white/50 relative">
+            <div className="max-w-md mx-auto bg-white/90 backdrop-blur-xl rounded-3xl p-5 shadow-premium-hover border border-white/50 relative">
 
                 {/* Header */}
                 <div className="flex justify-between items-start mb-4" dir="rtl">

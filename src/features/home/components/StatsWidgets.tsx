@@ -31,7 +31,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
       {isGuest ? (
         <div
           onClick={() => router.push('/onboarding')}
-          className="bg-white rounded-[32px] p-5 shadow-sm border border-orange-100/50 flex flex-col items-center justify-center min-h-[165px] cursor-pointer active:scale-95 transition-transform relative overflow-hidden"
+          className="bg-white rounded-3xl p-5 shadow-card border border-orange-100/50 flex flex-col items-center justify-center min-h-[165px] cursor-pointer active:scale-95 transition-transform relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-full h-1 bg-orange-400/20" />
 
@@ -45,7 +45,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
         </div>
       ) : (
         /* כרטיס דקות פעילות - רגיל */
-        <div className="bg-white rounded-[32px] p-5 shadow-sm border border-gray-50 flex flex-col justify-between min-h-[165px]">
+        <div className="bg-white rounded-3xl p-5 shadow-card border border-gray-50 flex flex-col justify-between min-h-[165px]">
           <div>
             <Heart size={18} className="text-gray-300 mb-3" />
             <h3 className="text-[13px] font-black text-gray-900 mb-1">יעד שבועי</h3>
@@ -67,7 +67,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
       )}
 
       {/* כרטיס צעדים */}
-      <div className="bg-white rounded-[32px] p-5 shadow-sm border border-gray-50 flex flex-col items-center justify-center min-h-[165px]">
+      <div className="bg-white rounded-3xl p-5 shadow-card border border-gray-50 flex flex-col items-center justify-center min-h-[165px]">
         <div className="relative w-24 h-24 flex items-center justify-center">
           <svg className="absolute w-full h-full -rotate-90">
             <circle cx="48" cy="48" r="38" stroke="#F0F9FF" strokeWidth="7" fill="transparent" />

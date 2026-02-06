@@ -17,17 +17,17 @@ interface WorkoutHistoryCardProps {
  */
 export default function WorkoutHistoryCard({ workout, onClick }: WorkoutHistoryCardProps) {
   // Route to appropriate card based on workout type
-  switch (workout.workoutType) {
-    case 'running':
+    switch (workout.workoutType) {
+      case 'running':
       return <RunningHistoryCard workout={workout} onClick={onClick} />;
     
-    case 'strength':
+      case 'strength':
       return <StrengthHistoryCard workout={workout} onClick={onClick} />;
     
-    case 'walking':
-    case 'cycling':
-    case 'hybrid':
-    default:
+      case 'walking':
+      case 'cycling':
+      case 'hybrid':
+      default:
       return <ActivityHistoryCard workout={workout} onClick={onClick} />;
   }
 }

@@ -55,8 +55,9 @@ export default function DynamicOnboardingPage() {
 
   // UI state
   const [isAnimating, setIsAnimating] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = isPart1Complete ? 7 : 100; // Dynamic steps for Part 1
+  // Track question index for progress calculation
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const estimatedTotalQuestions = 8; // Estimated questions in fitness assessment
   
   // Get language and direction - memoized at component level
   const savedLanguage = typeof window !== 'undefined' 
@@ -135,7 +136,7 @@ export default function DynamicOnboardingPage() {
           // Continue Part 1
           setCurrentQuestion(result.nextQuestion);
           setSelectedAnswerId(undefined);
-          setCurrentStep(prev => prev + 1);
+          setQuestionIndex(prev => prev + 1);
         } else {
           // No next question (shouldn't happen) - trigger completion
           setIsPart1Complete(true);
@@ -176,11 +177,42 @@ export default function DynamicOnboardingPage() {
         return;
       }
 
+      // Get selected goals from sessionStorage
+      const savedGoals = typeof window !== 'undefined'
+        ? (() => {
+            try {
+              const goalsStr = sessionStorage.getItem('onboarding_selected_goals');
+              return goalsStr ? JSON.parse(goalsStr) : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+
+      // Get selected persona from sessionStorage
+      const savedPersonaId = typeof window !== 'undefined'
+        ? sessionStorage.getItem('onboarding_selected_persona_id')
+        : null;
+      
+      const savedPersonaTags = typeof window !== 'undefined'
+        ? (() => {
+            try {
+              const tagsStr = sessionStorage.getItem('onboarding_selected_persona_tags');
+              return tagsStr ? JSON.parse(tagsStr) : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+
       // Combine answers - use sessionStorage data instead of part2Data
       const allAnswers = {
         ...dynamicAnswers,
         personal_name: savedName,
         personal_gender: savedGender || 'neutral',
+        selected_goals: savedGoals, // Add goals to answers
+        selected_persona_id: savedPersonaId, // Add persona ID
+        selected_persona_tags: savedPersonaTags, // Add persona lifestyle tags
         // Optional fields can be empty if not collected
         weight: '',
         height: '',
@@ -239,9 +271,9 @@ export default function DynamicOnboardingPage() {
     setShowProgramResult(true);
   }, []);
 
-  // Handle program result continue - navigate to Phase 2 Intro (Bridge Screen)
+  // Handle program result continue - navigate to Roadmap with Step 2 active
   const handleProgramResultContinue = useCallback(() => {
-    router.push('/onboarding-new/phase2-intro');
+    router.push('/onboarding-new/roadmap');
   }, [router]);
 
   // Show reveal screens if active
@@ -309,9 +341,9 @@ export default function DynamicOnboardingPage() {
   // Get locale for welcome message
   const locale = getOnboardingLocale(savedLanguage);
   
-  // Personalized welcome message (only show on first question)
+  // Personalized welcome message (only show on first question of questionnaire)
   // Safe implementation to prevent crash: use fallback if locale is missing
-  const isFirstQuestion = currentStep === 1;
+  const isFirstQuestion = questionIndex === 0; // First question of fitness assessment
   const userName = savedName || (savedLanguage === 'he' ? 'חבר/ה' : savedLanguage === 'ru' ? 'друг' : 'friend');
   const welcomeTemplate = locale?.common?.welcomeMessage || "מעולה {name}, בואו נתחיל לדייק את רמת הכושר שלך";
   const welcomeMessage = isFirstQuestion && welcomeTemplate 
@@ -319,14 +351,16 @@ export default function DynamicOnboardingPage() {
     : null;
 
   // Part 1: Dynamic questions
+  // Phase 1 progress: 30% (personal details done) + up to 70% (questions)
+  // Formula: min(30 + (questionIndex / estimatedTotalQuestions) * 70, 100)
+  const phase1Progress = Math.min(30 + (questionIndex / estimatedTotalQuestions) * 70, 100);
+  
   if (!isPart1Complete && currentQuestion) {
-    // Pass isPart1Complete flag for progress calculation
     return (
       <OnboardingLayout
         headerType="progress"
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        isPart1Complete={false}
+        onboardingPhase={1}
+        phaseProgress={phase1Progress}
         progressIcon={currentQuestion.progressIcon}
         progressIconSvg={currentQuestion.progressIconSvg}
         onContinue={() => {}}

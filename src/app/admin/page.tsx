@@ -213,7 +213,7 @@ export default function AdminDashboardPage() {
                                 <Link
                                     key={card.title}
                                     href={card.href}
-                                className={`group relative overflow-hidden rounded-[32px] p-8 shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl ${
+                                className={`group relative overflow-hidden rounded-3xl p-8 shadow-premium transition-all hover:scale-[1.02] hover:shadow-premium-hover ${
                                     (card as any).highlight 
                                         ? 'bg-gradient-to-br from-purple-400 to-purple-600' 
                                         : 'bg-gradient-to-br from-cyan-400 to-cyan-600'

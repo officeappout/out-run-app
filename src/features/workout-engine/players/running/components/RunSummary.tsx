@@ -12,6 +12,7 @@ import { calculateCalories } from '@/lib/calories.utils';
 import { updateUserProgression } from '@/lib/firestore.service';
 import { auth } from '@/lib/firebase';
 import { saveWorkout } from '../../../core/services/storage.service';
+import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface Props {
   onFinish: () => void;
@@ -28,8 +29,9 @@ export default function RunSummary({ onFinish }: Props) {
   const userWeight = profile?.core?.weight || 70;
   // totalDuration is in seconds, calculateCalories expects minutes
   const calories = calculateCalories(activityType, Math.floor(totalDuration / 60), userWeight);
+  // COIN_SYSTEM_PAUSED: Re-enable in April
   // New Formula: 1 Coin per 1 Full Calorie
-  const earnedCoins = Math.floor(calories);
+  const earnedCoins = IS_COIN_SYSTEM_ENABLED ? Math.floor(calories) : 0;
 
   const formatTime = (s: number) => {
     const mins = Math.floor(s / 60);
@@ -51,13 +53,18 @@ export default function RunSummary({ onFinish }: Props) {
     }
 
     // 1. WORKOUT-TO-PROGRESSION BRIDGE: Award coins and record activity
+    // COIN_SYSTEM_PAUSED: awardWorkoutRewards already checks IS_COIN_SYSTEM_ENABLED
     const currentUser = auth.currentUser;
     if (currentUser && profile) {
       try {
         // Award workout rewards (coins + lemur evolution)
         await useProgressionStore.getState().awardWorkoutRewards(currentUser.uid, calories);
         
-        console.log(`✅ [RunSummary] Awarded ${earnedCoins} coins and recorded activity`);
+        console.log(
+          IS_COIN_SYSTEM_ENABLED 
+            ? `✅ [RunSummary] Awarded ${earnedCoins} coins and recorded activity`
+            : `[RunSummary] COIN_SYSTEM_PAUSED - Recorded activity only (${calories} calories)`
+        );
         
         // Legacy: Also update local profile for immediate UI update
         const currentCoins = profile.progression?.coins || 0;
@@ -65,7 +72,8 @@ export default function RunSummary({ onFinish }: Props) {
         updateProfile({
           progression: {
             ...profile.progression,
-            coins: currentCoins + earnedCoins,
+            // COIN_SYSTEM_PAUSED: Don't increment coins when system is disabled
+            coins: IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins,
             totalCaloriesBurned: currentCalories + calories,
           }
         });
@@ -79,11 +87,19 @@ export default function RunSummary({ onFinish }: Props) {
       const currentUser = auth.currentUser;
       if (currentUser) {
         try {
+          const currentCoins = profile.progression?.coins || 0;
+          // COIN_SYSTEM_PAUSED: Don't increment coins when system is disabled
+          const newCoins = IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins;
+          const newTotalCalories = (profile.progression?.totalCaloriesBurned || 0) + calories;
+          
           await updateUserProgression(currentUser.uid, {
             coins: newCoins,
             totalCaloriesBurned: newTotalCalories,
           });
-          console.log('✅ Coins and calories synced to Firestore');
+          console.log(IS_COIN_SYSTEM_ENABLED 
+            ? '✅ Coins and calories synced to Firestore'
+            : '✅ COIN_SYSTEM_PAUSED - Calories only synced to Firestore'
+          );
 
           // ✅ Save workout to history
           await saveWorkout({
@@ -94,7 +110,8 @@ export default function RunSummary({ onFinish }: Props) {
             calories: calories,
             pace: currentPace || 0,
             routePath: routeCoords.length > 0 ? routeCoords as [number, number][] : undefined,
-            earnedCoins: earnedCoins,
+            // COIN_SYSTEM_PAUSED: Record 0 coins when system is disabled
+            earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
           });
           console.log('✅ Workout saved to history');
         } catch (error) {
@@ -151,20 +168,24 @@ export default function RunSummary({ onFinish }: Props) {
             <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">קלוריות</span>
             <div className="text-4xl font-black mt-1 font-mono tracking-tight text-orange-500">{calories}<span className="text-base text-gray-500 me-1 font-sans">kcal</span></div>
           </div>
-          <div className="col-span-2 bg-[#1C1C1E] p-5 rounded-3xl border border-white/10 flex items-center justify-between shadow-2xl shadow-black/50">
-            <div>
-              <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">הרווחת</span>
-              <div className="text-5xl font-black mt-1 font-mono text-[#00E5FF] drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] flex items-baseline">
-                +{earnedCoins} <span className="text-sm text-gray-500 me-2 font-sans font-bold">מטבעות</span>
+          {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+          {IS_COIN_SYSTEM_ENABLED && (
+            <div className="col-span-2 bg-[#1C1C1E] p-5 rounded-3xl border border-white/10 flex items-center justify-between shadow-2xl shadow-black/50">
+              <div>
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">הרווחת</span>
+                <div className="text-5xl font-black mt-1 font-mono text-[#00E5FF] drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] flex items-baseline">
+                  +{earnedCoins} <span className="text-sm text-gray-500 me-2 font-sans font-bold">מטבעות</span>
+                </div>
               </div>
+              {isGuest && (
+                <span className="text-xs bg-gray-800/80 text-gray-400 px-3 py-1.5 rounded-full border border-gray-700 font-medium">מצב אורח (Guest)</span>
+              )}
             </div>
-            {isGuest && (
-              <span className="text-xs bg-gray-800/80 text-gray-400 px-3 py-1.5 rounded-full border border-gray-700 font-medium">מצב אורח (Guest)</span>
-            )}
-          </div>
+          )}
         </div>
 
-        {isGuest && (
+        {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+        {IS_COIN_SYSTEM_ENABLED && isGuest && (
           <div className="mb-6 bg-gradient-to-l from-yellow-900/30 to-orange-900/30 border border-orange-500/30 rounded-3xl p-5 flex items-start gap-4 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 text-2xl shrink-0 border border-orange-500/20">🔒</div>
             <div>
@@ -191,7 +212,8 @@ export default function RunSummary({ onFinish }: Props) {
               onClick={handleClaim}
               className="flex-[2] py-4 rounded-2xl font-black text-lg bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-[0_0_25px_rgba(0,229,255,0.3)] hover:scale-[1.02] active:scale-95"
             >
-              השלם פרופיל וקבל בונוס (+20 מטבעות)
+              {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+              {IS_COIN_SYSTEM_ENABLED ? 'השלם פרופיל וקבל בונוס (+20 מטבעות)' : 'השלם פרופיל'}
             </button>
           </div>
         ) : (

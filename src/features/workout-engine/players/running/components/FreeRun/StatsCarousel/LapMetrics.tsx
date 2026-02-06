@@ -59,7 +59,7 @@ export default function LapMetrics() {
   // Show loading state only during SSR
   if (!mounted) {
     return (
-      <div className="w-full min-h-[180px] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm" style={{ fontFamily: 'Assistant, sans-serif' }}>
+      <div className="w-full min-h-[180px] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm" style={{ fontFamily: 'var(--font-simpler)' }}>
         <div className="text-gray-400 text-sm">טוען...</div>
       </div>
     );
@@ -68,7 +68,7 @@ export default function LapMetrics() {
   return (
     <div 
       className="w-full min-h-[180px] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm" 
-      style={{ fontFamily: 'Assistant, sans-serif' }}
+      style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {/* Divider with "הקפה נוכחית" */}
       <div className="flex items-center justify-center gap-4 mb-2 w-full">

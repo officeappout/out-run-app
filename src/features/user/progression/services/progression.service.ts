@@ -1,6 +1,12 @@
 /**
  * Progression Service
  * Handles domain-specific progression tracking with unified master program view
+ * 
+ * Key Features:
+ * - Base session gain per level
+ * - Bonus percentage for exceeding target reps
+ * - Linked programs (multi-program progression)
+ * - Ready for Split detection
  */
 import {
   collection,
@@ -9,19 +15,37 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
   updateDoc,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserFullProfile, TrainingDomainId } from '../../core/types/user.types';
-import { ProgressionRule, DomainTrackProgress, MasterProgramProgress } from '../../core/types/progression.types';
+import { 
+  ProgressionRule, 
+  DomainTrackProgress, 
+  MasterProgramProgress,
+  WorkoutCompletionData,
+  WorkoutCompletionResult,
+  WorkoutExerciseResult,
+  ReadyForSplitStatus,
+  VolumeBreakdown,
+  DEFAULT_PROGRESSION_BY_LEVEL,
+  LinkedProgramConfig,
+  getDefaultRequiredSets,
+} from '../../core/types/progression.types';
 import { Program } from '@/features/content/programs';
 import { getProgram } from '@/features/content/programs';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'program_level_settings';
+const PROGRESSION_RULES_COLLECTION = 'progression_rules';
 const PROGRAMS_COLLECTION = 'programs';
 const USERS_COLLECTION = 'users';
+
+// Threshold for "Ready for Split" recommendation
+const READY_FOR_SPLIT_LEVEL = 10;
+const READY_FOR_SPLIT_PROGRAMS = ['full_body'];
 
 /**
  * Convert Firestore timestamp to Date
@@ -326,6 +350,417 @@ export async function initializeProgressionTracks(
     return true;
   } catch (error) {
     console.error('Error initializing progression tracks:', error);
+    return false;
+  }
+}
+
+// ============================================================================
+// NEW: WORKOUT COMPLETION PROCESSING WITH LINKED PROGRAMS
+// ============================================================================
+
+/**
+ * Progression rule result with all settings including volume-based fields
+ */
+interface ProgressionRuleResult {
+  baseSessionGain: number;
+  bonusPercent: number;
+  requiredSetsForFullGain: number;
+  linkedPrograms: LinkedProgramConfig[];
+}
+
+/**
+ * Get progression rule for a specific program and level
+ * Falls back to defaults if no rule is defined
+ */
+async function getProgressionRuleForLevel(
+  programId: string,
+  level: number
+): Promise<ProgressionRuleResult> {
+  try {
+    const ruleId = `${programId}_level_${level}`;
+    const ruleDoc = await getDoc(doc(db, PROGRESSION_RULES_COLLECTION, ruleId));
+    
+    if (ruleDoc.exists()) {
+      const data = ruleDoc.data();
+      return {
+        baseSessionGain: data.baseSessionGain || 10,
+        bonusPercent: data.bonusPercent || 5,
+        requiredSetsForFullGain: data.requiredSetsForFullGain || getDefaultRequiredSets(level),
+        linkedPrograms: data.linkedPrograms || [],
+      };
+    }
+    
+    // Fallback to defaults
+    const defaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
+    return {
+      baseSessionGain: defaults.baseGain,
+      bonusPercent: defaults.bonusPercent,
+      requiredSetsForFullGain: getDefaultRequiredSets(level),
+      linkedPrograms: [],
+    };
+  } catch (error) {
+    console.error('Error fetching progression rule:', error);
+    // Return safe defaults
+    const defaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
+    return {
+      baseSessionGain: defaults.baseGain,
+      bonusPercent: defaults.bonusPercent,
+      requiredSetsForFullGain: getDefaultRequiredSets(level),
+      linkedPrograms: [],
+    };
+  }
+}
+
+/**
+ * Detect linked programs from exercise programLevels
+ * Returns programs that exist in the exercise's programLevels
+ */
+function detectLinkedProgramsFromExercises(
+  exercises: WorkoutExerciseResult[],
+  activeProgramId: string
+): Set<string> {
+  const linkedPrograms = new Set<string>();
+  
+  for (const exercise of exercises) {
+    if (exercise.programLevels) {
+      for (const programId of Object.keys(exercise.programLevels)) {
+        if (programId !== activeProgramId && exercise.programLevels[programId] !== undefined) {
+          linkedPrograms.add(programId);
+        }
+      }
+    }
+  }
+  
+  return linkedPrograms;
+}
+
+/**
+ * Calculate total sets performed across all exercises
+ */
+function calculateTotalSetsPerformed(exercises: WorkoutExerciseResult[]): number {
+  return exercises.reduce((sum, exercise) => sum + exercise.setsCompleted, 0);
+}
+
+/**
+ * Calculate volume breakdown for Dopamine Screen display
+ */
+function calculateVolumeBreakdown(
+  setsPerformed: number,
+  requiredSets: number
+): VolumeBreakdown {
+  const volumeRatio = Math.min(1, setsPerformed / requiredSets);
+  return {
+    setsPerformed,
+    requiredSets,
+    volumeRatio,
+    isFullVolume: volumeRatio >= 1,
+  };
+}
+
+/**
+ * Calculate performance ratio (actual vs target)
+ */
+function calculatePerformanceRatio(exercises: WorkoutExerciseResult[]): number {
+  let totalActual = 0;
+  let totalTarget = 0;
+  
+  for (const exercise of exercises) {
+    const actualReps = exercise.repsPerSet.reduce((sum, r) => sum + r, 0);
+    const targetReps = exercise.targetReps * exercise.setsCompleted;
+    
+    totalActual += actualReps;
+    totalTarget += targetReps;
+  }
+  
+  if (totalTarget === 0) return 1;
+  return totalActual / totalTarget;
+}
+
+/**
+ * Calculate volume contribution per linked program
+ * Based on how many exercises from each program were performed
+ */
+function calculateVolumeContribution(
+  exercises: WorkoutExerciseResult[],
+  linkedProgramId: string
+): number {
+  let linkedExerciseCount = 0;
+  let totalExerciseCount = exercises.length;
+  
+  for (const exercise of exercises) {
+    if (exercise.programLevels && exercise.programLevels[linkedProgramId] !== undefined) {
+      linkedExerciseCount++;
+    }
+  }
+  
+  if (totalExerciseCount === 0) return 0;
+  return linkedExerciseCount / totalExerciseCount;
+}
+
+/**
+ * Check if user is ready for split training
+ */
+function checkReadyForSplit(
+  tracks: { [programId: string]: DomainTrackProgress },
+  activeProgramId: string,
+  newLevel: number
+): ReadyForSplitStatus | undefined {
+  // Only check for full_body program
+  if (!READY_FOR_SPLIT_PROGRAMS.includes(activeProgramId)) {
+    return undefined;
+  }
+  
+  // Check if level threshold is reached
+  if (newLevel >= READY_FOR_SPLIT_LEVEL) {
+    return {
+      isReady: true,
+      triggeredAt: new Date(),
+      suggestedSplit: ['upper_body', 'lower_body', 'push', 'pull', 'legs'],
+    };
+  }
+  
+  return undefined;
+}
+
+/**
+ * Process workout completion with multi-program progression
+ * 
+ * This is the main function that:
+ * 1. Calculates gain for the active program
+ * 2. Detects linked programs from exercise data
+ * 3. Applies proportional increases to linked programs
+ * 4. Checks for "Ready for Split" threshold
+ * 
+ * @param data - Workout completion data
+ * @returns Promise<WorkoutCompletionResult>
+ */
+export async function processWorkoutCompletion(
+  data: WorkoutCompletionData
+): Promise<WorkoutCompletionResult> {
+  try {
+    const { userId, activeProgramId, exercises, completedAt } = data;
+    
+    // Fetch user profile
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+    
+    const userData = userDoc.data() as UserFullProfile;
+    const progression = userData.progression;
+    
+    // Ensure tracks are initialized
+    ensureTracksInitialized(progression);
+    
+    // Get current track for active program
+    const currentTrack = progression.tracks?.[activeProgramId] || getDefaultTrackProgress();
+    const currentLevel = currentTrack.currentLevel;
+    
+    // Get progression rule for this level
+    const rule = await getProgressionRuleForLevel(activeProgramId, currentLevel);
+    
+    // Calculate total sets performed
+    const setsPerformed = calculateTotalSetsPerformed(exercises);
+    const requiredSets = rule.requiredSetsForFullGain;
+    
+    // Calculate volume ratio (capped at 1)
+    const volumeRatio = Math.min(1, setsPerformed / requiredSets);
+    
+    // Calculate volume breakdown for Dopamine Screen
+    const volumeBreakdown = calculateVolumeBreakdown(setsPerformed, requiredSets);
+    
+    // Calculate performance ratio for bonus
+    const performanceRatio = calculatePerformanceRatio(exercises);
+    
+    // Calculate base gain using volume-based formula:
+    // Session Progress = min(1, Sets Performed / requiredSetsForFullGain) × baseSessionGain
+    const baseGain = volumeRatio * rule.baseSessionGain;
+    
+    // Apply bonus if exceeding target reps
+    let bonusGain = 0;
+    if (performanceRatio > 1) {
+      const excessPercent = (performanceRatio - 1) * 100;
+      // Bonus is also scaled by volume ratio
+      bonusGain = Math.min(excessPercent * (rule.bonusPercent / 100), rule.bonusPercent) * volumeRatio;
+    }
+    
+    const totalGain = baseGain + bonusGain;
+    
+    // Update active program track
+    const updatedTracks = { ...progression.tracks };
+    
+    const newPercent = currentTrack.percent + totalGain;
+    let leveledUp = false;
+    let newLevel = currentLevel;
+    
+    if (newPercent >= 100) {
+      // Level up!
+      newLevel = currentLevel + 1;
+      leveledUp = true;
+      updatedTracks[activeProgramId] = {
+        currentLevel: newLevel,
+        percent: newPercent - 100, // Carry over excess
+        lastWorkoutDate: completedAt,
+        totalWorkoutsCompleted: (currentTrack.totalWorkoutsCompleted || 0) + 1,
+      };
+    } else {
+      updatedTracks[activeProgramId] = {
+        ...currentTrack,
+        percent: newPercent,
+        lastWorkoutDate: completedAt,
+        totalWorkoutsCompleted: (currentTrack.totalWorkoutsCompleted || 0) + 1,
+      };
+    }
+    
+    // Process linked programs
+    const linkedProgramGains: WorkoutCompletionResult['linkedProgramGains'] = [];
+    
+    // Get linked programs from rule AND detected from exercises
+    const ruleLinkedPrograms = rule.linkedPrograms || [];
+    const detectedLinkedPrograms = detectLinkedProgramsFromExercises(exercises, activeProgramId);
+    
+    // Combine linked programs (rule takes priority for multiplier)
+    const allLinkedPrograms = new Map<string, number>();
+    
+    // Add rule-defined linked programs
+    for (const lp of ruleLinkedPrograms) {
+      allLinkedPrograms.set(lp.targetProgramId, lp.multiplier);
+    }
+    
+    // Add detected linked programs with volume-based multiplier
+    Array.from(detectedLinkedPrograms).forEach(programId => {
+      if (!allLinkedPrograms.has(programId)) {
+        const volumeContribution = calculateVolumeContribution(exercises, programId);
+        // Default multiplier is 50% of volume contribution
+        allLinkedPrograms.set(programId, volumeContribution * 0.5);
+      }
+    });
+    
+    // Apply gains to linked programs
+    Array.from(allLinkedPrograms.entries()).forEach(([linkedProgramId, multiplier]) => {
+      const linkedTrack = updatedTracks[linkedProgramId] || getDefaultTrackProgress();
+      const linkedGain = totalGain * multiplier;
+      
+      const linkedNewPercent = linkedTrack.percent + linkedGain;
+      let linkedLeveledUp = false;
+      let linkedNewLevel = linkedTrack.currentLevel;
+      
+      if (linkedNewPercent >= 100) {
+        linkedNewLevel = linkedTrack.currentLevel + 1;
+        linkedLeveledUp = true;
+        updatedTracks[linkedProgramId] = {
+          currentLevel: linkedNewLevel,
+          percent: linkedNewPercent - 100,
+          lastWorkoutDate: completedAt,
+          totalWorkoutsCompleted: (linkedTrack.totalWorkoutsCompleted || 0) + 1,
+        };
+      } else {
+        updatedTracks[linkedProgramId] = {
+          ...linkedTrack,
+          percent: linkedNewPercent,
+          lastWorkoutDate: completedAt,
+          totalWorkoutsCompleted: (linkedTrack.totalWorkoutsCompleted || 0) + 1,
+        };
+      }
+      
+      linkedProgramGains.push({
+        programId: linkedProgramId,
+        gain: linkedGain,
+        newPercent: linkedLeveledUp ? linkedNewPercent - 100 : linkedNewPercent,
+        leveledUp: linkedLeveledUp,
+        newLevel: linkedLeveledUp ? linkedNewLevel : undefined,
+      });
+    });
+    
+    // Save updated tracks to Firestore
+    await updateProgressionTracks(userId, updatedTracks);
+    
+    // Check for Ready for Split
+    const readyForSplit = checkReadyForSplit(updatedTracks, activeProgramId, newLevel);
+    
+    // If ready for split, save flag to user profile
+    if (readyForSplit?.isReady) {
+      await updateDoc(userDocRef, {
+        'progression.readyForSplit': readyForSplit,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    
+    return {
+      success: true,
+      activeProgramGain: {
+        programId: activeProgramId,
+        baseGain,
+        bonusGain,
+        totalGain,
+        newPercent: leveledUp ? newPercent - 100 : newPercent,
+        leveledUp,
+        newLevel: leveledUp ? newLevel : undefined,
+      },
+      linkedProgramGains,
+      volumeBreakdown,
+      readyForSplit,
+    };
+    
+  } catch (error) {
+    console.error('Error processing workout completion:', error);
+    return {
+      success: false,
+      activeProgramGain: {
+        programId: data.activeProgramId,
+        baseGain: 0,
+        bonusGain: 0,
+        totalGain: 0,
+        newPercent: 0,
+        leveledUp: false,
+      },
+      linkedProgramGains: [],
+      volumeBreakdown: {
+        setsPerformed: 0,
+        requiredSets: 4,
+        volumeRatio: 0,
+        isFullVolume: false,
+      },
+    };
+  }
+}
+
+/**
+ * Get user's ready for split status
+ */
+export async function getReadyForSplitStatus(userId: string): Promise<ReadyForSplitStatus | null> {
+  try {
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      return null;
+    }
+    
+    const userData = userDoc.data() as UserFullProfile & { progression?: { readyForSplit?: ReadyForSplitStatus } };
+    return userData.progression?.readyForSplit || null;
+  } catch (error) {
+    console.error('Error getting ready for split status:', error);
+    return null;
+  }
+}
+
+/**
+ * Dismiss ready for split recommendation
+ */
+export async function dismissReadyForSplit(userId: string): Promise<boolean> {
+  try {
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    await updateDoc(userDocRef, {
+      'progression.readyForSplit.isReady': false,
+      'progression.readyForSplit.dismissedAt': serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error dismissing ready for split:', error);
     return false;
   }
 }

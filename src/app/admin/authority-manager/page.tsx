@@ -10,6 +10,7 @@ import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/ser
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { Authority } from '@/types/admin-types';
 import { BarChart3, MapPin, Users, Calendar, Building2, ChevronDown } from 'lucide-react';
+import { safeRenderText } from '@/utils/render-helpers';
 import ParksManagement from '@/features/admin/components/authority-manager/ParksManagement';
 import AnalyticsDashboard from '@/features/admin/components/authority-manager/AnalyticsDashboard';
 import CommunityGroups from '@/features/admin/components/authority-manager/CommunityGroups';
@@ -60,18 +61,26 @@ export default function AuthorityManagerDashboard() {
         // Auto-select first authority if available and none selected
         if (allTopLevel.length > 0 && !selectedAuthority) {
           setSelectedAuthority(allTopLevel[0]);
-          console.log('[Authority Manager] Super Admin - Auto-selected authority:', allTopLevel[0].name);
+          // CRITICAL: Use safeRenderText for logging (name is already sanitized, but safety check)
+          const authName = typeof allTopLevel[0].name === 'string' ? allTopLevel[0].name : (allTopLevel[0].name?.he || allTopLevel[0].name?.en || '');
+          console.log('[Authority Manager] Super Admin - Auto-selected authority:', authName);
         }
       } else {
         // For Authority Managers: Use getAuthoritiesByManager
       const data = await getAuthoritiesByManager(userId);
+      // CRITICAL: Sanitize authority names (should already be sanitized, but safety check)
+      if (data.length > 0) {
+        console.log('[AuthorityManager] DEBUG: Authority name type:', typeof data[0].name, data[0].name);
+      }
         console.log('[Authority Manager] Loaded', data.length, 'authorities');
       setAuthorities(data);
         
         // Auto-select first authority if available
       if (data.length > 0 && !selectedAuthority) {
         setSelectedAuthority(data[0]);
-          console.log('[Authority Manager] Auto-selected authority:', data[0].name);
+          // CRITICAL: Use safeRenderText for logging (name is already sanitized, but safety check)
+          const authName = typeof data[0].name === 'string' ? data[0].name : (data[0].name?.he || data[0].name?.en || '');
+          console.log('[Authority Manager] Auto-selected authority:', authName);
         }
       }
     } catch (error) {
@@ -134,7 +143,7 @@ export default function AuthorityManagerDashboard() {
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 transition-colors text-black"
               >
                 <span className="text-sm font-medium">
-                  צפייה כ: {selectedAuthority?.name || 'בחר רשות'}
+                  צפייה כ: {safeRenderText(selectedAuthority?.name) || 'בחר רשות'}
                 </span>
                 <ChevronDown size={16} className={`transition-transform ${showAuthorityDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -159,7 +168,7 @@ export default function AuthorityManagerDashboard() {
                             : 'text-black'
                         }`}
                       >
-                        {auth.name}
+                        {safeRenderText(auth.name)}
                       </button>
                     ))}
                   </div>
@@ -177,7 +186,7 @@ export default function AuthorityManagerDashboard() {
             >
               {authorities.map((auth) => (
                 <option key={auth.id} value={auth.id}>
-                  {auth.name}
+                  {safeRenderText(auth.name)}
                 </option>
               ))}
             </select>
@@ -190,7 +199,7 @@ export default function AuthorityManagerDashboard() {
         <div className="bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold mb-2">{selectedAuthority.name}</h2>
+              <h2 className="text-2xl font-bold mb-2">{safeRenderText(selectedAuthority.name)}</h2>
               <div className="flex items-center gap-6 text-sm">
                 <span>👥 {selectedAuthority.userCount || 0} משתמשים</span>
                 <span>👨‍💼 {selectedAuthority.managerIds?.length || 0} מנהלים</span>
@@ -199,7 +208,7 @@ export default function AuthorityManagerDashboard() {
             {selectedAuthority.logoUrl && (
               <img
                 src={selectedAuthority.logoUrl}
-                alt={selectedAuthority.name}
+                alt={safeRenderText(selectedAuthority.name)}
                 className="w-20 h-20 rounded-full object-cover border-4 border-white/20"
               />
             )}

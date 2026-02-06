@@ -41,7 +41,7 @@ export default function LapSnapshotOverlay() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           className="fixed inset-0 flex items-center justify-center z-[10000] pointer-events-none"
-          style={{ fontFamily: 'Assistant, sans-serif' }}
+          style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {/* Backdrop with blur */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />

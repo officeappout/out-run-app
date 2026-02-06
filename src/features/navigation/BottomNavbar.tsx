@@ -14,7 +14,8 @@ export default function BottomNavigation() {
     pathname?.startsWith('/login') ||
     pathname?.startsWith('/run') ||
     pathname?.startsWith('/auth') ||
-    pathname?.startsWith('/admin')
+    pathname?.startsWith('/admin') ||
+    pathname?.includes('/active') // Hide on active workout pages
   ) {
     return null;
   }
