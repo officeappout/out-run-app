@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle } from 'lucide-react';
+import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle, Wallet, CalendarClock } from 'lucide-react';
 import { 
   Authority, 
   AuthorityType, 
@@ -90,6 +90,60 @@ function OverdueAlertBadge({ authority }: { authority: Authority }) {
     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold animate-pulse">
       <AlertCircle size={12} />
     </span>
+  );
+}
+
+/**
+ * Quote amount display
+ */
+function QuoteAmountCell({ authority }: { authority: Authority }) {
+  const amount = authority.financials?.totalQuoteAmount;
+  if (!amount) return <span className="text-gray-400 text-sm">-</span>;
+  return (
+    <div className="flex items-center gap-1.5 text-sm">
+      <Wallet size={14} className="text-indigo-500" />
+      <span className="font-bold text-gray-900">₪{amount.toLocaleString()}</span>
+    </div>
+  );
+}
+
+/**
+ * Last activity date display with "days ago" indicator
+ */
+function LastActivityCell({ authority }: { authority: Authority }) {
+  let lastDate: Date | null = null;
+
+  if (authority.activityLog && authority.activityLog.length > 0) {
+    const sorted = [...authority.activityLog].sort((a, b) => {
+      const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt as any);
+      const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt as any);
+      return dateB.getTime() - dateA.getTime();
+    });
+    const raw = sorted[0].createdAt;
+    lastDate = raw instanceof Date ? raw : new Date(raw as any);
+  } else if (authority.updatedAt) {
+    lastDate = authority.updatedAt instanceof Date ? authority.updatedAt : new Date(authority.updatedAt as any);
+  }
+
+  if (!lastDate || isNaN(lastDate.getTime())) {
+    return <span className="text-gray-400 text-sm">-</span>;
+  }
+
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  const colorClass = diffDays > 30 ? 'text-red-600' : diffDays > 14 ? 'text-amber-600' : diffDays > 7 ? 'text-yellow-600' : 'text-green-600';
+  const bgClass = diffDays > 30 ? 'bg-red-50' : diffDays > 14 ? 'bg-amber-50' : diffDays > 7 ? 'bg-yellow-50' : 'bg-green-50';
+
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <span className="text-xs text-gray-500">
+        {lastDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}
+      </span>
+      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colorClass} ${bgClass}`}>
+        {diffDays === 0 ? 'היום' : diffDays === 1 ? 'אתמול' : `לפני ${diffDays} ימים`}
+      </span>
+    </div>
   );
 }
 
@@ -534,6 +588,8 @@ export default function AuthoritiesList({
             <th className="px-6 py-4">שם הרשות</th>
             <th className="px-6 py-4">סטטוס CRM</th>
             <th className="px-6 py-4">איש קשר</th>
+            <th className="px-6 py-4">הצעת מחיר</th>
+            <th className="px-6 py-4">פעילות אחרונה</th>
             <th className="px-6 py-4">משתמשים</th>
             <th className="px-6 py-4 text-center">סטטוס לקוח</th>
             <th className="px-6 py-4 rounded-tl-2xl text-center">פעולות</th>
@@ -574,6 +630,12 @@ export default function AuthoritiesList({
               </td>
               <td className="px-6 py-4">
                 <PrimaryContactInfo authority={authority} />
+              </td>
+              <td className="px-6 py-4">
+                <QuoteAmountCell authority={authority} />
+              </td>
+              <td className="px-6 py-4">
+                <LastActivityCell authority={authority} />
               </td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2 text-gray-600">

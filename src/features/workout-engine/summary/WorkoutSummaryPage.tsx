@@ -15,6 +15,10 @@ import SummaryOrchestrator, {
   WorkoutType,
 } from './components/SummaryOrchestrator';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { calculateBaseWorkoutXP, calculateLevelFromXP, getProgressToNextLevel } from '@/features/user/progression/services/xp.service';
+import { getAllLevels } from '@/features/content/programs/core/level.service';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
@@ -132,6 +136,33 @@ export default function WorkoutSummaryPage({
             earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
           });
           console.log('✅ Workout saved to history');
+
+          // 2b. Award XP (hidden — user only sees %)
+          try {
+            const durationMin = Math.round(totalDuration / 60);
+            const baseXP = calculateBaseWorkoutXP(durationMin, 2, 'cardio');
+
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const userSnap = await getDoc(userDocRef);
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              const currentXP = userData.progression?.globalXP || 0;
+              const newXP = currentXP + baseXP;
+
+              const levels = await getAllLevels();
+              const newLevel = calculateLevelFromXP(newXP, levels);
+              const pct = getProgressToNextLevel(newXP, newLevel, levels);
+
+              await updateDoc(userDocRef, {
+                'progression.globalXP': newXP,
+                'progression.globalLevel': newLevel,
+              });
+
+              console.log(`[XP] +${baseXP} XP (hidden). Progress: ${Math.round(pct)}% → Level ${newLevel + 1}`);
+            }
+          } catch (xpErr) {
+            console.error('[XP] Failed to award XP:', xpErr);
+          }
         } catch (error) {
           console.error('❌ Error syncing to Firestore:', error);
         }

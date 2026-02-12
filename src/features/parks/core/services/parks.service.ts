@@ -42,6 +42,21 @@ function normalizePark(docId: string, data: any): Park {
     description: data?.description ?? '',
     location: data?.location ?? { lat: 0, lng: 0 },
     image: data?.image ?? undefined,
+    facilityType: data?.facilityType ?? undefined,
+    sportTypes: Array.isArray(data?.sportTypes) ? data.sportTypes : undefined,
+    featureTags: Array.isArray(data?.featureTags) ? data.featureTags : undefined,
+    natureType: data?.natureType ?? undefined,
+    communityType: data?.communityType ?? undefined,
+    urbanType: data?.urbanType ?? undefined,
+    stairsDetails: data?.stairsDetails ?? undefined,
+    benchDetails: data?.benchDetails ?? undefined,
+    parkingDetails: data?.parkingDetails ?? undefined,
+    isDogFriendly: data?.isDogFriendly ?? false,
+    courtType: data?.courtType ?? undefined,
+    hasWaterFountain: data?.hasWaterFountain ?? false,
+    terrainType: data?.terrainType ?? undefined,
+    environment: data?.environment ?? undefined,
+    externalSourceId: data?.externalSourceId ?? undefined,
     facilities: Array.isArray(data?.facilities) ? data.facilities : [],
     gymEquipment: Array.isArray(data?.gymEquipment) ? data.gymEquipment : undefined,
     amenities: data?.amenities ?? undefined,
@@ -146,6 +161,21 @@ export async function createPark(data: Omit<Park, 'id' | 'createdAt' | 'updatedA
       description: data.description ?? '',
       location: data.location ?? { lat: 0, lng: 0 },
       image: data.image ?? null,
+      facilityType: data.facilityType ?? null,
+      sportTypes: Array.isArray(data.sportTypes) ? data.sportTypes : [],
+      featureTags: Array.isArray(data.featureTags) ? data.featureTags : [],
+      natureType: data.natureType ?? null,
+      communityType: data.communityType ?? null,
+      urbanType: data.urbanType ?? null,
+      stairsDetails: data.stairsDetails ?? null,
+      benchDetails: data.benchDetails ?? null,
+      parkingDetails: data.parkingDetails ?? null,
+      isDogFriendly: data.isDogFriendly ?? false,
+      courtType: data.courtType ?? null,
+      hasWaterFountain: data.hasWaterFountain ?? false,
+      terrainType: data.terrainType ?? null,
+      environment: data.environment ?? null,
+      externalSourceId: data.externalSourceId ?? null,
       facilities: Array.isArray(data.facilities) ? data.facilities : [],
       gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : [],
       amenities: data.amenities ?? null,
@@ -180,11 +210,28 @@ export async function updatePark(
     if (data.description !== undefined) updateData.description = data.description;
     if (data.location !== undefined) updateData.location = data.location;
     if (data.image !== undefined) updateData.image = data.image ?? null;
+    if (data.facilityType !== undefined) updateData.facilityType = data.facilityType ?? null;
+    if (data.sportTypes !== undefined) {
+      updateData.sportTypes = Array.isArray(data.sportTypes) ? data.sportTypes : [];
+    }
+    if (data.featureTags !== undefined) {
+      updateData.featureTags = Array.isArray(data.featureTags) ? data.featureTags : [];
+    }
+    if (data.natureType !== undefined) updateData.natureType = data.natureType ?? null;
+    if (data.communityType !== undefined) updateData.communityType = data.communityType ?? null;
+    if (data.urbanType !== undefined) updateData.urbanType = data.urbanType ?? null;
+    if (data.stairsDetails !== undefined) updateData.stairsDetails = data.stairsDetails ?? null;
+    if (data.benchDetails !== undefined) updateData.benchDetails = data.benchDetails ?? null;
+    if (data.parkingDetails !== undefined) updateData.parkingDetails = data.parkingDetails ?? null;
+    if (data.isDogFriendly !== undefined) updateData.isDogFriendly = data.isDogFriendly ?? false;
+    if (data.courtType !== undefined) updateData.courtType = data.courtType ?? null;
+    if (data.hasWaterFountain !== undefined) updateData.hasWaterFountain = data.hasWaterFountain ?? false;
+    if (data.terrainType !== undefined) updateData.terrainType = data.terrainType ?? null;
+    if (data.environment !== undefined) updateData.environment = data.environment ?? null;
+    if (data.externalSourceId !== undefined) updateData.externalSourceId = data.externalSourceId ?? null;
     if (data.facilities !== undefined) updateData.facilities = Array.isArray(data.facilities) ? data.facilities : [];
     if (data.gymEquipment !== undefined) {
-      updateData.gymEquipment = Array.isArray(data.gymEquipment) && data.gymEquipment.length > 0 
-        ? data.gymEquipment 
-        : null;
+      updateData.gymEquipment = Array.isArray(data.gymEquipment) ? data.gymEquipment : [];
     }
     if (data.amenities !== undefined) updateData.amenities = data.amenities ?? null;
     if (data.authorityId !== undefined) updateData.authorityId = data.authorityId ?? null;

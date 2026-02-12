@@ -14,6 +14,7 @@ import TextInput from '@/features/user/onboarding/components/TextInput';
 import DatePicker from '@/features/user/onboarding/components/DatePicker';
 import HealthDeclarationStep from '@/features/user/onboarding/components/HealthDeclarationStep';
 import SaveProgressStep from '@/features/user/onboarding/components/SaveProgressStep';
+import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 
 /**
  * Dynamic Onboarding Page
@@ -55,17 +56,9 @@ export default function DynamicOnboardingPage() {
   const [assignedResults, setAssignedResults] = useState<Array<{
     programId: string;
     levelId: string;
-    masterProgramSubLevels?: {
-      upper_body_level?: number;
-      lower_body_level?: number;
-      core_level?: number;
-    };
+    masterProgramSubLevels?: Record<string, number>;
   }> | undefined>();
-  const [masterProgramSubLevels, setMasterProgramSubLevels] = useState<{
-    upper_body_level?: number;
-    lower_body_level?: number;
-    core_level?: number;
-  } | undefined>();
+  const [masterProgramSubLevels, setMasterProgramSubLevels] = useState<Record<string, number> | undefined>();
 
   // UI state
   const [isAnimating, setIsAnimating] = useState(false);
@@ -248,10 +241,37 @@ export default function DynamicOnboardingPage() {
         sessionStorage.removeItem('onboarding_claim_calories');
       }
 
-      // Save profile
+      // Save profile locally
       await initializeProfile(profile);
       
       console.log('✅ Profile initialized with Level:', assignedLevel, 'LevelId:', assignedLevelId, 'Program:', assignedProgramId, 'SubLevels:', masterProgramSubLevels);
+
+      // ✅ PERSISTENCE FIX: Sync assignedResults to Firestore immediately
+      // This ensures quiz results are saved and not lost on refresh
+      try {
+        const syncPayload: any = {
+          ...allAnswers,
+          assignedResults: assignedResults || (engine.getProgress() as any).assignedResults,
+          assignedProgramId,
+          assignedLevelId,
+        };
+
+        // Persist to sessionStorage as backup for cross-page access
+        if (assignedResults && assignedResults.length > 0) {
+          sessionStorage.setItem('onboarding_assigned_results', JSON.stringify(assignedResults));
+        }
+        if (assignedProgramId) {
+          sessionStorage.setItem('onboarding_assigned_program_id', assignedProgramId);
+        }
+        if (assignedLevelId) {
+          sessionStorage.setItem('onboarding_assigned_level_id', assignedLevelId);
+        }
+        
+        await syncOnboardingToFirestore('COMPLETED', syncPayload);
+        console.log('✅ assignedResults synced to Firestore');
+      } catch (syncErr) {
+        console.warn('[Onboarding] Firestore sync failed (non-blocking):', syncErr);
+      }
 
       // Navigate to home
       setTimeout(() => {

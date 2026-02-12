@@ -66,21 +66,22 @@ export default function RoadmapPage() {
   // Sequential animation states for step transitions (when majorRoadmapStep === 1)
   const [animationPhase, setAnimationPhase] = useState<'initial' | 'completing' | 'activating' | 'done'>('done');
   
-  // Trigger sequential animation when returning from step 1 completion
-  // Timing: 1. Node pops (0.3s) → 2. Line pours (0.8s) → 3. Node 2 activates
+  // Trigger sequential animation when returning from step completion
+  // Step 1: Node 0 completes → Line pours to Node 1 → Node 1 activates
+  // Step 2: Node 1 completes → Line pours to Node 2 → Node 2 activates
   useEffect(() => {
-    if (majorRoadmapStep === 1 && savedUserName) {
+    if ((majorRoadmapStep === 1 || majorRoadmapStep === 2) && savedUserName) {
       // Start the animation sequence
       setAnimationPhase('initial');
       
-      // Phase 1 (200ms): Brief pause showing step 0 as active
+      // Phase 1 (200ms): Brief pause showing previous state
       const timer1 = setTimeout(() => {
-        setAnimationPhase('completing'); // Node 0 pops into checkmark, line starts pouring
+        setAnimationPhase('completing'); // Previous node pops into checkmark, line starts pouring
       }, 200);
       
-      // Phase 2 (1000ms): Line has finished pouring, activate node 1
+      // Phase 2 (1000ms): Line has finished pouring, activate next node
       const timer2 = setTimeout(() => {
-        setAnimationPhase('activating'); // Node 1 springs into active state
+        setAnimationPhase('activating'); // Next node springs into active state
       }, 1100); // 200 + 800ms for line + 100ms buffer
       
       // Phase 3 (1400ms): Animation complete
@@ -153,6 +154,12 @@ export default function RoadmapPage() {
 
   const handleContinue = () => {
     // Handle different flows based on majorRoadmapStep
+    if (majorRoadmapStep === 2) {
+      // Step 3: Plan Securing - navigate to Health Declaration via OnboardingWizard
+      router.push('/onboarding-new/setup');
+      return;
+    }
+    
     if (majorRoadmapStep === 1) {
       // Step 2: Lifestyle Adaptation - navigate to the OnboardingWizard (Phase 2)
       router.push('/onboarding-new/setup');
@@ -214,16 +221,16 @@ export default function RoadmapPage() {
   }, [currentStep]);
 
   // 3-Step Progress Bar Logic:
-  // Phase 1 (אבחון): Roadmap (0%) + Personal Details (30%)
-  // Personal Details screen = 30% of Phase 1
-  const phase1Progress = currentStep === 1 ? 0 : 30;
+  // Phase maps to majorRoadmapStep: 0→Phase 1 (אבחון), 1→Phase 2 (התאמה), 2→Phase 3 (שריון)
+  const currentPhase = (majorRoadmapStep === 2 ? 3 : majorRoadmapStep === 1 ? 2 : 1) as 1 | 2 | 3;
+  const phaseProgress = currentStep === 1 ? 0 : 30;
   
   return (
     <div className="relative min-h-screen">
       <OnboardingLayout
         headerType="progress"
-        onboardingPhase={1}
-        phaseProgress={phase1Progress}
+        onboardingPhase={currentPhase}
+        phaseProgress={phaseProgress}
         showBack={currentStep === 2}
         onBack={currentStep === 2 ? handleBack : undefined}
       >
@@ -255,24 +262,28 @@ export default function RoadmapPage() {
                   transition={{ duration: 0.4, ease: "easeOut" }}
                   className="space-y-2"
                 >
-                  {/* Main Title - Personalized when step 1 */}
+                  {/* Main Title - Personalized when step 1 or step 2 */}
                   <motion.h2 
                     layout
                     className="text-2xl font-black leading-tight text-slate-900"
                   >
-                    {majorRoadmapStep === 1 && savedUserName 
-                      ? `מעולה ${savedUserName}, האבחון הושלם!`
-                      : locale.roadmap.title}
+                    {majorRoadmapStep === 2 && savedUserName
+                      ? `${savedUserName}, כמעט סיימנו! הכל מוכן לאימון הראשון.`
+                      : majorRoadmapStep === 1 && savedUserName 
+                        ? `מעולה ${savedUserName}, האבחון הושלם!`
+                        : locale.roadmap.title}
                   </motion.h2>
                   
-                  {/* Description - Different for step 1 */}
+                  {/* Description - Different for step 1 and step 2 */}
                   <motion.p 
                     layout
                     className="text-sm font-normal leading-relaxed text-slate-500 max-w-xs mx-auto"
                   >
-                    {majorRoadmapStep === 1 
-                      ? 'עכשיו נבנה את המעטפת: ציוד, הרגלים ולו"ז.'
-                      : locale.roadmap.description}
+                    {majorRoadmapStep === 2
+                      ? 'נשאר לנו רק לוודא שהגוף שלך מוכן לעבודה ושאנחנו שומרים עליך ב-100% לפני שיוצאים לדרך.'
+                      : majorRoadmapStep === 1 
+                        ? 'עכשיו נבנה את המעטפת: ציוד, הרגלים ולו"ז.'
+                        : locale.roadmap.description}
                   </motion.p>
                 </motion.div>
               </div>
@@ -310,11 +321,19 @@ export default function RoadmapPage() {
                         transform: 'translateX(-50%)',
                         top: '32px' // Start at center of first node
                       }}
-                      initial={{ height: majorRoadmapStep >= 1 ? '72px' : '0px' }}
+                      initial={{ height: majorRoadmapStep >= 2 ? '72px' : (majorRoadmapStep >= 1 ? '72px' : '0px') }}
                       animate={{ 
-                        height: (animationPhase === 'completing' || animationPhase === 'activating' || animationPhase === 'done' || majorRoadmapStep >= 1) 
-                          ? (majorRoadmapStep >= 2 ? '144px' : '72px') // 72px per step gap
-                          : '0px'
+                        height: (() => {
+                          // Step 2: pour from 72px → 144px during animation
+                          if (majorRoadmapStep === 2) {
+                            return animationPhase === 'initial' ? '72px' : '144px';
+                          }
+                          // Step 1: pour from 0 → 72px
+                          if (majorRoadmapStep >= 1 || animationPhase === 'completing' || animationPhase === 'activating' || animationPhase === 'done') {
+                            return '72px';
+                          }
+                          return '0px';
+                        })()
                       }}
                       transition={{ 
                         duration: 0.8, 
@@ -363,7 +382,9 @@ export default function RoadmapPage() {
                     <div className="h-16 flex items-center justify-center relative z-10">
                       <div className="bg-gradient-to-b from-[#D8F3FF] to-[#F8FDFF] rounded-full p-0.5">
                         <AnimatePresence mode="wait">
-                          {(majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done')) ? (
+                          {/* Active state: step 1 done/activating OR step 2 initial (briefly active before completing) */}
+                          {((majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done'))
+                            || (majorRoadmapStep === 2 && animationPhase === 'initial')) ? (
                             <motion.div
                               key="active-1"
                               layout
@@ -386,10 +407,13 @@ export default function RoadmapPage() {
                             >
                               <div className="w-4 h-4 rounded-full bg-[#5BC2F2]" />
                             </motion.div>
-                          ) : majorRoadmapStep > 1 ? (
+                          ) : (majorRoadmapStep > 1 && !(majorRoadmapStep === 2 && animationPhase === 'initial')) ? (
                             <motion.div 
                               key="complete-1"
                               layout
+                              initial={{ scale: 0.3, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 15 }}
                               className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shadow-md"
                             >
                               <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
@@ -408,28 +432,47 @@ export default function RoadmapPage() {
                     {/* Node 2 - שריון */}
                     <div className="h-16 flex items-center justify-center relative z-10">
                       <div className="bg-gradient-to-b from-[#D8F3FF] to-[#F8FDFF] rounded-full p-0.5">
-                        {majorRoadmapStep === 2 ? (
-                          <motion.div
-                            layout
-                            animate={{
-                              boxShadow: [
-                                '0 0 0 0 rgba(91, 194, 242, 0.3)',
-                                '0 0 0 8px rgba(91, 194, 242, 0.1)',
-                                '0 0 0 0 rgba(91, 194, 242, 0)',
-                              ]
-                            }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                            className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center"
-                          >
-                            <div className="w-4 h-4 rounded-full bg-[#5BC2F2]" />
-                          </motion.div>
-                        ) : majorRoadmapStep > 2 ? (
-                          <div className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shadow-md">
-                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                          </div>
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-300 bg-white" />
-                        )}
+                        <AnimatePresence mode="wait">
+                          {/* Active state: only after line pours down (activating/done) */}
+                          {(majorRoadmapStep === 2 && (animationPhase === 'activating' || animationPhase === 'done')) ? (
+                            <motion.div
+                              key="active-2"
+                              layout
+                              initial={{ scale: 0.3, opacity: 0 }}
+                              animate={{
+                                scale: 1,
+                                opacity: 1,
+                                boxShadow: [
+                                  '0 0 0 0 rgba(91, 194, 242, 0.3)',
+                                  '0 0 0 8px rgba(91, 194, 242, 0.1)',
+                                  '0 0 0 0 rgba(91, 194, 242, 0)',
+                                ]
+                              }}
+                              transition={{ 
+                                scale: { type: "spring", stiffness: 400, damping: 15 },
+                                opacity: { duration: 0.2 },
+                                boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.3 }
+                              }}
+                              className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center"
+                            >
+                              <div className="w-4 h-4 rounded-full bg-[#5BC2F2]" />
+                            </motion.div>
+                          ) : majorRoadmapStep > 2 ? (
+                            <motion.div 
+                              key="complete-2"
+                              layout
+                              className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shadow-md"
+                            >
+                              <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                            </motion.div>
+                          ) : (
+                            <motion.div 
+                              key="future-2"
+                              layout
+                              className="w-4 h-4 rounded-full border-2 border-slate-300 bg-white" 
+                            />
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </div>
@@ -468,82 +511,102 @@ export default function RoadmapPage() {
                     </motion.div>
                     
                     {/* Card 1 - התאמה לסגנון החיים */}
-                    <motion.div
-                      layout
-                      onClick={(majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done')) ? handleContinue : undefined}
-                      initial={false}
-                      animate={{
-                        opacity: 1,
-                        boxShadow: (majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done')) 
-                          ? '0 10px 40px rgba(91,194,242,0.12)' 
-                          : '0 0 0 rgba(0,0,0,0)',
-                      }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                      className={`h-16 flex items-center rounded-2xl py-3 px-5 transition-colors duration-300 ${
-                        (majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done'))
-                          ? 'bg-white cursor-pointer hover:scale-[1.01] active:scale-[0.98] border border-[#5BC2F2]/20'
-                          : majorRoadmapStep > 1
-                            ? 'bg-[#E8F7FF]/80 border border-[#5BC2F2]/10 cursor-default'
-                            : 'bg-slate-50/80 border border-slate-100 cursor-default pointer-events-none select-none'
-                      }`}
-                    >
-                      <div className="text-right w-full">
-                        <span className={`block ${
-                          (majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done')) 
-                            ? 'font-black text-slate-900 text-lg leading-tight' 
-                            : majorRoadmapStep > 1 
-                              ? 'font-semibold text-slate-700 text-base' 
-                              : 'font-semibold text-slate-400 text-base'
-                        }`}>
-                          {majorRoadmapStep > 1 && <Check className="inline w-4 h-4 text-[#5BC2F2] ml-1" />}
-                          התאמה לסגנון החיים
-                        </span>
-                        <span className={`mt-0.5 block text-sm ${
-                          (majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done')) 
-                            ? 'text-slate-500' 
-                            : majorRoadmapStep > 1
-                              ? 'text-slate-500'
-                              : 'text-slate-300'
-                        }`}>
-                          ציוד, הרגלים, לו״ז, שכונה
-                        </span>
-                      </div>
-                    </motion.div>
+                    {(() => {
+                      const isCard1Active = (majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done'))
+                        || (majorRoadmapStep === 2 && animationPhase === 'initial');
+                      const isCard1Complete = majorRoadmapStep > 1 && !(majorRoadmapStep === 2 && animationPhase === 'initial');
+                      return (
+                        <motion.div
+                          layout
+                          onClick={(majorRoadmapStep === 1 && (animationPhase === 'activating' || animationPhase === 'done')) ? handleContinue : undefined}
+                          initial={false}
+                          animate={{
+                            opacity: 1,
+                            boxShadow: isCard1Active
+                              ? '0 10px 40px rgba(91,194,242,0.12)' 
+                              : '0 0 0 rgba(0,0,0,0)',
+                          }}
+                          transition={{ duration: 0.5, ease: "easeOut" }}
+                          className={`h-16 flex items-center rounded-2xl py-3 px-5 transition-colors duration-300 ${
+                            isCard1Active
+                              ? 'bg-white border border-[#5BC2F2]/20' + (majorRoadmapStep === 1 ? ' cursor-pointer hover:scale-[1.01] active:scale-[0.98]' : ' cursor-default')
+                              : isCard1Complete
+                                ? 'bg-[#E8F7FF]/80 border border-[#5BC2F2]/10 cursor-default'
+                                : 'bg-slate-50/80 border border-slate-100 cursor-default pointer-events-none select-none'
+                          }`}
+                        >
+                          <div className="text-right w-full">
+                            <span className={`block ${
+                              isCard1Active
+                                ? 'font-black text-slate-900 text-lg leading-tight' 
+                                : isCard1Complete
+                                  ? 'font-semibold text-slate-700 text-base' 
+                                  : 'font-semibold text-slate-400 text-base'
+                            }`}>
+                              {isCard1Complete && <Check className="inline w-4 h-4 text-[#5BC2F2] ml-1" />}
+                              התאמה לסגנון החיים
+                            </span>
+                            <span className={`mt-0.5 block text-sm ${
+                              isCard1Active
+                                ? 'text-slate-500' 
+                                : isCard1Complete
+                                  ? 'text-slate-500'
+                                  : 'text-slate-300'
+                            }`}>
+                              ציוד, הרגלים, לו״ז, שכונה
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
                     
                     {/* Card 2 - שריון התוכנית ויציאה לדרך */}
-                    <motion.div
-                      layout
-                      onClick={majorRoadmapStep === 2 ? handleContinue : undefined}
-                      className={`h-16 flex items-center rounded-2xl py-3 px-5 transition-colors duration-300 ${
-                        majorRoadmapStep === 2 
-                          ? 'bg-white cursor-pointer hover:scale-[1.01] active:scale-[0.98] shadow-[0_10px_40px_rgba(91,194,242,0.12)] border border-[#5BC2F2]/20'
-                          : majorRoadmapStep > 2
-                            ? 'bg-[#E8F7FF]/80 border border-[#5BC2F2]/10 cursor-default'
-                            : 'bg-slate-50/80 border border-slate-100 cursor-default pointer-events-none select-none'
-                      }`}
-                    >
-                      <div className="text-right w-full">
-                        <span className={`block ${
-                          majorRoadmapStep === 2 
-                            ? 'font-black text-slate-900 text-lg leading-tight' 
-                            : majorRoadmapStep > 2 
-                              ? 'font-semibold text-slate-700 text-base' 
-                              : 'font-semibold text-slate-400 text-base'
-                        }`}>
-                          {majorRoadmapStep > 2 && <Check className="inline w-4 h-4 text-[#5BC2F2] ml-1" />}
-                          שריון התוכנית ויציאה לדרך
-                        </span>
-                        <span className={`mt-0.5 block text-sm ${
-                          majorRoadmapStep === 2 
-                            ? 'text-slate-500' 
-                            : majorRoadmapStep > 2
-                              ? 'text-slate-500'
-                              : 'text-slate-300'
-                        }`}>
-                          סיכום, משפטי, הצהרת בריאות, שמירה
-                        </span>
-                      </div>
-                    </motion.div>
+                    {(() => {
+                      const isCard2Active = majorRoadmapStep === 2 && (animationPhase === 'activating' || animationPhase === 'done');
+                      return (
+                        <motion.div
+                          layout
+                          onClick={isCard2Active ? handleContinue : undefined}
+                          initial={false}
+                          animate={{
+                            opacity: 1,
+                            boxShadow: isCard2Active
+                              ? '0 10px 40px rgba(91,194,242,0.12)' 
+                              : '0 0 0 rgba(0,0,0,0)',
+                          }}
+                          transition={{ duration: 0.5, ease: "easeOut" }}
+                          className={`h-16 flex items-center rounded-2xl py-3 px-5 transition-colors duration-300 ${
+                            isCard2Active
+                              ? 'bg-white cursor-pointer hover:scale-[1.01] active:scale-[0.98] border border-[#5BC2F2]/20'
+                              : majorRoadmapStep > 2
+                                ? 'bg-[#E8F7FF]/80 border border-[#5BC2F2]/10 cursor-default'
+                                : 'bg-slate-50/80 border border-slate-100 cursor-default pointer-events-none select-none'
+                          }`}
+                        >
+                          <div className="text-right w-full">
+                            <span className={`block ${
+                              isCard2Active
+                                ? 'font-black text-slate-900 text-lg leading-tight' 
+                                : majorRoadmapStep > 2 
+                                  ? 'font-semibold text-slate-700 text-base' 
+                                  : 'font-semibold text-slate-400 text-base'
+                            }`}>
+                              {majorRoadmapStep > 2 && <Check className="inline w-4 h-4 text-[#5BC2F2] ml-1" />}
+                              שריון התוכנית ויציאה לדרך
+                            </span>
+                            <span className={`mt-0.5 block text-sm ${
+                              isCard2Active
+                                ? 'text-slate-500' 
+                                : majorRoadmapStep > 2
+                                  ? 'text-slate-500'
+                                  : 'text-slate-300'
+                            }`}>
+                              סיכום, משפטי, הצהרת בריאות, שמירה
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
                     
                   </div>
                   {/* End Cards Column */}
@@ -736,7 +799,7 @@ export default function RoadmapPage() {
           <motion.button
             initial={{ opacity: 0, y: 10 }}
             animate={showContent || currentStep === 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-            transition={{ delay: currentStep === 1 ? (majorRoadmapStep === 1 ? 1.5 : 0.4) : 0, duration: 0.5 }}
+            transition={{ delay: currentStep === 1 ? (majorRoadmapStep >= 1 ? 1.5 : 0.4) : 0, duration: 0.5 }}
             onClick={handleContinue}
             disabled={currentStep === 2 && (!formData.name || !isDateOfBirthComplete || !formData.gender)}
             className={`w-full text-white text-lg font-black py-4 rounded-3xl transition-all cursor-pointer active:scale-[0.98]
@@ -746,7 +809,11 @@ export default function RoadmapPage() {
           >
             <span className="font-black">
               {currentStep === 1 
-                ? (majorRoadmapStep === 0 ? 'בואו נתחיל באבחון' : 'בואו נמשיך להתאמה')
+                ? (majorRoadmapStep === 0 
+                    ? 'בואו נתחיל באבחון' 
+                    : majorRoadmapStep === 2 
+                      ? 'בואו נמשיך לאישור סופי'
+                      : 'בואו נמשיך להתאמה')
                 : (formData.gender === 'female' ? locale.common.continueFemale : locale.common.continue)}
             </span>
           </motion.button>

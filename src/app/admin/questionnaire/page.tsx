@@ -20,6 +20,7 @@ import {
 } from '@/features/admin/services/questionnaire.service';
 import { OnboardingQuestion, OnboardingAnswer, QuestionWithAnswers, MultilingualText, AnswerResult } from '@/types/onboarding-questionnaire';
 import { Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, Globe, Users, List, Workflow, MoreVertical, Activity, UserRoundDown, ArrowUp, Brain, ClipboardCheck, Target, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Upload } from 'lucide-react';
+import ProgramAutocomplete from '@/components/admin/ProgramAutocomplete';
 import ReactFlow, { 
   type Node, 
   type Edge, 
@@ -1058,32 +1059,23 @@ function AnswerManager({
 
     // ✅ Determine answer type based on form state
     const hasNextQuestion = !!answerForm.nextQuestionId;
-    const hasAssignedLevel = !!answerForm.assignedLevelId;
     const hasAssignedResults = !!(answerForm.assignedResults && answerForm.assignedResults.length > 0);
     
     // ✅ Validation based on type
-    if (!hasNextQuestion && !hasAssignedLevel && !hasAssignedResults) {
-      alert('יש לבחור: או "שאלה הבאה" או לפחות תוצאה אחת (תוכנית + רמה)');
-      return;
-    }
-
-    if (hasNextQuestion && !answerForm.nextQuestionId) {
-      alert('יש לבחור שאלה מהרשימה');
-      return;
-    }
-
-    if (!hasNextQuestion && hasAssignedResults) {
-      // Validate all results have BOTH programId and levelId
-      const invalidResults = answerForm.assignedResults?.filter(r => !r.programId || !r.levelId);
-      if (invalidResults && invalidResults.length > 0) {
-        alert('יש למלא תוכנית ורמה עבור כל התוצאות. יש תוצאות חסרות מידע.');
+    if (hasNextQuestion) {
+      // Lead to Next Question: nextQuestionId must be valid
+      if (!answerForm.nextQuestionId) {
+        alert('יש לבחור שאלה מהרשימה');
         return;
       }
-    }
-    
-    // Additional validation: ensure assignedResults entries are complete
-    if (hasAssignedResults && answerForm.assignedResults) {
-      const incompleteResults = answerForm.assignedResults.filter(r => !r.programId || !r.levelId);
+    } else {
+      // Finish & Assign: must have at least one complete result
+      if (!hasAssignedResults) {
+        alert('יש להוסיף לפחות תוצאה אחת (תוכנית + רמה) עבור "סיום והקצאת רמה"');
+        return;
+      }
+      // Validate all results have BOTH programId and levelId
+      const incompleteResults = answerForm.assignedResults?.filter(r => !r.programId || !r.levelId) || [];
       if (incompleteResults.length > 0) {
         alert(`יש ${incompleteResults.length} תוצאות לא שלמות. יש למלא תוכנית ורמה עבור כל התוצאות.`);
         return;
@@ -1353,30 +1345,36 @@ function MultipleResultsManager({
   programs,
   isMetaLoading,
   onChange,
+  allQuestions = [],
 }: {
   form: Partial<OnboardingAnswer>;
   levels: LevelDoc[];
   programs: ProgramDoc[];
   isMetaLoading: boolean;
   onChange: (form: Partial<OnboardingAnswer>) => void;
+  allQuestions?: QuestionWithAnswers[];
 }) {
+  // Entry-point questions for chaining dropdown
+  const entryPointQuestions = allQuestions.filter(q => q.isFirstQuestion);
   // Initialize assignedResults from legacy fields or existing assignedResults
   const currentResults: AnswerResult[] = form.assignedResults || 
     (form.assignedLevelId && form.assignedProgramId 
       ? [{ programId: form.assignedProgramId, levelId: form.assignedLevelId, masterProgramSubLevels: form.masterProgramSubLevels }]
       : []);
 
-  // Helper: Get levels for a specific program (filter by maxLevels if exists)
-  const getLevelsForProgram = (programId: string | null | undefined): LevelDoc[] => {
-    if (!programId) return levels;
+  // Helper: Generate numeric level options for a specific program
+  // Program levels are simple numbers (1, 2, 3...) based on maxLevels
+  const getLevelsForProgram = (programId: string | null | undefined): { id: string; name: string; order: number }[] => {
+    if (!programId) return [];
     const program = programs.find(p => p.id === programId);
-    if (!program) return levels;
+    if (!program) return [];
     
-    // If program has maxLevels, filter levels by order <= maxLevels
-    if (program.maxLevels) {
-      return levels.filter(lvl => (lvl.order || 0) <= program.maxLevels!);
+    const max = program.maxLevels || 20; // Default to 20 if not defined
+    const result: { id: string; name: string; order: number }[] = [];
+    for (let i = 1; i <= max; i++) {
+      result.push({ id: String(i), name: `רמה ${i}`, order: i });
     }
-    return levels;
+    return result;
   };
 
   // Helper: Get program/level names for display
@@ -1516,8 +1514,16 @@ function MultipleResultsManager({
         <div className="space-y-3">
           {currentResults.map((result, index) => {
             const selectedProgram = programs.find(p => p.id === result.programId);
+            // Get child programs for a master program
+            const childProgramIds = selectedProgram?.isMaster ? (selectedProgram.subPrograms || []) : [];
+            const childPrograms = childProgramIds.map(id => programs.find(p => p.id === id)).filter(Boolean);
+
             return (
-              <div key={index} className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div key={index} className={`p-4 rounded-lg border ${
+                selectedProgram?.isMaster
+                  ? 'bg-amber-50 border-amber-300'
+                  : 'bg-purple-50 border-purple-200'
+              }`}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-bold text-purple-700">תוצאה #{index + 1}</span>
                   <button
@@ -1531,29 +1537,32 @@ function MultipleResultsManager({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">תוכנית *</label>
-                    <select
-                      value={result.programId || ''}
-                      onChange={(e) => {
-                        const programId = e.target.value;
-                        const program = programs.find(p => p.id === programId);
+                    <ProgramAutocomplete
+                      programs={programs.map(p => ({
+                        id: p.id,
+                        name: p.name || p.id,
+                        isMaster: p.isMaster,
+                        subPrograms: p.subPrograms,
+                        maxLevels: p.maxLevels,
+                      }))}
+                      selectedId={result.programId || ''}
+                      onChange={(programId, program) => {
+                        // For master programs: initialize sub-levels from subPrograms
+                        let subLevels: Record<string, number> | undefined;
+                        if (program?.isMaster && program.subPrograms) {
+                          subLevels = {};
+                          for (const childId of program.subPrograms) {
+                            subLevels[childId] = 1;
+                          }
+                        }
                         updateResult(index, {
                           programId,
-                          masterProgramSubLevels: program?.isMaster ? {
-                            upper_body_level: 1,
-                            lower_body_level: 1,
-                            core_level: 1,
-                          } : undefined,
+                          masterProgramSubLevels: subLevels,
                         });
                       }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                    >
-                      <option value="">{isMetaLoading ? 'טוען...' : 'בחר תוכנית...'}</option>
-                      {programs.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} {p.isMaster ? '(Master)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder={isMetaLoading ? 'טוען...' : 'חפש תוכנית...'}
+                      disabled={isMetaLoading}
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">רמה *</label>
@@ -1561,72 +1570,93 @@ function MultipleResultsManager({
                       value={result.levelId || ''}
                       onChange={(e) => updateResult(index, { levelId: e.target.value })}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                      disabled={!result.programId}
+                      disabled={!result.programId || selectedProgram?.isMaster === true}
                     >
                       <option value="">{isMetaLoading ? 'טוען...' : result.programId ? 'בחר רמה...' : 'בחר תוכנית קודם'}</option>
                       {getLevelsForProgram(result.programId).map((lvl) => (
                         <option key={lvl.id} value={lvl.id}>
-                          {lvl.name} (רמה {lvl.order || 0})
+                          {lvl.name}
                         </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                {/* Master Program Sub-Levels */}
+                {/* Next Step: Questionnaire Chaining (Dropdown) */}
+                <div className="mt-3">
+                  <label className="block text-xs font-bold text-gray-700 mb-1">שלב הבא (שרשור שאלון)</label>
+                  <select
+                    value={(result as any).nextQuestionnaireId || ''}
+                    onChange={(e) => updateResult(index, { nextQuestionnaireId: e.target.value || undefined } as any)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                  >
+                    <option value="">ללא – סיום שאלון</option>
+                    {entryPointQuestions.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {getTextValue(q.title, 'he', 'neutral') || q.id}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    שרשור שאלונים: בחר את השאלון הבא בשרשרת (Push → Pull → Master). השאר ריק לסיום.
+                  </p>
+                  {entryPointQuestions.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      אין שאלות מסומנות כ&quot;שאלה ראשונה&quot;. סמן שאלות כנקודות כניסה כדי לאפשר שרשור.
+                    </p>
+                  )}
+                </div>
+
+                {/* ⚠️ Master Program Warning + Dynamic Sub-Levels */}
                 {selectedProgram?.isMaster && (
-                  <div className="mt-3 pt-3 border-t border-purple-200">
-                    <p className="text-xs font-bold text-purple-700 mb-2">⚙️ Master Program: רמות תת-תחומים</p>
-                    <div className="grid grid-cols-3 gap-2">
+                  <div className="mt-3 pt-3 border-t border-amber-300">
+                    <div className="flex items-start gap-2 bg-amber-100 border border-amber-400 rounded-lg p-3 mb-3">
+                      <span className="text-lg leading-none">⚠️</span>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Upper Body</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="22"
-                          value={result.masterProgramSubLevels?.upper_body_level || 1}
-                          onChange={(e) => updateResult(index, {
-                            masterProgramSubLevels: {
-                              ...result.masterProgramSubLevels,
-                              upper_body_level: parseInt(e.target.value) || 1,
-                            },
-                          })}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black font-simpler"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Lower Body</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={result.masterProgramSubLevels?.lower_body_level || 1}
-                          onChange={(e) => updateResult(index, {
-                            masterProgramSubLevels: {
-                              ...result.masterProgramSubLevels,
-                              lower_body_level: parseInt(e.target.value) || 1,
-                            },
-                          })}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black font-simpler"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Core</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="15"
-                          value={result.masterProgramSubLevels?.core_level || 1}
-                          onChange={(e) => updateResult(index, {
-                            masterProgramSubLevels: {
-                              ...result.masterProgramSubLevels,
-                              core_level: parseInt(e.target.value) || 1,
-                            },
-                          })}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-black font-simpler"
-                        />
+                        <p className="text-xs font-bold text-amber-800">
+                          תוכנית ראשית (Master) — אין להקצות רמה ישירה!
+                        </p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                          הרמה של תוכנית ראשית מחושבת אוטומטית כממוצע תת-התוכניות שלה.
+                          הגדר רמות לתת-תוכניות למטה:
+                        </p>
                       </div>
                     </div>
+
+                    {childPrograms.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold text-purple-700 mb-1">רמות תת-תוכניות:</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {childProgramIds.map((childId) => {
+                            const childProg = programs.find(p => p.id === childId);
+                            return (
+                              <div key={childId} className="bg-white border border-gray-200 rounded-lg p-2">
+                                <label className="block text-xs text-gray-600 mb-1 truncate" title={childProg?.name || childId}>
+                                  {childProg?.name || childId}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="25"
+                                  value={result.masterProgramSubLevels?.[childId] || 1}
+                                  onChange={(e) => updateResult(index, {
+                                    masterProgramSubLevels: {
+                                      ...result.masterProgramSubLevels,
+                                      [childId]: parseInt(e.target.value) || 1,
+                                    },
+                                  })}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center font-bold"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-700">
+                        לתוכנית זו אין תת-תוכניות מוגדרות. הוסף תוכניות-בן בעורך התוכניות.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1663,19 +1693,19 @@ function AnswerForm({
   // Filter out current question from next question options
   const availableQuestions = allQuestions.filter(q => q.id !== currentQuestionId);
   
-  // ✅ Toggle state: "lead_to_next" or "finish_and_assign"
-  // Determine type based on current form state - prioritize explicit toggle state
+  // ✅ Toggle state: stored as React state, initialized from form data
   const hasNextQuestion = !!form.nextQuestionId;
   const hasAssignedLevel = !!form.assignedLevelId;
   const hasAssignedResults = !!(form.assignedResults && form.assignedResults.length > 0);
   
-  // Determine answer type: if nextQuestionId exists, it's lead_to_next; otherwise check for finish assignments
-  const answerType: 'lead_to_next' | 'finish_and_assign' = hasNextQuestion 
+  // Determine initial type from existing form data
+  const initialType: 'lead_to_next' | 'finish_and_assign' = hasNextQuestion 
     ? 'lead_to_next' 
     : (hasAssignedLevel || hasAssignedResults) 
       ? 'finish_and_assign' 
-      : 'lead_to_next'; // Default to lead_to_next for new answers
+      : 'lead_to_next';
   
+  const [answerType, setAnswerType] = useState<'lead_to_next' | 'finish_and_assign'>(initialType);
   const [activeLang, setActiveLang] = useState<AppLanguage>('he');
   const [showFemaleText, setShowFemaleText] = useState(false);
 
@@ -1702,30 +1732,30 @@ function AnswerForm({
   const isValid = hasValidText && (
     answerType === 'lead_to_next' 
       ? !!form.nextQuestionId  // For lead_to_next: must have nextQuestionId
-      : hasValidAssignedResults || (form.assignedLevelId && form.assignedProgramId)  // For finish_and_assign: must have valid assignedResults or legacy fields (NO nextQuestionId required)
+      : hasValidAssignedResults  // For finish_and_assign: must have valid assignedResults (NO nextQuestionId required)
   );
 
   const handleTypeChange = (type: 'lead_to_next' | 'finish_and_assign') => {
+    setAnswerType(type);
     if (type === 'lead_to_next') {
       // Switching to "Lead to Next Question"
-      // Keep assignedLevelId and assignedProgramId as optional links
       onChange({ 
         ...form, 
         nextQuestionId: availableQuestions.length > 0 ? (form.nextQuestionId || availableQuestions[0].id) : undefined,
-        // Clear finish-specific fields but keep level/program links
+        // Clear finish-specific fields
         assignedResults: undefined,
         assignedLevel: null,
       });
     } else {
       // Switching to "Finish & Assign Result"
-      // Initialize with empty assignedResults if no legacy fields exist
-      const hasLegacy = form.assignedLevelId || form.assignedProgramId;
       onChange({ 
         ...form, 
         // Clear next question
         nextQuestionId: undefined,
-        // Initialize assignedResults if not already set and no legacy fields
-        assignedResults: form.assignedResults || (hasLegacy ? undefined : []),
+        // Initialize assignedResults if not already set
+        assignedResults: form.assignedResults && form.assignedResults.length > 0 
+          ? form.assignedResults 
+          : [],
         assignedLevel: null,
       });
     }
@@ -1828,47 +1858,7 @@ function AnswerForm({
         </p>
       </div>
 
-      {/* Link to Level and Program (always available, optional) */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2 font-simpler">קישור לרמה (אופציונלי)</label>
-          <select
-            value={form.assignedLevelId || ''}
-            onChange={(e) => onChange({ 
-              ...form, 
-              assignedLevelId: e.target.value || null 
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black font-simpler"
-            disabled={isMetaLoading}
-          >
-            <option value="">בחר רמה...</option>
-            {levels.map((level) => (
-              <option key={level.id} value={level.id}>
-                {level.name || `רמה ${level.order || level.id}`}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2 font-simpler">קישור לתוכנית (אופציונלי)</label>
-          <select
-            value={form.assignedProgramId || ''}
-            onChange={(e) => onChange({ 
-              ...form, 
-              assignedProgramId: e.target.value || null 
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black font-simpler"
-            disabled={isMetaLoading}
-          >
-            <option value="">בחר תוכנית...</option>
-            {programs.map((program) => (
-              <option key={program.id} value={program.id}>
-                {program.name || program.id}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* Legacy "Link to Level/Program" removed — use MultipleResultsManager instead */}
       {/* Widget Trigger - NEW FIELD */}
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <label className="block text-sm font-bold text-blue-900 mb-1">
@@ -1961,6 +1951,7 @@ function AnswerForm({
             programs={programs}
             isMetaLoading={isMetaLoading}
             onChange={onChange}
+            allQuestions={allQuestions}
           />
         </div>
       )}
@@ -1998,7 +1989,7 @@ function AnswerForm({
             !hasValidText || (
               answerType === 'lead_to_next' 
                 ? !form.nextQuestionId
-                : !(form.assignedResults && form.assignedResults.length > 0) && !(form.assignedLevelId && form.assignedProgramId)
+                : !(form.assignedResults && form.assignedResults.length > 0)
             )
           }
           className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"

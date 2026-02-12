@@ -1,312 +1,72 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, forwardRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Loader2, Search, X, ChevronLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
-import { getAllParks } from '@/features/parks';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { InventoryService } from '@/features/parks';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
-import { Park } from '@/types/admin-types';
-import { ISRAELI_LOCATIONS, IsraeliLocation, SubLocation, LocationType } from '@/lib/data/israel-locations';
+import { ISRAELI_LOCATIONS } from '@/lib/data/israel-locations';
 import dynamic from 'next/dynamic';
 import type { MapRef } from 'react-map-gl';
 import type { Map as MapboxGLMap } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { getCategoryBranding } from '@/features/admin/services/category-branding.service';
+import type { CategoryBrandingConfig } from '@/features/admin/services/category-branding.service';
+import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
 
-// ============================================
-// 1. CONSTANTS & CONFIG
-// ============================================
+// ── Refactored Module Imports ────────────────────────────
+import {
+  type UnifiedLocationStepProps,
+  type NearbyFacility,
+  type RouteWithDistance,
+  type CityData,
+  type SportContext,
+  type TrainingContext,
+  type SettlementNaming,
+  LocationStage,
+} from './UnifiedLocation/location-types';
 
-const MAPBOX_TOKEN = "pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw";
-const MAPBOX_STYLE = "mapbox://styles/mapbox/streets-v12";
+import { MAPBOX_TOKEN, MAPBOX_STYLE } from './UnifiedLocation/location-constants';
 
-// Waze-style character types with emojis
-const CHARACTER_TYPES = {
-  ninja: '🥷',
-  heavy: '💪',
-  yoga: '🧘',
-  runner: '🏃',
-  calisthenics: '🤸',
-} as const;
+import {
+  setMapLanguageToHebrew,
+  calculateDistance,
+  formatDistance,
+  reverseGeocode,
+  getSettlementType,
+  getSettlementNaming,
+  findAuthorityIdByCity,
+  classifySportContext,
+  fetchNearbyFacilities,
+  fetchHeroRoute,
+  applyStrengthTierFilter,
+  flattenLocations,
+  getDefaultCoordinates,
+} from './UnifiedLocation/location-utils';
 
-// Randomized Hebrew speech bubbles
-const SPEECH_BUBBLES = [
-  'מי בא למתח?',
-  'סט אחרון וסיימתי!',
-  'הגינה כאן מטורפת',
-  'בואו נציל יחד!',
-  'מי רוצה להתאמן?',
-  'הגיע הזמן לסט!',
-  'הכי טוב כאן',
-  'מי בא איתי?',
-];
+// ── Sub-Components ───────────────────────────────────────
+import { InitialCard } from './UnifiedLocation/sub-components/InitialCard';
+import { LocatingCard } from './UnifiedLocation/sub-components/LocatingCard';
+import { ConfirmationCard } from './UnifiedLocation/sub-components/ConfirmationCard';
+import { SearchOverlay } from './UnifiedLocation/sub-components/SearchOverlay';
+import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 
-// Waze-style OUTers with randomized characters and speech bubbles
-const MOCK_OUTERS: OuterMarker[] = [
-  { id: '1', lat: 32.0853, lng: 34.7818, level: 5, isActive: true, characterType: 'ninja', speechBubble: SPEECH_BUBBLES[0] },
-  { id: '2', lat: 32.0865 + 0.001, lng: 34.7830 + 0.001, level: 12, isActive: true, characterType: 'heavy' },
-  { id: '3', lat: 32.0840 - 0.0008, lng: 34.7800 - 0.001, level: 3, isActive: false, characterType: 'yoga', speechBubble: SPEECH_BUBBLES[1] },
-  { id: '4', lat: 32.1664, lng: 34.8433, level: 8, isActive: true, characterType: 'runner' },
-  { id: '5', lat: 32.1670 + 0.0012, lng: 34.8440 + 0.0008, level: 15, isActive: true, characterType: 'calisthenics', speechBubble: SPEECH_BUBBLES[2] },
-  { id: '6', lat: 32.0829, lng: 34.8151, level: 6, isActive: true, characterType: 'heavy', speechBubble: SPEECH_BUBBLES[3] },
-  { id: '7', lat: 32.0835 - 0.0005, lng: 34.8160 + 0.0007, level: 9, isActive: false, characterType: 'ninja' },
-  { id: '8', lat: 32.0845 + 0.0009, lng: 34.7825 - 0.0006, level: 7, isActive: true, characterType: 'runner', speechBubble: SPEECH_BUBBLES[4] },
-];
-
-// ============================================
-// 2. INTERFACES & TYPES
-// ============================================
-
-interface UnifiedLocationStepProps {
-  onNext: () => void;
-}
-
-interface ParkWithDistance extends Park {
-  distanceMeters: number;
-  formattedDistance: string;
-}
-
-interface OuterMarker {
-  id: string;
-  lat: number;
-  lng: number;
-  level: number;
-  isActive: boolean;
-  characterType?: 'ninja' | 'heavy' | 'yoga' | 'runner' | 'calisthenics';
-  speechBubble?: string;
-}
-
-interface CityData {
-  id: string;
-  name: string;
-  displayName: string;
-  type: LocationType;
-  lat: number;
-  lng: number;
-  trainers: number;
-  gyms: number;
-  isMapped: boolean;
-  population: number;
-  parentId?: string;
-  parentName?: string;
-  parentAuthorityId?: string;
-}
-
-// Stage enum for state machine
-enum LocationStage {
-  INITIAL = 'INITIAL',
-  LOCATING = 'LOCATING',
-  CONFIRMING = 'CONFIRMING',
-  SEARCHING = 'SEARCHING',
-}
-
-// ============================================
-// 3. UTILITY FUNCTIONS
-// ============================================
-
-// Set map language to Hebrew (v2 compatible)
-function setMapLanguageToHebrew(map: MapboxGLMap) {
-  try {
-    const style = map.getStyle();
-    if (!style || !style.layers) return;
-
-    style.layers.forEach((layer: any) => {
-      if (layer.type === 'symbol' && layer.layout && 'text-field' in layer.layout) {
-        try {
-          map.setLayoutProperty(layer.id, 'text-field', [
-            'coalesce',
-            ['get', 'name_he'],
-            ['get', 'name:he'],
-            ['get', 'name'],
-          ]);
-        } catch {
-          // Skip layers that can't be modified
-        }
-      }
-    });
-  } catch (error) {
-    console.warn('Failed to set map language to Hebrew:', error);
-  }
-}
-
-// Haversine formula for distance calculation
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
-
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-}
-
-// Format distance in Hebrew
-function formatDistance(distanceMeters: number): string {
-  if (distanceMeters < 1000) {
-    return `${Math.round(distanceMeters)} מטר ממך`;
-  }
-  const kilometers = (distanceMeters / 1000).toFixed(1);
-  return `${kilometers} ק״מ ממך`;
-}
-
-// Reverse geocoding using Mapbox API
-async function reverseGeocode(lat: number, lng: number): Promise<{
-  city: string | null;
-  neighborhood: string | null;
-  displayName: string;
-}> {
-  try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&language=he&types=place,locality,neighborhood`;
-    
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (!data.features || data.features.length === 0) {
-      return { city: null, neighborhood: null, displayName: 'מיקום לא ידוע' };
-    }
-    
-    let city: string | null = null;
-    let neighborhood: string | null = null;
-    
-    for (const feature of data.features) {
-      if (feature.place_type.includes('place')) {
-        city = feature.text_he || feature.text;
-      }
-      if (feature.place_type.includes('neighborhood') || feature.place_type.includes('locality')) {
-        neighborhood = feature.text_he || feature.text;
-      }
-    }
-    
-    const displayName = neighborhood && city
-      ? `${neighborhood}, ${city}`
-      : city || neighborhood || 'מיקום לא ידוע';
-    
-    return { city, neighborhood, displayName };
-  } catch (error) {
-    console.error('Reverse geocoding failed:', error);
-    return { city: null, neighborhood: null, displayName: 'מיקום לא ידוע' };
-  }
-}
-
-// Fetch nearby parks
-async function fetchNearbyParks(
-  userLat: number,
-  userLng: number,
-  maxRadiusMeters: number = 10000
-): Promise<ParkWithDistance[]> {
-  try {
-    const allParks = await getAllParks();
-    
-    const parksWithDistance: ParkWithDistance[] = allParks
-      .filter((park) => park.location && park.location.lat && park.location.lng)
-      .map((park) => {
-        const distanceMeters = calculateDistance(
-          userLat,
-          userLng,
-          park.location.lat,
-          park.location.lng
-        );
-        return {
-          ...park,
-          distanceMeters,
-          formattedDistance: formatDistance(distanceMeters),
-        };
-      })
-      .filter((park) => park.distanceMeters <= maxRadiusMeters)
-      .sort((a, b) => a.distanceMeters - b.distanceMeters);
-
-    return parksWithDistance;
-  } catch (error) {
-    console.error('Error fetching nearby parks:', error);
-    return [];
-  }
-}
-
-// Flatten hierarchical locations for search
-function flattenLocations(locations: IsraeliLocation[]): Array<{
-  id: string;
-  name: string;
-  displayName: string;
-  type: LocationType;
-  population: number;
-  parentId?: string;
-  parentName?: string;
-  coordinates?: { lat: number; lng: number };
-}> {
-  const flattened: Array<{
-    id: string;
-    name: string;
-    displayName: string;
-    type: LocationType;
-    population: number;
-    parentId?: string;
-    parentName?: string;
-    coordinates?: { lat: number; lng: number };
-  }> = [];
-
-  locations.forEach(location => {
-    flattened.push({
-      id: location.id,
-      name: location.name,
-      displayName: location.name,
-      type: location.type,
-      population: location.population,
-    });
-
-    if (location.subLocations && location.subLocations.length > 0) {
-      location.subLocations.forEach(sub => {
-        flattened.push({
-          id: sub.id,
-          name: sub.name,
-          displayName: `${location.name} - ${sub.name}`,
-          type: sub.type,
-          population: location.population,
-          parentId: location.id,
-          parentName: location.name,
-        });
-      });
-    }
-  });
-
-  return flattened;
-}
-
-// Get default coordinates for known locations
-function getDefaultCoordinates(locationId: string, parentId?: string): { lat: number; lng: number } {
-  const coordsMap: Record<string, { lat: number; lng: number }> = {
-    'tel-aviv': { lat: 32.0853, lng: 34.7818 },
-    'jerusalem': { lat: 31.7683, lng: 35.2137 },
-    'haifa': { lat: 32.7940, lng: 34.9896 },
-    'rishon-lezion': { lat: 31.9730, lng: 34.7925 },
-    'petah-tikva': { lat: 32.0892, lng: 34.8880 },
-    'ashdod': { lat: 31.8044, lng: 34.6553 },
-    'netanya': { lat: 32.3320, lng: 34.8599 },
-    'beer-sheva': { lat: 31.2530, lng: 34.7915 },
-    'holon': { lat: 32.0103, lng: 34.7792 },
-    'ramat-gan': { lat: 32.0820, lng: 34.8130 },
-    'bat-yam': { lat: 32.0140, lng: 34.7510 },
-    'herzliya': { lat: 32.1636, lng: 34.8443 },
-  };
-  
-  if (coordsMap[locationId]) return coordsMap[locationId];
-  if (parentId && coordsMap[parentId]) return coordsMap[parentId];
-  return { lat: 32.0853, lng: 34.7818 }; // Default: Tel Aviv
-}
-
-// Dynamic imports for Mapbox (avoid SSR)
+// ── Dynamic Mapbox Imports (avoid SSR) ───────────────────
 const MapboxMap = dynamic(() => import('react-map-gl').then((mod) => mod.default), { ssr: false });
 const MapboxMarker = dynamic(() => import('react-map-gl').then((mod) => mod.Marker), { ssr: false });
+const MapboxSource = dynamic(() => import('react-map-gl').then((mod) => mod.Source), { ssr: false });
+const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer), { ssr: false });
 
 // ============================================
-// 4. MAIN COMPONENT (State Machine & Map)
+// MAIN COMPONENT (State Machine & Map)
 // ============================================
 
 export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps) {
-  const { updateData } = useOnboardingStore();
+  const { updateData, setMajorRoadmapStep } = useOnboardingStore();
+  const router = useRouter();
   const mapRef = useRef<MapRef>(null);
   
   // Get gender from sessionStorage
@@ -315,36 +75,94 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     : 'male';
   const t = (male: string, female: string) => gender === 'female' ? female : male;
 
-  // Stage control
+  // ── Selected Sports from onboarding state ──
+  const allSelectedSports: string[] = (() => {
+    if (typeof window === 'undefined') return [];
+    const stored = sessionStorage.getItem('onboarding_selected_sports');
+    if (!stored) return [];
+    try {
+      const arr = JSON.parse(stored) as string[];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  })();
+  const selectedSportId: string | null = allSelectedSports[0] || null;
+  const sportContext = classifySportContext(allSelectedSports);
+
+  // ── Training Context ──
+  const userProfile = useUserStore((state) => state.profile);
+  const trainingContext: TrainingContext | null = (() => {
+    if (!userProfile?.progression?.activePrograms?.length) return null;
+    const program = userProfile.progression.activePrograms[0];
+    const templateId = program.templateId || null;
+    const focusDomain = program.focusDomains?.[0];
+    const domainLevel = focusDomain && userProfile.progression.domains?.[focusDomain]
+      ? userProfile.progression.domains[focusDomain]!.currentLevel
+      : 1;
+    return { programTemplateId: templateId, level: domainLevel };
+  })();
+
+  // ── Stage Control ──
   const [stage, setStage] = useState<LocationStage>(LocationStage.INITIAL);
 
-  // Location data
+  // ── Location Data ──
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [detectedCity, setDetectedCity] = useState<string | null>(null);
   const [detectedNeighborhood, setDetectedNeighborhood] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
 
-  // Map state
+  // ── Map State ──
   const [viewState, setViewState] = useState({
     longitude: 34.7818,
     latitude: 32.0853,
     zoom: 7,
   });
 
-  // Parks data
-  const [nearbyParks, setNearbyParks] = useState<ParkWithDistance[]>([]);
+  // ── Facilities Data ──
+  const [nearbyFacilities, setNearbyFacilities] = useState<NearbyFacility[]>([]);
   const [isLoadingParks, setIsLoadingParks] = useState(false);
+  const [isLoadingCurated, setIsLoadingCurated] = useState(false);
 
-  // UI state
+  // ── Infrastructure & City Stats ──
+  const [infraStats, setInfraStats] = useState<{ totalKm: number; segmentCount: number } | null>(null);
+  const [cityAssetCounts, setCityAssetCounts] = useState<{ gyms: number; courts: number; nature: number } | null>(null);
+  const [settlementNaming, setSettlementNaming] = useState<SettlementNaming | null>(null);
+  const [heroRoute, setHeroRoute] = useState<RouteWithDistance | null>(null);
+
+  // ── Category Branding ──
+  const [brandingConfig, setBrandingConfig] = useState<CategoryBrandingConfig | null>(null);
+
+  // ── UI State ──
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isMapLoading, setIsMapLoading] = useState(true);
   const [showRadar, setShowRadar] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Search state
+  // ── "Power of One" — best match cycling ──
+  const [bestMatchIndex, setBestMatchIndex] = useState(0);
+
+  // ── Search State ──
   const [searchQuery, setSearchQuery] = useState('');
   const [cities, setCities] = useState<CityData[]>([]);
   const [filteredCities, setFilteredCities] = useState<CityData[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Resolved Authority ──
+  const [resolvedAuthorityId, setResolvedAuthorityId] = useState<string | null>(null);
+
+  // ══════════════════════════════════════════════════════════════════
+  // EFFECTS
+  // ══════════════════════════════════════════════════════════════════
+
+  // Load category branding on mount
+  useEffect(() => {
+    getCategoryBranding()
+      .then((config) => setBrandingConfig(config))
+      .catch(console.error);
+  }, []);
 
   // Load cities on mount
   useEffect(() => {
@@ -375,16 +193,16 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     if (!searchQuery.trim()) {
       setFilteredCities(cities.slice(0, 15));
     } else {
-      const query = searchQuery.toLowerCase().trim();
-      const filtered = cities.filter(city => 
-        city.name.toLowerCase().includes(query) ||
-        city.displayName.toLowerCase().includes(query)
-      ).slice(0, 10);
+      const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(word => word.length > 0);
+      const filtered = cities.filter(city => {
+        const cityFullName = `${city.name} ${city.displayName} ${city.parentName || ''}`.toLowerCase();
+        return queryWords.every(word => cityFullName.includes(word));
+      }).slice(0, 15);
       setFilteredCities(filtered);
     }
   }, [searchQuery, cities]);
 
-  // Focus search input when entering SEARCHING stage
+  // Focus search input
   useEffect(() => {
     if (stage === LocationStage.SEARCHING && searchInputRef.current) {
       setTimeout(() => searchInputRef.current?.focus(), 100);
@@ -406,7 +224,99 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     }, 100);
   }, []);
 
-  // Handle GPS location request
+  // Auto-Zoom: fitBounds on the Hero Route
+  useEffect(() => {
+    if (!heroRoute || !heroRoute.path || heroRoute.path.length < 2) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (const [lng, lat] of heroRoute.path) {
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+
+    if (heroRoute.facilityStops && heroRoute.facilityStops.length > 0) {
+      for (const stop of heroRoute.facilityStops) {
+        if (stop.lng < minLng) minLng = stop.lng;
+        if (stop.lng > maxLng) maxLng = stop.lng;
+        if (stop.lat < minLat) minLat = stop.lat;
+        if (stop.lat > maxLat) maxLat = stop.lat;
+      }
+    }
+
+    try {
+      map.fitBounds(
+        [[minLng, minLat], [maxLng, maxLat]],
+        {
+          padding: { top: 60, bottom: 450, left: 40, right: 40 },
+          duration: 1200,
+          maxZoom: 15.5,
+        }
+      );
+    } catch {
+      // fitBounds can throw if map isn't fully initialized
+    }
+  }, [heroRoute]);
+
+  // ══════════════════════════════════════════════════════════════════
+  // HANDLERS
+  // ══════════════════════════════════════════════════════════════════
+
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true);
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(async () => {
+    setIsDragging(false);
+    if (stage !== LocationStage.CONFIRMING) return;
+    
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+    
+    dragTimeoutRef.current = setTimeout(async () => {
+      const centerLat = viewState.latitude;
+      const centerLng = viewState.longitude;
+      
+      setIsUpdatingLocation(true);
+      
+      const result = await reverseGeocode(centerLat, centerLng);
+      setDetectedCity(result.city);
+      setDetectedNeighborhood(result.neighborhood);
+      setDisplayName(result.displayName);
+      setUserLocation({ lat: centerLat, lng: centerLng });
+      
+      const authId = await findAuthorityIdByCity(result.city || '');
+      setResolvedAuthorityId(authId);
+
+      setIsLoadingCurated(true);
+      const hero = await fetchHeroRoute(centerLat, centerLng, authId, sportContext, selectedSportId);
+      setHeroRoute(hero);
+      setIsLoadingCurated(false);
+      const heroArr: RouteWithDistance[] = hero ? [hero] : [];
+      const rawFacilities = await fetchNearbyFacilities(centerLat, centerLng, 1600, selectedSportId, heroArr, sportContext);
+      const facilities = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+      setNearbyFacilities(facilities.slice(0, 5));
+      setBestMatchIndex(0);
+
+      loadInfrastructureContext(result.city, authId);
+      
+      updateData({
+        locationAllowed: true,
+        city: result.displayName,
+        location: { lat: centerLat, lng: centerLng, city: result.displayName },
+      });
+      
+      setIsUpdatingLocation(false);
+    }, 500);
+  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId]);
+
   const handleFindLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('הדפדפן שלך לא תומך באיתור מיקום');
@@ -420,42 +330,41 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
       async (position) => {
         const { latitude, longitude } = position.coords;
         
-        // Animate map to user location
-        setViewState({
-          longitude,
-          latitude,
-          zoom: 14,
-        });
-        
+        setViewState({ longitude, latitude, zoom: 14 });
         setUserLocation({ lat: latitude, lng: longitude });
         
-        // Reverse geocode
         const result = await reverseGeocode(latitude, longitude);
         setDetectedCity(result.city);
         setDetectedNeighborhood(result.neighborhood);
         setDisplayName(result.displayName);
         
-        // Fetch nearby parks
+        const authId = await findAuthorityIdByCity(result.city || '');
+        setResolvedAuthorityId(authId);
+
         setIsLoadingParks(true);
-        const parks = await fetchNearbyParks(latitude, longitude);
-        setNearbyParks(parks.slice(0, 3));
+        setIsLoadingCurated(true);
+        const hero = await fetchHeroRoute(latitude, longitude, authId, sportContext, selectedSportId);
+        setHeroRoute(hero);
+        setIsLoadingCurated(false);
+        const heroArr: RouteWithDistance[] = hero ? [hero] : [];
+        const rawFacilities = await fetchNearbyFacilities(latitude, longitude, 1600, selectedSportId, heroArr, sportContext);
+        const facilities = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+        setNearbyFacilities(facilities.slice(0, 5));
+        setBestMatchIndex(0);
         setIsLoadingParks(false);
+
+        loadInfrastructureContext(result.city, authId);
         
-        // Show radar animation
         setShowRadar(true);
         setTimeout(() => setShowRadar(false), 3000);
-        
-        // Transition to confirming stage
         setStage(LocationStage.CONFIRMING);
         
-        // Save to store
         updateData({
           locationAllowed: true,
           city: result.displayName,
           location: { lat: latitude, lng: longitude, city: result.displayName },
         });
         
-        // Log analytics
         try {
           const { Analytics } = await import('@/features/analytics/AnalyticsService');
           Analytics.logPermissionLocationStatus('granted', 'onboarding_unified_location');
@@ -474,55 +383,114 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     );
   };
 
-  // Handle confirm (user says "Yes, this is my area")
-  const handleConfirm = () => {
-    onNext();
+  /**
+   * Load infrastructure stats + settlement naming + city-wide asset counts.
+   */
+  const loadInfrastructureContext = async (cityName: string | null, authorityId: string | null) => {
+    if (!cityName) return;
+    try {
+      const sType = getSettlementType(cityName);
+      setSettlementNaming(getSettlementNaming(sType, cityName));
+
+      if (!authorityId) return;
+
+      const stats = await InventoryService.fetchInfrastructureStats(authorityId);
+      setInfraStats(stats);
+      
+      const allParks = await getParksByAuthority(authorityId);
+      const counts = { gyms: 0, courts: 0, nature: 0 };
+      
+      for (const park of allParks) {
+        const isBench = park.urbanType === 'bench' || park.courtType === 'bench';
+        const isStairs = park.urbanType === 'stairs' || park.courtType === 'stairs' || park.courtType === 'public_steps';
+        if (isBench || isStairs) continue;
+        
+        if (park.facilityType === 'gym_park' || 
+            park.courtType === 'calisthenics' || 
+            park.courtType === 'fitness_station') {
+          counts.gyms++;
+        }
+        else if (park.courtType === 'basketball' || 
+                 park.courtType === 'football' || 
+                 park.courtType === 'tennis' ||
+                 park.courtType === 'padel') {
+          counts.courts++;
+        }
+        else if (park.natureType === 'spring' || park.natureType === 'observation_point') {
+          counts.nature++;
+        }
+      }
+      
+      setCityAssetCounts(counts);
+    } catch (err) {
+      console.warn('Non-critical: failed to load infrastructure context', err);
+    }
   };
 
-  // Handle search other city
+  const handleConfirm = () => {
+    const bestRated = nearbyFacilities
+      .filter(f => f.rating != null && f.rating > 0)
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
+
+    if (bestRated) {
+      updateData({
+        selectedParkName: bestRated.name,
+        selectedParkRating: bestRated.rating,
+      } as any);
+    } else if (nearbyFacilities.length > 0) {
+      updateData({
+        selectedParkName: nearbyFacilities[0].name,
+      } as any);
+    }
+
+    setMajorRoadmapStep(2);
+    router.push('/onboarding-new/roadmap');
+  };
+
   const handleSearchOtherCity = () => {
     setStage(LocationStage.SEARCHING);
     setSearchQuery(detectedCity || '');
   };
 
-  // Handle city selection from search
   const handleCitySelect = async (city: CityData) => {
     setSearchQuery('');
     
-    // Animate map to selected city
-    setViewState({
-      longitude: city.lng,
-      latitude: city.lat,
-      zoom: 14,
-    });
-    
+    setViewState({ longitude: city.lng, latitude: city.lat, zoom: 14 });
     setUserLocation({ lat: city.lat, lng: city.lng });
-    setDetectedCity(city.name);
-    setDetectedNeighborhood(city.parentName || null);
+    setDetectedCity(city.parentName || city.name);
+    setDetectedNeighborhood(city.parentName ? city.name : null);
     setDisplayName(city.displayName);
     
-    // Fetch parks for this city
+    const effectiveCityName = city.parentName || city.name;
+    const authId = await findAuthorityIdByCity(effectiveCityName);
+    setResolvedAuthorityId(authId);
+
     setIsLoadingParks(true);
-    const parks = await fetchNearbyParks(city.lat, city.lng);
-    setNearbyParks(parks.slice(0, 3));
+    setIsLoadingCurated(true);
+    const hero = await fetchHeroRoute(city.lat, city.lng, authId, sportContext, selectedSportId);
+    setHeroRoute(hero);
+    setIsLoadingCurated(false);
+    const heroArr: RouteWithDistance[] = hero ? [hero] : [];
+    const rawFacilities = await fetchNearbyFacilities(city.lat, city.lng, 1600, selectedSportId, heroArr, sportContext);
+    const facilities = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+    setNearbyFacilities(facilities.slice(0, 5));
+    setBestMatchIndex(0);
     setIsLoadingParks(false);
+
+    loadInfrastructureContext(effectiveCityName, authId);
     
-    // Show radar
     setShowRadar(true);
     setTimeout(() => setShowRadar(false), 3000);
     
-    // Update store
     updateData({
       locationAllowed: true,
       city: city.displayName,
       location: { lat: city.lat, lng: city.lng, city: city.displayName },
     });
     
-    // Back to confirming
     setStage(LocationStage.CONFIRMING);
   };
 
-  // Handle back from search
   const handleBackFromSearch = () => {
     if (userLocation) {
       setStage(LocationStage.CONFIRMING);
@@ -532,11 +500,14 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     setSearchQuery('');
   };
 
-  // Handle manual search trigger from initial
   const handleSearchManually = () => {
     setStage(LocationStage.SEARCHING);
     setSearchQuery('');
   };
+
+  // ══════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════
 
   return (
     <div dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-[#F8FAFC] z-50">
@@ -568,75 +539,292 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
             ref={mapRef}
             {...viewState}
             onMove={(evt) => setViewState(evt.viewState)}
+            onMoveStart={handleDragStart}
+            onMoveEnd={handleDragEnd}
             onLoad={handleMapLoad}
             mapboxAccessToken={MAPBOX_TOKEN}
             mapStyle={MAPBOX_STYLE}
             style={{ width: '100%', height: '100%' }}
-            interactive={false}
+            interactive={stage === LocationStage.CONFIRMING}
+            scrollZoom={stage === LocationStage.CONFIRMING}
+            dragPan={stage === LocationStage.CONFIRMING}
+            dragRotate={false}
+            pitchWithRotate={false}
+            touchZoomRotate={stage === LocationStage.CONFIRMING}
           >
             {/* Radar Pulse */}
             {showRadar && userLocation && (
               <RadarPulse center={userLocation} />
             )}
             
-            {/* OUTer Markers */}
-            {MOCK_OUTERS.map((outer) => (
-              <MapboxMarker
-                key={outer.id}
-                longitude={outer.lng}
-                latitude={outer.lat}
-                anchor="center"
+            {/* "Power of One" — Only the #1 best match park marker with Pulse/Glow */}
+            {(() => {
+              const parkFacilities = nearbyFacilities.filter(
+                (f): f is NearbyFacility & { kind: 'park' } => f.kind === 'park'
+              );
+              const bestPark = parkFacilities[bestMatchIndex] || parkFacilities[0];
+              if (!bestPark || !bestPark.location?.lat || !bestPark.location?.lng) return null;
+
+              const catKey = resolveCategoryKey(bestPark);
+              const icon = getFacilityIcon(bestPark.image, catKey, brandingConfig);
+                return (
+                  <MapboxMarker
+                  key={`best-${bestPark.id}`}
+                  longitude={bestPark.location.lng}
+                  latitude={bestPark.location.lat}
+                    anchor="bottom"
+                  >
+                      <div className="relative flex flex-col items-center">
+                    {/* Pulse ring animation */}
+                    <div
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full"
+                      style={{
+                        animation: 'heroMarkerPulse 2s ease-out infinite',
+                        background: 'rgba(91, 194, 242, 0.25)',
+                      }}
+                    />
+                    <div
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full"
+                      style={{
+                        animation: 'heroMarkerPulse 2s ease-out infinite 0.5s',
+                        background: 'rgba(91, 194, 242, 0.12)',
+                      }}
+                    />
+                    {icon.type === 'image' ? (
+                      <div
+                        className={`w-12 h-12 rounded-full border-3 border-[#5BC2F2] shadow-xl overflow-hidden bg-white relative z-10 ${
+                            icon.tier === 'site_photo' ? '' : 'p-1'
+                          }`}
+                        style={{ boxShadow: '0 4px 20px rgba(91, 194, 242, 0.4)' }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={icon.value}
+                          alt={bestPark.name}
+                            className={`w-full h-full ${
+                              icon.tier === 'site_photo' ? 'object-cover' : 'object-contain'
+                            }`}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="w-12 h-12 rounded-full bg-white border-3 border-[#5BC2F2] shadow-xl flex items-center justify-center text-xl relative z-10"
+                        style={{ boxShadow: '0 4px 20px rgba(91, 194, 242, 0.4)' }}
+                      >
+                          {icon.value}
+                        </div>
+                    )}
+                        <div
+                      className="w-0 h-0 -mt-0.5 relative z-10"
+                          style={{
+                        borderLeft: '7px solid transparent',
+                        borderRight: '7px solid transparent',
+                        borderTop: '10px solid #5BC2F2',
+                        filter: 'drop-shadow(0 2px 4px rgba(91, 194, 242, 0.3))',
+                          }}
+                        />
+                      </div>
+                  </MapboxMarker>
+                );
+            })()}
+
+            {/* Hero Route — Zero-Noise: Only the single closest matching route */}
+            {heroRoute && heroRoute.path && heroRoute.path.length >= 2 && (() => {
+              const startPt = heroRoute.path[0];
+                const isHybrid = heroRoute.isHybrid;
+                const heroColor = isHybrid ? '#F97316' : '#06B6D4';
+                const glowColor = isHybrid ? '#FB923C' : '#22D3EE';
+                const routeKm = heroRoute.distance ? `${heroRoute.distance.toFixed(1)} ק״מ מסלול` : '';
+
+                return (
+                  <React.Fragment key={`hero-${heroRoute.id}`}>
+                    <MapboxSource
+                      id={`hero-route-line`}
+                      type="geojson"
+                      data={{
+                        type: 'Feature',
+                        properties: {},
+                        geometry: {
+                          type: 'LineString',
+                          coordinates: heroRoute.path,
+                        },
+                      }}
+                    >
+                      <MapboxLayer
+                        id={`hero-glow-outer`}
+                        type="line"
+                        paint={{
+                          'line-color': glowColor,
+                          'line-width': 14,
+                          'line-opacity': 0.15,
+                          'line-blur': 10,
+                        }}
+                        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                      />
+                      <MapboxLayer
+                        id={`hero-glow-inner`}
+                        type="line"
+                        paint={{
+                          'line-color': glowColor,
+                          'line-width': 9,
+                          'line-opacity': 0.3,
+                          'line-blur': 4,
+                        }}
+                        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                      />
+                      <MapboxLayer
+                        id={`hero-main`}
+                        type="line"
+                        paint={{
+                          'line-color': heroColor,
+                          'line-width': 5.5,
+                          'line-opacity': 0.95,
+                        }}
+                        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                      />
+                    </MapboxSource>
+
+                    <MapboxMarker longitude={startPt[0]} latitude={startPt[1]} anchor="center">
+                      <div className="relative flex flex-col items-center">
+                        <div
+                          className="w-11 h-11 rounded-full flex items-center justify-center shadow-xl"
+                          style={{
+                            background: `linear-gradient(135deg, ${heroColor}, ${glowColor})`,
+                            border: '3px solid white',
+                            boxShadow: `0 4px 20px ${heroColor}66`,
+                          }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 5.14v14l11-7-11-7z" fill="white" />
+                          </svg>
+                        </div>
+                        {routeKm && (
+                          <div
+                            className="absolute -bottom-5 whitespace-nowrap px-2 py-0.5 rounded-full text-[9px] font-black text-white shadow-lg"
+                            style={{ backgroundColor: heroColor }}
+                          >
+                            {routeKm}
+                          </div>
+                        )}
+                      </div>
+                    </MapboxMarker>
+
+                    {/* Hybrid facility pit-stop markers */}
+                    {isHybrid && heroRoute.facilityStops?.map((stop, idx) => (
+                      <MapboxMarker
+                        key={`pitstop-${stop.id}-${idx}`}
+                        longitude={stop.lng}
+                        latitude={stop.lat}
+                        anchor="center"
+                      >
+                      <div className="relative flex flex-col items-center">
+                        <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
+                          style={{
+                              background: stop.priority === 1 ? '#EF4444' : stop.priority === 2 ? '#EAB308' : '#8B5CF6',
+                              border: '2px solid white',
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                              {stop.priority === 1 ? (
+                                <path d="M6.5 2C7.33 2 8 2.67 8 3.5V8h8V3.5C16 2.67 16.67 2 17.5 2S19 2.67 19 3.5V8h1.5a1 1 0 110 2H19v4.5c0 .83-.67 1.5-1.5 1.5S16 15.33 16 14.5V10H8v4.5C8 15.33 7.33 16 6.5 16S5 15.33 5 14.5V10H3.5a1 1 0 110-2H5V3.5C5 2.67 5.67 2 6.5 2z" />
+                              ) : stop.priority === 2 ? (
+                                <path d="M3 21h4v-4h4v-4h4v-4h4V5h-4v4h-4v4H7v4H3v4z" />
+                              ) : (
+                                <path d="M4 12h16v2H4v-2zm2 4h2v4H6v-4zm10 0h2v4h-2v-4zM3 10h18a1 1 0 011 1v1H2v-1a1 1 0 011-1z" />
+                              )}
+                            </svg>
+                          </div>
+                      </div>
+                    </MapboxMarker>
+                    ))}
+                  </React.Fragment>
+                );
+              })()}
+          </MapboxMap>
+        )}
+        
+        {/* Fixed Center Marker - King Lemur Crosshair */}
+        {stage === LocationStage.CONFIRMING && (
+          <div 
+            className="absolute inset-0 pointer-events-none flex items-center justify-center z-30"
+            style={{ paddingBottom: '280px' }}
+          >
+            <motion.div
+              animate={{ y: isDragging ? -16 : 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className="relative flex flex-col items-center"
+            >
+              <motion.div 
+                className="relative flex-shrink-0"
+                animate={{ scale: isDragging ? 1.1 : 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                style={{ width: '76px', height: '76px' }}
               >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3 + Math.random() * 0.5 }}
-                >
-                  <WazeAvatar
-                    level={outer.level}
-                    speechBubble={outer.speechBubble}
-                    characterType={outer.characterType}
-                  />
-                </motion.div>
-              </MapboxMarker>
-            ))}
-            
-            {/* User Location Marker */}
-            {userLocation && (
-              <MapboxMarker
-                longitude={userLocation.lng}
-                latitude={userLocation.lat}
-                anchor="center"
-              >
-                <motion.div
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="relative"
-                >
+                <div 
+                  className="absolute inset-0 bg-white rounded-full shadow-2xl"
+                  style={{ 
+                    boxShadow: isDragging 
+                      ? '0 20px 50px rgba(0,0,0,0.35)' 
+                      : '0 8px 30px rgba(0,0,0,0.2)'
+                  }}
+                />
+                <div className="absolute inset-1 rounded-full overflow-hidden">
                   <img
                     src="/assets/lemur/king-lemur.png"
                     alt="המיקום שלך"
-                    className="w-14 h-14 rounded-full border-3 border-white shadow-xl object-cover"
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: 'center center' }}
                   />
-                </motion.div>
-              </MapboxMarker>
-            )}
-            
-            {/* Park Markers */}
-            {nearbyParks.map((park) => {
-              if (!park.location?.lat || !park.location?.lng) return null;
-              return (
-                <MapboxMarker
-                  key={park.id}
-                  longitude={park.location.lng}
-                  latitude={park.location.lat}
-                  anchor="bottom"
-                >
-                  <img src="/icons/park-pin.svg" alt={park.name} className="w-8 h-10" />
-                </MapboxMarker>
-              );
-            })}
-          </MapboxMap>
+                </div>
+                
+                {isUpdatingLocation && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="absolute -bottom-1 -right-1 bg-white rounded-full p-1.5 shadow-lg z-10"
+                  >
+                    <Loader2 size={16} className="text-[#5BC2F2] animate-spin" />
+                  </motion.div>
+                )}
+              </motion.div>
+              
+              {/* Pin point */}
+              <div 
+                className="w-0 h-0 -mt-2"
+                style={{
+                  borderLeft: '12px solid transparent',
+                  borderRight: '12px solid transparent',
+                  borderTop: '20px solid white',
+                  filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.25))'
+                }}
+              />
+              
+              {/* GPS dot */}
+              <motion.div
+                animate={{ 
+                  scale: isDragging ? [1, 1.5, 1] : 1,
+                  opacity: isDragging ? 0.8 : 0.6
+                }}
+                transition={{ 
+                  scale: { duration: 0.5, repeat: isDragging ? Infinity : 0 },
+                  opacity: { duration: 0.2 }
+                }}
+                className="w-3 h-3 bg-[#5BC2F2] rounded-full border-2 border-white shadow-lg -mt-1"
+              />
+              
+              {/* Shadow */}
+              <motion.div
+                animate={{ 
+                  opacity: isDragging ? 0.5 : 0.25,
+                  scale: isDragging ? 1.4 : 1
+                }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="absolute w-14 h-4 bg-black/50 rounded-full blur-md"
+                style={{ top: 'calc(100% + 4px)' }}
+              />
+            </motion.div>
+          </div>
         )}
       </div>
 
@@ -663,10 +851,21 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
             displayName={displayName}
             detectedNeighborhood={detectedNeighborhood}
             detectedCity={detectedCity}
-            nearbyParks={nearbyParks}
+            nearbyFacilities={nearbyFacilities}
             isLoadingParks={isLoadingParks}
+            isLoadingCurated={isLoadingCurated}
+            isUpdatingLocation={isUpdatingLocation}
             onConfirm={handleConfirm}
             onSearchOther={handleSearchOtherCity}
+            brandingConfig={brandingConfig}
+            infraStats={infraStats}
+            cityAssetCounts={cityAssetCounts}
+            settlementNaming={settlementNaming}
+            curatedRouteCount={heroRoute ? 1 : 0}
+            heroRoute={heroRoute}
+            sportContext={sportContext}
+            bestMatchIndex={bestMatchIndex}
+            trainingContext={trainingContext}
           />
         )}
 
@@ -682,409 +881,5 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-// ============================================
-// 5. UI OVERLAY SUB-COMPONENTS
-// ============================================
-
-interface InitialCardProps {
-  gender: 'male' | 'female';
-  t: (male: string, female: string) => string;
-  locationError: string | null;
-  onFindLocation: () => void;
-  onSearchManually: () => void;
-}
-
-function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually }: InitialCardProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 50 }}
-      transition={{ duration: 0.3 }}
-      className="absolute bottom-0 left-0 right-0 z-20"
-    >
-      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-12 pb-4">
-        <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-6 border-t border-slate-100/40">
-          <h2 
-            className="text-2xl font-bold leading-tight text-slate-900 mb-3"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            בואו נמצא את הגינה הכי קרובה אליכם
-          </h2>
-          <p 
-            className="text-slate-600 leading-relaxed text-sm mb-4"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            מיפינו מאות גינות כושר ברחבי הארץ, עם מתקנים שמתאימים לאימוני OUT.
-            {' '}
-            {t('אשר את המיקום שלך ונמצא את הגינה הקרובה אליך.', 'אשרי את המיקום שלך ונמצא את הגינה הקרובה אלייך.')}
-          </p>
-
-          {locationError && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4"
-            >
-              <p className="text-sm text-red-600" style={{ fontFamily: 'var(--font-simpler)' }}>
-                {locationError}
-              </p>
-            </motion.div>
-          )}
-
-          <button
-            onClick={onFindLocation}
-            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            <MapPin size={20} />
-            <span>מצאו את המיקום שלי</span>
-          </button>
-
-          <button
-            onClick={onSearchManually}
-            className="w-full mt-3 text-slate-500 hover:text-[#5BC2F2] text-sm py-2 transition-colors"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            או חפשו ידנית
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function LocatingCard() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 50 }}
-      transition={{ duration: 0.3 }}
-      className="absolute bottom-0 left-0 right-0 z-20"
-    >
-      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-12 pb-4">
-        <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-8 border-t border-slate-100/40">
-          <div className="flex flex-col items-center justify-center py-8">
-            <Loader2 size={40} className="text-[#5BC2F2] animate-spin mb-4" />
-            <p 
-              className="text-slate-700 font-medium text-lg"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              מאתרים את המיקום שלך...
-            </p>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-interface ConfirmationCardProps {
-  displayName: string;
-  detectedNeighborhood: string | null;
-  detectedCity: string | null;
-  nearbyParks: ParkWithDistance[];
-  isLoadingParks: boolean;
-  onConfirm: () => void;
-  onSearchOther: () => void;
-}
-
-function ConfirmationCard({
-  displayName,
-  detectedNeighborhood,
-  detectedCity,
-  nearbyParks,
-  isLoadingParks,
-  onConfirm,
-  onSearchOther,
-}: ConfirmationCardProps) {
-  // Build the confirmation question
-  const locationText = detectedNeighborhood && detectedCity
-    ? `${detectedNeighborhood}, ${detectedCity}`
-    : detectedCity || displayName;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 50 }}
-      transition={{ duration: 0.3 }}
-      className="absolute bottom-0 left-0 right-0 z-20"
-    >
-      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-8 pb-4">
-        <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-6 border-t border-slate-100/40">
-          {/* Header Question */}
-          <h2 
-            className="text-xl font-bold leading-tight text-slate-900 mb-2"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            זיהינו שאתה ב-{locationText}.
-          </h2>
-          <p 
-            className="text-slate-600 text-base mb-4"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            כאן תרצה להתאמן?
-          </p>
-
-          {/* Parks Count Badge */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="bg-[#5BC2F2]/10 text-[#5BC2F2] px-3 py-1.5 rounded-xl text-sm font-medium">
-              {isLoadingParks ? 'מחפש...' : `${nearbyParks.length} גינות כושר בסביבה`}
-            </div>
-          </div>
-
-          {/* Parks List */}
-          {!isLoadingParks && nearbyParks.length > 0 && (
-            <div className="bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
-              {nearbyParks.map((park, index) => (
-                <motion.div
-                  key={park.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 * index }}
-                  className="flex justify-between items-center"
-                >
-                  <span className="text-[#5BC2F2] font-bold text-sm">{park.formattedDistance}</span>
-                  <span className="font-medium text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    {park.name}
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          )}
-
-          {/* Primary Action */}
-          <motion.button
-            onClick={onConfirm}
-            disabled={isLoadingParks}
-            animate={{ scale: [1, 1.01, 1] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            כן, זה האזור שלי
-          </motion.button>
-
-          {/* Secondary Action */}
-          <button
-            onClick={onSearchOther}
-            className="w-full mt-3 text-slate-500 hover:text-[#5BC2F2] text-sm py-2 transition-colors"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            לא, אני רוצה לחפש עיר אחרת
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-interface SearchOverlayProps {
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  filteredCities: CityData[];
-  onCitySelect: (city: CityData) => void;
-  onBack: () => void;
-}
-
-function SearchOverlay({
-  searchQuery,
-  onSearchChange,
-  filteredCities,
-  onCitySelect,
-  onBack,
-}: SearchOverlayProps) {
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setTimeout(() => searchInputRef.current?.focus(), 100);
-  }, []);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="absolute inset-0 z-30 flex flex-col"
-    >
-      {/* Glassmorphism Header */}
-      <div className="bg-[#F8FAFC]/80 backdrop-blur-xl p-4 pt-12 border-b border-slate-200/40">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-10 h-10 rounded-2xl bg-white shadow-md flex items-center justify-center"
-          >
-            <ChevronLeft size={20} className="text-slate-600" />
-          </button>
-          
-          <div className="flex-1 relative">
-            <Search 
-              size={18} 
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400" 
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="חפשו עיר או שכונה"
-              className="w-full bg-white rounded-2xl py-3 pr-11 pl-4 text-slate-900 placeholder-slate-400 border border-slate-200/60 shadow-[0_4px_20px_rgba(91,194,242,0.08)] focus:outline-none focus:ring-2 focus:ring-[#5BC2F2]/30"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-              dir="rtl"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => onSearchChange('')}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2"
-              >
-                <X size={18} className="text-slate-400" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Search Results */}
-      <div className="flex-1 bg-white/95 backdrop-blur-sm overflow-y-auto">
-        <div className="p-4">
-          {filteredCities.length > 0 ? (
-            <div className="rounded-3xl bg-white shadow-[0_8px_30px_rgba(91,194,242,0.12)] overflow-hidden">
-              {filteredCities.map((city, index) => (
-                <motion.button
-                  key={city.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  onClick={() => onCitySelect(city)}
-                  className="w-full px-4 py-4 flex items-center justify-between border-b border-slate-100 last:border-b-0 hover:bg-[#5BC2F2]/5 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
-                      {city.gyms > 0 ? `${city.gyms} גינות` : 'בקרוב'}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p 
-                      className="font-medium text-slate-900 hover:text-[#5BC2F2]"
-                      style={{ fontFamily: 'var(--font-simpler)' }}
-                    >
-                      {city.displayName}
-                    </p>
-                    {city.parentName && (
-                      <p className="text-xs text-slate-400">{city.parentName}</p>
-                    )}
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          ) : searchQuery.length > 0 ? (
-            <div className="text-center py-12">
-              <p className="text-slate-500" style={{ fontFamily: 'var(--font-simpler)' }}>
-                לא נמצאו תוצאות עבור "{searchQuery}"
-              </p>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ============================================
-// 6. MAP MARKER SUB-COMPONENTS
-// ============================================
-
-interface WazeAvatarProps {
-  level: number;
-  speechBubble?: string;
-  characterType?: 'ninja' | 'heavy' | 'yoga' | 'runner' | 'calisthenics';
-}
-
-const WazeAvatar = forwardRef<HTMLDivElement, WazeAvatarProps>(
-  ({ level, speechBubble, characterType }, ref) => {
-    const characterEmoji = characterType ? CHARACTER_TYPES[characterType] : CHARACTER_TYPES.runner;
-
-    return (
-      <div className="relative" ref={ref}>
-        {/* Speech Bubble */}
-        {speechBubble && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: -5 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="absolute bottom-full mb-1.5 right-1/2 translate-x-1/2 z-20"
-          >
-            <div className="bg-white/90 rounded-xl px-2 py-1 shadow-md border border-slate-200 relative">
-              <span 
-                className="text-[10px] font-bold text-slate-900 whitespace-nowrap" 
-                dir="rtl"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                {speechBubble}
-              </span>
-              <div 
-                className="absolute top-full right-1/2 translate-x-1/2 w-0 h-0" 
-                style={{ borderLeft: '3px solid transparent', borderRight: '3px solid transparent', borderTop: '3px solid white' }}
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {/* Avatar Circle */}
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#4A90D9] border-2 border-white shadow-xl flex items-center justify-center relative z-10">
-          <span className="text-xl">{characterEmoji}</span>
-        </div>
-
-        {/* Level Badge */}
-        <div className="absolute -bottom-0.5 -right-0.5 bg-yellow-400 rounded-full w-5 h-5 border-2 border-white flex items-center justify-center shadow-md z-10">
-          <span className="text-[9px] font-black text-yellow-900">{level}</span>
-        </div>
-      </div>
-    );
-  }
-);
-
-WazeAvatar.displayName = 'WazeAvatar';
-
-interface RadarPulseProps {
-  center: { lat: number; lng: number };
-}
-
-function RadarPulse({ center }: RadarPulseProps) {
-  return (
-    <MapboxMarker longitude={center.lng} latitude={center.lat} anchor="center">
-      <div className="relative w-0 h-0">
-        {[0, 1, 2, 3].map((i) => (
-          <motion.div
-            key={i}
-            initial={{ scale: 0, opacity: 0.6 }}
-            animate={{ 
-              scale: [0, 3, 6],
-              opacity: [0.6, 0.25, 0],
-            }}
-            transition={{
-              duration: 3,
-              delay: i * 0.5,
-              repeat: Infinity,
-              ease: "easeOut",
-            }}
-            className="absolute inset-0 rounded-full border-2 border-[#5BC2F2]"
-            style={{
-              width: '200px',
-              height: '200px',
-              marginLeft: '-100px',
-              marginTop: '-100px',
-              backgroundColor: 'rgba(91, 194, 242, 0.08)',
-            }}
-          />
-        ))}
-      </div>
-    </MapboxMarker>
   );
 }

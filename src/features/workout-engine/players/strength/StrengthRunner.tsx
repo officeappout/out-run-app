@@ -955,6 +955,7 @@ export default function StrengthRunner({
         exerciseName={exerciseName}
           exerciseType={exerciseType}
         isPaused={isPaused}
+        hasAudio={false} /* Audio now controlled by global isAudioEnabled in sessionStorage */
         onVideoProgress={setVideoProgress}
         onVideoEnded={handleExerciseComplete}
       />

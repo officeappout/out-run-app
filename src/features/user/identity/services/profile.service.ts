@@ -68,6 +68,7 @@ export function createInitialProgression(
     avatarId: 'avatar_1', // דמות ברירת מחדל
     unlockedBadges: [],
     domains,
+    tracks: {}, // Initialize empty — will be populated by quiz results or sync service
     activePrograms: [],
     unlockedBonusExercises: [],
     coins: 0,
@@ -151,19 +152,11 @@ export function mapAnswersToProfile(
   answers: OnboardingAnswers,
   assignedLevel?: number,
   assignedProgramId?: string,
-  masterProgramSubLevels?: {
-    upper_body_level?: number;
-    lower_body_level?: number;
-    core_level?: number;
-  },
+  masterProgramSubLevels?: Record<string, number>,
   assignedResults?: Array<{
     programId: string;
     levelId: string;
-    masterProgramSubLevels?: {
-      upper_body_level?: number;
-      lower_body_level?: number;
-      core_level?: number;
-    };
+    masterProgramSubLevels?: Record<string, number>;
   }>
 ): UserFullProfile {
   const answersAny = answers as any;
@@ -194,41 +187,44 @@ export function mapAnswersToProfile(
         });
       }
 
+      // ✅ Always initialize a track for the primary program itself
+      if (!progression.tracks) {
+        progression.tracks = {};
+      }
+      // Extract numeric level from levelId (e.g., "level_3" → 3)
+      const levelMatch = result.levelId?.match(/(\d+)/);
+      const programLevel = levelMatch ? parseInt(levelMatch[1], 10) : (progression.domains?.full_body?.currentLevel || 1);
+      
+      if (!progression.tracks[result.programId]) {
+        progression.tracks[result.programId] = {
+          currentLevel: programLevel,
+          percent: 0,
+        };
+      }
+
       // ✅ Initialize Master Program Sub-Levels if provided for this result
+      // Sub-levels are now a dynamic Record<childProgramId, level>
       if (result.masterProgramSubLevels && result.programId) {
         if (!progression.masterProgramSubLevels) {
           progression.masterProgramSubLevels = {};
         }
-        progression.masterProgramSubLevels[result.programId] = {
-          upper_body_level: result.masterProgramSubLevels.upper_body_level || 1,
-          lower_body_level: result.masterProgramSubLevels.lower_body_level || 1,
-          core_level: result.masterProgramSubLevels.core_level || 1,
-        };
+        progression.masterProgramSubLevels[result.programId] = { ...result.masterProgramSubLevels };
 
-        // ✅ Update domain levels to match sub-levels (for workout generator)
-        if (result.masterProgramSubLevels.upper_body_level) {
-          const existing = progression.domains.upper_body;
-          progression.domains.upper_body = {
-            currentLevel: result.masterProgramSubLevels.upper_body_level,
-            maxLevel: existing?.maxLevel || 22,
-            isUnlocked: existing?.isUnlocked !== false,
+        // ✅ Initialize tracks for each child program
+        for (const [childId, childLevel] of Object.entries(result.masterProgramSubLevels)) {
+          progression.tracks[childId] = {
+            currentLevel: childLevel,
+            percent: 0,
           };
-        }
-        if (result.masterProgramSubLevels.lower_body_level) {
-          const existing = progression.domains.lower_body;
-          progression.domains.lower_body = {
-            currentLevel: result.masterProgramSubLevels.lower_body_level,
-            maxLevel: existing?.maxLevel || 10,
-            isUnlocked: existing?.isUnlocked !== false,
-          };
-        }
-        if (result.masterProgramSubLevels.core_level) {
-          const existing = progression.domains.core;
-          progression.domains.core = {
-            currentLevel: result.masterProgramSubLevels.core_level,
-            maxLevel: existing?.maxLevel || 18,
-            isUnlocked: existing?.isUnlocked !== false,
-          };
+          // Also update domains if the childId matches a known TrainingDomainId
+          const domainKey = childId as TrainingDomainId;
+          if (DOMAIN_MAX_LEVELS[domainKey] !== undefined) {
+            progression.domains[domainKey] = {
+              currentLevel: childLevel,
+              maxLevel: DOMAIN_MAX_LEVELS[domainKey],
+              isUnlocked: true,
+            };
+          }
         }
       }
     });
@@ -249,41 +245,42 @@ export function mapAnswersToProfile(
       });
     }
 
-    // ✅ Initialize Master Program Sub-Levels if provided
+    // ✅ Always initialize a track for the primary program
+    if (!progression.tracks) {
+      progression.tracks = {};
+    }
+    const domainLevel = progression.domains?.[assignedProgramId as TrainingDomainId]?.currentLevel 
+      || progression.domains?.full_body?.currentLevel || 1;
+    if (!progression.tracks[assignedProgramId]) {
+      progression.tracks[assignedProgramId] = {
+        currentLevel: assignedLevel || domainLevel,
+        percent: 0,
+      };
+    }
+
+    // ✅ Initialize Master Program Sub-Levels if provided (legacy single assignment)
+    // Sub-levels are now a dynamic Record<childProgramId, level>
     if (masterProgramSubLevels && assignedProgramId) {
       if (!progression.masterProgramSubLevels) {
         progression.masterProgramSubLevels = {};
       }
-      progression.masterProgramSubLevels[assignedProgramId] = {
-        upper_body_level: masterProgramSubLevels.upper_body_level || 1,
-        lower_body_level: masterProgramSubLevels.lower_body_level || 1,
-        core_level: masterProgramSubLevels.core_level || 1,
-      };
+      progression.masterProgramSubLevels[assignedProgramId] = { ...masterProgramSubLevels };
 
-      // ✅ Update domain levels to match sub-levels (for workout generator)
-      if (masterProgramSubLevels.upper_body_level) {
-        const existing = progression.domains.upper_body;
-        progression.domains.upper_body = {
-          currentLevel: masterProgramSubLevels.upper_body_level,
-          maxLevel: existing?.maxLevel || 22,
-          isUnlocked: existing?.isUnlocked !== false,
+      // ✅ Initialize tracks for each child program
+      for (const [childId, childLevel] of Object.entries(masterProgramSubLevels)) {
+        progression.tracks[childId] = {
+          currentLevel: childLevel,
+          percent: 0,
         };
-      }
-      if (masterProgramSubLevels.lower_body_level) {
-        const existing = progression.domains.lower_body;
-        progression.domains.lower_body = {
-          currentLevel: masterProgramSubLevels.lower_body_level,
-          maxLevel: existing?.maxLevel || 10,
-          isUnlocked: existing?.isUnlocked !== false,
-        };
-      }
-      if (masterProgramSubLevels.core_level) {
-        const existing = progression.domains.core;
-        progression.domains.core = {
-          currentLevel: masterProgramSubLevels.core_level,
-          maxLevel: existing?.maxLevel || 18,
-          isUnlocked: existing?.isUnlocked !== false,
-        };
+        // Also update domains if the childId matches a known TrainingDomainId
+        const domainKey = childId as TrainingDomainId;
+        if (DOMAIN_MAX_LEVELS[domainKey] !== undefined) {
+          progression.domains[domainKey] = {
+            currentLevel: childLevel,
+            maxLevel: DOMAIN_MAX_LEVELS[domainKey],
+            isUnlocked: true,
+          };
+        }
       }
     }
   }

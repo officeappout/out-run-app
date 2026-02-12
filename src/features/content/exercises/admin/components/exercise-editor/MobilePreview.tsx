@@ -40,15 +40,23 @@ export default function MobilePreview({ formData, activeLang, programs = [] }: M
   const primaryMuscle = muscleGroups[0];
   const secondaryMuscles = muscleGroups.slice(1, 3);
 
-  // Get video from execution_methods[0] - ensure proper extraction
-  const mainVideoUrl = typeof formData.execution_methods?.[0]?.media?.mainVideoUrl === 'string'
-    ? formData.execution_methods[0].media.mainVideoUrl
-    : String(formData.execution_methods?.[0]?.media?.mainVideoUrl || '');
-  const imageUrl = typeof formData.execution_methods?.[0]?.media?.imageUrl === 'string'
-    ? formData.execution_methods[0].media.imageUrl
-    : String(formData.execution_methods?.[0]?.media?.imageUrl || '');
-  const instructionalVideoUrl =
-    formData.execution_methods?.[0]?.media?.instructionalVideos?.[0]?.url || '';
+  // Smart media selection: loop through ALL execution_methods to find first available media
+  let mainVideoUrl = '';
+  let imageUrl = '';
+  let instructionalVideoUrl = '';
+  const methods = formData.execution_methods || [];
+  for (const m of methods) {
+    if (!mainVideoUrl && m?.media?.mainVideoUrl && typeof m.media.mainVideoUrl === 'string' && m.media.mainVideoUrl.trim()) {
+      mainVideoUrl = m.media.mainVideoUrl;
+    }
+    if (!imageUrl && m?.media?.imageUrl && typeof m.media.imageUrl === 'string' && m.media.imageUrl.trim()) {
+      imageUrl = m.media.imageUrl;
+    }
+    if (!instructionalVideoUrl && m?.media?.instructionalVideos?.[0]?.url) {
+      instructionalVideoUrl = m.media.instructionalVideos[0].url;
+    }
+    if (mainVideoUrl && imageUrl && instructionalVideoUrl) break;
+  }
 
   // Reset errors when URL changes
   useEffect(() => {

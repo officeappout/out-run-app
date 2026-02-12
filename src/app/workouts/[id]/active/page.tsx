@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
-import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
+import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { 
   StrengthDopamineScreen, 
   StrengthSummaryPage,
@@ -67,26 +67,18 @@ function extractHighlights(content: any): string[] {
  * This ensures all metadata is included in the workout plan
  * 
  * DYNAMIC VALUES: Uses Firestore values if present, falls back to segment target
+ * LOCATION-AWARE: Resolves video/image from the execution_method matching the active location
  */
 function enrichExercise(
   ex: FirestoreExercise, 
   segmentRole: 'warmup' | 'main' | 'cooldown',
-  segmentTarget?: { type: 'reps' | 'time'; value: number }
+  segmentTarget?: { type: 'reps' | 'time'; value: number },
+  workoutLocation?: string,
 ): WorkoutExercise {
-  // Resolve video URL
-  const videoUrl = 
-    ex.execution_methods?.[0]?.media?.mainVideoUrl ||
-    ex.executionMethods?.[0]?.media?.mainVideoUrl ||
-    ex.media?.videoUrl ||
-    undefined;
-
-  // Resolve image URL
-  const imageUrl = 
-    ex.execution_methods?.[0]?.media?.imageUrl ||
-    ex.executionMethods?.[0]?.media?.imageUrl ||
-    ex.media?.imageUrl ||
-    videoUrl || // fallback to video as thumbnail
-    undefined;
+  // Location-aware media resolution: select the execution_method matching the workout's location
+  const method = findMethodForLocation(ex, workoutLocation);
+  const videoUrl = method?.media?.mainVideoUrl || ex.media?.videoUrl || undefined;
+  const imageUrl = method?.media?.imageUrl || videoUrl || ex.media?.imageUrl || undefined;
 
   // Extract goal/description
   const goal = extractLocalizedText(ex.content?.description) || 
@@ -156,6 +148,7 @@ function enrichExercise(
     exerciseType,
     exerciseRole: segmentRole,
     isFollowAlong,
+    hasAudio: ex.hasAudio === true,
     highlights,
     muscleGroups: ex.muscleGroups || [],
     goal,
@@ -168,7 +161,7 @@ function enrichExercise(
  * Fetch workout from Firestore and convert to ENRICHED WorkoutPlan
  * All exercise metadata is embedded - Single Source of Truth
  */
-async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan | null> {
+async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: string): Promise<WorkoutPlan | null> {
   try {
     console.log('[ActiveWorkoutPage] Fetching all exercises from Firestore');
     const exercises = await getAllExercises();
@@ -194,7 +187,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
         title: 'חימום',
         icon: '🔥',
         target: warmupTarget,
-        exercises: warmupExercises.slice(0, 3).map((ex) => enrichExercise(ex, 'warmup', warmupTarget)),
+        exercises: warmupExercises.slice(0, 3).map((ex) => enrichExercise(ex, 'warmup', warmupTarget, workoutLocation)),
         isCompleted: false,
         restBetweenExercises: 0, // No rest for warmup
       });
@@ -209,7 +202,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
         title: 'תרגילי כוח',
         icon: '💪',
         target: mainTarget,
-        exercises: mainExercises.slice(0, 6).map((ex) => enrichExercise(ex, 'main', mainTarget)),
+        exercises: mainExercises.slice(0, 6).map((ex) => enrichExercise(ex, 'main', mainTarget, workoutLocation)),
         isCompleted: false,
         restBetweenExercises: 10, // Standard rest
       });
@@ -224,7 +217,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
         title: 'קירור',
         icon: '🧘',
         target: cooldownTarget,
-        exercises: cooldownExercises.slice(0, 2).map((ex) => enrichExercise(ex, 'cooldown', cooldownTarget)),
+        exercises: cooldownExercises.slice(0, 2).map((ex) => enrichExercise(ex, 'cooldown', cooldownTarget, workoutLocation)),
         isCompleted: false,
         restBetweenExercises: 0, // No rest for cooldown
       });
@@ -239,7 +232,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
         title: 'אימון כוח',
         icon: '💪',
         target: defaultTarget,
-        exercises: exercises.slice(0, 5).map((ex) => enrichExercise(ex, 'main', defaultTarget)),
+        exercises: exercises.slice(0, 5).map((ex) => enrichExercise(ex, 'main', defaultTarget, workoutLocation)),
         isCompleted: false,
         restBetweenExercises: 10,
       });
@@ -330,6 +323,8 @@ export default function ActiveWorkoutPage() {
   const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Workout location for location-aware media selection in player components
+  const [workoutLocation, setWorkoutLocation] = useState<string>('home');
 
   // Refs to prevent re-fetching
   const hasFetchedRef = useRef(false);
@@ -351,6 +346,12 @@ export default function ActiveWorkoutPage() {
 
       setIsLoading(true);
       setError(null);
+
+      // Read workout location from sessionStorage (set by home page / preview drawer)
+      const storedLocation = sessionStorage.getItem('currentWorkoutLocation');
+      if (storedLocation) {
+        setWorkoutLocation(storedLocation);
+      }
 
       // Step 1: Check if we have a valid workout plan in sessionStorage for THIS workout
       const storedPlanId = sessionStorage.getItem('currentWorkoutPlanId');
@@ -382,7 +383,7 @@ export default function ActiveWorkoutPage() {
 
       // Step 2: Fetch enriched workout from Firestore
       console.log('[ActiveWorkoutPage] Fetching workout from Firestore, ID:', workoutId);
-      const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId);
+      const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId, storedLocation || 'home');
       
       if (firestoreWorkout) {
         setWorkoutPlan(firestoreWorkout);

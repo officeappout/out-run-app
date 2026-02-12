@@ -37,12 +37,13 @@ export interface OnboardingQuestion {
 export interface AnswerResult {
   programId: string;
   levelId: string;
-  // Master Program Sub-Levels Configuration (for Master Programs only)
-  masterProgramSubLevels?: {
-    upper_body_level?: number;
-    lower_body_level?: number;
-    core_level?: number;
-  };
+  // Dynamic sub-level mapping for Master Programs.
+  // Keys are child programIds, values are initial levels.
+  // Example: { "push": 3, "pull": 2, "legs": 4 }
+  masterProgramSubLevels?: Record<string, number>;
+  // Questionnaire chaining: ID of the next questionnaire to load after this result.
+  // Enables flows like: Push Quiz → Pull Quiz → Master Result.
+  nextQuestionnaireId?: string;
 }
 
 export interface OnboardingAnswer {
@@ -61,12 +62,8 @@ export interface OnboardingAnswer {
   assignedProgramId?: string | null; // Legacy: single program assignment
   assignedResults?: AnswerResult[]; // NEW: Multiple program+level assignments
 
-  // Master Program Sub-Levels Configuration (for Master Programs only) - Legacy, use assignedResults instead
-  masterProgramSubLevels?: {
-    upper_body_level?: number;
-    lower_body_level?: number;
-    core_level?: number;
-  };
+  // Dynamic sub-level mapping for Master Programs (legacy, prefer assignedResults)
+  masterProgramSubLevels?: Record<string, number>;
 
   // Legacy (backwards compatibility): numeric level (1-5)
   assignedLevel?: number | null;
@@ -96,11 +93,7 @@ export interface QuestionnaireProgress {
   assignedLevelId?: string;
   assignedProgramId?: string;
   assignedResults?: AnswerResult[]; // NEW: Multiple program+level assignments
-  masterProgramSubLevels?: {
-    upper_body_level?: number;
-    lower_body_level?: number;
-    core_level?: number;
-  };
+  masterProgramSubLevels?: Record<string, number>;
   isPart1Complete: boolean;
   isComplete: boolean;
 }

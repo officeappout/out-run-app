@@ -16,6 +16,7 @@ interface MatrixCell {
   phraseCount: number;
   notificationCount: number;
   descriptionCount: number;
+  titleCount: number; // NEW: For Workout Titles tab
   maleCount?: number;
   femaleCount?: number;
   bothCount?: number;
@@ -32,10 +33,13 @@ function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
 const PERSONA_OPTIONS = [
   { value: 'parent', label: 'הורה' },
   { value: 'student', label: 'סטודנט' },
+  { value: 'school_student', label: 'תלמיד' },
   { value: 'office_worker', label: 'עובד משרד' },
   { value: 'remote_worker', label: 'עובד מהבית' },
   { value: 'athlete', label: 'ספורטאי' },
   { value: 'senior', label: 'גיל הזהב' },
+  { value: 'reservist', label: 'מילואימניק' },
+  { value: 'active_soldier', label: 'חייל סדיר' },
 ];
 
 const LOCATION_OPTIONS = [
@@ -44,10 +48,61 @@ const LOCATION_OPTIONS = [
   { value: 'office', label: 'משרד' },
   { value: 'street', label: 'רחוב' },
   { value: 'gym', label: 'מכון כושר' },
+  { value: 'library', label: 'ספרייה' },
 ];
 
 const DAYS_INACTIVE_OPTIONS = [1, 2, 7, 30];
 const JOURNEY_DAYS = [0, 1, 2, 3, 7, 14, 30];
+
+const SPORT_TYPE_OPTIONS = [
+  { value: '', label: 'כל הספורטים' },
+  // כוח ותנועה
+  { value: 'calisthenics', label: 'קליסתניקס' },
+  { value: 'crossfit', label: 'קרוספיט' },
+  { value: 'functional', label: 'פונקציונלי' },
+  { value: 'movement', label: 'תנועה' },
+  // אירובי וסיבולת
+  { value: 'running', label: 'ריצה' },
+  { value: 'walking', label: 'הליכה' },
+  { value: 'cycling', label: 'רכיבה' },
+  { value: 'swimming', label: 'שחייה' },
+  // משחקי כדור
+  { value: 'basketball', label: 'כדורסל' },
+  { value: 'soccer', label: 'כדורגל' },
+  { value: 'tennis', label: 'טניס' },
+  { value: 'padel', label: 'פאדל' },
+  // גוף-נפש
+  { value: 'yoga', label: 'יוגה' },
+  { value: 'pilates', label: 'פילאטיס' },
+  { value: 'flexibility', label: 'גמישות' },
+  // אתגרי
+  { value: 'climbing', label: 'טיפוס' },
+  { value: 'skate_roller', label: 'סקייט / רולר' },
+  { value: 'martial_arts', label: 'אמנויות לחימה' },
+];
+
+const EXPERIENCE_OPTIONS = [
+  { value: '', label: 'כל הרמות' },
+  { value: 'beginner', label: 'מתחיל' },
+  { value: 'intermediate', label: 'בינוני' },
+  { value: 'advanced', label: 'מתקדם' },
+  { value: 'pro', label: 'מקצועי' },
+];
+
+const PROGRESS_RANGE_OPTIONS = [
+  { value: '', label: 'כל הטווחים' },
+  { value: '0-20', label: 'מתחילים (0-20%)' },
+  { value: '20-90', label: 'בדרך (20-90%)' },
+  { value: '90-100', label: 'Level-Up (90-100%)' },
+];
+
+const DAY_PERIOD_OPTIONS = [
+  { value: '', label: 'כל הימים' },
+  { value: 'start_of_week', label: 'תחילת שבוע (א-ב)' },
+  { value: 'mid_week', label: 'אמצע שבוע (ג-ה)' },
+  { value: 'weekend', label: 'סוף שבוע (ו-ש)' },
+  { value: 'all', label: 'כל השבוע' },
+];
 
 export default function MessagingStatusPage() {
   const mounted = useIsMounted();
@@ -57,20 +112,27 @@ export default function MessagingStatusPage() {
   const [smartDescriptions, setSmartDescriptions] = useState<any[]>([]);
   const [workoutTitles, setWorkoutTitles] = useState<any[]>([]);
   const [matrix, setMatrix] = useState<MatrixCell[]>([]);
-  const [viewMode, setViewMode] = useState<'phrases' | 'notifications' | 'descriptions'>('phrases');
+  const [viewMode, setViewMode] = useState<'phrases' | 'notifications' | 'descriptions' | 'titles'>('phrases');
   const [journeyMode, setJourneyMode] = useState<boolean>(false);
   const [selectedPersona, setSelectedPersona] = useState<string>('');
   const [showMissingOnly, setShowMissingOnly] = useState<boolean>(false);
+  
+  // === Global Filters for Hyper-Personalization ===
+  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [sportFilter, setSportFilter] = useState<string>('');
+  const [experienceFilter, setExperienceFilter] = useState<string>('');
+  const [progressFilter, setProgressFilter] = useState<string>('');
+  const [dayPeriodFilter, setDayPeriodFilter] = useState<string>('');
 
   useEffect(() => {
     loadData();
   }, []);
 
   useEffect(() => {
-    if (phrases.length > 0 || notifications.length > 0 || smartDescriptions.length > 0) {
+    if (phrases.length > 0 || notifications.length > 0 || smartDescriptions.length > 0 || workoutTitles.length > 0) {
       buildMatrix();
     }
-  }, [phrases, notifications, smartDescriptions, workoutTitles, viewMode, journeyMode, selectedPersona, showMissingOnly]);
+  }, [phrases, notifications, smartDescriptions, workoutTitles, viewMode, journeyMode, selectedPersona, showMissingOnly, genderFilter, sportFilter, experienceFilter, progressFilter, dayPeriodFilter]);
 
   const loadData = async () => {
     setLoading(true);
@@ -152,6 +214,35 @@ export default function MessagingStatusPage() {
   const buildMatrix = () => {
     const matrixData: MatrixCell[] = [];
 
+    // === FILTER HELPER: Apply global filters to content rows ===
+    const applyFilters = (items: any[]) => {
+      return items.filter((item) => {
+        // Gender filter
+        if (genderFilter !== 'all') {
+          if (item.gender && item.gender !== 'both' && item.gender !== genderFilter) {
+            return false;
+          }
+        }
+        // Sport filter
+        if (sportFilter !== '' && item.sportType && item.sportType !== sportFilter) {
+          return false;
+        }
+        // Experience filter
+        if (experienceFilter !== '' && item.experienceLevel && item.experienceLevel !== experienceFilter) {
+          return false;
+        }
+        // Progress filter
+        if (progressFilter !== '' && item.progressRange && item.progressRange !== progressFilter) {
+          return false;
+        }
+        // Day period filter
+        if (dayPeriodFilter !== '' && item.dayPeriod && item.dayPeriod !== dayPeriodFilter) {
+          return false;
+        }
+        return true;
+      });
+    };
+
     // Journey Mode: Days 0-30 on X-axis, Gender rows for selected persona
     if (journeyMode && viewMode === 'notifications') {
       const personasToShow = selectedPersona 
@@ -173,11 +264,13 @@ export default function MessagingStatusPage() {
               Math.abs(curr - day) < Math.abs(prev - day) ? curr : prev
             );
             
-            const matchingNotifications = notifications.filter(
-              (n) => n.persona === persona.value && 
-                     n.triggerType === 'Inactivity' &&
-                     n.daysInactive === closestDay &&
-                     (n.gender === genderRow.value || (!n.gender && genderRow.value === 'male'))
+            const matchingNotifications = applyFilters(
+              notifications.filter(
+                (n) => n.persona === persona.value && 
+                       n.triggerType === 'Inactivity' &&
+                       n.daysInactive === closestDay &&
+                       (n.gender === genderRow.value || (!n.gender && genderRow.value === 'male'))
+              )
             );
             
             const notificationCount = matchingNotifications.length;
@@ -194,6 +287,7 @@ export default function MessagingStatusPage() {
                 phraseCount: 0,
                 notificationCount,
                 descriptionCount: 0,
+                titleCount: 0,
                 maleCount,
                 femaleCount,
                 bothCount,
@@ -209,79 +303,141 @@ export default function MessagingStatusPage() {
     // Regular Matrix Mode
     // Build matrix for Phrases view
     if (viewMode === 'phrases') {
-      PERSONA_OPTIONS.forEach((persona) => {
+      const personsToShow = selectedPersona
+        ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
+        : PERSONA_OPTIONS;
+
+      personsToShow.forEach((persona) => {
         LOCATION_OPTIONS.forEach((location) => {
-          const matchingPhrases = phrases.filter(
-            (p) => p.persona === persona.value && p.location === location.value
+          const matchingPhrases = applyFilters(
+            phrases.filter(
+              (p) => p.persona === persona.value && p.location === location.value
+            )
           );
           const phraseCount = matchingPhrases.length;
           const maleCount = matchingPhrases.filter(p => p.gender === 'male' || !p.gender).length;
-          const femaleCount = matchingPhrases.filter(p => p.gender === 'female' || !p.gender).length;
+          const femaleCount = matchingPhrases.filter(p => p.gender === 'female').length;
           const bothCount = matchingPhrases.filter(p => p.gender === 'both').length;
           
-          matrixData.push({
-            persona: persona.value,
-            location: location.value,
-            phraseCount,
-            notificationCount: 0,
-            descriptionCount: 0,
-            maleCount,
-            femaleCount,
-            bothCount,
-          });
+          if (!showMissingOnly || phraseCount === 0) {
+            matrixData.push({
+              persona: persona.value,
+              location: location.value,
+              phraseCount,
+              notificationCount: 0,
+              descriptionCount: 0,
+              titleCount: 0,
+              maleCount,
+              femaleCount,
+              bothCount,
+            });
+          }
         });
       });
     }
 
     // Build matrix for Notifications view
     if (viewMode === 'notifications') {
-      PERSONA_OPTIONS.forEach((persona) => {
+      const personsToShow = selectedPersona
+        ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
+        : PERSONA_OPTIONS;
+
+      personsToShow.forEach((persona) => {
         DAYS_INACTIVE_OPTIONS.forEach((days) => {
-          const matchingNotifications = notifications.filter(
-            (n) => n.persona === persona.value && n.daysInactive === days && n.triggerType === 'Inactivity'
+          const matchingNotifications = applyFilters(
+            notifications.filter(
+              (n) => n.persona === persona.value && n.daysInactive === days && n.triggerType === 'Inactivity'
+            )
           );
           const notificationCount = matchingNotifications.length;
           const maleCount = matchingNotifications.filter(n => n.gender === 'male' || !n.gender).length;
-          const femaleCount = matchingNotifications.filter(n => n.gender === 'female' || !n.gender).length;
+          const femaleCount = matchingNotifications.filter(n => n.gender === 'female').length;
           const bothCount = matchingNotifications.filter(n => n.gender === 'both').length;
           
-          matrixData.push({
-            persona: persona.value,
-            location: '',
-            daysInactive: days,
-            phraseCount: 0,
-            notificationCount,
-            descriptionCount: 0,
-            maleCount,
-            femaleCount,
-            bothCount,
-          });
+          if (!showMissingOnly || notificationCount === 0) {
+            matrixData.push({
+              persona: persona.value,
+              location: '',
+              daysInactive: days,
+              phraseCount: 0,
+              notificationCount,
+              descriptionCount: 0,
+              titleCount: 0,
+              maleCount,
+              femaleCount,
+              bothCount,
+            });
+          }
         });
       });
     }
 
     // Build matrix for Smart Descriptions view
     if (viewMode === 'descriptions') {
-      PERSONA_OPTIONS.forEach((persona) => {
+      const personsToShow = selectedPersona
+        ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
+        : PERSONA_OPTIONS;
+
+      personsToShow.forEach((persona) => {
         LOCATION_OPTIONS.forEach((location) => {
-          const matchingDescriptions = smartDescriptions.filter(
-            (d) => d.persona === persona.value && d.location === location.value
+          const matchingDescriptions = applyFilters(
+            smartDescriptions.filter(
+              (d) => d.persona === persona.value && d.location === location.value
+            )
           );
           const descriptionCount = matchingDescriptions.length;
           const maleCount = matchingDescriptions.filter(d => d.gender === 'male' || !d.gender).length;
-          const femaleCount = matchingDescriptions.filter(d => d.gender === 'female' || !d.gender).length;
+          const femaleCount = matchingDescriptions.filter(d => d.gender === 'female').length;
           const bothCount = matchingDescriptions.filter(d => d.gender === 'both').length;
           
-          matrixData.push({
-            persona: persona.value,
-            location: location.value,
-            phraseCount: 0,
-            notificationCount: 0,
-            descriptionCount,
-            maleCount,
-            femaleCount,
-            bothCount,
-          });
+          if (!showMissingOnly || descriptionCount === 0) {
+            matrixData.push({
+              persona: persona.value,
+              location: location.value,
+              phraseCount: 0,
+              notificationCount: 0,
+              descriptionCount,
+              titleCount: 0,
+              maleCount,
+              femaleCount,
+              bothCount,
+            });
+          }
+        });
+      });
+    }
+
+    // Build matrix for Workout Titles view (NEW)
+    if (viewMode === 'titles') {
+      const personsToShow = selectedPersona
+        ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
+        : PERSONA_OPTIONS;
+
+      personsToShow.forEach((persona) => {
+        LOCATION_OPTIONS.forEach((location) => {
+          const matchingTitles = applyFilters(
+            workoutTitles.filter(
+              (t) => t.persona === persona.value && t.location === location.value
+            )
+          );
+          const titleCount = matchingTitles.length;
+          const maleCount = matchingTitles.filter(t => t.gender === 'male' || !t.gender).length;
+          const femaleCount = matchingTitles.filter(t => t.gender === 'female').length;
+          const bothCount = matchingTitles.filter(t => t.gender === 'both').length;
+          
+          if (!showMissingOnly || titleCount === 0) {
+            matrixData.push({
+              persona: persona.value,
+              location: location.value,
+              phraseCount: 0,
+              notificationCount: 0,
+              descriptionCount: 0,
+              titleCount,
+              maleCount,
+              femaleCount,
+              bothCount,
+            });
+          }
         });
       });
     }
@@ -293,6 +449,7 @@ export default function MessagingStatusPage() {
     if (viewMode === 'phrases') return cell.phraseCount;
     if (viewMode === 'notifications') return cell.notificationCount;
     if (viewMode === 'descriptions') return cell.descriptionCount;
+    if (viewMode === 'titles') return cell.titleCount;
     return 0;
   };
 
@@ -406,6 +563,105 @@ export default function MessagingStatusPage() {
               }`}
             >
               תיאורים חכמים
+            </button>
+            <button
+              onClick={() => setViewMode('titles')}
+              className={`px-4 py-2 rounded-xl font-bold transition-all ${
+                viewMode === 'titles'
+                  ? 'bg-cyan-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              כותרות אימון
+            </button>
+          </div>
+          
+          {/* === GLOBAL FILTERS (Hyper-Personalization) === */}
+          <div className="flex flex-wrap items-center gap-4 bg-gradient-to-r from-purple-50 to-cyan-50 p-4 rounded-xl border-2 border-purple-200">
+            <span className="text-sm font-bold text-purple-700">🔍 פילטרים גלובליים:</span>
+            
+            {/* Gender Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700">מגדר:</label>
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value as 'all' | 'male' | 'female')}
+                className="px-3 py-1 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                <option value="all">הכל</option>
+                <option value="male">זכר</option>
+                <option value="female">נקבה</option>
+              </select>
+            </div>
+            
+            {/* Sport Type Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700">ספורט:</label>
+              <select
+                value={sportFilter}
+                onChange={(e) => setSportFilter(e.target.value)}
+                className="px-3 py-1 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                {SPORT_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Experience Level Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700">רמה:</label>
+              <select
+                value={experienceFilter}
+                onChange={(e) => setExperienceFilter(e.target.value)}
+                className="px-3 py-1 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                {EXPERIENCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Progress Range Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700">התקדמות:</label>
+              <select
+                value={progressFilter}
+                onChange={(e) => setProgressFilter(e.target.value)}
+                className="px-3 py-1 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                {PROGRESS_RANGE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Day Period Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700">יום:</label>
+              <select
+                value={dayPeriodFilter}
+                onChange={(e) => setDayPeriodFilter(e.target.value)}
+                className="px-3 py-1 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 bg-white"
+              >
+                {DAY_PERIOD_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Reset Filters Button */}
+            <button
+              onClick={() => {
+                setGenderFilter('all');
+                setSportFilter('');
+                setExperienceFilter('');
+                setProgressFilter('');
+                setDayPeriodFilter('');
+              }}
+              className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition-all"
+            >
+              אפס פילטרים
             </button>
           </div>
           

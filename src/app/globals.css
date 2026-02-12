@@ -287,6 +287,18 @@ html[dir="ltr"] body {
   color: #93C5FD; /* צבע כחול בהיר */
 }
 
+/* "Power of One" — hero marker pulse ring */
+@keyframes heroMarkerPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.7);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}
+
 /* אנימציות Onboarding */
 @keyframes fadeIn {
   from {

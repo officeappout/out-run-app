@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getAllExercises, Exercise, ExecutionLocation, getLocalizedText, MECHANICAL_TYPE_LABELS, MechanicalType, InjuryShieldArea, INJURY_SHIELD_LABELS, NoiseLevel, SweatLevel } from '@/features/content/exercises';
+import { getAllExercises, Exercise, ExecutionLocation, getLocalizedText, MECHANICAL_TYPE_LABELS, MechanicalType, InjuryShieldArea, INJURY_SHIELD_LABELS, NoiseLevel, SweatLevel, EXECUTION_LOCATION_LABELS } from '@/features/content/exercises';
 import { getAllGymEquipment, GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { useIsMounted } from '@/hooks/useIsMounted';
 import { Smartphone, AlertTriangle, Bell, Home, Play, BarChart3, Zap, Filter, Shield, Target, Dices, XCircle, CheckCircle2, ChevronDown, Volume2, Droplets, User } from 'lucide-react';
@@ -62,21 +62,37 @@ const WORKOUT_METADATA_COLLECTION = 'workoutMetadata';
 const PERSONA_OPTIONS: { value: LifestylePersona; label: string; icon: string }[] = [
   { value: 'parent', label: 'הורה', icon: '👨‍👧' },
   { value: 'student', label: 'סטודנט', icon: '📚' },
+  { value: 'school_student', label: 'תלמיד', icon: '🎒' },
   { value: 'office_worker', label: 'עובד משרד', icon: '💼' },
   { value: 'home_worker', label: 'עובד מהבית', icon: '🏠' },
-  { value: 'athlete', label: 'ספורטאי', icon: '🏆' },
   { value: 'senior', label: 'גיל הזהב', icon: '🧓' },
+  { value: 'athlete', label: 'ספורטאי', icon: '🏆' },
+  { value: 'reservist', label: 'מילואימניק', icon: '🎖️' },
+  { value: 'active_soldier', label: 'חייל סדיר', icon: '🪖' },
 ];
 
-const LOCATION_OPTIONS: { value: ExecutionLocation; label: string; icon: string; sweatLimit: SweatLevel; noiseLimit: NoiseLevel }[] = [
-  { value: 'home', label: 'בית', icon: '🏠', sweatLimit: 2, noiseLimit: 2 },
-  { value: 'park', label: 'פארק', icon: '🌳', sweatLimit: 3, noiseLimit: 3 },
-  { value: 'office', label: 'משרד', icon: '🏢', sweatLimit: 1, noiseLimit: 1 },
-  { value: 'street', label: 'רחוב', icon: '🛣️', sweatLimit: 3, noiseLimit: 3 },
-  { value: 'gym', label: 'מכון כושר', icon: '🏋️', sweatLimit: 3, noiseLimit: 3 },
-  { value: 'airport', label: 'שדה תעופה', icon: '✈️', sweatLimit: 1, noiseLimit: 1 },
-  { value: 'school', label: 'בית ספר', icon: '🏫', sweatLimit: 1, noiseLimit: 1 },
-];
+/**
+ * Location options — labels & icons from centralized constants (Single Source of Truth).
+ * sweatLimit/noiseLimit are simulator-specific and come from LOCATION_CONSTRAINTS in ContextualEngine.
+ */
+const LOCATION_SWEAT_NOISE: Record<ExecutionLocation, { sweatLimit: SweatLevel; noiseLimit: NoiseLevel }> = {
+  home:    { sweatLimit: 2, noiseLimit: 2 },
+  park:    { sweatLimit: 3, noiseLimit: 3 },
+  office:  { sweatLimit: 1, noiseLimit: 1 },
+  street:  { sweatLimit: 3, noiseLimit: 3 },
+  gym:     { sweatLimit: 3, noiseLimit: 3 },
+  airport: { sweatLimit: 1, noiseLimit: 1 },
+  school:  { sweatLimit: 1, noiseLimit: 1 },
+  library: { sweatLimit: 1, noiseLimit: 1 },
+};
+
+const LOCATION_OPTIONS: { value: ExecutionLocation; label: string; icon: string; sweatLimit: SweatLevel; noiseLimit: NoiseLevel }[] =
+  (Object.keys(EXECUTION_LOCATION_LABELS) as ExecutionLocation[]).map((loc) => ({
+    value: loc,
+    label: EXECUTION_LOCATION_LABELS[loc].he,
+    icon: EXECUTION_LOCATION_LABELS[loc].icon,
+    ...LOCATION_SWEAT_NOISE[loc],
+  }));
 
 const INTENT_OPTIONS: { value: IntentMode; label: string; icon: string; description: string }[] = [
   { value: 'normal', label: 'רגיל', icon: '🏋️', description: 'אימון סטנדרטי' },
@@ -278,7 +294,7 @@ export default function SimulatorPage() {
       injuryShield: context.injuryAreas,
       intentMode: context.intentMode,
       availableEquipment: gymEquipment.map(eq => eq.id),
-      userLevel: context.userLevel,
+      getUserLevelForExercise: () => context.userLevel, // Simulator uses a single global level
       // Only apply program filter when using mock data
       selectedProgram: useMockData ? context.selectedProgram : undefined,
       levelTolerance: 3,

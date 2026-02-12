@@ -137,6 +137,26 @@ export interface OnboardingData {
   scheduleDays?: string[]; // Array of Hebrew day letters like ['א', 'ג', 'ה'] - actual selected days
   scheduleDayIndices?: number[]; // Array of day indices (0-6) for reference
   
+  // Account Security (Backup & Security)
+  accountSecured?: boolean; // True if user linked Google/Email/Phone
+  accountStatus?: 'secured' | 'unsecured'; // Status terminology (replaces 'anonymous')
+  accountMethod?: 'google' | 'email' | 'phone' | 'unsecured'; // How account is backed up
+  securedEmail?: string; // Email used for backup (if email method)
+  securedPhone?: string; // Phone used for backup (if phone method)
+  termsVersion?: string; // Terms version accepted (e.g., '1.0')
+  termsAcceptedAt?: Date; // When terms were accepted
+  
+  // Dynamic Questionnaire Results (from DynamicOnboardingEngine)
+  // These take HIGHEST priority over GOAL_TO_PROGRAM mapping
+  assignedResults?: Array<{
+    programId: string;
+    levelId: string;
+    masterProgramSubLevels?: Record<string, number>;
+  }>;
+  assignedProgramId?: string; // Primary assigned program (first result or legacy)
+  assignedLevelId?: string;   // Primary assigned level (first result or legacy)
+  assignedLevel?: number;     // Numeric level (legacy)
+
   // Legacy fields (kept for compatibility)
   onboardingCoins?: number; // Total coins earned during onboarding wizard
   pastActivityLevel: string;
@@ -154,6 +174,9 @@ export type OnboardingStepId =
   | 'LOCATION'  // Unified location step (GPS + City Search + Parks)
   | 'EQUIPMENT' 
   | 'SCHEDULE'
+  | 'HEALTH_DECLARATION' // Health declaration before completion
+  | 'ACCOUNT_SECURE' // Backup & Security step (after health declaration)
+  | 'PROCESSING' // Animated processing screen before summary
   // Legacy steps (kept for compatibility)
   | 'HISTORY'
   | 'SOCIAL_MAP'

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, Dumbbell, Waypoints, Users, Signal, ClipboardList, Building2, LayoutDashboard, TrendingUp, BarChart3, Lightbulb, Shield, FileText } from 'lucide-react';
+import { Dumbbell, Users, Signal, ClipboardList, Building2, LayoutDashboard, TrendingUp, BarChart3, Lightbulb, Shield, FileText, Map } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
@@ -101,19 +101,14 @@ export default function AdminDashboardPage() {
     }, [authLoading]);
     const cards = [
         {
-            title: "פארקים",
-            icon: MapPin,
-            href: "/admin/parks",
+            title: "ניהול מיקומים",
+            icon: Map,
+            href: "/admin/locations",
         },
         {
             title: "תרגילים",
             icon: Dumbbell,
             href: "/admin/exercises",
-        },
-        {
-            title: "מסלולים",
-            icon: Waypoints,
-            href: "/admin/routes",
         },
         {
             title: "רמות",

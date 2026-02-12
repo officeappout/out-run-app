@@ -33,8 +33,8 @@ interface AuthoritiesKanbanBoardProps {
   onAuthorityUpdated?: () => void;
 }
 
-// Pipeline status order for columns
-const PIPELINE_ORDER: PipelineStatus[] = ['lead', 'meeting', 'quote', 'follow_up', 'closing', 'active'];
+// Pipeline status order for columns (draft appears first as a "database" column)
+const PIPELINE_ORDER: PipelineStatus[] = ['draft', 'lead', 'meeting', 'quote', 'follow_up', 'closing', 'active'];
 
 export default function AuthoritiesKanbanBoard({
   authorities,
@@ -72,6 +72,7 @@ export default function AuthoritiesKanbanBoard({
     
     // Group by pipeline status
     const grouped: Record<PipelineStatus, Authority[]> = {
+      draft: [],
       lead: [],
       meeting: [],
       quote: [],

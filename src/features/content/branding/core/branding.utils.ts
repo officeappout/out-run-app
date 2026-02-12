@@ -37,6 +37,46 @@ export interface TagResolverContext {
   
   // Equipment context
   equipment?: string[]; // Required equipment names
+
+  // === Golden Content Fields ===
+  /** User's sport type (e.g., 'basketball', 'running', 'soccer') */
+  sportType?: string;
+  /** Content motivation style (e.g., 'tough', 'encouraging', 'scientific') */
+  motivationStyle?: string;
+  /** User's experience level (e.g., 'beginner', 'advanced', 'pro') */
+  experienceLevel?: string;
+
+  // === Progress & Level-Up Context ===
+  /** User's current program progress (0-100%) */
+  programProgress?: number;
+  /** Current program name (e.g., 'pulling', 'pushing', 'core', 'legs') */
+  currentProgram?: string;
+  /** Target level (e.g., 4) for "רמה 4" */
+  targetLevel?: number;
+
+  // === Proximity Context ===
+  /** Distance to park/facility in meters */
+  distanceMeters?: number;
+  /** Estimated arrival time in minutes */
+  estimatedArrivalMinutes?: number;
+
+  // === Workout Analysis Context ===
+  /** Workout duration in minutes for @זמן_אימון tag */
+  durationMinutes?: number;
+  /** Difficulty level (1|2|3 or 'easy'|'medium'|'hard') for @עצימות tag */
+  difficulty?: number | string;
+  /** Precomputed dominant muscle group for @מיקוד tag */
+  dominantMuscle?: string;
+  /** Hebrew display name of workout category for @קטגוריה tag */
+  categoryLabel?: string;
+
+  // === Level Goal Context ===
+  /** Target exercise name for current level (for @תרגיל_יעד tag) */
+  targetExerciseName?: string;
+  /** Formatted target value + unit, e.g. "10 חזרות" (for @ערך_יעד tag) */
+  targetValue?: string;
+  /** Percentage progress toward next level (0-100) (for @אחוז_התקדמות_רמה tag) */
+  goalProgressPercent?: number;
 }
 
 /**
@@ -93,10 +133,13 @@ export function resolveNotificationText(
   const personaLabels: Record<string, string> = {
     parent: 'הורה',
     student: 'סטודנט',
+    school_student: 'תלמיד',
     office_worker: 'עובד משרד',
     remote_worker: 'עובד מהבית',
     athlete: 'ספורטאי',
     senior: 'גיל הזהב',
+    reservist: 'מילואימניק',
+    active_soldier: 'חייל סדיר',
   };
   
   resolved = resolved.replace(/@פרסונה/g, () => {
@@ -113,6 +156,9 @@ export function resolveNotificationText(
     office: 'משרד',
     street: 'רחוב',
     gym: 'מכון כושר',
+    school: 'בית ספר',
+    airport: 'שדה תעופה',
+    library: 'ספרייה',
   };
   
   resolved = resolved.replace(/@מיקום/g, () => {
@@ -417,6 +463,9 @@ export function resolveDescription(
     office: 'משרד',
     street: 'רחוב',
     gym: 'מכון כושר',
+    school: 'בית ספר',
+    airport: 'שדה תעופה',
+    library: 'ספרייה',
   };
   
   resolved = resolved.replace(/@מיקום/g, () => {
@@ -436,11 +485,314 @@ export function resolveDescription(
     }
     return 'ציוד מינימלי';
   });
+
+  // === Golden Content tags ===
+
+  // @ספורט — user's sport type
+  const sportLabels: Record<string, string> = {
+    // כוח ותנועה
+    calisthenics: 'קליסתניקס',
+    crossfit: 'קרוספיט',
+    functional: 'פונקציונלי',
+    movement: 'תנועה',
+    // אירובי וסיבולת
+    running: 'ריצה',
+    walking: 'הליכה',
+    cycling: 'רכיבה',
+    swimming: 'שחייה',
+    // משחקי כדור
+    basketball: 'כדורסל',
+    soccer: 'כדורגל',
+    tennis: 'טניס',
+    padel: 'פאדל',
+    // גוף-נפש
+    yoga: 'יוגה',
+    pilates: 'פילאטיס',
+    flexibility: 'גמישות',
+    // אתגרי
+    climbing: 'טיפוס',
+    skate_roller: 'סקייט / רולר',
+    martial_arts: 'אמנויות לחימה',
+    general: 'אימון',
+  };
+
+  resolved = resolved.replace(/@ספורט/g, () => {
+    if (context.sportType && sportLabels[context.sportType]) {
+      return sportLabels[context.sportType];
+    }
+    return context.sportType || 'אימון';
+  });
+
+  // @רמה — user's experience level
+  const levelLabels: Record<string, string> = {
+    beginner: 'מתחיל',
+    intermediate: 'בינוני',
+    advanced: 'מתקדם',
+    pro: 'מקצועי',
+  };
+
+  resolved = resolved.replace(/@רמה/g, () => {
+    if (context.experienceLevel && levelLabels[context.experienceLevel]) {
+      return levelLabels[context.experienceLevel];
+    }
+    return context.experienceLevel || 'כל הרמות';
+  });
+
+  // @מגדר — dynamic grammar helper (זכר/נקבה text)
+  resolved = resolved.replace(/@מגדר/g, () => {
+    if (isFemale) return 'נקבה';
+    if (isMale) return 'זכר';
+    return 'כללי';
+  });
+
+  // === Progress & Level-Up tags ===
+
+  // @שם_תוכנית — current program name
+  const programLabels: Record<string, string> = {
+    pulling: 'משיכה',
+    pushing: 'דחיפה',
+    core: 'ליבה',
+    legs: 'רגליים',
+    upper_body: 'פלג עליון',
+    lower_body: 'פלג תחתון',
+    full_body: 'גוף מלא',
+    handstand: 'עמידת ידיים',
+    skills: 'סקילס',
+  };
+
+  resolved = resolved.replace(/@שם_תוכנית/g, () => {
+    if (context.currentProgram && programLabels[context.currentProgram]) {
+      return programLabels[context.currentProgram];
+    }
+    return context.currentProgram || 'התוכנית';
+  });
+
+  // @אחוז_התקדמות — progress percentage
+  resolved = resolved.replace(/@אחוז_התקדמות/g, () => {
+    if (context.programProgress !== undefined && context.programProgress !== null) {
+      return `${Math.round(context.programProgress)}%`;
+    }
+    return '0%';
+  });
+
+  // @רמה_הבאה — target level
+  resolved = resolved.replace(/@רמה_הבאה/g, () => {
+    if (context.targetLevel !== undefined && context.targetLevel !== null) {
+      return `רמה ${context.targetLevel}`;
+    }
+    return 'הרמה הבאה';
+  });
+
+  // === Proximity tags ===
+
+  // @מרחק — distance to park/facility
+  resolved = resolved.replace(/@מרחק/g, () => {
+    if (context.distanceMeters !== undefined && context.distanceMeters !== null) {
+      if (context.distanceMeters < 1000) {
+        return `${context.distanceMeters} מטר`;
+      }
+      return `${(context.distanceMeters / 1000).toFixed(1)} ק"מ`;
+    }
+    return 'קרוב';
+  });
+
+  // @זמן_הגעה — estimated arrival time
+  resolved = resolved.replace(/@זמן_הגעה/g, () => {
+    if (context.estimatedArrivalMinutes !== undefined && context.estimatedArrivalMinutes !== null) {
+      if (context.estimatedArrivalMinutes < 1) {
+        return 'פחות מדקה';
+      }
+      return `${Math.round(context.estimatedArrivalMinutes)} דקות הליכה`;
+    }
+    return 'קצר';
+  });
+
+  // === Workout Analysis Tags ===
+
+  // @זמן_אימון — workout duration in minutes
+  resolved = resolved.replace(/@זמן_אימון/g, () => {
+    if (context.durationMinutes !== undefined && context.durationMinutes !== null) {
+      return `${Math.round(context.durationMinutes)}`;
+    }
+    return '10';
+  });
+
+  // @עצימות — difficulty level mapped to Hebrew
+  const difficultyLabels: Record<number | string, string> = {
+    1: 'קליל',
+    2: 'מאתגר',
+    3: 'שורף',
+    easy: 'קליל',
+    medium: 'מאתגר',
+    hard: 'שורף',
+  };
+
+  resolved = resolved.replace(/@עצימות/g, () => {
+    if (context.difficulty !== undefined && context.difficulty !== null && difficultyLabels[context.difficulty]) {
+      return difficultyLabels[context.difficulty];
+    }
+    return 'מאתגר';
+  });
+
+  // @מיקוד — dominant muscle focus (>50% of exercises)
+  const muscleLabelsHe: Record<string, string> = {
+    glutes: 'עכוז',
+    abs: 'בטן',
+    core: 'ליבה',
+    biceps: 'ביצפס',
+    triceps: 'טרייצפס',
+    legs: 'רגליים',
+    quads: 'ירכיים קדמיות',
+    hamstrings: 'ירכיים אחוריות',
+    calves: 'שוקיים',
+    chest: 'חזה',
+    back: 'גב',
+    lats: 'גב רחב',
+    shoulders: 'כתפיים',
+    forearms: 'אמות',
+    hip_flexors: 'כופפי ירך',
+    full_body: 'גוף מלא',
+  };
+
+  resolved = resolved.replace(/@מיקוד/g, () => {
+    if (context.dominantMuscle && muscleLabelsHe[context.dominantMuscle]) {
+      return muscleLabelsHe[context.dominantMuscle];
+    }
+    if (context.muscles && context.muscles.length > 0) {
+      const primary = context.muscles[0];
+      return muscleLabelsHe[primary] || primary;
+    }
+    return 'גוף מלא';
+  });
+
+  // @קטגוריה — workout category display name
+  resolved = resolved.replace(/@קטגוריה/g, () => {
+    if (context.categoryLabel) {
+      return context.categoryLabel;
+    }
+    if (context.category) {
+      const catLabels: Record<string, string> = {
+        strength: 'כוח',
+        volume: 'נפח',
+        endurance: 'סיבולת',
+        skills: 'סקילס',
+        mobility: 'ניידות',
+        hiit: 'HIIT',
+        general: 'כללי',
+        maintenance: 'תחזוקת גוף',
+      };
+      return catLabels[context.category] || context.category;
+    }
+    return 'אימון';
+  });
   
+  // ── Level Goal Tags ────────────────────────────────────────────────
+
+  // @תרגיל_יעד — target exercise name for current level
+  resolved = resolved.replace(/@תרגיל_יעד/g, () => {
+    return context.targetExerciseName || 'תרגיל יעד';
+  });
+
+  // @ערך_יעד — target value with unit (e.g., "10 חזרות")
+  resolved = resolved.replace(/@ערך_יעד/g, () => {
+    return context.targetValue || '0';
+  });
+
+  // @אחוז_התקדמות_רמה — progress toward next level (0-100%)
+  // Note: @אחוז_התקדמות already exists for program progress.
+  // This is specifically for level XP progress.
+  resolved = resolved.replace(/@אחוז_התקדמות_רמה/g, () => {
+    if (context.goalProgressPercent !== undefined && context.goalProgressPercent !== null) {
+      return `${Math.round(context.goalProgressPercent)}%`;
+    }
+    return '0%';
+  });
+
   // Also support the notification tags for consistency
   resolved = resolveNotificationText(resolved, context);
   
   return resolved;
+}
+
+// ============================================================================
+// UNIFIED TAG RESOLVER — works for Titles, Descriptions, Notifications, Phrases
+// ============================================================================
+
+/**
+ * Unified content tag resolver.
+ *
+ * Resolves @tags in any user-facing text regardless of content type
+ * (titles, descriptions, motivational phrases, notifications).
+ *
+ * Internally delegates to the existing resolvers in the correct order
+ * (resolveDescription first → resolveNotificationText as fallback),
+ * so all tags are covered without duplication.
+ *
+ * @param text     Raw text with @tags (e.g., "אימון @קטגוריה ל@פרסונה ב@מיקום")
+ * @param context  Tag resolution context
+ * @returns        Fully resolved text
+ */
+export function resolveContentTags(
+  text: string,
+  context: TagResolverContext,
+): string {
+  if (!text) return '';
+  // resolveDescription already chains to resolveNotificationText at the end,
+  // giving us full coverage of every @tag in a single call.
+  return resolveDescription(text, context);
+}
+
+/**
+ * Get available tags for any content type (unified).
+ * Returns the FULL set of tags available across all content types.
+ */
+export function getAvailableContentTags(): Array<{
+  tag: string;
+  description: string;
+  example: string;
+}> {
+  // Start with description tags (broadest set), then add notification-only tags
+  const descriptionTags = getAvailableDescriptionTags();
+  const notificationOnlyTags = [
+    {
+      tag: '@ימי_אי_פעילות',
+      description: 'מספר הימים ללא אימון (רק בהתראות אי-פעילות)',
+      example: 'כבר @ימי_אי_פעילות ימים שלא ראינו אותך',
+    },
+    {
+      tag: '@שם_הפארק',
+      description: 'שם הפארק (רק בהתראות מבוססות מיקום)',
+      example: 'אימון חדש ב-@שם_הפארק מחכה לך!',
+    },
+    {
+      tag: '@שם_המתקן',
+      description: 'שם המתקן (רק בהתראות מבוססות מיקום)',
+      example: 'המתקן @שם_המתקן זמין עכשיו',
+    },
+    {
+      tag: '@שעה',
+      description: 'השעה הנוכחית (HH:MM)',
+      example: 'השעה @שעה, זמן טוב ל-@מטרה',
+    },
+    {
+      tag: '@זמן_יום',
+      description: 'זמן היום (בוקר, צהריים, ערב)',
+      example: '@זמן_יום טוב!',
+    },
+    {
+      tag: '@שרירים',
+      description: 'קבוצות שרירים עיקריות (רבים)',
+      example: 'מתמקד ב-@שרירים',
+    },
+  ];
+
+  // Merge, avoiding duplicates by tag name
+  const existing = new Set(descriptionTags.map(t => t.tag));
+  const merged = [...descriptionTags];
+  for (const t of notificationOnlyTags) {
+    if (!existing.has(t.tag)) merged.push(t);
+  }
+  return merged;
 }
 
 /**
@@ -511,6 +863,82 @@ export function getAvailableDescriptionTags(): Array<{
       tag: '@תרצה/י',
       description: 'תרצי (נקבה) / תרצה (זכר)',
       example: '@תרצה/י להתחיל?',
+    },
+    {
+      tag: '@ספורט',
+      description: 'סוג הספורט של המשתמש (קליסתניקס, ריצה, כדורסל...)',
+      example: 'אימון @ספורט ברמה גבוהה',
+    },
+    {
+      tag: '@רמה',
+      description: 'רמת הניסיון של המשתמש (מתחיל, בינוני, מתקדם, מקצועי)',
+      example: 'מותאם לרמת @רמה',
+    },
+    {
+      tag: '@מגדר',
+      description: 'מגדר דינמי (זכר / נקבה / כללי)',
+      example: 'תוכן מותאם ל-@מגדר',
+    },
+    {
+      tag: '@שם_תוכנית',
+      description: 'שם התוכנית הנוכחית (משיכה, דחיפה, ליבה, רגליים)',
+      example: 'התקדמות מצוינת ב@שם_תוכנית!',
+    },
+    {
+      tag: '@אחוז_התקדמות',
+      description: 'אחוז ההתקדמות בתוכנית (0-100%)',
+      example: '@את/ה ב-@אחוז_התקדמות - כמעט שם!',
+    },
+    {
+      tag: '@רמה_הבאה',
+      description: 'הרמה הבאה שאליה המשתמש מתקדם',
+      example: 'עוד קצת ו@את/ה מגיע/ה ל-@רמה_הבאה',
+    },
+    {
+      tag: '@מרחק',
+      description: 'מרחק לפארק/מתקן (רק בהתראות Proximity)',
+      example: '@את/ה במרחק @מרחק מהפארק',
+    },
+    {
+      tag: '@זמן_הגעה',
+      description: 'זמן הגעה משוער (רק בהתראות Proximity)',
+      example: '@זמן_הגעה מפרידים אותך מאימון מושלם',
+    },
+    {
+      tag: '@זמן_אימון',
+      description: 'משך האימון בדקות (מספר)',
+      example: 'אימון של @זמן_אימון דקות',
+    },
+    {
+      tag: '@עצימות',
+      description: 'רמת עצימות (קליל / מאתגר / שורף)',
+      example: 'אימון @עצימות שמתאים ל@פרסונה',
+    },
+    {
+      tag: '@מיקוד',
+      description: 'שריר דומיננטי באימון (>50% מהתרגילים)',
+      example: 'מיקוד ב@מיקוד — אימון ממוקד',
+    },
+    {
+      tag: '@קטגוריה',
+      description: 'שם קטגוריית האימון (כוח / סיבולת / ניידות / תחזוקת גוף)',
+      example: 'אימון @קטגוריה ל@פרסונה',
+    },
+    // ── Level Goal Tags ──
+    {
+      tag: '@תרגיל_יעד',
+      description: 'שם התרגיל היעד עבור הרמה הנוכחית',
+      example: 'התרגיל שלך היום: @תרגיל_יעד',
+    },
+    {
+      tag: '@ערך_יעד',
+      description: 'ערך היעד כולל יחידה (חזרות או שניות)',
+      example: 'נסה להגיע ל-@ערך_יעד',
+    },
+    {
+      tag: '@אחוז_התקדמות_רמה',
+      description: 'אחוז ההתקדמות לקראת הרמה הבאה',
+      example: '@את/ה ב-@אחוז_התקדמות_רמה עד לרמה הבאה',
     },
   ];
 }

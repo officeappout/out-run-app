@@ -285,13 +285,16 @@ const REST_FOR_OVER_LEVEL = { min: 150, max: 180 };
 
 /**
  * Inactivity threshold for volume reduction (in days)
+ * TRAINING_LOGIC.md Rule 2.3: "If gap > 3 days: Trigger Return to Routine"
  */
-const INACTIVITY_THRESHOLD_DAYS = 4;
+const INACTIVITY_THRESHOLD_DAYS = 3;
 
 /**
  * Volume reduction percentage for inactivity
+ * TRAINING_LOGIC.md Rule 2.3: "Strictly reduce Volume (Sets) by 30-40%"
+ * Using 40% for safety margin on return
  */
-const INACTIVITY_VOLUME_REDUCTION = 0.25;
+const INACTIVITY_VOLUME_REDUCTION = 0.40;
 
 /**
  * =============================================================================
@@ -439,9 +442,13 @@ const DIFFICULTY_TITLE_PREFIX: Record<DifficultyLevel, string> = {
 const PERSONA_LABELS_HE: Record<string, string> = {
   parent: 'הורים עסוקים',
   student: 'סטודנטים',
+  school_student: 'תלמידים',
   office_worker: 'עובדי משרד',
+  home_worker: 'עובדים מהבית',
   senior: 'מבוגרים',
   athlete: 'ספורטאים',
+  reservist: 'מילואימניקים',
+  active_soldier: 'חיילים סדירים',
   default: '',
 };
 

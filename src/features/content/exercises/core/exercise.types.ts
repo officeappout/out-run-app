@@ -274,7 +274,7 @@ export interface InstructionalVideo {
  * Execution Method for an Exercise
  * Defines how an exercise can be performed in different contexts
  */
-export type ExecutionLocation = 'home' | 'park' | 'street' | 'office' | 'school' | 'gym' | 'airport';
+export type ExecutionLocation = 'home' | 'park' | 'street' | 'office' | 'school' | 'gym' | 'airport' | 'library';
 export type RequiredGearType = 'fixed_equipment' | 'user_gear' | 'improvised';
 
 /**
@@ -504,6 +504,11 @@ export interface Exercise {
    */
   isFollowAlong?: boolean;
   /**
+   * Whether the exercise video has audio that should be played.
+   * When false (default), the player mutes the video.
+   */
+  hasAudio?: boolean;
+  /**
    * Seconds per rep (for timing calculations in workout builder).
    * Default: 3 seconds.
    */
@@ -622,4 +627,63 @@ export function getInstructionalVideoForLanguage(
     videos.find((v) => v.lang === 'en')?.url ||
     videos.find((v) => v.lang === 'es')?.url
   );
+}
+
+// ============================================================================
+// LOCATION-AWARE MEDIA RESOLUTION
+// ============================================================================
+
+/**
+ * Find the execution method that matches a given location.
+ * Falls back through: exact match → locationMapping → first method with media.
+ *
+ * Used by the workout player to select the correct video/image for the
+ * workout's active location, preventing Home/Park media mix-ups.
+ */
+export function findMethodForLocation(
+  exercise: Exercise | { execution_methods?: ExecutionMethod[]; executionMethods?: ExecutionMethod[] },
+  location?: string | null,
+): ExecutionMethod | null {
+  const methods = (exercise as any).execution_methods || (exercise as any).executionMethods || [];
+  if (!methods.length) return null;
+
+  if (location) {
+    // 1. Exact location match
+    const exact = methods.find((m: ExecutionMethod) => m.location === location);
+    if (exact) return exact;
+
+    // 2. locationMapping includes this location
+    const mapped = methods.find((m: ExecutionMethod) => m.locationMapping?.includes(location as ExecutionLocation));
+    if (mapped) return mapped;
+  }
+
+  // 3. Fallback: first method that has any media at all
+  for (const m of methods) {
+    if (m?.media?.mainVideoUrl || m?.media?.imageUrl) return m;
+  }
+
+  // 4. Last resort: first method (even if no media)
+  return methods[0] || null;
+}
+
+/**
+ * Resolve the main video URL for a given exercise + location.
+ */
+export function resolveVideoForLocation(
+  exercise: Exercise | { execution_methods?: ExecutionMethod[]; executionMethods?: ExecutionMethod[] },
+  location?: string | null,
+): string {
+  const method = findMethodForLocation(exercise, location);
+  return method?.media?.mainVideoUrl || (exercise as any).media?.videoUrl || '';
+}
+
+/**
+ * Resolve the image URL for a given exercise + location.
+ */
+export function resolveImageForLocation(
+  exercise: Exercise | { execution_methods?: ExecutionMethod[]; executionMethods?: ExecutionMethod[] },
+  location?: string | null,
+): string {
+  const method = findMethodForLocation(exercise, location);
+  return method?.media?.imageUrl || method?.media?.mainVideoUrl || (exercise as any).media?.imageUrl || '';
 }

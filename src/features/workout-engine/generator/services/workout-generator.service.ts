@@ -6,7 +6,8 @@
  */
 import { UserFullProfile } from '@/types/user-profile';
 import { TrainingDomainId } from '@/types/user-profile';
-import { getPrograms, ProgramDoc } from '@/features/admin/services/questionnaire.service';
+import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import { Program as ProgramDoc } from '@/features/content/programs/core/program.types';
 import { Exercise as ExerciseDoc, ExecutionMethod, ExecutionLocation, RequiredGearType, getLocalizedText } from '@/features/content/exercises';
 import { Park } from '@/types/admin-types';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
@@ -56,15 +57,14 @@ export function getUserEffectiveLevel(
   const masterSubLevels = userProfile.progression.masterProgramSubLevels?.[activeProgram.id];
   
   if (masterSubLevels) {
-    // Map domain to sub-level key
-    if (domain === 'upper_body' && masterSubLevels.upper_body_level !== undefined) {
-      return masterSubLevels.upper_body_level;
+    // Dynamic sub-level lookup: check if the domain (or any child program) is in the sub-levels map
+    if (masterSubLevels[domain] !== undefined) {
+      return masterSubLevels[domain];
     }
-    if (domain === 'lower_body' && masterSubLevels.lower_body_level !== undefined) {
-      return masterSubLevels.lower_body_level;
-    }
-    if (domain === 'core' && masterSubLevels.core_level !== undefined) {
-      return masterSubLevels.core_level;
+    // Legacy fallback: check for old-format keys (upper_body_level, etc.)
+    const legacyKey = `${domain}_level`;
+    if ((masterSubLevels as any)[legacyKey] !== undefined) {
+      return (masterSubLevels as any)[legacyKey];
     }
   }
 
@@ -94,7 +94,7 @@ export async function generateWorkoutPlan(
   // Fetch program details to check if it's a Master Program
   let programDoc: ProgramDoc | null = null;
   try {
-    const programs = await getPrograms();
+    const programs = await getAllPrograms();
     programDoc = programs.find(p => p.id === activeProgram.id) || null;
   } catch (error) {
     console.error('Error fetching program details:', error);
@@ -396,6 +396,7 @@ function mapExecutionLocationToEquipmentLocation(location: ExecutionLocation): '
       return 'park';
     case 'office':
     case 'school':
+    case 'library':
       return 'office';
     case 'gym':
       return 'gym';
@@ -776,12 +777,8 @@ export function calculateGlobalLevelForDisplay(
   const subLevels = userProfile.progression.masterProgramSubLevels?.[activeProgram.id];
   
   if (subLevels) {
-    // Master Program: use average or lowest of sub-levels
-    const subLevelValues = [
-      subLevels.upper_body_level,
-      subLevels.lower_body_level,
-      subLevels.core_level,
-    ].filter((v): v is number => v !== undefined);
+    // Master Program: use average of all sub-level values (dynamic keys)
+    const subLevelValues = Object.values(subLevels).filter((v): v is number => typeof v === 'number');
 
     if (subLevelValues.length > 0) {
       const average = Math.round(

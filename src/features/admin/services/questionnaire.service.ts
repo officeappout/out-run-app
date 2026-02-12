@@ -660,19 +660,11 @@ export async function getLevels(): Promise<LevelDoc[]> {
   }
 }
 
-export async function getPrograms(): Promise<ProgramDoc[]> {
-  try {
-    const q = query(collection(db, PROGRAMS_COLLECTION), orderBy('name', 'asc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as any),
-    })) as ProgramDoc[];
-  } catch (error) {
-    console.error('Error fetching programs:', error);
-    throw error;
-  }
-}
+/**
+ * @deprecated Use `getAllPrograms()` from `@/features/content/programs/core/program.service` instead.
+ * Kept temporarily for backward-compatibility. Delegates to the canonical service.
+ */
+export { getAllPrograms as getPrograms } from '@/features/content/programs/core/program.service';
 
 /**
  * Delete an answer

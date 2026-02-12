@@ -2,12 +2,16 @@
 
 import React from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
-import { Play, Clock, Zap, Dumbbell } from 'lucide-react';
+import { Play, Clock, Zap, Dumbbell, SlidersHorizontal } from 'lucide-react';
 
 interface HeroWorkoutCardProps {
   workout: MockWorkout;
   isRestDay?: boolean;
   onStart: () => void;
+  /** Callback when user taps "התאם אימון" — opens AdjustWorkoutModal */
+  onAdjust?: () => void;
+  /** Whether this workout was dynamically generated (shows adjust button) */
+  isGenerated?: boolean;
 }
 
 /**
@@ -41,7 +45,7 @@ function DifficultyBolts({ difficulty }: { difficulty: 1 | 2 | 3 }) {
   );
 }
 
-export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }: HeroWorkoutCardProps) {
+export default function HeroWorkoutCard({ workout, isRestDay = false, onStart, onAdjust, isGenerated }: HeroWorkoutCardProps) {
   // Handle both old string format and new number format
   const getDifficultyNumber = (difficulty: string | number): 1 | 2 | 3 => {
     if (typeof difficulty === 'number') {
@@ -83,8 +87,8 @@ export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }:
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         </div>
 
-        {/* 2. Top Badges (Coins & Calories) */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
+        {/* 2. Top Badges (Coins & Calories) + Adjust Button — z-20 to sit above bottom content */}
+        <div className="absolute top-4 right-4 left-4 z-20 flex items-center justify-between">
           <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center shadow-lg">
             <span className="text-xs font-bold text-gray-800 dark:text-white ml-1">
               {workout.calories} קל׳
@@ -95,10 +99,20 @@ export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }:
               $
             </div>
           </div>
+          {/* Adjust Workout Button */}
+          {isGenerated && onAdjust && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAdjust(); }}
+              className="bg-white/90 dark:bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-lg transition-transform active:scale-95"
+            >
+              <SlidersHorizontal size={14} className="text-cyan-600" />
+              <span className="text-xs font-bold text-gray-800 dark:text-white">התאם אימון</span>
+            </button>
+          )}
         </div>
 
-        {/* 3. Bottom Content */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col justify-end h-full">
+        {/* 3. Bottom Content — z-10 so top badges (z-20) stay clickable */}
+        <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col justify-end h-full z-10">
           <div className="mb-4">
             <h4 className="text-2xl font-bold text-white mb-2">{workout.title}</h4>
             
@@ -114,7 +128,7 @@ export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }:
             </p>
 
             {/* Metadata tags - Updated with bolt system */}
-            <div className="flex items-center gap-3 text-xs text-white/80">
+            <div className="flex items-center gap-3 flex-wrap text-xs text-white/80">
               {/* Difficulty Bolts */}
               <DifficultyBolts difficulty={difficultyNum} />
               
@@ -131,15 +145,22 @@ export default function HeroWorkoutCard({ workout, isRestDay = false, onStart }:
                   {workout.exerciseCount} תרגילים
                 </span>
               )}
+
+              {/* Volume Adjustment Badge (e.g. "Back to routine") */}
+              {(workout as any).volumeBadge && (
+                <span className="flex items-center gap-1 bg-blue-500/30 px-2 py-1 rounded-lg backdrop-blur-sm text-blue-200">
+                  {(workout as any).volumeBadge}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* 4. CTA Button */}
+          {/* 4. CTA Button — always visible at bottom */}
           <button
             onClick={onStart}
-            className="w-full bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-cyan-500/30 transition transform active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-extrabold py-4 rounded-xl shadow-lg shadow-cyan-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 text-lg"
           >
-            <Play size={20} fill="currentColor" />
+            <Play size={22} fill="currentColor" />
             <span>התחל אימון</span>
           </button>
         </div>

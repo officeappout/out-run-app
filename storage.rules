@@ -1,0 +1,112 @@
+rules_version = '2';
+
+// ============================================================================
+// Firebase Cloud Storage Security Rules — appout-1
+//
+// Architecture:
+//   - Public Read: All content (exercise images/videos, park photos, logos, etc.)
+//     is publicly readable so the app can display thumbnails without auth.
+//   - Authenticated Write: Only authenticated users with admin roles can upload
+//     or delete files in admin content folders.
+//   - User Private Folders: Users can only read/write their own UID-scoped folder
+//     (e.g., health declarations).
+//
+// Storage Paths:
+//   /media-assets/*           — Admin-uploaded exercise/content media
+//   /exercise-videos/*        — Exercise video files (by location subfolder)
+//   /gear_icons/*             — Gear definition icons
+//   /category_branding/*      — Category branding images
+//   /locations/*              — Location images
+//   /authorities/logos/*      — Authority logo images
+//   /parks/*                  — Park images
+//   /health-declarations/{uid}/* — User health declaration PDFs (private)
+//
+// Last updated: 2026-02-11
+// ============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helper Functions ──────────────────────────────────────────────
+
+    // Check if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the requesting user's UID matches the path UID
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // Limit upload file size (50 MB max — covers videos)
+    function isValidFileSize() {
+      return request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // ── 1. Admin Content Folders (Public Read, Authenticated Write) ──
+    //
+    // These folders store exercise images, videos, icons, branding, etc.
+    // Anyone can READ (so the app can display thumbnails).
+    // Only authenticated users can WRITE (upload/overwrite/delete).
+    //
+    // Note: Firestore-level role checks (isSuperAdmin, isRootAdmin)
+    // are enforced in the application layer. Storage rules validate
+    // authentication + file size. This is the standard Firebase pattern
+    // because Storage rules cannot query Firestore documents.
+
+    match /media-assets/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    match /exercise-videos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    match /gear_icons/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    match /category_branding/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    match /locations/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    match /authorities/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    match /parks/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
+    // ── 2. User Private Folders (Owner-only Read/Write) ──────────────
+    //
+    // Health declarations and other user-private files.
+    // Only the owning user can read or write their folder.
+
+    match /health-declarations/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidFileSize();
+    }
+
+    // ── 3. Catch-all: Deny everything else ───────────────────────────
+    //
+    // Any path not explicitly matched above is denied.
+    // This prevents accidental exposure of new folders.
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

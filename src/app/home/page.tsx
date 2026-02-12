@@ -3,7 +3,7 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
@@ -17,14 +17,18 @@ import AlertModal from '@/features/home/components/AlertModal';
 import SettingsModal from '@/features/home/components/SettingsModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import { SmartGreeting } from '@/features/messages';
+import SecureAccountBanner from '@/components/SecureAccountBanner';
 // BottomNavigation removed (rendered in layout)
 
 import { LogOut, RefreshCcw, Settings } from 'lucide-react';
 import { signOutUser } from '@/lib/auth.service';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { UserFullProfile } from '@/types/user-profile';
+import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { getUserFromFirestore } from '@/lib/firestore.service';
+import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 
 export default function HomePage() {
   const router = useRouter();
@@ -35,7 +39,23 @@ export default function HomePage() {
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
+  const [showSecureBanner, setShowSecureBanner] = useState(true);
   
+  // ── Dynamic workout state (lifted from StatsOverview) ──
+  // generatedWorkout is the SINGLE SOURCE OF TRUTH for the current workout.
+  // workoutVersion increments on every generation/adjustment to force a
+  // full re-render of the WorkoutPreviewDrawer (clears stale internal state).
+  const generatedWorkoutRef = useRef<GeneratedWorkout | null>(null);
+  const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
+  const [workoutVersion, setWorkoutVersion] = useState(0);
+
+  const handleWorkoutGenerated = useCallback((workout: GeneratedWorkout) => {
+    console.log('[HomePage] Workout generated/updated — syncing state', workout.title);
+    generatedWorkoutRef.current = workout;
+    setGeneratedWorkout(workout);
+    setWorkoutVersion((v) => v + 1);
+  }, []);
+
   // Check if in development mode
   const isDev = process.env.NODE_ENV === 'development';
 
@@ -60,20 +80,21 @@ export default function HomePage() {
   const handleStartWorkout = () => {
     console.log("[HomePage] Opening Drawer with dynamic workout...");
     
-    // Generate a unique workout ID based on date and user
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
     
-    // Create workout metadata (the drawer will fetch actual exercises from Firestore)
+    // Use generated workout data when available, fallback to schedule data
+    const gw = generatedWorkoutRef.current;
+    
     const workoutMetadata = {
       id: uniqueWorkoutId,
-      title: scheduleState.currentWorkout?.title || 'אימון כוח',
-      description: scheduleState.currentWorkout?.description || 'אימון מותאם אישית על פי הרמה שלך',
+      title: gw?.title || scheduleState.currentWorkout?.title || 'אימון כוח',
+      description: gw?.description || scheduleState.currentWorkout?.description || 'אימון מותאם אישית על פי הרמה שלך',
       level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
-      difficulty: scheduleState.currentWorkout?.difficulty || 'medium',
-      duration: scheduleState.currentWorkout?.duration || 45,
+      difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
+      duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
       coverImage: scheduleState.currentWorkout?.imageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-      segments: [], // Will be populated by the drawer from Firestore
+      segments: [],
     };
     
     setSelectedWorkout(workoutMetadata);
@@ -128,12 +149,51 @@ export default function HomePage() {
   };
 
   // בדיקה אם המשתמש השלים Onboarding - רק אחרי שה-Store סיים לטעון מה-localStorage
+  // If localStorage has no profile, fallback to Firestore before redirecting
+  const [isCheckingFirestore, setIsCheckingFirestore] = useState(false);
   useEffect(() => {
-    // רק אם ה-Store סיים את ה-rehydration ואז אין פרופיל
-    if (_hasHydrated && !profile) {
-      router.replace('/onboarding');
-    }
-  }, [_hasHydrated, profile, router]);
+    if (!_hasHydrated || profile || isCheckingFirestore) return;
+
+    // No profile in localStorage — check Firestore before giving up
+    const checkFirestore = async () => {
+      setIsCheckingFirestore(true);
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+          // Truly unauthenticated — go to onboarding
+          router.replace('/onboarding-new/roadmap');
+          return;
+        }
+
+        const userDocSnap = await getDoc(firestoreDoc(db, 'users', uid));
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const status = userData?.onboardingStatus;
+
+          if (status === 'COMPLETED' || userData?.onboardingComplete) {
+            // Onboarding IS done — hydrate the store and stay on /home
+            const freshProfile = await getUserFromFirestore(uid);
+            if (freshProfile) {
+              useUserStore.getState().initializeProfile(freshProfile);
+              console.log('[HomePage] Profile recovered from Firestore — staying on /home');
+              setIsCheckingFirestore(false);
+              return; // stay on /home
+            }
+          }
+        }
+
+        // Onboarding truly not complete — redirect
+        router.replace('/onboarding-new/roadmap');
+      } catch (e) {
+        console.error('[HomePage] Firestore fallback check failed:', e);
+        router.replace('/onboarding-new/roadmap');
+      } finally {
+        setIsCheckingFirestore(false);
+      }
+    };
+
+    checkFirestore();
+  }, [_hasHydrated, profile, router, isCheckingFirestore]);
 
   // מצב טעינה - הצג loading screen עד שה-Store טוען מה-localStorage
   if (!_hasHydrated) {
@@ -144,11 +204,11 @@ export default function HomePage() {
     );
   }
 
-  // אם אין פרופיל אחרי rehydration - מציג loading עד redirect
+  // אם אין פרופיל אחרי rehydration - בודקים Firestore לפני redirect
   if (!profile) {
     return (
       <div className="h-[100dvh] flex items-center justify-center" style={{ height: '100dvh' }}>
-        <p className="text-gray-500">מעביר להרשמה...</p>
+        <p className="text-gray-500">{isCheckingFirestore ? 'בודק פרופיל...' : 'מעביר להרשמה...'}</p>
       </div>
     );
   }
@@ -214,6 +274,17 @@ export default function HomePage() {
     return Math.min(Math.round((progressXP / nextLevelXP) * 100), 99); // Cap at 99%
   };
 
+  // Check if account is unsecured (user skipped AccountSecureStep or used anonymous mode)
+  const isAccountUnsecured = (): boolean => {
+    // Check from Firestore data if available (will be synced on mount)
+    // For now, check if user is anonymous OR if they have no email
+    const isAnonymous = auth.currentUser?.isAnonymous || false;
+    const hasEmail = !!profile?.core?.email;
+    
+    // Account is unsecured if: anonymous AND no email (hasn't linked account)
+    return isAnonymous && !hasEmail;
+  };
+
   return (
     <div className="min-h-[100dvh] bg-[#F3F5F9] pb-20" style={{ minHeight: '100dvh', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
       {/* Header - Sticky with Gradient Logo and UserHeaderPill */}
@@ -249,6 +320,14 @@ export default function HomePage() {
 
       {/* Main Content */}
       <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {/* Secure Account Banner - Show if account is unsecured */}
+        {isAccountUnsecured() && showSecureBanner && (
+          <SecureAccountBanner
+            userName={userName}
+            onDismiss={() => setShowSecureBanner(false)}
+          />
+        )}
+
         {/* Smart Greeting - Dynamic context-aware message */}
         <SmartGreeting 
           variant="default"
@@ -277,24 +356,57 @@ export default function HomePage() {
               currentTrack={currentTrack}
               isGuest={isGuest}
               onStartWorkout={handleStartWorkout}
+              onWorkoutGenerated={handleWorkoutGenerated}
             />
           </div>
         </div>
 
         {/* Hero Workout Card is now rendered inside StatsOverview */}
 
-        {/* Progress Card - Always unlocked for users with a profile */}
-        <div>
-          <ProgressCard 
-            progress={profile?.progression ? {
-              domain: 'כללי',
-              currentLevel: getFitnessLevel(profile),
-              maxLevel: 10,
-              percentage: calculateProgressPercentage(profile),
-            } : null}
-            isLocked={!profile}
-          />
-        </div>
+        {/* Multi-Program Progress Widgets — Accumulative UI */}
+        {(() => {
+          const tracks = profile?.progression?.tracks;
+          const activeProgramIds: string[] = (profile as any)?.activePrograms?.map((ap: any) => ap.programId) || [];
+          const trackEntries = tracks ? Object.entries(tracks).filter(([, t]: [string, any]) => t && typeof t.currentLevel === 'number') : [];
+          
+          // If we have tracked programs, show individual widgets for each
+          if (trackEntries.length > 1) {
+            return (
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-gray-500 px-1">התוכניות הפעילות שלך</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {trackEntries.map(([programId, trackData]: [string, any]) => (
+                    <ProgressCard
+                      key={programId}
+                      compact
+                      showActivityRings={false}
+                      progress={{
+                        label: trackData?.displayName || programId.replace(/_/g, ' '),
+                        currentLevel: trackData?.currentLevel || 1,
+                        maxLevel: trackData?.maxLevel || 10,
+                        percentage: trackData?.currentPercent || 0,
+                      }}
+                      isLocked={false}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
+          // Single-program / fallback: original ProgressCard
+          return (
+            <ProgressCard 
+              progress={profile?.progression ? {
+                domain: 'כללי',
+                currentLevel: getFitnessLevel(profile),
+                maxLevel: 10,
+                percentage: calculateProgressPercentage(profile),
+              } : null}
+              isLocked={!profile}
+            />
+          );
+        })()}
       </div>
 
       {/* Alert Modals */}
@@ -312,11 +424,13 @@ export default function HomePage() {
         onClose={() => setIsSettingsOpen(false)}
       />
 
-      {/* Workout Preview Drawer */}
+      {/* Workout Preview Drawer — key-synced to force full re-render on workout change */}
       <WorkoutPreviewDrawer
+        key={`drawer-v${workoutVersion}`}
         isOpen={selectedWorkout !== null}
         onClose={() => setSelectedWorkout(null)}
         workout={selectedWorkout}
+        generatedWorkout={generatedWorkout}
         onStartWorkout={(workoutId) => {
           router.push(`/workouts/${workoutId}/active`);
         }}

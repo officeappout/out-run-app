@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Exercise as FirestoreExercise, LoggingMode, MovementGroup } from '@/features/content/exercises';
+import { Exercise as FirestoreExercise, LoggingMode, MovementGroup, findMethodForLocation } from '@/features/content/exercises';
 import { WorkoutPlan, WorkoutSegment, Exercise as WorkoutExercise } from '@/features/parks';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -65,6 +65,8 @@ interface ActiveWorkoutScreenProps {
   isPaused: boolean;
   // Optional: Full Firestore exercise data (if available)
   currentExerciseData?: FirestoreExercise;
+  /** Active workout location (e.g. 'park', 'home') — used to select the correct execution_method media */
+  workoutLocation?: string;
   onPause: () => void;
   onResume: () => void;
   onNext: () => void;
@@ -78,6 +80,7 @@ export default function ActiveWorkoutScreen({
   elapsedTime,
   isPaused,
   currentExerciseData,
+  workoutLocation,
   onPause,
   onResume,
   onNext,
@@ -137,26 +140,21 @@ export default function ActiveWorkoutScreen({
     return '10-15 חזרות';
   };
 
-  // Get main video URL from exercise
+  // Get main video URL from exercise — location-aware
   const getMainVideoUrl = (exercise: FirestoreExercise | undefined, workoutExercise: WorkoutExercise | undefined): string => {
     if (exercise) {
-      // Try execution_methods first
-      const executionMethod = exercise.execution_methods?.[0];
-      if (executionMethod?.media?.mainVideoUrl) {
-        return executionMethod.media.mainVideoUrl;
-      }
-      // Fallback to legacy media
+      const method = findMethodForLocation(exercise, workoutLocation);
+      if (method?.media?.mainVideoUrl) return method.media.mainVideoUrl;
       return exercise.media?.videoUrl || '';
     }
-    // Fallback to workout exercise video
     return workoutExercise?.videoUrl || '';
   };
 
-  // Get instructional video URL
+  // Get instructional video URL — location-aware
   const getInstructionalVideoUrl = (exercise: FirestoreExercise | undefined): string => {
     if (!exercise) return '';
-    const executionMethod = exercise.execution_methods?.[0];
-    const instructionalVideos = executionMethod?.media?.instructionalVideos || [];
+    const method = findMethodForLocation(exercise, workoutLocation);
+    const instructionalVideos = method?.media?.instructionalVideos || [];
     const video = instructionalVideos.find((v) => v.lang === language) || instructionalVideos[0];
     return video?.url || '';
   };
@@ -236,7 +234,7 @@ export default function ActiveWorkoutScreen({
             className="absolute inset-0 w-full h-full object-cover"
             autoPlay
             loop
-            muted
+            muted={typeof window !== 'undefined' ? sessionStorage.getItem('isAudioEnabled') !== 'true' : true}
             playsInline
           />
         ) : (

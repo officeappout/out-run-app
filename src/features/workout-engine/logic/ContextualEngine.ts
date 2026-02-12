@@ -22,6 +22,8 @@ import {
   MECHANICAL_TYPE_LABELS,
 } from '@/features/content/exercises/core/exercise.types';
 
+import { exerciseMatchesProgram } from '../services/shadow-level.utils';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -32,10 +34,13 @@ import {
 export type LifestylePersona = 
   | 'parent'
   | 'student'
+  | 'school_student'
   | 'office_worker'
   | 'home_worker'
   | 'senior'
-  | 'athlete';
+  | 'athlete'
+  | 'reservist'
+  | 'active_soldier';
 
 /**
  * Location constraint profiles
@@ -90,8 +95,13 @@ export interface ContextualFilterContext {
   /** Available equipment (for park facility mapping) */
   availableEquipment: string[];
   
-  /** User's level (for proximity scoring) */
-  userLevel: number;
+  /**
+   * Per-exercise level callback (Shadow Tracking).
+   * Maps each exercise's movementGroup/primaryMuscle to the user's
+   * domain-specific level (e.g., upper_body=12, lower_body=5).
+   * Replaces the old single `userLevel` field.
+   */
+  getUserLevelForExercise: (exercise: Exercise) => number;
   
   /** Maximum duration in minutes (for on_the_way mode) */
   maxDuration?: number;
@@ -101,6 +111,16 @@ export interface ContextualFilterContext {
   
   /** Level tolerance for filtering (default: 3) */
   levelTolerance?: number;
+
+  /**
+   * STRICT PROGRAM FILTER — Active program IDs from Shadow Matrix.
+   * When set and non-empty, ONLY exercises matching at least one of these
+   * programs (via exerciseMatchesProgram) are included in the strength
+   * portion. This is the "תוכניות" checkbox filter.
+   *
+   * Examples: ['pulling'], ['pushing', 'core']
+   */
+  activeProgramFilters?: string[];
 }
 
 /**
@@ -183,6 +203,9 @@ export const LOCATION_CONSTRAINTS: Record<ExecutionLocation, LocationConstraints
   
   // Special: Park uses facility mapping instead of limits
   park: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: true },
+  
+  // Study environment - strict like office
+  library: { sweatLimit: 1, noiseLimit: 1, methodPriority: 3, bypassLimits: false },
 };
 
 /**
@@ -191,10 +214,13 @@ export const LOCATION_CONSTRAINTS: Record<ExecutionLocation, LocationConstraints
 export const LIFESTYLE_LABELS: Record<LifestylePersona, string> = {
   parent: 'הורה',
   student: 'סטודנט',
+  school_student: 'תלמיד',
   office_worker: 'עובד משרד',
   home_worker: 'עובד מהבית',
   senior: 'גיל הזהב',
   athlete: 'ספורטאי',
+  reservist: 'מילואימניק',
+  active_soldier: 'חייל סדיר',
 };
 
 /**
@@ -236,22 +262,40 @@ export class ContextualEngine {
     const passedHardFilters: { exercise: Exercise; method: ExecutionMethod; programLevel?: number }[] = [];
     const levelTolerance = context.levelTolerance ?? 3;
     
+    // Resolve active program filters (from Shadow Matrix checkboxes)
+    const activeProgramFilters = context.activeProgramFilters ?? [];
+    const hasStrictProgramFilter = activeProgramFilters.length > 0;
+
     for (const exercise of exercises) {
-      // Program Level filter (if program selected)
+      // ── STRICT PROGRAM FILTER ─────────────────────────────────────────
+      // When any program checkbox is checked in the Shadow Matrix,
+      // ONLY exercises matching at least one active program are allowed
+      // in the strength portion. Uses movementGroup / primaryMuscle /
+      // explicit programIds matching (exerciseMatchesProgram).
       let programLevel: number | undefined;
+
+      if (hasStrictProgramFilter) {
+        const matchesAnyProgram = activeProgramFilters.some(
+          (programKey) => exerciseMatchesProgram(exercise, programKey)
+        );
+        if (!matchesAnyProgram) {
+          excludedCount++;
+          continue; // Hard-exclude: exercise is NOT in any selected program
+        }
+      }
+
+      // Legacy programLevels check (for selectedProgram compat)
       if (context.selectedProgram) {
-        // Check if exercise has programLevels (from mock data)
         const exerciseAny = exercise as any;
         if (exerciseAny.programLevels) {
           programLevel = exerciseAny.programLevels[context.selectedProgram];
           if (programLevel === undefined) {
-            // Exercise doesn't exist in this program
             excludedCount++;
             continue;
           }
-          // Check if exercise is within level range
-          const minLevel = Math.max(1, context.userLevel - levelTolerance);
-          const maxLevel = context.userLevel + levelTolerance;
+          const effectiveLevel = context.getUserLevelForExercise(exercise);
+          const minLevel = Math.max(1, effectiveLevel - levelTolerance);
+          const maxLevel = effectiveLevel + levelTolerance;
           if (programLevel < minLevel || programLevel > maxLevel) {
             excludedCount++;
             continue;
@@ -309,7 +353,10 @@ export class ContextualEngine {
     });
     
     // Step 3: Apply SA/BA balancing
-    const balancedExercises = this.applyMechanicalBalancing(scoredExercises);
+    // When a single program is selected, the user explicitly wants a
+    // focused (non-balanced) workout — relax SA:BA enforcement.
+    const relaxSABA = hasStrictProgramFilter && activeProgramFilters.length === 1;
+    const balancedExercises = this.applyMechanicalBalancing(scoredExercises, relaxSABA);
     
     // Step 4: Sort by score
     balancedExercises.sort((a, b) => b.score - a.score);
@@ -345,11 +392,18 @@ export class ContextualEngine {
       value: context.location,
     });
     
-    // Program filter (if selected)
+    // Strict program filter (from Shadow Matrix checkboxes)
+    if (context.activeProgramFilters?.length) {
+      filters.push({
+        type: 'lifestyle',
+        label: 'פילטר תוכניות (מחייב)',
+        value: context.activeProgramFilters.join(', '),
+      });
+    }
+
+    // Legacy program filter (if selected)
     if (context.selectedProgram) {
       const levelTolerance = context.levelTolerance ?? 3;
-      const minLevel = Math.max(1, context.userLevel - levelTolerance);
-      const maxLevel = context.userLevel + levelTolerance;
       filters.push({
         type: 'lifestyle',
         label: 'תוכנית',
@@ -357,8 +411,8 @@ export class ContextualEngine {
       });
       filters.push({
         type: 'lifestyle',
-        label: 'טווח רמות',
-        value: `${minLevel}-${maxLevel}`,
+        label: 'סבילות רמה',
+        value: `±${levelTolerance} (Shadow Tracking)`,
       });
     }
     
@@ -465,7 +519,14 @@ export class ContextualEngine {
   }
   
   /**
-   * Find the best matching execution method for the context
+   * Find the best matching execution method for the context.
+   *
+   * PRECISION RULE: Only methods whose `location` field EXACTLY matches
+   * the requested location are considered. The `locationMapping` array
+   * is a secondary explicit multi-location tag (NOT fuzzy).
+   *
+   * For park: additionally checks equipment availability against
+   * the user's available equipment list.
    */
   private findMatchingMethod(
     exercise: Exercise,
@@ -474,27 +535,44 @@ export class ContextualEngine {
   ): ExecutionMethod | null {
     const methods = exercise.execution_methods || exercise.executionMethods || [];
     if (!methods.length) return null;
-    
-    // For park: strict facility mapping - check equipment availability
+
+    // ── Step 1: Exact primary location match ───────────────────────────
+    // Only methods where method.location === context.location
+    let candidates = methods.filter(m => m.location === context.location);
+
+    // ── Step 2: Explicit locationMapping fallback ──────────────────────
+    // If no primary match, check locationMapping (explicit multi-location tags).
+    // This is NOT fuzzy — the method explicitly declares support for the location.
+    if (candidates.length === 0) {
+      candidates = methods.filter(m =>
+        m.locationMapping?.includes(context.location)
+      );
+    }
+
+    if (candidates.length === 0) return null;
+
+    // ── Step 3: Park-specific equipment gating ─────────────────────────
     if (constraints.bypassLimits && context.location === 'park') {
-      const parkMethods = methods.filter(m => {
-        if (m.location !== 'park') return false;
-        // Check if required equipment is available
+      const parkFiltered = candidates.filter(m => {
+        // Check new array-based equipmentIds
+        if (m.equipmentIds?.length) {
+          return m.equipmentIds.some(eid => context.availableEquipment.includes(eid));
+        }
+        // Fallback: check deprecated singular equipmentId
         if (m.equipmentId && !context.availableEquipment.includes(m.equipmentId)) {
           return false;
         }
         return true;
       });
-      return parkMethods[0] || null;
+      // Prefer methods that actually have media for this location
+      const withMedia = parkFiltered.filter(m => m.media?.mainVideoUrl || m.media?.imageUrl);
+      return withMedia[0] || parkFiltered[0] || null;
     }
-    
-    // Standard location matching
-    const locationMethods = methods.filter(m => 
-      m.location === context.location ||
-      m.locationMapping?.includes(context.location)
-    );
-    
-    return locationMethods[0] || null;
+
+    // ── Step 4: Prefer methods with actual media ──────────────────────
+    // Among location-matched candidates, prefer those with video/image
+    const withMedia = candidates.filter(m => m.media?.mainVideoUrl || m.media?.imageUrl);
+    return withMedia[0] || candidates[0] || null;
   }
   
   /**
@@ -517,11 +595,13 @@ export class ContextualEngine {
     }
     
     // 2. Level Proximity: +3 points for exact match, -1 per level difference
+    //    Uses Shadow Tracking callback for per-exercise level matching
     const exerciseLevel = this.getExerciseLevel(exercise);
-    const levelDiff = Math.abs(exerciseLevel - context.userLevel);
+    const userEffectiveLevel = context.getUserLevelForExercise(exercise);
+    const levelDiff = Math.abs(exerciseLevel - userEffectiveLevel);
     const levelScore = Math.max(0, 3 - levelDiff);
     score += levelScore;
-    reasoning.push(`קרבת רמה: +${levelScore} (הפרש ${levelDiff})`);
+    reasoning.push(`קרבת רמה: +${levelScore} (הפרש ${levelDiff}, רמה אפקטיבית ${userEffectiveLevel})`);
     
     // 3. Blast Mode: Prioritize compound/hybrid
     if (context.intentMode === 'blast') {
@@ -579,9 +659,22 @@ export class ContextualEngine {
   }
   
   /**
-   * Apply SA/BA balancing - limit straight arm to max 2 per session
+   * Apply SA/BA balancing - limit straight arm to max 2 per session.
+   *
+   * @param relaxSABA  When true (single program selected), skip the SA
+   *                   penalty so that focused pulling/pushing workouts
+   *                   are not artificially limited.
    */
-  private applyMechanicalBalancing(exercises: ScoredExercise[]): ScoredExercise[] {
+  private applyMechanicalBalancing(
+    exercises: ScoredExercise[],
+    relaxSABA = false,
+  ): ScoredExercise[] {
+    // When a single program filter is active, the user explicitly asked
+    // for a focused (non-balanced) session — don't penalise SA excess.
+    if (relaxSABA) {
+      return exercises;
+    }
+
     let straightArmCount = 0;
     
     return exercises.map(scored => {

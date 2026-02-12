@@ -151,20 +151,31 @@ export async function saveProgramLevelSettings(
     // Check if document exists to determine if this is create or update
     const existingDoc = await getDoc(docRef);
     
+    // Ensure targetGoals are plain objects for Firestore
+    const payload = {
+      ...data,
+      targetGoals: (data.targetGoals ?? []).map(g => ({
+        exerciseId: g.exerciseId,
+        exerciseName: g.exerciseName,
+        targetValue: g.targetValue,
+        unit: g.unit,
+      })),
+    };
+
     if (existingDoc.exists()) {
       // Update existing
       await updateDoc(docRef, {
-        ...data,
+        ...payload,
         updatedAt: serverTimestamp(),
       });
     } else {
       // Create new
       await setDoc(docRef, {
-        ...data,
-        progressionWeight: data.progressionWeight ?? 1.0,
-        intensityModifier: data.intensityModifier ?? 1.0,
-        restMultiplier: data.restMultiplier ?? 1.0,
-        volumeAdjustment: data.volumeAdjustment ?? 0,
+        ...payload,
+        progressionWeight: payload.progressionWeight ?? 1.0,
+        intensityModifier: payload.intensityModifier ?? 1.0,
+        restMultiplier: payload.restMultiplier ?? 1.0,
+        volumeAdjustment: payload.volumeAdjustment ?? 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

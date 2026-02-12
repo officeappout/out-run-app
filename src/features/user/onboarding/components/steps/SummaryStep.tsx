@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, 
   MapPin, 
@@ -11,10 +11,23 @@ import {
   Home,
   Building2,
   Clock,
-  ChevronLeft
+  ChevronLeft,
+  Target,
+  TrendingUp,
+  Unlock,
+  Wrench,
+  Scale,
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
+import {
+  generateRecommendations,
+  buildContextFromOnboarding,
+  type Recommendation,
+  type RecommendationType,
+} from '../../services/recommendation.service';
 
 interface SummaryStepProps {
   onNext: () => void;
@@ -66,9 +79,35 @@ const getEquipmentIcon = (type: string) => {
   }
 };
 
+// ── Recommendation Icon Helper ──────────────────────────────────────
+function getRecommendationIcon(type: RecommendationType) {
+  switch (type) {
+    case 'ADD_ON': return Unlock;
+    case 'UPGRADE': return TrendingUp;
+    case 'COMPLEMENTARY': return Scale;
+    case 'EQUIPMENT': return Wrench;
+    case 'GOAL_ALIGNED': return Target;
+    default: return Plus;
+  }
+}
+
+function getRecommendationColor(type: RecommendationType): string {
+  switch (type) {
+    case 'ADD_ON': return 'text-emerald-500 bg-emerald-50';
+    case 'UPGRADE': return 'text-amber-500 bg-amber-50';
+    case 'COMPLEMENTARY': return 'text-blue-500 bg-blue-50';
+    case 'EQUIPMENT': return 'text-purple-500 bg-purple-50';
+    case 'GOAL_ALIGNED': return 'text-cyan-500 bg-cyan-50';
+    default: return 'text-gray-500 bg-gray-50';
+  }
+}
+
 export default function SummaryStep({ onNext }: SummaryStepProps) {
   const { data } = useOnboardingStore();
   const [isButtonPressed, setIsButtonPressed] = useState(false);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [showAllRecs, setShowAllRecs] = useState(false);
+  const [recsLoading, setRecsLoading] = useState(true);
   
   // Get language
   const savedLanguage: OnboardingLanguage = (typeof window !== 'undefined'
@@ -76,6 +115,26 @@ export default function SummaryStep({ onNext }: SummaryStepProps) {
     : 'he') as OnboardingLanguage;
   const isHebrew = savedLanguage === 'he';
   const direction = isHebrew ? 'rtl' : 'ltr';
+
+  // ── Fetch Recommendations ──────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRecs = async () => {
+      try {
+        const context = buildContextFromOnboarding(data);
+        const recs = await generateRecommendations(context);
+        if (!cancelled) {
+          setRecommendations(recs);
+        }
+      } catch (error) {
+        console.error('[SummaryStep] Recommendation engine failed:', error);
+      } finally {
+        if (!cancelled) setRecsLoading(false);
+      }
+    };
+    fetchRecs();
+    return () => { cancelled = true; };
+  }, [data]);
   
   // Get user gender
   const userGender = useMemo(() => {
@@ -125,8 +184,9 @@ export default function SummaryStep({ onNext }: SummaryStepProps) {
     ? (hasGym ? 'חדר כושר' : equipmentList.length > 0 ? 'ציוד ביתי' : 'גינת כושר')
     : (hasGym ? 'Gym Access' : equipmentList.length > 0 ? 'Home Equipment' : 'Outdoor Park');
   
-  // Get location name
+  // Get location name and rating
   const selectedParkName = (data as any).selectedParkName || (isHebrew ? 'הגינה שלך' : 'Your Park');
+  const selectedParkRating: number | undefined = (data as any).selectedParkRating;
   
   // Handle button press
   const handleStartWorkout = () => {
@@ -228,10 +288,103 @@ export default function SummaryStep({ onNext }: SummaryStepProps) {
             <div className="w-8 h-8 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center">
               <MapPin size={16} className="text-[#F59E0B]" strokeWidth={2} />
             </div>
-            <span className="text-sm font-semibold text-slate-700 truncate">{selectedParkName}</span>
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-semibold text-slate-700 truncate block">{selectedParkName}</span>
+              {selectedParkRating != null && selectedParkRating >= 4 && (
+                <span className="text-xs text-amber-500 font-bold">
+                  {isHebrew
+                    ? `מצאנו לך מגרש מעולה בדירוג ${selectedParkRating.toFixed(1)} כוכבים ⭐`
+                    : `We found a great spot rated ${selectedParkRating.toFixed(1)} stars ⭐`}
+                </span>
+              )}
+              {selectedParkRating != null && selectedParkRating > 0 && selectedParkRating < 4 && (
+                <span className="text-xs text-amber-500 font-bold">
+                  ⭐ {selectedParkRating.toFixed(1)}
+                </span>
+              )}
+            </div>
           </motion.div>
         </div>
       </motion.div>
+
+      {/* ── Smart Recommendations: "Next Steps" ──────────────────────── */}
+      {!recsLoading && recommendations.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.55 }}
+          className="mb-4"
+        >
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <Sparkles size={16} className="text-amber-500" />
+            <h3 className="text-sm font-bold text-slate-700">
+              {isHebrew ? 'המלצות מותאמות אישית' : 'Personalized Recommendations'}
+            </h3>
+          </div>
+
+          <div className="space-y-2">
+            <AnimatePresence>
+              {(showAllRecs ? recommendations : recommendations.slice(0, 3)).map((rec, idx) => {
+                const Icon = getRecommendationIcon(rec.type);
+                const colorClasses = getRecommendationColor(rec.type);
+                const [iconColor, bgColor] = colorClasses.split(' ');
+
+                return (
+                  <motion.div
+                    key={rec.id}
+                    initial={{ opacity: 0, x: isHebrew ? 20 : -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: isHebrew ? 20 : -20 }}
+                    transition={{ delay: 0.6 + idx * 0.08 }}
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-100 shadow-sm"
+                  >
+                    {/* Icon */}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${bgColor}`}>
+                      <Icon size={16} className={iconColor} />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{rec.title}</p>
+                      <p className="text-xs text-slate-500 line-clamp-1">{rec.reason}</p>
+                    </div>
+
+                    {/* Level badge (if from Level Equivalence) */}
+                    {rec.suggestedLevel && (
+                      <div className="flex-shrink-0 px-2 py-1 bg-emerald-100 rounded-lg">
+                        <span className="text-xs font-bold text-emerald-700">
+                          Lvl {rec.suggestedLevel}
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* Show more / less toggle */}
+            {recommendations.length > 3 && (
+              <button
+                onClick={() => setShowAllRecs(!showAllRecs)}
+                className="w-full flex items-center justify-center gap-1 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <span>
+                  {showAllRecs
+                    ? (isHebrew ? 'הצג פחות' : 'Show less')
+                    : (isHebrew ? `עוד ${recommendations.length - 3} המלצות` : `${recommendations.length - 3} more recommendations`)}
+                </span>
+                <ChevronDown size={14} className={`transition-transform ${showAllRecs ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+          </div>
+
+          <p className="text-[11px] text-slate-400 text-center mt-2">
+            {isHebrew
+              ? 'ניתן להוסיף תוכניות בכל עת מתוך ההגדרות'
+              : 'You can add programs anytime from Settings'}
+          </p>
+        </motion.div>
+      )}
 
       {/* Spacer */}
       <div className="flex-1" />

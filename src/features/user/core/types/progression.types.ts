@@ -158,3 +158,40 @@ export interface MasterProgramProgress {
     percent: number;
   }[];
 }
+
+/**
+ * Level Equivalence Rule
+ * Defines automatic level mapping between programs.
+ * When a user reaches `sourceLevel` in `sourceProgramId`,
+ * the `targetProgramId` is automatically set to `targetLevel`
+ * (only if the target's current level is lower).
+ *
+ * Stored in Firestore: collection 'level_equivalence_rules'
+ *
+ * Example: Push Lvl 15 -> Planche Lvl 4
+ * { sourceProgramId: 'push', sourceLevel: 15, targetProgramId: 'planche', targetLevel: 4 }
+ */
+export interface LevelEquivalenceRule {
+  id: string;
+  sourceProgramId: string;   // The program whose level-up triggers the mapping
+  sourceLevel: number;       // The level that triggers the mapping
+  targetProgramId: string;   // The program that gets unlocked/set
+  targetLevel: number;       // The level to set in the target program
+  targetPercent?: number;    // Optional: initial percent in target (default 0)
+  addToActivePrograms?: boolean; // If true, also adds target to user's activePrograms
+  description?: string;      // Admin-facing description (e.g., "Push mastery unlocks Planche")
+  isEnabled?: boolean;       // Toggle rule on/off without deleting (default true)
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/**
+ * Result of applying a level equivalence rule
+ */
+export interface LevelEquivalenceResult {
+  ruleId: string;
+  targetProgramId: string;
+  previousLevel: number;
+  newLevel: number;
+  wasNewlyUnlocked: boolean; // true if the target had no track before
+}

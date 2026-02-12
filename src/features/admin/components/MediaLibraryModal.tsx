@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Search, Upload, Image as ImageIcon, Video, Loader2, Check, Plus, Play, Trash2, MapPin, Home, Building2, Trees, ChevronDown, Tag, AlertTriangle } from 'lucide-react';
-import { MediaAsset, MediaAssetLocation, MEDIA_LOCATION_LABELS, uploadMediaAsset, getAllMediaAssets, getMediaAssetsByType, searchMediaAssets, parseLocationFromFilename, deleteMediaAsset } from '../services/media-assets.service';
+import { MediaAsset, MediaAssetLocation, MEDIA_LOCATION_LABELS, uploadMediaAsset, getAllMediaAssets, getMediaAssetsByType, searchMediaAssets, parseLocationFromFilename, deleteMediaAsset, bulkDeleteMediaAssets } from '../services/media-assets.service';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -163,6 +163,12 @@ export default function MediaLibraryModal({
   const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
   
   // Generate unique ID for queue items
   const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -501,6 +507,62 @@ export default function MediaLibraryModal({
     setAssetToDelete(null);
     setDeleteError(null);
   };
+
+  // ── Bulk Selection Helpers ─────────────────────────────────────
+  const toggleSelect = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filteredAssets.map((a) => a.id)));
+  }, [filteredAssets]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBulkDeleteClick = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleteError(null);
+    setShowBulkDeleteConfirm(true);
+  }, [selectedIds]);
+
+  const handleConfirmBulkDelete = useCallback(async () => {
+    const toDelete = assets.filter((a) => selectedIds.has(a.id));
+    if (toDelete.length === 0) return;
+
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+
+    try {
+      const result = await bulkDeleteMediaAssets(toDelete);
+
+      // Remove deleted items from local state
+      const deletedSet = new Set(toDelete.map((a) => a.id));
+      setAssets((prev) => prev.filter((a) => !deletedSet.has(a.id)));
+      setFilteredAssets((prev) => prev.filter((a) => !deletedSet.has(a.id)));
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+
+      if (result.failed > 0) {
+        setBulkDeleteError(`${result.deleted} נמחקו בהצלחה, ${result.failed} נכשלו`);
+      }
+    } catch (error: any) {
+      setBulkDeleteError(error.message || 'שגיאה במחיקה מרובה');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }, [selectedIds, assets]);
+
+  const handleCancelBulkDelete = useCallback(() => {
+    setShowBulkDeleteConfirm(false);
+    setBulkDeleteError(null);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -928,14 +990,34 @@ export default function MediaLibraryModal({
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredAssets.map((asset) => (
+                {filteredAssets.map((asset) => {
+                  const isSelected = selectedIds.has(asset.id);
+                  return (
                   <motion.div
                     key={asset.id}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     onClick={() => handleSelect(asset)}
-                    className="relative group cursor-pointer bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden hover:ring-2 hover:ring-cyan-500 transition-all"
+                      className={`relative group cursor-pointer bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-red-400 shadow-lg'
+                          : 'hover:ring-2 hover:ring-cyan-500'
+                      }`}
                   >
+                    {/* Selection Checkbox */}
+                    <button
+                      type="button"
+                      onClick={(e) => toggleSelect(asset.id, e)}
+                      className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all shadow-sm ${
+                        isSelected
+                          ? 'bg-red-500 border-red-500 text-white'
+                          : 'bg-white/80 border-gray-300 text-transparent group-hover:border-gray-400 hover:border-red-400 hover:bg-red-50'
+                      }`}
+                      title="בחר למחיקה"
+                    >
+                      <Check size={14} />
+                    </button>
+
                     {/* Delete Button - Appears on Hover */}
                     <button
                       type="button"
@@ -1012,12 +1094,149 @@ export default function MediaLibraryModal({
                       )}
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {/* ── Floating Bulk Action Bar ───────────────────────── */}
+          <AnimatePresence>
+            {selectedIds.size > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="sticky bottom-0 z-20 border-t border-red-200 bg-red-50 dark:bg-red-950/80 backdrop-blur-md px-6 py-3 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-red-700 dark:text-red-300" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    {selectedIds.size} פריטים נבחרו
+                  </span>
+                  <button
+                    type="button"
+                    onClick={selectAll}
+                    className="text-xs text-red-600 hover:text-red-700 underline font-medium"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    בחר הכל ({filteredAssets.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-xs text-gray-500 hover:text-gray-700 underline font-medium"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    בטל בחירה
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBulkDeleteClick}
+                  className="flex items-center gap-2 px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-colors shadow-lg"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  <Trash2 size={16} />
+                  מחק נבחרים ({selectedIds.size})
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
         
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[210] flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCancelBulkDelete} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6"
+              dir="rtl"
+            >
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <AlertTriangle size={32} className="text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2" style={{ fontFamily: 'var(--font-simpler)' }}>
+                מחיקה מרובה — {selectedIds.size} פריטים
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4" style={{ fontFamily: 'var(--font-simpler)' }}>
+                האם אתה בטוח שברצונך למחוק {selectedIds.size} קבצים?
+                <br />
+                פעולה זו תסיר את הקבצים <strong>לצמיתות</strong> מהשרת ומ-Firestore. לא ניתן לשחזר.
+              </p>
+
+              {/* Preview thumbnails of selected items (max 8) */}
+              <div className="flex flex-wrap gap-1.5 justify-center mb-4 p-3 bg-gray-100 dark:bg-slate-800 rounded-xl">
+                {assets
+                  .filter((a) => selectedIds.has(a.id))
+                  .slice(0, 8)
+                  .map((a) => (
+                    <div key={a.id} className="w-10 h-10 rounded-md overflow-hidden bg-gray-200 dark:bg-slate-700 flex-shrink-0">
+                      {a.type === 'image' ? (
+                        <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><Video size={14} className="text-gray-400" /></div>
+                      )}
+                    </div>
+                  ))}
+                {selectedIds.size > 8 && (
+                  <div className="w-10 h-10 rounded-md bg-gray-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-gray-500">
+                    +{selectedIds.size - 8}
+                  </div>
+                )}
+              </div>
+
+              {bulkDeleteError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl mb-4">
+                  <p className="text-sm text-red-600 dark:text-red-400 text-center" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    {bulkDeleteError}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelBulkDelete}
+                  disabled={isBulkDeleting}
+                  className="flex-1 px-4 py-3 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold transition-colors disabled:opacity-50"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  ביטול
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmBulkDelete}
+                  disabled={isBulkDeleting}
+                  className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  {isBulkDeleting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      מוחק {selectedIds.size} פריטים...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      מחק {selectedIds.size} פריטים
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {/* Delete Confirmation Modal */}
         {assetToDelete && (
           <motion.div

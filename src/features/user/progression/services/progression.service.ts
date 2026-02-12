@@ -34,12 +34,15 @@ import {
   DEFAULT_PROGRESSION_BY_LEVEL,
   LinkedProgramConfig,
   getDefaultRequiredSets,
+  LevelEquivalenceRule,
+  LevelEquivalenceResult,
 } from '../../core/types/progression.types';
 import { Program } from '@/features/content/programs';
 import { getProgram } from '@/features/content/programs';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'program_level_settings';
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
+const LEVEL_EQUIVALENCE_COLLECTION = 'level_equivalence_rules';
 const PROGRAMS_COLLECTION = 'programs';
 const USERS_COLLECTION = 'users';
 
@@ -223,6 +226,15 @@ export async function calculateSessionProgress(
     // Also update local progression object for consistency
     progression.tracks = updatedTracks;
 
+    // ✅ Recalculate ancestor master programs for each updated domain
+    try {
+      for (const domain of Object.keys(domainPerformance)) {
+        await recalculateAncestorMasters(userId, domain);
+      }
+    } catch (e) {
+      console.error('[Progression] Failed to recalculate masters after session:', e);
+    }
+
     return true;
   } catch (error) {
     console.error('Error calculating session progress:', error);
@@ -231,19 +243,30 @@ export async function calculateSessionProgress(
 }
 
 /**
- * Get master program progress (unified view)
- * 
+ * Get master program progress (unified view) — recursive.
+ * If a sub-program is itself a master program, its level is resolved recursively
+ * before averaging. This supports multi-level hierarchies:
+ *   Full Body → Upper Body (master) → Push / Pull
+ *
  * @param userId - User ID
  * @param masterProgramId - Master program ID (e.g., "full_body")
+ * @param _programCache - (internal) avoid re-fetching the same program
  * @returns Promise<MasterProgramProgress | null>
  */
 export async function getMasterProgramProgress(
   userId: string,
-  masterProgramId: string
+  masterProgramId: string,
+  _programCache?: Map<string, Program | null>,
 ): Promise<MasterProgramProgress | null> {
+  const programCache = _programCache ?? new Map<string, Program | null>();
+
   try {
-    // Fetch master program
-    const masterProgram = await getProgram(masterProgramId);
+    // Fetch master program (use cache to prevent N+1 in recursive calls)
+    let masterProgram = programCache.get(masterProgramId);
+    if (masterProgram === undefined) {
+      masterProgram = await getProgram(masterProgramId);
+      programCache.set(masterProgramId, masterProgram ?? null);
+    }
     if (!masterProgram || !masterProgram.isMaster) {
       console.error('Master program not found or not a master program:', masterProgramId);
       return null;
@@ -271,22 +294,38 @@ export async function getMasterProgramProgress(
       return null;
     }
 
-    // Fetch progress for each sub-program
+    // Resolve each sub-program — may recurse if the child is also a master
     const subPrograms: { programId: string; level: number; percent: number }[] = [];
     let totalLevel = 0;
     let totalPercent = 0;
 
     for (const subProgramId of subProgramIds) {
-      const track = progression.tracks?.[subProgramId] || getDefaultTrackProgress();
-      
-      subPrograms.push({
-        programId: subProgramId,
-        level: track.currentLevel,
-        percent: track.percent,
-      });
+      // Check if the sub-program is itself a master (multi-level hierarchy)
+      let childProgram = programCache.get(subProgramId);
+      if (childProgram === undefined) {
+        childProgram = await getProgram(subProgramId);
+        programCache.set(subProgramId, childProgram ?? null);
+      }
 
-      totalLevel += track.currentLevel;
-      totalPercent += track.percent;
+      if (childProgram?.isMaster) {
+        // Recursive: calculate the child-master's aggregated level
+        const childMasterProgress = await getMasterProgramProgress(userId, subProgramId, programCache);
+        const level = childMasterProgress?.displayLevel ?? 1;
+        const percent = childMasterProgress?.displayPercent ?? 0;
+        subPrograms.push({ programId: subProgramId, level, percent });
+        totalLevel += level;
+        totalPercent += percent;
+      } else {
+        // Leaf child — read directly from tracks
+        const track = progression.tracks?.[subProgramId] || getDefaultTrackProgress();
+        subPrograms.push({
+          programId: subProgramId,
+          level: track.currentLevel,
+          percent: track.percent,
+        });
+        totalLevel += track.currentLevel;
+        totalPercent += track.percent;
+      }
     }
 
     // Calculate weighted average
@@ -296,13 +335,200 @@ export async function getMasterProgramProgress(
 
     return {
       displayLevel,
-      displayPercent: Math.round(displayPercent * 100) / 100, // Round to 2 decimal places
+      displayPercent: Math.round(displayPercent * 100) / 100,
       subPrograms,
     };
   } catch (error) {
     console.error('Error getting master program progress:', error);
     return null;
   }
+}
+
+/**
+ * Recalculate and persist a master program's level based on current child tracks.
+ * This is called after any child track is updated (XP award, workout completion, etc.)
+ * to keep the master-level view in sync.
+ *
+ * The result is written to `progression.tracks[masterProgramId]`.
+ */
+export async function recalculateMasterLevel(
+  userId: string,
+  masterProgramId: string,
+): Promise<{ level: number; percent: number } | null> {
+  const progress = await getMasterProgramProgress(userId, masterProgramId);
+  if (!progress) return null;
+
+  // Persist the aggregated level into the master program's own track
+  const userDocRef = doc(db, USERS_COLLECTION, userId);
+  await updateDoc(userDocRef, {
+    [`progression.tracks.${masterProgramId}.currentLevel`]: progress.displayLevel,
+    [`progression.tracks.${masterProgramId}.percent`]: progress.displayPercent,
+    updatedAt: serverTimestamp(),
+  });
+
+  return { level: progress.displayLevel, percent: progress.displayPercent };
+}
+
+/**
+ * Given a child programId, find all ancestor master programs that reference it
+ * (directly or transitively) and recalculate their levels.
+ */
+export async function recalculateAncestorMasters(
+  userId: string,
+  childProgramId: string,
+): Promise<void> {
+  try {
+    // Fetch all programs that list this child in subPrograms
+    const q = query(
+      collection(db, PROGRAMS_COLLECTION),
+      where('isMaster', '==', true),
+    );
+    const snapshot = await getDocs(q);
+    const masterPrograms = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
+
+    for (const master of masterPrograms) {
+      if (master.subPrograms?.includes(childProgramId)) {
+        await recalculateMasterLevel(userId, master.id);
+        // Recurse upward in case this master is itself a child of a grand-master
+        await recalculateAncestorMasters(userId, master.id);
+      }
+    }
+  } catch (error) {
+    console.error('Error recalculating ancestor masters:', error);
+  }
+}
+
+// ============================================================================
+// LEVEL EQUIVALENCE: Auto-map levels between programs
+// ============================================================================
+
+/**
+ * Fetch all level equivalence rules that match a given source program and level.
+ * Called after a child program levels up to check if any target programs should be unlocked/set.
+ *
+ * @param sourceProgramId - The program that just leveled up
+ * @param sourceLevel - The new level reached
+ * @returns Matching equivalence rules
+ */
+async function getLevelEquivalenceRules(
+  sourceProgramId: string,
+  sourceLevel: number,
+): Promise<LevelEquivalenceRule[]> {
+  try {
+    const q = query(
+      collection(db, LEVEL_EQUIVALENCE_COLLECTION),
+      where('sourceProgramId', '==', sourceProgramId),
+      where('sourceLevel', '<=', sourceLevel),
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() } as LevelEquivalenceRule))
+      .filter(rule => rule.isEnabled !== false); // Enabled by default
+  } catch (error) {
+    console.error('[LevelEquivalence] Error fetching rules:', error);
+    return [];
+  }
+}
+
+/**
+ * Apply level equivalence rules after a program levels up.
+ * For each matching rule:
+ *   - If the target track doesn't exist or is below the rule's targetLevel, set it.
+ *   - Optionally add the target to activePrograms.
+ *   - Recalculate ancestor masters for the target.
+ *
+ * @param userId - User ID
+ * @param sourceProgramId - The program that leveled up
+ * @param newSourceLevel - The new level reached in the source
+ * @returns Array of applied equivalence results
+ */
+export async function applyLevelEquivalences(
+  userId: string,
+  sourceProgramId: string,
+  newSourceLevel: number,
+): Promise<LevelEquivalenceResult[]> {
+  const results: LevelEquivalenceResult[] = [];
+
+  try {
+    const rules = await getLevelEquivalenceRules(sourceProgramId, newSourceLevel);
+    if (rules.length === 0) return results;
+
+    // Fetch user document once
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userSnap = await getDoc(userDocRef);
+    if (!userSnap.exists()) return results;
+
+    const userData = userSnap.data() as UserFullProfile;
+    const tracks = userData.progression?.tracks || {};
+    const activePrograms = userData.progression?.activePrograms || [];
+
+    const updates: Record<string, any> = {};
+    let activeUpdated = false;
+    const updatedActivePrograms = [...activePrograms];
+
+    for (const rule of rules) {
+      const currentTrack = tracks[rule.targetProgramId];
+      const currentLevel = currentTrack?.currentLevel ?? 0;
+      const wasNewlyUnlocked = !currentTrack;
+
+      // Only apply if the target's current level is BELOW the rule's target
+      if (currentLevel < rule.targetLevel) {
+        updates[`progression.tracks.${rule.targetProgramId}.currentLevel`] = rule.targetLevel;
+        updates[`progression.tracks.${rule.targetProgramId}.percent`] = rule.targetPercent ?? 0;
+
+        // Add to activePrograms if requested and not already present
+        if (rule.addToActivePrograms) {
+          const alreadyActive = updatedActivePrograms.some(
+            (p: any) => p.id === rule.targetProgramId || p.templateId === rule.targetProgramId,
+          );
+          if (!alreadyActive) {
+            updatedActivePrograms.push({
+              id: rule.targetProgramId,
+              templateId: rule.targetProgramId,
+              name: rule.targetProgramId.replace(/_/g, ' '),
+              startDate: new Date().toISOString(),
+              durationWeeks: 52,
+              currentWeek: 1,
+              focusDomains: [rule.targetProgramId] as any,
+            });
+            activeUpdated = true;
+          }
+        }
+
+        results.push({
+          ruleId: rule.id,
+          targetProgramId: rule.targetProgramId,
+          previousLevel: currentLevel,
+          newLevel: rule.targetLevel,
+          wasNewlyUnlocked,
+        });
+
+        console.log(
+          `[LevelEquivalence] ${sourceProgramId} Lvl ${newSourceLevel} → ` +
+          `${rule.targetProgramId} set to Lvl ${rule.targetLevel}` +
+          (wasNewlyUnlocked ? ' (newly unlocked)' : ` (was Lvl ${currentLevel})`),
+        );
+      }
+    }
+
+    // Write all updates in one batch
+    if (Object.keys(updates).length > 0) {
+      updates['updatedAt'] = serverTimestamp();
+      if (activeUpdated) {
+        updates['progression.activePrograms'] = updatedActivePrograms;
+      }
+      await updateDoc(userDocRef, updates);
+
+      // Recalculate master programs for each affected target
+      for (const result of results) {
+        await recalculateAncestorMasters(userId, result.targetProgramId);
+      }
+    }
+  } catch (error) {
+    console.error('[LevelEquivalence] Error applying rules:', error);
+  }
+
+  return results;
 }
 
 /**
@@ -676,6 +902,42 @@ export async function processWorkoutCompletion(
     
     // Save updated tracks to Firestore
     await updateProgressionTracks(userId, updatedTracks);
+
+    // ✅ Recalculate all ancestor master programs after child track update
+    // This keeps the Parent→Child hierarchy in sync (e.g., Push workout → Upper Body → Full Body)
+    try {
+      await recalculateAncestorMasters(userId, activeProgramId);
+      // Also recalculate for linked programs that received gains
+      for (const linked of linkedProgramGains) {
+        await recalculateAncestorMasters(userId, linked.programId);
+      }
+    } catch (e) {
+      console.error('[Progression] Failed to recalculate master levels:', e);
+    }
+
+    // ✅ LEVEL EQUIVALENCE: Check if any level-ups unlock/set levels in other programs
+    // e.g., Push Lvl 15 → Planche Lvl 4
+    try {
+      if (leveledUp) {
+        const equivalences = await applyLevelEquivalences(userId, activeProgramId, newLevel);
+        if (equivalences.length > 0) {
+          console.log(`[Progression] Level equivalences applied:`,
+            equivalences.map(eq => `${eq.targetProgramId} → Lvl ${eq.newLevel}`).join(', '));
+        }
+      }
+      // Also check linked programs that leveled up
+      for (const linked of linkedProgramGains) {
+        if (linked.leveledUp && linked.newLevel) {
+          const linkedEquivalences = await applyLevelEquivalences(userId, linked.programId, linked.newLevel);
+          if (linkedEquivalences.length > 0) {
+            console.log(`[Progression] Linked equivalences applied:`,
+              linkedEquivalences.map(eq => `${eq.targetProgramId} → Lvl ${eq.newLevel}`).join(', '));
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Progression] Failed to apply level equivalences:', e);
+    }
     
     // Check for Ready for Split
     const readyForSplit = checkReadyForSplit(updatedTracks, activeProgramId, newLevel);

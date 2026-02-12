@@ -7,8 +7,10 @@ import {
   GraduationCap,
   Dumbbell,
   Plane,
+  BookOpen,
 } from 'lucide-react';
 import { ExecutionLocation, MuscleGroup, MovementGroup, ExerciseRole } from '@/features/content/exercises';
+import { LOCATION_LABELS_HE } from '@/features/content/exercises/core/exercise-location.constants';
 
 // Location icons mapping
 export const LOCATION_ICONS: Record<ExecutionLocation, React.ReactNode> = {
@@ -19,17 +21,13 @@ export const LOCATION_ICONS: Record<ExecutionLocation, React.ReactNode> = {
   school: <GraduationCap size={16} />,
   gym: <Dumbbell size={16} />,
   airport: <Plane size={16} />,
+  library: <BookOpen size={16} />,
 };
 
-export const LOCATION_LABELS: Record<ExecutionLocation, string> = {
-  home: 'בית',
-  park: 'פארק',
-  street: 'רחוב',
-  office: 'משרד',
-  school: 'בית ספר',
-  gym: 'מכון כושר',
-  airport: 'שדה תעופה',
-};
+/**
+ * Location labels — re-exported from centralized constants (Single Source of Truth).
+ */
+export const LOCATION_LABELS: Record<ExecutionLocation, string> = LOCATION_LABELS_HE;
 
 export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   chest: 'חזה',

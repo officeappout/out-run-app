@@ -5,30 +5,24 @@ import { Image as ImageIcon } from 'lucide-react';
 
 interface ImagePreviewProps {
   url: string;
+  onRemove?: () => void;
 }
 
-export default function ImagePreview({ url }: ImagePreviewProps) {
+export default function ImagePreview({ url, onRemove }: ImagePreviewProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
-      <div className="relative w-full aspect-video bg-gray-100">
+    <div className="mt-2 flex items-center gap-3">
+      <div className="relative w-[100px] h-[100px] rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100 flex-shrink-0">
         {!imageLoaded && !imageError && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-8 h-8 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs text-gray-500">טוען תמונה...</p>
-            </div>
+            <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
         {imageError ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <ImageIcon size={32} className="text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">לא ניתן לטעון את התמונה</p>
-              <p className="text-xs text-gray-400 mt-1">ודא שהקישור תקין</p>
-            </div>
+            <ImageIcon size={24} className="text-gray-400" />
           </div>
         ) : (
           <img
@@ -43,6 +37,15 @@ export default function ImagePreview({ url }: ImagePreviewProps) {
           />
         )}
       </div>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="px-3 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+        >
+          הסר
+        </button>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   ExecutionLocation,
   RequiredGearType,
 } from '../../../core/exercise.types';
+import { EXECUTION_LOCATION_LABELS } from '../../../core/exercise-location.constants';
 import { GymEquipment } from '../../../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../../../equipment/gear/core/gear-definition.types';
 import { getAllOutdoorBrands } from '../../../../equipment/brands';
@@ -130,14 +131,18 @@ export default function ExecutionMethodCard({
     onUpdate(sanitized);
   };
 
+  /**
+   * Location labels — Hebrew text from centralized constants (Single Source of Truth).
+   * Icons are admin-specific (Lucide React components).
+   */
   const locationLabels: Record<ExecutionLocation, { label: string; icon: React.ReactNode }> = {
-    home: { label: 'בית', icon: <Home size={16} /> },
-    park: { label: 'פארק', icon: <Trees size={16} /> },
-    street: { label: 'רחוב', icon: <Navigation size={16} /> },
-    office: { label: 'משרד', icon: <Building2 size={16} /> },
-    school: { label: 'בית ספר', icon: <Building2 size={16} /> },
-    gym: { label: 'חדר כושר', icon: <Dumbbell size={16} /> },
-    airport: { label: 'שדה תעופה', icon: <Plane size={16} /> },
+    home: { label: EXECUTION_LOCATION_LABELS.home.he, icon: <Home size={16} /> },
+    park: { label: EXECUTION_LOCATION_LABELS.park.he, icon: <Trees size={16} /> },
+    street: { label: EXECUTION_LOCATION_LABELS.street.he, icon: <Navigation size={16} /> },
+    office: { label: EXECUTION_LOCATION_LABELS.office.he, icon: <Building2 size={16} /> },
+    school: { label: EXECUTION_LOCATION_LABELS.school.he, icon: <Building2 size={16} /> },
+    gym: { label: EXECUTION_LOCATION_LABELS.gym.he, icon: <Dumbbell size={16} /> },
+    airport: { label: EXECUTION_LOCATION_LABELS.airport.he, icon: <Plane size={16} /> },
   };
 
   const gearTypeLabels: Record<RequiredGearType, string> = {
@@ -590,7 +595,7 @@ export default function ExecutionMethodCard({
               <button
                 type="button"
                 onClick={() => {
-                  const allTags = ['parent', 'student', 'office_worker', 'remote_worker', 'athlete', 'senior'];
+                  const allTags = ['parent', 'student', 'school_student', 'office_worker', 'remote_worker', 'athlete', 'senior', 'reservist', 'active_soldier'];
                   const currentTags = method.lifestyleTags || [];
                   // If all tags are already selected, clear them (which means "all")
                   // Otherwise, clear to "all" (empty = available to everyone)
@@ -618,10 +623,13 @@ export default function ExecutionMethodCard({
               {[
                 { id: 'parent', label: 'הורה', icon: <User size={12} /> },
                 { id: 'student', label: 'סטודנט', icon: <Building2 size={12} /> },
+                { id: 'school_student', label: 'תלמיד', icon: <Building2 size={12} /> },
                 { id: 'office_worker', label: 'עובד משרד', icon: <Building2 size={12} /> },
                 { id: 'remote_worker', label: 'עובד מהבית', icon: <Home size={12} /> },
                 { id: 'athlete', label: 'ספורטאי', icon: <User size={12} /> },
                 { id: 'senior', label: 'גיל הזהב', icon: <User size={12} /> },
+                { id: 'reservist', label: 'מילואימניק', icon: <User size={12} /> },
+                { id: 'active_soldier', label: 'חייל סדיר', icon: <User size={12} /> },
               ].map((tag) => (
                 <button
                   key={tag.id}
@@ -813,9 +821,15 @@ export default function ExecutionMethodCard({
                 </button>
               </div>
               {method.media?.imageUrl && (
-                <div className="mt-2">
-                  <ImagePreview url={typeof method.media.imageUrl === 'string' ? method.media.imageUrl : String(method.media.imageUrl || '')} />
-                </div>
+                <ImagePreview
+                  url={typeof method.media.imageUrl === 'string' ? method.media.imageUrl : String(method.media.imageUrl || '')}
+                  onRemove={() =>
+                    safeUpdate({
+                      ...method,
+                      media: { ...method.media, imageUrl: '' },
+                    })
+                  }
+                />
               )}
             </div>
           </div>

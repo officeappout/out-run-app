@@ -94,6 +94,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
   // Sport types options
   const sportOptions = [
     { id: 'running', label: isHebrew ? 'ריצה' : 'Running', icon: Zap },
+    { id: 'swimming', label: isHebrew ? 'שחייה' : 'Swimming', icon: Heart },
     { id: 'yoga', label: isHebrew ? 'יוגה/פילאטיס' : 'Yoga/Pilates', icon: Sparkles },
     { id: 'cycling', label: isHebrew ? 'רכיבה' : 'Cycling', icon: Bike },
     { id: 'strength', label: isHebrew ? 'כוח' : 'Strength', icon: Dumbbell },

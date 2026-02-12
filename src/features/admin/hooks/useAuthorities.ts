@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  getAllAuthorities,
-  getAuthoritiesGrouped,
   deleteAuthority,
   updateAuthority,
+  normalizeAuthorityFromSnapshot,
+  sortAuthoritiesByUrgency,
+  groupAuthoritiesFromArray,
 } from '@/features/admin/services/authority.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { initializeAuthoritiesSchema } from '@/features/admin/services/schema-initializer.service';
@@ -12,7 +13,7 @@ import { reSeedIsraeliAuthorities } from '@/features/admin/services/re-seed-auth
 import { repairTelAvivAuthorities, formatRepairReport } from '@/features/admin/services/repair-authorities';
 import { Authority, AuthorityType, PipelineStatus, hasOverdueInstallments } from '@/types/admin-types';
 import { ISRAELI_LOCATIONS, SubLocation } from '@/lib/data/israel-locations';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
@@ -53,6 +54,11 @@ export function useAuthorities() {
   const [loadingSubLocations, setLoadingSubLocations] = useState<Set<string>>(new Set());
   const [subLocationStats, setSubLocationStats] = useState<SubLocationStats>(new Map());
 
+  // ── Stable refs & caches ──────────────────────────────────────────
+  // Parks/users count cache to avoid N+1 re-fetches on every onSnapshot tick
+  const statsCache = useRef<Map<string, { parks: number; users: number; ts: number }>>(new Map());
+  const STATS_TTL = 5 * 60 * 1000; // 5 minutes
+
   // Get sub-locations from static data for an authority
   const getSubLocationsFromStatic = useCallback((authorityId: string): SubLocation[] | undefined => {
     const staticLocation = ISRAELI_LOCATIONS.find(loc => loc.id === authorityId);
@@ -85,6 +91,20 @@ export function useAuthorities() {
     }
   }, []);
 
+  // Cached version — only hits Firestore if cache entry is stale
+  const getCachedStats = useCallback(async (authorityId: string): Promise<{ parks: number; users: number }> => {
+    const cached = statsCache.current.get(authorityId);
+    if (cached && Date.now() - cached.ts < STATS_TTL) {
+      return { parks: cached.parks, users: cached.users };
+    }
+    const [parks, users] = await Promise.all([
+      getParksCountForAuthority(authorityId),
+      getUsersCountForAuthority(authorityId),
+    ]);
+    statsCache.current.set(authorityId, { parks, users, ts: Date.now() });
+    return { parks, users };
+  }, [getParksCountForAuthority, getUsersCountForAuthority]);
+
   // Load sub-location stats on demand when expanded
   const loadSubLocationStats = useCallback(async (authorityId: string, subLocationIds: string[]) => {
     if (loadingSubLocations.has(authorityId)) return; // Already loading
@@ -96,11 +116,8 @@ export function useAuthorities() {
       
       // Load stats for each sub-location in parallel
       const statsPromises = subLocationIds.map(async (subId) => {
-        // For sub-locations, use parent authority ID for parks/users lookup
-        const parksCount = await getParksCountForAuthority(authorityId);
-        const usersCount = await getUsersCountForAuthority(authorityId);
-        
-        return { subId, parksCount, usersCount };
+        const { parks, users } = await getCachedStats(authorityId);
+        return { subId, parksCount: parks, usersCount: users };
       });
       
       const statsResults = await Promise.all(statsPromises);
@@ -122,59 +139,74 @@ export function useAuthorities() {
         return newSet;
       });
     }
-  }, [loadingSubLocations, getParksCountForAuthority, getUsersCountForAuthority]);
+  }, [loadingSubLocations, getCachedStats]);
 
-  const loadAuthorities = useCallback(async () => {
-    try {
-      setLoading(true);
-      const allData = await getAllAuthorities();
-      setAuthorities(allData);
-      
-      // Enhance authorities with sub-locations from static data
-      const enhanced: AuthorityWithSubLocations[] = allData.map(auth => {
-        const staticSubLocations = getSubLocationsFromStatic(auth.id);
-        return {
-          ...auth,
-          subLocations: staticSubLocations?.map(sub => ({
-            ...sub,
-            parksCount: undefined,
-            usersCount: undefined,
-          })),
-        };
+  // ── Process snapshot data (pure, no extra Firestore calls) ────────
+  const processAuthoritiesData = useCallback((allData: Authority[]) => {
+    // 1. Enhance with static sub-locations (synchronous)
+    const enhanced: AuthorityWithSubLocations[] = allData.map(a => {
+      const subs = getSubLocationsFromStatic(a.id);
+      return {
+        ...a,
+        subLocations: subs?.map(sub => ({ ...sub, parksCount: undefined, usersCount: undefined })),
+      };
+    });
+
+    setEnhancedAuthorities(enhanced);
+
+    // 2. Group from the SAME array — no second Firestore read
+    setGroupedData(groupAuthoritiesFromArray(allData));
+
+    // 3. Fire-and-forget: load park/user counts for parents (cached)
+    const parentIds = enhanced
+      .filter(a => a.subLocations && a.subLocations.length > 0)
+      .map(a => a.id);
+
+    if (parentIds.length > 0) {
+      Promise.all(parentIds.map(id => getCachedStats(id))).then(results => {
+        setEnhancedAuthorities(prev =>
+          prev.map(a => {
+            const idx = parentIds.indexOf(a.id);
+            if (idx === -1) return a;
+            return { ...a, aggregatedParksCount: results[idx].parks, aggregatedUsersCount: results[idx].users };
+          })
+        );
       });
-      
-      // Load aggregated stats for parent authorities
-      const enhancedWithStats = await Promise.all(enhanced.map(async (auth) => {
-        if (auth.subLocations && auth.subLocations.length > 0) {
-          // For parent authorities, aggregate parks and users
-          const parksCount = await getParksCountForAuthority(auth.id);
-          const usersCount = await getUsersCountForAuthority(auth.id);
-          
-          return {
-            ...auth,
-            aggregatedParksCount: parksCount,
-            aggregatedUsersCount: usersCount,
-          };
-        }
-        return auth;
-      }));
-      
-      setEnhancedAuthorities(enhancedWithStats);
-      
-      // Load grouped data for hierarchical view
-      const grouped = await getAuthoritiesGrouped();
-      setGroupedData(grouped);
-    } catch (error) {
-      console.error('Error loading authorities:', error);
-      alert('שגיאה בטעינת הרשויות');
-    } finally {
-      setLoading(false);
     }
-  }, [getSubLocationsFromStatic, getParksCountForAuthority, getUsersCountForAuthority]);
+  }, [getSubLocationsFromStatic, getCachedStats]);
 
+  // ── Real-time Firestore listener (single source of truth) ─────────
   useEffect(() => {
-    loadAuthorities();
-  }, [loadAuthorities]);
+    setLoading(true);
+    const q = query(
+      collection(db, 'authorities'),
+      orderBy('name', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const allData = sortAuthoritiesByUrgency(
+        snapshot.docs
+          .filter(doc => !doc.id.includes('__SCHEMA_INIT__') && doc.data()?.name !== '__SCHEMA_INIT__')
+          .map(doc => normalizeAuthorityFromSnapshot(doc.id, doc.data()))
+      );
+
+      setAuthorities(allData);
+      processAuthoritiesData(allData);
+      setLoading(false);
+    }, (error) => {
+      console.error('Firestore real-time listener error:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [processAuthoritiesData]);
+
+  // ── loadAuthorities kept ONLY for seed/repair bulk ops ────────────
+  // onSnapshot handles all normal CRUD; this is a manual fallback.
+  const loadAuthorities = useCallback(async () => {
+    // no-op: the real-time listener will pick up any changes.
+    // Kept for API compatibility with seed/repair handlers that need to await.
+  }, []);
 
   const toggleCouncil = useCallback((councilId: string) => {
     setExpandedCouncils(prev => {
@@ -215,12 +247,12 @@ export function useAuthorities() {
 
     try {
       await deleteAuthority(id);
-      await loadAuthorities();
+      // onSnapshot will auto-update — no manual reload needed
     } catch (error) {
       console.error('Error deleting authority:', error);
       alert('שגיאה במחיקת הרשות');
     }
-  }, [loadAuthorities]);
+  }, []);
 
   // Get current admin info for audit logging
   const getCurrentAdminInfo = useCallback(async () => {
@@ -250,12 +282,12 @@ export function useAuthorities() {
         { isActiveClient: !currentValue },
         adminInfo || undefined
       );
-      await loadAuthorities();
+      // onSnapshot will auto-update — no manual reload needed
     } catch (error) {
       console.error('Error toggling active client status:', error);
       alert('שגיאה בעדכון סטטוס לקוח פעיל');
     }
-  }, [getCurrentAdminInfo, loadAuthorities]);
+  }, [getCurrentAdminInfo]);
 
   const handleInitializeSchema = useCallback(async () => {
     if (!confirm('פעולה זו תיצור מסמך דמה עם כל השדות הנדרשים כדי לאתחל את הסכמה ב-Firebase. האם להמשיך?')) return;
@@ -264,14 +296,13 @@ export function useAuthorities() {
       setLoading(true);
       const docId = await initializeAuthoritiesSchema();
       alert(`הסכמה אותחלה בהצלחה! מזהה המסמך: ${docId}\n\nניתן למחוק את המסמך הזה עכשיו - השדות כבר מוגדרים ב-Firebase.`);
-      await loadAuthorities();
     } catch (error) {
       console.error('Error initializing schema:', error);
       alert('שגיאה באתחול הסכמה');
     } finally {
       setLoading(false);
     }
-  }, [loadAuthorities]);
+  }, []);
 
   const handleSeedAuthorities = useCallback(async () => {
     if (!confirm('פעולה זו תיצור רשויות ישראליות עם מבנה היררכי (ערים, מועצות אזוריות, יישובים ושכונות). האם להמשיך?')) return;
@@ -290,16 +321,14 @@ export function useAuthorities() {
       }
       
       alert(message);
-      
-      // Refresh the table to show new authorities
-      await loadAuthorities();
+      // onSnapshot will auto-update the list
     } catch (error) {
       console.error('Error seeding authorities:', error);
       alert('שגיאה בטעינת רשויות אוטומטית');
     } finally {
       setSeeding(false);
     }
-  }, [loadAuthorities]);
+  }, []);
 
   const handleReSeedAuthorities = useCallback(async () => {
     if (!confirm('⚠️ אזהרה: פעולה זו תמחק את כל הרשויות הקיימות ותיצור אותן מחדש עם מבנה היררכי תקין.\n\nפעולה זו אינה ניתנת לביטול!\n\nהאם אתה בטוח שברצונך להמשיך?')) return;
@@ -316,16 +345,14 @@ export function useAuthorities() {
       }
       
       alert(message);
-      
-      // Refresh the table to show new authorities
-      await loadAuthorities();
+      // onSnapshot will auto-update the list
     } catch (error: any) {
       console.error('Error re-seeding authorities:', error);
       alert(`שגיאה בטעינת רשויות מחדש: ${error.message}`);
     } finally {
       setReSeeding(false);
     }
-  }, [loadAuthorities]);
+  }, []);
 
   const handleRepairTelAviv = useCallback(async () => {
     if (!confirm('פעולה זו תמצא ותתקן רשויות כפולות של "תל אביב-יפו". אחת תישאר כהורה (עירייה) והשאר יהפכו לשכונות עם parentAuthorityId. האם להמשיך?')) return;
@@ -337,16 +364,14 @@ export function useAuthorities() {
       
       const report = formatRepairReport(result);
       alert(report);
-      
-      // Refresh the table to show repaired authorities
-      await loadAuthorities();
+      // onSnapshot will auto-update the list
     } catch (error) {
       console.error('Error repairing Tel Aviv authorities:', error);
       alert('שגיאה בתיקון רשויות תל אביב');
     } finally {
       setRepairing(false);
     }
-  }, [getCurrentAdminInfo, loadAuthorities]);
+  }, [getCurrentAdminInfo]);
 
   // Get cities with sub-locations (from static data)
   const citiesWithSubLocations = useMemo(() => {

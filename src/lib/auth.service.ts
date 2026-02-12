@@ -11,6 +11,8 @@ import {
   signInWithRedirect,
   signInAnonymously,
   linkWithPopup,
+  linkWithCredential,
+  EmailAuthProvider,
   getRedirectResult,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
@@ -171,6 +173,78 @@ export async function linkGoogleAccount() {
     // But for MVP, we return the error
     return { user: null, error: error.message };
   }
+}
+
+/**
+ * Link anonymous account with Google (using linkWithCredential)
+ * Enhanced version with better error handling for account security step
+ */
+export async function linkWithGoogleAccount() {
+  try {
+    if (!auth.currentUser) throw new Error('No user signed in');
+    if (!auth.currentUser.isAnonymous) {
+      return { user: null, error: 'not_anonymous' };
+    }
+
+    const provider = new GoogleAuthProvider();
+    const result = await linkWithPopup(auth.currentUser, provider);
+    return { user: result.user, error: null };
+  } catch (error: any) {
+    console.error('[Auth Service] Google link error:', error);
+    
+    // Handle specific error codes
+    if (error.code === 'auth/credential-already-in-use') {
+      return { user: null, error: 'google_account_exists' };
+    }
+    if (error.code === 'auth/popup-closed-by-user') {
+      return { user: null, error: 'popup_closed' };
+    }
+    
+    return { user: null, error: error.message };
+  }
+}
+
+/**
+ * Link anonymous account with email/password
+ * Used in AccountSecureStep for manual email backup
+ */
+export async function linkEmailPassword(email: string, password: string) {
+  try {
+    if (!auth.currentUser) throw new Error('No user signed in');
+    if (!auth.currentUser.isAnonymous) {
+      return { user: null, error: 'not_anonymous' };
+    }
+
+    const credential = EmailAuthProvider.credential(email, password);
+    const result = await linkWithCredential(auth.currentUser, credential);
+    return { user: result.user, error: null };
+  } catch (error: any) {
+    console.error('[Auth Service] Email link error:', error);
+    
+    // Handle "credential-already-in-use" error
+    if (error.code === 'auth/credential-already-in-use') {
+      return { user: null, error: 'email_exists' };
+    }
+    if (error.code === 'auth/invalid-email') {
+      return { user: null, error: 'invalid_email' };
+    }
+    if (error.code === 'auth/weak-password') {
+      return { user: null, error: 'weak_password' };
+    }
+    
+    return { user: null, error: error.message };
+  }
+}
+
+/**
+ * Link anonymous account with phone (future implementation)
+ * Placeholder for Phase 3
+ */
+export async function linkPhoneNumber(phoneNumber: string) {
+  // TODO: Implement phone auth with Firebase Phone Authentication
+  // This requires setting up Firebase Phone Auth provider and SMS verification
+  console.warn('[Auth Service] Phone linking not yet implemented');
+  return { user: null, error: 'not_implemented' };
 }
 
 /**

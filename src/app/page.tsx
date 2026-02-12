@@ -87,17 +87,34 @@ export default function LandingPage() {
       if (user) {
         // Only redirect if NOT showing the transition
         if (!showGuestTransition) {
-          // Smart Redirect Check
+          // Smart Redirect Check with Resume Logic
           try {
-            const userDoc = await import('firebase/firestore').then(mod => mod.getDoc(mod.doc(db, 'users', user.uid)));
-            if (userDoc.exists() && userDoc.data()?.onboardingComplete) {
-              router.push('/home');
+            const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+            const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+            
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              const status = userData?.onboardingStatus;
+              const step = userData?.onboardingStep;
+              
+              // RESUME LOGIC: If user is IN_PROGRESS, redirect to their last step
+              if (status === 'IN_PROGRESS' && step) {
+                console.log('[LandingPage] Resuming onboarding at step:', step);
+                router.push(`/onboarding-new/setup?resume=${step}`);
+              } else if (status === 'COMPLETED' || userData?.onboardingComplete) {
+                router.push('/home');
+              } else {
+                // New user or no status - start from beginning
+                router.push('/onboarding-new/roadmap');
+              }
             } else {
-              router.push('/onboarding');
+              // No user document - start onboarding
+              router.push('/onboarding-new/roadmap');
             }
           } catch (e) {
-            console.error("Error checking onboarding status:", e);
-            router.push('/home'); // Fallback
+            console.error('[LandingPage] Error checking onboarding status:', e);
+            // Fallback: send to onboarding instead of /home to avoid redirect loop
+            router.push('/onboarding-new/roadmap');
           }
         }
       }
@@ -117,7 +134,7 @@ export default function LandingPage() {
 
   // Path B: Onboarding
   const handleOnboardingStart = () => {
-    router.push('/onboarding');
+    router.push('/onboarding-new/roadmap');
   };
 
   // Path C: Try as Guest

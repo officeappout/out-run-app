@@ -18,6 +18,8 @@ interface ExerciseVideoPlayerProps {
   exerciseName: string;
   exerciseType: 'reps' | 'time' | 'follow-along';
   isPaused: boolean;
+  /** @deprecated — Audio is now controlled by the global isAudioEnabled sessionStorage flag */
+  hasAudio?: boolean;
   onVideoProgress?: (progress: number) => void;
   onVideoEnded?: () => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -57,6 +59,7 @@ export default function ExerciseVideoPlayer({
   exerciseName,
   exerciseType,
   isPaused,
+  hasAudio: _legacyHasAudio = false,
   onVideoProgress,
   onVideoEnded,
   onLoadingChange,
@@ -64,6 +67,12 @@ export default function ExerciseVideoPlayer({
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // ── Global audio state (set by the user in WorkoutPreviewDrawer) ──
+  const isAudioEnabled = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('isAudioEnabled') === 'true';
+  }, [exerciseId]); // re-evaluate on exercise change so each mount picks up latest
 
   // Use fallback if no video URL provided
   const effectiveVideoUrl = videoUrl || FALLBACK_VIDEO_URL;
@@ -87,7 +96,7 @@ export default function ExerciseVideoPlayer({
     
     const params = new URLSearchParams({
       autoplay: isPaused ? '0' : '1',
-      mute: '1',
+      mute: isAudioEnabled ? '0' : '1',
       controls: '0',
       modestbranding: '1',
       rel: '0',
@@ -227,7 +236,7 @@ export default function ExerciseVideoPlayer({
               className="absolute inset-0 w-full h-full object-contain"
               autoPlay={!isPaused}
               loop={exerciseType !== 'follow-along'}
-              muted
+              muted={!isAudioEnabled}
               playsInline
               preload="auto"
               onLoadedData={() => handleLoadingChange(false)}

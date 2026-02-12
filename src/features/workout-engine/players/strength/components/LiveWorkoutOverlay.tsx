@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { WorkoutPlan } from '@/features/parks';
-import { Exercise as FirestoreExercise, LoggingMode } from '@/features/content/exercises';
+import { Exercise as FirestoreExercise, LoggingMode, findMethodForLocation } from '@/features/content/exercises';
 import WorkoutStickyNav from './WorkoutStickyNav';
 import { ArrowUp, Pause, Play, Square, Layers, Crosshair, Volume2, Check, Dumbbell, User } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -19,6 +19,8 @@ interface LiveWorkoutOverlayProps {
     isPaused: boolean;
     // Optional: Full Firestore exercise data (if available)
     currentExerciseData?: FirestoreExercise;
+    /** Active workout location (e.g. 'park', 'home') — used to select the correct execution_method media */
+    workoutLocation?: string;
     onPause: () => void;
     onResume: () => void;
     onStop: () => void;
@@ -56,6 +58,7 @@ export default function LiveWorkoutOverlay({
     distanceCovered,
     isPaused,
     currentExerciseData,
+    workoutLocation,
     onPause,
     onResume,
     onStop,
@@ -110,23 +113,21 @@ export default function LiveWorkoutOverlay({
         return '10-15 חזרות';
     };
 
-    // Get main video URL from execution_methods[0].media.mainVideoUrl
+    // Get main video URL — location-aware
     const getMainVideoUrl = (): string => {
-        if (currentExercise?.execution_methods?.[0]?.media?.mainVideoUrl) {
-            return currentExercise.execution_methods[0].media.mainVideoUrl;
-        }
-        // Fallback to legacy videoUrl
-        if (currentExercise?.media?.videoUrl) {
-            return currentExercise.media.videoUrl;
+        if (currentExercise) {
+            const method = findMethodForLocation(currentExercise, workoutLocation);
+            if (method?.media?.mainVideoUrl) return method.media.mainVideoUrl;
+            return currentExercise.media?.videoUrl || '';
         }
         return currentWorkoutExercise?.videoUrl || '';
     };
 
-    // Get instructional video URL
+    // Get instructional video URL — location-aware
     const getInstructionalVideoUrl = (): string => {
         if (!currentExercise) return '';
-        const executionMethod = currentExercise.execution_methods?.[0];
-        const instructionalVideos = executionMethod?.media?.instructionalVideos || [];
+        const method = findMethodForLocation(currentExercise, workoutLocation);
+        const instructionalVideos = method?.media?.instructionalVideos || [];
         const video = instructionalVideos.find((v) => v.lang === language) || instructionalVideos[0];
         return video?.url || '';
     };
@@ -186,7 +187,7 @@ export default function LiveWorkoutOverlay({
                         className="absolute inset-0 w-full h-full object-cover"
                         autoPlay
                         loop
-                        muted
+                        muted={typeof window !== 'undefined' ? sessionStorage.getItem('isAudioEnabled') !== 'true' : true}
                         playsInline
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent h-32" />

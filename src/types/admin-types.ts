@@ -1,6 +1,7 @@
 // Park types have been moved to @/features/parks
 // Re-exporting for backward compatibility
-export type { Park, ParkFacility, ParkFacilityType, ParkAmenities, ParkStatus } from '@/features/parks';
+export type { Park, ParkFacility, ParkFacilityType, ParkAmenities, ParkStatus, ParkFacilityCategory, ParkSportType, ParkFeatureTag, NatureType, CommunityType, UrbanType, StairsDetails, BenchDetails, ParkingDetails, ParkingPaymentType, RouteTerrainType, RouteEnvironment } from '@/features/parks';
+export { FACILITY_SPORT_MAPPING, ROUTE_SUB_SPORT_MAPPING, getAutoSportTypes } from '@/features/parks';
 
 export type AuthorityType = 'city' | 'regional_council' | 'local_council' | 'neighborhood' | 'settlement';
 
@@ -8,7 +9,8 @@ export type AuthorityType = 'city' | 'regional_council' | 'local_council' | 'nei
 export type ContactRole = 'sports_head' | 'ceo' | 'health_coordinator' | 'technical' | 'other';
 
 // CRM Pipeline Status for Sales Tracking
-export type PipelineStatus = 'lead' | 'meeting' | 'quote' | 'follow_up' | 'closing' | 'active' | 'upsell';
+// 'draft' = Database-only entities that are NOT counted as active leads or in conversion metrics
+export type PipelineStatus = 'draft' | 'lead' | 'meeting' | 'quote' | 'follow_up' | 'closing' | 'active' | 'upsell';
 
 // Task Status for CRM Task Management
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled';
@@ -98,6 +100,7 @@ export const CONTACT_ROLE_LABELS: Record<ContactRole, string> = {
 
 // Helper to get pipeline status label in Hebrew
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
+  draft: 'טיוטה / מאגר',
   lead: 'ליד חדש',
   meeting: 'פגישה',
   quote: 'הצעת מחיר',
@@ -109,6 +112,7 @@ export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
 
 // Pipeline status colors for UI
 export const PIPELINE_STATUS_COLORS: Record<PipelineStatus, { bg: string; text: string; border: string }> = {
+  draft: { bg: 'bg-slate-100', text: 'text-slate-500', border: 'border-slate-300' },
   lead: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
   meeting: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
   quote: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },

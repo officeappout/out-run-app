@@ -5,7 +5,7 @@
 
 export type PsychologicalTrigger = 'FOMO' | 'Challenge' | 'Support' | 'Reward';
 
-export type NotificationTriggerType = 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance';
+export type NotificationTriggerType = 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance' | 'Proximity';
 
 export type DaysInactive = 1 | 2 | 7 | 30;
 

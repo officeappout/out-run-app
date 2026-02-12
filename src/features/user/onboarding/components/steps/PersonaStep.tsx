@@ -80,6 +80,24 @@ const LIFESTYLE_OPTIONS: LifestyleOption[] = [
     tags: ['soldier', 'military', 'active'],
     color: '#65A30D',
   },
+  {
+    id: 'vatikim',
+    labelHeMale: 'גיל הזהב',
+    labelHeFemale: 'גיל הזהב',
+    labelEn: 'Golden Age',
+    emoji: '🧓',
+    tags: ['vatikim', 'senior', 'health'],
+    color: '#F97316',
+  },
+  {
+    id: 'pro_athlete',
+    labelHeMale: 'ספורטאי קצה',
+    labelHeFemale: 'ספורטאית קצה',
+    labelEn: 'Pro Athlete',
+    emoji: '🏋️',
+    tags: ['pro_athlete', 'advanced', 'performance'],
+    color: '#DC2626',
+  },
 ];
 
 // Goal options - Short Title (for chips) and Long Description (for Mad-libs)
@@ -211,7 +229,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       const goal = GOAL_OPTIONS.find(g => g.id === id);
       if (goal) tags.push(goal.tag);
     });
-    return [...new Set(tags)];
+    return Array.from(new Set(tags));
   };
 
   // Handle persona toggle (multi-select)
@@ -396,15 +414,22 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           transition={{ delay: 0.1 }}
           className="mb-5"
         >
-          <div className="flex items-center justify-between mb-2 px-1">
-            <h3 className="text-sm font-bold text-slate-600">
-              {isHebrew ? (userGender === 'female' ? 'מי את?' : 'מי אתה?') : 'Who are you?'}
-            </h3>
-            {selectedPersonaIds.length > 0 && (
-              <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
-                {selectedPersonaIds.length}
-              </span>
-            )}
+          <div className="mb-3 px-1">
+            <p className="text-xs text-slate-500 mb-2 leading-relaxed" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {isHebrew 
+                ? 'סמנו את מה שהכי מגדיר אתכם. אם יש כמה, בחרו אותם לפי סדר החשיבות עבורכם.'
+                : 'Select what defines you best. If multiple apply, choose them in order of importance.'}
+            </p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-600">
+                {isHebrew ? (userGender === 'female' ? 'מי את?' : 'מי אתה?') : 'Who are you?'}
+              </h3>
+              {selectedPersonaIds.length > 0 && (
+                <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
+                  {selectedPersonaIds.length}
+                </span>
+              )}
+            </div>
           </div>
           
           {/* Compact 2-column grid */}

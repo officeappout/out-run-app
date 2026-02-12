@@ -18,7 +18,7 @@ import {
   MethodProductionStatus,
   ContentMatrixGap,
 } from '@/features/content/exercises';
-import { ExecutionLocation } from '@/features/content/exercises';
+import { ExecutionLocation, EXECUTION_LOCATION_LABELS } from '@/features/content/exercises';
 import {
   Film,
   Mic,
@@ -45,15 +45,16 @@ import {
 // CONSTANTS
 // ============================================================================
 
-const LOCATION_LABELS: Record<ExecutionLocation, string> = {
-  home: '🏠 בית',
-  park: '🌳 פארק',
-  office: '🏢 משרד',
-  gym: '💪 ג\'ים',
-  street: '🛣️ רחוב',
-  school: '🏫 בית ספר',
-  airport: '✈️ שדה תעופה',
-};
+/**
+ * Location labels — derived from centralized constants (Single Source of Truth).
+ * Includes emoji icon prefix for compact display in the content matrix grid.
+ */
+const LOCATION_LABELS: Record<ExecutionLocation, string> = Object.fromEntries(
+  (Object.keys(EXECUTION_LOCATION_LABELS) as ExecutionLocation[]).map((loc) => [
+    loc,
+    `${EXECUTION_LOCATION_LABELS[loc].icon} ${EXECUTION_LOCATION_LABELS[loc].he}`,
+  ]),
+) as Record<ExecutionLocation, string>;
 
 const WORKFLOW_LABELS: Record<WorkflowStep, { icon: React.ReactNode; label: string; abbr: string }> = {
   filmed: { icon: <Film size={14} />, label: 'צולם', abbr: 'צ' },

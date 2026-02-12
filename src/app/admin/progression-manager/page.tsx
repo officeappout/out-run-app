@@ -35,7 +35,7 @@ import {
   Save, 
   X, 
   TrendingUp, 
-  Link2, 
+  
   Zap,
   ChevronDown,
   ChevronRight,
@@ -77,21 +77,36 @@ async function saveProgressionRule(rule: Omit<ProgressionRule, 'id' | 'createdAt
     const docId = rule.id || `${rule.programId}_level_${rule.level}`;
     const docRef = doc(db, PROGRESSION_RULES_COLLECTION, docId);
     
+    // Explicitly construct the payload — never rely on spread to avoid silent field omission
+    const payload: Record<string, any> = {
+      programId: rule.programId,
+      level: Number(rule.level),
+      baseSessionGain: Number(rule.baseSessionGain),
+      bonusPercent: Number(rule.bonusPercent),
+      requiredSetsForFullGain: Number(rule.requiredSetsForFullGain),
+      linkedPrograms: rule.linkedPrograms ?? [],
+      description: rule.description ?? '',
+    };
+    
+    console.log('[ProgressionManager] Saving rule:', docId, payload);
+    
     const existing = await getDoc(docRef);
     
     if (existing.exists()) {
       await updateDoc(docRef, {
-        ...rule,
+        ...payload,
         updatedAt: serverTimestamp(),
       });
     } else {
       await setDoc(docRef, {
-        ...rule,
+        ...payload,
+        id: docId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
     }
     
+    console.log('[ProgressionManager] ✅ Rule saved successfully:', docId);
     return docId;
   } catch (error) {
     console.error('Error saving progression rule:', error);
@@ -244,27 +259,39 @@ export default function ProgressionManagerPage() {
     setShowAddNew(false);
   };
 
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+
   const handleSave = async () => {
     if (!selectedProgramId) return;
     
     setSaving(true);
+    setSaveSuccess(null);
     try {
       const existingRule = rules.find(r => r.level === ruleForm.level);
       
-      await saveProgressionRule({
+      // Explicitly read every field from form state to prevent stale/missing values
+      const savePayload = {
         id: existingRule?.id,
         programId: selectedProgramId,
-        level: ruleForm.level,
-        baseSessionGain: ruleForm.baseSessionGain,
-        bonusPercent: ruleForm.bonusPercent,
-        requiredSetsForFullGain: ruleForm.requiredSetsForFullGain,
-        linkedPrograms: ruleForm.linkedPrograms,
-        description: ruleForm.description,
-      });
+        level: Number(ruleForm.level) || 1,
+        baseSessionGain: Number(ruleForm.baseSessionGain) || 1,
+        bonusPercent: Number(ruleForm.bonusPercent) || 0,
+        requiredSetsForFullGain: Number(ruleForm.requiredSetsForFullGain) || 4,
+        linkedPrograms: ruleForm.linkedPrograms || [],
+        description: ruleForm.description || '',
+      };
+      
+      console.log('[ProgressionManager] handleSave payload:', savePayload);
+      
+      await saveProgressionRule(savePayload);
       
       await loadRulesForProgram(selectedProgramId);
       setEditingLevel(null);
       setShowAddNew(false);
+      
+      // Show success notification
+      setSaveSuccess(`רמה ${savePayload.level} נשמרה בהצלחה ✓`);
+      setTimeout(() => setSaveSuccess(null), 3000);
     } catch (error) {
       console.error('Error saving rule:', error);
       alert('שגיאה בשמירת ההגדרות');
@@ -315,43 +342,6 @@ export default function ProgressionManagerPage() {
     });
   };
 
-  // Add linked program
-  const handleAddLinkedProgram = () => {
-    const availablePrograms = programs.filter(
-      p => p.id !== selectedProgramId && 
-      !ruleForm.linkedPrograms.some(lp => lp.targetProgramId === p.id)
-    );
-    
-    if (availablePrograms.length === 0) {
-      alert('אין תוכניות נוספות להוספה');
-      return;
-    }
-    
-    setRuleForm(prev => ({
-      ...prev,
-      linkedPrograms: [
-        ...prev.linkedPrograms,
-        { targetProgramId: availablePrograms[0].id, multiplier: 0.5 }
-      ]
-    }));
-  };
-
-  const handleRemoveLinkedProgram = (index: number) => {
-    setRuleForm(prev => ({
-      ...prev,
-      linkedPrograms: prev.linkedPrograms.filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleUpdateLinkedProgram = (index: number, field: keyof LinkedProgramConfig, value: string | number) => {
-    setRuleForm(prev => ({
-      ...prev,
-      linkedPrograms: prev.linkedPrograms.map((lp, i) => 
-        i === index ? { ...lp, [field]: value } : lp
-      )
-    }));
-  };
-
   const selectedProgram = programs.find(p => p.id === selectedProgramId);
 
   // Generate levels 1-20 for display
@@ -391,7 +381,6 @@ export default function ProgressionManagerPage() {
               <li>• <strong>סטים נדרשים (requiredSetsForFullGain)</strong>: כמות הסטים הנדרשת לקבלת 100% מהרווח</li>
               <li>• <strong>נוסחה</strong>: <code className="bg-white/50 px-1 rounded">min(1, סטים שבוצעו ÷ סטים נדרשים) × רווח בסיסי</code></li>
               <li>• <strong>בונוס (bonusPercent)</strong>: אחוז נוסף כשהמשתמש עובר את יעד החזרות</li>
-              <li>• <strong>תוכניות מקושרות</strong>: כשמתאמנים בתוכנית זו, תוכניות אחרות מקבלות אחוז מההתקדמות</li>
             </ul>
             <p className="mt-2 text-xs text-violet-600">דוגמה: אם נדרשים 4 סטים והמשתמש עשה 2, הוא יקבל 50% מהרווח הבסיסי.</p>
           </div>
@@ -458,6 +447,14 @@ export default function ProgressionManagerPage() {
             </div>
           </div>
 
+          {/* Success Notification */}
+          {saveSuccess && (
+            <div className="bg-green-50 border border-green-300 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+              <Check className="text-green-600 flex-shrink-0" size={20} />
+              <span className="font-bold text-green-800">{saveSuccess}</span>
+            </div>
+          )}
+
           {/* Add New Level Button */}
           <button
             onClick={handleStartNew}
@@ -482,9 +479,6 @@ export default function ProgressionManagerPage() {
                 onSave={handleSave}
                 onCancel={handleCancel}
                 saving={saving}
-                onAddLinked={handleAddLinkedProgram}
-                onRemoveLinked={handleRemoveLinkedProgram}
-                onUpdateLinked={handleUpdateLinkedProgram}
               />
             </div>
           )}
@@ -532,11 +526,6 @@ export default function ProgressionManagerPage() {
                           {rule ? (
                             <p className="text-sm text-gray-500">
                               {rule.baseSessionGain}% בסיס | {rule.bonusPercent}% בונוס | {rule.requiredSetsForFullGain || getDefaultRequiredSets(level)} סטים
-                              {rule.linkedPrograms?.length > 0 && (
-                                <span className="mr-2 text-violet-600">
-                                  | {rule.linkedPrograms.length} תוכניות מקושרות
-                                </span>
-                              )}
                             </p>
                           ) : (
                             <p className="text-sm text-gray-400">
@@ -607,9 +596,6 @@ export default function ProgressionManagerPage() {
                             onSave={handleSave}
                             onCancel={handleCancel}
                             saving={saving}
-                            onAddLinked={handleAddLinkedProgram}
-                            onRemoveLinked={handleRemoveLinkedProgram}
-                            onUpdateLinked={handleUpdateLinkedProgram}
                           />
                         ) : rule ? (
                           <LevelRuleDisplay rule={rule} programs={programs} />
@@ -670,27 +656,6 @@ function LevelRuleDisplay({ rule, programs }: { rule: ProgressionRule; programs:
         </div>
       )}
 
-      {/* Linked Programs */}
-      {rule.linkedPrograms && rule.linkedPrograms.length > 0 && (
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <div className="text-sm text-gray-500 mb-3 flex items-center gap-2">
-            <Link2 size={16} />
-            תוכניות מקושרות
-          </div>
-          <div className="space-y-2">
-            {rule.linkedPrograms.map((lp, index) => (
-              <div key={index} className="flex items-center justify-between bg-violet-50 rounded-lg p-3">
-                <span className="font-medium text-violet-900">
-                  {getProgramName(lp.targetProgramId)}
-                </span>
-                <span className="text-violet-600 font-bold">
-                  {Math.round(lp.multiplier * 100)}% מהרווח
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -703,9 +668,6 @@ function LevelRuleForm({
   onSave,
   onCancel,
   saving,
-  onAddLinked,
-  onRemoveLinked,
-  onUpdateLinked,
 }: {
   form: LevelRuleForm;
   programs: Program[];
@@ -714,15 +676,7 @@ function LevelRuleForm({
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
-  onAddLinked: () => void;
-  onRemoveLinked: (index: number) => void;
-  onUpdateLinked: (index: number, field: keyof LinkedProgramConfig, value: string | number) => void;
 }) {
-  const getProgramName = (id: string) => programs.find(p => p.id === id)?.name || id;
-  const availablePrograms = programs.filter(
-    p => p.id !== selectedProgramId && 
-    !form.linkedPrograms.some(lp => lp.targetProgramId === p.id)
-  );
 
   return (
     <div className="space-y-6">
@@ -734,8 +688,9 @@ function LevelRuleForm({
             type="number"
             min="1"
             max="30"
+            step="1"
             value={form.level}
-            onChange={(e) => onChange({ ...form, level: parseInt(e.target.value) || 1 })}
+            onChange={(e) => onChange({ ...form, level: Number(e.target.value) || 1 })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
           />
         </div>
@@ -743,10 +698,11 @@ function LevelRuleForm({
           <label className="block text-sm font-bold text-gray-700 mb-2">רווח בסיסי לאימון (%)</label>
           <input
             type="number"
-            min="1"
+            min="0.1"
             max="50"
+            step="0.5"
             value={form.baseSessionGain}
-            onChange={(e) => onChange({ ...form, baseSessionGain: parseInt(e.target.value) || 1 })}
+            onChange={(e) => onChange({ ...form, baseSessionGain: Number(e.target.value) || 1 })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-1">כמה % המשתמש מתקדם לאחר כל אימון</p>
@@ -757,8 +713,12 @@ function LevelRuleForm({
             type="number"
             min="0"
             max="30"
+            step="0.5"
             value={form.bonusPercent}
-            onChange={(e) => onChange({ ...form, bonusPercent: parseInt(e.target.value) || 0 })}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              onChange({ ...form, bonusPercent: isNaN(val) ? 0 : val });
+            }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-1">בונוס כשעוברים את יעד החזרות</p>
@@ -769,8 +729,9 @@ function LevelRuleForm({
             type="number"
             min="1"
             max="20"
+            step="1"
             value={form.requiredSetsForFullGain}
-            onChange={(e) => onChange({ ...form, requiredSetsForFullGain: parseInt(e.target.value) || 4 })}
+            onChange={(e) => onChange({ ...form, requiredSetsForFullGain: Number(e.target.value) || 4 })}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-1">כמות סטים ל-100% מהרווח</p>
@@ -787,83 +748,6 @@ function LevelRuleForm({
           rows={2}
           placeholder="הערות לרמה זו או הקשר למשתמש..."
         />
-      </div>
-
-      {/* Linked Programs */}
-      <div className="border-t pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-            <Link2 size={16} className="text-violet-500" />
-            תוכניות מקושרות (Multi-Program Progression)
-          </label>
-          <button
-            type="button"
-            onClick={onAddLinked}
-            disabled={availablePrograms.length === 0}
-            className="flex items-center gap-1 px-3 py-1 bg-violet-100 text-violet-700 rounded-lg text-sm font-semibold hover:bg-violet-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus size={14} />
-            הוסף קישור
-          </button>
-        </div>
-
-        <p className="text-sm text-gray-500 mb-4">
-          כאשר משתמש מתאמן בתוכנית זו, התוכניות המקושרות יקבלו אחוז מההתקדמות
-        </p>
-
-        {form.linkedPrograms.length === 0 ? (
-          <div className="text-center text-gray-400 py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-            <Link2 className="mx-auto mb-2 opacity-50" size={24} />
-            <p>אין תוכניות מקושרות</p>
-            <p className="text-sm">לחץ על &quot;הוסף קישור&quot; כדי לקשר תוכניות נוספות</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {form.linkedPrograms.map((lp, index) => (
-              <div key={index} className="flex items-center gap-3 bg-violet-50 rounded-xl p-4">
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-500 mb-1">תוכנית מקושרת</label>
-                  <select
-                    value={lp.targetProgramId}
-                    onChange={(e) => onUpdateLinked(index, 'targetProgramId', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white"
-                  >
-                    <option value={lp.targetProgramId}>{getProgramName(lp.targetProgramId)}</option>
-                    {availablePrograms.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="w-32">
-                  <label className="block text-xs text-gray-500 mb-1">מכפיל (%)</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      step="5"
-                      value={Math.round(lp.multiplier * 100)}
-                      onChange={(e) => onUpdateLinked(index, 'multiplier', parseInt(e.target.value) / 100)}
-                      className="flex-1"
-                    />
-                    <span className="w-12 text-center font-bold text-violet-700">
-                      {Math.round(lp.multiplier * 100)}%
-                    </span>
-                  </div>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => onRemoveLinked(index)}
-                  className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Action Buttons */}

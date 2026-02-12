@@ -7,7 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getAuthoritiesByManager } from './authority.service';
 import { getAuthorityStats } from './analytics.service';
-import { isAdminEmailAllowed } from '@/config/feature-flags';
+import { isAdminEmailAllowed, isRootAdmin } from '@/config/feature-flags';
 
 export type UserRole = 'super_admin' | 'system_admin' | 'authority_manager' | 'none';
 
@@ -16,8 +16,11 @@ export interface UserRoleInfo {
   isSuperAdmin: boolean;
   isSystemAdmin: boolean;
   isAuthorityManager: boolean;
+  /** True only for ENV-defined Root Admins — can manage invitations */
+  isRootAdmin: boolean;
   authorityIds: string[];
   isApproved: boolean;
+  email?: string;
 }
 
 /**
@@ -63,10 +66,17 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     // Check email allowlist for super admin access
     const emailToCheck = userEmail || emailFromProfile;
     const isEmailAllowed = isAdminEmailAllowed(emailToCheck);
+    const userIsRootAdmin = isRootAdmin(emailToCheck);
     
     // If email is in allowlist and user doesn't have explicit super_admin flag,
     // grant them super_admin access
     if (isEmailAllowed && !isSuperAdmin) {
+      isSuperAdmin = true;
+      isApproved = true;
+    }
+
+    // Root Admins are always super_admin + approved
+    if (userIsRootAdmin) {
       isSuperAdmin = true;
       isApproved = true;
     }
@@ -84,13 +94,15 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       role, 
       isSuperAdmin, 
       isSystemAdmin, 
-      isAuthorityManager, 
+      isAuthorityManager,
+      isRootAdmin: userIsRootAdmin,
       authorityIds: authorities.map((a) => a.id), 
-      isApproved 
+      isApproved,
+      email: emailToCheck || undefined,
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);
-    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isAuthorityManager: false, authorityIds: [], isApproved: false };
+    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isAuthorityManager: false, isRootAdmin: false, authorityIds: [], isApproved: false };
   }
 }
 
@@ -158,6 +170,7 @@ export function useUserRole() {
           isSuperAdmin: false,
           isSystemAdmin: false,
           isAuthorityManager: false,
+          isRootAdmin: false,
           authorityIds: [],
           isApproved: false,
         });

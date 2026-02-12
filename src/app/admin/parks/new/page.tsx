@@ -3,20 +3,42 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
-import { Park, ParkFacilityType, ParkAmenities, Authority } from '@/types/admin-types';
+import { Park, ParkSportType, ParkFeatureTag, Authority } from '@/types/admin-types';
+import { getAutoSportTypes } from '@/features/parks';
 import { ParkGymEquipment } from '@/features/content/equipment/gym';
 import { getAllGymEquipment } from '@/features/content/equipment/gym';
 import { GymEquipment } from '@/features/content/equipment/gym';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { getAllOutdoorBrands } from '@/features/content/equipment/brands';
+import type { OutdoorBrand } from '@/features/content/equipment/brands';
 import dynamicImport from 'next/dynamic';
-import { Plus, Trash2, Save, Image as ImageIcon, Loader2, X, Sun, Lightbulb, Droplet, Toilet, Building2 } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Building2, Tag, ArrowRight, Search, ChevronDown, Dumbbell, ImageIcon } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
+
+// ============================================
+// FEATURE TAGS & CONFIGURATION
+// ============================================
+
+// Feature tags — SINGLE source of truth for park amenities & features
+// Replaces the old "מאפייני הפארק" (ParkAmenities) section
+const FEATURE_TAG_OPTIONS: { id: ParkFeatureTag; label: string; icon: string }[] = [
+  { id: 'shaded', label: 'מוצל', icon: '☀️' },
+  { id: 'night_lighting', label: 'תאורת לילה', icon: '💡' },
+  { id: 'water_fountain', label: 'ברזיית מים', icon: '🚰' },
+  { id: 'has_toilets', label: 'שירותים', icon: '🚻' },
+  { id: 'parkour_friendly', label: 'ידידותי לפארקור', icon: '🤸' },
+  { id: 'stairs_training', label: 'מדרגות לאימון', icon: '🪜' },
+  { id: 'rubber_floor', label: 'ריצפת גומי', icon: '🟫' },
+  { id: 'near_water', label: 'ליד מים', icon: '🌊' },
+  { id: 'dog_friendly', label: 'ידידותי לכלבים', icon: '🐕' },
+  { id: 'wheelchair_accessible', label: 'נגיש לכיסא גלגלים', icon: '♿' },
+];
 
 // Dynamic import for Map to avoid SSR issues
 const LocationPicker = dynamicImport(
@@ -25,17 +47,9 @@ const LocationPicker = dynamicImport(
 );
 
 interface ParkFormData extends Omit<Park, 'id' | 'facilities' | 'gymEquipment'> {
-    facilities: {
-        name: string;
-        type: ParkFacilityType;
-        difficulty: 'beginner' | 'pro';
-        imageFile?: FileList; // For upload logic
-        image?: string;
-    }[];
     gymEquipment: (ParkGymEquipment & {
         equipmentName?: string; // For display purposes
     })[];
-    amenities?: ParkAmenities;
     parkImageFile?: FileList;
 }
 
@@ -51,28 +65,33 @@ function AddParkPageContent() {
     const [loadingGymEquipment, setLoadingGymEquipment] = useState(true);
     const [authorities, setAuthorities] = useState<Authority[]>([]);
     const [loadingAuthorities, setLoadingAuthorities] = useState(true);
+    const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
+    const [loadingBrands, setLoadingBrands] = useState(true);
+
+    // Searchable authority state
+    const [authoritySearch, setAuthoritySearch] = useState('');
+    const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
+    const authorityDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Searchable equipment state (per-row)
+    const [equipmentSearchTerms, setEquipmentSearchTerms] = useState<Record<number, string>>({});
+    const [showEquipmentDropdown, setShowEquipmentDropdown] = useState<Record<number, boolean>>({});
+
+    // Searchable manufacturer/brand state (per-row)
+    const [brandSearchTerms, setBrandSearchTerms] = useState<Record<number, string>>({});
+    const [showBrandDropdown, setShowBrandDropdown] = useState<Record<number, boolean>>({});
 
     const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<ParkFormData & { authorityId?: string }>({
         defaultValues: {
             name: '',
-            city: '',
             description: '',
             location: { lat: 32.0853, lng: 34.7818 },
-            facilities: [],
+            facilityType: 'gym_park', // Auto-set since this is the Parks page
+            sportTypes: [],
+            featureTags: [],
             gymEquipment: [],
-            amenities: {
-                hasShadow: false,
-                hasLighting: false,
-                hasToilets: false,
-                hasWater: false,
-            },
-            authorityId: authorityId || undefined, // Pre-fill from URL query param if present
+            authorityId: authorityId || undefined,
         }
-    });
-
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: "facilities"
     });
 
     const { fields: gymEquipmentFields, append: appendGymEquipment, remove: removeGymEquipment } = useFieldArray({
@@ -81,11 +100,59 @@ function AddParkPageContent() {
     });
 
     const location = watch('location');
+    const selectedFeatureTags = watch('featureTags') as ParkFeatureTag[] | undefined;
+    const selectedAuthorityIdValue = watch('authorityId');
 
-    // Load gym equipment and authorities on mount
+    // Auto-select sports via "System Brain" mapping for gym_park
+    useEffect(() => {
+        const autoSports = getAutoSportTypes('gym_park');
+        setValue('sportTypes', autoSports as any);
+    }, [setValue]);
+
+    // Toggle feature tag helper
+    const toggleFeatureTag = (tagId: ParkFeatureTag) => {
+        const current = (selectedFeatureTags || []) as ParkFeatureTag[];
+        const updated = current.includes(tagId)
+            ? current.filter(t => t !== tagId)
+            : [...current, tagId];
+        setValue('featureTags', updated as any);
+    };
+
+    // Close authority dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (authorityDropdownRef.current && !authorityDropdownRef.current.contains(event.target as Node)) {
+                setShowAuthorityDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Filtered authorities for searchable select
+    const filteredAuthorities = useMemo(() => {
+        if (!authoritySearch.trim()) return authorities;
+        const lower = authoritySearch.toLowerCase();
+        return authorities.filter(a =>
+            a.name.toLowerCase().includes(lower)
+        );
+    }, [authorities, authoritySearch]);
+
+    // Set authority display text when value changes
+    useEffect(() => {
+        if (selectedAuthorityIdValue) {
+            const found = authorities.find(a => a.id === selectedAuthorityIdValue);
+            if (found) {
+                setAuthoritySearch(found.name);
+            }
+        }
+    }, [selectedAuthorityIdValue, authorities]);
+
+    // Load gym equipment, authorities, and brands on mount
     useEffect(() => {
         loadGymEquipment();
         loadAuthorities();
+        loadOutdoorBrands();
     }, []);
 
     const loadGymEquipment = async () => {
@@ -114,6 +181,18 @@ function AddParkPageContent() {
             console.error('Error loading authorities:', error);
         } finally {
             setLoadingAuthorities(false);
+        }
+    };
+
+    const loadOutdoorBrands = async () => {
+        try {
+            setLoadingBrands(true);
+            const data = await getAllOutdoorBrands();
+            setOutdoorBrands(data);
+        } catch (error) {
+            console.error('Error loading outdoor brands:', error);
+        } finally {
+            setLoadingBrands(false);
         }
     };
 
@@ -149,36 +228,13 @@ function AddParkPageContent() {
                 parkImageUrl = await uploadImage(data.parkImageFile[0], `parks/${Date.now()}_main`);
             }
 
-            // 2. העלאת תמונות למתקנים (בצורה בטוחה)
-            setUploadProgress('מעלה תמונות מתקנים...');
-            const facilitiesWithImages = await Promise.all(data.facilities.map(async (facility, index) => {
-                let facilityImageUrl = '';
-                
-                // בדיקה בטוחה אם יש קובץ להעלאה
-                if (facility.imageFile && facility.imageFile.length > 0) {
-                    try {
-                        facilityImageUrl = await uploadImage(facility.imageFile[0], `facilities/${Date.now()}_${index}`);
-                    } catch (imgErr) {
-                        console.error(`Failed to upload image for facility ${index}:`, imgErr);
-                        // ממשיכים גם אם תמונה אחת נכשלה כדי לא לתקוע את הכל
-                    }
-                }
-
-                return {
-                    name: facility.name,
-                    type: facility.type,
-                    image: facilityImageUrl,
-                    difficulty: facility.difficulty
-                };
-            }));
-
-            // 3. Process gym equipment (remove display fields, keep only equipmentId and brandName)
+            // 2. Process gym equipment (remove display fields, keep only equipmentId and brandName)
             const processedGymEquipment: ParkGymEquipment[] = data.gymEquipment.map((equipment) => ({
                 equipmentId: equipment.equipmentId,
                 brandName: equipment.brandName,
             }));
 
-            // 4. Determine the correct authorityId for billing/reporting
+            // 3. Determine the correct authorityId for billing/reporting
             // Use the selected authorityId from form (required field)
             const selectedAuthorityId = data.authorityId || authorityId;
             
@@ -203,21 +259,34 @@ function AddParkPageContent() {
                 // Fallback to original authorityId if lookup fails
             }
 
-            // 5. שמירה ל-Firestore
-            const newPark: Omit<Park, 'id'> = {
-                name: data.name,
-                city: data.city,
-                description: data.description,
+            // 4. Auto-assign sports from System Brain mapping (merged with manual selections)
+            const autoSports = getAutoSportTypes('gym_park');
+            const manualSports = Array.isArray(data.sportTypes) ? data.sportTypes as ParkSportType[] : [];
+            const mergedSports = Array.from(new Set([...autoSports, ...manualSports]));
+
+            // 5. Derive hasWaterFountain from feature tags
+            const tags = Array.isArray(data.featureTags) ? data.featureTags as ParkFeatureTag[] : [];
+            const hasWaterFountain = tags.includes('water_fountain');
+
+            // 6. שמירה ל-Firestore — NEVER send undefined to Firestore
+            const newPark: Record<string, any> = {
+                name: data.name || '',
+                description: data.description || '',
                 location: {
                     lat: Number(data.location.lat),
                     lng: Number(data.location.lng)
                 },
-                image: parkImageUrl,
-                facilities: facilitiesWithImages,
-                gymEquipment: processedGymEquipment.length > 0 ? processedGymEquipment : undefined,
-                amenities: data.amenities,
-                authorityId: finalAuthorityId, // Links to Regional Council for B2G billing
+                image: parkImageUrl || null,
+                facilityType: 'gym_park',
+                sportTypes: mergedSports.length > 0 ? mergedSports : [],
+                featureTags: tags.length > 0 ? tags : [],
+                hasWaterFountain: hasWaterFountain || false,
+                gymEquipment: processedGymEquipment.length > 0 ? processedGymEquipment : [],
+                amenities: null,
+                authorityId: finalAuthorityId || null,
                 status: 'open',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
             };
 
             setUploadProgress('שומר נתונים בבסיס הנתונים...');
@@ -236,9 +305,19 @@ function AddParkPageContent() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-20">
+        <div className="max-w-4xl mx-auto space-y-8 pb-28" dir="rtl">
+            {/* Back Button */}
+            <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-gray-500 hover:text-gray-800 font-bold transition-colors group"
+            >
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                <span>חזור</span>
+            </button>
+
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-black text-gray-900">הוספת פארק חדש</h1>
+                <h1 className="text-3xl font-black text-gray-900">הוספת פארק וגינה</h1>
                 <button
                     onClick={handleSubmit(onSubmit)}
                     disabled={isSubmitting}
@@ -258,51 +337,83 @@ function AddParkPageContent() {
                         פרטי הפארק
                     </h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-gray-700">שם הפארק</label>
                             <input
                                 {...register('name', { required: true })}
-                                className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none"
+                            className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none text-right"
                                 placeholder="לדוגמה: ספורטק הרצליה"
                             />
                             {errors.name && <span className="text-red-500 text-xs">שדה חובה</span>}
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700">עיר</label>
-                            <input
-                                {...register('city', { required: true })}
-                                className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                placeholder="לדוגמה: הרצליה"
-                            />
-                            {errors.city && <span className="text-red-500 text-xs">שדה חובה</span>}
-                        </div>
-                    </div>
-
-                    {/* Authority Selection - Required */}
-                    <div className="space-y-2">
+                    {/* Authority Selection - Searchable */}
+                    <div className="space-y-2" ref={authorityDropdownRef}>
                         <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
                             <Building2 size={16} className="text-blue-500" />
                             רשות משויכת <span className="text-red-500">*</span>
                         </label>
-                        <select
-                            {...register('authorityId', { required: 'נא לבחור רשות משויכת' })}
-                            className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none"
+                        <div className="relative">
+                            <div className="relative">
+                                <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    value={authoritySearch}
+                                    onChange={(e) => {
+                                        setAuthoritySearch(e.target.value);
+                                        setShowAuthorityDropdown(true);
+                                        // Clear selected value when user types
+                                        if (selectedAuthorityIdValue) {
+                                            const found = authorities.find(a => a.id === selectedAuthorityIdValue);
+                                            if (found && e.target.value !== found.name) {
+                                                setValue('authorityId', '' as any);
+                                            }
+                                        }
+                                    }}
+                                    onFocus={() => setShowAuthorityDropdown(true)}
+                                    className="w-full p-3 pr-10 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none text-right"
+                                    placeholder="הקלד לחיפוש רשות..."
                             disabled={loadingAuthorities}
-                        >
-                            <option value="">בחר רשות...</option>
-                            {authorities.map((authority) => (
-                                <option key={authority.id} value={authority.id}>
-                                    {safeRenderText(authority.name)} {authority.type === 'regional_council' ? '(מועצה אזורית)' : authority.type === 'city' ? '(עירייה)' : '(מועצה מקומית)'}
-                                </option>
-                            ))}
-                        </select>
+                                />
+                                <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            </div>
+                            {showAuthorityDropdown && !loadingAuthorities && (
+                                <div className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+                                    {filteredAuthorities.length > 0 ? (
+                                        filteredAuthorities.map((authority) => (
+                                            <button
+                                                key={authority.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setValue('authorityId', authority.id as any);
+                                                    setAuthoritySearch(authority.name);
+                                                    setShowAuthorityDropdown(false);
+                                                }}
+                                                className={`w-full text-right px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-b-0 ${
+                                                    selectedAuthorityIdValue === authority.id ? 'bg-blue-50 font-bold' : ''
+                                                }`}
+                                            >
+                                                <span className="text-sm text-gray-800">{safeRenderText(authority.name)}</span>
+                                                <span className="text-xs text-gray-400 mr-2">
+                                                    {authority.type === 'regional_council' ? '(מועצה אזורית)' : authority.type === 'city' ? '(עירייה)' : '(מועצה מקומית)'}
+                                                </span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 text-center text-sm text-gray-400">לא נמצאו רשויות תואמות</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {/* Hidden input for react-hook-form registration */}
+                        <input type="hidden" {...register('authorityId', { required: 'נא לבחור רשות משויכת' })} />
                         {errors.authorityId && (
                             <span className="text-red-500 text-xs">{errors.authorityId.message as string || 'שדה חובה'}</span>
                         )}
                         {loadingAuthorities && (
-                            <span className="text-gray-500 text-xs">טוען רשויות...</span>
+                            <span className="text-gray-500 text-xs flex items-center gap-1">
+                                <Loader2 size={12} className="animate-spin" /> טוען רשויות...
+                            </span>
                         )}
                     </div>
 
@@ -311,7 +422,7 @@ function AddParkPageContent() {
                         <textarea
                             {...register('description')}
                             rows={3}
-                            className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none resize-none"
+                            className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none resize-none text-right"
                             placeholder="תיאור כללי על הפארק..."
                         />
                     </div>
@@ -335,88 +446,307 @@ function AddParkPageContent() {
                     </div>
                 </div>
 
-                {/* Amenities Section */}
+                {/* Feature Tags — SINGLE source of truth (Special Tags section) */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
-                        <span className="w-1 h-6 bg-green-500 rounded-full"></span>
-                        מאפייני הפארק
+                        <span className="w-1 h-6 bg-purple-500 rounded-full"></span>
+                        תגיות מיוחדות
                     </h2>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {/* Has Shadow */}
-                        <label className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            watch('amenities.hasShadow') 
-                                ? 'border-yellow-400 bg-yellow-50' 
-                                : 'border-gray-200 hover:bg-gray-50'
-                        }`}>
-                            <input
-                                type="checkbox"
-                                {...register('amenities.hasShadow')}
-                                className="w-5 h-5 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500"
-                            />
-                            <Sun size={32} className={watch('amenities.hasShadow') ? 'text-yellow-600' : 'text-yellow-400'} />
-                            <span className={`text-sm font-bold text-center ${
-                                watch('amenities.hasShadow') ? 'text-yellow-700' : 'text-gray-700'
-                            }`}>יש צל</span>
+                    <div className="space-y-3">
+                        <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                            <Tag size={14} className="text-purple-500" />
+                            מאפייני המתחם
+                            {(selectedFeatureTags?.length ?? 0) > 0 && (
+                                <span className="text-xs font-bold text-white bg-purple-500 px-2 py-0.5 rounded-full">
+                                    {selectedFeatureTags?.length}
+                                </span>
+                            )}
                         </label>
-
-                        {/* Has Lighting */}
-                        <label className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            watch('amenities.hasLighting') 
-                                ? 'border-yellow-300 bg-yellow-50' 
-                                : 'border-gray-200 hover:bg-gray-50'
-                        }`}>
-                            <input
-                                type="checkbox"
-                                {...register('amenities.hasLighting')}
-                                className="w-5 h-5 text-yellow-500 border-gray-300 rounded focus:ring-yellow-500"
-                            />
-                            <Lightbulb size={32} className={watch('amenities.hasLighting') ? 'text-yellow-500' : 'text-yellow-300'} />
-                            <span className={`text-sm font-bold text-center ${
-                                watch('amenities.hasLighting') ? 'text-yellow-700' : 'text-gray-700'
-                            }`}>יש תאורה</span>
-                        </label>
-
-                        {/* Has Toilets */}
-                        <label className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            watch('amenities.hasToilets') 
-                                ? 'border-blue-400 bg-blue-50' 
-                                : 'border-gray-200 hover:bg-gray-50'
-                        }`}>
-                            <input
-                                type="checkbox"
-                                {...register('amenities.hasToilets')}
-                                className="w-5 h-5 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <Toilet size={32} className={watch('amenities.hasToilets') ? 'text-blue-600' : 'text-blue-400'} />
-                            <span className={`text-sm font-bold text-center ${
-                                watch('amenities.hasToilets') ? 'text-blue-700' : 'text-gray-700'
-                            }`}>יש שירותים</span>
-                        </label>
-
-                        {/* Has Water */}
-                        <label className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            watch('amenities.hasWater') 
-                                ? 'border-cyan-400 bg-cyan-50' 
-                                : 'border-gray-200 hover:bg-gray-50'
-                        }`}>
-                            <input
-                                type="checkbox"
-                                {...register('amenities.hasWater')}
-                                className="w-5 h-5 text-cyan-500 border-gray-300 rounded focus:ring-cyan-500"
-                            />
-                            <Droplet size={32} className={watch('amenities.hasWater') ? 'text-cyan-600' : 'text-cyan-400'} />
-                            <span className={`text-sm font-bold text-center ${
-                                watch('amenities.hasWater') ? 'text-cyan-700' : 'text-gray-700'
-                            }`}>יש מים</span>
-                        </label>
+                        <p className="text-xs text-gray-400">
+                            סמנו את כל התגיות הרלוונטיות — צל, תאורה, מים, שירותים וכו&apos;.
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            {FEATURE_TAG_OPTIONS.map((tag) => {
+                                const isSelected = (selectedFeatureTags || []).includes(tag.id);
+                                return (
+                                    <button
+                                        key={tag.id}
+                                        type="button"
+                                        onClick={() => toggleFeatureTag(tag.id)}
+                                        className={`px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all flex items-center gap-2 ${
+                                            isSelected
+                                                ? 'bg-purple-50 border-purple-400 text-purple-700'
+                                                : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <span>{tag.icon}</span>
+                                        <span>{tag.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
+                </div>
+
+                {/* Gym Equipment Inventory — Searchable with inline thumbnails */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                            <span className="w-1 h-6 bg-indigo-500 rounded-full"></span>
+                            מתקנים קבועים בפארק ({gymEquipmentFields.length})
+                        </h2>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                appendGymEquipment({ equipmentId: '', brandName: '' });
+                                const newIndex = gymEquipmentFields.length;
+                                setEquipmentSearchTerms(prev => ({ ...prev, [newIndex]: '' }));
+                                setBrandSearchTerms(prev => ({ ...prev, [newIndex]: '' }));
+                            }}
+                            disabled={loadingGymEquipment}
+                            className="flex items-center gap-2 text-blue-600 font-bold hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            <Plus size={18} />
+                            הוסף ציוד
+                        </button>
+                    </div>
+
+                    <p className="text-xs text-gray-400 -mt-1">
+                        חפש וקשר מתקנים מהקטלוג הראשי. תמונת המתקן תוצג אוטומטית.
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        {gymEquipmentFields.map((field, index) => {
+                            const equipmentId = watch(`gymEquipment.${index}.equipmentId`);
+                            const brandName = watch(`gymEquipment.${index}.brandName`);
+                            
+                            const selectedEquipment = gymEquipmentList.find(e => e.id === equipmentId);
+
+                            // Filter equipment list by search term
+                            const eqSearch = (equipmentSearchTerms[index] || '').toLowerCase();
+                            const filteredEquipment = eqSearch
+                                ? gymEquipmentList.filter(e => e.name.toLowerCase().includes(eqSearch))
+                                : gymEquipmentList;
+
+                            // Filter brands by search term
+                            const brSearch = (brandSearchTerms[index] || '').toLowerCase();
+                            const filteredBrands = brSearch
+                                ? outdoorBrands.filter(b => b.name.toLowerCase().includes(brSearch))
+                                : outdoorBrands;
+
+                            // Icon hierarchy: Site Photo > Brand Category Icon > Default Icon
+                            const getEquipmentImage = (): string | undefined => {
+                                if (!selectedEquipment) return undefined;
+                                // 1. Brand-specific image (highest priority)
+                                if (brandName) {
+                                    const matchedBrand = selectedEquipment.brands.find(b => b.brandName === brandName);
+                                    if (matchedBrand?.imageUrl) return matchedBrand.imageUrl;
+                                }
+                                // 2. First brand's image (category icon fallback)
+                                const firstBrandWithImage = selectedEquipment.brands.find(b => b.imageUrl);
+                                return firstBrandWithImage?.imageUrl;
+                            };
+                            const previewImage = getEquipmentImage();
+
+                            return (
+                                <div key={field.id} className="bg-gray-50 p-4 rounded-xl border border-gray-200 relative group hover:border-indigo-200 transition-colors">
+                                    {/* Delete button with confirmation */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const name = selectedEquipment?.name || `מתקן #${index + 1}`;
+                                            if (window.confirm(`האם להסיר את "${name}" מרשימת המתקנים?`)) {
+                                                removeGymEquipment(index);
+                                                // Cleanup search terms for removed index
+                                                setEquipmentSearchTerms(prev => {
+                                                    const updated = { ...prev };
+                                                    delete updated[index];
+                                                    return updated;
+                                                });
+                                                setBrandSearchTerms(prev => {
+                                                    const updated = { ...prev };
+                                                    delete updated[index];
+                                                    return updated;
+                                                });
+                                            }
+                                        }}
+                                        className="absolute top-3 left-3 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                        title="הסר מתקן"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+
+                                    <div className="flex items-start gap-4">
+                                        {/* Inline thumbnail — icon hierarchy: image > brand icon > default */}
+                                        <div className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-gray-200 border border-gray-300 flex items-center justify-center">
+                                            {previewImage ? (
+                                                <img
+                                                    src={previewImage}
+                                                    alt={selectedEquipment?.name || 'מתקן'}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        (e.target as HTMLImageElement).parentElement!.classList.add('bg-indigo-100');
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Dumbbell size={24} className="text-gray-400" />
+                                            )}
+                                        </div>
+
+                                        {/* Search fields */}
+                                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {/* Equipment Search */}
+                                            <div className="space-y-1 relative">
+                                                <label className="text-xs font-bold text-gray-500">מתקן כושר *</label>
+                                                <div className="relative">
+                                                    <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                                    <input
+                                                        type="text"
+                                                        value={equipmentSearchTerms[index] ?? (selectedEquipment?.name || '')}
+                                                        onChange={(e) => {
+                                                            setEquipmentSearchTerms(prev => ({ ...prev, [index]: e.target.value }));
+                                                            setShowEquipmentDropdown(prev => ({ ...prev, [index]: true }));
+                                                            if (equipmentId) {
+                                                                setValue(`gymEquipment.${index}.equipmentId`, '');
+                                                                setValue(`gymEquipment.${index}.brandName`, '');
+                                                                setBrandSearchTerms(prev => ({ ...prev, [index]: '' }));
+                                                            }
+                                                        }}
+                                                        onFocus={() => setShowEquipmentDropdown(prev => ({ ...prev, [index]: true }))}
+                                                        placeholder="הקלד לחיפוש מתקן..."
+                                                        className="w-full p-2 pr-9 bg-white rounded-lg border-2 border-transparent focus:border-indigo-400 outline-none text-right text-sm"
+                                                        disabled={loadingGymEquipment}
+                                                    />
+                                                </div>
+                                                {showEquipmentDropdown[index] && !loadingGymEquipment && (
+                                                    <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+                                                        {filteredEquipment.length > 0 ? (
+                                                            filteredEquipment.map((equipment) => {
+                                                                // Inline thumbnail in dropdown
+                                                                const eqImg = equipment.brands.find(b => b.imageUrl)?.imageUrl;
+                                                                return (
+                                                                    <button
+                                                                        key={equipment.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setValue(`gymEquipment.${index}.equipmentId`, equipment.id);
+                                                                            setValue(`gymEquipment.${index}.brandName`, '');
+                                                                            setEquipmentSearchTerms(prev => ({ ...prev, [index]: equipment.name }));
+                                                                            setShowEquipmentDropdown(prev => ({ ...prev, [index]: false }));
+                                                                            setBrandSearchTerms(prev => ({ ...prev, [index]: '' }));
+                                                                        }}
+                                                                        className={`w-full text-right px-3 py-2.5 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-b-0 flex items-center gap-3 ${
+                                                                            equipmentId === equipment.id ? 'bg-blue-50 font-bold text-blue-700' : 'text-gray-700'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                                                                            {eqImg ? (
+                                                                                <img src={eqImg} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                                            ) : (
+                                                                                <Dumbbell size={14} className="text-gray-400" />
+                                                                            )}
+                                                                        </div>
+                                                                        <span className="text-sm flex-1">{equipment.name}</span>
+                                                                    </button>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <div className="p-3 text-center text-xs text-gray-400">לא נמצאו מתקנים</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Manufacturer/Brand Search — linked to OutdoorBrands collection */}
+                                            <div className="space-y-1 relative">
+                                                <label className="text-xs font-bold text-gray-500">חברה (יצרן) *</label>
+                                                <div className="relative">
+                                                    <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                                    <input
+                                                        type="text"
+                                                        value={brandSearchTerms[index] ?? brandName ?? ''}
+                                                        onChange={(e) => {
+                                                            setBrandSearchTerms(prev => ({ ...prev, [index]: e.target.value }));
+                                                            setShowBrandDropdown(prev => ({ ...prev, [index]: true }));
+                                                            if (brandName) {
+                                                                setValue(`gymEquipment.${index}.brandName`, '');
+                                                            }
+                                                        }}
+                                                        onFocus={() => setShowBrandDropdown(prev => ({ ...prev, [index]: true }))}
+                                                        placeholder="הקלד לחיפוש יצרן..."
+                                                        className="w-full p-2 pr-9 bg-white rounded-lg border-2 border-transparent focus:border-indigo-400 outline-none text-right text-sm disabled:opacity-50"
+                                                        disabled={!equipmentId || loadingBrands}
+                                                    />
+                                                </div>
+                                                {showBrandDropdown[index] && equipmentId && !loadingBrands && (
+                                                    <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+                                                        {filteredBrands.length > 0 ? (
+                                                            filteredBrands.map((brand) => (
+                                                                <button
+                                                                    key={brand.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setValue(`gymEquipment.${index}.brandName`, brand.name);
+                                                                        setBrandSearchTerms(prev => ({ ...prev, [index]: brand.name }));
+                                                                        setShowBrandDropdown(prev => ({ ...prev, [index]: false }));
+                                                                    }}
+                                                                    className={`w-full text-right px-3 py-2.5 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-b-0 flex items-center gap-3 ${
+                                                                        brandName === brand.name ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-gray-700'
+                                                                    }`}
+                                                                >
+                                                                    {brand.logoUrl ? (
+                                                                        <img
+                                                                            src={brand.logoUrl}
+                                                                            alt={brand.name}
+                                                                            className="w-6 h-6 rounded object-cover flex-shrink-0"
+                                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-6 h-6 rounded bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                                                            <ImageIcon size={12} className="text-gray-400" />
+                                                                        </div>
+                                                                    )}
+                                                                    <span className="text-sm">{brand.name}</span>
+                                                                </button>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-3 text-center text-xs text-gray-400">לא נמצאו יצרנים</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {gymEquipmentFields.length === 0 && (
+                        <div className="text-center py-10 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                            <Dumbbell size={32} className="mx-auto text-gray-300 mb-3" />
+                            <p className="text-gray-400 font-medium">טרם נוספו מתקנים קבועים לפארק זה</p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    appendGymEquipment({ equipmentId: '', brandName: '' });
+                                    setEquipmentSearchTerms(prev => ({ ...prev, 0: '' }));
+                                    setBrandSearchTerms(prev => ({ ...prev, 0: '' }));
+                                }}
+                                disabled={loadingGymEquipment}
+                                className="mt-3 text-indigo-600 font-bold hover:underline disabled:opacity-50"
+                            >
+                                הוסף את המתקן הראשון
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Location Card */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
-                        <span className="w-1 h-6 bg-purple-500 rounded-full"></span>
+                        <span className="w-1 h-6 bg-emerald-500 rounded-full"></span>
                         מיקום במפה
                     </h2>
                     <p className="text-sm text-gray-500">לחץ על המפה כדי לסמן את מיקום הפארק</p>
@@ -434,243 +764,32 @@ function AddParkPageContent() {
                     </div>
                 </div>
 
-                {/* Facilities Section */}
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center px-2">
-                        <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
-                            <span className="w-1 h-6 bg-orange-500 rounded-full"></span>
-                            מתקנים בפארק ({fields.length})
-                        </h2>
-                        <button
-                            type="button"
-                            onClick={() => append({ name: '', type: 'static', difficulty: 'beginner' })}
-                            className="flex items-center gap-2 text-blue-600 font-bold hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                            <Plus size={18} />
-                            הוסף מתקן
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative group">
-                                <button
-                                    type="button"
-                                    onClick={() => remove(index)}
-                                    className="absolute top-4 left-4 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    <Trash2 size={20} />
-                                </button>
-
-                                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-                                    <div className="md:col-span-1 flex justify-center pb-2">
-                                        <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 font-bold flex items-center justify-center">
-                                            {index + 1}
-                                        </span>
-                                    </div>
-
-                                    <div className="md:col-span-3 space-y-2">
-                                        <label className="text-xs font-bold text-gray-500">שם המתקן</label>
-                                        <input
-                                            {...register(`facilities.${index}.name` as const, { required: true })}
-                                            placeholder="שם המתקן"
-                                            className="w-full p-2 bg-gray-50 rounded-lg border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none"
-                                        />
-                                    </div>
-
-                                    <div className="md:col-span-2 space-y-2">
-                                        <label className="text-xs font-bold text-gray-500">סוג</label>
-                                        <select
-                                            {...register(`facilities.${index}.type` as const)}
-                                            className="w-full p-2 bg-gray-50 rounded-lg outline-none"
-                                        >
-                                            <option value="static">סטטי (מתח/מקבילים)</option>
-                                            <option value="machine">מכשיר כוח</option>
-                                            <option value="cardio">אירובי</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="md:col-span-2 space-y-2">
-                                        <label className="text-xs font-bold text-gray-500">קושי</label>
-                                        <select
-                                            {...register(`facilities.${index}.difficulty` as const)}
-                                            className="w-full p-2 bg-gray-50 rounded-lg outline-none"
-                                        >
-                                            <option value="beginner">מתחיל</option>
-                                            <option value="pro">מתקדם</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="md:col-span-4">
-                                        {/* תצוגה חכמה של בחירת תמונה למתקן */}
-                                        {watch(`facilities.${index}.imageFile`) && watch(`facilities.${index}.imageFile`)!.length > 0 ? (
-                                            <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 p-2 rounded-lg text-sm h-[42px]">
-                                                <div className="bg-green-500 text-white rounded-full p-0.5 shrink-0">
-                                                    <Plus size={12} className="rotate-45" />
-                                                </div>
-                                                <span className="truncate flex-1 font-medium">
-                                                    {watch(`facilities.${index}.imageFile`)![0].name}
-                                                </span>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => setValue(`facilities.${index}.imageFile`, undefined)}
-                                                    className="p-1 hover:bg-green-100 rounded-full transition-colors text-green-800"
-                                                    title="הסר תמונה"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <label className="flex items-center justify-center gap-2 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded-lg p-2 h-[42px] transition-colors w-full">
-                                                <ImageIcon size={18} className="text-gray-400" />
-                                                <span className="text-sm text-gray-500">תמונה</span>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    {...register(`facilities.${index}.imageFile` as const)}
-                                                    className="hidden"
-                                                />
-                                            </label>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {fields.length === 0 && (
-                        <div className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                            <p className="text-gray-400">טרם נוספו מתקנים לפארק זה</p>
-                            <button
-                                type="button"
-                                onClick={() => append({ name: '', type: 'static', difficulty: 'beginner' })}
-                                className="mt-2 text-blue-600 font-bold hover:underline"
-                            >
-                                הוסף את המתקן הראשון
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Gym Equipment Section */}
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center px-2">
-                        <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
-                            <span className="w-1 h-6 bg-indigo-500 rounded-full"></span>
-                            מתקנים קבועים בפארק ({gymEquipmentFields.length})
-                        </h2>
-                        <button
-                            type="button"
-                            onClick={() => appendGymEquipment({ equipmentId: '', brandName: '' })}
-                            disabled={loadingGymEquipment}
-                            className="flex items-center gap-2 text-blue-600 font-bold hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                            <Plus size={18} />
-                            הוסף מתקן
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4">
-                        {gymEquipmentFields.map((field, index) => {
-                            const equipmentId = watch(`gymEquipment.${index}.equipmentId`);
-                            const brandName = watch(`gymEquipment.${index}.brandName`);
-                            
-                            const selectedEquipment = gymEquipmentList.find(e => e.id === equipmentId);
-                            const availableBrands = selectedEquipment?.brands || [];
-
-                            return (
-                                <div key={field.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative group">
-                                    <button
-                                        type="button"
-                                        onClick={() => removeGymEquipment(index)}
-                                        className="absolute top-4 left-4 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 size={20} />
-                                    </button>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end pr-10">
-                                        <div className="md:col-span-5 space-y-2">
-                                            <label className="text-xs font-bold text-gray-500">מתקן כושר *</label>
-                                            <select
-                                                {...register(`gymEquipment.${index}.equipmentId` as const, { required: true })}
-                                                onChange={(e) => {
-                                                    setValue(`gymEquipment.${index}.equipmentId`, e.target.value);
-                                                    // Reset brand when equipment changes
-                                                    setValue(`gymEquipment.${index}.brandName`, '');
-                                                }}
-                                                disabled={loadingGymEquipment}
-                                                className="w-full p-2 bg-gray-50 rounded-lg border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none disabled:opacity-50"
-                                            >
-                                                <option value="">בחר מתקן...</option>
-                                                {gymEquipmentList.map((equipment) => (
-                                                    <option key={equipment.id} value={equipment.id}>
-                                                        {equipment.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div className="md:col-span-5 space-y-2">
-                                            <label className="text-xs font-bold text-gray-500">חברה (יצרן) *</label>
-                                            <select
-                                                {...register(`gymEquipment.${index}.brandName` as const, { required: true })}
-                                                disabled={!selectedEquipment || loadingGymEquipment}
-                                                className="w-full p-2 bg-gray-50 rounded-lg border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none disabled:opacity-50"
-                                            >
-                                                <option value="">בחר חברה...</option>
-                                                {availableBrands.map((brand) => (
-                                                    <option key={brand.brandName} value={brand.brandName}>
-                                                        {brand.brandName}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Brand Preview */}
-                                        {selectedEquipment && brandName && (
-                                            <div className="md:col-span-12 mt-2">
-                                                {(() => {
-                                                    const selectedBrand = availableBrands.find(b => b.brandName === brandName);
-                                                    return selectedBrand?.imageUrl ? (
-                                                        <div className="relative w-full h-32 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                                                            <img
-                                                                src={selectedBrand.imageUrl}
-                                                                alt={selectedBrand.brandName}
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    (e.target as HTMLImageElement).style.display = 'none';
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    ) : null;
-                                                })()}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {gymEquipmentFields.length === 0 && (
-                        <div className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                            <p className="text-gray-400">טרם נוספו מתקנים קבועים לפארק זה</p>
-                            <button
-                                type="button"
-                                onClick={() => appendGymEquipment({ equipmentId: '', brandName: '' })}
-                                disabled={loadingGymEquipment}
-                                className="mt-2 text-blue-600 font-bold hover:underline disabled:opacity-50"
-                            >
-                                הוסף את המתקן הראשון
-                            </button>
-                        </div>
-                    )}
-                </div>
             </form>
+
+            {/* Sticky Save Footer — glassmorphism, always visible */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none" dir="rtl">
+                <div className="max-w-4xl mx-auto px-4 pb-4 pointer-events-auto">
+                    <div className="bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] rounded-2xl p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            <span className="hidden sm:inline">טופס הוספת פארק</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleSubmit(onSubmit)}
+                            disabled={isSubmitting}
+                            className="flex items-center gap-2 bg-green-600 text-white px-8 py-3 rounded-xl font-bold text-base shadow-lg hover:bg-green-700 hover:shadow-xl transition-all disabled:opacity-50"
+                        >
+                            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                            <span>{isSubmitting ? 'שומר...' : 'שמור פארק'}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Progress Overlay */}
             {isSubmitting && uploadProgress && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-3 z-50 animate-in slide-in-from-bottom-5">
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-3 z-50 animate-in slide-in-from-bottom-5">
                     <Loader2 className="animate-spin" size={20} />
                     <span className="font-bold">{uploadProgress}</span>
                 </div>

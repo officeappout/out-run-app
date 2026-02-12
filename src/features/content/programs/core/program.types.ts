@@ -3,11 +3,21 @@
  * Used for Admin-managed Levels and Programs
  */
 
+export { type LevelGoal } from '@/types/workout';
+
 export interface Level {
   id: string;
   name: string; // e.g., "Beginner", "Intermediate"
   order: number; // 1-5 (or more)
   description?: string;
+
+  // XP Thresholds
+  minXP?: number;
+  maxXP?: number;
+
+  // Target Exercise Goals
+  targetGoals?: import('@/types/workout').LevelGoal[];
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -42,6 +52,9 @@ export interface ProgramLevelSettings {
   volumeAdjustment?: number;    // Optional volume adjustment percentage (-50 to +50)
   focusAreas?: string[];        // Optional focus areas for this level
   prerequisites?: string[];     // Optional: level descriptions that should be completed first
+
+  // Target Exercise Goals for this specific program-level
+  targetGoals?: import('@/types/workout').LevelGoal[];
   
   createdAt?: Date;
   updatedAt?: Date;

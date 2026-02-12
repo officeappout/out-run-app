@@ -7,9 +7,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { 
     LayoutDashboard, 
-    MapPin, 
     Dumbbell, 
-    Waypoints, 
     ClipboardList, 
     Package, 
     LogOut, 
@@ -27,7 +25,9 @@ import {
     Zap,
     Bell,
     FileText,
-    LayoutGrid
+    LayoutGrid,
+    Map,
+    Signal
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -46,7 +46,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boo
     const sectionPaths: Record<SectionId, string[]> = {
         overview: ['/admin', '/admin/roadmap'],
         municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager'],
-        appCore: ['/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/progression-manager', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire'],
+        appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire'],
         production: ['/admin/content-matrix', '/admin/content-status'],
         brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator'],
         system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs'],
@@ -382,7 +382,7 @@ export default function AdminLayout({
                         /* Simplified sidebar for Authority Managers */
                         <div className="space-y-1">
                             <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד" />
-                            <SidebarLink href="/admin/parks" icon={MapPin} label="פארקים" />
+                            <SidebarLink href="/admin/locations" icon={Map} label="ניהול מיקומים" />
                             <SidebarLink href="/admin/users/all" icon={Users} label="משתמשים" />
                         </div>
                     ) : showFullSidebar ? (
@@ -421,12 +421,13 @@ export default function AdminLayout({
                                     <SectionHeader sectionId="appCore" icon={Zap} label="ליבת האפליקציה" />
                                     {expandedSections.has('appCore') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/parks" icon={MapPin} label="פארקים" />
-                                            <SidebarLink href="/admin/routes" icon={Waypoints} label="מסלולים" />
+                                            <SidebarLink href="/admin/locations" icon={Map} label="ניהול מיקומים על המפה" />
                                             <SidebarLink href="/admin/exercises" icon={Dumbbell} label="בנק תרגילים" />
                                             <SidebarLink href="/admin/programs" icon={ClipboardList} label="תוכניות אימון" />
+                                            <SidebarLink href="/admin/levels" icon={Signal} label="רמות למור (Lemur Levels)" />
                                             <SidebarLink href="/admin/questionnaire" icon={ClipboardList} label="ניהול שאלון דינמי" />
                                             <SidebarLink href="/admin/progression-manager" icon={TrendingUp} label="מנהל התקדמות" />
+                                            <SidebarLink href="/admin/level-equivalence" icon={Zap} label="שקילות רמות" />
                                             
                                             {/* Equipment Sub-items */}
                                             <div className="pt-1 pr-2">

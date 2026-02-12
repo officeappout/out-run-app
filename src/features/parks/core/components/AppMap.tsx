@@ -42,6 +42,8 @@ interface AppMapProps {
   destinationMarker?: { lat: number; lng: number } | null;
   isNavigationMode?: boolean;
   userBearing?: number;
+  /** When true, shows admin-only infrastructure toggle */
+  isAdmin?: boolean;
 }
 
 export default function AppMap({
@@ -54,7 +56,8 @@ export default function AppMap({
   isActiveWorkout,
   destinationMarker,
   isNavigationMode = false,
-  userBearing = 0
+  userBearing = 0,
+  isAdmin = false,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -64,6 +67,19 @@ export default function AppMap({
   const { setSelectedPark, visibleLayers } = useMapStore();
   const { facilities } = useFacilities();
   const [selectedFacility, setSelectedFacility] = useState<any | null>(null);
+
+  // Admin-only: infrastructure visibility toggle (hidden from end-users)
+  const [showInfrastructure, setShowInfrastructure] = useState(false);
+
+  // Filter routes: hide infrastructure for end-users, show only if admin toggles on
+  const visibleRoutes = useMemo(() => {
+    return routes.filter((r) => {
+      if (r.isInfrastructure) {
+        return isAdmin && showInfrastructure;
+      }
+      return true;
+    });
+  }, [routes, isAdmin, showInfrastructure]);
 
   useEffect(() => {
     const loadParks = async () => {
@@ -172,13 +188,14 @@ export default function AppMap({
   const routesGeoJSON = useMemo(() => {
     return {
       type: 'FeatureCollection',
-      features: routes
+      features: visibleRoutes
         .filter(r => r.path && r.path.length > 1)
         .map(route => ({
           type: 'Feature',
           properties: {
             id: route.id,
-            isFocused: focusedRoute?.id === route.id
+            isFocused: focusedRoute?.id === route.id,
+            isInfrastructure: route.isInfrastructure || false,
           },
           geometry: {
             type: 'LineString',
@@ -186,7 +203,7 @@ export default function AppMap({
           }
         }))
     };
-  }, [routes, focusedRoute]);
+  }, [visibleRoutes, focusedRoute]);
 
   const livePathGeoJSON = useMemo(() => {
     if (!livePath || livePath.length < 2) return null;
@@ -413,7 +430,7 @@ export default function AppMap({
           </Marker>
         )}
 
-        {!isActiveWorkout && routes.map(route => {
+        {!isActiveWorkout && visibleRoutes.map(route => {
           const startPoint = route.path?.[0];
           if (!startPoint) return null;
           const isSelected = focusedRoute?.id === route.id;
@@ -533,6 +550,25 @@ export default function AppMap({
         </>
         )}
       </Map>
+
+      {/* Admin-only: Infrastructure visibility toggle */}
+      {isAdmin && (
+        <button
+          onClick={() => setShowInfrastructure((prev) => !prev)}
+          className={`absolute top-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-lg transition-all ${
+            showInfrastructure
+              ? 'bg-amber-500 text-white'
+              : 'bg-white/90 text-gray-500 border border-gray-200'
+          }`}
+          title="Toggle infrastructure visibility (admin only)"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          {showInfrastructure ? 'תשתיות: ON' : 'תשתיות: OFF'}
+        </button>
+      )}
     </div>
   );
 }

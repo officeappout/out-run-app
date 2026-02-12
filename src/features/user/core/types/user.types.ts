@@ -2,6 +2,28 @@ import { RunningProfile } from '../../../workout-engine/core/types/running.types
 import { DomainTrackProgress, ReadyForSplitStatus } from './progression.types';
 
 // ==========================================
+// Level Goal Progress Tracking
+// ==========================================
+/**
+ * Tracks a user's progress on admin-defined level goals.
+ * Stored in progression.levelGoalProgress[]
+ */
+export interface UserLevelGoalProgress {
+  levelId: string;
+  levelName: string;
+  goals: {
+    exerciseId: string;
+    exerciseName: string;
+    targetValue: number;
+    unit: 'reps' | 'seconds';
+    bestPerformance: number;      // User's best performance so far
+    lastAttemptDate?: Date;
+    completionPercent: number;    // (bestPerformance / targetValue) * 100, capped at 100
+    isCompleted: boolean;         // true if bestPerformance >= targetValue
+  }[];
+}
+
+// ==========================================
 // 1. הגדרת התחומים המקצועיים (Skill Tree Domains)
 // אלו "עמודי התווך" של המערכת. הם קבועים ולא משתנים.
 // ==========================================
@@ -91,16 +113,12 @@ export interface UserProgression {
   // תרגילים מיוחדים שנפתחו כבונוס
   unlockedBonusExercises: string[];
 
-  // --- Master Program Hidden Sub-Levels (Invisible Complexity) ---
-  // For Master Programs (e.g., "Full Body"), track sub-levels separately
-  // but show only a unified "Global Level" to beginners (Level 1-5)
+  // --- Master Program Hidden Sub-Levels (Dynamic Child Mapping) ---
+  // For Master Programs (e.g., "Full Body"), track sub-levels separately.
+  // Keys are the master programId, values are Record<childProgramId, level>.
+  // Example: { "full_body": { "push": 3, "pull": 2, "legs": 4 } }
   masterProgramSubLevels?: {
-    [programId: string]: {
-      upper_body_level?: number;
-      lower_body_level?: number;
-      core_level?: number;
-      // Add more sub-domains as needed
-    };
+    [masterProgramId: string]: Record<string, number>;
   };
 
   // --- Domain-Specific Progression Tracks ---
@@ -114,6 +132,21 @@ export interface UserProgression {
   // Triggered when full_body level reaches threshold (10)
   // Suggests transitioning to split training (upper/lower)
   readyForSplit?: ReadyForSplitStatus;
+
+  // --- Program Progress Tracking (Golden Content Hyper-Personalization) ---
+  // Progress percentage (0-100) in the user's current primary program
+  // Used by the scoring engine for Level-Up content targeting (90-100% = +5 bonus)
+  programProgress?: number;
+  
+  // Current program name for @שם_תוכנית tag (e.g., 'pulling', 'pushing', 'core')
+  currentProgram?: string;
+  
+  // Target level for @רמה_הבאה tag
+  targetLevel?: number;
+
+  // --- Level Goal Progress Tracking ---
+  // Tracks user's performance on admin-defined target exercises per level
+  levelGoalProgress?: UserLevelGoalProgress[];
 }
 
 // ==========================================
@@ -153,6 +186,9 @@ export interface UserFullProfile {
     authorityId?: string; // Link to authority (city/region) for manager access control
     isSuperAdmin?: boolean; // Super admin flag for platform administrators
     isApproved?: boolean; // Approval status for admin access (defaults to false for new sign-ups)
+
+    // Active Reserve Status — gives +20 scoring boost to reservist-targeted content
+    isActiveReserve?: boolean;
   };
 
   // כאן יושבת המערכת החדשה המאוחדת

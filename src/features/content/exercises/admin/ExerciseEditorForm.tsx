@@ -13,7 +13,6 @@ import { getAllGearDefinitions } from '../../equipment/gear/core/gear-definition
 import { GymEquipment } from '../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../equipment/gear/core/gear-definition.types';
 import { BasicsSection, MethodsSection, ContentSection, GeneralMetricsSection, TechnicalClassificationSection, MuscleSelectionSection, ExecutionDetailsSection, MobilePreview, CollapsibleSection } from './components/exercise-editor';
-import DraftStatusIndicator from './components/exercise-editor/DraftStatusIndicator';
 import { useAutoSaveDraft } from './hooks/useAutoSaveDraft';
 import { discardExerciseDraft } from '../core/exercise.service';
 import { safeRenderText } from '@/utils/render-helpers';
@@ -242,41 +241,17 @@ export default function ExerciseEditorForm({
       window.location.reload();
     } catch (error) {
       console.error('Error discarding draft:', error);
-      alert('שגיאה בביטול הטיוטה');
     } finally {
       setIsDiscardingDraft(false);
     }
   };
 
-  // Load draft data on mount if it exists
+  // Silent draft check on mount — no browser alerts.
+  // If a draft exists, we just set the flag so the "discard" button appears.
+  // The editor always opens clean with the published data.
   useEffect(() => {
-    const checkAndLoadDraft = async () => {
-      if (!exerciseId) return;
-      
-      const draft = await loadDraft();
-      if (draft && draft.data) {
-        // Ask user if they want to continue with draft
-        const useDraft = window.confirm(
-          `נמצאה טיוטה שנשמרה ב-${draft.savedAt.toLocaleString('he-IL')}.\nהאם לטעון את הטיוטה? (לחיצה על "ביטול" תטען את הנתונים המפורסמים)`
-        );
-        
-        if (useDraft) {
-          // Update form data with draft
-          setFormDataInternal(draft.data);
-          if (draft.data.content?.highlights) {
-            setHighlights(sanitizeInitialHighlights(draft.data.content.highlights));
-          }
-          if (draft.data.execution_methods) {
-            setExecutionMethods(sanitizeAndCloneExecutionMethods(draft.data.execution_methods));
-          }
-          if (draft.data.targetPrograms) {
-            setTargetPrograms(draft.data.targetPrograms);
-          }
-        }
-      }
-    };
-    
-    checkAndLoadDraft();
+    if (!exerciseId) return;
+    loadDraft(); // sets hasDraft=true internally if a draft exists
   }, [exerciseId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showBaseMovementSuggestions, setShowBaseMovementSuggestions] = useState(false);
   const [focusedMethodIndex, setFocusedMethodIndex] = useState<number | null>(null);
@@ -888,17 +863,25 @@ export default function ExerciseEditorForm({
       <div className="pb-32" />
     </form>
 
-    {/* Fixed Save Bar (Bottom) */}
+    {/* Fixed Save Bar (Bottom) — Silent UX: no draft popups */}
     <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/90 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-        {/* Draft Status Indicator */}
-        {exerciseId && (
-          <DraftStatusIndicator
-            state={draftState}
-            hasDraft={hasDraft}
-            onDiscard={handleDiscardDraft}
-            isPublishing={isSubmitting}
-          />
+        {/* Minimal draft indicator — inline, no popups */}
+        {exerciseId && draftState.status === 'saving' && (
+          <span className="text-xs text-cyan-500 font-medium animate-pulse whitespace-nowrap">שומר...</span>
+        )}
+        {exerciseId && draftState.status === 'error' && (
+          <span className="text-xs text-red-500 font-medium whitespace-nowrap">שגיאה בשמירה</span>
+        )}
+        {exerciseId && hasDraft && draftState.status !== 'saving' && draftState.status !== 'error' && (
+          <button
+            type="button"
+            onClick={handleDiscardDraft}
+            disabled={isDiscardingDraft}
+            className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            בטל טיוטה
+          </button>
         )}
         
         {/* Publish Button */}

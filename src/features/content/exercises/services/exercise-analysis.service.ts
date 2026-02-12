@@ -101,7 +101,7 @@ export function isExercisePendingFilming(exercise: Exercise): boolean {
 // CONTENT MATRIX TYPES
 // ============================================================================
 
-export const CONTENT_LOCATIONS: ExecutionLocation[] = ['home', 'park', 'office', 'gym', 'street'];
+export const CONTENT_LOCATIONS: ExecutionLocation[] = ['home', 'park', 'office', 'gym', 'street', 'library'];
 
 /**
  * Production status for a method at a specific location

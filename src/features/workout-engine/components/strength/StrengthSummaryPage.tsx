@@ -31,6 +31,11 @@ import {
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
+import { calculateBaseWorkoutXP, calculateLevelFromXP, getProgressToNextLevel } from '@/features/user/progression/services/xp.service';
+import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
+import { getAllLevels } from '@/features/content/programs/core/level.service';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 
 // ============================================================================
 // TYPES
@@ -62,6 +67,9 @@ export interface StrengthSummaryPageProps {
   
   /** Current streak (consecutive workouts) */
   streak?: number;
+  
+  /** Current program ID (e.g. 'full_body', 'push') - used for domain progression */
+  programId?: string;
   
   /** Current program name */
   programName?: string;
@@ -370,6 +378,7 @@ export default function StrengthSummaryPage({
   completedExercises,
   difficulty,
   streak: propStreak = 0,
+  programId: propProgramId,
   programName = 'תוכנית כל הגוף',
   currentLevel = 5,
   maxLevel = 10,
@@ -429,7 +438,112 @@ export default function StrengthSummaryPage({
     // Update Progression Store (global coins)
     console.log('[StrengthSummaryPage] Adding coins to ProgressionStore:', coins);
     addCoins(coins);
-  }, [logWorkout, addCoins, durationMinutes, calories, coins]);
+
+    // Award XP (hidden — user only sees %)
+    const awardStrengthXP = async () => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+
+        const difficultyNum = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
+        const baseXP = calculateBaseWorkoutXP(durationMinutes, difficultyNum, 'strength');
+
+        const userDocRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userDocRef);
+        if (!userSnap.exists()) return;
+
+        const userData = userSnap.data();
+        const currentXP = userData.progression?.globalXP || 0;
+        const newXP = currentXP + baseXP;
+
+        const levels = await getAllLevels();
+        const newLevel = calculateLevelFromXP(newXP, levels);
+        const pct = getProgressToNextLevel(newXP, newLevel, levels);
+
+        await updateDoc(userDocRef, {
+          'progression.globalXP': newXP,
+          'progression.globalLevel': newLevel,
+        });
+
+        console.log(`[XP] +${baseXP} XP (hidden). Progress: ${Math.round(pct)}% → Level ${newLevel + 1}`);
+      } catch (e) {
+        console.error('[XP] Failed to award XP:', e);
+      }
+    };
+    awardStrengthXP();
+
+    // ✅ WORKOUT BRIDGE: Trigger domain-specific progression + master-level recalculation
+    // This activates the full Phases 6-10 recursive progression pipeline
+    const triggerDomainProgression = async () => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+
+        // Determine active program ID:
+        // 1. From prop (highest priority — passed by workout engine)
+        // 2. From Firestore user doc (fallback)
+        let activeProgramId = propProgramId;
+        if (!activeProgramId) {
+          const userDocRef = doc(db, 'users', uid);
+          const userSnap = await getDoc(userDocRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            activeProgramId = userData.currentProgramId || 
+                              userData.progression?.activePrograms?.[0]?.id || 
+                              'full_body';
+          } else {
+            activeProgramId = 'full_body';
+          }
+        }
+
+        // Convert CompletedExercise[] → WorkoutExerciseResult[]
+        const exerciseResults = completedExercises
+          .filter(ex => ex.category === 'main' || ex.category === 'superset') // Skip warmup/stretches
+          .map(ex => ({
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            programLevels: {} as Record<string, number>, // Not available here — linked detection will use other signals
+            setsCompleted: ex.sets.length,
+            repsPerSet: ex.sets,
+            targetReps: ex.sets.length > 0 ? Math.max(...ex.sets) : 10, // Use highest set as proxy for target
+            isCompound: ex.category === 'superset', // Supersets are compound movements
+          }));
+
+        if (exerciseResults.length === 0) {
+          console.log('[Progression] No main/superset exercises to process — skipping domain progression');
+          return;
+        }
+
+        const result = await processWorkoutCompletion({
+          userId: uid,
+          activeProgramId,
+          exercises: exerciseResults,
+          totalDuration: durationMinutes,
+          completedAt: new Date(),
+        });
+
+        if (result.success) {
+          const gain = result.activeProgramGain;
+          console.log(`[Progression] Domain progression: ${activeProgramId} +${gain.totalGain.toFixed(1)}%` +
+            (gain.leveledUp ? ` → LEVEL UP to ${gain.newLevel}!` : ` (now ${gain.newPercent.toFixed(1)}%)`));
+          
+          if (result.linkedProgramGains.length > 0) {
+            console.log(`[Progression] Linked programs updated:`, 
+              result.linkedProgramGains.map(lp => `${lp.programId} +${lp.gain.toFixed(1)}%`).join(', '));
+          }
+          
+          if (result.readyForSplit?.isReady) {
+            console.log(`[Progression] Ready for split! Suggested: ${result.readyForSplit.suggestedPrograms?.join(', ')}`);
+          }
+        } else {
+          console.warn('[Progression] processWorkoutCompletion returned failure');
+        }
+      } catch (e) {
+        console.error('[Progression] Failed to process domain progression:', e);
+      }
+    };
+    triggerDomainProgression();
+  }, [logWorkout, addCoins, durationMinutes, calories, coins, difficulty, propProgramId, completedExercises]);
   
   // Group exercises by category
   const groupedExercises = groupExercisesByCategory(completedExercises);

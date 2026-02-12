@@ -15,6 +15,8 @@ import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLa
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { auth } from '@/lib/firebase';
+import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 
 /**
  * Dynamic Onboarding Page
@@ -42,11 +44,12 @@ export default function DynamicOnboardingPage() {
   const [assignedLevel, setAssignedLevel] = useState<number | undefined>();
   const [assignedLevelId, setAssignedLevelId] = useState<string | undefined>();
   const [assignedProgramId, setAssignedProgramId] = useState<string | undefined>();
-  const [masterProgramSubLevels, setMasterProgramSubLevels] = useState<{
-    upper_body_level?: number;
-    lower_body_level?: number;
-    core_level?: number;
-  } | undefined>();
+  const [assignedResults, setAssignedResults] = useState<Array<{
+    programId: string;
+    levelId: string;
+    masterProgramSubLevels?: Record<string, number>;
+  }> | undefined>();
+  const [masterProgramSubLevels, setMasterProgramSubLevels] = useState<Record<string, number> | undefined>();
 
   // Reveal screen state
   const [showResultLoading, setShowResultLoading] = useState(false);
@@ -128,8 +131,22 @@ export default function DynamicOnboardingPage() {
           setAssignedLevel(result.assignedLevel);
           setAssignedLevelId(result.assignedLevelId);
           setAssignedProgramId(result.assignedProgramId);
+          setAssignedResults(result.assignedResults);
           setMasterProgramSubLevels(result.masterProgramSubLevels);
           setCurrentQuestion(null);
+
+          // Persist assignedResults to sessionStorage for cross-page access
+          // (OnboardingWizard Phase 2 will read these when syncing to Firestore)
+          if (result.assignedResults && result.assignedResults.length > 0) {
+            sessionStorage.setItem('onboarding_assigned_results', JSON.stringify(result.assignedResults));
+          }
+          if (result.assignedProgramId) {
+            sessionStorage.setItem('onboarding_assigned_program_id', result.assignedProgramId);
+          }
+          if (result.assignedLevelId) {
+            sessionStorage.setItem('onboarding_assigned_level_id', result.assignedLevelId);
+          }
+
           // Trigger completion flow immediately (skips Part 2)
           await handleComplete();
         } else if (result.nextQuestion) {
@@ -252,10 +269,35 @@ export default function DynamicOnboardingPage() {
         sessionStorage.removeItem('onboarding_claim_calories');
       }
 
-      // Save profile
+      // Save profile locally
       await initializeProfile(profile);
       
       console.log('✅ Profile initialized with Level:', assignedLevel, 'LevelId:', assignedLevelId, 'Program:', assignedProgramId, 'SubLevels:', masterProgramSubLevels);
+
+      // ✅ PERSISTENCE FIX: Sync assignedResults to Firestore immediately
+      // This ensures quiz results are saved even if user drops off before Phase 2
+      try {
+        // Build the data payload with assignedResults for Firestore persistence
+        const syncPayload: any = {
+          ...allAnswers,
+          assignedResults: assignedResults || (engine.getProgress() as any).assignedResults,
+          assignedProgramId,
+          assignedLevelId,
+          selectedGoal: savedGoals?.[0],
+          selectedGoalIds: savedGoals,
+          selectedPersonaId: savedPersonaId || undefined,
+          selectedPersonaIds: savedPersonaId ? [savedPersonaId] : [],
+          lifestyleTags: savedPersonaTags,
+        };
+        
+        await syncOnboardingToFirestore('COMPLETED', syncPayload);
+        console.log('✅ assignedResults synced to Firestore');
+      } catch (syncErr) {
+        console.warn('[Onboarding] Firestore sync failed (non-blocking):', syncErr);
+      }
+
+      // Note: Master-level aggregation is now handled automatically in onboarding-sync.service.ts
+      // when step === 'COMPLETED'. No need for duplicate recalculation here.
 
       // Show result loading animation
       setShowResultLoading(true);
@@ -263,7 +305,7 @@ export default function DynamicOnboardingPage() {
       console.error('Error completing onboarding:', err);
       alert('שגיאה בשמירת הפרופיל. אנא נסה שוב.');
     }
-  }, [assignedLevel, assignedLevelId, assignedProgramId, masterProgramSubLevels, engine, initializeProfile]);
+  }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile]);
 
   // Handle result loading complete - show program result
   const handleResultLoadingComplete = useCallback(() => {

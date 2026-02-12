@@ -16,6 +16,34 @@ export * from './logic';
 // Generator (AI Workout Builder)
 export * from './generator';
 
+// Home Workout Service (Orchestrator for Home Dashboard)
+export {
+  generateHomeWorkout,
+  calculateDaysInactive,
+  extractInjuryShield,
+  mapPersonaIdToLifestylePersona,
+  detectTimeOfDay,
+  TIME_OF_DAY_OPTIONS,
+  type HomeWorkoutOptions,
+  type HomeWorkoutResult,
+  type TimeOfDay,
+} from './services/home-workout.service';
+
+// Workout Metadata Service (Firestore-driven titles, descriptions, AI cues)
+export {
+  resolveWorkoutMetadata,
+  type WorkoutMetadataContext,
+  type ResolvedWorkoutMetadata,
+} from './services/workout-metadata.service';
+
+// Shadow Level Utilities (Per-exercise level resolution)
+export {
+  getEffectiveLevelForExercise,
+  createDefaultShadowMatrix,
+  type ShadowMatrix,
+  type LevelOverride,
+} from './services/shadow-level.utils';
+
 // Players (Running, Strength, Hybrid)
 export * from './players';
 

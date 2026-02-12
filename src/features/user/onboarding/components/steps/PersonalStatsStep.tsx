@@ -6,7 +6,6 @@ import {
   History, 
   Check, 
   ChevronRight, 
-  Dumbbell, 
   TreePine, 
   Weight,
   Sofa,
@@ -15,10 +14,14 @@ import {
   Users,
   Home,
   Building2,
-  Bike,
-  Zap,
   Sparkles,
-  Heart
+  Zap,
+  Dumbbell,
+  Trophy,
+  Heart,
+  Swords,
+  Mountain,
+  ChevronDown,
 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
@@ -93,22 +96,96 @@ const LOCATION_OPTIONS: LocationOption[] = [
   { id: 'none', labelHe: 'אחר / אף אחד', labelEn: 'Other / None', Icon: Sparkles },
 ];
 
-// Sports/Activities options
-interface SportOption {
+// Hierarchical Sport Categories
+interface SportSubOption {
+  id: string;
+  labelHe: string;
+  labelEn: string;
+}
+
+interface SportCategory {
   id: string;
   labelHe: string;
   labelEn: string;
   Icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  color: string;
+  subOptions: SportSubOption[];
 }
 
-const SPORTS_OPTIONS: SportOption[] = [
-  { id: 'running', labelHe: 'ריצה', labelEn: 'Running', Icon: Zap },
-  { id: 'yoga', labelHe: 'יוגה ופילאטיס', labelEn: 'Yoga & Pilates', Icon: Sparkles },
-  { id: 'cycling', labelHe: 'רכיבה', labelEn: 'Cycling', Icon: Bike },
-  { id: 'strength', labelHe: 'כוח', labelEn: 'Strength', Icon: Dumbbell },
-  { id: 'cardio', labelHe: 'קרדיו', labelEn: 'Cardio', Icon: Heart },
-  { id: 'crossfit', labelHe: 'קרוספיט', labelEn: 'CrossFit', Icon: Flame },
-  { id: 'none', labelHe: 'אחר / אף אחד', labelEn: 'Other / None', Icon: Sparkles },
+const SPORT_HIERARCHY: SportCategory[] = [
+  {
+    id: 'cardio',
+    labelHe: 'אירובי וסיבולת',
+    labelEn: 'Cardio & Endurance',
+    Icon: Zap,
+    color: '#3B82F6',
+    subOptions: [
+      { id: 'running', labelHe: 'ריצה', labelEn: 'Running' },
+      { id: 'walking', labelHe: 'הליכה', labelEn: 'Walking' },
+      { id: 'cycling', labelHe: 'אופניים', labelEn: 'Cycling' },
+      { id: 'swimming', labelHe: 'שחייה', labelEn: 'Swimming' },
+    ],
+  },
+  {
+    id: 'strength',
+    labelHe: 'כוח ותנועה',
+    labelEn: 'Strength & Movement',
+    Icon: Dumbbell,
+    color: '#8B5CF6',
+    subOptions: [
+      { id: 'calisthenics', labelHe: 'קליסטניקס', labelEn: 'Calisthenics' },
+      { id: 'crossfit', labelHe: 'קרוספיט', labelEn: 'CrossFit' },
+      { id: 'functional', labelHe: 'אימון פונקציונלי', labelEn: 'Functional Training' },
+      { id: 'movement', labelHe: 'מובמנט', labelEn: 'Movement' },
+    ],
+  },
+  {
+    id: 'ball_games',
+    labelHe: 'משחקי כדור',
+    labelEn: 'Ball Games',
+    Icon: Trophy,
+    color: '#F59E0B',
+    subOptions: [
+      { id: 'basketball', labelHe: 'כדורסל', labelEn: 'Basketball' },
+      { id: 'football', labelHe: 'כדורגל', labelEn: 'Football' },
+      { id: 'tennis_padel', labelHe: 'טניס ופאדל', labelEn: 'Tennis & Padel' },
+    ],
+  },
+  {
+    id: 'mind_body',
+    labelHe: 'גוף ונפש',
+    labelEn: 'Mind & Body',
+    Icon: Heart,
+    color: '#10B981',
+    subOptions: [
+      { id: 'yoga', labelHe: 'יוגה', labelEn: 'Yoga' },
+      { id: 'pilates', labelHe: 'פילאטיס', labelEn: 'Pilates' },
+      { id: 'stretching', labelHe: 'מתיחות', labelEn: 'Stretching' },
+    ],
+  },
+  {
+    id: 'martial_arts',
+    labelHe: 'אומנויות לחימה',
+    labelEn: 'Martial Arts',
+    Icon: Swords,
+    color: '#EF4444',
+    subOptions: [
+      { id: 'boxing', labelHe: 'איגרוף', labelEn: 'Boxing' },
+      { id: 'mma', labelHe: 'קראטה/MMA', labelEn: 'Karate/MMA' },
+      { id: 'self_defense', labelHe: 'הגנה עצמית', labelEn: 'Self Defense' },
+    ],
+  },
+  {
+    id: 'extreme',
+    labelHe: 'אקסטרים וטיפוס',
+    labelEn: 'Extreme & Climbing',
+    Icon: Mountain,
+    color: '#EC4899',
+    subOptions: [
+      { id: 'climbing', labelHe: 'טיפוס (בולידר)', labelEn: 'Climbing (Bouldering)' },
+      { id: 'skateboard', labelHe: 'סקייטבורד ורולר', labelEn: 'Skateboard & Roller' },
+    ],
+  },
 ];
 
 // Outdoor gym experience options - gender specific
@@ -182,6 +259,7 @@ export default function PersonalStatsStep({ onNext }: PersonalStatsStepProps) {
   const [outdoorGymExperience, setOutdoorGymExperience] = useState<'yes' | 'sometimes' | 'never' | null>(
     (data as any).outdoorGymExperience || null
   );
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
   const [currentSection, setCurrentSection] = useState<'weight' | 'history'>('weight');
   
   // Get language
@@ -339,22 +417,42 @@ export default function PersonalStatsStep({ onNext }: PersonalStatsStepProps) {
     }
   };
 
-  // Handle sport toggle (multi-select)
-  const handleSportToggle = (sport: SportOption) => {
+  // Handle category chip click - expand/collapse sub-options
+  const handleCategoryToggle = (categoryId: string) => {
+    setExpandedCategoryId(prev => prev === categoryId ? null : categoryId);
+  };
+
+  // Handle sub-option sport toggle (multi-select across categories)
+  const handleSubSportToggle = (subOptionId: string) => {
     let newSelectedSports: string[];
     
-    if (selectedSports.includes(sport.id)) {
-      newSelectedSports = selectedSports.filter(id => id !== sport.id);
+    if (selectedSports.includes(subOptionId)) {
+      newSelectedSports = selectedSports.filter(id => id !== subOptionId);
     } else {
-      newSelectedSports = [...selectedSports, sport.id];
+      newSelectedSports = [...selectedSports, subOptionId];
     }
     
     setSelectedSports(newSelectedSports);
-    updateData({ historySports: newSelectedSports } as any);
+    
+    // Generate sport tags (e.g. 'running' -> 'sport_running')
+    const sportTags = newSelectedSports.map(id => `sport_${id}`);
+    
+    updateData({ 
+      historySports: newSelectedSports,
+      otherSportsTags: newSelectedSports,
+      sportTags: sportTags,
+    } as any);
     
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('onboarding_history_sports', JSON.stringify(newSelectedSports));
+      sessionStorage.setItem('onboarding_selected_sports', JSON.stringify(newSelectedSports));
+      sessionStorage.setItem('onboarding_sport_tags', JSON.stringify(sportTags));
     }
+  };
+
+  // Helper: get count of selected sub-options in a category
+  const getSelectedCountInCategory = (category: SportCategory): number => {
+    return category.subOptions.filter(sub => selectedSports.includes(sub.id)).length;
   };
 
   // Handle outdoor gym experience selection
@@ -439,25 +537,28 @@ export default function PersonalStatsStep({ onNext }: PersonalStatsStepProps) {
               transition={{ duration: 0.3 }}
               className="h-full flex flex-col"
             >
-              {/* Compact Header with inline icon */}
-              <div className="text-center mb-2">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <div className="w-7 h-7 bg-[#5BC2F2]/10 rounded-lg flex items-center justify-center">
-                    <Weight size={16} className="text-[#5BC2F2]" />
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {isHebrew ? 'מה המשקל שלך?' : 'What is your weight?'}
-                  </h2>
-                </div>
-                <p className="text-xs text-slate-500">
+              {/* Hero Header */}
+              <div className="text-center pt-4 mb-4">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+                  className="w-14 h-14 bg-gradient-to-br from-[#5BC2F2]/20 to-[#5BC2F2]/5 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                >
+                  <Weight size={28} className="text-[#5BC2F2]" />
+                </motion.div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {isHebrew ? 'מה המשקל שלך?' : 'What is your weight?'}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
                   {isHebrew 
-                    ? 'נשתמש בזה כדי לחשב את צריכת הקלוריות' 
-                    : "We'll use this to calculate your calorie burn"}
+                    ? 'נשתמש בזה כדי לחשב את צריכת הקלוריות ולהתאים תוכנית אישית' 
+                    : "We'll use this to calculate your calorie burn and personalize your plan"}
                 </p>
               </div>
 
-              {/* Weight Picker */}
-              <div className="flex-1 flex items-center justify-center">
+              {/* Weight Picker — centered hero element */}
+              <div className="flex-1 flex items-center justify-center py-4">
                 <WheelPicker
                   value={weight}
                   onChange={handleWeightChange}
@@ -618,7 +719,7 @@ export default function PersonalStatsStep({ onNext }: PersonalStatsStepProps) {
                   />
                 )}
 
-                {/* Question 3: Sports - Progressive Disclosure Step 3 */}
+                {/* Question 3: Sports - Hierarchical Categories with Sub-options */}
                 <AnimatePresence>
                   {showSportsStep && (
                     <motion.div
@@ -631,35 +732,152 @@ export default function PersonalStatsStep({ onNext }: PersonalStatsStepProps) {
                     >
                       <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                         <span>{isHebrew ? 'ובאילו ענפי ספורט?' : 'Which sports?'}</span>
-                        <span className="text-xs font-medium text-slate-400">({selectedSports.length})</span>
+                        {selectedSports.length > 0 && (
+                          <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
+                            {selectedSports.length}
+                          </span>
+                        )}
                       </h3>
                       
-                      {/* Sport Tags */}
+                      {/* Category Chips */}
                       <div className="flex flex-wrap gap-2">
-                        {SPORTS_OPTIONS.map((sport, index) => {
-                          const Icon = sport.Icon;
-                          const isSelected = selectedSports.includes(sport.id);
+                        {SPORT_HIERARCHY.map((category, index) => {
+                          const CategoryIcon = category.Icon;
+                          const isExpanded = expandedCategoryId === category.id;
+                          const selectedCount = getSelectedCountInCategory(category);
 
                           return (
                             <motion.button
-                              key={sport.id}
+                              key={category.id}
                               initial={{ opacity: 0, scale: 0.95 }}
                               animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: 0.15 + index * 0.03 }}
+                              transition={{ delay: 0.15 + index * 0.04 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => handleSportToggle(sport)}
-                              className={`px-3 py-2 rounded-xl border transition-all flex items-center gap-1.5 text-sm ${
-                                isSelected
-                                  ? 'bg-[#5BC2F2]/10 border-[#5BC2F2]/50 text-[#5BC2F2] font-semibold'
-                                  : 'bg-white border-slate-100 text-slate-600 font-medium hover:border-slate-200'
+                              onClick={() => handleCategoryToggle(category.id)}
+                              className={`px-3 py-2.5 rounded-2xl border transition-all flex items-center gap-2 text-sm ${
+                                isExpanded
+                                  ? 'border-2 shadow-md'
+                                  : selectedCount > 0
+                                    ? 'bg-white border-slate-200 shadow-sm'
+                                    : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
                               }`}
+                              style={{
+                                borderColor: isExpanded ? category.color : undefined,
+                                backgroundColor: isExpanded ? `${category.color}10` : undefined,
+                              }}
                             >
-                              <Icon size={14} strokeWidth={2} />
-                              <span>{isHebrew ? sport.labelHe : sport.labelEn}</span>
+                              {/* Category Icon */}
+                              <div 
+                                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ 
+                                  backgroundColor: isExpanded || selectedCount > 0 
+                                    ? `${category.color}15` 
+                                    : '#F1F5F9',
+                                }}
+                              >
+                                <CategoryIcon 
+                                  size={14} 
+                                  strokeWidth={2.2}
+                                  className="flex-shrink-0"
+                                  style={{ 
+                                    color: isExpanded || selectedCount > 0 
+                                      ? category.color 
+                                      : '#64748B' 
+                                  }}
+                                />
+                              </div>
+                              
+                              {/* Label */}
+                              <span className={`font-medium ${
+                                isExpanded ? 'font-semibold' : selectedCount > 0 ? 'text-slate-800' : 'text-slate-600'
+                              }`}
+                                style={{ color: isExpanded ? category.color : undefined }}
+                              >
+                                {isHebrew ? category.labelHe : category.labelEn}
+                              </span>
+                              
+                              {/* Selected count badge (when collapsed) */}
+                              {selectedCount > 0 && !isExpanded && (
+                                <span 
+                                  className="text-[10px] font-bold w-5 h-5 rounded-full text-white flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: category.color }}
+                                >
+                                  {selectedCount}
+                                </span>
+                              )}
+                              
+                              {/* Expand/collapse chevron */}
+                              <motion.div
+                                animate={{ rotate: isExpanded ? 180 : 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex-shrink-0"
+                              >
+                                <ChevronDown 
+                                  size={14} 
+                                  strokeWidth={2.5}
+                                  style={{ color: isExpanded ? category.color : '#94A3B8' }}
+                                />
+                              </motion.div>
                             </motion.button>
                           );
                         })}
                       </div>
+
+                      {/* Expanded Sub-Options */}
+                      <AnimatePresence mode="wait">
+                        {expandedCategoryId && (
+                          <motion.div
+                            key={expandedCategoryId}
+                            initial={{ opacity: 0, height: 0, y: -8 }}
+                            animate={{ opacity: 1, height: 'auto', y: 0 }}
+                            exit={{ opacity: 0, height: 0, y: -8 }}
+                            transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            {(() => {
+                              const category = SPORT_HIERARCHY.find(c => c.id === expandedCategoryId);
+                              if (!category) return null;
+
+                              return (
+                                <div 
+                                  className="flex flex-wrap gap-2 p-3.5 rounded-2xl border"
+                                  style={{ 
+                                    backgroundColor: `${category.color}06`,
+                                    borderColor: `${category.color}25`,
+                                  }}
+                                >
+                                  {category.subOptions.map((sub, subIndex) => {
+                                    const isSelected = selectedSports.includes(sub.id);
+
+                                    return (
+                                      <motion.button
+                                        key={sub.id}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: subIndex * 0.05 }}
+                                        whileTap={{ scale: 0.93 }}
+                                        onClick={() => handleSubSportToggle(sub.id)}
+                                        className={`px-3.5 py-2 rounded-xl border-2 transition-all flex items-center gap-1.5 text-sm ${
+                                          isSelected
+                                            ? 'text-white font-semibold shadow-sm'
+                                            : 'bg-white font-medium text-slate-600 border-slate-150 hover:border-slate-300'
+                                        }`}
+                                        style={{
+                                          backgroundColor: isSelected ? category.color : undefined,
+                                          borderColor: isSelected ? category.color : '#E2E8F0',
+                                        }}
+                                      >
+                                        {isSelected && <Check size={13} strokeWidth={3} />}
+                                        <span>{isHebrew ? sub.labelHe : sub.labelEn}</span>
+                                      </motion.button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   )}
                 </AnimatePresence>

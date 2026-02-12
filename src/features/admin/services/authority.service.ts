@@ -16,7 +16,8 @@ import {
   serverTimestamp,
   Timestamp,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { 
@@ -245,6 +246,13 @@ function normalizeAuthority(docId: string, data: any): Authority {
 }
 
 /**
+ * Public wrapper for normalizeAuthority (used by real-time listener in useAuthorities)
+ */
+export function normalizeAuthorityFromSnapshot(docId: string, data: any): Authority {
+  return normalizeAuthority(docId, data);
+}
+
+/**
  * Sort authorities by urgency (urgent pipeline statuses + overdue tasks first)
  */
 export function sortAuthoritiesByUrgency(authorities: Authority[]): Authority[] {
@@ -345,55 +353,51 @@ export async function getSettlementsByRegionalCouncil(regionalCouncilId: string)
 }
 
 /**
+ * Pure function: group an existing array of authorities into hierarchical structure.
+ * No Firestore call — works on the data you already have.
+ */
+export function groupAuthoritiesFromArray(allAuthorities: Authority[]): {
+  regionalCouncils: (Authority & { settlements: Authority[] })[];
+  cities: (Authority & { neighborhoods: Authority[] })[];
+  standaloneAuthorities: Authority[];
+} {
+  const cities = allAuthorities.filter(a => a.type === 'city' && !a.parentAuthorityId);
+  const regionalCouncils = allAuthorities.filter(a => a.type === 'regional_council' && !a.parentAuthorityId);
+  const children = allAuthorities.filter(a => a.parentAuthorityId);
+
+  const citiesWithNeighborhoods = cities.map(city => ({
+    ...city,
+    neighborhoods: children.filter(child => child.parentAuthorityId === city.id),
+  }));
+
+  const groupedCouncils = regionalCouncils.map(council => ({
+    ...council,
+    settlements: children.filter(child => child.parentAuthorityId === council.id),
+  }));
+
+  const standalone = allAuthorities.filter(a => a.type === 'local_council' && !a.parentAuthorityId);
+
+  return {
+    regionalCouncils: groupedCouncils,
+    cities: citiesWithNeighborhoods,
+    standaloneAuthorities: standalone,
+  };
+}
+
+/**
  * Get all authorities grouped by Regional Councils and Cities (for hierarchical display)
  * Only Cities and Regional Councils appear as top-level items.
  * All Neighborhoods and Settlements must have parentAuthorityId pointing to their parent.
+ * @deprecated Prefer groupAuthoritiesFromArray() with data from onSnapshot
  */
 export async function getAuthoritiesGrouped(): Promise<{
   regionalCouncils: (Authority & { settlements: Authority[] })[];
   cities: (Authority & { neighborhoods: Authority[] })[];
-  standaloneAuthorities: Authority[]; // Local councils without parent (only top-level ones)
+  standaloneAuthorities: Authority[];
 }> {
   try {
     const allAuthorities = await getAllAuthorities();
-    
-    // Top-level: Only Cities and Regional Councils (no parentAuthorityId)
-    const cities = allAuthorities.filter(a => 
-      a.type === 'city' && !a.parentAuthorityId
-    );
-    const regionalCouncils = allAuthorities.filter(a => 
-      a.type === 'regional_council' && !a.parentAuthorityId
-    );
-    
-    // Children: All authorities with parentAuthorityId (neighborhoods and settlements)
-    const children = allAuthorities.filter(a => a.parentAuthorityId);
-    
-    // Group neighborhoods under their parent City
-    const citiesWithNeighborhoods = cities.map(city => ({
-      ...city,
-      neighborhoods: children.filter(child => 
-        child.parentAuthorityId === city.id
-      ),
-    }));
-    
-    // Group settlements under their parent Regional Council
-    const groupedCouncils = regionalCouncils.map(council => ({
-      ...council,
-      settlements: children.filter(child => 
-        child.parentAuthorityId === council.id
-      ),
-    }));
-    
-    // Standalone authorities: Only local_councils without parent (should be rare)
-    const standalone = allAuthorities.filter(a => 
-      a.type === 'local_council' && !a.parentAuthorityId
-    );
-    
-    return {
-      regionalCouncils: groupedCouncils,
-      cities: citiesWithNeighborhoods,
-      standaloneAuthorities: standalone,
-    };
+    return groupAuthoritiesFromArray(allAuthorities);
   } catch (error) {
     console.error('Error grouping authorities:', error);
     throw error;
@@ -958,4 +962,61 @@ export async function getMonthlyRevenueForecast(): Promise<Map<string, number>> 
   
   // Sort by month
   return new Map([...forecast.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+}
+
+// ============================================================================
+// Data Migration: Bulk-set 'draft' status
+// ============================================================================
+
+/**
+ * Statuses that indicate the authority is actively in the sales pipeline.
+ * Everything else should be reset to 'draft'.
+ */
+const ACTIVE_STATUSES: string[] = ['meeting', 'quote', 'follow_up', 'closing', 'active', 'upsell'];
+
+/**
+ * Bulk-update all authorities that are NOT in an active sales stage and NOT
+ * an active client → set their pipelineStatus to 'draft'.
+ *
+ * Returns { updated, skipped } counts.
+ */
+export async function migrateStaleAuthoritiesToDraft(): Promise<{ updated: number; skipped: number }> {
+  const all = await getAllAuthorities();
+  let updated = 0;
+  let skipped = 0;
+
+  // Firestore batches are limited to 500 writes each
+  let batch = writeBatch(db);
+  let batchCount = 0;
+
+  for (const auth of all) {
+    const status = auth.pipelineStatus || 'lead';
+    const isActive = ACTIVE_STATUSES.includes(status) || auth.isActiveClient;
+
+    if (isActive || status === 'draft') {
+      skipped++;
+      continue;
+    }
+
+    // This authority is 'lead' (or undefined) without being an active client → draft
+    const ref = doc(db, AUTHORITIES_COLLECTION, auth.id);
+    batch.update(ref, {
+      pipelineStatus: 'draft',
+      updatedAt: serverTimestamp(),
+    });
+    updated++;
+    batchCount++;
+
+    if (batchCount >= 490) {
+      await batch.commit();
+      batch = writeBatch(db);
+      batchCount = 0;
+    }
+  }
+
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+
+  return { updated, skipped };
 }

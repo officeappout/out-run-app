@@ -21,7 +21,8 @@ import { safeRenderText } from '@/utils/render-helpers';
 import { 
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
-  Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike
+  Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
+  FileText, ExternalLink
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 
@@ -48,7 +49,7 @@ interface UserDetailModalProps {
 }
 
 function UserDetailModal({ user, onClose }: UserDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'history'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'progression' | 'onboarding' | 'history'>('profile');
   const [fullProfile, setFullProfile] = useState<UserFullProfile | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
@@ -288,6 +289,97 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                 <div>
                   <h2 className="text-2xl font-black text-gray-900">{user.name}</h2>
                   <p className="text-gray-500">{user.email || 'ללא אימייל'}</p>
+                  {/* Persona & Primary Goal quick-glance badges */}
+                  {fullProfile && (
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {/* Account Security Badge */}
+                      {(() => {
+                        const accountStatus = (fullProfile as any).accountStatus;
+                        const accountMethod = (fullProfile as any).accountMethod;
+                        const hasEmail = !!fullProfile.core?.email;
+                        const isAnon = fullProfile.core?.isAnonymous === true;
+                        
+                        if (accountStatus === 'secured') {
+                          if (accountMethod === 'google') {
+                            return (
+                              <span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold flex items-center gap-1">
+                                <Shield size={12} />
+                                חשבון מאובטח (Google)
+                              </span>
+                            );
+                          } else if (accountMethod === 'email') {
+                            return (
+                              <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
+                                <Mail size={12} />
+                                חשבון מאובטח (Email)
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
+                                <Shield size={12} />
+                                חשבון מאובטח
+                              </span>
+                            );
+                          }
+                        } else if (accountStatus === 'unsecured') {
+                          return (
+                            <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold flex items-center gap-1">
+                              <AlertCircle size={12} />
+                              ללא גיבוי
+                            </span>
+                          );
+                        } else if (isAnon && !hasEmail) {
+                          return (
+                            <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold flex items-center gap-1">
+                              <User size={12} />
+                              אורח (ישן)
+                            </span>
+                          );
+                        } else if (!isAnon && hasEmail) {
+                          return (
+                            <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1">
+                              <Shield size={12} />
+                              רשום (ישן)
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+                      {(fullProfile as any).onboardingAnswers?.persona && (
+                        <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
+                          <User size={12} />
+                          {(() => {
+                            const personaLabels: Record<string, string> = {
+                              parent: 'הורה', student: 'סטודנט/ית', pupil: 'תלמיד/ה',
+                              office_worker: 'עובד/ת משרד', reservist: 'מילואימניק/ית',
+                              soldier: 'חייל/ת', vatikim: 'גיל הזהב', pro_athlete: 'ספורטאי/ת קצה',
+                            };
+                            return personaLabels[(fullProfile as any).onboardingAnswers.persona] || (fullProfile as any).onboardingAnswers.persona;
+                          })()}
+                        </span>
+                      )}
+                      {(fullProfile as any).onboardingAnswers?.primaryGoalLabel && (
+                        <span className="px-2.5 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold flex items-center gap-1">
+                          <TrendingUp size={12} />
+                          {(fullProfile as any).onboardingAnswers.primaryGoalLabel}
+                        </span>
+                      )}
+                      {!(fullProfile as any).onboardingAnswers?.primaryGoalLabel && (fullProfile as any).onboardingAnswers?.primaryGoal && (
+                        <span className="px-2.5 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold flex items-center gap-1">
+                          <TrendingUp size={12} />
+                          {(() => {
+                            const goalLabels: Record<string, string> = {
+                              routine: 'שגרה קבועה', aesthetics: 'חיטוב ואסתטיקה',
+                              fitness: 'כושר ובריאות', performance: 'שיפור ביצועים',
+                              skills: 'מיומנות מתקדמת', community: 'קהילה',
+                            };
+                            return goalLabels[(fullProfile as any).onboardingAnswers.primaryGoal] || (fullProfile as any).onboardingAnswers.primaryGoal;
+                          })()}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <button
@@ -299,12 +391,12 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-gray-200">
-              {(['profile', 'stats', 'history'] as const).map((tab) => (
+            <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
+              {(['profile', 'stats', 'progression', 'onboarding', 'history'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 font-bold transition-colors relative ${
+                  className={`px-4 py-2 font-bold transition-colors relative whitespace-nowrap ${
                     activeTab === tab
                       ? 'text-[#5BC2F2]'
                       : 'text-gray-500 hover:text-gray-700'
@@ -312,6 +404,8 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                 >
                   {tab === 'profile' && 'פרופיל'}
                   {tab === 'stats' && 'סטטיסטיקה'}
+                  {tab === 'progression' && 'התקדמות'}
+                  {tab === 'onboarding' && 'נתוני הקליטה'}
                   {tab === 'history' && 'היסטוריה'}
                   {activeTab === tab && (
                     <motion.div
@@ -492,19 +586,36 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                           <div className="text-sm text-gray-600 mb-1">משקל</div>
                           <div className="font-bold text-gray-900">{fullProfile.core.weight || 'טרם סופק'} ק"ג</div>
                         </div>
-                        {fullProfile.core.birthDate ? (
-                          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                            <div className="text-sm text-gray-600 mb-1">תאריך לידה</div>
-                            <div className="font-bold text-gray-900">
-                              {new Date(fullProfile.core.birthDate).toLocaleDateString('he-IL')}
+                        {(() => {
+                          // Robust birthDate parsing — handles Date objects, Firestore Timestamps, ISO strings
+                          const rawBirthDate = fullProfile.core.birthDate;
+                          let parsedDate: Date | null = null;
+                          if (rawBirthDate) {
+                            if (rawBirthDate instanceof Date && !isNaN(rawBirthDate.getTime())) {
+                              parsedDate = rawBirthDate;
+                            } else if (typeof (rawBirthDate as any)?.toDate === 'function') {
+                              parsedDate = (rawBirthDate as any).toDate();
+                            } else if (typeof rawBirthDate === 'string') {
+                              const d = new Date(rawBirthDate);
+                              if (!isNaN(d.getTime())) parsedDate = d;
+                            } else if (typeof (rawBirthDate as any)?.seconds === 'number') {
+                              parsedDate = new Date((rawBirthDate as any).seconds * 1000);
+                            }
+                          }
+                          return parsedDate ? (
+                            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                              <div className="text-sm text-gray-600 mb-1">תאריך לידה</div>
+                              <div className="font-bold text-gray-900">
+                                {parsedDate.toLocaleDateString('he-IL')}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                            <div className="text-sm text-gray-600 mb-1">תאריך לידה</div>
-                            <div className="text-sm text-gray-500 italic">טרם סופק</div>
-                          </div>
-                        )}
+                          ) : (
+                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                              <div className="text-sm text-gray-600 mb-1">תאריך לידה</div>
+                              <div className="text-sm text-gray-500 italic">טרם סופק</div>
+                            </div>
+                          );
+                        })()}
                       </div>
                       
                       {/* Progress Bar to Next Level */}
@@ -623,6 +734,99 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                       </div>
                     </div>
 
+                    {/* 4.5 Sports & Location Preferences (BI) */}
+                    {(() => {
+                      const oa = (fullProfile as any).onboardingAnswers;
+                      const prefLocation: string[] | undefined = oa?.preferredLocation;
+                      const prefSports: string[] | undefined = oa?.preferredSports || oa?.sportsPreferences;
+                      if (!prefLocation?.length && !prefSports?.length) return null;
+
+                      // Human-readable location labels
+                      const LOCATION_LABELS: Record<string, { he: string; icon: string }> = {
+                        studio: { he: 'סטודיו / חוגים', icon: '🏢' },
+                        park:   { he: 'גינת כושר', icon: '🌳' },
+                        home:   { he: 'אימון ביתי', icon: '🏠' },
+                        gym:    { he: 'חדר כושר', icon: '🏋️' },
+                        none:   { he: 'אחר', icon: '✨' },
+                      };
+
+                      // Human-readable sport labels
+                      const SPORT_LABELS: Record<string, string> = {
+                        running: 'ריצה',
+                        walking: 'הליכה',
+                        cycling: 'אופניים',
+                        calisthenics: 'קליסטניקס',
+                        crossfit: 'קרוספיט',
+                        functional: 'אימון פונקציונלי',
+                        movement: 'מובמנט',
+                        basketball: 'כדורסל',
+                        football: 'כדורגל',
+                        tennis_padel: 'טניס ופאדל',
+                        yoga: 'יוגה',
+                        pilates: 'פילאטיס',
+                        stretching: 'מתיחות',
+                        boxing: 'איגרוף',
+                        kickboxing: 'קיקבוקסינג',
+                        mma: 'MMA',
+                        jiu_jitsu: 'ג\'יו ג\'יטסו',
+                        climbing: 'טיפוס',
+                        hiking: 'הליכות שטח',
+                        strength: 'כוח',
+                        cardio: 'קרדיו',
+                      };
+
+                      return (
+                        <div>
+                          <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                            <Dumbbell size={20} className="text-blue-500" />
+                            העדפות ספורט ומיקום
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Preferred Locations */}
+                            {prefLocation && prefLocation.length > 0 && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <div className="text-sm font-bold text-blue-700 mb-3">מיקום אימון מועדף</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {prefLocation.map((loc, idx) => {
+                                    const info = LOCATION_LABELS[loc] || { he: loc, icon: '📍' };
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className="px-3 py-1.5 bg-white border border-blue-300 text-blue-700 rounded-full text-sm font-medium shadow-sm flex items-center gap-1.5"
+                                      >
+                                        <span>{info.icon}</span>
+                                        <span>{info.he}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Preferred Sports (ranked) */}
+                            {prefSports && prefSports.length > 0 && (
+                              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                                <div className="text-sm font-bold text-purple-700 mb-3">ענפי ספורט (לפי סדר העדפה)</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {prefSports.map((sport, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-3 py-1.5 bg-white border border-purple-300 text-purple-700 rounded-full text-sm font-medium shadow-sm flex items-center gap-1.5"
+                                    >
+                                      <span className="bg-purple-200 text-purple-800 text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                                        {idx + 1}
+                                      </span>
+                                      <span>{SPORT_LABELS[sport] || sport}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* 5. Legal & Compliance */}
                     <div>
                       <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
@@ -631,67 +835,80 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Health Declaration Status */}
-                        <div className={`rounded-xl p-5 border-2 ${
-                          fullProfile.health?.injuries !== undefined
-                            ? fullProfile.health.injuries.length === 0
-                              ? 'bg-green-50 border-green-300'
-                              : 'bg-yellow-50 border-yellow-300'
-                            : 'bg-gray-50 border-gray-300'
-                        }`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-base font-black text-gray-900">הצהרת בריאות</span>
-                            {fullProfile.health?.injuries !== undefined ? (
-                              fullProfile.health.injuries.length === 0 ? (
-                                <div className="flex items-center gap-2 text-green-700">
-                                  <CheckCircle2 size={24} className="text-green-600" />
-                                  <span className="font-bold">חתום</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2 text-yellow-700">
-                                  <AlertCircle size={24} className="text-yellow-600" />
-                                  <span className="font-bold">חתום</span>
-                                </div>
-                              )
-                            ) : (
-                              <div className="flex items-center gap-2 text-gray-500">
-                                <X size={24} className="text-gray-400" />
-                                <span className="font-bold">לא חתום</span>
+                        {(() => {
+                          const healthAccepted = (fullProfile as any).healthDeclarationAccepted === true;
+                          const pdfUrl = (fullProfile as any).healthDeclarationPdfUrl as string | undefined;
+                          const hasInjuries = fullProfile.health?.injuries && fullProfile.health.injuries.length > 0;
+                          return (
+                            <div className={`rounded-xl p-5 border-2 ${
+                              healthAccepted
+                                ? hasInjuries
+                                  ? 'bg-yellow-50 border-yellow-300'
+                                  : 'bg-green-50 border-green-300'
+                                : 'bg-gray-50 border-gray-300'
+                            }`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-base font-black text-gray-900">הצהרת בריאות</span>
+                                {healthAccepted ? (
+                                  hasInjuries ? (
+                                    <div className="flex items-center gap-2 text-yellow-700">
+                                      <AlertCircle size={24} className="text-yellow-600" />
+                                      <span className="font-bold">חתום</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 text-green-700">
+                                      <CheckCircle2 size={24} className="text-green-600" />
+                                      <span className="font-bold">חתום</span>
+                                    </div>
+                                  )
+                                ) : (
+                                  <div className="flex items-center gap-2 text-gray-500">
+                                    <X size={24} className="text-gray-400" />
+                                    <span className="font-bold">לא חתום</span>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-700 mt-2">
-                            {fullProfile.health?.injuries !== undefined
-                              ? fullProfile.health.injuries.length === 0
-                              ? '✓ הושלם - ללא בעיות רפואיות'
-                                : `⚠ יש ${fullProfile.health.injuries.length} פציעות/בעיות רשומות`
-                              : 'לא הושלם'}
-                          </div>
-                          {fullProfile.health?.injuries && fullProfile.health.injuries.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-1">
-                              {fullProfile.health.injuries.map((injury, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium"
+                              <div className="text-sm text-gray-700 mt-2">
+                                {healthAccepted
+                                  ? hasInjuries
+                                    ? `⚠ יש ${fullProfile.health!.injuries.length} פציעות/בעיות רשומות`
+                                    : '✓ הושלם - ללא בעיות רפואיות'
+                                  : 'לא הושלם'}
+                              </div>
+                              {hasInjuries && (
+                                <div className="mt-3 flex flex-wrap gap-1">
+                                  {fullProfile.health!.injuries.map((injury, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium"
+                                    >
+                                      {injury}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {/* View Signed PDF Button */}
+                              {pdfUrl && (
+                                <a
+                                  href={pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-[#5BC2F2] hover:bg-[#4AADE3] text-white rounded-lg text-sm font-bold transition-colors"
                                 >
-                                  {injury}
-                                </span>
-                              ))}
+                                  <FileText size={16} />
+                                  <span>צפה בהצהרה חתומה (PDF)</span>
+                                  <ExternalLink size={14} />
+                                </a>
+                              )}
                             </div>
-                          )}
-                        </div>
+                          );
+                        })()}
 
                         {/* Terms of Use Status */}
                         {(() => {
-                          const hasSignedTerms = analyticsEvents.some(e => 
-                            e.eventName === 'onboarding_step_complete' && 
-                            'step_name' in e && 
-                            e.step_name === 'terms_of_use'
-                          );
-                          const termsEvent = analyticsEvents.find(e => 
-                              e.eventName === 'onboarding_step_complete' && 
-                              'step_name' in e && 
-                              e.step_name === 'terms_of_use'
-                          );
+                          const hasSignedTerms = (fullProfile as any).healthTermsAccepted === true;
+                          const healthTimestamp = (fullProfile as any).healthTimestamp as string | undefined;
+                          const termsVersion = (fullProfile as any).termsVersion as string | undefined;
                           return (
                             <div className={`rounded-xl p-5 border-2 ${
                               hasSignedTerms
@@ -710,19 +927,28 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                                     <X size={24} className="text-gray-400" />
                                     <span className="font-bold">לא חתום</span>
                                   </div>
-                            )}
-                          </div>
+                                )}
+                              </div>
                               <div className="text-sm text-gray-700 mt-2">
                                 {hasSignedTerms
-                              ? '✓ הושלם - חתום ואושר'
-                              : 'לא הושלם'}
-                          </div>
-                              {hasSignedTerms && termsEvent && (
-                                <div className="text-xs text-gray-600 mt-3">
-                                  תאריך: {new Date(termsEvent.timestamp).toLocaleDateString('he-IL')}
+                                  ? '✓ הושלם - חתום ואושר'
+                                  : 'לא הושלם'}
+                              </div>
+                              {hasSignedTerms && (
+                                <div className="mt-3 space-y-1">
+                                  {healthTimestamp && (
+                                    <div className="text-xs text-gray-600">
+                                      תאריך חתימה: {new Date(healthTimestamp).toLocaleDateString('he-IL')}
+                                    </div>
+                                  )}
+                                  {termsVersion && (
+                                    <div className="text-xs text-gray-500">
+                                      גרסת תנאים: v{termsVersion}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
                           );
                         })()}
                       </div>
@@ -767,6 +993,294 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Progression Details Tab */}
+                {activeTab === 'progression' && fullProfile && (
+                  <div className="space-y-6">
+                    {/* Global XP & Lemur */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">XP והתפתחות למור</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-blue-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-blue-600 font-medium">Global XP</p>
+                          <p className="text-2xl font-black text-blue-700">{fullProfile.progression?.globalXP ?? 0}</p>
+                        </div>
+                        <div className="bg-purple-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-purple-600 font-medium">Lemur Stage</p>
+                          <p className="text-2xl font-black text-purple-700">{(fullProfile.progression as any)?.lemurStage ?? 0}</p>
+                        </div>
+                        <div className="bg-green-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-green-600 font-medium">ימים פעילים</p>
+                          <p className="text-2xl font-black text-green-700">{(fullProfile.progression as any)?.daysActive ?? 0}</p>
+                        </div>
+                        <div className="bg-orange-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-orange-600 font-medium">רצף נוכחי</p>
+                          <p className="text-2xl font-black text-orange-700">{(fullProfile.progression as any)?.currentStreak ?? 0}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Program Tracks */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">מסלולי תוכנית (Tracks)</h3>
+                      {(fullProfile.progression as any)?.tracks && Object.keys((fullProfile.progression as any).tracks).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.entries((fullProfile.progression as any).tracks).map(([programId, track]: [string, any]) => {
+                            const prog = programs.find(p => p.id === programId);
+                            return (
+                              <div key={programId} className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                                <div>
+                                  <p className="font-bold text-gray-900">{prog?.name || programId}</p>
+                                  <p className="text-xs text-gray-500">ID: {programId}</p>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm">
+                                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">
+                                    רמה {track?.currentLevel ?? '?'}
+                                  </span>
+                                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-bold">
+                                    {typeof track?.percent === 'number' ? `${track.percent.toFixed(1)}%` : '0%'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm">אין מסלולים פעילים</p>
+                      )}
+                    </div>
+
+                    {/* Adaptive Goals */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">יעדים אדפטיביים</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">יעד צעדים יומי</p>
+                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.dailyStepGoal ?? 'לא הוגדר'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">יעד קומות יומי</p>
+                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.dailyFloorGoal ?? 'לא הוגדר'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ready for Split */}
+                    {(fullProfile.progression as any)?.readyForSplit && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <h3 className="text-sm font-bold text-amber-800 mb-2">Ready for Split</h3>
+                        <pre className="text-xs text-amber-700 bg-white/50 rounded p-2 overflow-x-auto">
+                          {JSON.stringify((fullProfile.progression as any).readyForSplit, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Gamification */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">גיימיפיקציה</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">Avatar ID</p>
+                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.avatarId || 'ברירת מחדל'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">תגים שנפתחו</p>
+                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.unlockedBadges?.length ?? 0} תגים</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">תרגילי בונוס</p>
+                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.unlockedBonusExercises?.length ?? 0} תרגילים</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">קלוריות כוללות</p>
+                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.totalCaloriesBurned ?? 0}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Level Goal Progress */}
+                    {(fullProfile.progression as any)?.levelGoalProgress && (fullProfile.progression as any).levelGoalProgress.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-black text-gray-900 mb-4">התקדמות יעדי רמה</h3>
+                        <div className="space-y-2">
+                          {(fullProfile.progression as any).levelGoalProgress.map((goal: any, i: number) => (
+                            <div key={i} className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
+                              <span className="font-medium text-gray-900">{goal.exerciseName || goal.exerciseId}</span>
+                              <span className="text-sm font-bold">
+                                {goal.bestPerformance ?? 0} / {goal.targetValue ?? 0} {goal.unit === 'reps' ? 'חזרות' : 'שניות'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Onboarding Metadata Tab */}
+                {activeTab === 'onboarding' && fullProfile && (
+                  <div className="space-y-6">
+                    {/* Core Assessment */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">הערכה ראשונית</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-blue-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-blue-600 font-medium">Fitness Tier</p>
+                          <p className="text-2xl font-black text-blue-700">{fullProfile.core?.initialFitnessTier ?? '?'}</p>
+                        </div>
+                        <div className="bg-purple-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-purple-600 font-medium">Tracking Mode</p>
+                          <p className="text-lg font-black text-purple-700">{fullProfile.core?.trackingMode ?? '?'}</p>
+                        </div>
+                        <div className="bg-green-50 rounded-xl p-4 text-center">
+                          <p className="text-xs text-green-600 font-medium">יעד עיקרי</p>
+                          <p className="text-lg font-black text-green-700">{fullProfile.core?.mainGoal ?? '?'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Assigned Results (from dynamic questionnaire) */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">תוצאות שאלון דינמי</h3>
+                      {(() => {
+                        const results = (fullProfile as any)?.assignedResults || (fullProfile as any)?.onboardingAnswers?.assignedResults;
+                        if (!results || results.length === 0) {
+                          return <p className="text-gray-500 text-sm">אין תוצאות שאלון</p>;
+                        }
+                        return (
+                          <div className="space-y-2">
+                            {results.map((r: any, i: number) => {
+                              const prog = programs.find(p => p.id === r.programId);
+                              return (
+                                <div key={i} className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+                                  <div>
+                                    <p className="font-bold text-indigo-900">{prog?.name || r.programId}</p>
+                                    {r.nextQuestionnaireId && (
+                                      <p className="text-xs text-indigo-500">שאלון הבא: {r.nextQuestionnaireId}</p>
+                                    )}
+                                  </div>
+                                  <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-bold text-sm">
+                                    רמה {r.levelId}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Lifestyle & Persona */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">אורח חיים ופרסונה</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">פרסונה</p>
+                          <p className="font-bold text-gray-900">{(fullProfile as any)?.personaId || (fullProfile as any)?.onboardingAnswers?.persona || '?'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">Dashboard Mode</p>
+                          <p className="font-bold text-gray-900">{fullProfile.lifestyle?.dashboardMode || 'ברירת מחדל'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">כלב</p>
+                          <p className="font-bold text-gray-900">{fullProfile.lifestyle?.hasDog ? 'כן' : 'לא'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">Active Reserve</p>
+                          <p className="font-bold text-gray-900">{fullProfile.core?.isActiveReserve ? 'כן' : 'לא'}</p>
+                        </div>
+                      </div>
+                      {fullProfile.lifestyle?.lifestyleTags && fullProfile.lifestyle.lifestyleTags.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs text-gray-500 mb-2">Lifestyle Tags</p>
+                          <div className="flex flex-wrap gap-2">
+                            {fullProfile.lifestyle.lifestyleTags.map((tag, i) => (
+                              <span key={i} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Goals */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">יעדים שנבחרו</h3>
+                      {(() => {
+                        const goals = (fullProfile as any)?.selectedGoals || (fullProfile as any)?.onboardingAnswers?.allGoals || [];
+                        const primary = (fullProfile as any)?.onboardingAnswers?.primaryGoal;
+                        return (
+                          <div>
+                            {primary && (
+                              <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-800 rounded-lg text-sm font-bold">
+                                יעד ראשי: {(fullProfile as any)?.onboardingAnswers?.primaryGoalLabel || primary}
+                              </div>
+                            )}
+                            {goals.length > 0 ? (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {goals.map((g: string, i: number) => (
+                                  <span key={i} className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-bold">
+                                    {g}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-gray-500 text-sm">אין יעדים רשומים</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Commute */}
+                    {fullProfile.lifestyle?.commute && (
+                      <div>
+                        <h3 className="text-lg font-black text-gray-900 mb-4">נסיעות</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="text-xs text-gray-500 mb-1">אמצעי תחבורה</p>
+                            <p className="font-bold text-gray-900">{fullProfile.lifestyle.commute.method || '?'}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="text-xs text-gray-500 mb-1">אתגרי נסיעה</p>
+                            <p className="font-bold text-gray-900">{fullProfile.lifestyle.commute.enableChallenges ? 'מופעל' : 'כבוי'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Account Security */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4">אבטחת חשבון</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">אימייל מאובטח</p>
+                          <p className="font-bold text-gray-900">{(fullProfile as any)?.securedEmail || 'לא הוגדר'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-xs text-gray-500 mb-1">טלפון מאובטח</p>
+                          <p className="font-bold text-gray-900">{(fullProfile as any)?.securedPhone || 'לא הוגדר'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Raw Onboarding Data (expandable) */}
+                    <details className="bg-gray-50 rounded-xl p-4">
+                      <summary className="text-sm font-bold text-gray-700 cursor-pointer">נתונים גולמיים (JSON)</summary>
+                      <pre className="text-xs text-gray-600 mt-3 bg-white rounded-lg p-3 overflow-x-auto max-h-96 overflow-y-auto">
+                        {JSON.stringify({
+                          onboardingAnswers: (fullProfile as any)?.onboardingAnswers,
+                          assignedResults: (fullProfile as any)?.assignedResults,
+                          lifestyle: fullProfile.lifestyle,
+                          health: fullProfile.health,
+                          running: fullProfile.running,
+                        }, null, 2)}
+                      </pre>
+                    </details>
                   </div>
                 )}
 
@@ -1015,7 +1529,7 @@ export default function AllUsersPage() {
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'ONBOARDING'>('ALL');
-  const [stepFilter, setStepFilter] = useState<'ALL' | 'LOCATION' | 'EQUIPMENT' | 'HISTORY' | 'SCHEDULE'>('ALL');
+  const [stepFilter, setStepFilter] = useState<'ALL' | 'LOCATION' | 'EQUIPMENT' | 'HISTORY' | 'SCHEDULE' | 'HEALTH_DECLARATION' | 'COMPLETED'>('ALL');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'REGISTERED' | 'GUEST'>('ALL');
   const [activityFilter, setActivityFilter] = useState<'ALL' | 'NEW' | 'BEGINNER' | 'PRO'>('ALL');
 
@@ -1102,14 +1616,39 @@ export default function AllUsersPage() {
   const loadUsers = async (filterByAuthority: boolean = false, authorityIds: string[] = []) => {
     try {
       setLoading(true);
-      // Use direct Firestore query to include authorityId for filtering
-      const { collection, query, getDocs, orderBy } = await import('firebase/firestore');
+      const { collection, query: firestoreQuery, getDocs, orderBy, where } = await import('firebase/firestore');
       const { db } = await import('@/lib/firebase');
       
-      const q = query(collection(db, 'users'), orderBy('core.name', 'asc'));
-      const snapshot = await getDocs(q);
+      // ── SERVER-SIDE FILTERING: Authority Managers only see their own users ──
+      // This prevents user data from other authorities from ever reaching the client.
+      let snapshots: any[] = [];
       
-      let usersData = snapshot.docs.map((docSnap) => {
+      if (filterByAuthority && authorityIds.length > 0) {
+        // Firestore 'in' supports up to 30 values — sufficient for authority IDs
+        // Each authority manager typically has 1-3 authority IDs.
+        for (const authorityId of authorityIds) {
+          const scopedQuery = firestoreQuery(
+            collection(db, 'users'),
+            where('core.authorityId', '==', authorityId),
+          );
+          const snapshot = await getDocs(scopedQuery);
+          snapshots.push(...snapshot.docs);
+        }
+        // Deduplicate by doc ID (in case a user belongs to multiple authorities)
+        const seen = new Set<string>();
+        snapshots = snapshots.filter(doc => {
+          if (seen.has(doc.id)) return false;
+          seen.add(doc.id);
+          return true;
+        });
+      } else {
+        // Super Admin / System Admin — fetch all users
+        const q = firestoreQuery(collection(db, 'users'), orderBy('core.name', 'asc'));
+        const snapshot = await getDocs(q);
+        snapshots = snapshot.docs;
+      }
+      
+      let usersData = snapshots.map((docSnap: any) => {
         const data = docSnap.data();
         const core = data?.core || {};
         const progression = data?.progression || {};
@@ -1140,16 +1679,12 @@ export default function AllUsersPage() {
           onboardingStatus: data?.onboardingStatus || undefined,
           isAnonymous: core.isAnonymous === true,
           authorityId: core.authorityId || undefined, // Include authorityId for filtering
+          accountStatus: data?.accountStatus || undefined, // NEW: Account security status
+          accountMethod: data?.accountMethod || undefined, // NEW: Account security method
         };
       });
       
-      // Filter by authority for Authority Managers
-      if (filterByAuthority && authorityIds.length > 0) {
-        usersData = usersData.filter(user => {
-          const userAuthorityId = (user as any).authorityId;
-          return userAuthorityId && authorityIds.includes(userAuthorityId);
-        });
-      }
+      // Server-side filtering already applied above — no client-side filter needed
       
       setUsers(usersData as AdminUserListItem[]);
       setFilteredUsers(usersData as AdminUserListItem[]);
@@ -1308,7 +1843,7 @@ export default function AllUsersPage() {
             <label className="block text-xs font-bold text-gray-700 mb-1.5 font-simpler">שלב נטישה</label>
             <select
               value={stepFilter}
-              onChange={(e) => setStepFilter(e.target.value as 'ALL' | 'LOCATION' | 'EQUIPMENT' | 'HISTORY' | 'SCHEDULE')}
+              onChange={(e) => setStepFilter(e.target.value as 'ALL' | 'LOCATION' | 'EQUIPMENT' | 'HISTORY' | 'SCHEDULE' | 'HEALTH_DECLARATION' | 'COMPLETED')}
               disabled={statusFilter !== 'ONBOARDING'}
               className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-simpler focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent outline-none ${
                 statusFilter !== 'ONBOARDING' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
@@ -1319,6 +1854,8 @@ export default function AllUsersPage() {
               <option value="EQUIPMENT">EQUIPMENT</option>
               <option value="HISTORY">HISTORY</option>
               <option value="SCHEDULE">SCHEDULE</option>
+              <option value="HEALTH_DECLARATION">HEALTH</option>
+              <option value="COMPLETED">COMPLETED</option>
             </select>
           </div>
 
@@ -1392,6 +1929,7 @@ export default function AllUsersPage() {
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">אימייל</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">טלפון</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מגדר</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">אבטחת חשבון</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">סטטוס</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">רמה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מטבעות</th>
@@ -1403,7 +1941,7 @@ export default function AllUsersPage() {
             <tbody className="divide-y divide-gray-200">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-gray-500 font-simpler">
+                  <td colSpan={11} className="text-center py-12 text-gray-500 font-simpler">
                     {searchTerm ? 'לא נמצאו משתמשים התואמים לחיפוש' : 'אין משתמשים'}
                   </td>
                 </tr>
@@ -1449,6 +1987,98 @@ export default function AllUsersPage() {
                        user.gender ? 'אחר' : '-'}
                     </td>
                     <td className="py-4 px-6">
+                      {/* Account Security Status Badge with Fallback Logic */}
+                      {(() => {
+                        // Helper: Determine account security status with fallback for old users
+                        const getAccountSecurityBadge = () => {
+                          const accountStatus = (user as any).accountStatus;
+                          const accountMethod = (user as any).accountMethod;
+                          const hasEmail = !!user.email;
+                          const isAnon = user.isAnonymous === true;
+                          
+                          // NEW USERS: Have accountStatus field
+                          if (accountStatus) {
+                            if (accountStatus === 'secured') {
+                              // Secured account
+                              if (accountMethod === 'google') {
+                                return (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                    <Shield size={12} />
+                                    Google
+                                  </span>
+                                );
+                              } else if (accountMethod === 'email') {
+                                return (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                    <Mail size={12} />
+                                    Email
+                                  </span>
+                                );
+                              } else if (accountMethod === 'phone') {
+                                return (
+                                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                    <Phone size={12} />
+                                    Phone
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                    <Shield size={12} />
+                                    מאובטח
+                                  </span>
+                                );
+                              }
+                            } else if (accountStatus === 'unsecured') {
+                              // Unsecured (chose to skip)
+                              return (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                  <AlertCircle size={12} />
+                                  ללא גיבוי
+                                </span>
+                              );
+                            }
+                          }
+                          
+                          // OLD USERS (Fallback): Infer status from isAnonymous + email
+                          if (isAnon && !hasEmail) {
+                            // Anonymous user without email = direct guest (old guest mode)
+                            return (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                <User size={12} />
+                                אורח
+                              </span>
+                            );
+                          } else if (isAnon && hasEmail) {
+                            // Anonymous but has email (old user who linked - treat as secured)
+                            return (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                <Shield size={12} />
+                                מאובטח (ישן)
+                              </span>
+                            );
+                          } else if (!isAnon && hasEmail) {
+                            // Not anonymous + has email = registered/secured (old user)
+                            return (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                                <Shield size={12} />
+                                רשום
+                              </span>
+                            );
+                          } else {
+                            // Unknown state
+                            return (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold font-simpler">
+                                -
+                              </span>
+                            );
+                          }
+                        };
+
+                        return getAccountSecurityBadge();
+                      })()}
+                    </td>
+                    <td className="py-4 px-6">
                       {user.onboardingStatus === 'ONBOARDING' ? (
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold font-simpler">
@@ -1464,13 +2094,9 @@ export default function AllUsersPage() {
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler">
                           הושלם
                         </span>
-                      ) : user.isAnonymous ? (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold font-simpler">
-                          אורח
-                        </span>
                       ) : (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold font-simpler">
-                          פעיל
+                        <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold font-simpler">
+                          -
                         </span>
                       )}
                     </td>

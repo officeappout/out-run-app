@@ -1,6 +1,9 @@
 /**
  * Admin Invitation Service
- * Handles invitation link generation and validation
+ * Handles invitation link generation and validation.
+ *
+ * SECURITY: Only Root Admins (ENV-defined) can create/delete invitations.
+ * This is enforced by `assertRootAdmin()` at the start of mutation functions.
  */
 import {
   collection,
@@ -9,6 +12,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -19,8 +23,21 @@ import { db } from '@/lib/firebase';
 import { AdminInvitation, InvitationData } from '@/types/invitation.type';
 import { logAction } from './audit.service';
 import { updateAuthority } from './authority.service';
+import { isRootAdmin } from '@/config/feature-flags';
 
 const INVITATIONS_COLLECTION = 'admin_invitations';
+
+/**
+ * Assert that the calling admin is a Root Admin.
+ * Throws if not — prevents non-root admins from managing invitations.
+ */
+function assertRootAdmin(adminEmail: string | null | undefined): void {
+  if (!isRootAdmin(adminEmail)) {
+    throw new Error(
+      `[Security] Only Root Admins can manage invitations. Email "${adminEmail}" is not authorized.`
+    );
+  }
+}
 
 /**
  * Generate a random token for invitation
@@ -52,13 +69,20 @@ function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
 }
 
 /**
- * Create a new admin invitation
+ * Create a new admin invitation.
+ * SECURITY: Only Root Admins can call this function.
+ *
+ * @param data - Invitation data (email, role, authorityId)
+ * @param createdBy - Admin creating the invitation (must be Root Admin)
  */
 export async function createInvitation(
   data: InvitationData,
-  createdBy: { adminId: string; adminName: string }
+  createdBy: { adminId: string; adminName: string; adminEmail?: string }
 ): Promise<{ invitationId: string; inviteLink: string }> {
   try {
+    // SECURITY: Only Root Admins can create invitations
+    assertRootAdmin(createdBy.adminEmail);
+
     // Validate authorityId if role is authority_manager
     if (data.role === 'authority_manager' && !data.authorityId) {
       throw new Error('authorityId is required for authority_manager role');
@@ -304,7 +328,8 @@ export async function applyInvitationToUser(
 }
 
 /**
- * Get all invitations (for admin management)
+ * Get all invitations (for admin management).
+ * Read-only — no Root Admin check required.
  */
 export async function getAllInvitations(): Promise<AdminInvitation[]> {
   try {
@@ -314,10 +339,10 @@ export async function getAllInvitations(): Promise<AdminInvitation[]> {
     );
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
+    return snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
       return {
-        id: doc.id,
+        id: docSnap.id,
         email: data?.email ?? '',
         role: data?.role ?? 'authority_manager',
         authorityId: data?.authorityId ?? undefined,
@@ -332,6 +357,43 @@ export async function getAllInvitations(): Promise<AdminInvitation[]> {
     });
   } catch (error) {
     console.error('Error fetching invitations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete an invitation by ID.
+ * SECURITY: Only Root Admins can delete invitations.
+ */
+export async function deleteInvitationById(
+  invitationId: string,
+  adminInfo: { adminId: string; adminName: string; adminEmail?: string },
+): Promise<void> {
+  try {
+    // SECURITY: Only Root Admins can delete invitations
+    assertRootAdmin(adminInfo.adminEmail);
+
+    const docRef = doc(db, INVITATIONS_COLLECTION, invitationId);
+    const invDoc = await getDoc(docRef);
+
+    if (!invDoc.exists()) {
+      throw new Error('Invitation not found');
+    }
+
+    const invData = invDoc.data();
+    await deleteDoc(docRef);
+
+    // Log audit action
+    await logAction({
+      adminId: adminInfo.adminId,
+      adminName: adminInfo.adminName,
+      actionType: 'DELETE',
+      targetEntity: 'Admin',
+      targetId: invitationId,
+      details: `Deleted invitation for ${invData?.email || 'unknown'} (role: ${invData?.role || 'unknown'})`,
+    });
+  } catch (error) {
+    console.error('Error deleting invitation:', error);
     throw error;
   }
 }

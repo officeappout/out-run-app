@@ -121,12 +121,23 @@ export async function getPark(parkId: string): Promise<Park | null> {
 function sanitizeParkData(data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>): any {
   return {
     name: data.name ?? '',
-    city: data.city ?? '',
+    city: (data as any).city ?? '',
     description: data.description ?? '',
     location: data.location ?? { lat: 0, lng: 0 },
     image: data.image ?? null,
+    facilityType: (data as any).facilityType ?? null,
+    sportTypes: Array.isArray((data as any).sportTypes) ? (data as any).sportTypes : [],
+    featureTags: Array.isArray((data as any).featureTags) ? (data as any).featureTags : [],
+    hasWaterFountain: (data as any).hasWaterFountain ?? false,
+    isDogFriendly: (data as any).isDogFriendly ?? false,
+    courtType: (data as any).courtType ?? null,
+    natureType: (data as any).natureType ?? null,
+    communityType: (data as any).communityType ?? null,
+    urbanType: (data as any).urbanType ?? null,
+    terrainType: (data as any).terrainType ?? null,
+    environment: (data as any).environment ?? null,
     facilities: Array.isArray(data.facilities) ? data.facilities : [],
-    gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : [], // Default to empty array, never undefined
+    gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : [],
     amenities: data.amenities ?? null,
     authorityId: data.authorityId ?? null,
     status: data.status ?? 'open',
@@ -210,17 +221,20 @@ export async function updatePark(
     
     let details = 'Updated park';
     
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.city !== undefined) updateData.city = data.city;
-    if (data.description !== undefined) updateData.description = data.description;
+    // Safely assign all fields — NEVER allow undefined to reach Firestore
+    if (data.name !== undefined) updateData.name = data.name ?? '';
+    if (data.city !== undefined) updateData.city = data.city ?? '';
+    if (data.description !== undefined) updateData.description = data.description ?? '';
     if (data.location !== undefined) updateData.location = data.location;
     if (data.image !== undefined) updateData.image = data.image ?? null;
+    if ((data as any).facilityType !== undefined) updateData.facilityType = (data as any).facilityType ?? null;
+    if ((data as any).sportTypes !== undefined) updateData.sportTypes = Array.isArray((data as any).sportTypes) ? (data as any).sportTypes : [];
+    if ((data as any).featureTags !== undefined) updateData.featureTags = Array.isArray((data as any).featureTags) ? (data as any).featureTags : [];
+    if ((data as any).hasWaterFountain !== undefined) updateData.hasWaterFountain = (data as any).hasWaterFountain ?? false;
+    if ((data as any).isDogFriendly !== undefined) updateData.isDogFriendly = (data as any).isDogFriendly ?? false;
+    if ((data as any).courtType !== undefined) updateData.courtType = (data as any).courtType ?? null;
     if (data.facilities !== undefined) updateData.facilities = Array.isArray(data.facilities) ? data.facilities : [];
-    if (data.gymEquipment !== undefined) {
-      updateData.gymEquipment = Array.isArray(data.gymEquipment) && data.gymEquipment.length > 0 
-        ? data.gymEquipment 
-        : null;
-    }
+    if (data.gymEquipment !== undefined) updateData.gymEquipment = Array.isArray(data.gymEquipment) ? data.gymEquipment : [];
     if (data.amenities !== undefined) updateData.amenities = data.amenities ?? null;
     if (data.authorityId !== undefined) updateData.authorityId = data.authorityId ?? null;
     if (data.status !== undefined) {

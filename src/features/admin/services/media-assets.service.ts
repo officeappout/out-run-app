@@ -251,3 +251,44 @@ export async function deleteMediaAsset(assetId: string, storagePath?: string): P
     throw new Error(`נכשלה מחיקת הנכס: ${error.message}`);
   }
 }
+
+/**
+ * Extract Firebase Storage path from a download URL.
+ * Returns undefined if the URL cannot be parsed.
+ */
+export function extractStoragePath(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/o\/(.+?)(\?|$)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Bulk-delete media assets (Firestore records + Storage files).
+ * Deletes are performed in parallel; individual failures are counted but
+ * do not stop the batch.
+ */
+export async function bulkDeleteMediaAssets(
+  assets: Pick<MediaAsset, 'id' | 'url'>[]
+): Promise<{ deleted: number; failed: number }> {
+  let deleted = 0;
+  let failed = 0;
+
+  await Promise.all(
+    assets.map(async (asset) => {
+      try {
+        const storagePath = extractStoragePath(asset.url);
+        await deleteMediaAsset(asset.id, storagePath);
+        deleted++;
+      } catch (err) {
+        console.error(`Failed to delete asset ${asset.id}:`, err);
+        failed++;
+      }
+    })
+  );
+
+  return { deleted, failed };
+}

@@ -10,6 +10,44 @@ interface GISClassification {
     difficulty: 'easy' | 'medium' | 'hard';
 }
 
+/**
+ * Auto-detect infrastructure mode from GIS feature properties.
+ * Mirrors the logic in gis-integration.service.ts.
+ */
+function detectInfrastructureMode(
+    props: Record<string, any>,
+    fallbackActivity: ActivityType
+): 'cycling' | 'pedestrian' | 'shared' {
+    const candidates = [
+        props.highway, props.Highway, props.HIGHWAY,
+        props.path_type, props.PATH_TYPE,
+        props.route_type, props.ROUTE_TYPE,
+        props.type, props.Type, props.TYPE,
+        props.road_type, props.ROAD_TYPE,
+        props.sug_dereh, props.SUG_DEREH,
+    ].filter(Boolean).map((v: any) => String(v).toLowerCase());
+
+    const CYCLING = ['cycleway', 'bicycle', 'bike', 'cycle', 'ofanaim', 'אופניים'];
+    const PEDESTRIAN = ['footway', 'pedestrian', 'sidewalk', 'footpath', 'holchei_regel', 'הולכי רגל', 'מדרכה'];
+    const SHARED = ['path', 'shared', 'track', 'shared_use', 'meshutaf', 'משותף'];
+
+    let cyc = false, ped = false, shr = false;
+    for (const val of candidates) {
+        if (CYCLING.some(k => val.includes(k))) cyc = true;
+        if (PEDESTRIAN.some(k => val.includes(k))) ped = true;
+        if (SHARED.some(k => val.includes(k))) shr = true;
+    }
+
+    if (cyc && ped) return 'shared';
+    if (shr) return 'shared';
+    if (cyc) return 'cycling';
+    if (ped) return 'pedestrian';
+
+    if (fallbackActivity === 'cycling') return 'cycling';
+    if (fallbackActivity === 'walking' || fallbackActivity === 'running') return 'pedestrian';
+    return 'shared';
+}
+
 export const GISParserService = {
     /**
      * Entry point for parsing a GIS file (GeoJSON or Shapefile ZIP)
@@ -117,6 +155,19 @@ export const GISParserService = {
             // Extract name from properties (common GIS fields)
             const name = properties.name || properties.label || properties.Name || `Section ${index + 1}`;
 
+            // Auto-map rating: if source provides a rating, normalize to 1–5
+            const rawRating = properties.rating ?? properties.Rating ?? properties.score ?? properties.Score;
+            let normalizedRating = 0;
+            if (rawRating != null && typeof rawRating === 'number' && rawRating > 0) {
+                // If source is 1–10, divide by 2; if already 1–5, keep as is
+                normalizedRating = rawRating > 5 ? Number((rawRating / 2).toFixed(1)) : Number(rawRating.toFixed(1));
+                // Clamp to [1, 5]
+                normalizedRating = Math.max(1, Math.min(5, normalizedRating));
+            }
+
+            // Auto-detect infrastructure mode from GIS properties
+            const infraMode = detectInfrastructureMode(properties, classification.activity);
+
             const route: Route = {
                 id: `gis-${classification.activity}-${Date.now()}-${index}`,
                 name: name,
@@ -124,6 +175,8 @@ export const GISParserService = {
                 distance: distanceKm,
                 duration: Math.round(distanceKm * (classification.activity === 'cycling' ? 3 : 6)), // Rough estimate
                 score: Math.round(distanceKm * 10),
+                rating: normalizedRating,
+                calories: Math.round(distanceKm * (classification.activity === 'cycling' ? 30 : 65)),
                 type: classification.activity,
                 activityType: classification.activity,
                 difficulty: classification.difficulty,
@@ -143,7 +196,8 @@ export const GISParserService = {
                     type: 'official_api',
                     name: properties.source || 'GIS Import',
                     externalId: properties.id?.toString() || properties.GlobalID?.toString()
-                }
+                },
+                infrastructureMode: infraMode,
             };
 
             return route;

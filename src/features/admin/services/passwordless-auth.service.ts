@@ -8,6 +8,7 @@ import { sendMagicLink } from '@/lib/auth.service';
 import { getAuthoritiesByManager } from './authority.service';
 import { getUserByEmail } from './admin-management.service';
 import { checkUserRole } from './auth.service';
+import { isRootAdmin, isAdminEmailAllowed } from '@/config/feature-flags';
 
 const INVITATIONS_COLLECTION = 'admin_invitations';
 
@@ -22,14 +23,41 @@ export interface AdminCheckResult {
 }
 
 /**
- * Check if email exists in admins/users collection and verify role
- * Also checks admin_invitations collection for pending invitations
+ * Check if email exists in admins/users collection and verify role.
+ * Also checks:
+ *   1. Root Admin ENV list (highest priority — always granted super_admin)
+ *   2. Admin allowlist (feature-flags.ts)
+ *   3. Firestore users collection
+ *   4. admin_invitations collection
  */
 export async function checkAdminEmail(email: string): Promise<AdminCheckResult> {
   try {
     const normalizedEmail = email.toLowerCase().trim();
+
+    // ── PRIORITY 0: Root Admin (ENV-defined) ──────────────────────────
+    if (isRootAdmin(normalizedEmail)) {
+      return {
+        exists: true,
+        role: 'super_admin',
+        isApproved: true,
+      };
+    }
+
+    // ── PRIORITY 0.5: Admin Email Allowlist ───────────────────────────
+    // If the email is in the hardcoded allowlist, grant super_admin
+    // even if there's no Firestore user doc yet (first-time login).
+    if (isAdminEmailAllowed(normalizedEmail)) {
+      // Still try to find an existing user for their userId
+      const existingUser = await getUserByEmail(normalizedEmail);
+      return {
+        exists: true,
+        role: 'super_admin',
+        isApproved: true,
+        userId: existingUser?.id,
+      };
+    }
     
-    // First, check if user exists in users collection
+    // ── PRIORITY 1: Firestore users collection ────────────────────────
     const userDoc = await getUserByEmail(normalizedEmail);
     
     // If user doesn't exist, check admin_invitations collection
@@ -55,7 +83,7 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
           }
           
           if (!isExpired && role) {
-            // Invitation exists and is valid - return it as a valid authority_manager
+            // Invitation exists and is valid
             return {
               exists: true,
               role: role === 'authority_manager' ? 'authority_manager' : null,
