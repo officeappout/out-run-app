@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // מאפשר למשתמשים מחוברים לקרוא ולכתוב את הנתונים שלהם
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // תת-אוסף של XP והתקדמות
+      match /progression/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // מאפשר לכולם לקרוא את השאלות של האבחון
+    match /onboarding_questions/{docId} {
+      allow read: if true;
+    }
+    
+    // מאפשר למנהלים (Admin) גישה מלאה להכל
+    match /{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
