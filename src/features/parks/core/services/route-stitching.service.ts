@@ -25,8 +25,7 @@ import { getParksByAuthority } from './parks.service';
 
 // ── Constants ───────────────────────────────────────────────────────
 const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
-  'pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw';
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 /** Max straight-line gap (metres) before we decide two segments are unrelated */
 const MAX_BRIDGE_GAP_METERS = 2000;

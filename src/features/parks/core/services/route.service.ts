@@ -1,5 +1,4 @@
-// הטוקן הקשיח לביטחון (כדי למנוע שגיאות 401)
-const MAPBOX_TOKEN = "pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw";
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 // הגדרת טיפוסים פנימיים למניעת שגיאות
 interface Coordinates { lat: number; lng: number }

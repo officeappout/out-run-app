@@ -7,7 +7,7 @@ import type { LifestyleOption } from './location-types';
 
 // ── Mapbox Config ────────────────────────────────────────
 
-export const MAPBOX_TOKEN = "pk.eyJ1IjoiZGF2aWQtb3V0IiwiYSI6ImNtanZpZmJ0djM5MTEzZXF5YXNmcm9zNGwifQ.8MD8s4TZOr0WYYgEpFfpzw";
+export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 export const MAPBOX_STYLE = "mapbox://styles/mapbox/streets-v12";
 
 // ── Lifestyle Persona Options ────────────────────────────
