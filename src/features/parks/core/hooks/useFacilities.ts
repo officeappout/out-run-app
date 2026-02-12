@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { InventoryService } from '../services/inventory.service';

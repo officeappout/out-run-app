@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ParkWithDistance from '../../types/park-with-distance.type';

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useMemo, useEffect } from 'react';
 import { Route, ActivityType, PlannedRoute } from '../types/route.types';
 import { useUserStore } from '@/features/user';
