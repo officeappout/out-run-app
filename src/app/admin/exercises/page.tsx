@@ -11,13 +11,16 @@ import {
   duplicateExercise,
   getExercisesByProgram,
   getExerciseProductionReadiness,
+  bulkAssignBaseMovementIds,
 } from '@/features/content/exercises';
+import { diagnoseSmartSwapGaps } from '@/features/content/exercises';
 import { getAllPrograms } from '@/features/content/programs';
 import { Exercise, getLocalizedText, MovementGroup } from '@/features/content/exercises';
 import { Program } from '@/features/content/programs';
 import {
   Plus, Edit2, Trash2, Copy, Search, Eye, HelpCircle,
   PlayCircle, Download, AlertCircle, CheckCircle, Camera,
+  Zap, X,
 } from 'lucide-react';
 
 // ────────────────────────────────────────────────────────────────
@@ -257,6 +260,40 @@ export default function ExercisesAdminPage() {
     setTimeout(() => setToastMessage(null), 2500);
   }, []);
 
+  // Smart Swap diagnostic
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [diagnosticData, setDiagnosticData] = useState<ReturnType<typeof diagnoseSmartSwapGaps> | null>(null);
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+
+  const runDiagnostic = useCallback(() => {
+    const result = diagnoseSmartSwapGaps(allExercises);
+    setDiagnosticData(result);
+    setShowDiagnostic(true);
+  }, [allExercises]);
+
+  const handleBulkAutoAssign = useCallback(async () => {
+    if (!diagnosticData || diagnosticData.autoAssignable.length === 0) return;
+    setIsBulkAssigning(true);
+    try {
+      const assignments = diagnosticData.autoAssignable.map(({ exercise, suggestedId }) => ({
+        exerciseId: exercise.id,
+        baseMovementId: suggestedId,
+      }));
+      const result = await bulkAssignBaseMovementIds(assignments);
+      showToast(`✓ עודכנו ${result.updated} תרגילים | ${result.failed} נכשלו`);
+      // Refresh exercises
+      const data = activeTab === 'all' ? await getAllExercises() : await getExercisesByProgram(activeTab);
+      setAllExercises(data);
+      // Re-run diagnostic with fresh data
+      setDiagnosticData(diagnoseSmartSwapGaps(data));
+    } catch (error) {
+      console.error('Bulk assign error:', error);
+      showToast('✗ שגיאה בעדכון אוטומטי');
+    } finally {
+      setIsBulkAssigning(false);
+    }
+  }, [diagnosticData, activeTab, showToast]);
+
   // ── Fetch programs once on mount ──
   useEffect(() => {
     getAllPrograms()
@@ -356,6 +393,103 @@ export default function ExercisesAdminPage() {
         </div>
       )}
 
+      {/* Smart Swap Diagnostic Modal */}
+      {showDiagnostic && diagnosticData && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Modal header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                  <Zap size={22} className="text-amber-500" />
+                  אבחון Smart Swap
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {diagnosticData.missing.length} תרגילים חסרי base_movement_id מתוך {allExercises.length}
+                </p>
+              </div>
+              <button onClick={() => setShowDiagnostic(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-4 p-6 bg-gray-50 border-b border-gray-100">
+              <div className="text-center">
+                <div className="text-2xl font-black text-red-600">{diagnosticData.missing.length}</div>
+                <div className="text-xs text-gray-500 font-bold">חסרים</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black text-green-600">{diagnosticData.autoAssignable.length}</div>
+                <div className="text-xs text-gray-500 font-bold">ניתנים לתיקון אוטומטי</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black text-amber-600">{diagnosticData.manualOnly.length}</div>
+                <div className="text-xs text-gray-500 font-bold">דורשים תיקון ידני</div>
+              </div>
+            </div>
+
+            {/* Lists */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Auto-assignable */}
+              {diagnosticData.autoAssignable.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-green-700 text-sm">ניתנים לתיקון אוטומטי</h3>
+                    <button
+                      onClick={handleBulkAutoAssign}
+                      disabled={isBulkAssigning}
+                      className="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 disabled:opacity-50 transition-colors"
+                    >
+                      {isBulkAssigning ? 'מעדכן...' : `תקן ${diagnosticData.autoAssignable.length} תרגילים`}
+                    </button>
+                  </div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {diagnosticData.autoAssignable.map(({ exercise, suggestedId }) => (
+                      <div key={exercise.id} className="flex items-center justify-between text-xs bg-green-50 px-3 py-2 rounded-lg">
+                        <span className="font-bold text-gray-700 truncate flex-1">
+                          {getLocalizedText(exercise.name)}
+                        </span>
+                        <span className="text-green-600 font-mono mr-2">← {suggestedId}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual only */}
+              {diagnosticData.manualOnly.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-amber-700 text-sm mb-3">דורשים תיקון ידני (אין movementGroup)</h3>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {diagnosticData.manualOnly.map((exercise) => (
+                      <div key={exercise.id} className="flex items-center justify-between text-xs bg-amber-50 px-3 py-2 rounded-lg">
+                        <span className="font-bold text-gray-700 truncate flex-1">
+                          {getLocalizedText(exercise.name)}
+                        </span>
+                        <Link
+                          href={`/admin/exercises/${exercise.id}`}
+                          className="text-blue-600 hover:underline font-bold mr-2"
+                        >
+                          ערוך
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {diagnosticData.missing.length === 0 && (
+                <div className="text-center py-8">
+                  <CheckCircle size={40} className="text-green-500 mx-auto mb-3" />
+                  <p className="font-bold text-green-700">כל התרגילים מוגדרים! Smart Swap מוכן.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
@@ -369,6 +503,14 @@ export default function ExercisesAdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={runDiagnostic}
+            className="flex items-center gap-2 px-5 py-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl font-bold hover:bg-amber-100 transition-colors"
+            title="אבחון Smart Swap — בדיקת base_movement_id חסרים"
+          >
+            <Zap size={18} />
+            Smart Swap
+          </button>
           <Link
             href="/admin/export-exercises"
             className="flex items-center gap-2 px-5 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"

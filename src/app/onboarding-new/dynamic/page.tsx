@@ -148,7 +148,15 @@ export default function DynamicOnboardingPage() {
           }
 
           // Trigger completion flow immediately (skips Part 2)
-          await handleComplete();
+          // IMPORTANT: Pass result directly to avoid stale closure — setState
+          // is async, so the closure would still hold undefined values.
+          await handleComplete({
+            assignedLevel: result.assignedLevel,
+            assignedLevelId: result.assignedLevelId,
+            assignedProgramId: result.assignedProgramId,
+            assignedResults: result.assignedResults,
+            masterProgramSubLevels: result.masterProgramSubLevels,
+          });
         } else if (result.nextQuestion) {
           // Continue Part 1
           setCurrentQuestion(result.nextQuestion);
@@ -175,7 +183,24 @@ export default function DynamicOnboardingPage() {
   // Part 2 navigation removed - Part 2 is now skipped
 
   // Handle final completion - show reveal screens
-  const handleComplete = useCallback(async () => {
+  // Accepts an optional resultOverride to avoid stale closure values.
+  // When called immediately after setState, React hasn't re-rendered yet,
+  // so assignedLevel/assignedProgramId etc. in the closure are still undefined.
+  // Passing them directly from the engine result guarantees fresh values.
+  const handleComplete = useCallback(async (resultOverride?: {
+    assignedLevel?: number;
+    assignedLevelId?: string;
+    assignedProgramId?: string;
+    assignedResults?: Array<{ programId: string; levelId: string; masterProgramSubLevels?: Record<string, number> }>;
+    masterProgramSubLevels?: Record<string, number>;
+  }) => {
+    // Use override values (fresh from engine) when available, fall back to state
+    const effectiveLevel = resultOverride?.assignedLevel ?? assignedLevel;
+    const effectiveLevelId = resultOverride?.assignedLevelId ?? assignedLevelId;
+    const effectiveProgramId = resultOverride?.assignedProgramId ?? assignedProgramId;
+    const effectiveResults = resultOverride?.assignedResults ?? assignedResults;
+    const effectiveSubLevels = resultOverride?.masterProgramSubLevels ?? masterProgramSubLevels;
+
     try {
       // Collect all answers
       const dynamicAnswers = engine.getAllAnswers();
@@ -237,23 +262,29 @@ export default function DynamicOnboardingPage() {
         location: '',
       };
 
-      // Get level number - use assignedLevel if available, otherwise fetch from levelId
-      let levelNumber = assignedLevel || 1;
-      if (!levelNumber && assignedLevelId) {
+      // Get level number - use effectiveLevel if available, otherwise fetch from levelId
+      let levelNumber = effectiveLevel || 1;
+      if (!levelNumber && effectiveLevelId) {
         const { getLevel } = await import('@/features/content/programs/core/level.service');
-        const levelDoc = await getLevel(assignedLevelId);
+        const levelDoc = await getLevel(effectiveLevelId);
         if (levelDoc) {
           levelNumber = levelDoc.order || 1;
         }
       }
       setFinalLevelNumber(levelNumber);
 
+      // Also persist to state so ProgramResult can read them
+      if (resultOverride) {
+        if (resultOverride.assignedLevelId) setAssignedLevelId(resultOverride.assignedLevelId);
+        if (resultOverride.assignedProgramId) setAssignedProgramId(resultOverride.assignedProgramId);
+      }
+
       // Create profile with assigned level and program
       const profile = mapAnswersToProfile(
         allAnswers as any,
-        assignedLevel,
-        assignedProgramId,
-        masterProgramSubLevels
+        effectiveLevel,
+        effectiveProgramId,
+        effectiveSubLevels
       );
 
       // Inject claim rewards if available
@@ -272,7 +303,7 @@ export default function DynamicOnboardingPage() {
       // Save profile locally
       await initializeProfile(profile);
       
-      console.log('✅ Profile initialized with Level:', assignedLevel, 'LevelId:', assignedLevelId, 'Program:', assignedProgramId, 'SubLevels:', masterProgramSubLevels);
+      console.log('✅ Profile initialized with Level:', effectiveLevel, 'LevelId:', effectiveLevelId, 'Program:', effectiveProgramId, 'SubLevels:', effectiveSubLevels);
 
       // ✅ PERSISTENCE FIX: Sync assignedResults to Firestore immediately
       // This ensures quiz results are saved even if user drops off before Phase 2
@@ -280,9 +311,9 @@ export default function DynamicOnboardingPage() {
         // Build the data payload with assignedResults for Firestore persistence
         const syncPayload: any = {
           ...allAnswers,
-          assignedResults: assignedResults || (engine.getProgress() as any).assignedResults,
-          assignedProgramId,
-          assignedLevelId,
+          assignedResults: effectiveResults || (engine.getProgress() as any).assignedResults,
+          assignedProgramId: effectiveProgramId,
+          assignedLevelId: effectiveLevelId,
           selectedGoal: savedGoals?.[0],
           selectedGoalIds: savedGoals,
           selectedPersonaId: savedPersonaId || undefined,

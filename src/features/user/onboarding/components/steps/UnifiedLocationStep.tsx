@@ -55,7 +55,8 @@ import { SearchOverlay } from './UnifiedLocation/sub-components/SearchOverlay';
 import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 
 // ── Dynamic Mapbox Imports (avoid SSR) ───────────────────
-const MapboxMap = dynamic(() => import('react-map-gl').then((mod) => mod.default), { ssr: false });
+// MapboxMap uses a forwardRef wrapper so next/dynamic correctly passes ref={mapRef}
+const MapboxMap = dynamic(() => import('./UnifiedLocation/MapboxMapWrapper'), { ssr: false });
 const MapboxMarker = dynamic(() => import('react-map-gl').then((mod) => mod.Marker), { ssr: false });
 const MapboxSource = dynamic(() => import('react-map-gl').then((mod) => mod.Source), { ssr: false });
 const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer), { ssr: false });

@@ -1,25 +1,285 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // מאפשר למשתמשים מחוברים לקרוא ולכתוב את הנתונים שלהם
+
+    // ============================================================
+    // HELPER: בדיקת הרשאת אדמין
+    // ============================================================
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // USERS — כל משתמש קורא/כותב את עצמו + תתי-אוספים
+    // ============================================================
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      // תת-אוסף של XP והתקדמות
+      allow read, write: if isOwner(userId);
+
+      // תת-אוסף התקדמות ו-XP
       match /progression/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
     }
-    
-    // מאפשר לכולם לקרוא את השאלות של האבחון
+
+    // ============================================================
+    // WORKOUTS — משתמש מחובר יכול ליצור/לקרוא אימונים
+    // ============================================================
+    match /workouts/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================
+    // ANALYTICS — משתמש מחובר כותב אירועים
+    // ============================================================
+    match /analytics_events/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    // ============================================================
+    // CONTENT — קריאה ציבורית (תרגילים, תוכניות, רמות, ציוד)
+    // ============================================================
+    match /exercises/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /programs/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /levels/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /personas/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gear_definitions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gym_equipment/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /outdoorBrands/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // ONBOARDING & QUESTIONNAIRE — קריאה ציבורית, כתיבה לאדמין
+    // ============================================================
     match /onboarding_questions/{docId} {
       allow read: if true;
+      allow write: if isAdmin();
     }
-    
-    // מאפשר למנהלים (Admin) גישה מלאה להכל
+
+    match /onboarding_answers/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // PROGRESSION ENGINE — קריאה ציבורית, כתיבה לאדמין
+    // ============================================================
+    match /progression_rules/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /program_level_settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /programLevelSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /level_equivalence_rules/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // APP CONFIG — הגדרות גלובליות (XP multipliers וכו׳)
+    // ============================================================
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // WORKOUT METADATA — תבניות, הודעות, תיאורים + תתי-אוספים
+    // ============================================================
+    match /workoutMetadata/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{subCollection}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Workout content fragments & titles
+    match /workout_content_fragments/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_funny_titles/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_titles_creative/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_time_contexts/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /workout_focus_fragments/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /time_contexts/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /focus_descriptions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // PARKS, ROUTES, FACILITIES
+    // ============================================================
+    match /parks/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /facilities/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /official_routes/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /curated_routes/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // CRM / AUTHORITIES
+    // ============================================================
+    match /authorities/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // ADMIN — הזמנות, מדיה, עריכות, תחזוקה, ביקורת
+    // ============================================================
+    match /admin_invitations/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /mediaAssets/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /edit_requests/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    match /maintenance_reports/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // COMMUNITY & ENGAGEMENT
+    // ============================================================
+    match /community_groups/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /community_events/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /manager_notifications/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /push_messages/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PRODUCT ROADMAP & FEEDBACK
+    // ============================================================
+    match /product_roadmap/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /product_tags/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /user_feedback/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    // ============================================================
+    // SESSIONS — park check-ins
+    // ============================================================
+    match /sessions/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================
+    // ADMIN FALLBACK — אדמין יכול לגשת לכל מסמך
+    // ============================================================
     match /{document=**} {
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if isAdmin();
     }
   }
 }

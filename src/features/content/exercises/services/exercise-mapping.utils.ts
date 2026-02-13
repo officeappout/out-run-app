@@ -762,6 +762,62 @@ export function normalizeExercise(docId: string, data: any): Exercise {
 }
 
 // ============================================================================
+// SMART SWAP: BASE MOVEMENT ID INFERENCE
+// ============================================================================
+
+/**
+ * Heuristic map: movementGroup → best-guess base_movement_id.
+ * Used when an exercise is missing base_movement_id.
+ */
+const MOVEMENT_GROUP_TO_BASE: Record<string, string> = {
+  horizontal_push: 'push_up',
+  vertical_push: 'handstand',
+  horizontal_pull: 'row',
+  vertical_pull: 'pull_up',
+  squat: 'pistol_squat',
+  hinge: 'pistol_squat',
+  core: 'l_sit',
+  isolation: 'ring_work',
+};
+
+/**
+ * Attempt to infer base_movement_id from movementGroup.
+ * Returns the inferred ID, or null if no mapping exists.
+ */
+export function inferBaseMovementId(exercise: Pick<Exercise, 'movementGroup' | 'base_movement_id'>): string | null {
+  if (exercise.base_movement_id) return exercise.base_movement_id;
+  if (!exercise.movementGroup) return null;
+  return MOVEMENT_GROUP_TO_BASE[exercise.movementGroup] || null;
+}
+
+/**
+ * Diagnose all exercises that are missing base_movement_id.
+ * Returns exercises split into auto-assignable (have movementGroup) and manual-only.
+ */
+export function diagnoseSmartSwapGaps(exercises: Exercise[]): {
+  missing: Exercise[];
+  autoAssignable: Array<{ exercise: Exercise; suggestedId: string }>;
+  manualOnly: Exercise[];
+} {
+  const missing: Exercise[] = [];
+  const autoAssignable: Array<{ exercise: Exercise; suggestedId: string }> = [];
+  const manualOnly: Exercise[] = [];
+
+  for (const ex of exercises) {
+    if (ex.base_movement_id) continue;
+    missing.push(ex);
+    const inferred = inferBaseMovementId(ex);
+    if (inferred) {
+      autoAssignable.push({ exercise: ex, suggestedId: inferred });
+    } else {
+      manualOnly.push(ex);
+    }
+  }
+
+  return { missing, autoAssignable, manualOnly };
+}
+
+// ============================================================================
 // DEEP MERGE FOR UPDATES
 // ============================================================================
 

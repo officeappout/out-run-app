@@ -16,6 +16,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Exercise, ExerciseFormData, getLocalizedText } from './exercise.types';
@@ -972,4 +973,50 @@ import { analyzeExerciseForMatrix, ContentMatrixRow } from '../services/exercise
 export async function getContentMatrixData(): Promise<ContentMatrixRow[]> {
   const exercises = await getAllExercises();
   return exercises.map(analyzeExerciseForMatrix);
+}
+
+// ============================================================================
+// SMART SWAP: BULK ASSIGN BASE MOVEMENT IDS
+// ============================================================================
+
+/**
+ * Bulk-assign base_movement_id for exercises that are missing it.
+ * Accepts an array of { exerciseId, baseMovementId } pairs and writes them
+ * in a single Firestore batch (max 500 per batch).
+ */
+export async function bulkAssignBaseMovementIds(
+  assignments: Array<{ exerciseId: string; baseMovementId: string }>
+): Promise<{ updated: number; failed: number }> {
+  let updated = 0;
+  let failed = 0;
+
+  // Firestore batches are limited to 500 operations
+  const BATCH_SIZE = 450;
+
+  for (let i = 0; i < assignments.length; i += BATCH_SIZE) {
+    const chunk = assignments.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+
+    for (const { exerciseId, baseMovementId } of chunk) {
+      try {
+        const ref = doc(db, EXERCISES_COLLECTION, exerciseId);
+        batch.update(ref, {
+          base_movement_id: baseMovementId,
+          updatedAt: serverTimestamp(),
+        });
+      } catch {
+        failed++;
+      }
+    }
+
+    try {
+      await batch.commit();
+      updated += chunk.length;
+    } catch (error) {
+      console.error('[bulkAssignBaseMovementIds] Batch commit failed:', error);
+      failed += chunk.length;
+    }
+  }
+
+  return { updated, failed };
 }
