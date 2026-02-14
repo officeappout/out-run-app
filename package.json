@@ -38,6 +38,7 @@
     "react-map-gl": "^7.1.9",
     "react-signature-canvas": "^1.1.0-alpha.2",
     "react-virtuoso": "^4.18.1",
+    "react-window": "^2.2.7",
     "reactflow": "^11.11.4",
     "recharts": "^3.6.0",
     "shpjs": "^6.2.0",

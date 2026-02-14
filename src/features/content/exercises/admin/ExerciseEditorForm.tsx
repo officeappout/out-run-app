@@ -24,6 +24,7 @@ import {
   MECHANICAL_TYPE_LABELS,
   MuscleGroup
 } from '../core/exercise.types';
+import type { MethodsSectionRef } from './components/exercise-editor/MethodsSection';
 
 interface ExerciseEditorFormProps {
   programs: Program[];
@@ -124,6 +125,9 @@ export default function ExerciseEditorForm({
   
   // Track if this is the initial mount to prevent calling parent callback during first render
   const isInitialMount = useRef(true);
+  
+  // Ref to access MethodsSection clearDraft function
+  const methodsSectionRef = useRef<MethodsSectionRef>(null);
   
   // =========================================================================
   // COMPLETE METADATA FIELD LIST - All fields that must be preserved
@@ -623,7 +627,15 @@ export default function ExerciseEditorForm({
     console.log('[DEBUG] Full syncedFormData JSON:', JSON.stringify(syncedFormData, null, 2));
     console.log('='.repeat(80));
     
+    // Submit the form data
     onSubmit(syncedFormData);
+    
+    // Clear localStorage draft after successful submit
+    // Note: This will be called immediately, but if submit fails, the draft remains
+    // The parent component should handle errors and not call this if submission fails
+    if (methodsSectionRef.current && exerciseId) {
+      methodsSectionRef.current.clearDraft();
+    }
   };
 
   // Keep legacy programIds in sync with selected targetPrograms (for backward compatibility)
@@ -823,6 +835,7 @@ export default function ExerciseEditorForm({
 
         {/* Execution Methods Section - Video/Media per location */}
       <MethodsSection
+        ref={methodsSectionRef}
         executionMethods={executionMethods}
         setExecutionMethods={setExecutionMethods}
         gymEquipmentList={gymEquipmentList}
@@ -831,6 +844,7 @@ export default function ExerciseEditorForm({
         isFollowAlong={formData.isFollowAlong || false}
         focusedMethodIndex={focusedMethodIndex}
         onMethodFocused={() => setFocusedMethodIndex(null)}
+        exerciseId={exerciseId}
       />
 
         {/* Execution Details - Specific Cues + Collapsible Instructions */}
