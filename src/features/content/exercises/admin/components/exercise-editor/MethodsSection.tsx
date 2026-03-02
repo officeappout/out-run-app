@@ -1,10 +1,6 @@
 'use client';
 
-<<<<<<< HEAD
-import { useState, useEffect, useRef } from 'react';
-=======
-import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
->>>>>>> 166f532b436b3ab771a2f81e1f682c7e4e7de65b
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { ExecutionMethod, ExecutionLocation } from '../../../core/exercise.types';
 import { GymEquipment } from '../../../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../../../equipment/gear/core/gear-definition.types';
@@ -79,12 +75,11 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
   // Track if info section is expanded (collapsed by default)
   const [infoExpanded, setInfoExpanded] = useState(false);
 
-<<<<<<< HEAD
   // Undo-on-delete: buffer the last deleted method for 5 seconds
   const [deletedMethodBuffer, setDeletedMethodBuffer] =
     useState<{ method: ExecutionMethod; originalIndex: number } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-=======
+
   // Draft restoration state
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
   const [draftToRestore, setDraftToRestore] = useState<ExecutionMethod[] | null>(null);
@@ -100,7 +95,6 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
   useImperativeHandle(ref, () => ({
     clearDraft,
   }));
->>>>>>> 166f532b436b3ab771a2f81e1f682c7e4e7de65b
 
   /**
    * Get equipment/gear names for display in header
@@ -549,31 +543,31 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
                 isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
               }`}>
                 <div className="p-4">
-              <ExecutionMethodCard
-                method={sanitizedMethod}
-                index={index}
-                gymEquipmentList={gymEquipmentList}
-                gearDefinitionsList={gearDefinitionsList}
-                loadingRequirements={loadingRequirements}
-                isFollowAlong={isFollowAlong}
+                  <ExecutionMethodCard
+                    method={sanitizedMethod}
+                    index={index}
+                    gymEquipmentList={gymEquipmentList}
+                    gearDefinitionsList={gearDefinitionsList}
+                    loadingRequirements={loadingRequirements}
+                    isFollowAlong={isFollowAlong}
                     isFocused={isFocused}
-                onFocused={onMethodFocused}
-                onUpdate={(updated) => {
-                const sanitizedUpdate: ExecutionMethod = {
-                  ...updated,
-                  methodName: (() => {
-                    const name = updated.methodName;
-                    if (typeof name === 'string') return name;
-                    if (typeof name === 'object' && name !== null) {
-                            return (name as any).he || (name as any).en || '';
-                    }
-                    return '';
-                  })()
-                };
-                const newMethods = [...executionMethods];
-                newMethods[index] = sanitizedUpdate;
-                setExecutionMethods(newMethods);
-              }}
+                    onFocused={onMethodFocused}
+                    onUpdate={(updated) => {
+                      const sanitizedUpdate: ExecutionMethod = {
+                        ...updated,
+                        methodName: (() => {
+                          const name = updated.methodName;
+                          if (typeof name === 'string') return name;
+                          if (typeof name === 'object' && name !== null) {
+                                  return (name as any).he || (name as any).en || '';
+                          }
+                          return '';
+                        })()
+                      };
+                      const newMethods = [...executionMethods];
+                      newMethods[index] = sanitizedUpdate;
+                      setExecutionMethods(newMethods);
+                    }}
                     onRemove={() => removeMethod(index)}
                     onDuplicate={() => duplicateMethod(index)}
                     hideHeaderActions={true}
@@ -612,13 +606,13 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
           className="w-full flex items-center justify-between p-4 bg-cyan-50 border border-cyan-200 rounded-xl hover:bg-cyan-100 transition-colors"
         >
           <div className="flex items-center gap-2">
-          <div className="p-2 bg-cyan-100 rounded-lg">
-            <Zap size={20} className="text-cyan-700" />
+            <div className="p-2 bg-cyan-100 rounded-lg">
+              <Zap size={20} className="text-cyan-700" />
+            </div>
+            <h3 className="text-base font-black text-cyan-900">
+              🧠 לוגיקת תיעדוף והצגת תכנים (The Selection Engine)
+            </h3>
           </div>
-          <h3 className="text-base font-black text-cyan-900">
-            🧠 לוגיקת תיעדוף והצגת תכנים (The Selection Engine)
-          </h3>
-        </div>
           <div className={`transition-transform duration-200 ${infoExpanded ? 'rotate-180' : ''}`}>
             <ChevronDown size={20} className="text-cyan-700" />
           </div>
@@ -700,15 +694,15 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
               <p className="text-xs text-cyan-800 leading-relaxed">
                 אם אין התאמה לאף אחד מהתנאים, תוצג שיטת הביצוע הראשונה ברשימה (דירוג 1).
               </p>
+            </div>
           </div>
-        </div>
 
-        {/* Footer Note */}
-        <div className="mt-4 pt-4 border-t border-cyan-200 flex items-start gap-2">
-          <Info size={16} className="text-cyan-600 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-cyan-800 leading-relaxed">
-            <span className="font-bold">💡 טיפ:</span> התראת ה-Push תשתמש בטקסט שהזנת בשדה ה-Notification Text של השיטה שנבחרה.
-          </p>
+          {/* Footer Note */}
+          <div className="mt-4 pt-4 border-t border-cyan-200 flex items-start gap-2">
+            <Info size={16} className="text-cyan-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-cyan-800 leading-relaxed">
+              <span className="font-bold">💡 טיפ:</span> התראת ה-Push תשתמש בטקסט שהזנת בשדה ה-Notification Text של השיטה שנבחרה.
+            </p>
             </div>
           </div>
         </div>
