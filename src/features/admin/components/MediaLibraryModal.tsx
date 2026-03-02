@@ -6,10 +6,11 @@
  * Allows uploading new assets and selecting existing ones
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { X, Search, Upload, Image as ImageIcon, Video, Loader2, Check, Plus, Play, Trash2, MapPin, Home, Building2, Trees, ChevronDown, Tag, AlertTriangle } from 'lucide-react';
 import { MediaAsset, MediaAssetLocation, MEDIA_LOCATION_LABELS, uploadMediaAsset, getAllMediaAssets, getMediaAssetsByType, searchMediaAssets, parseLocationFromFilename, deleteMediaAsset, bulkDeleteMediaAssets } from '../services/media-assets.service';
 import { motion, AnimatePresence } from 'framer-motion';
+import { List } from 'react-window';
 
 /**
  * Upload Queue Item
@@ -127,6 +128,256 @@ function VideoThumbnail({
   );
 }
 
+// ============================================================================
+// PERFORMANCE CONSTANTS
+// ============================================================================
+const ITEMS_PER_PAGE = 16; // 4 full rows × 4 columns — perfect buffer above the ~8 visible
+const GRID_GAP = 10;
+const GRID_PADDING = 16;
+const CARD_INFO_HEIGHT = 56; // compact: 2-line Hebrew name + type/duration badge row + padding
+
+// ============================================================================
+// LAZY VIDEO THUMBNAIL - IntersectionObserver defers loading until visible
+// ============================================================================
+const LazyVideoThumbnail = memo(function LazyVideoThumbnail({
+  asset,
+  className = '',
+}: {
+  asset: MediaAsset;
+  className?: string;
+}) {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' } // Start loading 200px before the card is visible
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      {shouldLoad ? (
+        <VideoThumbnail asset={asset} className="w-full h-full" />
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
+          <Video size={24} className="text-slate-400" />
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ============================================================================
+// MEMOIZED MEDIA GRID CARD - Prevents unnecessary re-renders
+// ============================================================================
+interface MediaGridCardProps {
+  asset: MediaAsset;
+  isSelected: boolean;
+  onSelect: (asset: MediaAsset) => void;
+  onToggleSelect: (id: string, e: React.MouseEvent) => void;
+  onDeleteClick: (e: React.MouseEvent, asset: MediaAsset) => void;
+}
+
+const MediaGridCard = memo(function MediaGridCard({
+  asset,
+  isSelected,
+  onSelect,
+  onToggleSelect,
+  onDeleteClick,
+}: MediaGridCardProps) {
+  return (
+    <div
+      onClick={() => onSelect(asset)}
+      className={`h-full flex flex-col relative group cursor-pointer bg-gray-100 dark:bg-slate-800 rounded-lg overflow-hidden transition-shadow ${
+        isSelected
+          ? 'ring-2 ring-red-400 shadow-lg'
+          : 'hover:ring-2 hover:ring-cyan-500'
+      }`}
+    >
+      {/* Selection Checkbox */}
+      <button
+        type="button"
+        onClick={(e) => onToggleSelect(asset.id, e)}
+        className={`absolute top-1.5 right-1.5 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all shadow-sm ${
+          isSelected
+            ? 'bg-red-500 border-red-500 text-white'
+            : 'bg-white/80 border-gray-300 text-transparent group-hover:border-gray-400 hover:border-red-400 hover:bg-red-50'
+        }`}
+        title="בחר למחיקה"
+      >
+        <Check size={12} />
+      </button>
+
+      {/* Delete Button - Appears on Hover */}
+      <button
+        type="button"
+        onClick={(e) => onDeleteClick(e, asset)}
+        className="absolute top-1.5 left-1.5 z-10 p-1 bg-red-500/90 hover:bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+        title="מחק קובץ"
+      >
+        <Trash2 size={12} />
+      </button>
+
+      {/* Thumbnail - flexible height fills available space */}
+      {asset.type === 'image' ? (
+        <div className="flex-1 min-h-0 relative">
+          <img
+            src={asset.url}
+            alt={asset.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+            <ImageIcon size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 relative overflow-hidden">
+          <LazyVideoThumbnail
+            asset={asset}
+            className="w-full h-full"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+        </div>
+      )}
+
+      {/* Info section - compact, fixed height */}
+      <div className="px-2 py-1.5 flex flex-col justify-center" style={{ height: `${CARD_INFO_HEIGHT}px`, minHeight: `${CARD_INFO_HEIGHT}px` }}>
+        <p
+          className="text-[11px] font-bold text-gray-900 dark:text-white leading-tight"
+          style={{ fontFamily: 'var(--font-simpler)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+        >
+          {asset.name}
+        </p>
+        <div className="flex items-center justify-between mt-0.5">
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {asset.type === 'image' ? 'תמונה' : 'וידאו'}
+            </span>
+            {asset.location && (
+              <span className="text-[9px] px-1 py-px bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded">
+                {MEDIA_LOCATION_LABELS[asset.location] || asset.location}
+              </span>
+            )}
+          </div>
+          {asset.type === 'video' && asset.durationSeconds && (
+            <span className="text-[9px] text-gray-400 bg-gray-200 dark:bg-slate-700 px-1 py-px rounded">
+              {Math.floor(asset.durationSeconds / 60)}:{String(Math.floor(asset.durationSeconds % 60)).padStart(2, '0')}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ============================================================================
+// VIRTUAL GRID ROW - Row renderer for react-window v2 List
+// ============================================================================
+interface VirtualGridRowProps {
+  displayedAssets: MediaAsset[];
+  columnCount: number;
+  dataRowCount: number;
+  selectedIds: Set<string>;
+  gridRowHeight: number;
+  hasMore: boolean;
+  remainingCount: number;
+  onSelect: (asset: MediaAsset) => void;
+  onToggleSelect: (id: string, e: React.MouseEvent) => void;
+  onDeleteClick: (e: React.MouseEvent, asset: MediaAsset) => void;
+  onLoadMore: () => void;
+}
+
+function VirtualGridRow({
+  index,
+  style,
+  displayedAssets,
+  columnCount,
+  dataRowCount,
+  selectedIds,
+  gridRowHeight,
+  hasMore,
+  remainingCount,
+  onSelect,
+  onToggleSelect,
+  onDeleteClick,
+  onLoadMore,
+}: {
+  ariaAttributes: Record<string, unknown>;
+  index: number;
+  style: React.CSSProperties;
+} & VirtualGridRowProps) {
+  // "Load More" button row (appended as the last virtual row when there are more items)
+  if (hasMore && index === dataRowCount) {
+    return (
+      <div style={style}>
+        <div
+          style={{ padding: `${GRID_GAP}px ${GRID_PADDING}px` }}
+          className="flex justify-center items-center h-full"
+        >
+          <button
+            type="button"
+            onClick={onLoadMore}
+            className="px-8 py-3 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-sm border border-gray-200 dark:border-slate-700"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            <ChevronDown size={18} />
+            {'\u05D8\u05E2\u05DF \u05E2\u05D5\u05D3'} ({remainingCount} {'\u05E0\u05D5\u05E1\u05E4\u05D9\u05DD'})
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular data row - renders a row of MediaGridCard components
+  const startIdx = index * columnCount;
+  const rowItems = displayedAssets.slice(startIdx, startIdx + columnCount);
+
+  return (
+    <div style={style}>
+      <div
+        style={{
+          padding: `0 ${GRID_PADDING}px`,
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
+          gap: `${GRID_GAP}px`,
+          height: `${gridRowHeight - GRID_GAP}px`,
+        }}
+      >
+        {rowItems.map((asset) => (
+          <MediaGridCard
+            key={asset.id}
+            asset={asset}
+            isSelected={selectedIds.has(asset.id)}
+            onSelect={onSelect}
+            onToggleSelect={onToggleSelect}
+            onDeleteClick={onDeleteClick}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 interface MediaLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -170,6 +421,13 @@ export default function MediaLibraryModal({
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
   
+  // Pagination State (show ITEMS_PER_PAGE at a time, "Load More" to see more)
+  const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE);
+  
+  // Virtual Grid Dimensions (tracked via ResizeObserver)
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [gridDimensions, setGridDimensions] = useState({ width: 700, height: 500 });
+  
   // Generate unique ID for queue items
   const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -201,6 +459,46 @@ export default function MediaLibraryModal({
       setFilteredAssets(assets);
     }
   }, [searchTerm, assets]);
+
+  // Reset display count when search/filter changes
+  useEffect(() => {
+    setDisplayCount(ITEMS_PER_PAGE);
+  }, [searchTerm, assetType]);
+
+  // ResizeObserver to track grid container dimensions for virtual grid
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el || !isOpen) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      // Only update if we get real measurements (ignore collapsed/transitioning states)
+      if (width > 100 && height > 100) {
+        setGridDimensions({ width: Math.floor(width), height: Math.floor(height) });
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isOpen]);
+
+  // Paginated assets (progressive loading)
+  const displayedAssets = useMemo(
+    () => filteredAssets.slice(0, displayCount),
+    [filteredAssets, displayCount]
+  );
+
+  const hasMore = displayCount < filteredAssets.length;
+  const remainingCount = filteredAssets.length - displayCount;
+
+  // Virtual grid layout calculations — target: 10+ cards visible on screen, min 3 columns
+  const availableWidth = gridDimensions.width - GRID_PADDING * 2;
+  const columnCount = availableWidth >= 900 ? 5 : availableWidth >= 600 ? 4 : 3;
+  const cellWidth = Math.floor((availableWidth - GRID_GAP * (columnCount - 1)) / columnCount);
+  // Dynamic row height: compact thumbnail (0.6 × width) + info + gap, min 220px so cards stay visible in narrow selection modals
+  const rowHeight = Math.max(220, Math.ceil(cellWidth * 0.6) + CARD_INFO_HEIGHT + GRID_GAP);
+  const rowCount = Math.ceil(displayedAssets.length / columnCount);
+  const totalVirtualRows = rowCount + (hasMore ? 1 : 0); // +1 for "Load More" row
 
   const loadAssets = async () => {
     try {
@@ -583,7 +881,7 @@ export default function MediaLibraryModal({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+          className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] min-h-[550px] flex flex-col overflow-hidden"
           dir="rtl"
         >
           {/* Header */}
@@ -976,8 +1274,8 @@ export default function MediaLibraryModal({
             )}
           </div>
 
-          {/* Assets Grid */}
-          <div className="flex-1 overflow-y-auto p-6">
+          {/* Assets Grid - Virtualized with react-window */}
+          <div ref={gridContainerRef} className="flex-1 min-h-[500px] overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 size={32} className="animate-spin text-cyan-500" />
@@ -989,114 +1287,40 @@ export default function MediaLibraryModal({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredAssets.map((asset) => {
-                  const isSelected = selectedIds.has(asset.id);
-                  return (
-                  <motion.div
-                    key={asset.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => handleSelect(asset)}
-                      className={`relative group cursor-pointer bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden transition-all ${
-                        isSelected
-                          ? 'ring-2 ring-red-400 shadow-lg'
-                          : 'hover:ring-2 hover:ring-cyan-500'
-                      }`}
-                  >
-                    {/* Selection Checkbox */}
-                    <button
-                      type="button"
-                      onClick={(e) => toggleSelect(asset.id, e)}
-                      className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all shadow-sm ${
-                        isSelected
-                          ? 'bg-red-500 border-red-500 text-white'
-                          : 'bg-white/80 border-gray-300 text-transparent group-hover:border-gray-400 hover:border-red-400 hover:bg-red-50'
-                      }`}
-                      title="בחר למחיקה"
-                    >
-                      <Check size={14} />
-                    </button>
-
-                    {/* Delete Button - Appears on Hover */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteClick(e, asset)}
-                      className="absolute top-2 left-2 z-10 p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                      title="מחק קובץ"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    
-                    {asset.type === 'image' ? (
-                      <div className="aspect-square relative">
-                        <img
-                          src={asset.url}
-                          alt={asset.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                          <ImageIcon size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="aspect-square relative overflow-hidden">
-                        <VideoThumbnail 
-                          asset={asset} 
-                          className="w-full h-full"
-                        />
-                        {/* Hover overlay */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
-                      </div>
-                    )}
-                    <div className="p-3">
-                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
-                        {asset.name}
-                      </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400" style={{ fontFamily: 'var(--font-simpler)' }}>
-                        {asset.type === 'image' ? 'תמונה' : 'וידאו'}
-                          </span>
-                          {asset.location && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded">
-                              {MEDIA_LOCATION_LABELS[asset.location] || asset.location}
-                            </span>
-                          )}
-                        </div>
-                        {asset.type === 'video' && asset.durationSeconds && (
-                          <span className="text-[10px] text-gray-400 bg-gray-200 dark:bg-slate-700 px-1.5 py-0.5 rounded">
-                            {Math.floor(asset.durationSeconds / 60)}:{String(Math.floor(asset.durationSeconds % 60)).padStart(2, '0')}
-                          </span>
-                        )}
-                      </div>
-                      {/* Tags row */}
-                      {asset.tags && asset.tags.length > 0 && (
-                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                          {asset.tags.slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[9px] px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400 rounded"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {asset.tags.length > 2 && (
-                            <span className="text-[9px] text-gray-400">
-                              +{asset.tags.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                  );
-                })}
-              </div>
+              <>
+                {/* Asset count indicator */}
+                <div className="px-6 py-2 text-xs text-gray-400 flex items-center justify-between" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  <span>
+                    מציג {displayedAssets.length} מתוך {filteredAssets.length}
+                  </span>
+                  {hasMore && (
+                    <span className="text-cyan-600 font-medium">
+                      גלול למטה לטעינת עוד
+                    </span>
+                  )}
+                </div>
+                <List<VirtualGridRowProps>
+                  key={columnCount} // Re-create list when column count changes
+                  rowComponent={VirtualGridRow}
+                  rowCount={totalVirtualRows}
+                  rowHeight={rowHeight}
+                  overscanCount={2}
+                  style={{ height: Math.max(500, gridDimensions.height - 50), width: gridDimensions.width }}
+                  rowProps={{
+                    displayedAssets,
+                    columnCount,
+                    dataRowCount: rowCount,
+                    selectedIds,
+                    gridRowHeight: rowHeight,
+                    hasMore,
+                    remainingCount,
+                    onSelect: handleSelect,
+                    onToggleSelect: toggleSelect,
+                    onDeleteClick: handleDeleteClick,
+                    onLoadMore: () => setDisplayCount((prev) => prev + ITEMS_PER_PAGE),
+                  }}
+                />
+              </>
             )}
           </div>
 

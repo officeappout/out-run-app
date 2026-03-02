@@ -44,6 +44,7 @@ import MediaLibraryModal from '@/features/admin/components/MediaLibraryModal';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 import GenderedTextInput, { GenderedTextListInput } from './shared/GenderedTextInput';
 import { GenderedText, isGenderedText, getGenderedText } from '../../../core/exercise.types';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 interface ExecutionMethodCardProps {
   method: ExecutionMethod;
@@ -899,30 +900,63 @@ export default function ExecutionMethodCard({
       </div>
 
       {/* Media Library Modal */}
-      <MediaLibraryModal
-        isOpen={showMediaLibrary}
-        onClose={() => {
+      <ErrorBoundary
+        fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl p-6 max-w-md shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <AlertCircle size={24} className="text-red-600" />
+                </div>
+                <h2 className="text-lg font-bold text-red-900">
+                  שגיאה בספריית המדיה
+                </h2>
+              </div>
+              <p className="text-sm text-gray-700 mb-4">
+                אירעה שגיאה בטעינת ספריית המדיה. הנתונים שלך נשמרו באופן אוטומטי.
+              </p>
+              <button
+                onClick={() => {
+                  setShowMediaLibrary(false);
+                  setMediaLibraryField(null);
+                }}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 transition-colors"
+              >
+                סגור
+              </button>
+            </div>
+          </div>
+        }
+        onReset={() => {
           setShowMediaLibrary(false);
           setMediaLibraryField(null);
         }}
-        onSelect={(asset: MediaAsset) => {
-          if (mediaLibraryField === 'mainVideoUrl') {
-            safeUpdate({
-              ...method,
-              media: { ...method.media, mainVideoUrl: asset.url },
-            });
-          } else if (mediaLibraryField === 'imageUrl') {
-            safeUpdate({
-              ...method,
-              media: { ...method.media, imageUrl: asset.url },
-            });
-          }
-          setShowMediaLibrary(false);
-          setMediaLibraryField(null);
-        }}
-        assetType={mediaLibraryType}
-        title={mediaLibraryField === 'mainVideoUrl' ? 'בחר סרטון' : 'בחר תמונה'}
-      />
+      >
+        <MediaLibraryModal
+          isOpen={showMediaLibrary}
+          onClose={() => {
+            setShowMediaLibrary(false);
+            setMediaLibraryField(null);
+          }}
+          onSelect={(asset: MediaAsset) => {
+            if (mediaLibraryField === 'mainVideoUrl') {
+              safeUpdate({
+                ...method,
+                media: { ...method.media, mainVideoUrl: asset.url },
+              });
+            } else if (mediaLibraryField === 'imageUrl') {
+              safeUpdate({
+                ...method,
+                media: { ...method.media, imageUrl: asset.url },
+              });
+            }
+            setShowMediaLibrary(false);
+            setMediaLibraryField(null);
+          }}
+          assetType={mediaLibraryType}
+          title={mediaLibraryField === 'mainVideoUrl' ? 'בחר סרטון' : 'בחר תמונה'}
+        />
+      </ErrorBoundary>
     </div>
   );
 }

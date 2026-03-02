@@ -1,15 +1,21 @@
 'use client';
 
+<<<<<<< HEAD
 import { useState, useEffect, useRef } from 'react';
+=======
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+>>>>>>> 166f532b436b3ab771a2f81e1f682c7e4e7de65b
 import { ExecutionMethod, ExecutionLocation } from '../../../core/exercise.types';
 import { GymEquipment } from '../../../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../../../equipment/gear/core/gear-definition.types';
 import { 
   Plus, Info, Zap, Target, MapPin, Users, Package, ArrowDown, Copy, 
   ChevronDown, ChevronRight, Home, Navigation, Building2, User, Plane, X,
-  Video, VideoOff, ListChecks, AlertCircle, Image, ImageOff, Dumbbell, Trees
+  Video, VideoOff, ListChecks, AlertCircle, Image, ImageOff, Dumbbell, Trees,
+  Save, CheckCircle2
 } from 'lucide-react';
 import ExecutionMethodCard from './ExecutionMethodCard';
+import { useMethodsAutosave } from '../../hooks/useMethodsAutosave';
 
 /**
  * Deep clone an object to prevent mutations
@@ -46,9 +52,14 @@ interface MethodsSectionProps {
   isFollowAlong?: boolean;
   focusedMethodIndex?: number | null;
   onMethodFocused?: () => void;
+  exerciseId?: string | null; // For autosave
 }
 
-export default function MethodsSection({
+export interface MethodsSectionRef {
+  clearDraft: () => void;
+}
+
+const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
   executionMethods,
   setExecutionMethods,
   gymEquipmentList,
@@ -57,7 +68,8 @@ export default function MethodsSection({
   isFollowAlong = false,
   focusedMethodIndex = null,
   onMethodFocused,
-}: MethodsSectionProps) {
+  exerciseId = null,
+}, ref) => {
   // Track which method was just duplicated (for visual feedback)
   const [justDuplicatedIndex, setJustDuplicatedIndex] = useState<number | null>(null);
   
@@ -67,10 +79,28 @@ export default function MethodsSection({
   // Track if info section is expanded (collapsed by default)
   const [infoExpanded, setInfoExpanded] = useState(false);
 
+<<<<<<< HEAD
   // Undo-on-delete: buffer the last deleted method for 5 seconds
   const [deletedMethodBuffer, setDeletedMethodBuffer] =
     useState<{ method: ExecutionMethod; originalIndex: number } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+=======
+  // Draft restoration state
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [draftToRestore, setDraftToRestore] = useState<ExecutionMethod[] | null>(null);
+
+  // Silent autosave hook
+  const { loadDraft, clearDraft, saveNow } = useMethodsAutosave(
+    executionMethods,
+    exerciseId,
+    { debounceMs: 2000, enabled: !!exerciseId }
+  );
+
+  // Expose clearDraft to parent via ref
+  useImperativeHandle(ref, () => ({
+    clearDraft,
+  }));
+>>>>>>> 166f532b436b3ab771a2f81e1f682c7e4e7de65b
 
   /**
    * Get equipment/gear names for display in header
@@ -125,6 +155,41 @@ export default function MethodsSection({
       setExpandedMethods(prev => new Set(prev).add(focusedMethodIndex));
     }
   }, [focusedMethodIndex]);
+
+  // Check for draft on mount
+  useEffect(() => {
+    if (!exerciseId) return;
+
+    const draft = loadDraft();
+    if (draft && draft.length > 0) {
+      // Only show prompt if current methods are empty or significantly different
+      const shouldPrompt = executionMethods.length === 0 || 
+                          Math.abs(draft.length - executionMethods.length) > 0;
+      
+      if (shouldPrompt) {
+        setDraftToRestore(draft);
+        setShowDraftPrompt(true);
+      }
+    }
+  }, [exerciseId]); // Only run on mount
+
+  const handleRestoreDraft = () => {
+    if (draftToRestore) {
+      setExecutionMethods(draftToRestore);
+      setShowDraftPrompt(false);
+      setDraftToRestore(null);
+      
+      // Auto-expand all restored methods
+      const indices = draftToRestore.map((_, idx) => idx);
+      setExpandedMethods(new Set(indices));
+    }
+  };
+
+  const handleDismissDraft = () => {
+    clearDraft();
+    setShowDraftPrompt(false);
+    setDraftToRestore(null);
+  };
 
   const toggleMethodExpanded = (index: number) => {
     setExpandedMethods(prev => {
@@ -231,6 +296,42 @@ export default function MethodsSection({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+      {/* Draft Restore Prompt */}
+      {showDraftPrompt && draftToRestore && (
+        <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Save size={20} className="text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-blue-900 mb-1">
+                נמצאה טיוטה שמורה
+              </h3>
+              <p className="text-xs text-blue-700 mb-3">
+                מצאנו {draftToRestore.length} שיטות ביצוע שנשמרו אוטומטית. האם לשחזר אותן?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleRestoreDraft}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+                >
+                  <CheckCircle2 size={14} />
+                  שחזר טיוטה
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismissDraft}
+                  className="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors"
+                >
+                  התעלם
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
           <span className="w-1 h-6 bg-purple-500 rounded-full"></span>
@@ -628,4 +729,8 @@ export default function MethodsSection({
       )}
     </div>
   );
-}
+});
+
+MethodsSection.displayName = 'MethodsSection';
+
+export default MethodsSection;
