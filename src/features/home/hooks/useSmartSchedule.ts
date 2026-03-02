@@ -41,7 +41,7 @@ export function useSmartSchedule(): ScheduleState {
   const weekSchedule = useMemo(() => {
     const dayMap = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
     const today = new Date();
-    const todayDayIndex = (today.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    const todayDayIndex = today.getDay(); // Sun=0='א', Mon=1='ב', …, Sat=6='ש' — matches Hebrew array
     
     // Get schedule days from profile (array of Hebrew day letters like ['א', 'ב', 'ג'])
     const scheduleDays = profile?.lifestyle?.scheduleDays || [];
@@ -84,7 +84,9 @@ export function useSmartSchedule(): ScheduleState {
   const showMissedAlert = useMemo(() => {
     if (scenario !== 'missed') return false;
     // בדיקה אם אתמול היה אימון ולא בוצע
-    const yesterdayIndex = ((new Date().getDay() + 6) % 7) - 1; // Yesterday's day index
+    // Yesterday: Sun(0)-1 wraps to Sat(6) via mod
+    const todayIdx = new Date().getDay();
+    const yesterdayIndex = todayIdx === 0 ? 6 : todayIdx - 1;
     const yesterday = yesterdayIndex >= 0 ? weekSchedule[yesterdayIndex] : null;
     return yesterday?.status === 'missed' || scenario === 'missed';
   }, [scenario, weekSchedule]);

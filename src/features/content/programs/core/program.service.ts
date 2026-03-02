@@ -20,6 +20,20 @@ import { Program } from './program.types';
 const PROGRAMS_COLLECTION = 'programs';
 
 /**
+ * Strip undefined values from an object before writing to Firestore.
+ * Firebase throws if any field value is `undefined`.
+ */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const cleaned = { ...obj };
+  for (const key of Object.keys(cleaned)) {
+    if (cleaned[key] === undefined) {
+      delete cleaned[key];
+    }
+  }
+  return cleaned;
+}
+
+/**
  * Convert Firestore timestamp to Date
  */
 function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
@@ -75,12 +89,12 @@ export async function getProgram(programId: string): Promise<Program | null> {
  */
 export async function createProgram(data: Omit<Program, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, PROGRAMS_COLLECTION), {
+    const docRef = await addDoc(collection(db, PROGRAMS_COLLECTION), stripUndefined({
       ...data,
       isMaster: data.isMaster || false, // Default to false
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    }));
     return docRef.id;
   } catch (error) {
     console.error('Error creating program:', error);
@@ -97,10 +111,10 @@ export async function updateProgram(
 ): Promise<void> {
   try {
     const docRef = doc(db, PROGRAMS_COLLECTION, programId);
-    await updateDoc(docRef, {
+    await updateDoc(docRef, stripUndefined({
       ...data,
       updatedAt: serverTimestamp(),
-    });
+    }));
   } catch (error) {
     console.error('Error updating program:', error);
     throw error;

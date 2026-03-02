@@ -147,7 +147,129 @@ export function getMuscleGroupLabel(muscle: string): string {
     full_body: 'כל הגוף',
     core: 'ליבה',
     legs: 'רגליים',
+    lats: 'גב רחב',
+    hip_flexors: 'כופפי הירך',
+    lower_back: 'גב תחתון',
+    upper_back: 'גב עליון',
+    neck: 'צוואר',
+    adductors: 'מקרבי הירך',
+    abductors: 'מרחיקים',
+    serratus: 'המסור',
   };
 
   return MUSCLE_LABELS[muscle] || muscle;
+}
+
+// ============================================================================
+// Synchronous equipment label resolver (no Firestore calls)
+// ============================================================================
+
+const EQUIPMENT_NAME_HE: Record<string, string> = {
+  dumbbells: 'משקולות',
+  dumbbell: 'משקולת',
+  kettlebell: 'קטלבל',
+  resistance_band: 'גומיית התנגדות',
+  resistance_bands: 'גומיות התנגדות',
+  bands: 'גומיות התנגדות',
+  pull_up_bar: 'מתח',
+  pullup_bar: 'מתח',
+  pullUpBar: 'מתח',
+  rings: 'טבעות',
+  gymnastic_rings: 'טבעות',
+  trx: 'TRX',
+  jump_rope: 'חבל קפיצה',
+  yoga_mat: 'מזרן',
+  mat: 'מזרן',
+  bench: 'ספסל',
+  barbell: 'מוט',
+  bar: 'מוט',
+  lowBar: 'מוט נמוך',
+  low_bar: 'מוט נמוך',
+  highBar: 'מוט גבוה',
+  high_bar: 'מוט גבוה',
+  ab_wheel: 'גלגל בטן',
+  dip_station: 'מקבילים',
+  dipStation: 'מקבילים',
+  parallettes: 'מקבילונים',
+  foam_roller: 'רולר',
+  medicine_ball: 'כדור כוח',
+  step: 'מדרגה',
+  stairs: 'מדרגות',
+  wall: 'קיר',
+  chair: 'כיסא',
+  door: 'דלת',
+  table: 'שולחן',
+  streetBench: 'ספסל רחוב',
+  street_bench: 'ספסל רחוב',
+  none: 'ללא ציוד',
+};
+
+/**
+ * Resolve a raw gear/equipment ID or enum value to a Hebrew label.
+ * Synchronous — uses a static map. Falls back to 'ציוד' for opaque Firestore IDs.
+ */
+export function resolveEquipmentLabel(id: string): string {
+  if (EQUIPMENT_NAME_HE[id]) return EQUIPMENT_NAME_HE[id];
+  const key = id.toLowerCase().replace(/-/g, '_');
+  if (EQUIPMENT_NAME_HE[key]) return EQUIPMENT_NAME_HE[key];
+  if (/^[a-z_]+$/.test(key) && key.length < 30) return key.replace(/_/g, ' ');
+  return 'ציוד';
+}
+
+/**
+ * Maps Hebrew labels back to a canonical English key for icon filenames.
+ * Used to build `/assets/icons/equipment/{key}.svg` paths from resolved labels.
+ */
+const LABEL_TO_ICON_KEY: Record<string, string> = {
+  'משקולות': 'dumbbells',
+  'משקולת': 'dumbbell',
+  'קטלבל': 'kettlebell',
+  'גומיית התנגדות': 'resistance_band',
+  'גומיות התנגדות': 'resistance_bands',
+  'מתח': 'pull_up_bar',
+  'טבעות': 'rings',
+  'TRX': 'trx',
+  'חבל קפיצה': 'jump_rope',
+  'מזרן': 'mat',
+  'ספסל': 'bench',
+  'מוט': 'barbell',
+  'מוט נמוך': 'low_bar',
+  'מוט גבוה': 'high_bar',
+  'גלגל בטן': 'ab_wheel',
+  'מקבילים': 'dip_station',
+  'מקבילונים': 'parallettes',
+  'רולר': 'foam_roller',
+  'כדור כוח': 'medicine_ball',
+  'מדרגה': 'step',
+  'מדרגות': 'stairs',
+  'קיר': 'wall',
+  'כיסא': 'chair',
+  'דלת': 'door',
+  'שולחן': 'table',
+  'ספסל רחוב': 'street_bench',
+};
+
+/**
+ * Firestore document IDs used as gear IDs — map to fallback icon keys.
+ * These IDs come from gear_definitions; when no icon exists, use Bands.svg (bodyweight-adjacent).
+ */
+const FIRESTORE_GEAR_ID_TO_ICON: Record<string, string> = {
+  mL3YJywh3aobJni7YVdu: 'Bands',
+  '7gLOFEfgSvInu7lfLHxV': 'trx',
+  I1K30JehaxSx8dlBOZyd: 'Bands',
+  '5Rkhxawxj8EwC4spTXVM': 'Bands',
+};
+
+/**
+ * Resolve a raw equipment ID to a canonical icon filename (no extension).
+ * Tries: Firestore ID map → direct key lookup → normalized key → reverse label-to-key → null.
+ */
+export function resolveEquipmentIconKey(id: string): string | null {
+  if (FIRESTORE_GEAR_ID_TO_ICON[id]) return FIRESTORE_GEAR_ID_TO_ICON[id];
+  if (EQUIPMENT_NAME_HE[id]) return id;
+  const key = id.toLowerCase().replace(/-/g, '_');
+  if (EQUIPMENT_NAME_HE[key]) return key;
+  const label = resolveEquipmentLabel(id);
+  if (LABEL_TO_ICON_KEY[label]) return LABEL_TO_ICON_KEY[label];
+  return null;
 }

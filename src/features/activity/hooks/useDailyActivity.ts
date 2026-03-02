@@ -118,10 +118,27 @@ export function useDailyActivity(): DailyActivityResult {
   // Initialize activity store when user is available
   useEffect(() => {
     if (userHydrated && profile?.id && activityHydrated) {
-      // Get user's primary program from progression
-      const primaryProgram = profile.progression?.domains
-        ? Object.keys(profile.progression.domains)[0] || 'full_body'
-        : 'full_body';
+      // Derive primary program for ring priority:
+      // 1. Persona Engine: primaryTrack → canonical program alias
+      // 2. Legacy fallback: first domain key from progression
+      let primaryProgram: string;
+
+      const trackToProgram: Record<string, string> = {
+        health: 'full_body',
+        strength: 'calisthenics',
+        run: 'running',
+        hybrid: 'full_body',
+      };
+
+      const primaryTrack = profile.lifestyle?.primaryTrack;
+      if (primaryTrack && trackToProgram[primaryTrack]) {
+        primaryProgram = trackToProgram[primaryTrack];
+      } else {
+        // Legacy: alphabetical first domain key (pre-Persona users)
+        primaryProgram = profile.progression?.domains
+          ? Object.keys(profile.progression.domains)[0] || 'full_body'
+          : 'full_body';
+      }
       
       // Load from Firestore first (to get streak data)
       loadFromServer(profile.id).then(() => {

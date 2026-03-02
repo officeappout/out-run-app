@@ -242,14 +242,21 @@ function calculateWeeklySummary(
     maintenance: 0,
   };
   
+  const categorySessions: Record<ActivityCategory, number> = {
+    strength: 0,
+    cardio: 0,
+    maintenance: 0,
+  };
+  
   let activeDays = 0;
   let totalSteps = 0;
   let totalCalories = 0;
   
   Object.values(weekActivities).forEach(activity => {
-    // Sum category minutes
+    // Sum category minutes and sessions
     (Object.keys(categoryTotals) as ActivityCategory[]).forEach(cat => {
       categoryTotals[cat] += activity.categories[cat].minutes;
+      categorySessions[cat] += activity.categories[cat].sessions ?? 0;
     });
     
     // Count active days
@@ -285,6 +292,7 @@ function calculateWeeklySummary(
     weekStart,
     weekEnd: weekEnd.toISOString().split('T')[0],
     categoryTotals,
+    categorySessions,
     categoryGoals,
     categoryPercentages,
     activeDays,
@@ -415,9 +423,12 @@ export const useActivityStore = create<ActivityStore>()(
         const state = get();
         if (!state.today) return;
         
+        const updatedMetrics = updateCategoryMetrics(state.today.categories[category], durationMinutes);
+        updatedMetrics.sessions = (state.today.categories[category].sessions ?? 0) + 1;
+        
         const updatedCategories = {
           ...state.today.categories,
-          [category]: updateCategoryMetrics(state.today.categories[category], durationMinutes),
+          [category]: updatedMetrics,
         };
         
         // Update streak - workout counts as activity

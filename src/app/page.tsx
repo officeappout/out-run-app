@@ -1,252 +1,361 @@
 "use client";
 
-// Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInGuest, signInWithGoogle } from '@/lib/auth.service';
-import { useUserStore } from '@/features/user';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { signInWithGooglePopup, onAuthStateChange } from '@/lib/auth.service';
 import { db } from '@/lib/firebase';
-import { onAuthStateChange } from '@/lib/auth.service';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin } from 'lucide-react';
+import { X } from 'lucide-react';
 
-const LOADING_STATES = [
-  "מאתר מסלולים אופטימליים...",
-  "מכייל GPS...",
-  "מנתח נתוני שטח...",
-  "מכין את הדאשבורד שלך...",
+// ════════════════════════════════════════════════════════════════════
+// CAROUSEL IMAGES — High-quality outdoor fitness / park scenes
+// ════════════════════════════════════════════════════════════════════
+
+const CAROUSEL_IMAGES = [
+  'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?q=80&w=1400&auto=format&fit=crop',
 ];
 
-function GuestTransitionOverlay() {
-  const [statusIndex, setStatusIndex] = useState(0);
+const CYCLE_MS = 4000; // 4 seconds per image
+
+// ════════════════════════════════════════════════════════════════════
+// BACKGROUND CAROUSEL — Crossfade animation
+// ════════════════════════════════════════════════════════════════════
+
+function BackgroundCarousel() {
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStatusIndex((prev) => (prev + 1) % LOADING_STATES.length);
-    }, 800);
-    return () => clearInterval(interval);
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, CYCLE_MS);
+    return () => clearInterval(timer);
   }, []);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center"
-    >
-      {/* Pulsing Icon */}
-      <div className="relative mb-12">
-        <div className="absolute inset-0 bg-[#00F0FF] rounded-full blur-3xl opacity-20 animate-pulse" />
-        <div className="relative w-24 h-24 bg-[#111] rounded-full border border-[#00F0FF]/30 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.15)]">
-          <MapPin className="w-10 h-10 text-[#00F0FF] animate-bounce" />
-        </div>
-      </div>
-
-      {/* Cycling Status Text */}
-      <div className="h-8 relative w-full overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={statusIndex}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -20, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-[#00F0FF] font-mono text-sm absolute w-full"
-            dir="rtl"
-          >
-            {LOADING_STATES[statusIndex]}
-          </motion.p>
-        </AnimatePresence>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="w-48 h-1 bg-gray-900 rounded-full mt-8 overflow-hidden">
+    <div className="absolute inset-0 z-0">
+      {CAROUSEL_IMAGES.map((src, i) => (
         <motion.div
-          initial={{ width: "0%" }}
-          animate={{ width: "100%" }}
-          transition={{ duration: 3.5, ease: "linear" }}
-          className="h-full bg-gradient-to-r from-[#00F0FF] to-[#0047FF]"
+          key={src}
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url('${src}')` }}
+          initial={false}
+          animate={{ opacity: i === index ? 1 : 0 }}
+          transition={{ duration: 1.5, ease: 'easeInOut' }}
         />
-      </div>
-    </motion.div>
+      ))}
+      {/* Dark overlay for legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+    </div>
   );
 }
 
+// ════════════════════════════════════════════════════════════════════
+// LOGIN DRAWER (Bottom Sheet)
+// ════════════════════════════════════════════════════════════════════
+
+function LoginDrawer({
+  open,
+  onClose,
+  onGoogleLogin,
+  loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onGoogleLogin: () => void;
+  loading: boolean;
+}) {
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={onClose}
+          />
+
+          {/* Drawer */}
+          <motion.div
+            key="drawer"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl"
+            style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+            dir="rtl"
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-slate-300" />
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="px-6 pt-4 pb-6 flex flex-col items-center gap-5">
+              <div className="text-center">
+                <h3
+                  className="text-xl font-bold text-slate-900 mb-1"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  התחברות
+                </h3>
+                <p
+                  className="text-sm text-slate-500"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  היכנס עם החשבון שלך כדי להמשיך
+                </p>
+              </div>
+
+              {/* Google Login */}
+              <button
+                onClick={onGoogleLogin}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 48 48" className="flex-shrink-0">
+                  <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.9 33.5 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.9 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.2-2.7-.4-3.9z"/>
+                  <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.5 18.8 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.9 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                  <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.8 13.4-5l-6.2-5.2C29.2 35.2 26.7 36 24 36c-5.3 0-9.8-3.5-11.4-8.3l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+                  <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.2 5.2C36.8 39.2 44 34 44 24c0-1.3-.2-2.7-.4-3.9z"/>
+                </svg>
+                המשך עם Google
+              </button>
+
+              {/* Apple Login (placeholder) */}
+              <button
+                disabled={true}
+                className="w-full flex items-center justify-center gap-3 bg-black text-white font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-40"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                </svg>
+                המשך עם Apple
+                <span className="text-[10px] font-normal opacity-60 mr-1">(בקרוב)</span>
+              </button>
+
+              {loading && (
+                <p
+                  className="text-[#5BC2F2] animate-pulse text-sm"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  מתחבר...
+                </p>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// MAIN LANDING PAGE
+// ════════════════════════════════════════════════════════════════════
+
 export default function LandingPage() {
   const router = useRouter();
-  const { initializeProfile } = useUserStore();
   const [loading, setLoading] = useState(false);
-  const [showGuestTransition, setShowGuestTransition] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Auto-redirect if already logged in
-  React.useEffect(() => {
+  // ── Auto-redirect for already logged-in users ──
+  useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
       if (user) {
-        // Only redirect if NOT showing the transition
-        if (!showGuestTransition) {
-          // Smart Redirect Check with Resume Logic
-          try {
-            const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
-            const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
-            
-            if (userDocSnap.exists()) {
-              const userData = userDocSnap.data();
-              const status = userData?.onboardingStatus;
-              const step = userData?.onboardingStep;
-              
-              // RESUME LOGIC: If user is IN_PROGRESS, redirect to their last step
-              if (status === 'IN_PROGRESS' && step) {
-                console.log('[LandingPage] Resuming onboarding at step:', step);
-                router.push(`/onboarding-new/setup?resume=${step}`);
-              } else if (status === 'COMPLETED' || userData?.onboardingComplete) {
-                router.push('/home');
-              } else {
-                // New user or no status - start from beginning
-                router.push('/onboarding-new/roadmap');
-              }
+        try {
+          const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+          const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            const status = userData?.onboardingStatus;
+            const step = userData?.onboardingStep;
+            const path = userData?.onboardingPath;
+
+            if (status === 'IN_PROGRESS' && step === 'IDENTITY') {
+              router.push('/onboarding-new/profile');
+            } else if (status === 'IN_PROGRESS' && step === 'ASSESSMENT') {
+              // Route to visual assessment (replaces legacy dynamic questionnaire)
+              router.push('/onboarding-new/assessment-visual');
+            } else if (status === 'IN_PROGRESS' && step === 'VISUAL_ASSESSMENT_COMPLETE') {
+              // Assessment done — skip to health declaration
+              router.push('/onboarding-new/health');
+            } else if (status === 'IN_PROGRESS' && step === 'HEALTH') {
+              router.push('/onboarding-new/health');
+            } else if (status === 'PENDING_LIFESTYLE') {
+              router.push('/home');
+            } else if (status === 'COMPLETED' || userData?.onboardingComplete) {
+              router.push('/home');
+            } else if (path === 'MAP_ONLY' || status === 'MAP_ONLY') {
+              router.push('/explorer');
             } else {
-              // No user document - start onboarding
-              router.push('/onboarding-new/roadmap');
+              // Default: start at profile
+              router.push('/onboarding-new/profile');
             }
-          } catch (e) {
-            console.error('[LandingPage] Error checking onboarding status:', e);
-            // Fallback: send to onboarding instead of /home to avoid redirect loop
-            router.push('/onboarding-new/roadmap');
           }
+        } catch (e) {
+          console.error('[Landing] Error checking auth status:', e);
         }
       }
     });
     return () => unsubscribe();
-  }, [router, showGuestTransition]);
+  }, [router]);
 
-  // Path A: Continue with Google
-  const handleGoogleStart = async () => {
+  // ── Primary: "הרשמה מהירה" → Gateway (handles signInGuest before Profile) ──
+  const handleQuickSignup = useCallback(() => {
+    router.push('/gateway');
+  }, [router]);
+
+  // ── Secondary: "התחברות" → Open login drawer ──
+  const handleLoginOpen = useCallback(() => {
+    setDrawerOpen(true);
+  }, []);
+
+  // ── Google Login inside drawer ──
+  const handleGoogleLogin = useCallback(async () => {
     setLoading(true);
-    const { user, error } = await signInWithGoogle();
-    if (user) {
-      router.push('/home');
+    try {
+      const { user } = await signInWithGooglePopup();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Check if user exists in Firestore
+      const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+      const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const status = userData?.onboardingStatus;
+
+        if (status === 'COMPLETED' || userData?.onboardingComplete) {
+          router.push('/home');
+        } else {
+          router.push('/gateway');
+        }
+      } else {
+        // New Google user — preserve their identity, send to gateway
+        router.push('/gateway');
+      }
+    } catch (error) {
+      console.error('[Landing] Google login error:', error);
     }
     setLoading(false);
-  };
-
-  // Path B: Onboarding
-  const handleOnboardingStart = () => {
-    router.push('/onboarding-new/roadmap');
-  };
-
-  // Path C: Try as Guest
-  const handleGuestStart = async () => {
-    // 1. Show high-end transition immediately
-    setShowGuestTransition(true);
-
-    // 2. Perform background login
-    const { user, error } = await signInGuest();
-
-    if (error) {
-      console.error("Guest Login Failed:", error);
-      alert(`Guest login failed: ${error}`);
-      setShowGuestTransition(false); // Revert UI
-      return;
-    }
-
-    if (user) {
-      // Initialize local Guest Profile
-      const guestProfile: any = {
-        id: user.uid,
-        core: {
-          name: 'Guest Runner',
-          initialFitnessTier: 1,
-          trackingMode: 'wellness',
-          mainGoal: 'healthy_lifestyle',
-          gender: 'other',
-          weight: 70,
-        },
-        progression: {
-          globalLevel: 1,
-          globalXP: 0,
-          coins: 0,
-          totalCaloriesBurned: 0,
-          hasUnlockedAdvancedStats: false,
-        },
-        equipment: { home: {}, office: {}, studies: {}, outdoor: {} },
-        lifestyle: { hasDog: false, commute: { method: 'walk', enableChallenges: false } },
-        health: { injuries: [], connectedWatch: 'none' },
-        running: {
-          weeklyMileageGoal: 0,
-          runFrequency: 1,
-          activeProgram: null,
-          paceProfile: { easyPace: 0, thresholdPace: 0, vo2MaxPace: 0, qualityWorkoutsHistory: [] }
-        }
-      };
-
-      initializeProfile(guestProfile);
-
-      // Async Sync - don't await blocking the UI timer
-      setDoc(doc(db, 'users', user.uid), {
-        ...guestProfile,
-        isGuest: true,
-        createdAt: serverTimestamp(),
-      }).catch(e => console.error("Firestore sync error:", e));
-
-      // 3. Wait for the transition "experience" (min 2.5s)
-      setTimeout(() => {
-        router.push('/map'); // Redirect to Map for guests as requested
-      }, 2500);
-    }
-  };
+    setDrawerOpen(false);
+  }, [router]);
 
   return (
-    <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden" style={{ minHeight: '100dvh' }}>
-      <AnimatePresence>
-        {showGuestTransition && <GuestTransitionOverlay />}
-      </AnimatePresence>
+    <div className="min-h-[100dvh] relative overflow-hidden flex flex-col">
+      {/* ── Animated Background Carousel ── */}
+      <BackgroundCarousel />
 
-      {/* Background Ambience */}
-      <div className="absolute inset-0 z-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1552674605-46d50400f0bc?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center" />
-      <div className="absolute inset-0 z-1 bg-gradient-to-t from-black via-black/80 to-transparent" />
+      {/* ── Content fills screen, pushes bottom section down ── */}
+      <div className="relative z-10 flex-1 flex flex-col justify-end">
 
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-[#0047FF]">
-            OUT
-          </h1>
-          <p className="text-gray-400 font-medium text-sm tracking-widest uppercase">
-            Run Your World
-          </p>
+        {/* ── Bottom UI Section — Glassmorphism ── */}
+        <div
+          className="px-6 pt-10 pb-8"
+          style={{
+            paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)',
+          }}
+        >
+          <div className="max-w-md mx-auto flex flex-col items-center gap-5">
+
+            {/* Logo */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/logo/Kind=logotype.svg"
+                alt="OUT"
+                className="h-10 object-contain brightness-0 invert"
+              />
+            </motion.div>
+
+            {/* Tagline */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-white/70 text-sm font-medium text-center"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+              dir="rtl"
+            >
+              אימון חכם בחוץ. מתקנים, מסלולים ותוכניות — הכל חינם.
+            </motion.p>
+
+            {/* Primary Button: הרשמה מהירה */}
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.35 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleQuickSignup}
+              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] text-base"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+              dir="rtl"
+            >
+              הרשמה מהירה
+            </motion.button>
+
+            {/* Secondary Button: התחברות */}
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              onClick={handleLoginOpen}
+              className="text-white/80 hover:text-white text-sm font-medium py-2 transition-colors underline underline-offset-2"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+              dir="rtl"
+            >
+              התחברות
+            </motion.button>
+          </div>
         </div>
-
-        {/* Buttons */}
-        <div className="w-full space-y-4 pt-10">
-          <button
-            onClick={handleGoogleStart}
-            disabled={loading}
-            className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-          >
-            <img src="https://www.google.com/favicon.ico" alt="G" className="w-5 h-5" />
-            Continue with Google
-          </button>
-
-          <button
-            onClick={handleOnboardingStart}
-            className="w-full bg-[#333] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all border border-[#444]"
-          >
-            Start Onboarding
-          </button>
-
-          <button
-            onClick={handleGuestStart}
-            className="w-full py-4 text-gray-500 font-medium text-sm hover:text-white transition-colors"
-          >
-            Try as Guest
-          </button>
-        </div>
-
-        {loading && <p className="text-[#00F0FF] animate-pulse text-sm">Loading...</p>}
       </div>
+
+      {/* ── Login Drawer ── */}
+      <LoginDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onGoogleLogin={handleGoogleLogin}
+        loading={loading}
+      />
     </div>
   );
 }

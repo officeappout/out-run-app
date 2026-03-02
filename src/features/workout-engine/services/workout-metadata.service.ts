@@ -95,6 +95,8 @@ export interface ResolvedWorkoutMetadata {
   description: string | null;
   /** AI cue / motivational phrase from Firestore (or fallback) */
   aiCue: string | null;
+  /** Per-variant coaching explanation (Coach's Note) */
+  logicCue: string | null;
   /** Source of the resolved metadata (for debugging) */
   source: 'firestore' | 'fallback';
 }
@@ -107,6 +109,13 @@ const METADATA_BASE = 'workoutMetadata';
 const TITLES_SUBCOLLECTION = 'titles';
 const DESCRIPTIONS_SUBCOLLECTION = 'descriptions';
 const PHRASES_SUBCOLLECTION = 'phrases';
+const LOGIC_CUES_SUBCOLLECTION = 'cues';
+const LOGIC_CUES_PARENT = 'logicCues';
+
+export type TrioVariant = 'balanced' | 'intense' | 'naked' | 'easy';
+
+/** Enable detailed console logs for Title/Description resolution (debugging). */
+const DEBUG_METADATA_RESOLUTION = true;
 
 // ============================================================================
 // HELPERS
@@ -362,6 +371,58 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 }
 
 /**
+ * Build human-readable match reasons for a winning row (for debug logging).
+ */
+function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
+  const reasons: string[] = [];
+  for (const field of SCORABLE_FIELDS) {
+    const rowVal = row[field.rowField];
+    const ctxVal = ctx[field.ctxKey];
+    if (!rowVal || rowVal === '' || rowVal === 'any') continue;
+    if (!ctxVal || ctxVal === '') continue;
+    if (field.rowField === 'gender' && rowVal === 'both') continue;
+    if (field.rowField === 'gender' && rowVal !== ctxVal) continue; // mismatch
+    if (rowVal === ctxVal) {
+      reasons.push(`${field.rowField}=${String(ctxVal)}`);
+    }
+  }
+  if (row.progressRange && ctx.programProgress != null) {
+    const parts = row.progressRange.split('-');
+    if (parts.length === 2) {
+      const [min, max] = parts.map(Number);
+      if (!isNaN(min) && !isNaN(max) && ctx.programProgress >= min && ctx.programProgress <= max) {
+        reasons.push(`progressRange=${row.progressRange}`);
+        if (ctx.programProgress > 90 && row.progressRange === '90-100') {
+          reasons.push('LEVEL-UP_BONUS(+5)');
+        }
+      }
+    }
+  }
+  const rowProgramId = row.programId;
+  if (rowProgramId && rowProgramId !== '' && rowProgramId !== 'all') {
+    const isExact = ctx.activeProgramId === rowProgramId;
+    const isAncestor = (ctx.ancestorProgramIds || []).includes(rowProgramId);
+    if (isExact) reasons.push(`activeProgramId=${rowProgramId}(+3)`);
+    else if (isAncestor) reasons.push(`ancestorProgramId=${rowProgramId}(+1)`);
+  }
+  if (row.minLevel != null || row.maxLevel != null) {
+    if (ctx.programLevel != null) reasons.push(`levelRange=${row.minLevel ?? '?'}-${row.maxLevel ?? '?'}`);
+  }
+  if (ctx.isActiveReserve && row.persona === 'reservist') reasons.push('reservist(+20)');
+  const rowCat = (row.category || '').toLowerCase();
+  if (ctx.location === 'office' && (rowCat === 'mobility' || rowCat === 'flexibility')) {
+    reasons.push('office_mobility(+3)');
+  }
+  if ((ctx.location === 'library' || ctx.isStudying) && (rowCat === 'mobility' || rowCat === 'general')) {
+    reasons.push('study_mobility(+3)');
+  }
+  if (row.dayPeriod && row.dayPeriod !== 'all' && ctx.dayPeriod && row.dayPeriod === ctx.dayPeriod) {
+    reasons.push(`dayPeriod=${ctx.dayPeriod}(+2)`);
+  }
+  return reasons;
+}
+
+/**
  * Generic scored fetch: load all rows from a subcollection,
  * score each against the context, pick the highest, shuffle among ties.
  *
@@ -403,7 +464,19 @@ async function scoredFetch(
 
     // Shuffle: pick random among the highest-scoring rows
     const picked = bestRows[Math.floor(Math.random() * bestRows.length)];
-    return picked[textField] || null;
+    const result = picked[textField] || null;
+
+    if (DEBUG_METADATA_RESOLUTION && result) {
+      const contentType = parentDoc === 'workoutTitles' ? 'Title' : parentDoc === 'smartDescriptions' ? 'Description' : 'Phrase';
+      const reasons = getMatchReasons(picked, ctx);
+      console.group(`[WorkoutMetadata] ${contentType} resolution`);
+      console.log(`Result: "${result}"`);
+      console.log(`Score: ${bestScore} | Tied rows: ${bestRows.length}`);
+      console.log(`Why chosen: ${reasons.length ? reasons.join('; ') : '(base score only)'}`);
+      console.groupEnd();
+    }
+
+    return result;
   } catch (error) {
     console.warn(`[WorkoutMetadata] Error in scoredFetch(${parentDoc}/${subCol}):`, error);
     return null;
@@ -426,6 +499,48 @@ async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext): Promise<str
   return scoredFetch('motivationalPhrases', PHRASES_SUBCOLLECTION, 'phrase', ctx);
 }
 
+/**
+ * Fetch a logic cue from `workoutMetadata/logicCues/cues`.
+ * Rows are scored like other metadata but also filtered by `variant`.
+ * If no Firestore data exists, returns a computed fallback.
+ */
+async function fetchLogicCue(
+  ctx: WorkoutMetadataContext,
+  variant: TrioVariant,
+): Promise<string | null> {
+  try {
+    const ref = collection(db, METADATA_BASE, LOGIC_CUES_PARENT, LOGIC_CUES_SUBCOLLECTION);
+    const snap = await getDocs(ref);
+
+    if (!snap.empty) {
+      let bestScore = -1;
+      let bestRows: any[] = [];
+
+      for (const doc of snap.docs) {
+        const row = doc.data();
+        const rowVariant = row.variant;
+        if (rowVariant && rowVariant !== variant && rowVariant !== 'all') continue;
+        const score = scoreContentRow(row, ctx) + (rowVariant === variant ? 2 : 0);
+        if (score < 0) continue;
+        if (score > bestScore) { bestScore = score; bestRows = [row]; }
+        else if (score === bestScore) { bestRows.push(row); }
+      }
+
+      if (bestRows.length > 0) {
+        const picked = bestRows[Math.floor(Math.random() * bestRows.length)];
+        const result = picked.text || picked.cue || null;
+        if (DEBUG_METADATA_RESOLUTION && result) {
+          console.log(`[WorkoutMetadata] LogicCue (${variant}): "${result}" | score=${bestScore} | tied=${bestRows.length}`);
+        }
+        return result;
+      }
+    }
+  } catch (error) {
+    console.warn(`[WorkoutMetadata] fetchLogicCue error:`, error);
+  }
+  return null;
+}
+
 // ============================================================================
 // MAIN RESOLVER
 // ============================================================================
@@ -433,26 +548,32 @@ async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext): Promise<str
 /**
  * Resolve workout metadata from Firestore.
  *
- * Fetches title, description, and AI cue in parallel.
+ * Fetches title, description, AI cue, and optionally a logic cue in parallel.
  * Falls back to null for each field if Firestore has no matching data
  * (the caller should use the WorkoutGenerator's hardcoded fallback in that case).
  */
 export async function resolveWorkoutMetadata(
   ctx: WorkoutMetadataContext,
+  variant?: TrioVariant,
+  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
 ): Promise<ResolvedWorkoutMetadata> {
   try {
-    const [title, description, aiCue] = await Promise.all([
+    const fetches: [
+      Promise<string | null>,
+      Promise<string | null>,
+      Promise<string | null>,
+      Promise<string | null>,
+    ] = [
       fetchWorkoutTitle(ctx),
       fetchSmartDescription(ctx),
       fetchMotivationalPhrase(ctx),
-    ]);
+      variant ? fetchLogicCue(ctx, variant) : Promise.resolve(null),
+    ];
 
-    const hasAnyFirestoreData = title || description || aiCue;
+    const [title, description, aiCue, logicCue] = await Promise.all(fetches);
 
-    // ── Unified Tag Resolution ────────────────────────────────────────
-    // Apply @tag replacement across ALL content types using the same
-    // resolver. This ensures @שם, @מיקום, @פרסונה etc. work in titles,
-    // descriptions, and phrases uniformly.
+    const hasAnyFirestoreData = title || description || aiCue || logicCue;
+
     const tagCtx: TagResolverContext = {
       persona: ctx.persona || undefined,
       location: ctx.location,
@@ -468,22 +589,23 @@ export async function resolveWorkoutMetadata(
       targetLevel: ctx.targetLevel,
       distanceMeters: ctx.distanceMeters,
       estimatedArrivalMinutes: ctx.estimatedArrivalMinutes,
-      // Workout analysis fields
       durationMinutes: ctx.durationMinutes,
       difficulty: ctx.difficulty,
       dominantMuscle: ctx.dominantMuscle,
       categoryLabel: ctx.categoryLabel,
       category: ctx.category,
+      ...logicTagOverrides,
     };
 
     return {
       title: title ? resolveContentTags(title, tagCtx) : null,
       description: description ? resolveContentTags(description, tagCtx) : null,
       aiCue: aiCue ? resolveContentTags(aiCue, tagCtx) : null,
+      logicCue: logicCue ? resolveContentTags(logicCue, tagCtx) : null,
       source: hasAnyFirestoreData ? 'firestore' : 'fallback',
     };
   } catch (error) {
     console.warn('[WorkoutMetadata] Resolve failed, using fallback:', error);
-    return { title: null, description: null, aiCue: null, source: 'fallback' };
+    return { title: null, description: null, aiCue: null, logicCue: null, source: 'fallback' };
   }
 }

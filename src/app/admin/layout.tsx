@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { 
+import {
     LayoutDashboard, 
     Dumbbell, 
     ClipboardList, 
@@ -27,7 +27,10 @@ import {
     FileText,
     LayoutGrid,
     Map,
-    Signal
+    Signal,
+    GraduationCap,
+    GitBranch,
+    BarChart3,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -45,8 +48,8 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boo
     
     const sectionPaths: Record<SectionId, string[]> = {
         overview: ['/admin', '/admin/roadmap'],
-        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager'],
-        appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire'],
+        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages'],
+        appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds'],
         production: ['/admin/content-matrix', '/admin/content-status'],
         brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator'],
         system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs'],
@@ -410,6 +413,7 @@ export default function AdminLayout({
                                             {showAuthorityManagerLink && (
                                                 <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="לוח בקרה למנהל רשות" />
                                             )}
+                                            <SidebarLink href="/admin/pressure-messages" icon={Megaphone} label="ניהול מסרי לחץ" />
                                         </div>
                                     )}
                                 </>
@@ -426,8 +430,12 @@ export default function AdminLayout({
                                             <SidebarLink href="/admin/programs" icon={ClipboardList} label="תוכניות אימון" />
                                             <SidebarLink href="/admin/levels" icon={Signal} label="רמות למור (Lemur Levels)" />
                                             <SidebarLink href="/admin/questionnaire" icon={ClipboardList} label="ניהול שאלון דינמי" />
+                                            <SidebarLink href="/admin/visual-assessment" icon={Video} label="הערכה ויזואלית" />
+                                            <SidebarLink href="/admin/assessment-rules" icon={GitBranch} label="מנוע כללים" />
+                                            <SidebarLink href="/admin/program-thresholds" icon={BarChart3} label="סיפי תוכנית" />
                                             <SidebarLink href="/admin/progression-manager" icon={TrendingUp} label="מנהל התקדמות" />
                                             <SidebarLink href="/admin/level-equivalence" icon={Zap} label="שקילות רמות" />
+                                            <SidebarLink href="/admin/schools" icon={GraduationCap} label="בתי ספר וארגונים" />
                                             
                                             {/* Equipment Sub-items */}
                                             <div className="pt-1 pr-2">

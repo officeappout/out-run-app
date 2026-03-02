@@ -25,6 +25,16 @@ async function getGymEquipment(): Promise<GymEquipment[]> {
 }
 
 /**
+ * Check if a method matches a location.
+ * Handles both the legacy `location` field and the newer `locationMapping` array.
+ */
+function methodMatchesLocation(method: ExecutionMethod, location: ExecutionLocation): boolean {
+  if (method.location === location) return true;
+  if (method.locationMapping?.includes(location)) return true;
+  return false;
+}
+
+/**
  * Select execution method with brand matching for parks
  * Priority:
  * 1. Match equipment ID AND brand name (if at park)
@@ -42,8 +52,8 @@ export async function selectExecutionMethodWithBrand(
     return undefined;
   }
 
-  // Filter methods by location
-  const locationMethods = exercise.execution_methods.filter((m) => m.location === location);
+  // Filter methods by location — checks both legacy `location` AND `locationMapping`
+  const locationMethods = exercise.execution_methods.filter((m) => methodMatchesLocation(m, location));
   if (locationMethods.length === 0) {
     return undefined;
   }

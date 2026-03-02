@@ -87,17 +87,29 @@ export interface AdminUserListItem {
   id: string;
   name: string;
   email?: string;
-  phone?: string; // If available in future
+  phone?: string;
   gender?: 'male' | 'female' | 'other';
   photoURL?: string;
   coins: number;
-  level: number; // Global level or highest domain level
+  level: number;
   joinDate?: Date;
+  lastActive?: Date;
   isSuperAdmin: boolean;
   isApproved: boolean;
-  onboardingStep?: string; // Current onboarding step
-  onboardingStatus?: 'ONBOARDING' | 'COMPLETED' | undefined; // Onboarding status
-  isAnonymous?: boolean; // If user is anonymous (not yet signed up)
+  onboardingStep?: string;
+  onboardingStatus?: 'ONBOARDING' | 'COMPLETED' | undefined;
+  isAnonymous?: boolean;
+  authorityId?: string;
+  accountStatus?: string;
+  accountMethod?: string;
+  /** Effective level from progression.tracks (highest priority), then domains */
+  effectiveLevel?: number;
+  /** Active program display name */
+  programName?: string;
+  /** City display name resolved from authorityId + affiliations */
+  cityName?: string;
+  /** Birth date for display */
+  birthDate?: unknown;
 }
 
 /**

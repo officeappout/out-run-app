@@ -174,8 +174,51 @@ interface SmartDescription {
   updatedAt?: Date;
 }
 
+type LogicCueVariant = 'balanced' | 'intense' | 'naked' | 'easy' | 'all';
+
+interface LogicCue {
+  id: string;
+  text: string;
+  variant: LogicCueVariant;
+  persona?: string;
+  location?: string;
+  gender?: string;
+  sportType?: string;
+  motivationStyle?: string;
+  experienceLevel?: string;
+  progressRange?: string;
+  dayPeriod?: string;
+  programId?: string;
+  minLevel?: number;
+  maxLevel?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+const VARIANT_LABELS: Record<LogicCueVariant, string> = {
+  balanced: 'מאוזן (Balanced)',
+  intense: 'אינטנסיבי (Intense)',
+  naked: 'ללא ציוד (Naked)',
+  easy: 'קליל (Easy)',
+  all: 'כל הוריאנטים',
+};
+
+const LOGIC_CUE_TAGS = [
+  { tag: '@סיבת_עצימות', description: 'הסבר עצימות', example: 'מנוחות מקוצרות ללחץ מטבולי' },
+  { tag: '@סוג_אתגר', description: 'סוג אתגר', example: 'תרגיל ברמה +1 הוזרק לאתגר כוח' },
+  { tag: '@התאמת_ציוד', description: 'התאמת ציוד', example: 'חלופות משקל גוף בלבד – ללא ציוד' },
+  { tag: '@שם', description: 'שם המשתמש', example: 'דוד' },
+  { tag: '@עצימות', description: 'רמת עצימות', example: 'שורף' },
+  { tag: '@מיקוד', description: 'שריר דומיננטי', example: 'חזה' },
+  { tag: '@זמן_אימון', description: 'משך אימון', example: '35' },
+  { tag: '@קטגוריה', description: 'קטגוריית אימון', example: 'כוח' },
+  { tag: '@מיקום', description: 'מיקום אימון', example: 'פארק' },
+  { tag: '@פרסונה', description: 'סוג משתמש', example: 'סטודנט' },
+  { tag: '@שם_תוכנית', description: 'שם תוכנית', example: 'Full Body' },
+];
+
 export default function WorkoutSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'titles' | 'phrases' | 'notifications' | 'descriptions'>('titles');
+  const [activeTab, setActiveTab] = useState<'titles' | 'phrases' | 'notifications' | 'descriptions' | 'logicCues'>('titles');
   const [loading, setLoading] = useState(true);
   
   // Titles state
@@ -262,6 +305,26 @@ export default function WorkoutSettingsPage() {
     description: '',
   });
   
+  // Logic Cues state
+  const [logicCues, setLogicCues] = useState<LogicCue[]>([]);
+  const [editingLogicCue, setEditingLogicCue] = useState<string | null>(null);
+  const [showNewLogicCueForm, setShowNewLogicCueForm] = useState(false);
+  const [logicCueForm, setLogicCueForm] = useState<Partial<LogicCue>>({
+    text: '',
+    variant: 'balanced',
+    persona: '',
+    location: 'home',
+    gender: 'both',
+    sportType: '',
+    motivationStyle: '',
+    experienceLevel: '',
+    progressRange: '',
+    dayPeriod: '',
+    programId: '',
+    minLevel: undefined,
+    maxLevel: undefined,
+  });
+
   // Description Templates state
   const [descriptionTemplates, setDescriptionTemplates] = useState<any[]>([]);
 
@@ -276,6 +339,7 @@ export default function WorkoutSettingsPage() {
     descriptions: true,
     notifications: true,
     phrases: true,
+    logicCues: true,
   });
   const [cleanSlateProgress, setCleanSlateProgress] = useState('');
 
@@ -286,12 +350,13 @@ export default function WorkoutSettingsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [titlesData, phrasesData, notificationsData, descriptionsData, templatesData, programsData] = await Promise.all([
+      const [titlesData, phrasesData, notificationsData, descriptionsData, templatesData, logicCuesData, programsData] = await Promise.all([
         loadTitles(),
         loadPhrases(),
         loadNotifications(),
         loadSmartDescriptions(),
         loadDescriptionTemplates(),
+        loadLogicCues(),
         getAllPrograms().catch(() => [] as Program[]),
       ]);
       setTitles(titlesData);
@@ -299,6 +364,7 @@ export default function WorkoutSettingsPage() {
       setNotifications(notificationsData);
       setSmartDescriptions(descriptionsData);
       setDescriptionTemplates(templatesData);
+      setLogicCues(logicCuesData);
       setPrograms(programsData);
     } catch (error) {
       console.error('Error loading workout settings:', error);
@@ -352,6 +418,22 @@ export default function WorkoutSettingsPage() {
       } as SmartDescription));
     } catch (error) {
       console.error('Error loading smart descriptions:', error);
+      return [];
+    }
+  };
+
+  const loadLogicCues = async (): Promise<LogicCue[]> => {
+    try {
+      const cuesRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`);
+      const snapshot = await getDocs(cuesRef);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: toDate(doc.data().createdAt),
+        updatedAt: toDate(doc.data().updatedAt),
+      } as LogicCue));
+    } catch (error) {
+      console.error('Error loading logic cues:', error);
       return [];
     }
   };
@@ -486,6 +568,7 @@ export default function WorkoutSettingsPage() {
     if (cleanSlateCollections.phrases) backup.motivational_phrases = phrases;
     if (cleanSlateCollections.notifications) backup.notifications = notifications;
     if (cleanSlateCollections.descriptions) backup.smart_descriptions = smartDescriptions;
+    if (cleanSlateCollections.logicCues) backup.logic_cues = logicCues;
 
     const totalRows = Object.values(backup).reduce((sum, arr) => sum + arr.length, 0);
     if (totalRows === 0) {
@@ -521,6 +604,9 @@ export default function WorkoutSettingsPage() {
     }
     if (cleanSlateCollections.descriptions) {
       collectionsToDelete.push({ path: `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`, label: 'תיאורים חכמים' });
+    }
+    if (cleanSlateCollections.logicCues) {
+      collectionsToDelete.push({ path: `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`, label: 'הערות מאמן' });
     }
 
     try {
@@ -656,6 +742,17 @@ export default function WorkoutSettingsPage() {
         >
           <MessageSquareQuote size={18} />
           תיאורים חכמים
+        </button>
+        <button
+          onClick={() => setActiveTab('logicCues')}
+          className={`px-6 py-3 font-bold transition-colors flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'logicCues'
+              ? 'border-b-2 border-amber-500 text-amber-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Eye size={18} />
+          הערות מאמן
         </button>
         <Link
           href="/admin/workout-settings/status"
@@ -2093,6 +2190,408 @@ export default function WorkoutSettingsPage() {
         </div>
       )}
 
+      {/* Logic Cues Tab (הערות מאמן) */}
+      {activeTab === 'logicCues' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                setShowNewLogicCueForm(true);
+                setEditingLogicCue(null);
+                setLogicCueForm({ text: '', variant: 'balanced', persona: '', location: 'home', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', programId: '', minLevel: undefined, maxLevel: undefined });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors"
+            >
+              <Plus size={18} />
+              הערת מאמן חדשה
+            </button>
+          </div>
+
+          {/* New/Edit Logic Cue Form */}
+          {(showNewLogicCueForm || editingLogicCue) && (
+            <div className="bg-white rounded-2xl border border-amber-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                {editingLogicCue ? 'ערוך הערת מאמן' : 'הערת מאמן חדשה'}
+              </h3>
+              <div className="space-y-4">
+                {/* Variant Selector */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">וריאנט אימון</label>
+                  <select
+                    value={logicCueForm.variant || 'balanced'}
+                    onChange={(e) => setLogicCueForm({ ...logicCueForm, variant: e.target.value as LogicCueVariant })}
+                    className="w-full px-4 py-2 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 bg-amber-50 font-bold"
+                  >
+                    {Object.entries(VARIANT_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    קובע למי מוצגת ההערה: Balanced = אימון מאוזן, Intense = אתגר, Naked = ללא ציוד, Easy = קליל
+                  </p>
+                </div>
+                {/* Location + Persona */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">מיקום</label>
+                    <select
+                      value={logicCueForm.location || 'home'}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, location: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      {Object.entries(locationLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">פרסונה</label>
+                    <select
+                      value={logicCueForm.persona || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, persona: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">בחר פרסונה...</option>
+                      {Object.entries(personaLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Golden Content enrichment */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">מגדר</label>
+                    <select
+                      value={logicCueForm.gender || 'both'}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, gender: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="both">שניהם</option>
+                      <option value="male">זכר</option>
+                      <option value="female">נקבה</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">סוג ספורט</label>
+                    <select
+                      value={logicCueForm.sportType || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, sportType: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">כל הספורטים</option>
+                      {Object.entries(sportTypeLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">סגנון מוטיבציה</label>
+                    <select
+                      value={logicCueForm.motivationStyle || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, motivationStyle: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">כל הסגנונות</option>
+                      {Object.entries(motivationStyleLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Experience + Progress + Day */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">רמת ניסיון</label>
+                    <select
+                      value={logicCueForm.experienceLevel || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, experienceLevel: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">כל הרמות</option>
+                      {Object.entries(experienceLevelLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">טווח התקדמות</label>
+                    <select
+                      value={logicCueForm.progressRange || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, progressRange: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">כל הטווחים</option>
+                      {Object.entries(progressRangeLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">תקופה בשבוע</label>
+                    <select
+                      value={logicCueForm.dayPeriod || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, dayPeriod: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">כל הימים</option>
+                      {Object.entries(dayPeriodLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Program + Level Range */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">תוכנית</label>
+                    <select
+                      value={logicCueForm.programId || ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, programId: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">כל התוכניות</option>
+                      <option value="all">כללי (all)</option>
+                      {programs.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}{p.isMaster ? ' (ראשית)' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">רמה מינימלית</label>
+                    <input
+                      type="number" min="1" max="25"
+                      value={logicCueForm.minLevel ?? ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, minLevel: e.target.value ? parseInt(e.target.value) : undefined })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                      placeholder="—"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">רמה מקסימלית</label>
+                    <input
+                      type="number" min="1" max="25"
+                      value={logicCueForm.maxLevel ?? ''}
+                      onChange={(e) => setLogicCueForm({ ...logicCueForm, maxLevel: e.target.value ? parseInt(e.target.value) : undefined })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                      placeholder="—"
+                    />
+                  </div>
+                </div>
+                {/* Text Area */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">טקסט הערת מאמן</label>
+                  <textarea
+                    value={logicCueForm.text || ''}
+                    onChange={(e) => setLogicCueForm({ ...logicCueForm, text: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 bg-white text-slate-900"
+                    placeholder="הערת מאמן מקצועית... ניתן להשתמש ב-@tags לדינמיות"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    @tags חדשים: @סיבת_עצימות, @סוג_אתגר, @התאמת_ציוד + כל ה-@tags הקיימים
+                  </p>
+
+                  {/* Preview */}
+                  {logicCueForm.text && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <p className="text-xs font-bold text-amber-700 mb-1">תצוגה מקדימה:</p>
+                      <p className="text-sm text-gray-800">
+                        {resolveDescription(logicCueForm.text, {
+                          persona: logicCueForm.persona,
+                          location: logicCueForm.location,
+                          locationName: logicCueForm.location === 'park' ? 'פארק הירקון' : undefined,
+                          userName: 'דוד',
+                          userGoal: 'חיזוק הגוף',
+                          exerciseName: 'כפיפות בטן',
+                          category: 'כוח',
+                          muscles: ['abs', 'core'],
+                          equipment: ['מזרן', 'מים'],
+                          currentTime: new Date(),
+                          intensityReason: 'מנוחות מקוצרות ללחץ מטבולי',
+                          challengeType: 'תרגיל ברמה +1 הוזרק לאתגר כוח',
+                          equipmentAdaptation: 'חלופות משקל גוף בלבד – ללא ציוד',
+                        })}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Available Tags — Logic Cue specific */}
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                    <p className="text-xs font-bold text-gray-700 mb-2">תגים זמינים להערות מאמן:</p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {LOGIC_CUE_TAGS.map((tagInfo) => (
+                        <div key={tagInfo.tag} className="text-xs">
+                          <span className={`font-mono font-bold ${
+                            tagInfo.tag.startsWith('@סיבת') || tagInfo.tag.startsWith('@סוג') || tagInfo.tag.startsWith('@התאמת')
+                              ? 'text-amber-600' : 'text-cyan-600'
+                          }`}>{tagInfo.tag}</span>
+                          <span className="text-gray-600 mr-2"> - {tagInfo.description}</span>
+                          <span className="text-gray-400 italic">({tagInfo.example})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* Save / Cancel */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (editingLogicCue) {
+                          const cueRef = doc(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`, editingLogicCue);
+                          await setDoc(cueRef, {
+                            ...logicCueForm,
+                            updatedAt: serverTimestamp(),
+                          }, { merge: true });
+                        } else {
+                          const cuesRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`);
+                          await addDoc(cuesRef, {
+                            ...logicCueForm,
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                          });
+                        }
+                        await loadData();
+                        setEditingLogicCue(null);
+                        setShowNewLogicCueForm(false);
+                        setLogicCueForm({ text: '', variant: 'balanced', persona: '', location: 'home', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', programId: '', minLevel: undefined, maxLevel: undefined });
+                      } catch (error) {
+                        console.error('Error saving logic cue:', error);
+                        alert('שגיאה בשמירת הערת המאמן');
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600"
+                  >
+                    <Save size={16} />
+                    שמור
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewLogicCueForm(false);
+                      setEditingLogicCue(null);
+                      setLogicCueForm({ text: '', variant: 'balanced', persona: '', location: 'home', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', programId: '', minLevel: undefined, maxLevel: undefined });
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300"
+                  >
+                    <X size={16} />
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Logic Cues List */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            {logicCues.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <Eye size={40} className="mx-auto mb-3 opacity-40" />
+                <p className="font-bold text-lg mb-1">אין הערות מאמן עדיין</p>
+                <p className="text-sm">הוסף הערת מאמן ראשונה כדי שהמשתמשים יראו הסבר מקצועי על האימון שלהם</p>
+              </div>
+            ) : (
+              <table className="w-full text-right">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">וריאנט</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">מיקום</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">פרסונה</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">מגדר</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">טקסט</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {logicCues.map((cue) => (
+                    <tr key={cue.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          cue.variant === 'intense' ? 'bg-red-100 text-red-700' :
+                          cue.variant === 'easy' ? 'bg-green-100 text-green-700' :
+                          cue.variant === 'naked' ? 'bg-orange-100 text-orange-700' :
+                          cue.variant === 'all' ? 'bg-gray-100 text-gray-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {VARIANT_LABELS[cue.variant] || cue.variant}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
+                          {locationLabels[cue.location || ''] || cue.location || 'הכל'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold">
+                          {personaLabels[cue.persona || ''] || cue.persona || 'הכל'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-pink-100 text-pink-700 rounded text-xs font-bold">
+                          {cue.gender === 'male' ? 'זכר' : cue.gender === 'female' ? 'נקבה' : 'שניהם'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-gray-900 max-w-xs truncate">{cue.text}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingLogicCue(cue.id);
+                              setLogicCueForm({
+                                text: cue.text,
+                                variant: cue.variant,
+                                location: cue.location || 'home',
+                                persona: cue.persona || '',
+                                gender: cue.gender || 'both',
+                                sportType: cue.sportType || '',
+                                motivationStyle: cue.motivationStyle || '',
+                                experienceLevel: cue.experienceLevel || '',
+                                progressRange: cue.progressRange || '',
+                                dayPeriod: cue.dayPeriod || '',
+                                programId: cue.programId || '',
+                                minLevel: cue.minLevel,
+                                maxLevel: cue.maxLevel,
+                              });
+                              setShowNewLogicCueForm(false);
+                            }}
+                            className="p-2 text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('האם אתה בטוח שברצונך למחוק את הערת המאמן?')) return;
+                              try {
+                                await deleteDoc(doc(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`, cue.id));
+                                await loadData();
+                              } catch (error) {
+                                console.error('Error deleting logic cue:', error);
+                                alert('שגיאה במחיקת הערת המאמן');
+                              }
+                            }}
+                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center gap-4 text-xs text-gray-400 px-2">
+            <span>סה&quot;כ: {logicCues.length} הערות</span>
+            {(['balanced', 'intense', 'naked', 'easy'] as const).map((v) => (
+              <span key={v}>{VARIANT_LABELS[v].split(' ')[0]}: {logicCues.filter(c => c.variant === v).length}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ================================================================== */}
       {/* DANGER ZONE — Clean Slate                                          */}
       {/* ================================================================== */}
@@ -2113,6 +2612,7 @@ export default function WorkoutSettingsPage() {
             <span>{phrases.length} משפטים</span>
             <span>{notifications.length} התראות</span>
             <span>{smartDescriptions.length} תיאורים</span>
+            <span>{logicCues.length} הערות מאמן</span>
           </div>
 
           <button
@@ -2163,6 +2663,7 @@ export default function WorkoutSettingsPage() {
                         { key: 'phrases' as const, label: 'משפטים מוטיבציוניים', count: phrases.length },
                         { key: 'notifications' as const, label: 'התראות', count: notifications.length },
                         { key: 'descriptions' as const, label: 'תיאורים חכמים', count: smartDescriptions.length },
+                        { key: 'logicCues' as const, label: 'הערות מאמן', count: logicCues.length },
                       ].map((item) => (
                         <label key={item.key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                           <input
@@ -2216,7 +2717,8 @@ export default function WorkoutSettingsPage() {
                         {(cleanSlateCollections.titles ? titles.length : 0) +
                          (cleanSlateCollections.phrases ? phrases.length : 0) +
                          (cleanSlateCollections.notifications ? notifications.length : 0) +
-                         (cleanSlateCollections.descriptions ? smartDescriptions.length : 0)}
+                         (cleanSlateCollections.descriptions ? smartDescriptions.length : 0) +
+                         (cleanSlateCollections.logicCues ? logicCues.length : 0)}
                       </span>
                       {' '} שורות לצמיתות. לא ניתן לשחזר את הנתונים.
                     </p>

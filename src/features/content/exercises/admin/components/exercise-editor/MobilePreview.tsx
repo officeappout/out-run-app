@@ -23,9 +23,58 @@ interface MobilePreviewProps {
   programs?: Program[];
 }
 
+const MUSCLE_SVG_FILE: Record<string, string> = {
+  chest: 'chest', back: 'back', shoulders: 'shoulders',
+  biceps: 'biceps', triceps: 'triceps', forearms: 'forearms',
+  traps: 'traps', lats: 'back', upper_back: 'back',
+  lower_back: 'back', quads: 'quads', hamstrings: 'hamstrings',
+  glutes: 'glutes', calves: 'calves', legs: 'quads',
+  hip_flexors: 'hip_flexors', adductors: 'adductors',
+  abductors: 'adductors', core: 'abs', abs: 'abs',
+  obliques: 'obliques', full_body: 'chest', cardio: 'calves',
+  neck: 'traps', serratus: 'chest',
+  middle_back: 'back', rear_delt: 'shoulders',
+};
+
+function MuscleIconCell({ muscle, roleLabel, gender }: { muscle: string; roleLabel: string; gender: 'male' | 'female' }) {
+  const [imgError, setImgError] = useState(false);
+  const [useMale, setUseMale] = useState(false);
+  const file = MUSCLE_SVG_FILE[muscle] ?? muscle;
+  const currentGender = useMale ? 'male' : gender;
+  const iconSrc = `/icons/muscles/${currentGender}/${file}.svg`;
+  const label = MUSCLE_GROUP_LABELS[muscle as keyof typeof MUSCLE_GROUP_LABELS]?.he ?? muscle;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-lg flex items-center justify-center overflow-hidden">
+        {imgError ? (
+          <Dumbbell size={20} className="text-[#00AEEF]" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={iconSrc}
+            alt={label}
+            width={28}
+            height={28}
+            onError={() => {
+              if (!useMale && gender === 'female') { setUseMale(true); }
+              else { setImgError(true); }
+            }}
+          />
+        )}
+      </div>
+      <div>
+        <p className="text-xs text-slate-500 dark:text-zinc-500">{roleLabel}</p>
+        <p className="font-bold text-sm">{safeRenderText(label)}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function MobilePreview({ formData, activeLang, programs = [] }: MobilePreviewProps) {
   const [imageError, setImageError] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [previewGender, setPreviewGender] = useState<'male' | 'female'>('male');
 
   const name =
     formData.name?.[activeLang] ||
@@ -260,34 +309,51 @@ export default function MobilePreview({ formData, activeLang, programs = [] }: M
             {/* Muscle Groups Section */}
             {muscleGroups.length > 0 && (
               <div className="mb-8">
-                <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  שרירי התרגיל
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    שרירי התרגיל
+                  </h3>
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 rounded-full p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewGender('male')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                        previewGender === 'male'
+                          ? 'bg-[#00AEEF] text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      זכר
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewGender('female')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                        previewGender === 'female'
+                          ? 'bg-[#00AEEF] text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      נקבה
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   {primaryMuscle && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-lg flex items-center justify-center">
-                        <Dumbbell size={20} className="text-[#00AEEF]" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-zinc-500">שריר ראשי</p>
-                        <p className="font-bold text-sm">{safeRenderText(MUSCLE_GROUP_LABELS[primaryMuscle] || primaryMuscle)}</p>
-                      </div>
-                    </div>
+                    <MuscleIconCell
+                      muscle={primaryMuscle}
+                      roleLabel="שריר ראשי"
+                      gender={previewGender}
+                    />
                   )}
-                  {secondaryMuscles.length > 0 && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-50 dark:bg-zinc-800 rounded-lg flex items-center justify-center">
-                        <User size={20} className="text-slate-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-zinc-500">שרירים משניים</p>
-                        <p className="font-bold text-sm">
-                          {secondaryMuscles.map((m) => safeRenderText(MUSCLE_GROUP_LABELS[m] || m)).join(', ')}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  {secondaryMuscles.map((m) => (
+                    <MuscleIconCell
+                      key={m}
+                      muscle={m}
+                      roleLabel="שריר משני"
+                      gender={previewGender}
+                    />
+                  ))}
                 </div>
               </div>
             )}

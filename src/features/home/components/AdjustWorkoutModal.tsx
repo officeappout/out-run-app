@@ -39,6 +39,7 @@ import {
 import { DifficultyLevel, GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { ShadowMatrix, LevelOverride, createDefaultShadowMatrix, SHADOW_PROGRAM_IDS } from '@/features/workout-engine/services/shadow-level.utils';
 import { generateHomeWorkout, HomeWorkoutResult, TimeOfDay, detectTimeOfDay, TIME_OF_DAY_OPTIONS } from '@/features/workout-engine/services/home-workout.service';
+import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { getLocalizedText } from '@/features/content/exercises/core/exercise.types';
 
 // ============================================================================
@@ -199,6 +200,9 @@ export default function AdjustWorkoutModal({
   const handleRegenerate = useCallback(async () => {
     setIsRegenerating(true);
     try {
+      const remainingBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
+      const budgetUsagePercent = useWeeklyVolumeStore.getState().getBudgetUsagePercent();
+
       const result = await generateHomeWorkout({
         userProfile,
         location,
@@ -210,6 +214,8 @@ export default function AdjustWorkoutModal({
         daysInactiveOverride: daysInactiveOverride > 0 ? daysInactiveOverride : undefined,
         personaOverride: persona ?? undefined,
         timeOfDay,
+        remainingWeeklyBudget: remainingBudget > 0 ? remainingBudget : undefined,
+        weeklyBudgetUsagePercent: budgetUsagePercent > 0 ? budgetUsagePercent : undefined,
       });
       setPreviewWorkout(result.workout);
       setPreviewMeta(result.meta);
@@ -632,7 +638,7 @@ export default function AdjustWorkoutModal({
                         <div className="grid grid-cols-3 gap-2">
                           <StatBox label="משך" value={`${previewWorkout.estimatedDuration} דק'`} />
                           <StatBox label="קלוריות" value={`${previewWorkout.stats.calories}`} />
-                          <StatBox label="קושי" value={'⚡'.repeat(previewWorkout.difficulty)} />
+                          <StatBox label="קושי" value={previewWorkout.isRecovery ? '🧘' : '⚡'.repeat(previewWorkout.difficulty)} />
                         </div>
 
                         {/* SA:BA Balance */}

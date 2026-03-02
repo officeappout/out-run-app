@@ -5,6 +5,7 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
+  Timestamp,
   collection,
   query,
   where,
@@ -83,10 +84,29 @@ export async function getUserFromFirestore(userId: string): Promise<UserFullProf
         );
       }
 
+      // Convert Firestore Timestamp → JS Date for birthDate so Zustand can serialize it
+      let birthDate = data.core?.birthDate;
+      if (birthDate instanceof Timestamp) {
+        birthDate = birthDate.toDate();
+      } else if (typeof birthDate === 'object' && birthDate !== null && typeof birthDate.seconds === 'number') {
+        birthDate = new Date(birthDate.seconds * 1000);
+      }
+
       const normalizedProfile: UserFullProfile = {
         ...(data as any),
         equipment: normalizedEquipment,
         lifestyle: normalizedLifestyle,
+        // --- Access Control defaults ---
+        onboardingProgress: data.onboardingProgress ?? 0,
+        onboardingPath: data.onboardingPath ?? null,
+        core: {
+          ...(data.core || {}),
+          ...(birthDate ? { birthDate } : {}),
+          accessLevel: data.core?.accessLevel ?? 1,
+          affiliations: data.core?.affiliations ?? [],
+          unlockedProgramIds: data.core?.unlockedProgramIds ?? [],
+          isVerified: data.core?.isVerified ?? false,
+        },
       };
 
       return normalizedProfile;
@@ -112,7 +132,14 @@ export async function getUserFromFirestore(userId: string): Promise<UserFullProf
           isApproved: false,
           isSuperAdmin: false,
           role: 'USER',
+          // Access Control defaults
+          accessLevel: 1,
+          affiliations: [],
+          unlockedProgramIds: [],
+          isVerified: false,
         },
+        onboardingProgress: 0,
+        onboardingPath: null,
         progression: {
           globalLevel: 1,
           globalXP: 0,
@@ -276,4 +303,33 @@ export async function getUserProgression(
   }
   }
   return null;
+}
+
+/**
+ * Write a single dot-path field to the current user's Firestore document.
+ * Uses updateDoc with merge semantics so sibling fields are preserved.
+ *
+ * Usage:
+ *   syncFieldToFirestore('core.authorityId', 'tel_aviv')
+ *   syncFieldToFirestore('core.email', 'user@example.com')
+ *   syncFieldToFirestore('equipment.home', ['pull_up_bar', 'bands'])
+ */
+export async function syncFieldToFirestore(
+  fieldPath: string,
+  value: unknown,
+): Promise<boolean> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return false;
+
+  try {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, {
+      [fieldPath]: value,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.error(`[syncFieldToFirestore] Failed to sync "${fieldPath}":`, error);
+    return false;
+  }
 }

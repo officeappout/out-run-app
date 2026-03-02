@@ -58,6 +58,7 @@ export const MOVEMENT_GROUP_LABELS: Record<MovementGroup, string> = {
   vertical_pull: 'משיכה אנכית',
   core: 'ליבה',
   isolation: 'איסוליישן',
+  flexibility: 'גמישות',
 };
 
 export const EXERCISE_ROLE_LABELS: Record<ExerciseRole, string> = {

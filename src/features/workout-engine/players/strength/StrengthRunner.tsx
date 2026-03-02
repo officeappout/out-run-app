@@ -1,1003 +1,696 @@
 'use client';
 
 /**
- * StrengthRunner
- * Production-Ready Workout Engine - State Machine Orchestrator
- * 
- * TRANSITION RULES:
- * - PREPARING only at workout start (segment 0, exercise 0)
- * - Rest ends -> Go directly to ACTIVE (no intermediate screens)
- * - Skip rest -> Go directly to ACTIVE
- * 
- * SINGLE SOURCE OF TRUTH:
- * - All exercise data derived DIRECTLY from workout prop
- * - activeExercise computed via useMemo from workout.segments
- * 
- * HARD-LOCK PATTERN:
- * - transitionLock engaged on any trigger
- * - Lock ONLY released via useEffect when indices change
+ * StrengthRunner — Phase 3 Spotify-Style Layered Architecture
+ *
+ * Architecture:
+ *   Base Layer  — Workout Playlist (placeholder for now)
+ *   Top Layer   — Active workout, draggable to a mini-player
+ *
+ * Drag mechanics (framer-motion):
+ *   - Header area is the drag handle (touch-action: none)
+ *   - Drag down from header → snaps to mini-player (based on offset/velocity)
+ *   - Drag up from mini-player → expands back to full screen
+ *
+ * Internal scroll ("Lyrics" view):
+ *   - ACTIVE: scrolling down reveals execution steps, muscle groups, goal, swap
+ *   - RESTING: handled by RestWithPreview (scrollable next-exercise details)
+ *   - Scrolling does NOT trigger minimize — only the header drag does
+ *
+ * State machine: PREPARING → ACTIVE → RESTING (with isLogDrawerOpen overlay)
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Pause, Play, List } from 'lucide-react';
-import { motion, useMotionValue, useDragControls } from 'framer-motion';
-import { WorkoutPlan, WorkoutSegment, Exercise as WorkoutExercise } from '@/features/parks';
-import RepetitionPicker from './components/RepetitionPicker';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Pause, Play, List, Dumbbell, Replace, ChevronUp, Bell, Square,
+} from 'lucide-react';
+import { motion, useDragControls, AnimatePresence } from 'framer-motion';
+import type { WorkoutPlan } from '@/features/parks';
+
 import HorizontalPicker from './components/HorizontalPicker';
 import WorkoutStoryBars from './components/WorkoutStoryBars';
 import ExerciseVideoPlayer from './components/ExerciseVideoPlayer';
-import ExerciseDetailsSheet from './components/ExerciseDetailsSheet';
-import RestScreen from './components/RestScreen';
+import FillingButton from './components/FillingButton';
+import RestWithPreview from './components/RestWithPreview';
+import WorkoutPlaylist from './playlist/WorkoutPlaylist';
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
+import {
+  useWorkoutStateMachine,
+  ExerciseResultLog,
+} from './hooks/useWorkoutStateMachine';
+import { useWorkoutPersistence } from './hooks/useWorkoutPersistence';
+import { useScreenWakeLock } from './hooks/useScreenWakeLock';
+import { useMediaSession } from './hooks/useMediaSession';
+import { resolveEquipmentLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import ExerciseDetailContent from './components/ExerciseDetailContent';
 
-/** Default rest time between exercises (seconds) */
-const DEFAULT_REST_TIME = 10;
+export type { ExerciseResultLog };
 
-/** Preparation countdown duration (seconds) - only at workout start */
-const PREPARATION_COUNTDOWN = 3;
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/** Workout state machine states */
-type WorkoutState = 'PREPARING' | 'ACTIVE' | 'REPETITION_PICKER' | 'TRANSITION' | 'PAUSED';
+const MINI_PLAYER_H = 72;
 
 interface StrengthRunnerProps {
   workout: WorkoutPlan;
-  onComplete?: () => void;
+  onComplete?: (exerciseLog?: ExerciseResultLog[]) => void;
   onPause?: () => void;
   onResume?: () => void;
+  onSwapExercise?: (exerciseId: string, segmentIndex: number, exerciseIndex: number) => void;
 }
-
-// ============================================================================
-// COMPONENT
-// ============================================================================
 
 export default function StrengthRunner({
   workout,
   onComplete,
   onPause,
   onResume,
+  onSwapExercise,
 }: StrengthRunnerProps) {
-  // ==========================================================================
-  // REFS - HARD LOCK PATTERN
-  // ==========================================================================
-  
-  const transitionLock = useRef(false);
-  const prevIndicesRef = useRef({ segment: 0, exercise: 0 });
-  const workoutIdRef = useRef(workout.id);
-  
-  // ==========================================================================
-  // REFS - Audio for countdown beeps
-  // ==========================================================================
-  
-  // Short beep (300Hz, 100ms) - Base64 encoded WAV
-  const shortBeepRef = useRef<HTMLAudioElement | null>(null);
-  // Long beep (500Hz, 300ms) - Base64 encoded WAV  
-  const longBeepRef = useRef<HTMLAudioElement | null>(null);
-  
-  // Initialize audio elements on mount
-  useEffect(() => {
-    // Create short beep audio (300Hz tone, 100ms)
-    const shortBeep = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU' + 
-      'tvT19' + 'A'.repeat(100));
-    shortBeep.volume = 0.3;
-    shortBeepRef.current = shortBeep;
-    
-    // Create long beep audio (500Hz tone, 300ms)
-    const longBeep = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU' + 
-      'tvT19' + 'A'.repeat(300));
-    longBeep.volume = 0.5;
-    longBeepRef.current = longBeep;
-    
-    // Fallback: Use Web Audio API for actual beeps
-    const audioContext = typeof window !== 'undefined' ? new (window.AudioContext || (window as any).webkitAudioContext)() : null;
-    
-    if (audioContext) {
-      // Create beep function using Web Audio API
-      const playBeep = (frequency: number, duration: number, volume: number) => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = frequency;
-        oscillator.type = 'sine';
-        gainNode.gain.value = volume;
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + duration / 1000);
-      };
-      
-      // Override audio refs with Web Audio functions
-      (shortBeepRef as any).playBeep = () => playBeep(400, 100, 0.3);
-      (longBeepRef as any).playBeep = () => playBeep(600, 300, 0.5);
-    }
-    
-    return () => {
-      if (audioContext) {
-        audioContext.close();
-      }
-    };
-  }, []);
+  const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume);
 
-  // ==========================================================================
-  // STATE
-  // ==========================================================================
-  
-  const [workoutState, setWorkoutState] = useState<WorkoutState>('PREPARING');
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [preparationCountdown, setPreparationCountdown] = useState(PREPARATION_COUNTDOWN);
-  const [restDuration, setRestDuration] = useState(DEFAULT_REST_TIME);
-  const [restTimeLeft, setRestTimeLeft] = useState(DEFAULT_REST_TIME); // Live countdown
-  const [isPaused, setIsPaused] = useState(false);
-  const [completedReps, setCompletedReps] = useState<number | null>(null);
-  const [fadeIn, setFadeIn] = useState(true);
-  const [videoProgress, setVideoProgress] = useState(0);
+  useWorkoutPersistence({
+    workoutId: workout.id,
+    segmentIndex: sm.currentSegmentIndex,
+    exerciseIndex: sm.currentExerciseIndex,
+    elapsedTime: sm.elapsedTime,
+    exerciseLog: sm.getExerciseLog(),
+    enabled: sm.workoutState !== 'PREPARING',
+    onBackground: sm.togglePause,
+    onForeground: sm.togglePause,
+  });
 
-  // Drag controls for curtain effect
-  const curtainY = useMotionValue(0);
-  const curtainDragControls = useDragControls();
+  // ── Phase 4: Native Device Capabilities ──────────────────────────────────
 
-  // ==========================================================================
-  // EFFECT - HARD LOCK RELEASE
-  // ==========================================================================
+  const isWorkoutActive =
+    sm.workoutState === 'ACTIVE' || sm.workoutState === 'RESTING';
 
-  useEffect(() => {
-    const prev = prevIndicesRef.current;
-    const hasChanged = 
-      prev.segment !== currentSegmentIndex || 
-      prev.exercise !== currentExerciseIndex;
+  useScreenWakeLock(isWorkoutActive && !sm.isPaused);
 
-    if (hasChanged) {
-      console.log('[Engine] Index changed - releasing lock', {
-        from: prev,
-        to: { segment: currentSegmentIndex, exercise: currentExerciseIndex },
-      });
-      
-      prevIndicesRef.current = { 
-        segment: currentSegmentIndex, 
-        exercise: currentExerciseIndex 
-      };
-      
-      requestAnimationFrame(() => {
-        transitionLock.current = false;
-        console.log('[Engine] Lock Released');
-      });
-    }
-  }, [currentSegmentIndex, currentExerciseIndex]);
-
-  // ==========================================================================
-  // EFFECT - Workout Plan ID Change Detection
-  // ==========================================================================
-
-  useEffect(() => {
-    if (workout.id !== workoutIdRef.current) {
-      console.log('[StrengthRunner] Workout plan ID changed, resetting state');
-      workoutIdRef.current = workout.id;
-      setCurrentSegmentIndex(0);
-      setCurrentExerciseIndex(0);
-      setWorkoutState('PREPARING');
-      prevIndicesRef.current = { segment: 0, exercise: 0 };
-      transitionLock.current = false;
-    }
-  }, [workout.id]);
-  
-  // ==========================================================================
-  // HELPERS - Exercise Access
-  // ==========================================================================
-
-  const getExercises = useCallback((segment: WorkoutSegment | undefined): WorkoutExercise[] | null => {
-    if (!segment) return null;
-    
-    const seg = segment as any;
-    if (Array.isArray(seg.exercises)) return seg.exercises;
-    if (Array.isArray(seg.items)) return seg.items;
-    if (Array.isArray(seg.list)) return seg.list;
-    if (Array.isArray(seg.workout_exercises)) return seg.workout_exercises;
-    if (Array.isArray(seg.workoutExercises)) return seg.workoutExercises;
-    
-    return null;
-  }, []);
-
-  const findNextValidSegmentIndex = useCallback((startIndex: number): number | null => {
-    for (let i = startIndex; i < workout.segments.length; i++) {
-      const segment = workout.segments[i];
-      const exercises = getExercises(segment);
-      if (exercises && exercises.length > 0) {
-        return i;
-      }
-    }
-    return null;
-  }, [workout.segments, getExercises]);
-
-  // ==========================================================================
-  // MEMOIZED VALUES - DERIVED FROM workout PROP
-  // ==========================================================================
-
-  const activeExercise = useMemo(() => {
-    const segment = workout.segments[currentSegmentIndex];
-    const exercises = getExercises(segment);
-    const exercise = exercises?.[currentExerciseIndex] || null;
-    console.log('[Engine] activeExercise computed', { 
-      segment: currentSegmentIndex, 
-      exercise: currentExerciseIndex,
-      name: exercise?.name 
-    });
-    return exercise;
-  }, [workout, currentSegmentIndex, currentExerciseIndex, getExercises]);
-
-  const currentSegment = useMemo(() => {
-    return workout.segments[currentSegmentIndex];
-  }, [workout, currentSegmentIndex]);
-
-  const isFollowAlongMode = useMemo(() => {
-    const segmentTitle = currentSegment?.title || '';
-    if (segmentTitle.includes('חימום') || segmentTitle.toLowerCase().includes('warmup')) {
-      return true;
-    }
-    if (segmentTitle.includes('קירור') || segmentTitle.toLowerCase().includes('cooldown')) {
-      return true;
-    }
-    if (activeExercise?.exerciseRole === 'warmup' || activeExercise?.exerciseRole === 'cooldown') {
-      return true;
-    }
-    if (activeExercise?.isFollowAlong === true) {
-      return true;
-    }
-    return false;
-  }, [activeExercise, currentSegment]);
-
-  const exerciseType = useMemo<'reps' | 'time' | 'follow-along'>(() => {
-    if (isFollowAlongMode) return 'follow-along';
-    if (activeExercise?.exerciseType === 'time') return 'time';
-    if (activeExercise?.exerciseType === 'reps') return 'reps';
-    if (currentSegment?.target?.type === 'reps') return 'reps';
-    if (currentSegment?.target?.type === 'time') return 'time';
-    if (activeExercise?.reps) return 'reps';
-    if (activeExercise?.duration) return 'time';
-      return 'reps';
-  }, [activeExercise, currentSegment, isFollowAlongMode]);
-
-  const segmentRestTime = useMemo(() => {
-    const segment = workout.segments[currentSegmentIndex];
-    if (isFollowAlongMode) {
-      return segment?.restBetweenExercises ?? 0;
-    }
-    return segment?.restBetweenExercises ?? DEFAULT_REST_TIME;
-  }, [workout, currentSegmentIndex, isFollowAlongMode]);
-
-  const exerciseDuration = useMemo(() => {
-    if (exerciseType === 'time' || exerciseType === 'follow-along') {
-      if (currentSegment?.target?.type === 'time') {
-        return currentSegment.target.value;
-      }
-      const durationStr = activeExercise?.duration;
-      if (durationStr) {
-        const match = durationStr.match(/(\d+)/);
-        return match ? parseInt(match[1], 10) : 30;
-      }
-      return 30;
-    }
-    return 0;
-  }, [exerciseType, currentSegment, activeExercise]);
-
-  const targetReps = useMemo(() => {
-    if (exerciseType === 'reps') {
-      if (currentSegment?.target?.type === 'reps') {
-        return currentSegment.target.value;
-      }
-      const repsStr = activeExercise?.reps;
-      if (repsStr) {
-        const match = repsStr.match(/(\d+)/);
-        return match ? parseInt(match[1], 10) : null;
-      }
-    }
-    return null;
-  }, [exerciseType, currentSegment, activeExercise]);
-
-  const autoCompleteTime = useMemo(() => {
-    if (exerciseType === 'reps' && targetReps) {
-      const timePerRep = 2;
-      const buffer = 5;
-      return targetReps * timePerRep + buffer;
-    }
-    return 30;
-  }, [exerciseType, targetReps]);
-
-  const totalExercises = useMemo(() => {
-    return workout.segments.reduce((total, segment) => {
-      const exercises = getExercises(segment);
-      return total + (exercises?.length || 0);
-    }, 0);
-  }, [workout, getExercises]);
-
-  const globalExerciseIndex = useMemo(() => {
-    let index = 0;
-    for (let i = 0; i < currentSegmentIndex; i++) {
-      const exercises = getExercises(workout.segments[i]);
-      index += exercises?.length || 0;
-    }
-    return index + currentExerciseIndex;
-  }, [workout, currentSegmentIndex, currentExerciseIndex, getExercises]);
-
-  const progressBars = useMemo(() => {
-    return Array.from({ length: totalExercises }, (_, index) => ({
-      isActive: index < globalExerciseIndex,
-      isCurrent: index === globalExerciseIndex,
-    }));
-  }, [totalExercises, globalExerciseIndex]);
-
-  const exerciseName = useMemo(() => {
-    return activeExercise?.name || 'טוען...';
-  }, [activeExercise]);
-
-  const executionSteps = useMemo(() => {
-    if (activeExercise?.highlights && Array.isArray(activeExercise.highlights)) {
-      return activeExercise.highlights;
-    }
-    if (activeExercise?.instructions && Array.isArray(activeExercise.instructions)) {
-      return activeExercise.instructions;
-    }
-    return [];
-  }, [activeExercise]);
-
-  const exerciseGoal = useMemo(() => {
-    return activeExercise?.goal || activeExercise?.description || null;
-  }, [activeExercise]);
-
-  const muscleGroups = useMemo(() => {
-    if (!activeExercise?.muscleGroups || !Array.isArray(activeExercise.muscleGroups)) {
-      return { primary: [], secondary: [] };
-    }
-    const primary = activeExercise.muscleGroups[0] ? [activeExercise.muscleGroups[0]] : [];
-    const secondary = activeExercise.muscleGroups.slice(1);
-    return { primary, secondary };
-  }, [activeExercise]);
-
-  const exerciseVideoUrl = useMemo(() => {
-    return activeExercise?.videoUrl || activeExercise?.imageUrl || null;
-  }, [activeExercise]);
-  
-  /**
-   * Next Exercise - Comprehensive resolver for the upcoming exercise
-   * Used in REPETITION_PICKER and TRANSITION states
-   * Extracts: name, videoUrl, imageUrl, equipment, reps, duration, exerciseType
-   */
-  const nextExercise = useMemo(() => {
-    const currentExercises = getExercises(currentSegment);
-    const nextExIndex = currentExerciseIndex + 1;
-    let exercise: WorkoutExercise | null = null;
-
-    // Check next exercise in current segment
-    if (currentExercises && nextExIndex < currentExercises.length) {
-      exercise = currentExercises[nextExIndex];
+  const mediaSessionNextTrack = useCallback(() => {
+    if (sm.workoutState === 'RESTING') {
+      sm.skipRest();
     } else {
-      // Find first exercise in next valid segment
-      for (let i = currentSegmentIndex + 1; i < workout.segments.length; i++) {
-        const nextExercises = getExercises(workout.segments[i]);
-        if (nextExercises && nextExercises.length > 0) {
-          exercise = nextExercises[0];
-          break;
-        }
-      }
+      sm.handleExerciseComplete();
     }
+  }, [sm.workoutState, sm.skipRest, sm.handleExerciseComplete]);
 
-    return {
-      name: exercise?.name || 'התרגיל הבא',
-      videoUrl: exercise?.videoUrl || null,
-      imageUrl: exercise?.imageUrl || exercise?.videoUrl || null,
-      equipment: exercise?.equipment || [],
-      reps: exercise?.reps,
-      duration: exercise?.duration,
-      exerciseType: exercise?.exerciseType || 'reps',
-    };
-  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, getExercises]);
+  useMediaSession({
+    workoutState: sm.workoutState,
+    exerciseName: sm.exerciseName,
+    nextExerciseName: sm.nextExercise.name,
+    workoutName: workout.name,
+    exerciseImageUrl: sm.activeExercise?.imageUrl || sm.nextExercise.imageUrl,
+    isPaused: sm.isPaused,
+    onNextTrack: mediaSessionNextTrack,
+    onTogglePause: sm.togglePause,
+  });
 
-  /**
-   * Reps or Duration text - smart derivation based on exerciseType
-   * Prevents showing "12 reps" for time-based exercises like Plank
-   */
-  const repsOrDurationText = useMemo(() => {
-    if (exerciseType === 'time') return activeExercise?.duration || '';
-    if (exerciseType === 'reps') return activeExercise?.reps || '';
-    return ''; // Don't show anything for follow-along
-  }, [activeExercise, exerciseType]);
+  // ── Spotify layer state ──────────────────────────────────────────────────
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [winH, setWinH] = useState(typeof window !== 'undefined' ? window.innerHeight : 812);
+  const dragControls = useDragControls();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // nextExerciseVideoUrl is now derived from nextExercise.videoUrl
-
-  // ==========================================================================
-  // HELPERS
-  // ==========================================================================
-
-  const formatTime = useCallback((seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }, []);
-
-  // ==========================================================================
-  // CORE LOGIC - State Machine Transitions
-  // ==========================================================================
-
-  /**
-   * Move to next exercise or segment
-   * Rule: After rest ends -> Go directly to ACTIVE (no PREPARING screen)
-   */
-  const moveToNext = useCallback((skipRest: boolean = false) => {
-    console.log('[Engine] moveToNext called', { skipRest, currentSegmentIndex });
-    
-      setCurrentExerciseIndex((prevExerciseIndex) => {
-      const currentSeg = workout.segments[currentSegmentIndex];
-      const exercises = getExercises(currentSeg);
-      
-      if (!exercises || exercises.length === 0) {
-          const nextValidSegmentIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
-          if (nextValidSegmentIdx !== null) {
-            setCurrentSegmentIndex(nextValidSegmentIdx);
-          const nextSegment = workout.segments[nextValidSegmentIdx];
-          const nextRestTime = nextSegment?.restBetweenExercises ?? DEFAULT_REST_TIME;
-          
-          if (!skipRest && nextRestTime > 0) {
-            setRestDuration(nextRestTime);
-            setWorkoutState('TRANSITION');
-        } else {
-            // Go directly to ACTIVE - no intermediate PREPARING
-            setWorkoutState('ACTIVE');
-          }
-        } else {
-          // Defer onComplete to avoid "cannot update during render" warning
-          setTimeout(() => onComplete?.(), 0);
-          }
-          return 0;
-        }
-
-        if (prevExerciseIndex < exercises.length - 1) {
-        // Moving to next exercise in same segment
-        if (!skipRest && segmentRestTime > 0) {
-          setRestDuration(segmentRestTime);
-          setWorkoutState('TRANSITION');
-        } else {
-          // Go directly to ACTIVE - no intermediate PREPARING
-          setWorkoutState('ACTIVE');
-        }
-          return prevExerciseIndex + 1;
-        } else {
-          // Last exercise in segment, move to next valid segment
-          const nextValidSegmentIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
-          if (nextValidSegmentIdx !== null) {
-            setCurrentSegmentIndex(nextValidSegmentIdx);
-          const nextSegment = workout.segments[nextValidSegmentIdx];
-          const nextRestTime = nextSegment?.restBetweenExercises ?? DEFAULT_REST_TIME;
-          
-          if (!skipRest && nextRestTime > 0) {
-            setRestDuration(nextRestTime);
-            setWorkoutState('TRANSITION');
-          } else {
-            // Go directly to ACTIVE - no intermediate PREPARING
-            setWorkoutState('ACTIVE');
-          }
-        } else {
-            // Defer onComplete to avoid "cannot update during render" warning
-            setTimeout(() => onComplete?.(), 0);
-          }
-        return 0;
-        }
-      });
-  }, [workout, currentSegmentIndex, getExercises, findNextValidSegmentIndex, segmentRestTime, onComplete]);
-
-  /**
-   * CENTRAL HANDLER - Exercise Complete
-   */
-  const handleExerciseComplete = useCallback((reps?: number) => {
-    if (transitionLock.current) {
-      console.warn('[Engine] BLOCKED - Lock is engaged');
-        return;
-      }
-    
-    transitionLock.current = true;
-    console.log('[Engine] Lock ENGAGED for exercise complete');
-
-    console.log('[Engine] handleExerciseComplete', {
-      exerciseType,
-      segmentRestTime,
-      isFollowAlongMode,
-      segment: currentSegmentIndex,
-      exercise: currentExerciseIndex,
-      exerciseName: activeExercise?.name,
-    });
-
-    switch (exerciseType) {
-      case 'follow-along':
-        console.log('[Engine] Follow-along complete - skipping rest');
-      setFadeIn(false);
-        setTimeout(() => {
-          moveToNext(true);
-          setFadeIn(true);
-        }, 150);
-        break;
-
-      case 'time':
-        // Time exercises also show picker (for user to confirm/adjust seconds)
-        console.log('[Engine] Time exercise complete - showing picker');
-        setCompletedReps(reps ?? exerciseDuration ?? 30);
-        // Start rest countdown immediately
-        setRestTimeLeft(segmentRestTime);
-        setFadeIn(false);
-      setTimeout(() => {
-          setWorkoutState('REPETITION_PICKER');
-          setFadeIn(true);
-          transitionLock.current = false;
-          console.log('[Engine] Lock released for time picker');
-        }, 150);
-        break;
-
-      case 'reps':
-        console.log('[Engine] Reps exercise complete - showing picker');
-        setCompletedReps(reps ?? targetReps ?? 0);
-        // Start rest countdown immediately
-        setRestTimeLeft(segmentRestTime);
-        setFadeIn(false);
-        setTimeout(() => {
-          setWorkoutState('REPETITION_PICKER');
-            setFadeIn(true);
-          transitionLock.current = false;
-          console.log('[Engine] Lock released for picker');
-        }, 150);
-        break;
-    }
-  }, [exerciseType, segmentRestTime, isFollowAlongMode, targetReps, moveToNext, currentSegmentIndex, currentExerciseIndex, activeExercise]);
-
-  /**
-   * Handle repetition picker save
-   */
-  const handleRepetitionSave = useCallback((reps: number) => {
-    if (transitionLock.current) {
-      console.warn('[Engine] handleRepetitionSave BLOCKED');
-        return;
-      }
-
-    transitionLock.current = true;
-    console.log('[Engine] Lock ENGAGED for rep save');
-      setCompletedReps(reps);
-      setFadeIn(false);
-      
-      setTimeout(() => {
-      if (segmentRestTime === 0) {
-        moveToNext(true);
-        } else {
-        moveToNext(false);
-        }
-            setFadeIn(true);
-    }, 150);
-  }, [segmentRestTime, moveToNext]);
-  
-  /**
-   * Skip rest and proceed to next exercise
-   * Rule: Go directly to ACTIVE (no PREPARING)
-   */
-  const skipRest = useCallback(() => {
-    if (transitionLock.current) {
-      console.warn('[Engine] skipRest BLOCKED');
-      return;
-    }
-    transitionLock.current = true;
-    console.log('[Engine] Lock ENGAGED for skip rest');
-
-    setFadeIn(false);
-    setTimeout(() => {
-      // Go directly to ACTIVE - no intermediate PREPARING
-      setWorkoutState('ACTIVE');
-          setFadeIn(true);
-      transitionLock.current = false;
-      console.log('[Engine] Lock released after skip rest -> ACTIVE');
-    }, 150);
-  }, []);
-
-  /**
-   * Handle rest screen complete (timer ended)
-   * Rule: Go directly to ACTIVE (no PREPARING)
-   */
-  const handleRestComplete = useCallback(() => {
-    if (transitionLock.current) {
-      console.warn('[Engine] handleRestComplete BLOCKED');
-      return;
-    }
-    transitionLock.current = true;
-    console.log('[Engine] Lock ENGAGED for rest complete (timer ended)');
-
-    setFadeIn(false);
-    setTimeout(() => {
-      // Go directly to ACTIVE - no intermediate PREPARING
-      setWorkoutState('ACTIVE');
-      setFadeIn(true);
-      transitionLock.current = false;
-      console.log('[Engine] Lock released after rest complete -> ACTIVE');
-    }, 150);
-  }, []);
-
-  /**
-   * Toggle pause state
-   */
-  const togglePause = useCallback(() => {
-    if (isPaused) {
-      setIsPaused(false);
-      onResume?.();
-    } else {
-      setIsPaused(true);
-      onPause?.();
-      }
-  }, [isPaused, onPause, onResume]);
-
-  // ==========================================================================
-  // EFFECTS - Timers
-  // ==========================================================================
+  const minimizedY = winH - MINI_PLAYER_H;
 
   useEffect(() => {
-    if (isPaused || workoutState === 'PAUSED') return;
+    const update = () => setWinH(window.innerHeight);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
-    const interval = setInterval(() => {
-      setElapsedTime((prev) => prev + 1);
-
-      // PREPARING countdown only at workout start
-      if (workoutState === 'PREPARING') {
-        setPreparationCountdown((prev) => {
-          if (prev <= 1) {
-            setWorkoutState('ACTIVE');
-            return PREPARATION_COUNTDOWN;
-          }
-          return prev - 1;
-        });
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isPaused, workoutState]);
-
-  // ==========================================================================
-  // EFFECT - Rest Countdown Timer with Audio Cues
-  // Counts down during REPETITION_PICKER and TRANSITION states
-  // Plays short beep at 3 and 2 seconds, long beep at 1 second
-  // ==========================================================================
-  
+  // Force expand during PREPARING
   useEffect(() => {
-    // Only countdown during picker and transition states
-    if (workoutState !== 'REPETITION_PICKER' && workoutState !== 'TRANSITION') return;
-    if (isPaused) return;
-    if (restTimeLeft <= 0) return;
+    if (sm.workoutState === 'PREPARING') setIsMinimized(false);
+  }, [sm.workoutState]);
 
-    const interval = setInterval(() => {
-      setRestTimeLeft((prev) => {
-        const newValue = prev - 1;
-        
-        // Play countdown sounds
-        if (newValue === 3 || newValue === 2) {
-          // Short beep at 3 and 2 seconds
-          if ((shortBeepRef as any).playBeep) {
-            (shortBeepRef as any).playBeep();
-          } else if (shortBeepRef.current) {
-            shortBeepRef.current.currentTime = 0;
-            shortBeepRef.current.play().catch(() => {});
-          }
-        } else if (newValue === 1) {
-          // Long beep at 1 second
-          if ((longBeepRef as any).playBeep) {
-            (longBeepRef as any).playBeep();
-          } else if (longBeepRef.current) {
-            longBeepRef.current.currentTime = 0;
-            longBeepRef.current.play().catch(() => {});
-          }
-        }
-        
-        if (newValue <= 0) return 0;
-        return newValue;
-      });
-    }, 1000);
+  // ── Drag handlers ────────────────────────────────────────────────────────
 
-    return () => clearInterval(interval);
-  }, [workoutState, isPaused, restTimeLeft]);
+  const handleDragEnd = useCallback(
+    (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
+      const { offset, velocity } = info;
+      if (isMinimized) {
+        if (offset.y < -50 || velocity.y < -500) setIsMinimized(false);
+      } else {
+        if (offset.y > 100 || velocity.y > 500) setIsMinimized(true);
+      }
+    },
+    [isMinimized],
+  );
 
-  // ==========================================================================
-  // RENDER - Compute state-specific content
-  // ==========================================================================
+  const handleHeaderPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      dragControls.start(e);
+    },
+    [dragControls],
+  );
 
-  // Picker values (computed here to avoid re-computation in render)
-  const isTimeExercise = activeExercise?.exerciseType === 'time';
-  const pickerTargetValue = isTimeExercise ? exerciseDuration : (targetReps || 12);
-  const pickerUnitType = isTimeExercise ? 'time' : 'reps';
-  const pickerMax = isTimeExercise ? 120 : (targetReps ? targetReps * 2 : 50);
+  // ── Picker config ────────────────────────────────────────────────────────
 
-  // Render state-specific content
-  const renderStateContent = () => {
-    // PREPARING State
-  if (workoutState === 'PREPARING') {
-    return (
-      <div
-          className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 ${
-          fadeIn ? 'opacity-100' : 'opacity-0'
-        }`}
+  const isTimeExercise = sm.activeExercise?.exerciseType === 'time';
+  const pickerTargetValue = isTimeExercise ? sm.exerciseDuration : (sm.targetReps || 12);
+  const pickerUnitType: 'reps' | 'time' = isTimeExercise ? 'time' : 'reps';
+  const pickerMax = isTimeExercise ? 120 : (sm.targetReps ? sm.targetReps * 2 : 50);
+  const pickerInitialValue = sm.lastSavedReps ?? pickerTargetValue;
+
+  const showHeader = sm.workoutState !== 'PREPARING';
+  const isResting = sm.workoutState === 'RESTING';
+
+  // ── Log Drawer content (slot into RestWithPreview) ───────────────────────
+
+  const logDrawerContent = (
+    <div
+      className="bg-white dark:bg-[#0F172A] rounded-t-[24px] px-4 pt-3 pb-5 shadow-2xl max-h-[25vh]"
+      dir="rtl"
+    >
+      <h2
+        className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
+        style={{ fontFamily: 'var(--font-simpler)' }}
       >
-          {/* Blurred Background - ONLY appears in PREPARING state */}
-          {(exerciseVideoUrl || activeExercise?.imageUrl) && (
-            <div className="absolute inset-0">
-              {activeExercise?.imageUrl ? (
-                <img
-                  src={activeExercise.imageUrl}
-                  alt=""
-                  className="w-full h-full object-cover blur-2xl scale-110 opacity-30"
-                />
-              ) : exerciseVideoUrl ? (
-            <video
-              src={exerciseVideoUrl}
-                  className="w-full h-full object-cover blur-2xl scale-110 opacity-30"
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
-              ) : null}
-              {/* Dark overlay */}
-              <div className="absolute inset-0 bg-black/50" />
+        {pickerUnitType === 'time' ? 'כמה שניות החזקת?' : 'כמה חזרות עשית?'}
+      </h2>
+      <p
+        className="text-[11px] text-slate-500 dark:text-zinc-400 text-center mb-1"
+        style={{ fontFamily: 'var(--font-simpler)' }}
+      >
+        יעד: {pickerTargetValue} {pickerUnitType === 'reps' ? 'חזרות' : 'שניות'}
+      </p>
+
+      <HorizontalPicker
+        min={pickerUnitType === 'time' ? 0 : 1}
+        max={pickerMax}
+        targetValue={pickerTargetValue}
+        value={sm.completedReps ?? pickerInitialValue}
+        onChange={sm.setCompletedReps}
+        unitType={pickerUnitType}
+      />
+
+      <button
+        onClick={() => sm.handleRepetitionSave(sm.completedReps ?? pickerInitialValue)}
+        className="w-full mt-2 h-10 bg-[#00B4FF] hover:bg-[#00A0E0] text-white rounded-lg font-bold text-sm shadow-lg active:scale-[0.98] transition-all"
+        style={{ fontFamily: 'var(--font-simpler)' }}
+      >
+        שמירה והמשך
+      </button>
+    </div>
+  );
+
+  // ── Swap handler ─────────────────────────────────────────────────────────
+
+  const handleSwap = onSwapExercise
+    ? () => {
+        const exId = sm.activeExercise?.id || '';
+        if (exId) onSwapExercise(exId, sm.currentSegmentIndex, sm.currentExerciseIndex);
+      }
+    : undefined;
+
+  // ── Phase 4.6: Pause Overlay & Early Exit ───────────────────────────────
+
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+
+  const handleEarlyExit = useCallback(() => {
+    setShowExitConfirmModal(false);
+    onComplete?.(sm.getExerciseLog());
+  }, [sm.getExerciseLog, onComplete]);
+
+  // ========================================================================
+  // RENDER HELPERS
+  // ========================================================================
+
+  // ── Mini-player bar (visible when minimized) ─────────────────────────────
+
+  const renderMiniPlayer = () => (
+    <div
+      className="flex items-center h-[72px] px-4 gap-3 cursor-pointer"
+      onClick={() => setIsMinimized(false)}
+      onPointerDown={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        dragControls.start(e);
+      }}
+      style={{ touchAction: 'none' }}
+    >
+      <div className="w-11 h-11 rounded-lg bg-slate-700 overflow-hidden flex-shrink-0">
+        {sm.exerciseVideoUrl ? (
+          <video src={sm.exerciseVideoUrl} className="w-full h-full object-cover" muted playsInline />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Dumbbell size={18} className="text-slate-400" />
           </div>
         )}
-        
-        <div className="relative z-10 text-center">
+      </div>
+
+      <div className="flex-1 min-w-0" dir="rtl">
+        <p className="text-white font-bold text-sm truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+          {sm.exerciseName}
+        </p>
+        <p className="text-white/50 text-xs tabular-nums" style={{ fontFamily: 'var(--font-simpler)' }}>
+          {sm.formatTime(sm.elapsedTime)}
+        </p>
+      </div>
+
+      <button
+        onClick={(e) => { e.stopPropagation(); sm.togglePause(); }}
+        className="w-10 h-10 flex items-center justify-center"
+      >
+        {sm.isPaused ? (
+          <Play size={20} className="text-white" fill="white" />
+        ) : (
+          <Pause size={20} className="text-white" />
+        )}
+      </button>
+
+      <ChevronUp size={18} className="text-white/40" />
+    </div>
+  );
+
+  // ── Header overlay (gradient + 3 rows) ──────────────────────────────────
+
+  const renderHeader = () => (
+    <div
+      className={`absolute top-0 left-0 right-0 z-[45] transition-all duration-300 ${
+        isResting ? 'pb-6' : 'pb-4'
+      }`}
+      style={{
+        background:
+          'linear-gradient(to bottom, white 0%, rgba(255,255,255,0.95) 40%, rgba(255,255,255,0.7) 65%, rgba(255,255,255,0) 100%)',
+        touchAction: 'none',
+      }}
+      onPointerDown={handleHeaderPointerDown}
+    >
+      <div className="pt-12 px-4">
+        {/* Row 1: Story Bars */}
+        <div className="mb-3">
+          <WorkoutStoryBars
+            progressBars={sm.progressBars}
+            activeBarDuration={sm.autoCompleteTime}
+            isPaused={sm.isPaused}
+            isResting={isResting}
+          />
+        </div>
+
+        {/* Row 2: Pause | Timer | List */}
+        <div className="flex justify-between items-center mb-3">
+          <button
+            onClick={sm.togglePause}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/10 backdrop-blur-sm"
+          >
+            {sm.isPaused ? (
+              <Play size={18} className="text-slate-800" fill="currentColor" />
+            ) : (
+              <Pause size={18} className="text-slate-800" />
+            )}
+          </button>
+
           <div
-            className="text-8xl font-bold text-white mb-4"
+            className="text-slate-900 font-bold text-xl tracking-wider tabular-nums"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {preparationCountdown}
+            {sm.isPaused ? 'הפסקה' : sm.formatTime(sm.elapsedTime)}
           </div>
-          <p className="text-xl text-white/80" style={{ fontFamily: 'var(--font-simpler)' }}>
-            מתכוננים...
-          </p>
-            <p className="text-lg text-white/60 mt-4" style={{ fontFamily: 'var(--font-simpler)' }}>
-              {exerciseName}
-          </p>
+
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/10 backdrop-blur-sm"
+          >
+            <List size={18} className="text-slate-800" />
+          </button>
         </div>
-      </div>
-    );
-  }
 
-    // REPETITION_PICKER State
-  if (workoutState === 'REPETITION_PICKER') {
-    return (
-      <div
-          className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${
-          fadeIn ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-          {/* Video Player showing NEXT exercise (Current + 1) */}
-          <ExerciseVideoPlayer
-            key={`picker-video-${currentSegmentIndex}-${currentExerciseIndex}`}
-            exerciseId={`next-${currentExerciseIndex}`}
-            videoUrl={nextExercise.videoUrl}
-            exerciseName={nextExercise.name}
-            exerciseType="reps"
-            isPaused={false}
-          />
-
-          {/* Next Exercise Header Overlay */}
-          <div className="absolute top-0 left-0 right-0 z-50 pt-14 px-6 pb-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-            <p 
-              className="text-sm text-white/70 uppercase tracking-wider mb-1 text-center"
+        {/* Row 3: Contextual info */}
+        {isResting ? (
+          <div className="text-center" dir="rtl">
+            <p
+              className="text-xs text-slate-500 uppercase tracking-wider mb-0.5"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               התרגיל הבא
             </p>
-            <h2 
-              className="text-2xl font-bold text-white text-center mb-2"
+            <h2
+              className="text-xl font-bold text-slate-900 mb-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              {nextExercise.name}
+              {sm.nextExercise.name}
             </h2>
-            {/* Equipment Badge - Only show if equipment exists */}
-            {nextExercise.equipment.length > 0 && (
-              <div className="flex justify-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#00B4FF]/20 border border-[#00B4FF]/40 rounded-full">
-                  <span className="text-sm text-[#00B4FF] font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    {nextExercise.equipment[0]}
+            {sm.nextExercise.equipment.length > 0 && (
+              <div className="flex justify-center mb-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#00B4FF]/10 border border-[#00B4FF]/30 rounded-full">
+                  <Dumbbell size={14} className="text-[#00B4FF]" />
+                  <span
+                    className="text-xs text-[#00B4FF] font-bold"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {resolveEquipmentLabel(sm.nextExercise.equipment[0])}
                   </span>
                 </div>
               </div>
             )}
-        </div>
-
-          {/* Floating Rest Timer - live countdown above picker card */}
-          <div className="absolute bottom-[27%] left-1/2 -translate-x-1/2 z-50">
-            <div className="bg-black/70 backdrop-blur-md rounded-full px-5 py-2.5 border border-white/20">
-              <div className="flex items-center gap-2">
-                <span className="text-white/60 text-xs" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  מנוחה:
-                </span>
-                <span 
-                  className="text-white font-bold text-lg tracking-tight tabular-nums"
-                  style={{ fontFamily: 'var(--font-simpler)' }}
-                >
-                  {formatTime(restTimeLeft)}
-                </span>
+            {sm.nextExercise.reps && (
+              <p className="text-xs text-slate-400" style={{ fontFamily: 'var(--font-simpler)' }}>
+                {sm.nextExercise.reps}
+              </p>
+            )}
+            {sm.totalRounds > 1 && (
+              <p className="text-[11px] text-[#00B4FF] font-bold mt-1" style={{ fontFamily: 'var(--font-simpler)' }}>
+                סט {sm.currentRound} מתוך {sm.totalRounds}
+              </p>
+            )}
+            {sm.nextExercise.notificationText && (
+              <div className="flex justify-center mt-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full max-w-[90%]">
+                  <Bell size={12} className="text-amber-500 flex-shrink-0" />
+                  <span className="text-[11px] text-amber-700 font-medium leading-tight" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    {sm.nextExercise.notificationText}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
+        ) : null}
+      </div>
+    </div>
+  );
 
-          {/* Compact Bottom Sheet with Picker - max 25% screen height */}
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="absolute bottom-0 left-0 right-0 z-40 bg-white dark:bg-[#0F172A] rounded-t-[24px] px-4 pt-3 pb-5 shadow-2xl max-h-[25vh]"
+  // ── State-specific content ──────────────────────────────────────────────
+
+  const renderStateContent = () => {
+    // PREPARING — centered countdown
+    if (sm.workoutState === 'PREPARING') {
+      return (
+        <div
+          className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 ${
+            sm.fadeIn ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {(sm.exerciseVideoUrl || sm.activeExercise?.imageUrl) && (
+            <div className="absolute inset-0">
+              {sm.activeExercise?.imageUrl ? (
+                <img src={sm.activeExercise.imageUrl} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30" />
+              ) : sm.exerciseVideoUrl ? (
+                <video src={sm.exerciseVideoUrl} className="w-full h-full object-cover blur-2xl scale-110 opacity-30" autoPlay loop muted playsInline />
+              ) : null}
+              <div className="absolute inset-0 bg-black/50" />
+            </div>
+          )}
+          <div className="relative z-10 text-center">
+            <div className="text-8xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {sm.preparationCountdown}
+            </div>
+            <p className="text-xl text-white/80" style={{ fontFamily: 'var(--font-simpler)' }}>מתכוננים...</p>
+            <p className="text-lg text-white/60 mt-4" style={{ fontFamily: 'var(--font-simpler)' }}>{sm.exerciseName}</p>
+            {workout.aiCue && (
+              <p className="text-sm text-white/50 mt-3 max-w-[260px] mx-auto" style={{ fontFamily: 'var(--font-simpler)' }}>
+                💡 {workout.aiCue}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // RESTING — RestWithPreview (scrollable with next-exercise lyrics)
+    if (sm.workoutState === 'RESTING') {
+      return (
+        <div className={`absolute inset-0 transition-opacity duration-300 ${sm.fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+          <RestWithPreview
+            restTimeLeft={sm.restTimeLeft}
+            formatTime={sm.formatTime}
+            nextExercise={sm.nextExercise}
+            logDrawerNode={logDrawerContent}
+            isLogDrawerOpen={sm.isLogDrawerOpen}
+            onSkip={sm.skipRest}
+            isPaused={sm.isPaused}
+            videoKey={`${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
+          />
+        </div>
+      );
+    }
+
+    // ACTIVE — video + scrollable lyrics card
+    // Key includes currentRound so React fully remounts when straight sets advance
+    const activeKey = `active-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}-set-${sm.currentRound}`;
+    return (
+      <div key={activeKey} className={`absolute inset-0 transition-opacity duration-300 ${sm.fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Video background layer */}
+        <ExerciseVideoPlayer
+          key={`player-${activeKey}`}
+          exerciseId={sm.activeExercise?.id || `ex-${sm.currentExerciseIndex}`}
+          videoUrl={sm.exerciseVideoUrl}
+          exerciseName={sm.exerciseName}
+          exerciseType={sm.exerciseType}
+          isPaused={sm.isPaused}
+          hasAudio={false}
+          onVideoProgress={sm.setVideoProgress}
+          onVideoEnded={sm.handleExerciseComplete}
+        />
+
+        {/* Pre-fetch next exercise video */}
+        {sm.nextExercise.videoUrl && (
+          <video src={sm.nextExercise.videoUrl} preload="auto" className="hidden" muted playsInline />
+        )}
+
+        {/* Scrollable overlay — spacer lets video show, then the white card peeks up */}
+        <div
+          ref={scrollRef}
+          className="absolute inset-0 overflow-y-auto overscroll-contain z-10"
+        >
+          {/* Spacer — exercise name + reps + CTA peek above viewport bottom */}
+          <div className="pointer-events-none" style={{ height: 'calc(100vh - 200px)' }} />
+
+          {/* Card — collapsed by default; user scrolls to reveal lyrics */}
+          <div
+            className="relative bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-3 pb-32"
             dir="rtl"
           >
-            {/* Question - Ultra Compact */}
-            <h2 
-              className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
+            {/* Scroll hint — drag handle */}
+            <div className="flex justify-center mb-2">
+              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+            </div>
+
+            {/* Reps (prominent) + exercise name (secondary) + set badge */}
+            <div className="flex items-center justify-center gap-2 mb-1">
+              {sm.repsOrDurationText && (
+                <p className="text-3xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  {sm.repsOrDurationText}
+                </p>
+              )}
+              {sm.totalRounds > 1 && (
+                <span className="text-[11px] text-white bg-[#00B4FF] px-2 py-0.5 rounded-full font-bold" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  סט {sm.currentRound}/{sm.totalRounds}
+                </span>
+              )}
+            </div>
+            <p
+              className="text-base text-slate-500 dark:text-slate-400 text-center mb-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              {pickerUnitType === 'time' ? 'כמה שניות החזקת?' : 'כמה חזרות עשית?'}
-            </h2>
-            
-            {/* Target Info - Ultra Compact */}
-            <p 
-              className="text-[11px] text-slate-500 dark:text-zinc-400 text-center mb-1"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              יעד: {pickerTargetValue} {pickerUnitType === 'reps' ? 'חזרות' : 'שניות'}
+              {sm.exerciseName}
             </p>
 
-            {/* Horizontal Picker */}
-            <HorizontalPicker
-              min={0}
-              max={pickerMax}
-              targetValue={pickerTargetValue}
-              value={completedReps ?? pickerTargetValue}
-              onChange={setCompletedReps}
-              unitType={pickerUnitType}
-            />
-
-            {/* Save Button - Ultra Compact */}
-            <button
-              onClick={() => handleRepetitionSave(completedReps ?? pickerTargetValue)}
-              className="w-full mt-2 h-10 bg-[#00B4FF] hover:bg-[#00A0E0] text-white rounded-lg font-bold text-sm shadow-lg active:scale-[0.98] transition-all"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              שמירה והמשך
-            </button>
-          </motion.div>
-      </div>
-    );
-  }
-
-    // TRANSITION State (Rest Screen)
-  if (workoutState === 'TRANSITION') {
-    return (
-        <div className="absolute inset-0">
-          {/* Video Player showing the CURRENT (upcoming) exercise */}
-          <ExerciseVideoPlayer
-            key={`rest-video-${currentSegmentIndex}-${currentExerciseIndex}`}
-            exerciseId={`rest-${currentExerciseIndex}`}
-            videoUrl={activeExercise?.videoUrl || null}
-            exerciseName={activeExercise?.name || 'התרגיל הבא'}
-            exerciseType="reps"
-            isPaused={false}
-          />
-
-          {/* RestScreen Overlay with premium design */}
-          <RestScreen
-            key={`rest-${currentSegmentIndex}-${currentExerciseIndex}`}
-            duration={restDuration}
-            nextExerciseName={activeExercise?.name || 'התרגיל הבא'}
-            nextExerciseEquipment={activeExercise?.equipment}
-            nextExerciseReps={activeExercise?.reps}
-            onSkip={skipRest}
-            onComplete={handleRestComplete}
-              isPaused={isPaused}
-          />
-      </div>
-    );
-  }
-
-    // ACTIVE State (default)
-  return (
-    <motion.div
-        className="absolute inset-0 overflow-hidden"
-      drag="y"
-      dragControls={curtainDragControls}
-      dragConstraints={{ top: 0, bottom: 800 }}
-      dragElastic={0.2}
-      style={{ y: curtainY }}
-      onDragEnd={(_, info) => {
-        if (info.offset.y > 100) {
-          curtainY.set(0);
-        } else {
-          curtainY.set(0);
-        }
-      }}
-    >
-      {/* Header with Story-style Progress Bar */}
-        <div className="absolute top-0 left-0 right-0 z-50 p-4 pt-12">
-        <div className="flex justify-between items-center mb-4">
-          <button
-            onClick={togglePause}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md"
-          >
-            {isPaused ? (
-              <Play size={20} className="text-white" fill="white" />
-            ) : (
-              <Pause size={20} className="text-white" />
+            {/* AI Cue — contextual coaching tip */}
+            {workout.aiCue && (
+              <p
+                className="text-xs text-center text-[#00C9F2] bg-[#00C9F2]/8 rounded-lg px-3 py-1.5 mb-4 mx-auto max-w-[280px]"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+                dir="rtl"
+              >
+                💡 {workout.aiCue}
+              </p>
             )}
-          </button>
-          <div
-            className="text-white font-bold text-xl tracking-wider"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            {formatTime(elapsedTime)}
+
+            {/* FillingButton — primary CTA */}
+            <div className="mb-6">
+              <FillingButton
+                key={`fill-${activeKey}`}
+                autoCompleteTime={sm.autoCompleteTime}
+                onClick={sm.handleExerciseComplete}
+                label="סיימתי"
+                isPaused={sm.isPaused}
+              />
+            </div>
+
+            {/* ── Below the fold — unified ExerciseDetailContent ────────── */}
+            <div className="-mx-5">
+              <ExerciseDetailContent
+                exerciseName={sm.exerciseName}
+                videoUrl={null}
+                hideHeroVideo
+                hideTitle
+                primaryMuscle={sm.muscleGroups.primary[0] || null}
+                secondaryMuscles={sm.muscleGroups.secondary.length > 0 ? sm.muscleGroups.secondary : undefined}
+                cues={sm.executionSteps.length > 0 ? sm.executionSteps : undefined}
+                goal={sm.exerciseGoal}
+                equipment={sm.activeExercise?.equipment}
+              />
+            </div>
+
+            {/* Swap Button — always at the very bottom */}
+            {handleSwap && (
+              <div className="mt-2 mb-4">
+                <button
+                  onClick={handleSwap}
+                  className="w-full flex items-center justify-center gap-2 py-4 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-[0.98]"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  <Replace size={20} />
+                  החלפת תרגיל
+                </button>
+              </div>
+            )}
           </div>
-          <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
-            <List size={20} className="text-white" />
-          </button>
         </div>
-
-        <WorkoutStoryBars progressBars={progressBars} />
       </div>
-
-        {/* Video Player */}
-      <ExerciseVideoPlayer
-          key={`player-${currentSegmentIndex}-${currentExerciseIndex}`}
-          exerciseId={activeExercise?.id || `ex-${currentExerciseIndex}`}
-        videoUrl={exerciseVideoUrl}
-        exerciseName={exerciseName}
-          exerciseType={exerciseType}
-        isPaused={isPaused}
-        hasAudio={false} /* Audio now controlled by global isAudioEnabled in sessionStorage */
-        onVideoProgress={setVideoProgress}
-        onVideoEnded={handleExerciseComplete}
-      />
-          
-        {/* Pre-fetch Next Video */}
-        {nextExercise.videoUrl && (
-          <video src={nextExercise.videoUrl} preload="auto" className="hidden" muted playsInline />
-      )}
-
-        {/* Exercise Details Sheet */}
-      <ExerciseDetailsSheet
-          key={`sheet-${currentSegmentIndex}-${currentExerciseIndex}`}
-        exerciseName={exerciseName}
-          exerciseType={exerciseType}
-        exerciseDuration={exerciseDuration}
-        targetReps={targetReps}
-                autoCompleteTime={autoCompleteTime}
-        repsOrDurationText={repsOrDurationText}
-        executionSteps={executionSteps}
-        muscleGroups={muscleGroups}
-        exerciseGoal={exerciseGoal}
-                isPaused={isPaused}
-                  onComplete={handleExerciseComplete}
-      />
-    </motion.div>
     );
   };
 
-  // ==========================================================================
-  // MAIN RENDER - Wrapper with persistent gradient
-  // ==========================================================================
+  // ========================================================================
+  // MAIN RENDER
+  // ========================================================================
 
   return (
-    <div className="relative w-full h-screen bg-black">
-      {/* Persistent White Gradient Overlay - Always visible across all states */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-white via-white/40 to-transparent z-[35] pointer-events-none"
-        aria-hidden="true"
-      />
-      
-      {/* State-specific content */}
-      {renderStateContent()}
+    <div className="relative w-full h-screen bg-slate-100 dark:bg-slate-950">
+      {/* ─── BASE LAYER: Workout Playlist ─────────────────────────────── */}
+      <div className="absolute inset-0 bg-white dark:bg-slate-900">
+        <WorkoutPlaylist
+          workout={workout}
+          currentSegmentIndex={sm.currentSegmentIndex}
+          currentExerciseIndex={sm.currentExerciseIndex}
+          currentSetIndex={sm.currentRound - 1}
+          workoutState={sm.workoutState}
+          isPaused={sm.isPaused}
+          restTimeLeft={sm.restTimeLeft}
+          formatTime={sm.formatTime}
+          exerciseLog={sm.exerciseLogSnapshot}
+          handleRepetitionSave={sm.handleRepetitionSave}
+        />
+      </div>
+
+      {/* ─── TOP LAYER: Active Workout ───────────────────────────────────── */}
+      <motion.div
+        className={`absolute inset-0 bg-black shadow-2xl overflow-hidden ${
+          isMinimized ? 'rounded-t-2xl' : ''
+        }`}
+        animate={{ y: isMinimized ? minimizedY : 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+        drag="y"
+        dragControls={dragControls}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: minimizedY }}
+        dragElastic={0.12}
+        onDragEnd={handleDragEnd}
+      >
+        {isMinimized ? (
+          renderMiniPlayer()
+        ) : (
+          <div className="relative w-full h-screen overflow-hidden">
+            {/* State content */}
+            {renderStateContent()}
+
+            {/* Header overlay — also the drag handle for minimize */}
+            {showHeader && renderHeader()}
+          </div>
+        )}
+      </motion.div>
+
+      {/* ─── UNIFIED PAUSE OVERLAY ────────────────────────────────────── */}
+      {/* Sits at the end of the JSX to cover ALL states (ACTIVE, RESTING, REPS_INPUT) */}
+      <AnimatePresence>
+        {sm.isPaused && !showExitConfirmModal && sm.workoutState !== 'PREPARING' && (
+          <motion.div
+            key="pause-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
+            dir="rtl"
+          >
+            <h1
+              className="text-4xl font-black text-white mb-12"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              הפסקה
+            </h1>
+
+            <div className="w-full max-w-xs space-y-3 px-6">
+              <button
+                onClick={sm.togglePause}
+                className="w-full h-16 bg-[#F97316] rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-orange-500/30"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                <Play size={22} fill="white" />
+                התחילו שוב
+              </button>
+              <button
+                onClick={() => setShowExitConfirmModal(true)}
+                className="w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                סיום אימון
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── EARLY EXIT CONFIRMATION MODAL ──────────────────────────────── */}
+      <AnimatePresence>
+        {showExitConfirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center p-6"
+            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.4)' }}
+            onClick={() => setShowExitConfirmModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 mx-auto mb-5 rounded-full border-2 border-orange-400 flex items-center justify-center">
+                <Square size={22} className="text-orange-400" fill="currentColor" />
+              </div>
+
+              <h2
+                className="text-xl font-black text-slate-900 dark:text-white mb-2"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                בטוחים שאתם רוצים לסיים את האימון?
+              </h2>
+              <p
+                className="text-sm text-slate-500 dark:text-slate-400 mb-7"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                כבר עוצרים? השרירים רק התחילו להתחמם!
+              </p>
+
+              <button
+                onClick={() => {
+                  setShowExitConfirmModal(false);
+                  if (sm.isPaused) sm.togglePause();
+                }}
+                className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                יאללה להמשיך
+              </button>
+
+              <button
+                onClick={handleEarlyExit}
+                className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                אני רוצה לסיים את האימון באמצע
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

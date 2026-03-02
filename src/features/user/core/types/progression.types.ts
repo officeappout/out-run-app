@@ -73,6 +73,12 @@ export interface DomainTrackProgress {
   percent: number; // Progress percentage (0-100) toward next level
   lastWorkoutDate?: Date; // Track inactivity
   totalWorkoutsCompleted?: number; // Lifetime workouts in this domain
+  /**
+   * IDs of level goals already achieved at the current level.
+   * Prevents awarding the same goal bonus twice.
+   * Resets when the user levels up (new level = new goals).
+   */
+  completedGoalIds?: string[];
 }
 
 /**
@@ -129,10 +135,14 @@ export interface WorkoutCompletionResult {
     programId: string;
     baseGain: number;
     bonusGain: number;
+    /** Bonus % awarded for newly achieved admin-defined level goals */
+    goalBonusGain: number;
     totalGain: number;
     newPercent: number;
     leveledUp: boolean;
     newLevel?: number;
+    /** Goal IDs that were newly achieved in this session */
+    newlyCompletedGoalIds?: string[];
   };
   linkedProgramGains: {
     programId: string;
@@ -143,6 +153,55 @@ export interface WorkoutCompletionResult {
   }[];
   volumeBreakdown: VolumeBreakdown; // Volume feedback for Dopamine Screen
   readyForSplit?: ReadyForSplitStatus;
+
+  // === Professional Progress Components ===
+  /** Session completion % based on total sets completed vs required */
+  sessionCompletionPercent: number;
+  /** Per-goal progress array for detailed UI display */
+  goalProgress: GoalProgressEntry[];
+  /** Muscle group progress breakdown (Push / Pull / Legs / Core) */
+  muscleGroupProgress: MuscleGroupProgress[];
+
+  /**
+   * Per-child domain gains (only populated for master programs using bottom-up calculation).
+   * Each entry shows the gain calculated using the child's own Firestore rules.
+   */
+  childDomainGains?: ChildDomainGain[];
+}
+
+/** Per-child domain gain detail for master program bottom-up calculation */
+export interface ChildDomainGain {
+  childId: string;
+  label: string;
+  baseGain: number;
+  bonusGain: number;
+  totalGain: number;
+  setsPerformed: number;
+  requiredSets: number;
+  volumeRatio: number;
+  leveledUp: boolean;
+  newLevel?: number;
+  newPercent: number;
+}
+
+/** Individual goal progress entry for the session */
+export interface GoalProgressEntry {
+  exerciseId: string;
+  exerciseName: string;
+  targetValue: number;
+  actualValue: number;
+  unit: 'reps' | 'seconds';
+  progressBonus: number;
+  achieved: boolean;
+}
+
+/** Muscle group progress breakdown */
+export interface MuscleGroupProgress {
+  group: 'push' | 'pull' | 'legs' | 'core';
+  label: string;
+  setsCompleted: number;
+  totalReps: number;
+  exerciseCount: number;
 }
 
 /**

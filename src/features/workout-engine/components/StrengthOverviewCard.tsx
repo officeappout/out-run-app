@@ -17,6 +17,7 @@ import { WorkoutPlan, WorkoutSegment } from '@/features/parks';
 import { resolveDescription, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { UserFullProfile } from '@/features/user';
 import { useIsMounted } from '@/hooks/useIsMounted';
+import { resolveEquipmentLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 interface StrengthOverviewCardProps {
   workoutPlan: WorkoutPlan;
@@ -148,9 +149,9 @@ export default function StrengthOverviewCard({
       });
     }
     
-    // Also check segment icon for equipment
+    // Also check segment icon for equipment (resolve to Hebrew)
     if (segment.icon && !segment.icon.match(/[💪🔥🏋️🦵⚡]/)) {
-      equipmentSet.add(segment.icon);
+      equipmentSet.add(resolveEquipmentLabel(segment.icon));
     }
   });
 

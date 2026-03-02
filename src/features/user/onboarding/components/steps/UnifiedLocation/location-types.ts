@@ -4,14 +4,24 @@
  */
 
 import { Park } from '@/types/admin-types';
-import { Route } from '@/features/parks';
+import { Route } from '@/features/parks/core/types/route.types';
 import type { CategoryBrandingConfig } from '@/features/admin/services/category-branding.service';
 import type { LocationType } from '@/lib/data/israel-locations';
 
 // ── Component Props ──────────────────────────────────────
 
+export type LocationStepMode = 'onboarding' | 'explorer' | 'bridge';
+
 export interface UnifiedLocationStepProps {
   onNext: () => void;
+  /** 'onboarding' (default): full onboarding flow with progress bar/coins.
+   *  'explorer': discovery-focused overlay for MAP_ONLY users on /map. */
+  mode?: LocationStepMode;
+  /** Called when explorer mode is dismissed (user confirmed location). */
+  onExplorerDismiss?: () => void;
+  /** When true, GPS permission request is deferred. Only manual search is available.
+   *  Used for Strength Path users who defer GPS to their first map visit. */
+  skipGPS?: boolean;
 }
 
 // ── Lifestyle / Persona ──────────────────────────────────
@@ -139,6 +149,11 @@ export interface InitialCardProps {
   locationError: string | null;
   onFindLocation: () => void;
   onSearchManually: () => void;
+  mode?: LocationStepMode;
+  /** Detected neighborhood name (e.g. "באבלי") — used for dynamic headline */
+  detectedNeighborhood?: string | null;
+  /** Detected city name (e.g. "תל אביב-יפו") — fallback for headline */
+  detectedCity?: string | null;
 }
 
 export interface ConfirmationCardProps {
@@ -160,6 +175,8 @@ export interface ConfirmationCardProps {
   sportContext: SportContext;
   bestMatchIndex: number;
   trainingContext: TrainingContext | null;
+  /** Explorer mode: hide onboarding controls, use discovery copy */
+  mode?: LocationStepMode;
 }
 
 export interface SearchOverlayProps {

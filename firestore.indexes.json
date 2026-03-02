@@ -1,0 +1,151 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "curated_routes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "curatedTier", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "official_routes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "isInfrastructure", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "official_routes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "importBatchId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "parks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "schoolId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "schoolId", "order": "ASCENDING" },
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "groupType", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "scopeId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "joinedAt", "order": "DESCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "chats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "sentAt", "order": "DESCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "inbox",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "sentAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feed",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

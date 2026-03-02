@@ -26,6 +26,9 @@ export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   full_body: 'כל הגוף',
   core: 'ליבה',
   legs: 'רגליים',
+  serratus: 'שריר המסור / סרטוס אנטריור',
+  adductors: 'מקרבי ירך',
+  hip_flexors: 'כופפי ירך',
 };
 
 // Exercise tag labels in Hebrew
@@ -72,6 +75,7 @@ export const MOVEMENT_GROUP_LABELS: Record<MovementGroup, { label: string; descr
   vertical_pull: { label: 'משיכה אנכית', description: 'לדוגמה: מתח' },
   core: { label: 'ליבה', description: 'תרגילי בטן ויציבה' },
   isolation: { label: 'איסוליישן', description: 'תרגיל מבודד לשריר אחד' },
+  flexibility: { label: 'גמישות', description: 'מתיחות ותרגילי ניידות (Flexibility)' },
 };
 
 /**
@@ -91,6 +95,7 @@ export const BASE_MOVEMENT_LABELS: Record<string, string> = {
   push_up: 'שכיבות סמיכה',
   planche: 'פלאנץ׳',
   handstand: 'עמידת ידיים',
+  handstand_pushup: 'שכיבות סמיכה בעמידת ידיים',
   dip: 'מקבילים',
   
   // === משיכה (PULL) ===
@@ -103,19 +108,27 @@ export const BASE_MOVEMENT_LABELS: Record<string, string> = {
   // === רגליים (LEGS) ===
   pistol_squat: 'פיסטול סקוואט',
   shrimp_squat: 'שרימפס סקוואט',
+  nordic_curl: 'נורדיק קרל',
+  sissy_squat: 'סיסי סקוואט',
   
   // === ליבה ומיומנויות (CORE & SKILLS) ===
-  human_flag: 'דגל אדם',
+  human_flag: 'דגל אנושי',
   l_sit: 'ישיבת L',
   ring_work: 'סיבובים על טבעות',
+  
+  // === גמישות (FLEXIBILITY) ===
+  pancake: 'פנקייק (גמישות)',
+  middle_split: 'ספליט אמצעי',
+  front_split: 'ספליט קדמי',
 };
 
 // Group labels for display in dropdown
 export const BASE_MOVEMENT_GROUPS: Record<string, string[]> = {
-  'דחיפה': ['push_up', 'planche', 'handstand', 'dip'],
+  'דחיפה': ['push_up', 'planche', 'handstand', 'handstand_pushup', 'dip'],
   'משיכה': ['pull_up', 'one_arm_pull', 'muscle_up', 'row', 'front_lever'],
-  'רגליים': ['pistol_squat', 'shrimp_squat'],
+  'רגליים': ['pistol_squat', 'shrimp_squat', 'nordic_curl', 'sissy_squat'],
   'ליבה ומיומנויות': ['human_flag', 'l_sit', 'ring_work'],
+  'גמישות': ['pancake', 'middle_split', 'front_split'],
 };
 
 // Predefined Base Movement IDs

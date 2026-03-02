@@ -412,52 +412,39 @@ export default function StrengthDopamineScreen({
     }
   }, [enableHaptics]);
   
-  // Sequential animation effect
+  // Sequential animation effect — handles any number of bonuses (1, 2, 3, or more)
   useEffect(() => {
     let runningPercent = initialProgress;
-    
-    // Step 1: Completion Bonus (after 1.5s)
-    const timer1 = setTimeout(() => {
-      const bonus = bonuses[0];
-      if (bonus) {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const stepDelays = [ANIMATION_DELAYS.step1, ANIMATION_DELAYS.step2, ANIMATION_DELAYS.step3];
+    const stepMessages = [STATUS_MESSAGES.step1, STATUS_MESSAGES.step2, STATUS_MESSAGES.complete];
+
+    bonuses.forEach((bonus, idx) => {
+      const delay = stepDelays[idx] ?? ANIMATION_DELAYS.step3 + (idx - 2) * 1000;
+      const isLast = idx === bonuses.length - 1;
+
+      timers.push(setTimeout(() => {
         runningPercent = Math.min(100, runningPercent + bonus.percentage);
         setDisplayPercent(runningPercent);
         setVisibleBonuses(prev => [...prev, bonus.id]);
-        setStatusMessage(STATUS_MESSAGES.step1);
-        haptic('light');
-      }
-    }, ANIMATION_DELAYS.step1);
-    
-    // Step 2: Performance Bonus (after 2.5s)
-    const timer2 = setTimeout(() => {
-      const bonus = bonuses[1];
-      if (bonus) {
-        runningPercent = Math.min(100, runningPercent + bonus.percentage);
-        setDisplayPercent(runningPercent);
-        setVisibleBonuses(prev => [...prev, bonus.id]);
-        setStatusMessage(STATUS_MESSAGES.step2);
-        haptic('light');
-      }
-    }, ANIMATION_DELAYS.step2);
-    
-    // Step 3: Streak Bonus (after 3.5s)
-    const timer3 = setTimeout(() => {
-      const bonus = bonuses[2];
-      if (bonus) {
-        runningPercent = Math.min(100, runningPercent + bonus.percentage);
-        setDisplayPercent(runningPercent);
-        setVisibleBonuses(prev => [...prev, bonus.id]);
+        setStatusMessage(isLast ? STATUS_MESSAGES.complete : (stepMessages[idx] ?? STATUS_MESSAGES.step2));
+        haptic(isLast ? 'heavy' : 'light');
+
+        if (isLast) {
+          setIsComplete(true);
+        }
+      }, delay));
+    });
+
+    // If there are zero bonuses, complete immediately after a short delay
+    if (bonuses.length === 0) {
+      timers.push(setTimeout(() => {
         setStatusMessage(STATUS_MESSAGES.complete);
         setIsComplete(true);
-        haptic('heavy'); // Stronger haptic on completion
-      }
-    }, ANIMATION_DELAYS.step3);
-    
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
+      }, ANIMATION_DELAYS.step1));
+    }
+
+    return () => timers.forEach(clearTimeout);
   }, [initialProgress, bonuses, haptic]);
   
   return (
@@ -492,11 +479,6 @@ export default function StrengthDopamineScreen({
             {statusMessage}
           </motion.h1>
           
-          {/* Volume Breakdown Badge */}
-          {volumeBreakdown && (
-            <VolumeBreakdownBadge volumeBreakdown={volumeBreakdown} />
-          )}
-
           {/* Info Card */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -524,36 +506,30 @@ export default function StrengthDopamineScreen({
           
           {/* Spacer */}
           <div className="flex-1" />
-          
-          {/* Action Buttons */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: isComplete ? 1 : 0.3, y: 0 }}
-            transition={{ delay: 1 }}
-            className="w-full mt-8 flex flex-col gap-3"
-          >
-            <button 
-              onClick={onShare}
-              disabled={!isComplete}
-              className="w-full bg-primary py-4 rounded-2xl text-white font-bold text-lg shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Share2 className="w-5 h-5" />
-              שיתוף התקדמות
-            </button>
-            
-            <button 
-              onClick={onBack}
-              disabled={!isComplete}
-              className="w-full bg-transparent py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold text-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <ArrowRight className="w-5 h-5" />
-              חזרה ללוח בקרה
-            </button>
-          </motion.div>
         </div>
-        
-        {/* Safe Area Bottom Padding */}
-        <div className="pb-[env(safe-area-inset-bottom)]" />
+
+        {/* Action Buttons — pinned at bottom, always fully visible */}
+        <div className="shrink-0 z-50 w-full px-6 pb-6 pt-3 bg-white dark:bg-card-dark flex flex-col gap-3"
+             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
+          <button 
+            onClick={onShare}
+            disabled={!isComplete}
+            className="w-full bg-primary py-4 rounded-2xl text-white font-bold text-lg shadow-lg shadow-primary/20 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <Share2 className="w-5 h-5" />
+            שיתוף התקדמות
+          </button>
+          
+          <button 
+            onClick={onBack}
+            disabled={!isComplete}
+            className="w-full bg-transparent py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold text-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <ArrowRight className="w-5 h-5" />
+            חזרה ללוח בקרה
+          </button>
+        </div>
       </div>
   );
 }

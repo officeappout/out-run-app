@@ -36,6 +36,7 @@ const MOVEMENT_GROUP_LABELS: Record<MovementGroup, string> = {
   vertical_pull: 'משיכה אנכית',
   core: 'ליבה',
   isolation: 'איסוליישן',
+  flexibility: 'גמישות',
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -264,6 +265,13 @@ export default function ExercisesAdminPage() {
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [diagnosticData, setDiagnosticData] = useState<ReturnType<typeof diagnoseSmartSwapGaps> | null>(null);
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+  const [filterMissingIds, setFilterMissingIds] = useState(false);
+
+  // Auto-compute missing base_movement_id count whenever exercises load
+  const missingIdCount = useMemo(
+    () => allExercises.filter((ex) => !ex.base_movement_id).length,
+    [allExercises],
+  );
 
   const runDiagnostic = useCallback(() => {
     const result = diagnoseSmartSwapGaps(allExercises);
@@ -320,18 +328,22 @@ export default function ExercisesAdminPage() {
   }, [activeTab]);
 
   // ── Client-side filtering (instant, zero network) ──
+  // STRICT: match ONLY against the raw name.he / name.en strings.
   const filteredExercises = useMemo(() => {
+    let list = allExercises;
+
+    if (filterMissingIds) {
+      list = list.filter((ex) => !ex.base_movement_id);
+    }
+
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return allExercises;
-    return allExercises.filter((ex) => {
-      const name = getLocalizedText(ex.name, 'he').toLowerCase();
-      const goal = ex.content?.goal?.toLowerCase() || '';
-      const movementLabel = ex.movementGroup
-        ? (MOVEMENT_GROUP_LABELS[ex.movementGroup] || '').toLowerCase()
-        : '';
-      return name.includes(q) || goal.includes(q) || movementLabel.includes(q);
+    if (!q) return list;
+    return list.filter((ex) => {
+      const he = (ex.name?.he ?? '').toLowerCase();
+      const en = (ex.name?.en ?? '').toLowerCase();
+      return he.includes(q) || en.includes(q);
     });
-  }, [allExercises, searchTerm]);
+  }, [allExercises, searchTerm, filterMissingIds]);
 
   // ── Pre-compute thumbnail URLs once when source data changes ──
   const thumbnailMap = useMemo(() => {
@@ -503,21 +515,42 @@ export default function ExercisesAdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Toggle: show only exercises missing base_movement_id */}
+          {missingIdCount > 0 && (
+            <button
+              onClick={() => setFilterMissingIds((prev) => !prev)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-colors border ${
+                filterMissingIds
+                  ? 'bg-red-100 text-red-700 border-red-300'
+                  : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+              }`}
+              title={`${missingIdCount} תרגילים חסרי base_movement_id`}
+            >
+              <AlertCircle size={16} />
+              <span>{missingIdCount} חסרי ID</span>
+            </button>
+          )}
           <button
             onClick={runDiagnostic}
-            className="flex items-center gap-2 px-5 py-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl font-bold hover:bg-amber-100 transition-colors"
+            className="relative flex items-center gap-2 px-5 py-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl font-bold hover:bg-amber-100 transition-colors"
             title="אבחון Smart Swap — בדיקת base_movement_id חסרים"
           >
             <Zap size={18} />
             Smart Swap
+            {missingIdCount > 0 && (
+              <span className="absolute -top-2 -left-2 min-w-[22px] h-[22px] flex items-center justify-center bg-red-500 text-white text-[11px] font-black rounded-full px-1 shadow-md">
+                {missingIdCount}
+              </span>
+            )}
           </button>
-          <Link
-            href="/admin/export-exercises"
+          <a
+            href="/api/admin/exercises/export"
+            download
             className="flex items-center gap-2 px-5 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
           >
             <Download size={18} />
             ייצוא CSV
-          </Link>
+          </a>
           <Link
             href="/admin/exercises/new"
             className="flex items-center gap-2 px-6 py-3 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-colors shadow-lg"
@@ -566,7 +599,7 @@ export default function ExercisesAdminPage() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="חפש תרגיל לפי שם, יעד, או קבוצת תנועה..."
+            placeholder="חפש תרגיל לפי שם בלבד..."
             className="w-full pr-12 pl-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             autoComplete="off"
             spellCheck={false}

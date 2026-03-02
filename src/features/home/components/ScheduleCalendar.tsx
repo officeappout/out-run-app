@@ -17,11 +17,6 @@ export default function ScheduleCalendar({ schedule, onDayClick }: ScheduleCalen
   const { profile } = useUserStore();
   const { goalHistory } = useProgressionStore();
   const todayProgress = useDailyProgress();
-  const isGuest = profile?.id && !profile.core?.email; // Guest detection logic
-
-  if (isGuest) {
-    return null;
-  }
 
   // Map goalHistory to calendar days for activity type icons
   const activityMap = useMemo(() => {

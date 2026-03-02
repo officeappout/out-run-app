@@ -386,48 +386,10 @@ export default function BasicsSection({
                 </p>
               </div>
 
-              {/* Default Base Rest Seconds */}
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <label className="block text-xs font-bold text-gray-500">
-                    מנוחה בסיסית בין סטים (Default Base Rest)
-                  </label>
-                  <div className="group relative">
-                    <HelpCircle size={12} className="text-gray-400 cursor-help" />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                      <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg max-w-xs">
-                        זהו ערך ברירת מחדל. תוכניות אימון מתקדמות יעדיפו ערך זה.
-                        <br />
-                        <strong>This is a fallback. Advanced workout programs will override this value.</strong>
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
-                          <div className="border-4 border-transparent border-t-gray-900"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <input
-                  type="number"
-                  min="0"
-                  max="300"
-                  value={formData.defaultRestSeconds || 30}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value, 10);
-                    setFormData({ 
-                      ...formData, 
-                      defaultRestSeconds: isNaN(value) ? 30 : Math.max(0, Math.min(300, value))
-                    });
-                  }}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  placeholder="30"
-                />
-                <p className="text-[10px] text-gray-500 mt-1">
-                  זמן מנוחה מומלץ בין סטים (ברירת מחדל: 30 שניות)
-                </p>
-              </div>
+              {/* Default Rest Seconds — REMOVED: Dynamic Tier Engine is now the single source of truth */}
             </div>
             <p className="text-[11px] text-gray-600 mt-2 bg-blue-50 p-2 rounded border border-blue-200">
-              💡 <strong>מידע זה משמש לחישוב זמן האימון הכולל:</strong> זמן ביצוע = (חזרות × שניות לחזרה) + מנוחה
+              💡 <strong>מידע זה משמש לחישוב זמן האימון:</strong> זמן ביצוע = חזרות × שניות לחזרה. מנוחה נקבעת אוטומטית ע״י מנוע ה-Tier.
               {formData.symmetry === 'unilateral' && (
                 <span className="block mt-1 text-blue-700 font-semibold">
                   ⚠️ תרגיל חד-צדדי: זמן הביצוע יוכפל (×2)
@@ -690,6 +652,21 @@ export default function BasicsSection({
             })}
           </div>
         </div>
+      </div>
+
+      {/* ── Required Tier (Access Control) ── */}
+      <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <label className="block text-sm font-bold text-gray-700 mb-2">רמת גישה נדרשת (Required Tier)</label>
+        <select
+          value={(formData as any).requiredTier ?? 1}
+          onChange={(e) => setFormData({ ...formData, requiredTier: parseInt(e.target.value) as any })}
+          className="w-full border border-gray-300 rounded-xl px-4 py-2.5 bg-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+        >
+          <option value={1}>🟢 Tier 1 — Starter (חינמי)</option>
+          <option value={2}>🔵 Tier 2 — Community (עירוני)</option>
+          <option value={3}>🟣 Tier 3 — Elite (מתקדם / בי&quot;ס)</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">משתמשים עם רמת גישה נמוכה יותר לא יוכלו לגשת לתרגיל זה</p>
       </div>
 
       {/* Mobile Preview on small screens */}

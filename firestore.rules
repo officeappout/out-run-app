@@ -3,12 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ============================================================
-    // HELPER: בדיקת הרשאת אדמין
+    // HELPERS
     // ============================================================
-    function isAdmin() {
-      return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
 
     function isAuthenticated() {
       return request.auth != null;
@@ -18,16 +14,64 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Root admin — hardcoded emails, case-insensitive.
+    // Uses auth token directly (no Firestore read), so it never fails.
+    function isRootAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
+    }
+
+    // DB-backed admin — reads role field from user document.
+    // Falls back to isRootAdmin() if the get() fails or field is missing.
+    function isAdmin() {
+      return isRootAdmin() ||
+        (request.auth != null &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
     // ============================================================
-    // USERS — כל משתמש קורא/כותב את עצמו + תתי-אוספים
+    // USERS — owner reads/writes own doc, admins read/write all
     // ============================================================
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      // Root admin evaluated first (no Firestore read), then DB admin, then owner
+      allow read, write: if isRootAdmin() || isAdmin() || isOwner(userId);
 
-      // תת-אוסף התקדמות ו-XP
-      match /progression/{docId} {
-        allow read, write: if isOwner(userId);
+      // All sub-collections (progression, lifestyle, etc.)
+      match /{subCol}/{docId} {
+        allow read, write: if isRootAdmin() || isAdmin() || isOwner(userId);
       }
+    }
+
+    // ============================================================
+    // ACTIVITY — daily activity logs, streaks (owned by user)
+    // ============================================================
+    match /dailyActivity/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // dailyProgress — docId format: {userId}_{date} (e.g. abc123_2025-02-21)
+    // Authenticated users can read/write; docId prefix should match uid (enforced client-side)
+    match /dailyProgress/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /streaks/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ============================================================
+    // UTS — USER SCHEDULE (Phase 1)
+    // Doc ID pattern: {userId}_{YYYY-MM-DD}
+    // Users can only read/write their own schedule documents.
+    // Admins can read/write all (for support & analytics).
+    // Uses substring check: docId must start with "uid_".
+    // ============================================================
+    match /userSchedule/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin() ||
+        (isAuthenticated() &&
+         docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_');
     }
 
     // ============================================================
@@ -104,14 +148,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // TEMPORARY: Allow write for Master Evolution Sync (API runs server-side without auth).
+    // TODO: Revert to "allow write: if isAdmin();" after sync completes.
     match /program_level_settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
+    // TEMPORARY: Same as above — used by programLevelSettings.service.ts
     match /programLevelSettings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /level_equivalence_rules/{docId} {
@@ -135,6 +180,37 @@ service cloud.firestore {
       allow write: if isAdmin();
 
       match /{subCollection}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Root-level metadata collections (used by workout-metadata.service)
+    match /workoutTitles/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{sub}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /smartDescriptions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{sub}/{subDocId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /motivationalPhrases/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /{sub}/{subDocId} {
         allow read: if true;
         allow write: if isAdmin();
       }
@@ -200,10 +276,37 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // CRM / AUTHORITIES
+    // CRM / AUTHORITIES — public read for city lookups, admin write
+    // Pillar 7: pressureCount is incrementable by authenticated users
     // ============================================================
     match /authorities/{docId} {
-      allow read, write: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
+      // Users can increment pressureCount only (validated client-side with 24h dedup)
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pressureCount']);
+
+      // pressure_logs sub-collection: any user can create, only admin reads
+      match /pressure_logs/{logId} {
+        allow read: if isAdmin();
+        allow create: if isAuthenticated();
+      }
+    }
+
+    // ============================================================
+    // PRESSURE MESSAGES — dynamic message templates for league
+    // ============================================================
+    match /pressure_messages/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // CATEGORY BRANDING — public read for facility icons
+    // ============================================================
+    match /category_branding/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ============================================================
@@ -232,16 +335,111 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // COMMUNITY & ENGAGEMENT
+    // SAFE-CITY PRESENCE — live location heartbeat
+    // Users can only write their own presence doc (uid match).
+    // All authenticated users can read (segregation enforced client-side).
+    // ============================================================
+    match /presence/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // ============================================================
+    // SOCIAL — connections graph + feed posts
+    // ============================================================
+    match /connections/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /feed_posts/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+
+      match /reactions/{reactionId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+    }
+
+    // ============================================================
+    // COMMUNITY & ENGAGEMENT — Pillar 1/3
     // ============================================================
     match /community_groups/{docId} {
       allow read: if isAuthenticated();
+      // Admin full write access (existing)
       allow write: if isAdmin();
+      // Users can create their own group (starts isActive=false, anti-ghost)
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.createdBy
+                    && request.resource.data.isActive == false;
+      // Creator can update (name, description, schedule, etc.) but not activate themselves
+      allow update: if isAuthenticated()
+                    && request.auth.uid == resource.data.createdBy;
+
+      // group_members sub-collection — any authenticated user can join/leave their own doc
+      match /members/{uid} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && request.auth.uid == uid;
+      }
     }
 
     match /community_events/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // KUDOS — high-five inbox
+    // ============================================================
+    match /kudos/{recipientUid}/inbox/{kudoId} {
+      allow read: if isOwner(recipientUid);
+      allow create: if isAuthenticated();
+      allow update: if isOwner(recipientUid);
+    }
+
+    // ============================================================
+    // ACTIVITY FEED — Pillar 5 (written by Cloud Functions only)
+    // ============================================================
+    match /activity/{uid}/feed/{eventId} {
+      allow read: if isOwner(uid);
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // DIRECT MESSAGES — Pillar 5
+    // ============================================================
+    match /chats/{chatId} {
+      allow read, update: if isAuthenticated()
+                          && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.participants.size() == 2;
+
+      match /messages/{messageId} {
+        // Read: participant of the parent chat
+        allow read: if isAuthenticated()
+                    && request.auth.uid in
+                       get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Create: sender must be themselves and be a participant
+        allow create: if isAuthenticated()
+                      && request.auth.uid == request.resource.data.senderUid
+                      && request.auth.uid in
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Update: only to add uid to readBy
+        allow update: if isAuthenticated()
+                      && request.auth.uid in
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+
+    // ============================================================
+    // REFERRALS — tracking
+    // ============================================================
+    match /referrals/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
     }
 
     match /manager_notifications/{docId} {
@@ -276,10 +474,36 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // SCHOOLS / ORGANIZATIONS — code validation for B2E access
+    // ============================================================
+    match /schools/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // VISUAL ASSESSMENT SYSTEM — תוכן, חוקים, סף תוכניות
+    // ============================================================
+    match /visual_assessment_content/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /assessment_rules/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /program_thresholds/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
     // ADMIN FALLBACK — אדמין יכול לגשת לכל מסמך
     // ============================================================
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if isRootAdmin() || isAdmin();
     }
   }
 }

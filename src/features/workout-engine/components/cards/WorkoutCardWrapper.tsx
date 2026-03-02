@@ -31,9 +31,9 @@ export default function WorkoutCardWrapper({
       onClick={onClick}
       className={cn(
         'relative w-full',
-        'bg-card-light dark:bg-card-dark',
-        'border border-slate-100 dark:border-slate-800',
-        'rounded-2xl',
+        'bg-white dark:bg-card-dark',
+        'border-[0.5px] border-[#E0E9FF] dark:border-slate-700',
+        'rounded-lg',
         'shadow-sm',
         'overflow-hidden',
         'text-right',

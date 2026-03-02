@@ -3,73 +3,80 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Dumbbell, Circle, Activity, Package, Anchor, Search, X,
-  ArrowRight, Coins, Check, Home, Building
+  Dumbbell, Circle, Search, X,
+  Coins, Check, Home, Building
 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import { GearDefinition } from '@/features/content/equipment/gear';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
-import * as LucideIcons from 'lucide-react';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import StickyActionButton from '@/components/ui/StickyActionButton';
 
 interface EquipmentStepProps {
   onNext: () => void;
+  isJIT?: boolean;
+  isLastStep?: boolean;
 }
 
-/**
- * Icon mapping function - maps equipment names/icons to Lucide React icons
- */
-function getIconForEquipment(gear: GearDefinition): React.ComponentType<any> {
-  // If gear has a custom icon URL, use a placeholder
-  if (gear.customIconUrl) {
-    return Circle; // Default icon for custom images
+const EQUIPMENT_SVG_MAP: Record<string, string> = {
+  rings: '/assets/icons/equipment/Rings.svg',
+  gymnastic_rings: '/assets/icons/equipment/Rings.svg',
+  bands: '/assets/icons/equipment/Bands.svg',
+  resistance_band: '/assets/icons/equipment/Bands.svg',
+  resistance_bands: '/assets/icons/equipment/Bands.svg',
+  pull_up_bar: '/assets/icons/equipment/PullupBar.svg',
+  pullup_bar: '/assets/icons/equipment/PullupBar.svg',
+  pullUpBar: '/assets/icons/equipment/PullupBar.svg',
+  dip_station: '/assets/icons/equipment/ParallelBars.svg',
+  parallettes: '/assets/icons/equipment/ParallelBars.svg',
+  parallel_bars: '/assets/icons/equipment/ParallelBars.svg',
+  trx: '/assets/icons/equipment/trx.svg',
+};
+
+function getSvgIconPath(gear: GearDefinition): string | null {
+  if (EQUIPMENT_SVG_MAP[gear.id]) return EQUIPMENT_SVG_MAP[gear.id];
+
+  const nameEn = (gear.name?.en || '').toLowerCase();
+  const nameHe = (gear.name?.he || '').toLowerCase();
+
+  if (nameEn.includes('ring') || nameHe.includes('טבעות')) return EQUIPMENT_SVG_MAP.rings;
+  if (nameEn.includes('band') || nameEn.includes('resistance') || nameHe.includes('גומי')) return EQUIPMENT_SVG_MAP.bands;
+  if (nameEn.includes('pull') && nameEn.includes('bar') || nameHe.includes('מתח')) return EQUIPMENT_SVG_MAP.pull_up_bar;
+  if (nameEn.includes('parallel') || nameEn.includes('dip') || nameHe.includes('מקביל')) return EQUIPMENT_SVG_MAP.dip_station;
+  if (nameEn.includes('trx') || nameHe.includes('trx')) return EQUIPMENT_SVG_MAP.trx;
+
+  return null;
+}
+
+function EquipmentIcon({ gear, isSelected, size = 22 }: { gear: GearDefinition; isSelected: boolean; size?: number }) {
+  const svgPath = getSvgIconPath(gear);
+
+  if (svgPath) {
+    return (
+      <img
+        src={svgPath}
+        alt=""
+        className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-50'}`}
+        style={{ width: size, height: size, objectFit: 'contain' }}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+      />
+    );
   }
 
-  // If gear has an icon name, try to use it
-  if (gear.icon) {
-    const IconComponent = (LucideIcons as any)[gear.icon];
-    if (IconComponent) {
-      return IconComponent;
-    }
-  }
+  const nameEn = (gear.name?.en || '').toLowerCase();
+  const nameHe = (gear.name?.he || '').toLowerCase();
 
-  // Fallback: Map by category or name
-  const nameHe = gear.name?.he?.toLowerCase() || '';
-  const nameEn = gear.name?.en?.toLowerCase() || '';
-  const category = gear.category?.toLowerCase() || '';
+  let emoji = '🏋️';
+  if (nameEn.includes('mat') || nameHe.includes('מזרן')) emoji = '🧘';
+  else if (nameEn.includes('bench') || nameHe.includes('ספסל') || nameHe.includes('כיסא')) emoji = '🪑';
+  else if (nameEn.includes('kettlebell') || nameHe.includes('קטלבל')) emoji = '🔔';
+  else if (nameEn.includes('dumbbell') || nameEn.includes('weight') || nameHe.includes('משקול') || nameHe.includes('דמבל')) emoji = '🏋️';
+  else if (nameEn.includes('rope') || nameEn.includes('jump') || nameHe.includes('חבל') || nameHe.includes('קפיצה')) emoji = '⏱️';
+  else if (nameEn.includes('foam') || nameEn.includes('roller') || nameHe.includes('רולר')) emoji = '🧴';
+  else if (nameEn.includes('ab') && nameEn.includes('wheel') || nameHe.includes('גלגל')) emoji = '⭕';
 
-  // Category-based mapping
-  if (category === 'suspension') return Anchor;
-  if (category === 'resistance') return Activity;
-  if (category === 'weights') return Dumbbell;
-  if (category === 'accessories') return Package;
-  if (category === 'stationary') return Circle;
-
-  // Name-based mapping (Hebrew)
-  if (nameHe.includes('מתח') || nameHe.includes('מתח')) return ArrowRight;
-  if (nameHe.includes('מקבילים') || nameHe.includes('דיפ')) return Circle;
-  if (nameHe.includes('trx')) return Anchor;
-  if (nameHe.includes('גומיות') || nameHe.includes('גומיה')) return Activity;
-  if (nameHe.includes('טבעות') || nameHe.includes('רינג')) return Circle;
-  if (nameHe.includes('משקולות') || nameHe.includes('דמבל')) return Dumbbell;
-  if (nameHe.includes('קיטלבל')) return Circle;
-  if (nameHe.includes('חבל') || nameHe.includes('קפיצה')) return Activity;
-  if (nameHe.includes('מזרן') || nameHe.includes('מחצלת')) return Package;
-
-  // Name-based mapping (English)
-  if (nameEn.includes('pull') || nameEn.includes('chin')) return ArrowRight;
-  if (nameEn.includes('dip') || nameEn.includes('parallel')) return Circle;
-  if (nameEn.includes('trx')) return Anchor;
-  if (nameEn.includes('band') || nameEn.includes('resistance')) return Activity;
-  if (nameEn.includes('ring')) return Circle;
-  if (nameEn.includes('dumbbell') || nameEn.includes('weight')) return Dumbbell;
-  if (nameEn.includes('kettlebell')) return Circle;
-  if (nameEn.includes('rope') || nameEn.includes('jump')) return Activity;
-  if (nameEn.includes('mat') || nameEn.includes('yoga')) return Package;
-
-  // Default fallback
-  return Dumbbell;
+  return <span style={{ fontSize: size - 4 }}>{emoji}</span>;
 }
 
 /**
@@ -107,7 +114,7 @@ const categoryNames: Record<string, string> = {
   other: 'אחר',
 };
 
-export default function EquipmentStep({ onNext }: EquipmentStepProps) {
+export default function EquipmentStep({ onNext, isJIT, isLastStep }: EquipmentStepProps) {
   // Store destructuring - must come first
   const { updateData, data, addCoins } = useOnboardingStore();
   
@@ -445,7 +452,6 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
               {/* Dynamic Equipment Grid - From API/Store */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {popularEquipment.map((gear) => {
-                  const Icon = getIconForEquipment(gear);
                   const isSelected = isEquipmentSelected(gear.id);
 
                     return (
@@ -467,11 +473,7 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
                       >
                         {getEquipmentName(gear)}
                       </span>
-                      <Icon
-                        size={20}
-                        className={isSelected ? 'text-[#5BC2F2]' : 'text-slate-400'}
-                        strokeWidth={2}
-                      />
+                      <EquipmentIcon gear={gear} isSelected={isSelected} size={22} />
                     </motion.button>
                   );
                 })}
@@ -520,20 +522,17 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
       {/* Spacer to push button to bottom */}
       <div className="flex-grow"></div>
 
-      {/* Continue Button - Premium Styling */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="mt-auto pt-4 pb-6"
-      >
-        <button
-          onClick={handleContinue}
-          className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-black py-4 rounded-2xl text-lg shadow-xl shadow-[#5BC2F2]/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          {locale.common.continue}
-        </button>
-      </motion.div>
+      <StickyActionButton
+        label={isJIT
+          ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
+          : isLastStep
+            ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
+            : locale.common.continue}
+        successLabel={isJIT
+          ? (savedLanguage === 'he' ? 'הציוד עודכן!' : 'Equipment Updated!')
+          : undefined}
+        onPress={handleContinue}
+      />
 
       {/* More Equipment Modal */}
       <AnimatePresence>
@@ -593,7 +592,6 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
                     {/* Equipment Grid */}
                     <div className="grid grid-cols-2 gap-3">
                       {equipment.map((gear) => {
-                        const Icon = getIconForEquipment(gear);
                         const isSelected = isEquipmentSelected(gear.id);
 
                         return (
@@ -615,11 +613,7 @@ export default function EquipmentStep({ onNext }: EquipmentStepProps) {
                             >
                               {getEquipmentName(gear)}
                             </span>
-                            <Icon
-                              size={20}
-                              className={isSelected ? 'text-[#60A5FA]' : 'text-slate-500'}
-                              strokeWidth={2}
-                            />
+                            <EquipmentIcon gear={gear} isSelected={isSelected} size={20} />
                           </motion.button>
                         );
                       })}

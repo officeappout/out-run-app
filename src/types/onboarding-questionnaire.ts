@@ -13,6 +13,41 @@ export type QuestionLayoutType = 'large-card' | 'horizontal-list';
  */
 export type MultilingualText = Record<string, { neutral: string; female?: string }>;
 
+// ════════════════════════════════════════════════════════════════════
+// Branching Logic — Question-level visibility & rule integration
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * A single visibility condition.
+ *
+ * Examples:
+ *   { type: 'assessment_level', field: 'push', operator: '>', value: 10 }
+ *   { type: 'answer_equals',   field: 'q_goal', operator: '==', value: 'strength' }
+ *   { type: 'tier_equals',     field: 'tier',   operator: '==', value: 'intermediate' }
+ */
+export interface VisibilityCondition {
+  type: 'assessment_level' | 'answer_equals' | 'answer_not_equals' | 'tier_equals';
+  /** The data field to evaluate — assessment category, questionId, or 'tier'. */
+  field: string;
+  operator: '>' | '>=' | '<' | '<=' | '==' | '!=';
+  value: string | number;
+}
+
+/**
+ * Optional logic block on each question.
+ * Controls whether the question is shown and how it participates in rule-driven flows.
+ */
+export interface QuestionLogic {
+  /** AND-combined visibility conditions. All must pass for the question to appear. */
+  visibility?: VisibilityCondition[];
+  /**
+   * Category tag for rule-based skip/inject.
+   * If an active AssessmentRule action lists this category in `skipCategories`,
+   * the question is automatically hidden.
+   */
+  category?: string;
+}
+
 export interface OnboardingQuestion {
   id: string;
   title: string | MultilingualText; // Support both old string format and new nested format
@@ -25,6 +60,8 @@ export interface OnboardingQuestion {
   color?: string; // Optional: hex color code for FlowView node customization (e.g., '#9333ea', '#3b82f6')
   progressIcon?: string; // Optional: icon name for progress bar display (e.g., 'Activity', 'Brain', 'Target')
   progressIconSvg?: string; // Optional: custom SVG icon content (overrides progressIcon if provided)
+  /** Branching-logic metadata. Controls visibility and rule-driven category tagging. */
+  logic?: QuestionLogic;
   language?: 'he' | 'en' | 'ru'; // Optional: language filter (legacy, for backwards compatibility)
   gender?: 'male' | 'female' | 'neutral'; // Optional: gender filter (legacy, for backwards compatibility)
   createdAt?: Date;

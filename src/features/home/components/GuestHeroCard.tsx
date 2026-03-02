@@ -27,11 +27,11 @@ export default function GuestHeroCard() {
                 </p>
 
                 <button
-                    onClick={() => router.push('/map')}
+                    onClick={() => router.push('/onboarding-new/profile')}
                     className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg hover:shadow-xl hover:bg-gray-50"
                 >
                     <Play size={20} fill="currentColor" />
-                    <span>יאללה, צור לי מסלול</span>
+                    <span>בואו נתחיל</span>
                 </button>
             </div>
 

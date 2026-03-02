@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { 
   TrendingUp, AlertCircle, Target, CheckCircle, Clock, Wallet,
   CalendarDays, ChevronDown, ChevronUp, DollarSign, BarChart3,
-  Hourglass, Percent, ToggleLeft, ToggleRight, Landmark,
+  Hourglass, Percent, ToggleLeft, ToggleRight, Landmark, Megaphone,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -149,6 +149,70 @@ function buildForecastFromAuthorities(auths: Authority[]) {
   const chartYearly = yearly.map(f => ({ name: f.year, fullName: f.year, paid: f.paidAmount, pending: f.pendingAmount, amount: f.totalAmount, contributors: f.contributors }));
 
   return { monthly: sorted, yearly, chartMonthly, chartYearly, totalPending, totalCollected };
+}
+
+// ============================================================================
+// Pillar 7 — Top Pressure Cities widget
+// ============================================================================
+
+function TopPressureCities({ authorities }: { authorities: Authority[] }) {
+  const top = useMemo(() => {
+    return authorities
+      .filter((a) => !a.isActiveClient && (a.pressureCount ?? 0) > 0)
+      .sort((a, b) => (b.pressureCount ?? 0) - (a.pressureCount ?? 0))
+      .slice(0, 5);
+  }, [authorities]);
+
+  if (top.length === 0) return null;
+
+  return (
+    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Megaphone size={18} className="text-amber-600" />
+        <h3 className="font-bold text-amber-800">ערים בלחץ גבוה</h3>
+        <span className="text-xs text-amber-600 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
+          High Potential Leads
+        </span>
+      </div>
+      <div className="space-y-2">
+        {top.map((city, idx) => {
+          const count = city.pressureCount ?? 0;
+          const tier = count >= 200 ? 'red' : count >= 100 ? 'orange' : 'amber';
+          const barColors: Record<string, string> = {
+            red: 'bg-red-500',
+            orange: 'bg-orange-500',
+            amber: 'bg-amber-500',
+          };
+          const maxCount = top[0].pressureCount ?? 1;
+          const barWidth = Math.max(10, (count / maxCount) * 100);
+
+          return (
+            <div key={city.id} className="flex items-center gap-3">
+              <span className="text-sm font-black text-gray-400 w-5 text-center">{idx + 1}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-sm font-bold text-gray-900 truncate">{city.name}</span>
+                  <span className={`text-xs font-black px-2 py-0.5 rounded-full ${
+                    tier === 'red' ? 'bg-red-100 text-red-700' :
+                    tier === 'orange' ? 'bg-orange-100 text-orange-700' :
+                    'bg-amber-100 text-amber-700'
+                  }`}>
+                    {count} לחיצות
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${barColors[tier]}`}
+                    style={{ width: `${barWidth}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ============================================================================
@@ -494,6 +558,9 @@ export default function AuthoritiesStatsDashboard({
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {operationalCards.map(card => renderStatCard(card))}
       </div>
+
+      {/* Pillar 7 — Top Pressure Cities */}
+      <TopPressureCities authorities={authorities} />
 
     </div>
   );

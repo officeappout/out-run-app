@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle, Wallet, CalendarClock } from 'lucide-react';
+import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle, Wallet, CalendarClock, Gauge } from 'lucide-react';
 import { 
   Authority, 
   AuthorityType, 
@@ -105,6 +105,43 @@ function QuoteAmountCell({ authority }: { authority: Authority }) {
       <span className="font-bold text-gray-900">₪{amount.toLocaleString()}</span>
     </div>
   );
+}
+
+/**
+ * Pressure meter: pressureCount with heat-color tiers
+ */
+function PressureMeterCell({ authority }: { authority: Authority }) {
+  const count = authority.pressureCount ?? 0;
+  if (count === 0) return <span className="text-gray-400 text-sm">-</span>;
+
+  const tier = count >= 200 ? 'red' : count >= 100 ? 'orange' : count >= 50 ? 'amber' : 'gray';
+  const colors: Record<string, string> = {
+    red: 'text-red-700 bg-red-50',
+    orange: 'text-orange-700 bg-orange-50',
+    amber: 'text-amber-700 bg-amber-50',
+    gray: 'text-gray-700 bg-gray-50',
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Gauge size={14} className={count >= 100 ? 'text-red-500' : count >= 50 ? 'text-amber-500' : 'text-gray-400'} />
+      <span className={`px-2 py-0.5 rounded-full text-xs font-black ${colors[tier]}`}>
+        {count}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Determine row highlight class for high-pressure non-active leads
+ */
+function pressureRowClass(authority: Authority): string {
+  if (authority.isActiveClient) return '';
+  const count = authority.pressureCount ?? 0;
+  if (count >= 200) return 'bg-red-50/60';
+  if (count >= 100) return 'bg-orange-50/60';
+  if (count >= 50) return 'bg-amber-50/60';
+  return '';
 }
 
 /**
@@ -252,6 +289,7 @@ export default function AuthoritiesList({
                       <span className="font-bold">{(city as any).aggregatedParksCount ?? 0}</span>
                       <span className="text-xs text-gray-500">גינות</span>
                     </div>
+                    <PressureMeterCell authority={city} />
                     {/* Active Client Toggle */}
                     <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
                       <input
@@ -591,6 +629,7 @@ export default function AuthoritiesList({
             <th className="px-6 py-4">הצעת מחיר</th>
             <th className="px-6 py-4">פעילות אחרונה</th>
             <th className="px-6 py-4">משתמשים</th>
+            <th className="px-6 py-4">מד לחץ</th>
             <th className="px-6 py-4 text-center">סטטוס לקוח</th>
             <th className="px-6 py-4 rounded-tl-2xl text-center">פעולות</th>
           </tr>
@@ -599,7 +638,7 @@ export default function AuthoritiesList({
           {filteredAuthorities.map((authority) => (
             <tr
               key={authority.id}
-              className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+              className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${pressureRowClass(authority)}`}
               onClick={() => onOpenDrawer?.(authority)}
             >
               <td className="px-6 py-4">
@@ -642,6 +681,9 @@ export default function AuthoritiesList({
                   <Users size={16} />
                   <span className="font-bold">{authority.userCount || 0}</span>
                 </div>
+              </td>
+              <td className="px-6 py-4">
+                <PressureMeterCell authority={authority} />
               </td>
               <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                 <label className="flex items-center justify-center gap-2 cursor-pointer">

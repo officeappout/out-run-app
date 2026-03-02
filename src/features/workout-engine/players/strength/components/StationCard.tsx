@@ -2,15 +2,17 @@
 
 import React from 'react';
 import { WorkoutSegment } from '@/features/parks';
-import { ChevronDown, Timer, Dumbbell, RotateCcw } from 'lucide-react';
+import { ChevronDown, Timer, Dumbbell, RotateCcw, Lock } from 'lucide-react';
 
 interface StationCardProps {
     segment: WorkoutSegment;
     id?: string;
     isActive?: boolean;
+    /** When true, shows amber lock badge on exercises (equipment not yet confirmed) */
+    isEquipmentUnconfirmed?: boolean;
 }
 
-export default function StationCard({ segment, id, isActive = false }: StationCardProps) {
+export default function StationCard({ segment, id, isActive = false, isEquipmentUnconfirmed = false }: StationCardProps) {
     return (
         <div className={`flex relative pb-6 scroll-mt-36 group`} id={id}>
             {/* Vertical Connection Line */}
@@ -43,23 +45,41 @@ export default function StationCard({ segment, id, isActive = false }: StationCa
 
                     <div className="px-3 pb-3 space-y-3 pt-0 border-t border-gray-50 mt-1">
                         <div className="h-2" />
-                        {segment.exercises?.map((ex, idx) => (
-                            <div key={ex.id || idx} className="flex items-center bg-gray-50/50 border border-gray-100 rounded-xl overflow-hidden shadow-sm p-2 gap-3">
-                                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative bg-gray-100">
-                                    {/* Placeholder for exercise image */}
-                                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                        <Dumbbell size={24} />
-                                    </div>
-                                </div>
-                                <div className="flex-1 flex flex-col justify-center">
-                                    <span className="text-sm font-bold text-gray-800">{ex.name}</span>
-                                    <span className="text-xs text-gray-400 mt-0.5">{ex.reps || ex.duration}</span>
-                                </div>
-                                <button className="flex flex-col items-center justify-center w-12 h-12 rounded-full text-gray-300 hover:text-primary hover:bg-white transition-colors">
-                                    <RotateCcw size={18} />
-                                </button>
-                            </div>
-                        ))}
+                        {segment.exercises?.map((ex, idx) => {
+                            // Display: prefer range format, fall back to single value
+                            const displayText = ex.reps || ex.duration || '';
+                            const isGoal = displayText.includes('יעד');
+
+                            return (
+                              <div key={ex.id || idx} className={`flex items-center rounded-xl overflow-hidden shadow-sm p-2 gap-3 border ${
+                                isGoal
+                                  ? 'bg-cyan-50/50 border-cyan-200'
+                                  : 'bg-gray-50/50 border-gray-100'
+                              }`}>
+                                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative bg-gray-100">
+                                      {ex.imageUrl ? (
+                                        <img src={ex.imageUrl} alt={ex.name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                            <Dumbbell size={24} />
+                                        </div>
+                                      )}
+                                  </div>
+                                  <div className="flex-1 flex flex-col justify-center">
+                                      <span className={`text-sm font-bold ${isGoal ? 'text-cyan-700' : 'text-gray-800'} flex items-center gap-1`}>
+                                        {ex.name}
+                                        {isEquipmentUnconfirmed && <Lock size={14} className="text-amber-500 flex-shrink-0" />}
+                                      </span>
+                                      <span className={`text-xs mt-0.5 ${isGoal ? 'text-cyan-500 font-semibold' : 'text-gray-400'}`}>
+                                        {displayText}
+                                      </span>
+                                  </div>
+                                  <button className="flex flex-col items-center justify-center w-12 h-12 rounded-full text-gray-300 hover:text-primary hover:bg-white transition-colors">
+                                      <RotateCcw size={18} />
+                                  </button>
+                              </div>
+                            );
+                        })}
 
                         {isActive && (
                             <button className="w-full mt-2 bg-primary text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">

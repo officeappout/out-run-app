@@ -30,32 +30,41 @@ export default function FillingButton({
   disabled = false,
   className = '',
 }: FillingButtonProps) {
+  const safeDuration = (!autoCompleteTime || autoCompleteTime <= 0) ? 10 : autoCompleteTime;
+  const MIN_MOUNT_MS = 1500;
+
   const [fillProgress, setFillProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const startTimeRef = useRef<number | null>(null);
+  const mountTimeRef = useRef<number>(Date.now());
   const animationFrameRef = useRef<number | null>(null);
+  const hasFiredRef = useRef(false);
 
-  // Calculate fill progress
   const updateFillProgress = useCallback(() => {
-    if (isPaused || disabled || isComplete || !startTimeRef.current) {
+    if (isPaused || disabled || isComplete || hasFiredRef.current || !startTimeRef.current) {
       return;
     }
 
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
-    const progress = Math.min(elapsed / autoCompleteTime, 1);
-    
+    const progress = Math.min(elapsed / safeDuration, 1);
+
     setFillProgress(progress);
 
-    if (progress >= 1 && !isComplete) {
+    if (progress >= 1) {
+      const msSinceMount = Date.now() - mountTimeRef.current;
+      if (msSinceMount < MIN_MOUNT_MS) {
+        animationFrameRef.current = requestAnimationFrame(updateFillProgress);
+        return;
+      }
+      hasFiredRef.current = true;
       setIsComplete(true);
       onClick();
       return;
     }
 
     animationFrameRef.current = requestAnimationFrame(updateFillProgress);
-  }, [isPaused, disabled, isComplete, autoCompleteTime, onClick]);
+  }, [isPaused, disabled, isComplete, safeDuration, onClick]);
 
-  // Start fill animation
   useEffect(() => {
     if (isPaused || disabled || isComplete) {
       if (animationFrameRef.current) {
@@ -78,20 +87,21 @@ export default function FillingButton({
     };
   }, [isPaused, disabled, isComplete, updateFillProgress]);
 
-  // Reset when autoCompleteTime changes
   useEffect(() => {
     setFillProgress(0);
     setIsComplete(false);
     startTimeRef.current = null;
+    mountTimeRef.current = Date.now();
+    hasFiredRef.current = false;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-  }, [autoCompleteTime]);
+  }, [safeDuration]);
 
-  // Handle manual click
   const handleClick = useCallback(() => {
-    if (disabled || isComplete) return;
+    if (disabled || isComplete || hasFiredRef.current) return;
+    hasFiredRef.current = true;
     setIsComplete(true);
     onClick();
   }, [disabled, isComplete, onClick]);

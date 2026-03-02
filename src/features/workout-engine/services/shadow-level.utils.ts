@@ -4,12 +4,13 @@
  * Implements the Shadow Tracking Matrix: per-movement-group and per-muscle-group
  * level resolution for the workout engine.
  *
- * Priority cascade (5 steps):
+ * Priority cascade (6 steps):
  *   0. Program override       → shadowMatrix.programs[programId] (HIGHEST)
  *   1. Global override        → shadowMatrix.globalLevel
  *   2. MovementGroup override → shadowMatrix.movementGroups[group].level
  *   3. MuscleGroup override   → shadowMatrix.muscleGroups[muscle].level
- *   4. Normal Shadow Tracking → userProfile.progression.domains.[domain].currentLevel
+ *   4. User assessment level  → tracks/domains currentLevel (via targetPrograms match)
+ *   5. Normal Shadow Tracking → userProfile.progression.domains.[domain].currentLevel
  *
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs.
  *
@@ -21,6 +22,7 @@ import {
   Exercise,
   MovementGroup,
   MuscleGroup,
+  getLocalizedText,
 } from '@/features/content/exercises/core/exercise.types';
 import { UserFullProfile, TrainingDomainId } from '@/features/user/core/types/user.types';
 
@@ -53,12 +55,13 @@ export interface ProgramLevelOverride extends LevelOverride {
  * When provided to the workout service, it allows overriding the
  * user's real domain levels for specific movement or muscle groups.
  *
- * Priority cascade (5 steps):
+ * Priority cascade (6 steps):
  *   0. Program override       → shadowMatrix.programs[id] (HIGHEST)
  *   1. Global override        → shadowMatrix.globalLevel
  *   2. MovementGroup override → shadowMatrix.movementGroups[group].level
  *   3. MuscleGroup override   → shadowMatrix.muscleGroups[muscle].level
- *   4. Normal Shadow Tracking → userProfile.progression.domains
+ *   4. User assessment level  → tracks/domains currentLevel (via targetPrograms match)
+ *   5. Normal Shadow Tracking → userProfile.progression.domains
  */
 export interface ShadowMatrix {
   /** If true, every exercise uses `globalLevel` regardless of group. */
@@ -136,40 +139,75 @@ const PROGRAM_MOVEMENT_MAP: Record<string, MovementGroup[]> = {
   pushing: ['horizontal_push', 'vertical_push'],
   core:    ['core'],
   upper_body: ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'isolation'],
+  // full_body child domains (static master)
+  push:   ['horizontal_push', 'vertical_push'],
+  pull:   ['horizontal_pull', 'vertical_pull'],
+  legs:   ['squat', 'hinge'],
   // full_body matches everything — handled separately
 };
 
 const PROGRAM_MUSCLE_MAP: Record<string, MuscleGroup[]> = {
   core: ['abs', 'obliques', 'core'],
   upper_body: ['chest', 'back', 'middle_back', 'shoulders', 'rear_delt', 'biceps', 'triceps', 'traps', 'forearms'],
-  // pulling maps to back muscles as secondary match
   pulling: ['back', 'middle_back', 'biceps', 'rear_delt'],
-  // pushing maps to push muscles as secondary match
   pushing: ['chest', 'shoulders', 'triceps'],
+  // full_body child domains
+  push:  ['chest', 'shoulders', 'triceps'],
+  pull:  ['back', 'middle_back', 'biceps', 'rear_delt'],
+  legs:  ['quads', 'hamstrings', 'glutes', 'calves', 'legs'],
 };
 
 /**
  * Check if an exercise matches a given program key.
  * Matching order:
  *   1. Explicit exercise.programIds includes the key
- *   2. Exercise movementGroup is in the program's movement map
- *   3. Exercise primaryMuscle is in the program's muscle map
- *   4. 'full_body' matches everything
+ *   2. targetPrograms match
+ *   3. programIds/targetPrograms includes 'lower_body' → matches 'legs'
+ *   4. movementGroup is in the program's movement map (squat, hinge, lunge)
+ *   5. primaryMuscle is in the program's muscle map
+ *   6. 'full_body' matches everything
  */
 export function exerciseMatchesProgram(exercise: Exercise, programKey: string): boolean {
-  // Explicit programIds match
   if (exercise.programIds?.includes(programKey)) return true;
+  if (exercise.targetPrograms?.some((tp) => tp.programId === programKey)) return true;
 
-  // 'full_body' is a universal override
   if (programKey === 'full_body') return true;
 
-  // Match by movementGroup
+  // Legs: triple-fallback — movementGroup OR primaryMuscle OR name/tags string
+  if (programKey === 'legs') {
+    if (exercise.programIds?.includes('lower_body')) return true;
+    if (exercise.targetPrograms?.some((tp) => tp.programId === 'lower_body')) return true;
+    const mg = exercise.movementGroup;
+    if (mg && ['squat', 'hinge', 'lunge'].includes(mg as string)) return true;
+    const pm = exercise.primaryMuscle;
+    if (pm && ['quads', 'hamstrings', 'glutes', 'calves', 'legs'].includes(pm)) return true;
+    const nameStr = (getLocalizedText(exercise.name) ?? '').toLowerCase();
+    const tagsStr = (exercise.tags ?? []).join(' ').toLowerCase();
+    const combined = `${nameStr} ${tagsStr}`;
+    if (['squat', 'סקוואט', 'legs', 'רגליים', 'lunge'].some((s) => combined.includes(s.toLowerCase()))) return true;
+    return false;
+  }
+
+  // Core: triple-fallback — movementGroup OR primaryMuscle OR name/tags string
+  if (programKey === 'core') {
+    const mg = exercise.movementGroup;
+    if (mg === 'core') return true;
+    const pm = exercise.primaryMuscle;
+    if (pm && ['abs', 'core', 'obliques'].includes(pm)) return true;
+    if (exercise.programIds?.includes('core')) return true;
+    if (exercise.targetPrograms?.some((tp) => tp.programId === 'core')) return true;
+    const nameStr = (getLocalizedText(exercise.name) ?? '').toLowerCase();
+    const tagsStr = (exercise.tags ?? []).join(' ').toLowerCase();
+    const combined = `${nameStr} ${tagsStr}`;
+    if (['core', 'plank', 'abs', 'בטן', 'פלאנק'].some((s) => combined.includes(s.toLowerCase()))) return true;
+    return false;
+  }
+
   const movementGroup = exercise.movementGroup;
   if (movementGroup && PROGRAM_MOVEMENT_MAP[programKey]?.includes(movementGroup)) {
     return true;
   }
 
-  // Match by primaryMuscle
   const primaryMuscle = exercise.primaryMuscle;
   if (primaryMuscle && PROGRAM_MUSCLE_MAP[programKey]?.includes(primaryMuscle)) {
     return true;
@@ -185,23 +223,29 @@ export function exerciseMatchesProgram(exercise: Exercise, programKey: string): 
 /**
  * Resolve the effective user level for a specific exercise.
  *
- * Implements the 5-step priority cascade:
+ * Implements the 6-step priority cascade:
  *   0. Program ShadowMatrix override  (HIGHEST PRIORITY)
  *      Matches by movementGroup / primaryMuscle / programIds
  *   1. Global ShadowMatrix override
  *   2. MovementGroup ShadowMatrix override
  *   3. MuscleGroup ShadowMatrix override
- *   4. Normal domain-based Shadow Tracking from user profile
+ *   4. User assessment level (tracks/domains) via targetPrograms program match
+ *   5. Normal domain-based Shadow Tracking from user profile
  *
- * @param exercise      The exercise whose level is being resolved.
- * @param userProfile   The full user profile (contains progression.domains).
- * @param shadowMatrix  Optional QA-testing override structure.
- * @returns             Effective level (1-20+) for this exercise.
+ * BOTTOM-UP: Child domains (push, pull, legs, core) hold granular levels.
+ * Only when a child domain is completely missing do we fall back to baseUserLevel.
+ *
+ * @param exercise       The exercise whose level is being resolved.
+ * @param userProfile    The full user profile (contains progression.domains).
+ * @param shadowMatrix   Optional QA-testing override structure.
+ * @param baseUserLevel  Fallback when a child domain level is missing (default: 1).
+ * @returns              Effective level (1-20+) for this exercise.
  */
 export function getEffectiveLevelForExercise(
   exercise: Exercise,
   userProfile: UserFullProfile,
   shadowMatrix?: ShadowMatrix,
+  baseUserLevel?: number,
 ): number {
   const exerciseName = typeof exercise.name === 'string'
     ? exercise.name
@@ -253,8 +297,38 @@ export function getEffectiveLevelForExercise(
     return level;
   }
 
-  // ── Step 4: Normal Shadow Tracking (domain-based) ──────────────────────
-  const domainLevel = mapMovementGroupToDomainLevel(exercise, userProfile);
+  // ── Step 4: User assessment level via targetPrograms ──────────────────
+  // When an exercise has targetPrograms matching the user's active programs,
+  // resolve the level from the user's OWN progression (tracks > domains),
+  // NOT the admin-assigned level on the exercise document. The admin level
+  // is a content-classification tag; the user's assessment level is the
+  // runtime driver.
+  if (exercise.targetPrograms?.length) {
+    const userDomains = userProfile.progression?.domains ?? {};
+    const userTracks = userProfile.progression?.tracks ?? {};
+    const activeIds = new Set<string>([
+      ...Object.keys(userDomains),
+      ...Object.keys(userTracks),
+      ...(userProfile.progression?.activePrograms ?? []).map(p => p.templateId).filter(Boolean),
+    ]);
+
+    for (const tp of exercise.targetPrograms) {
+      if (activeIds.has(tp.programId)) {
+        const userLevel = userTracks[tp.programId]?.currentLevel
+          ?? userDomains[tp.programId as TrainingDomainId]?.currentLevel
+          ?? tp.level;
+        console.log(
+          `[ShadowLevel] TARGET PROGRAM: "${exerciseName}" → ` +
+          `program="${tp.programId}" userLevel=${userLevel} (adminTag=${tp.level}) ` +
+          `(movementGroup=${movementGroup}, muscle=${primaryMuscle})`
+        );
+        return userLevel;
+      }
+    }
+  }
+
+  // ── Step 5: Normal Shadow Tracking (domain-based) ──────────────────────
+  const domainLevel = mapMovementGroupToDomainLevel(exercise, userProfile, baseUserLevel);
   console.log(
     `[ShadowLevel] DOMAIN (default): "${exerciseName}" → level=${domainLevel} ` +
     `(movementGroup=${movementGroup}, muscle=${primaryMuscle})`
@@ -266,89 +340,133 @@ export function getEffectiveLevelForExercise(
 // DOMAIN MAPPING (Internal)
 // ============================================================================
 
+/** Fallback when no domain level exists (prevents errors). */
+const DEFAULT_LEVEL = 1;
+
 /**
  * Map an exercise's movementGroup → the appropriate domain level from the
- * user's progression system.
+ * user's progression system. BOTTOM-UP: prefers child domains (push/pull/legs)
+ * over parent (upper_body/lower_body). Falls back to baseUserLevel only when
+ * the specific domain is completely missing.
  *
  * @see TRAINING_LOGIC.md Rule 2.2
  */
 function mapMovementGroupToDomainLevel(
   exercise: Exercise,
   userProfile: UserFullProfile,
+  baseUserLevel?: number,
 ): number {
   const movementGroup = exercise.movementGroup;
   const domains = userProfile.progression?.domains ?? {};
+  const tracks = userProfile.progression?.tracks ?? {};
+  const d = (id: string) => getDomainLevelIfExists(domains, id, tracks);
+  const fallback = baseUserLevel ?? DEFAULT_LEVEL;
 
   if (movementGroup) {
-    // Push / Pull → upper_body
+    // Push movements: prefer granular 'push' over 'upper_body' (BOTTOM-UP)
+    if (UPPER_BODY_MOVEMENTS.filter((mg) => mg.includes('push')).includes(movementGroup)) {
+      return d('push') ?? d('upper_body') ?? fallback;
+    }
+    // Pull movements: prefer granular 'pull' over 'upper_body'
+    if (UPPER_BODY_MOVEMENTS.filter((mg) => mg.includes('pull')).includes(movementGroup)) {
+      return d('pull') ?? d('upper_body') ?? fallback;
+    }
+    // Other upper-body (isolation etc.)
     if (UPPER_BODY_MOVEMENTS.includes(movementGroup)) {
-      return getDomainLevel(domains, 'upper_body');
+      return d('upper_body') ?? fallback;
     }
 
-    // Squat / Hinge → lower_body
+    // Squat / Hinge: prefer granular 'legs' over 'lower_body'
     if (LOWER_BODY_MOVEMENTS.includes(movementGroup)) {
-      return getDomainLevel(domains, 'lower_body');
+      return d('legs') ?? d('lower_body') ?? fallback;
     }
 
     // Core → core
     if (movementGroup === 'core') {
-      return getDomainLevel(domains, 'core');
+      return d('core') ?? fallback;
+    }
+
+    // Flexibility → maintenance/full_body domain
+    if (movementGroup === 'flexibility') {
+      return d('full_body') ?? fallback;
     }
 
     // Isolation → determine from primaryMuscle
     if (movementGroup === 'isolation') {
-      return mapIsolationMuscleToDomainLevel(exercise.primaryMuscle, domains);
+      return mapIsolationMuscleToDomainLevel(exercise.primaryMuscle, domains, tracks, baseUserLevel);
     }
   }
 
   // Fallback: try to infer from primaryMuscle even without movementGroup
   if (exercise.primaryMuscle) {
-    return mapIsolationMuscleToDomainLevel(exercise.primaryMuscle, domains);
+    return mapIsolationMuscleToDomainLevel(exercise.primaryMuscle, domains, tracks, baseUserLevel);
   }
 
   // Ultimate fallback
-  return getDomainLevel(domains, 'full_body') || getDomainLevel(domains, 'upper_body') || 1;
+  return d('full_body') ?? d('upper_body') ?? fallback;
 }
 
 /**
  * Map an isolation exercise's primaryMuscle to the correct domain level.
+ * Prefers granular push/pull/legs when they exist (BOTTOM-UP).
+ * Falls back to baseUserLevel only when the domain is completely missing.
  */
 function mapIsolationMuscleToDomainLevel(
   primaryMuscle: MuscleGroup | undefined,
   domains: UserFullProfile['progression']['domains'],
+  tracks?: UserFullProfile['progression']['tracks'],
+  baseUserLevel?: number,
 ): number {
+  const d = (id: string) => getDomainLevelIfExists(domains, id, tracks);
+  const fallback = baseUserLevel ?? DEFAULT_LEVEL;
+
   if (!primaryMuscle) {
-    return getDomainLevel(domains, 'full_body') || 1;
+    return d('full_body') ?? d('upper_body') ?? fallback;
   }
 
+  // Push muscles: chest, shoulders, triceps
+  if (['chest', 'shoulders', 'triceps'].includes(primaryMuscle)) {
+    return d('push') ?? d('upper_body') ?? fallback;
+  }
+  // Pull muscles: back, biceps, rear_delt, etc.
+  if (['back', 'middle_back', 'biceps', 'rear_delt', 'traps', 'forearms'].includes(primaryMuscle)) {
+    return d('pull') ?? d('upper_body') ?? fallback;
+  }
   if (UPPER_BODY_MUSCLES.includes(primaryMuscle)) {
-    return getDomainLevel(domains, 'upper_body');
+    return d('upper_body') ?? fallback;
   }
 
   if (LOWER_BODY_MUSCLES.includes(primaryMuscle)) {
-    return getDomainLevel(domains, 'lower_body');
+    return d('legs') ?? d('lower_body') ?? fallback;
   }
 
   if (CORE_MUSCLES.includes(primaryMuscle)) {
-    return getDomainLevel(domains, 'core');
+    return d('core') ?? fallback;
   }
 
-  // Misc (cardio, full_body, etc.)
-  return getDomainLevel(domains, 'full_body') || getDomainLevel(domains, 'upper_body') || 1;
+  return d('full_body') ?? d('upper_body') ?? fallback;
 }
 
 // ============================================================================
-// HELPER
+// HELPERS
 // ============================================================================
 
 /**
- * Safely read a domain's currentLevel (returns 1 if missing/undefined).
+ * Read a domain's currentLevel from tracks or domains (BOTTOM-UP).
+ * Returns undefined when the domain is completely missing (no track, no domain entry).
+ * Used for proper fallback: only fall back to baseUserLevel when domain is missing.
  */
-function getDomainLevel(
+function getDomainLevelIfExists(
   domains: UserFullProfile['progression']['domains'],
-  domainId: TrainingDomainId,
-): number {
-  return domains[domainId]?.currentLevel ?? 1;
+  domainId: string,
+  tracks?: UserFullProfile['progression']['tracks'],
+): number | undefined {
+  const t = tracks ?? {};
+  const dom = domains as Record<string, { currentLevel?: number }>;
+  const fromTrack = t[domainId]?.currentLevel;
+  const fromDomain = dom[domainId]?.currentLevel;
+  const level = fromTrack ?? fromDomain;
+  return level !== undefined && level !== null ? level : undefined;
 }
 
 // ============================================================================
@@ -379,6 +497,7 @@ export function createDefaultShadowMatrix(): ShadowMatrix {
     'hinge',
     'core',
     'isolation',
+    'flexibility',
   ];
   for (const mg of allMovements) {
     movementGroups[mg] = { level: 10, override: false };

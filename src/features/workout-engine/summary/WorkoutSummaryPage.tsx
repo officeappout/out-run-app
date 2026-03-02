@@ -10,6 +10,9 @@ import { calculateCalories } from '@/lib/calories.utils';
 import { updateUserProgression } from '@/lib/firestore.service';
 import { auth } from '@/lib/firebase';
 import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
+import { createWorkoutPost } from '@/features/social/services/feed.service';
+import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
+import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import SummaryOrchestrator, {
   WorkoutData,
   WorkoutType,
@@ -136,6 +139,30 @@ export default function WorkoutSummaryPage({
             earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
           });
           console.log('✅ Workout saved to history');
+
+          // ✅ Publish to social feed (with scope fields for leaderboard)
+          if (profile?.core?.name) {
+            const durationMin = Math.max(1, Math.round(totalDuration / 60));
+            const scope = extractFeedScope(profile);
+            const lastCoord = routeCoords.length > 0 ? routeCoords[routeCoords.length - 1] : null;
+            const parkPromise = lastCoord
+              ? detectNearbyPark(lastCoord[1], lastCoord[0])
+              : Promise.resolve(null);
+
+            parkPromise.then((park) => {
+              createWorkoutPost({
+                authorUid: currentUser.uid,
+                authorName: profile.core.name,
+                activityCategory: 'cardio',
+                durationMinutes: durationMin,
+                distanceKm: totalDistance > 0 ? totalDistance : undefined,
+                paceMinPerKm: currentPace > 0 ? currentPace : undefined,
+                ...scope,
+                parkId: park?.parkId,
+                parkName: park?.parkName,
+              }).catch((err) => console.warn('[WorkoutSummary] Feed post failed:', err));
+            }).catch(() => {});
+          }
 
           // 2b. Award XP (hidden — user only sees %)
           try {

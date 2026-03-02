@@ -17,6 +17,7 @@ import {
   ExecutionMethod,
   MechanicalType,
   InjuryShieldArea,
+  MuscleGroup,
   NoiseLevel,
   SweatLevel,
   MECHANICAL_TYPE_LABELS,
@@ -25,203 +26,37 @@ import {
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 
 // ============================================================================
-// TYPES
+// TYPES & CONSTANTS — Extracted to ./contextual-engine.types.ts (Phase 4)
 // ============================================================================
 
-/**
- * Supported lifestyle personas (up to 3 can be selected)
- */
-export type LifestylePersona = 
-  | 'parent'
-  | 'student'
-  | 'school_student'
-  | 'office_worker'
-  | 'home_worker'
-  | 'senior'
-  | 'athlete'
-  | 'reservist'
-  | 'active_soldier';
+import {
+  LOCATION_CONSTRAINTS,
+  LIFESTYLE_LABELS,
+  type LifestylePersona,
+  type LocationConstraints,
+  type IntentMode,
+  type ProgramId,
+  type ContextualFilterContext,
+  type ScoredExercise,
+  type ContextualFilterResult,
+  type FilterDescription,
+  type MechanicalBalance,
+} from './contextual-engine.types';
 
-/**
- * Location constraint profiles
- * Maps locations to their environmental constraints
- */
-export interface LocationConstraints {
-  sweatLimit: NoiseLevel;
-  noiseLimit: SweatLevel;
-  methodPriority: 1 | 2 | 3;  // 1 = gym/street methods, 2 = home methods, 3 = office methods
-  bypassLimits: boolean;      // For park (strict facility mapping instead)
-  requireFieldReady?: boolean; // For field/military mode
-}
-
-/**
- * Intent override configuration
- */
-export type IntentMode = 
-  | 'normal'
-  | 'blast'           // "לתת בראש" - ignore sweat, reduce rest, prioritize compound
-  | 'on_the_way'      // Quick workout before work
-  | 'field';          // Field/Military mode
-
-/**
- * Program IDs for multi-level exercise mapping
- */
-export type ProgramId = 
-  | 'upper_body'
-  | 'calisthenics'
-  | 'lower_body'
-  | 'handstand'
-  | 'planche'
-  | 'front_lever'
-  | 'one_arm_pullup'
-  | 'hspu';
-
-/**
- * Full context for contextual filtering
- */
-export interface ContextualFilterContext {
-  /** User's location */
-  location: ExecutionLocation;
-  
-  /** User's lifestyle personas (up to 3) */
-  lifestyles: LifestylePersona[];
-  
-  /** User's injury areas to avoid */
-  injuryShield: InjuryShieldArea[];
-  
-  /** Active intent override */
-  intentMode: IntentMode;
-  
-  /** Available equipment (for park facility mapping) */
-  availableEquipment: string[];
-  
-  /**
-   * Per-exercise level callback (Shadow Tracking).
-   * Maps each exercise's movementGroup/primaryMuscle to the user's
-   * domain-specific level (e.g., upper_body=12, lower_body=5).
-   * Replaces the old single `userLevel` field.
-   */
-  getUserLevelForExercise: (exercise: Exercise) => number;
-  
-  /** Maximum duration in minutes (for on_the_way mode) */
-  maxDuration?: number;
-  
-  /** Selected program for level filtering (optional) */
-  selectedProgram?: ProgramId;
-  
-  /** Level tolerance for filtering (default: 3) */
-  levelTolerance?: number;
-
-  /**
-   * STRICT PROGRAM FILTER — Active program IDs from Shadow Matrix.
-   * When set and non-empty, ONLY exercises matching at least one of these
-   * programs (via exerciseMatchesProgram) are included in the strength
-   * portion. This is the "תוכניות" checkbox filter.
-   *
-   * Examples: ['pulling'], ['pushing', 'core']
-   */
-  activeProgramFilters?: string[];
-}
-
-/**
- * Exercise selection with scoring details
- */
-export interface ScoredExercise {
-  exercise: Exercise;
-  method: ExecutionMethod;
-  score: number;
-  reasoning: string[];
-  mechanicalType: MechanicalType;
-  /** Level of this exercise in the selected program */
-  programLevel?: number;
-}
-
-/**
- * Result of contextual filtering
- */
-export interface ContextualFilterResult {
-  /** Filtered and scored exercises */
-  exercises: ScoredExercise[];
-  
-  /** Active filters applied */
-  activeFilters: FilterDescription[];
-  
-  /** SA:BA balance stats */
-  mechanicalBalance: MechanicalBalance;
-  
-  /** Exercises removed by filters */
-  excludedCount: number;
-  
-  /** AI cue to show user (for on_the_way, etc.) */
-  aiCue?: string;
-  
-  /** Adjusted rest time (for blast mode) */
-  adjustedRestSeconds?: number;
-}
-
-/**
- * Filter description for UI display
- */
-export interface FilterDescription {
-  type: 'location' | 'lifestyle' | 'injury' | 'mechanical' | 'intent' | 'equipment';
-  label: string;
-  value: string;
-}
-
-/**
- * Mechanical balance stats
- */
-export interface MechanicalBalance {
-  straightArm: number;
-  bentArm: number;
-  hybrid: number;
-  none: number;
-  ratio: string;
-  isBalanced: boolean;
-  warning?: string;
-}
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-/**
- * Location constraint configurations
- */
-export const LOCATION_CONSTRAINTS: Record<ExecutionLocation, LocationConstraints> = {
-  // Strict environments - low sweat, low noise
-  office: { sweatLimit: 1, noiseLimit: 1, methodPriority: 3, bypassLimits: false },
-  airport: { sweatLimit: 1, noiseLimit: 1, methodPriority: 3, bypassLimits: false },
-  school: { sweatLimit: 1, noiseLimit: 1, methodPriority: 3, bypassLimits: false },
-  
-  // Moderate environments
-  home: { sweatLimit: 2, noiseLimit: 2, methodPriority: 2, bypassLimits: false },
-  
-  // Open environments - no limits
-  gym: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: false },
-  street: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: false },
-  
-  // Special: Park uses facility mapping instead of limits
-  park: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: true },
-  
-  // Study environment - strict like office
-  library: { sweatLimit: 1, noiseLimit: 1, methodPriority: 3, bypassLimits: false },
-};
-
-/**
- * Lifestyle persona labels (Hebrew)
- */
-export const LIFESTYLE_LABELS: Record<LifestylePersona, string> = {
-  parent: 'הורה',
-  student: 'סטודנט',
-  school_student: 'תלמיד',
-  office_worker: 'עובד משרד',
-  home_worker: 'עובד מהבית',
-  senior: 'גיל הזהב',
-  athlete: 'ספורטאי',
-  reservist: 'מילואימניק',
-  active_soldier: 'חייל סדיר',
-};
+// Re-export so all external consumers keep their import path unchanged
+export {
+  LOCATION_CONSTRAINTS,
+  LIFESTYLE_LABELS,
+  type LifestylePersona,
+  type LocationConstraints,
+  type IntentMode,
+  type ProgramId,
+  type ContextualFilterContext,
+  type ScoredExercise,
+  type ContextualFilterResult,
+  type FilterDescription,
+  type MechanicalBalance,
+} from './contextual-engine.types';
 
 /**
  * Maximum straight arm exercises per session (SA limit)
@@ -305,6 +140,12 @@ export class ContextualEngine {
       
       // Injury Shield filter
       if (!this.passesInjuryShield(exercise, context.injuryShield)) {
+        excludedCount++;
+        continue;
+      }
+
+      // 48-Hour Muscle Shield — exclude exercises targeting recently trained muscles
+      if (context.excludedMuscleGroups?.length && !this.passesMuscleShield(exercise, context.excludedMuscleGroups)) {
         excludedCount++;
         continue;
       }
@@ -499,6 +340,17 @@ export class ContextualEngine {
     // Exclude if any overlap between exercise stress areas and user injuries
     return !exercise.injuryShield.some(area => userInjuries.includes(area));
   }
+
+  /**
+   * Check if exercise passes 48-hour muscle shield.
+   * Exclude if primaryMuscle or any secondaryMuscles is in excludedMuscleGroups.
+   */
+  private passesMuscleShield(exercise: Exercise, excludedMuscleGroups: MuscleGroup[]): boolean {
+    const excludedSet = new Set(excludedMuscleGroups);
+    if (exercise.primaryMuscle && excludedSet.has(exercise.primaryMuscle)) return false;
+    if (exercise.secondaryMuscles?.some((m) => excludedSet.has(m))) return false;
+    return true;
+  }
   
   /**
    * Check if exercise is suitable for field mode
@@ -528,6 +380,14 @@ export class ContextualEngine {
    * For park: additionally checks equipment availability against
    * the user's available equipment list.
    */
+  /**
+   * ADVANCED LOCATION CHAIN — cascading fallback:
+   *   Priority 1: Exact requested location (office/park/home/etc.)
+   *   Priority 2: 'home' fallback (with equipment)
+   *   Priority 3: Bodyweight-only (methods requiring no equipment)
+   *
+   * Park-specific: equipment gating applies to all candidates.
+   */
   private findMatchingMethod(
     exercise: Exercise,
     context: ContextualFilterContext,
@@ -536,43 +396,64 @@ export class ContextualEngine {
     const methods = exercise.execution_methods || exercise.executionMethods || [];
     if (!methods.length) return null;
 
-    // ── Step 1: Exact primary location match ───────────────────────────
-    // Only methods where method.location === context.location
-    let candidates = methods.filter(m => m.location === context.location);
+    // Helper: prefer methods with media
+    const preferMedia = (list: ExecutionMethod[]): ExecutionMethod | null => {
+      const withMedia = list.filter(m => m.media?.mainVideoUrl || m.media?.imageUrl);
+      return withMedia[0] || list[0] || null;
+    };
 
-    // ── Step 2: Explicit locationMapping fallback ──────────────────────
-    // If no primary match, check locationMapping (explicit multi-location tags).
-    // This is NOT fuzzy — the method explicitly declares support for the location.
-    if (candidates.length === 0) {
-      candidates = methods.filter(m =>
-        m.locationMapping?.includes(context.location)
-      );
-    }
-
-    if (candidates.length === 0) return null;
-
-    // ── Step 3: Park-specific equipment gating ─────────────────────────
-    if (constraints.bypassLimits && context.location === 'park') {
-      const parkFiltered = candidates.filter(m => {
-        // Check new array-based equipmentIds
+    // Helper: park equipment gating
+    const applyParkGating = (list: ExecutionMethod[]): ExecutionMethod[] => {
+      if (!constraints.bypassLimits || context.location !== 'park') return list;
+      return list.filter(m => {
         if (m.equipmentIds?.length) {
           return m.equipmentIds.some(eid => context.availableEquipment.includes(eid));
         }
-        // Fallback: check deprecated singular equipmentId
         if (m.equipmentId && !context.availableEquipment.includes(m.equipmentId)) {
           return false;
         }
         return true;
       });
-      // Prefer methods that actually have media for this location
-      const withMedia = parkFiltered.filter(m => m.media?.mainVideoUrl || m.media?.imageUrl);
-      return withMedia[0] || parkFiltered[0] || null;
+    };
+
+    // Helper: check if a method is bodyweight-only (no equipment needed)
+    const isBodyweight = (m: ExecutionMethod): boolean => {
+      const noIds = !m.equipmentIds?.length;
+      const noId = !m.equipmentId;
+      return noIds && noId;
+    };
+
+    // ── Priority 1: Exact primary location match ──────────────────────
+    let candidates = methods.filter(m => m.location === context.location);
+    // Also check locationMapping
+    if (candidates.length === 0) {
+      candidates = methods.filter(m =>
+        m.locationMapping?.includes(context.location)
+      );
+    }
+    if (candidates.length > 0) {
+      const gated = applyParkGating(candidates);
+      if (gated.length > 0) return preferMedia(gated);
     }
 
-    // ── Step 4: Prefer methods with actual media ──────────────────────
-    // Among location-matched candidates, prefer those with video/image
-    const withMedia = candidates.filter(m => m.media?.mainVideoUrl || m.media?.imageUrl);
-    return withMedia[0] || candidates[0] || null;
+    // ── Priority 2: Home fallback (with improvised equipment) ─────────
+    if (context.location !== 'home') {
+      const homeCandidates = methods.filter(
+        m => m.location === 'home' || m.locationMapping?.includes('home')
+      );
+      if (homeCandidates.length > 0) {
+        return preferMedia(homeCandidates);
+      }
+    }
+
+    // ── Priority 3: Bodyweight-only (any method with no equipment) ────
+    const bodyweightCandidates = methods.filter(isBodyweight);
+    if (bodyweightCandidates.length > 0) {
+      return preferMedia(bodyweightCandidates);
+    }
+
+    // ── No viable method found ────────────────────────────────────────
+    return null;
   }
   
   /**

@@ -25,6 +25,20 @@ import { getAllPrograms } from './program.service';
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'programLevelSettings';
 
 /**
+ * Strip undefined values from an object before writing to Firestore.
+ * Firebase throws if any field value is `undefined`.
+ */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const cleaned = { ...obj };
+  for (const key of Object.keys(cleaned)) {
+    if (cleaned[key] === undefined) {
+      delete cleaned[key];
+    }
+  }
+  return cleaned;
+}
+
+/**
  * Convert Firestore timestamp to Date
  */
 function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
@@ -138,6 +152,22 @@ export async function getProgramLevelSetting(
 }
 
 /**
+ * Normalize incoming data from import/sync (JSON/CSV).
+ * Maps external field names (e.g. hardCap) to our schema (maxSets).
+ * Use before saveProgramLevelSettings when importing from external sources.
+ */
+export function normalizeImportData<T extends Record<string, unknown>>(
+  raw: T & { maxSets?: number; hardCap?: number | string }
+): T & { maxSets?: number } {
+  const maxSets = raw.maxSets ?? raw.hardCap;
+  const numeric =
+    typeof maxSets === 'number' ? maxSets : typeof maxSets === 'string' ? parseInt(maxSets, 10) : undefined;
+  const resolved = !isNaN(numeric as number) ? numeric : undefined;
+  const { hardCap: _drop, ...rest } = raw;
+  return { ...rest, maxSets: resolved } as T & { maxSets?: number };
+}
+
+/**
  * Create or update program level settings (upsert)
  * Uses setDoc with merge to ensure we can create new or update existing
  */
@@ -159,18 +189,19 @@ export async function saveProgramLevelSettings(
         exerciseName: g.exerciseName,
         targetValue: g.targetValue,
         unit: g.unit,
+        ...(g.progressBonus != null ? { progressBonus: g.progressBonus } : {}),
       })),
     };
 
     if (existingDoc.exists()) {
-      // Update existing
-      await updateDoc(docRef, {
+      // Update existing — strip undefined to prevent Firebase errors
+      await updateDoc(docRef, stripUndefined({
         ...payload,
         updatedAt: serverTimestamp(),
-      });
+      }));
     } else {
-      // Create new
-      await setDoc(docRef, {
+      // Create new — strip undefined to prevent Firebase errors
+      await setDoc(docRef, stripUndefined({
         ...payload,
         progressionWeight: payload.progressionWeight ?? 1.0,
         intensityModifier: payload.intensityModifier ?? 1.0,
@@ -178,7 +209,7 @@ export async function saveProgramLevelSettings(
         volumeAdjustment: payload.volumeAdjustment ?? 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      }));
     }
     
     return settingsId;
@@ -241,6 +272,7 @@ export async function createDefaultLevelSettings(
       'שלב שיא - תרגילים מאתגרים ושמירה על רמה גבוהה',
     ];
     
+    const defaultMaxSetsByTier = (lvl: number) => (lvl <= 5 ? 20 : lvl <= 12 ? 24 : 28);
     for (let level = 1; level <= maxLevels; level++) {
       await saveProgramLevelSettings({
         programId,
@@ -250,6 +282,7 @@ export async function createDefaultLevelSettings(
         intensityModifier: 1.0,
         restMultiplier: 1.0,
         volumeAdjustment: 0,
+        maxSets: defaultMaxSetsByTier(level),
       });
     }
   } catch (error) {

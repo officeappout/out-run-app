@@ -84,6 +84,17 @@ export interface Authority {
     activityLog?: ActivityLogEntry[];   // Meeting notes and updates
     tasks?: AuthorityTask[];            // Task tracking with assignments
     financials?: AuthorityFinancials;   // Financial tracking with installments
+
+    // League & Contact fields (הגדרות ליגה וקשר)
+    /** Channel for users to pressure/contact the authority */
+    contactType?: 'whatsapp' | 'email' | 'link';
+    /** Phone number, email address, or URL depending on contactType */
+    contactValue?: string;
+    /** Name of the municipal contact person (e.g., 'יוסי ממחלקת ספורט') */
+    contactPersonName?: string;
+
+    /** Pillar 7: total count of user pressure clicks on "Contact City" CTA */
+    pressureCount?: number;
     
     createdAt?: Date;
     updatedAt?: Date;

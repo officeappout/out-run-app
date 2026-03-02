@@ -5,13 +5,18 @@ import Map, { Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useRunningPlayer } from '../store/useRunningPlayer';
 import { useSessionStore } from '../../../core/store/useSessionStore';
-import { Share2, Trophy, Clock, Zap, TrendingUp, LogOut } from 'lucide-react';
+import { Share2, Trophy, Clock, Zap, TrendingUp, LogOut, Shield } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { calculateCalories } from '@/lib/calories.utils';
-import { updateUserProgression } from '@/lib/firestore.service';
+import { updateUserProgression, syncFieldToFirestore } from '@/lib/firestore.service';
 import { auth } from '@/lib/firebase';
+import AccountSecureStep from '@/features/user/onboarding/components/steps/AccountSecureStep';
 import { saveWorkout } from '../../../core/services/storage.service';
+import { createWorkoutPost } from '@/features/social/services/feed.service';
+import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
+import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 interface Props {
@@ -114,6 +119,30 @@ export default function RunSummary({ onFinish }: Props) {
             earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
           });
           console.log('✅ Workout saved to history');
+
+          // ✅ Publish to social feed (with scope fields for leaderboard)
+          if (profile?.core?.name) {
+            const durationMin = Math.max(1, Math.round(totalDuration / 60));
+            const scope = extractFeedScope(profile);
+            const lastCoord = routeCoords.length > 0 ? routeCoords[routeCoords.length - 1] : null;
+            const parkPromise = lastCoord
+              ? detectNearbyPark(lastCoord[1], lastCoord[0])
+              : Promise.resolve(null);
+
+            parkPromise.then((park) => {
+              createWorkoutPost({
+                authorUid: currentUser.uid,
+                authorName: profile.core.name,
+                activityCategory: 'cardio',
+                durationMinutes: durationMin,
+                distanceKm: totalDistance > 0 ? totalDistance : undefined,
+                paceMinPerKm: currentPace > 0 ? currentPace : undefined,
+                ...scope,
+                parkId: park?.parkId,
+                parkName: park?.parkName,
+              }).catch((err) => console.warn('[RunSummary] Feed post failed:', err));
+            }).catch(() => {});
+          }
         } catch (error) {
           console.error('❌ Error syncing to Firestore:', error);
           // Continue anyway - local update succeeded
@@ -130,15 +159,27 @@ export default function RunSummary({ onFinish }: Props) {
     router.push('/home'); // Navigates to Home Tab
   };
 
-  const handleClaim = () => {
-    // Redirect to Onboarding with fixed bonus for Guest signup
-    const queryParams = new URLSearchParams({
-      claim: 'true',
-      coins: '20', // Fixed bonus as requested
-      calories: calories.toString() // Keep calories for record
-    }).toString();
+  // ── Post-Workout Email Capture Drawer ──
+  const [showEmailDrawer, setShowEmailDrawer] = useState(false);
+  const [showInlineAccount, setShowInlineAccount] = useState(false);
 
-    router.push(`/onboarding?${queryParams}`);
+  const handleClaim = () => {
+    setShowEmailDrawer(true);
+  };
+
+  const handleEmailCaptured = async (secured: boolean, method?: string, email?: string) => {
+    if (secured && email) {
+      await syncFieldToFirestore('core.email', email);
+    }
+    setShowInlineAccount(false);
+    setShowEmailDrawer(false);
+  };
+
+  const dismissEmailDrawer = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('dismissed_email_cta', 'true');
+    }
+    setShowEmailDrawer(false);
   };
 
   // Hydration check
@@ -225,6 +266,62 @@ export default function RunSummary({ onFinish }: Props) {
           </button>
         )}
       </div>
+
+      {/* ── Post-Workout Email Capture Drawer ──────────────────────────── */}
+      <AnimatePresence>
+        {showEmailDrawer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60"
+            onClick={dismissEmailDrawer}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
+              dir="rtl"
+            >
+              {showInlineAccount ? (
+                <div className="p-2">
+                  <AccountSecureStep
+                    onNext={handleEmailCaptured}
+                    onSkip={dismissEmailDrawer}
+                  />
+                </div>
+              ) : (
+                <div className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-black text-slate-900">גבה את האימון שלך</h3>
+                      <p className="text-sm text-slate-500">הוסף אימייל כדי לא לאבד את ההתקדמות</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowInlineAccount(true)}
+                    className="w-full py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl shadow-md active:scale-[0.98] transition-all"
+                  >
+                    התחבר עם Google
+                  </button>
+                  <button
+                    onClick={dismissEmailDrawer}
+                    className="w-full mt-2 py-2.5 text-sm text-slate-500 hover:text-slate-700 font-medium"
+                  >
+                    אולי מאוחר יותר
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

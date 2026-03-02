@@ -26,7 +26,9 @@ export function ConfirmationCard({
   sportContext,
   bestMatchIndex,
   trainingContext,
+  mode = 'onboarding',
 }: ConfirmationCardProps) {
+  const isExplorer = mode === 'explorer';
   // Get user data from sessionStorage
   const userName = typeof window !== 'undefined' 
     ? sessionStorage.getItem('onboarding_personal_name') || ''
@@ -87,6 +89,12 @@ export function ConfirmationCard({
     trainingContext
   );
 
+  // Explorer mode: parks only — show ParkCard when a park exists,
+  // Pioneer (תהיה החלוץ) only when the area has zero parks.
+  const showPioneer = isExplorer
+    ? nearbyFacilities.length === 0
+    : pioneer.showPioneer;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -96,7 +104,7 @@ export function ConfirmationCard({
       className="absolute bottom-0 left-0 right-0 z-20"
       dir="rtl"
     >
-      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-6 pb-4">
+      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-5 border-t border-slate-100/40">
           
           {/* Human-Centric Copy Matrix — Pain → Solution */}
@@ -131,8 +139,26 @@ export function ConfirmationCard({
             </div>
           )}
           
-          {/* Fallback for when no userName */}
-          {!isUpdatingLocation && !userName && (
+          {/* Explorer mode: Discovery-focused greeting with neighborhood anchor */}
+          {isExplorer && !isUpdatingLocation && (
+            <>
+              <h2 
+                className="text-xl font-bold leading-tight text-slate-900 mb-2"
+                style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+              >
+                הגינה הכי קרובה ל{detectedNeighborhood || detectedCity || locationText}
+              </h2>
+              <p 
+                className="text-slate-500 text-sm mb-3 leading-relaxed"
+                style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
+              >
+                גינות כושר, מתקנים ומגרשים בסביבה שלך — הכל חינם ובלי ציוד.
+              </p>
+            </>
+          )}
+
+          {/* Fallback for when no userName (onboarding mode only) */}
+          {!isExplorer && !isUpdatingLocation && !userName && (
             <h2 
               className="text-xl font-bold leading-tight text-slate-900 mb-2"
               style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
@@ -141,7 +167,7 @@ export function ConfirmationCard({
             </h2>
           )}
           
-          {!isUpdatingLocation && !userName && (
+          {!isExplorer && !isUpdatingLocation && !userName && (
             <p 
               className="text-slate-500 text-sm mb-3 leading-relaxed"
               style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
@@ -192,7 +218,7 @@ export function ConfirmationCard({
           </div>
 
           {/* ── NORMAL: "Power of One" — Single Best Match Card (when sport match exists) ── */}
-          {!isLoadingParks && !isLoadingCurated && bestMatch && !pioneer.showPioneer && (
+          {!isLoadingParks && !isLoadingCurated && bestMatch && !showPioneer && (
             <motion.div
               key={`best-${bestMatch.id}-${bestMatchIndex}`}
               initial={{ opacity: 0, x: 20 }}
@@ -279,8 +305,8 @@ export function ConfirmationCard({
             </motion.div>
           )}
 
-          {/* ── PIONEER + PLAN B — Sport-specific match NOT found ── */}
-          {!isLoadingParks && !isLoadingCurated && pioneer.showPioneer && (
+          {/* ── PIONEER + PLAN B — Sport-specific match NOT found (or Explorer mode) ── */}
+          {!isLoadingParks && !isLoadingCurated && showPioneer && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -410,16 +436,16 @@ export function ConfirmationCard({
             className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            כן, זה הבית שלי
+            {isExplorer ? 'יאללה, נגלה את הסביבה!' : 'כן, זה הבית שלי'}
           </motion.button>
 
           {/* Secondary Action */}
           <button
             onClick={onSearchOther}
-            className="w-full mt-2 text-slate-500 hover:text-[#5BC2F2] text-sm py-2 transition-colors"
+            className="w-full mt-3 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            לא, אני רוצה לחפש עיר אחרת
+            {isExplorer ? 'חפש מיקום אחר' : 'לא, אני רוצה לחפש עיר אחרת'}
           </button>
         </div>
       </div>

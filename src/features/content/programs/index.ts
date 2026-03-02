@@ -9,3 +9,7 @@ export * from './core/program.types';
 export * from './core/program.service';
 export * from './core/level.service';
 export * from './core/programLevelSettings.service';
+
+// Utilities
+export { getProgramIcon, getProgramIconLabel, resolveIconKey, PROGRAM_ALIAS_TO_ICON, SmartDayIcon, CheckMarkBadge, CyanDot, BRAND_CYAN } from './core/program-icon.util';
+export type { ProgramIconKey, DayIconStatus, SmartDayIconProps } from './core/program-icon.util';

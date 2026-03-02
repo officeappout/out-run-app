@@ -22,7 +22,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserFullProfile, TrainingDomainId } from '../../core/types/user.types';
-import { 
+import {
   ProgressionRule, 
   DomainTrackProgress, 
   MasterProgramProgress,
@@ -36,9 +36,14 @@ import {
   getDefaultRequiredSets,
   LevelEquivalenceRule,
   LevelEquivalenceResult,
+  ChildDomainGain,
 } from '../../core/types/progression.types';
 import { Program } from '@/features/content/programs';
-import { getProgram } from '@/features/content/programs';
+import { getProgram, getAllPrograms } from '@/features/content/programs';
+import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { getExercise } from '@/features/content/exercises/core/exercise.service';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+import type { LevelGoal } from '@/types/workout';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'program_level_settings';
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
@@ -49,6 +54,51 @@ const USERS_COLLECTION = 'users';
 // Threshold for "Ready for Split" recommendation
 const READY_FOR_SPLIT_LEVEL = 10;
 const READY_FOR_SPLIT_PROGRAMS = ['full_body'];
+
+/**
+ * Hardcoded known master programs as a bulletproof fallback.
+ * Used when the Firestore document lookup by ID fails (e.g., when the
+ * activeProgramId is a slug like "full_body" but the Firestore document
+ * was created with an auto-generated ID via addDoc).
+ */
+const KNOWN_MASTER_PROGRAMS: Record<string, string[]> = {
+  full_body: ['push', 'pull', 'legs', 'core'],
+  upper_body: ['push', 'pull'],
+  lower_body: ['legs', 'core'],
+};
+
+/**
+ * Resolve Firestore program IDs to human-readable slugs.
+ *
+ * Fetches all programs once, then builds two maps:
+ *   - idToSlug: Firestore ID → slug (e.g. "H2279Xs..." → "legs")
+ *   - slugToId: slug → Firestore ID (reverse lookup)
+ *
+ * Slug priority:
+ *   1. movementPattern (admin-defined: 'push' | 'pull' | 'legs' | 'core')
+ *   2. Lowercased/underscored name (e.g. "Full Body" → "full_body")
+ */
+interface ProgramSlugMap {
+  idToSlug: Map<string, string>;
+  slugToId: Map<string, string>;
+  idToProgram: Map<string, Program>;
+}
+
+async function buildProgramSlugMap(): Promise<ProgramSlugMap> {
+  const allPrograms = await getAllPrograms();
+  const idToSlug = new Map<string, string>();
+  const slugToId = new Map<string, string>();
+  const idToProgram = new Map<string, Program>();
+
+  for (const p of allPrograms) {
+    const slug = p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
+    idToSlug.set(p.id, slug);
+    slugToId.set(slug, p.id);
+    idToProgram.set(p.id, p);
+  }
+
+  return { idToSlug, slugToId, idToProgram };
+}
 
 /**
  * Convert Firestore timestamp to Date
@@ -111,7 +161,9 @@ async function getProgressionRule(
 }
 
 /**
- * Update user progression tracks in Firestore
+ * Update user progression tracks in Firestore.
+ * Also mirrors currentLevel into progression.domains so the Home
+ * dashboard reads consistent data from both paths.
  */
 async function updateProgressionTracks(
   userId: string,
@@ -119,8 +171,20 @@ async function updateProgressionTracks(
 ): Promise<boolean> {
   try {
     const userDocRef = doc(db, USERS_COLLECTION, userId);
+
+    // Build domain-level mirror updates so progression.domains stays in sync
+    // Mirror BOTH currentLevel AND percent to prevent stale reads
+    const domainMirror: Record<string, unknown> = {};
+    for (const [programId, track] of Object.entries(tracks)) {
+      domainMirror[`progression.domains.${programId}.currentLevel`] = track.currentLevel;
+      if (track.percent != null) {
+        domainMirror[`progression.domains.${programId}.percent`] = track.percent;
+      }
+    }
+
     await updateDoc(userDocRef, {
       'progression.tracks': tracks,
+      ...domainMirror,
       updatedAt: serverTimestamp(),
     });
     return true;
@@ -359,12 +423,19 @@ export async function recalculateMasterLevel(
   if (!progress) return null;
 
   // Persist the aggregated level into the master program's own track
+  // AND mirror to progression.domains so the dashboard reads consistent data
   const userDocRef = doc(db, USERS_COLLECTION, userId);
   await updateDoc(userDocRef, {
     [`progression.tracks.${masterProgramId}.currentLevel`]: progress.displayLevel,
     [`progression.tracks.${masterProgramId}.percent`]: progress.displayPercent,
+    [`progression.domains.${masterProgramId}.currentLevel`]: progress.displayLevel,
     updatedAt: serverTimestamp(),
   });
+
+  console.log(
+    `[Progression] Master "${masterProgramId}" recalculated → Level ${progress.displayLevel}, ${progress.displayPercent}%` +
+    ` (from ${progress.subPrograms.length} children)`,
+  );
 
   return { level: progress.displayLevel, percent: progress.displayPercent };
 }
@@ -424,7 +495,14 @@ async function getLevelEquivalenceRules(
     return snapshot.docs
       .map(d => ({ id: d.id, ...d.data() } as LevelEquivalenceRule))
       .filter(rule => rule.isEnabled !== false); // Enabled by default
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error?.message || '';
+    if (msg.includes('index') || msg.includes('requires an index')) {
+      console.warn(
+        '[LevelEquivalence] Missing Firestore composite index — create it via the link in the error below. ' +
+        'The app will continue without level equivalences until the index is built.',
+      );
+    }
     console.error('[LevelEquivalence] Error fetching rules:', error);
     return [];
   }
@@ -602,35 +680,54 @@ async function getProgressionRuleForLevel(
   programId: string,
   level: number
 ): Promise<ProgressionRuleResult> {
+  const levelDefaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
+
   try {
     const ruleId = `${programId}_level_${level}`;
     const ruleDoc = await getDoc(doc(db, PROGRESSION_RULES_COLLECTION, ruleId));
     
     if (ruleDoc.exists()) {
       const data = ruleDoc.data();
-      return {
-        baseSessionGain: data.baseSessionGain || 10,
-        bonusPercent: data.bonusPercent || 5,
-        requiredSetsForFullGain: data.requiredSetsForFullGain || getDefaultRequiredSets(level),
-        linkedPrograms: data.linkedPrograms || [],
+      const resolved = {
+        baseSessionGain: data.baseGain ?? data.baseSessionGain ?? levelDefaults.baseGain,
+        bonusPercent: data.bonusPercent ?? levelDefaults.bonusPercent,
+        requiredSetsForFullGain: data.requiredSetsForFullGain ?? data.requiredSets ?? getDefaultRequiredSets(level),
+        linkedPrograms: data.linkedPrograms ?? [],
       };
+      console.log(`[Progression] Rule loaded: ${ruleId}`, resolved, '(raw Firestore:', data, ')');
+      return resolved;
     }
-    
-    // Fallback to defaults
-    const defaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
+
+    // No doc in progression_rules — check programLevelSettings as secondary source
+    try {
+      const plsDoc = await getDoc(doc(db, 'programLevelSettings', ruleId));
+      if (plsDoc.exists()) {
+        const pls = plsDoc.data();
+        if (pls.baseSessionGain != null || pls.baseGain != null) {
+          const resolved = {
+            baseSessionGain: pls.baseGain ?? pls.baseSessionGain ?? levelDefaults.baseGain,
+            bonusPercent: pls.bonusPercent ?? levelDefaults.bonusPercent,
+            requiredSetsForFullGain: pls.requiredSetsForFullGain ?? pls.requiredSets ?? getDefaultRequiredSets(level),
+            linkedPrograms: pls.linkedPrograms ?? [],
+          };
+          console.log(`[Progression] Rule from programLevelSettings: ${ruleId}`, resolved);
+          return resolved;
+        }
+      }
+    } catch { /* secondary lookup — non-critical */ }
+
+    console.log(`[Progression] No rule for ${ruleId} — using defaults:`, levelDefaults);
     return {
-      baseSessionGain: defaults.baseGain,
-      bonusPercent: defaults.bonusPercent,
+      baseSessionGain: levelDefaults.baseGain,
+      bonusPercent: levelDefaults.bonusPercent,
       requiredSetsForFullGain: getDefaultRequiredSets(level),
       linkedPrograms: [],
     };
   } catch (error) {
     console.error('Error fetching progression rule:', error);
-    // Return safe defaults
-    const defaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
     return {
-      baseSessionGain: defaults.baseGain,
-      bonusPercent: defaults.bonusPercent,
+      baseSessionGain: levelDefaults.baseGain,
+      bonusPercent: levelDefaults.bonusPercent,
       requiredSetsForFullGain: getDefaultRequiredSets(level),
       linkedPrograms: [],
     };
@@ -668,7 +765,9 @@ function calculateTotalSetsPerformed(exercises: WorkoutExerciseResult[]): number
 }
 
 /**
- * Calculate volume breakdown for Dopamine Screen display
+ * Calculate volume breakdown for Dopamine Screen display.
+ * Pay-as-you-go: Gain is strictly linear — (Completed Sets / Target Sets) * Total Possible Gain.
+ * minSets is ignored; even 1 set earns proportional credit (e.g., 1/10 = 10% of session progress).
  */
 function calculateVolumeBreakdown(
   setsPerformed: number,
@@ -748,14 +847,466 @@ function checkReadyForSplit(
   return undefined;
 }
 
+// ============================================================================
+// BOTTOM-UP HELPERS: Keyword Classifier + Muscle Group Builder
+// ============================================================================
+
+const CHILD_LABELS: Record<string, string> = {
+  push: 'דחיפה',
+  pull: 'משיכה',
+  legs: 'רגליים',
+  core: 'ליבה',
+  upper_body: 'פלג עליון',
+  lower_body: 'פלג תחתון',
+};
+
+/**
+ * Batch-fetch exercise documents from Firestore for all unique IDs in the log.
+ * Returns a map of exerciseId → Exercise for O(1) lookups during classification.
+ */
+async function fetchExerciseLookup(
+  exercises: WorkoutExerciseResult[],
+): Promise<Map<string, Exercise>> {
+  const uniqueIds = [...new Set(exercises.map(e => e.exerciseId).filter(Boolean))];
+  const results = await Promise.all(
+    uniqueIds.map(id => getExercise(id).catch(() => null)),
+  );
+  const map = new Map<string, Exercise>();
+  for (let i = 0; i < uniqueIds.length; i++) {
+    if (results[i]) map.set(uniqueIds[i], results[i]!);
+  }
+  return map;
+}
+
+/**
+ * Result of exercise classification — carries diagnostic info for logging.
+ */
+interface ClassificationResult {
+  childSlug: string | null;
+  tier: 'targetPrograms' | 'programIds' | 'programLevels' | 'keyword' | null;
+  resolvedFrom?: string;
+}
+
+/**
+ * Classify an exercise to a child program slug.
+ *
+ * The critical step: exercise programIds / targetPrograms contain raw Firestore
+ * IDs (e.g. "H2279XsRGDg9G370J7S9"). We resolve each ID to its slug via the
+ * programSlugMap, then compare against the child slug list.
+ *
+ * Master programs (full_body, upper_body, etc.) are skipped during resolution
+ * so an exercise linked to both "full_body" and "legs" correctly maps to "legs".
+ *
+ * Priority order:
+ *   1. targetPrograms resolved through slug map
+ *   2. programIds resolved through slug map
+ *   3. programLevels from the log entry (legacy)
+ *   4. Keyword matching on exercise name (last resort)
+ */
+function classifyExerciseToChild(
+  exerciseName: string,
+  programLevels: Record<string, number> | undefined,
+  childSlugs: string[],
+  firestoreExercise: Exercise | null | undefined,
+  slugMap: ProgramSlugMap | null,
+): ClassificationResult {
+  const masterSlugs = new Set(Object.keys(KNOWN_MASTER_PROGRAMS));
+
+  // ── Tier 1: targetPrograms → resolve IDs to slugs ─────────────────────
+  if (firestoreExercise?.targetPrograms?.length && slugMap) {
+    for (const tp of firestoreExercise.targetPrograms) {
+      const slug = slugMap.idToSlug.get(tp.programId);
+      if (slug && masterSlugs.has(slug)) continue;
+      if (slug && childSlugs.includes(slug)) {
+        return { childSlug: slug, tier: 'targetPrograms', resolvedFrom: tp.programId };
+      }
+    }
+  }
+
+  // ── Tier 2: programIds → resolve IDs to slugs ─────────────────────────
+  if (firestoreExercise?.programIds?.length && slugMap) {
+    for (const pid of firestoreExercise.programIds) {
+      const slug = slugMap.idToSlug.get(pid);
+      if (slug && masterSlugs.has(slug)) continue;
+      if (slug && childSlugs.includes(slug)) {
+        return { childSlug: slug, tier: 'programIds', resolvedFrom: pid };
+      }
+    }
+  }
+
+  // ── Tier 3: programLevels from the log entry ──────────────────────────
+  if (programLevels) {
+    for (const childSlug of childSlugs) {
+      if (programLevels[childSlug] !== undefined) {
+        return { childSlug, tier: 'programLevels' };
+      }
+    }
+  }
+
+  // ── Tier 4: keyword matching (last resort) ────────────────────────────
+  const name = exerciseName.toLowerCase();
+
+  if (name.includes('pull') || name.includes('row') || name.includes('chin') || name.includes('curl') || name.includes('משיכ') || name.includes('מתח')) {
+    const match = childSlugs.find(id => id.includes('pull'));
+    if (match) return { childSlug: match, tier: 'keyword' };
+  }
+  if (name.includes('squat') || name.includes('lunge') || name.includes('leg') || name.includes('calf') || name.includes('רגל') || name.includes('סקוואט') || name.includes('ירך')) {
+    const match = childSlugs.find(id => id.includes('leg'));
+    if (match) return { childSlug: match, tier: 'keyword' };
+  }
+  if (name.includes('plank') || name.includes('core') || name.includes('abs') || name.includes('ליבה') || name.includes('בטן')) {
+    const match = childSlugs.find(id => id.includes('core'));
+    if (match) return { childSlug: match, tier: 'keyword' };
+  }
+  if (name.includes('push') || name.includes('press') || name.includes('dip') || name.includes('fly') || name.includes('דחיפ') || name.includes('שכיב') || name.includes('לחיצ')) {
+    const match = childSlugs.find(id => id.includes('push'));
+    if (match) return { childSlug: match, tier: 'keyword' };
+  }
+
+  return { childSlug: null, tier: null };
+}
+
+/**
+ * Build muscle group progress breakdown from exercises.
+ */
+function buildMuscleGroupProgress(
+  exercises: WorkoutExerciseResult[],
+): import('../../core/types/progression.types').MuscleGroupProgress[] {
+  const map: Record<string, { group: 'push' | 'pull' | 'legs' | 'core'; label: string; sets: number; reps: number; count: number }> = {
+    push: { group: 'push', label: 'דחיפה', sets: 0, reps: 0, count: 0 },
+    pull: { group: 'pull', label: 'משיכה', sets: 0, reps: 0, count: 0 },
+    legs: { group: 'legs', label: 'רגליים', sets: 0, reps: 0, count: 0 },
+    core: { group: 'core', label: 'ליבה', sets: 0, reps: 0, count: 0 },
+  };
+  for (const ex of exercises) {
+    const name = ex.exerciseName.toLowerCase();
+    let group = 'push';
+    if (name.includes('pull') || name.includes('row') || name.includes('chin') || name.includes('משיכ')) group = 'pull';
+    else if (name.includes('squat') || name.includes('lunge') || name.includes('leg') || name.includes('רגל') || name.includes('סקוואט')) group = 'legs';
+    else if (name.includes('plank') || name.includes('core') || name.includes('abs') || name.includes('ליבה') || name.includes('בטן')) group = 'core';
+    else if (name.includes('push') || name.includes('press') || name.includes('dip') || name.includes('דחיפ') || name.includes('שכיבות')) group = 'push';
+    const entry = map[group];
+    if (entry) {
+      entry.sets += ex.setsCompleted;
+      entry.reps += ex.repsPerSet.reduce((s, r) => s + r, 0);
+      entry.count++;
+    }
+  }
+  return Object.values(map).filter(e => e.count > 0).map(e => ({
+    group: e.group,
+    label: e.label,
+    setsCompleted: e.sets,
+    totalReps: e.reps,
+    exerciseCount: e.count,
+  }));
+}
+
+// ============================================================================
+// BOTTOM-UP MASTER COMPLETION
+// ============================================================================
+
+/**
+ * Process workout completion for a MASTER program (e.g., full_body)
+ * using bottom-up child aggregation.
+ *
+ * Instead of looking for a non-existent master rule, this:
+ * 1. Classifies each exercise to a child program (push/pull/legs/core)
+ * 2. Fetches each child's progression rule from Firestore
+ * 3. Calculates gain per child using the child's own thresholds
+ * 4. Aggregates to a master gain (average across ALL children)
+ * 5. Updates child tracks, then recalculates the master track
+ */
+async function processBottomUpMasterCompletion(
+  data: WorkoutCompletionData,
+  userData: UserFullProfile,
+  masterProgram: Program,
+  progression: NonNullable<UserFullProfile['progression']>,
+): Promise<WorkoutCompletionResult> {
+  const { userId, activeProgramId, exercises, completedAt } = data;
+  const childProgramIds = masterProgram.subPrograms!;
+  const updatedTracks = { ...progression.tracks };
+
+  // ── 1. Build Program Slug Map (resolves Firestore IDs → slugs like 'push', 'legs')
+  let slugMap: ProgramSlugMap | null = null;
+  try {
+    slugMap = await buildProgramSlugMap();
+    console.log(`[Progression] Bottom-Up: Built slug map with ${slugMap.idToSlug.size} programs`);
+  } catch (e) {
+    console.warn('[Progression] Bottom-Up: Slug map build failed:', e);
+  }
+
+  // Normalize childProgramIds to slugs. If they are already slugs (from Tier 3
+  // hardcoded fallback), they pass through unchanged. If they are Firestore IDs
+  // (from a real master program's subPrograms), they get resolved.
+  const childSlugs = childProgramIds.map(id => slugMap?.idToSlug.get(id) ?? id);
+
+  console.log(`[Progression] Bottom-Up: Master "${activeProgramId}" → child slugs [${childSlugs.join(', ')}]`);
+
+  // ── 2. Fetch exercise documents from Firestore for DB-driven classification
+  let exerciseLookup = new Map<string, Exercise>();
+  try {
+    exerciseLookup = await fetchExerciseLookup(exercises);
+    console.log(`[Progression] Bottom-Up: Fetched ${exerciseLookup.size}/${exercises.length} exercise docs from Firestore`);
+  } catch (e) {
+    console.warn('[Progression] Bottom-Up: Exercise fetch failed, falling back to keyword matching:', e);
+  }
+
+  // ── 3. Classify exercises to child programs (slug-resolved, keyword fallback)
+  const childBuckets: Record<string, WorkoutExerciseResult[]> = {};
+  for (const slug of childSlugs) {
+    childBuckets[slug] = [];
+  }
+
+  for (const ex of exercises) {
+    const fsExercise = exerciseLookup.get(ex.exerciseId) ?? null;
+    const result = classifyExerciseToChild(ex.exerciseName, ex.programLevels, childSlugs, fsExercise, slugMap);
+    if (result.childSlug && childBuckets[result.childSlug]) {
+      childBuckets[result.childSlug].push(ex);
+      const resolvedInfo = result.resolvedFrom
+        ? ` (resolved from ID: ${result.resolvedFrom})`
+        : '';
+      console.log(`[Progression] Bottom-Up: Classified "${ex.exerciseName}" → "${result.childSlug}" via ${result.tier}${resolvedInfo}`);
+    } else {
+      const rawIds = fsExercise?.programIds?.map(pid => {
+        const resolved = slugMap?.idToSlug.get(pid);
+        return resolved ? `${pid} → ${resolved}` : pid;
+      }).join(', ') ?? 'N/A';
+      console.log(`[Progression] Bottom-Up: "${ex.exerciseName}" UNCLASSIFIED — programIds: [${rawIds}]`);
+    }
+  }
+
+  // ── 4. Calculate gain per child using its own Firestore rule ─────────────
+  const childGains: ChildDomainGain[] = [];
+  let totalSetsPerformed = 0;
+  let totalRequiredSets = 0;
+
+  for (const childId of childSlugs) {
+    const childExercises = childBuckets[childId] || [];
+    const childTrack = updatedTracks[childId] || getDefaultTrackProgress();
+    const childLevel = childTrack.currentLevel;
+    const childRule = await getProgressionRuleForLevel(childId, childLevel);
+
+    const childSets = childExercises.reduce((s, e) => s + e.setsCompleted, 0);
+    totalSetsPerformed += childSets;
+    totalRequiredSets += childRule.requiredSetsForFullGain;
+
+    if (childSets === 0) {
+      childGains.push({
+        childId,
+        label: CHILD_LABELS[childId] || childId,
+        baseGain: 0,
+        bonusGain: 0,
+        totalGain: 0,
+        setsPerformed: 0,
+        requiredSets: childRule.requiredSetsForFullGain,
+        volumeRatio: 0,
+        leveledUp: false,
+        newPercent: childTrack.percent,
+      });
+      continue;
+    }
+
+    // Pay-as-you-go: linear (Completed/Target) × baseGain
+    const childVolumeRatio = Math.min(1, childSets / childRule.requiredSetsForFullGain);
+    const childBaseGain = childVolumeRatio * childRule.baseSessionGain;
+
+    const childPerfRatio = calculatePerformanceRatio(childExercises);
+    let childBonusGain = 0;
+    if (childPerfRatio > 1) {
+      const excessPercent = (childPerfRatio - 1) * 100;
+      childBonusGain = Math.min(
+        excessPercent * (childRule.bonusPercent / 100),
+        childRule.bonusPercent,
+      ) * childVolumeRatio;
+    }
+
+    const childTotalGain = childBaseGain + childBonusGain;
+
+    // Apply to child track
+    const childNewPercent = childTrack.percent + childTotalGain;
+    let childLeveledUp = false;
+    let childNewLevel = childLevel;
+
+    if (childNewPercent >= 100) {
+      childNewLevel = childLevel + 1;
+      childLeveledUp = true;
+      updatedTracks[childId] = {
+        currentLevel: childNewLevel,
+        percent: childNewPercent - 100,
+        lastWorkoutDate: completedAt,
+        totalWorkoutsCompleted: (childTrack.totalWorkoutsCompleted || 0) + 1,
+        completedGoalIds: [],
+      };
+    } else {
+      updatedTracks[childId] = {
+        ...childTrack,
+        percent: childNewPercent,
+        lastWorkoutDate: completedAt,
+        totalWorkoutsCompleted: (childTrack.totalWorkoutsCompleted || 0) + 1,
+      };
+    }
+
+    childGains.push({
+      childId,
+      label: CHILD_LABELS[childId] || childId,
+      baseGain: childBaseGain,
+      bonusGain: childBonusGain,
+      totalGain: childTotalGain,
+      setsPerformed: childSets,
+      requiredSets: childRule.requiredSetsForFullGain,
+      volumeRatio: childVolumeRatio,
+      leveledUp: childLeveledUp,
+      newLevel: childLeveledUp ? childNewLevel : undefined,
+      newPercent: childLeveledUp ? childNewPercent - 100 : childNewPercent,
+    });
+
+    console.log(
+      `[Progression] Bottom-Up: "${childId}" L${childLevel} → ` +
+      `base=${childBaseGain.toFixed(1)}%, bonus=${childBonusGain.toFixed(1)}%, total=${childTotalGain.toFixed(1)}% ` +
+      `(${childSets}/${childRule.requiredSetsForFullGain} sets, rule: ${childRule.baseSessionGain}% base)` +
+      (childLeveledUp ? ` → LEVEL UP to ${childNewLevel}!` : ` (now ${updatedTracks[childId].percent.toFixed(1)}%)`),
+    );
+  }
+
+  // ── 5. Volume-weighted master gain ──────────────────────────────────────
+  // Weight each child's gain by its share of the total session volume.
+  // If 90 % of sets were Push, Push accounts for 90 % of the master gain.
+  const totalSessionSets = childGains.reduce((s, c) => s + c.setsPerformed, 0);
+
+  let masterBaseGain: number;
+  let masterBonusGain: number;
+
+  if (totalSessionSets > 0) {
+    masterBaseGain  = childGains.reduce((s, c) => s + c.baseGain  * c.setsPerformed, 0) / totalSessionSets;
+    masterBonusGain = childGains.reduce((s, c) => s + c.bonusGain * c.setsPerformed, 0) / totalSessionSets;
+  } else {
+    masterBaseGain  = 0;
+    masterBonusGain = 0;
+  }
+  const masterTotalGain = masterBaseGain + masterBonusGain;
+
+  // Update the master track (will be overwritten by recalculateMasterLevel for consistency)
+  const masterTrack = updatedTracks[activeProgramId] || getDefaultTrackProgress();
+  const masterNewPercent = masterTrack.percent + masterTotalGain;
+  let masterLeveledUp = false;
+  let masterNewLevel = masterTrack.currentLevel;
+
+  if (masterNewPercent >= 100) {
+    masterNewLevel = masterTrack.currentLevel + 1;
+    masterLeveledUp = true;
+    updatedTracks[activeProgramId] = {
+      currentLevel: masterNewLevel,
+      percent: masterNewPercent - 100,
+      lastWorkoutDate: completedAt,
+      totalWorkoutsCompleted: (masterTrack.totalWorkoutsCompleted || 0) + 1,
+      completedGoalIds: [],
+    };
+  } else {
+    updatedTracks[activeProgramId] = {
+      ...masterTrack,
+      percent: masterNewPercent,
+      lastWorkoutDate: completedAt,
+      totalWorkoutsCompleted: (masterTrack.totalWorkoutsCompleted || 0) + 1,
+    };
+  }
+
+  console.log(
+    `[Progression] Bottom-Up MASTER: "${activeProgramId}" → total=${masterTotalGain.toFixed(1)}% ` +
+    `(volume-weighted across ${totalSessionSets} sets, ${childGains.filter(c => c.totalGain > 0).length}/${childSlugs.length} domains active)` +
+    (masterLeveledUp ? ` → LEVEL UP to ${masterNewLevel}!` : ` (now ${updatedTracks[activeProgramId].percent.toFixed(1)}%)`),
+  );
+
+  // ── 4. Save all tracks to Firestore ─────────────────────────────────────
+  await updateProgressionTracks(userId, updatedTracks);
+
+  // ── 5. Recalculate master level from children for DB consistency ─────────
+  try {
+    for (const child of childGains) {
+      if (child.totalGain > 0) {
+        await recalculateAncestorMasters(userId, child.childId);
+      }
+    }
+  } catch (e) {
+    console.error('[Progression] Bottom-Up: Failed to recalculate master levels:', e);
+  }
+
+  // ── 6. Level equivalence for children that leveled up ───────────────────
+  try {
+    for (const child of childGains) {
+      if (child.leveledUp && child.newLevel) {
+        await applyLevelEquivalences(userId, child.childId, child.newLevel);
+      }
+    }
+    if (masterLeveledUp) {
+      await applyLevelEquivalences(userId, activeProgramId, masterNewLevel);
+    }
+  } catch (e) {
+    console.error('[Progression] Bottom-Up: Level equivalences failed:', e);
+  }
+
+  // ── 7. Ready for split check ────────────────────────────────────────────
+  const readyForSplit = checkReadyForSplit(updatedTracks, activeProgramId, masterNewLevel);
+  if (readyForSplit?.isReady) {
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    await updateDoc(userDocRef, {
+      'progression.readyForSplit': readyForSplit,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  // ── 8. Build result ─────────────────────────────────────────────────────
+  const volumeBreakdown: VolumeBreakdown = {
+    setsPerformed: totalSetsPerformed,
+    requiredSets: Math.max(1, totalRequiredSets),
+    volumeRatio: totalRequiredSets > 0 ? Math.min(1, totalSetsPerformed / totalRequiredSets) : 0,
+    isFullVolume: totalSetsPerformed >= totalRequiredSets,
+  };
+
+  const linkedProgramGains = childGains
+    .filter(c => c.totalGain > 0)
+    .map(c => ({
+      programId: c.childId,
+      gain: c.totalGain,
+      newPercent: c.newPercent,
+      leveledUp: c.leveledUp,
+      newLevel: c.newLevel,
+    }));
+
+  const sessionCompletionPercent = Math.round(
+    (totalRequiredSets > 0 ? Math.min(1, totalSetsPerformed / totalRequiredSets) : 0) * 100,
+  );
+
+  return {
+    success: true,
+    activeProgramGain: {
+      programId: activeProgramId,
+      baseGain: masterBaseGain,
+      bonusGain: masterBonusGain,
+      goalBonusGain: 0,
+      totalGain: masterTotalGain,
+      newPercent: masterLeveledUp ? masterNewPercent - 100 : masterNewPercent,
+      leveledUp: masterLeveledUp,
+      newLevel: masterLeveledUp ? masterNewLevel : undefined,
+    },
+    linkedProgramGains,
+    volumeBreakdown,
+    readyForSplit,
+    sessionCompletionPercent,
+    goalProgress: [],
+    muscleGroupProgress: buildMuscleGroupProgress(exercises),
+    childDomainGains: childGains,
+  };
+}
+
+// ============================================================================
+// MAIN: WORKOUT COMPLETION PROCESSING
+// ============================================================================
+
 /**
  * Process workout completion with multi-program progression
  * 
- * This is the main function that:
- * 1. Calculates gain for the active program
- * 2. Detects linked programs from exercise data
- * 3. Applies proportional increases to linked programs
- * 4. Checks for "Ready for Split" threshold
+ * For MASTER programs (e.g., full_body): uses bottom-up child aggregation.
+ * For LEAF programs (e.g., push): uses direct rule lookup.
  * 
  * @param data - Workout completion data
  * @returns Promise<WorkoutCompletionResult>
@@ -779,7 +1330,59 @@ export async function processWorkoutCompletion(
     
     // Ensure tracks are initialized
     ensureTracksInitialized(progression);
-    
+
+    // ── MASTER PROGRAM DETECTION: Bottom-Up Aggregation ───────────────────
+    // Master programs (e.g., full_body) do NOT have their own progression rules.
+    // Their gain is calculated bottom-up from child programs.
+    // Three-tier detection: direct doc → query by isMaster → hardcoded fallback.
+    let masterProgram: Program | null = null;
+
+    // Tier 1: Direct document lookup (works if doc ID === activeProgramId)
+    try {
+      masterProgram = await getProgram(activeProgramId);
+      if (masterProgram && !masterProgram.isMaster) {
+        masterProgram = null;
+      }
+    } catch (e) {
+      console.warn('[Progression] Tier 1 master lookup failed:', e);
+    }
+
+    // Tier 2: Query all master programs and match by ID or slug
+    if (!masterProgram) {
+      try {
+        const q = query(collection(db, PROGRAMS_COLLECTION), where('isMaster', '==', true));
+        const snapshot = await getDocs(q);
+        const masters = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
+        const slug = activeProgramId.toLowerCase().replace(/[\s-]+/g, '_');
+        masterProgram = masters.find(m =>
+          m.id === activeProgramId ||
+          m.name?.toLowerCase().replace(/[\s-]+/g, '_') === slug
+        ) ?? null;
+        if (masterProgram) {
+          console.log(`[Progression] Tier 2: Matched master "${masterProgram.name}" (doc ID: ${masterProgram.id}) for slug "${activeProgramId}"`);
+        }
+      } catch (e) {
+        console.warn('[Progression] Tier 2 master query failed:', e);
+      }
+    }
+
+    // Tier 3: Hardcoded known masters (bulletproof fallback)
+    if (!masterProgram && KNOWN_MASTER_PROGRAMS[activeProgramId]) {
+      masterProgram = {
+        id: activeProgramId,
+        isMaster: true,
+        subPrograms: KNOWN_MASTER_PROGRAMS[activeProgramId],
+        name: activeProgramId.replace(/_/g, ' '),
+      } as Program;
+      console.log(`[Progression] Tier 3: Using hardcoded master config for "${activeProgramId}" → children [${masterProgram.subPrograms!.join(', ')}]`);
+    }
+
+    if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
+      console.log(`[Progression] "${activeProgramId}" is a MASTER → delegating to bottom-up flow`);
+      return processBottomUpMasterCompletion(data, userData, masterProgram, progression);
+    }
+
+    // ── LEAF PROGRAM FLOW (unchanged) ─────────────────────────────────────
     // Get current track for active program
     const currentTrack = progression.tracks?.[activeProgramId] || getDefaultTrackProgress();
     const currentLevel = currentTrack.currentLevel;
@@ -791,7 +1394,8 @@ export async function processWorkoutCompletion(
     const setsPerformed = calculateTotalSetsPerformed(exercises);
     const requiredSets = rule.requiredSetsForFullGain;
     
-    // Calculate volume ratio (capped at 1)
+    // Pay-as-you-go: strictly linear — (Completed Sets / Target Sets) × Total Possible Gain.
+    // minSets is ignored; 1 set with target 10 = 10% of session progress.
     const volumeRatio = Math.min(1, setsPerformed / requiredSets);
     
     // Calculate volume breakdown for Dopamine Screen
@@ -800,8 +1404,7 @@ export async function processWorkoutCompletion(
     // Calculate performance ratio for bonus
     const performanceRatio = calculatePerformanceRatio(exercises);
     
-    // Calculate base gain using volume-based formula:
-    // Session Progress = min(1, Sets Performed / requiredSetsForFullGain) × baseSessionGain
+    // Base gain: linear proportion of baseSessionGain (no minSets gate)
     const baseGain = volumeRatio * rule.baseSessionGain;
     
     // Apply bonus if exceeding target reps
@@ -812,7 +1415,69 @@ export async function processWorkoutCompletion(
       bonusGain = Math.min(excessPercent * (rule.bonusPercent / 100), rule.bonusPercent) * volumeRatio;
     }
     
-    const totalGain = baseGain + bonusGain;
+    // ── MANUAL WEIGHTED PROGRESS: Each goal carries its own admin-defined progressBonus ──
+    // Strict logic: actualValue >= targetValue → add the exact progressBonus.
+    //              actualValue < targetValue  → add 0%.
+    // Fallback: if a goal has no progressBonus defined, default to 5%.
+    let goalBonusGain = 0;
+    const newlyCompletedGoalIds: string[] = [];
+    const DEFAULT_PROGRESS_BONUS = 5; // Fallback for goals without admin-defined progressBonus
+
+    try {
+      const levelSettings = await getProgramLevelSetting(activeProgramId, currentLevel);
+      const levelGoals: LevelGoal[] = levelSettings?.targetGoals || [];
+      const alreadyCompleted = new Set(currentTrack.completedGoalIds || []);
+
+      for (const goal of levelGoals) {
+        const bonus = (goal as any).progressBonus ?? DEFAULT_PROGRESS_BONUS;
+
+        // Find matching exercise in this workout's results
+        const match = exercises.find(
+          (ex) =>
+            ex.exerciseId === goal.exerciseId ||
+            ex.exerciseName.toLowerCase().includes(goal.exerciseName.toLowerCase()),
+        );
+        if (!match) {
+          console.log(`[Progression] Goal "${goal.exerciseName}": not in workout → +0%`);
+          continue;
+        }
+
+        // Evaluate: best set value vs target
+        const bestValue =
+          goal.unit === 'reps'
+            ? Math.max(...match.repsPerSet, 0)
+            : match.repsPerSet.reduce((sum, r) => sum + r, 0); // total hold seconds
+
+        if (bestValue >= goal.targetValue) {
+          // STRICT: goal met → award full progressBonus
+          goalBonusGain += bonus;
+          if (!alreadyCompleted.has(goal.exerciseId)) {
+            newlyCompletedGoalIds.push(goal.exerciseId);
+          }
+          console.log(
+            `[Progression] Goal "${goal.exerciseName}": ${bestValue}/${goal.targetValue} ${goal.unit}` +
+              ` ✅ MET → +${bonus}%`,
+          );
+        } else {
+          // STRICT: goal not met → 0%
+          console.log(
+            `[Progression] Goal "${goal.exerciseName}": ${bestValue}/${goal.targetValue} ${goal.unit}` +
+              ` ❌ NOT MET → +0% (needed ${goal.targetValue}, bonus would be ${bonus}%)`,
+          );
+        }
+      }
+
+      if (goalBonusGain > 0) {
+        console.log(
+          `[Progression] Goal bonus total: +${goalBonusGain}%` +
+            ` (${newlyCompletedGoalIds.length} goals fully achieved)`,
+        );
+      }
+    } catch (e) {
+      console.error('[Progression] Failed to evaluate goal bonus (non-blocking):', e);
+    }
+
+    const totalGain = baseGain + bonusGain + goalBonusGain;
     
     // Update active program track
     const updatedTracks = { ...progression.tracks };
@@ -821,8 +1486,14 @@ export async function processWorkoutCompletion(
     let leveledUp = false;
     let newLevel = currentLevel;
     
+    // Merge newly completed goal IDs with previously completed ones
+    const mergedCompletedGoalIds = [
+      ...(currentTrack.completedGoalIds || []),
+      ...newlyCompletedGoalIds,
+    ];
+
     if (newPercent >= 100) {
-      // Level up!
+      // Level up! Reset completedGoalIds for the new level's fresh goals.
       newLevel = currentLevel + 1;
       leveledUp = true;
       updatedTracks[activeProgramId] = {
@@ -830,6 +1501,7 @@ export async function processWorkoutCompletion(
         percent: newPercent - 100, // Carry over excess
         lastWorkoutDate: completedAt,
         totalWorkoutsCompleted: (currentTrack.totalWorkoutsCompleted || 0) + 1,
+        completedGoalIds: [], // Fresh slate for new level
       };
     } else {
       updatedTracks[activeProgramId] = {
@@ -837,6 +1509,7 @@ export async function processWorkoutCompletion(
         percent: newPercent,
         lastWorkoutDate: completedAt,
         totalWorkoutsCompleted: (currentTrack.totalWorkoutsCompleted || 0) + 1,
+        completedGoalIds: mergedCompletedGoalIds,
       };
     }
     
@@ -900,8 +1573,171 @@ export async function processWorkoutCompletion(
       });
     });
     
+    // ── MASTER-TO-CHILD PROPAGATION ──────────────────────────────────────
+    // When the active program is a MASTER (e.g., full_body), distribute
+    // proportional gains to its child tracks (push, pull, legs, core)
+    // based on which movement groups the exercises belong to.
+    try {
+      const masterProgram = await getProgram(activeProgramId);
+      if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
+        const childProgramIds = masterProgram.subPrograms;
+
+        // Classify each exercise by movement group → child program
+        const childVolume: Record<string, { sets: number; reps: number }> = {};
+        for (const childId of childProgramIds) {
+          childVolume[childId] = { sets: 0, reps: 0 };
+        }
+
+        for (const ex of exercises) {
+          const name = ex.exerciseName.toLowerCase();
+          let matchedChild: string | null = null;
+
+          // Match exercise to child by movement keywords
+          if (name.includes('pull') || name.includes('row') || name.includes('chin') || name.includes('curl') || name.includes('משיכ') || name.includes('מתח')) {
+            matchedChild = childProgramIds.find(id => id.includes('pull')) || null;
+          } else if (name.includes('squat') || name.includes('lunge') || name.includes('leg') || name.includes('calf') || name.includes('רגל') || name.includes('סקוואט') || name.includes('ירך')) {
+            matchedChild = childProgramIds.find(id => id.includes('leg')) || null;
+          } else if (name.includes('plank') || name.includes('core') || name.includes('abs') || name.includes('ליבה') || name.includes('בטן')) {
+            matchedChild = childProgramIds.find(id => id.includes('core')) || null;
+          } else if (name.includes('push') || name.includes('press') || name.includes('dip') || name.includes('fly') || name.includes('דחיפ') || name.includes('שכיב') || name.includes('לחיצ')) {
+            matchedChild = childProgramIds.find(id => id.includes('push')) || null;
+          }
+
+          // Also check exercise.programLevels for explicit child assignment
+          if (!matchedChild) {
+            for (const childId of childProgramIds) {
+              if (ex.programLevels?.[childId] !== undefined) {
+                matchedChild = childId;
+                break;
+              }
+            }
+          }
+
+          if (matchedChild && childVolume[matchedChild]) {
+            childVolume[matchedChild].sets += ex.setsCompleted;
+            childVolume[matchedChild].reps += ex.repsPerSet.reduce((s, r) => s + r, 0);
+          }
+        }
+
+        // Distribute proportional gains to each child that has volume
+        const totalChildSets = Object.values(childVolume).reduce((s, v) => s + v.sets, 0);
+        if (totalChildSets > 0) {
+          for (const [childId, vol] of Object.entries(childVolume)) {
+            if (vol.sets === 0) continue;
+
+            const proportion = vol.sets / totalChildSets;
+            const childGain = totalGain * proportion;
+
+            const childTrack = updatedTracks[childId] || getDefaultTrackProgress();
+            const childNewPercent = childTrack.percent + childGain;
+            let childLeveledUp = false;
+            let childNewLevel = childTrack.currentLevel;
+
+            if (childNewPercent >= 100) {
+              childNewLevel = childTrack.currentLevel + 1;
+              childLeveledUp = true;
+              updatedTracks[childId] = {
+                currentLevel: childNewLevel,
+                percent: childNewPercent - 100,
+                lastWorkoutDate: completedAt,
+                totalWorkoutsCompleted: (childTrack.totalWorkoutsCompleted || 0) + 1,
+                completedGoalIds: [],
+              };
+            } else {
+              updatedTracks[childId] = {
+                ...childTrack,
+                percent: childNewPercent,
+                lastWorkoutDate: completedAt,
+                totalWorkoutsCompleted: (childTrack.totalWorkoutsCompleted || 0) + 1,
+              };
+            }
+
+            linkedProgramGains.push({
+              programId: childId,
+              gain: childGain,
+              newPercent: childLeveledUp ? childNewPercent - 100 : childNewPercent,
+              leveledUp: childLeveledUp,
+              newLevel: childLeveledUp ? childNewLevel : undefined,
+            });
+
+            console.log(
+              `[Progression] Master→Child: "${childId}" +${childGain.toFixed(1)}% (${vol.sets} sets, ${Math.round(proportion * 100)}% of volume)` +
+              (childLeveledUp ? ` → LEVEL UP to ${childNewLevel}!` : ` (now ${updatedTracks[childId].percent.toFixed(1)}%)`),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Progression] Master-to-child propagation failed (non-blocking):', e);
+    }
+
     // Save updated tracks to Firestore
     await updateProgressionTracks(userId, updatedTracks);
+
+    // ✅ LEVEL GOAL PROGRESS: Persist detailed goal performance so the Home
+    //    dashboard can render real checkmarks (not just track-level IDs).
+    try {
+      const levelSettings = await getProgramLevelSetting(activeProgramId, leveledUp ? currentLevel : newLevel);
+      const allGoals: LevelGoal[] = levelSettings?.targetGoals || [];
+      if (allGoals.length > 0) {
+        const goalProgressEntries = allGoals.map((goal) => {
+          const match = exercises.find(
+            (ex) =>
+              ex.exerciseId === goal.exerciseId ||
+              ex.exerciseName.toLowerCase().includes(goal.exerciseName.toLowerCase()),
+          );
+          const bestValue = match
+            ? goal.unit === 'reps'
+              ? Math.max(...match.repsPerSet, 0)
+              : match.repsPerSet.reduce((sum, r) => sum + r, 0)
+            : 0;
+          return {
+            exerciseId: goal.exerciseId,
+            exerciseName: goal.exerciseName,
+            targetValue: goal.targetValue,
+            unit: goal.unit,
+            bestPerformance: bestValue,
+            lastAttemptDate: new Date(),
+            completionPercent: Math.min(100, Math.round((bestValue / goal.targetValue) * 100)),
+            isCompleted: bestValue >= goal.targetValue,
+          };
+        });
+
+        // Upsert into the levelGoalProgress array keyed by programId + level
+        const levelKey = `${activeProgramId}_level_${leveledUp ? currentLevel : newLevel}`;
+        const userDocRef2 = doc(db, USERS_COLLECTION, userId);
+        const snap = await getDoc(userDocRef2);
+        const existingArr: any[] = snap.data()?.progression?.levelGoalProgress || [];
+        // Replace entry for this level key, or append
+        const idx = existingArr.findIndex((e: any) => e.levelId === levelKey);
+        const entry = {
+          levelId: levelKey,
+          levelName: `רמה ${leveledUp ? currentLevel : newLevel}`,
+          goals: goalProgressEntries,
+        };
+        if (idx >= 0) {
+          // Merge: keep best performance across sessions
+          const existing = existingArr[idx];
+          for (const g of entry.goals) {
+            const prev = existing.goals?.find((eg: any) => eg.exerciseId === g.exerciseId);
+            if (prev && prev.bestPerformance > g.bestPerformance) {
+              g.bestPerformance = prev.bestPerformance;
+              g.completionPercent = Math.min(100, Math.round((g.bestPerformance / g.targetValue) * 100));
+              g.isCompleted = g.bestPerformance >= g.targetValue;
+            }
+          }
+          existingArr[idx] = entry;
+        } else {
+          existingArr.push(entry);
+        }
+        await updateDoc(userDocRef2, {
+          'progression.levelGoalProgress': existingArr,
+        });
+        console.log(`[Progression] levelGoalProgress updated for ${levelKey}`);
+      }
+    } catch (e) {
+      console.error('[Progression] Failed to update levelGoalProgress (non-blocking):', e);
+    }
 
     // ✅ Recalculate all ancestor master programs after child track update
     // This keeps the Parent→Child hierarchy in sync (e.g., Push workout → Upper Body → Full Body)
@@ -950,20 +1786,63 @@ export async function processWorkoutCompletion(
       });
     }
     
+    // ── PROFESSIONAL PROGRESS COMPONENTS ──────────────────────────────────
+
+    // 1. Session Completion % — based on sets completed vs required
+    const sessionCompletionPercent = Math.round(volumeRatio * 100);
+
+    // 2. Goal Progress — detailed per-goal breakdown
+    const goalProgress: import('../../core/types/progression.types').GoalProgressEntry[] = [];
+    try {
+      const levelSettingsForGoals = await getProgramLevelSetting(activeProgramId, currentLevel);
+      const goalsForReport: LevelGoal[] = levelSettingsForGoals?.targetGoals || [];
+      for (const goal of goalsForReport) {
+        const match = exercises.find(
+          (ex) =>
+            ex.exerciseId === goal.exerciseId ||
+            ex.exerciseName.toLowerCase().includes(goal.exerciseName.toLowerCase()),
+        );
+        const bestValue = match
+          ? goal.unit === 'reps'
+            ? Math.max(...match.repsPerSet, 0)
+            : match.repsPerSet.reduce((sum, r) => sum + r, 0)
+          : 0;
+        goalProgress.push({
+          exerciseId: goal.exerciseId,
+          exerciseName: goal.exerciseName,
+          targetValue: goal.targetValue,
+          actualValue: bestValue,
+          unit: goal.unit,
+          progressBonus: (goal as any).progressBonus ?? 5,
+          achieved: bestValue >= goal.targetValue,
+        });
+      }
+    } catch (e) {
+      console.warn('[Progression] Failed to build goal progress report:', e);
+    }
+
+    // 3. Muscle Group Progress — Push / Pull / Legs / Core
+    const muscleGroupProgress = buildMuscleGroupProgress(exercises);
+
     return {
       success: true,
       activeProgramGain: {
         programId: activeProgramId,
         baseGain,
         bonusGain,
+        goalBonusGain,
         totalGain,
         newPercent: leveledUp ? newPercent - 100 : newPercent,
         leveledUp,
         newLevel: leveledUp ? newLevel : undefined,
+        newlyCompletedGoalIds: newlyCompletedGoalIds.length > 0 ? newlyCompletedGoalIds : undefined,
       },
       linkedProgramGains,
       volumeBreakdown,
       readyForSplit,
+      sessionCompletionPercent,
+      goalProgress,
+      muscleGroupProgress,
     };
     
   } catch (error) {
@@ -974,6 +1853,7 @@ export async function processWorkoutCompletion(
         programId: data.activeProgramId,
         baseGain: 0,
         bonusGain: 0,
+        goalBonusGain: 0,
         totalGain: 0,
         newPercent: 0,
         leveledUp: false,
@@ -985,6 +1865,9 @@ export async function processWorkoutCompletion(
         volumeRatio: 0,
         isFullVolume: false,
       },
+      sessionCompletionPercent: 0,
+      goalProgress: [],
+      muscleGroupProgress: [],
     };
   }
 }

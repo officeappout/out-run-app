@@ -19,6 +19,7 @@ export * from './generator';
 // Home Workout Service (Orchestrator for Home Dashboard)
 export {
   generateHomeWorkout,
+  generateHomeWorkoutTrio,
   calculateDaysInactive,
   extractInjuryShield,
   mapPersonaIdToLifestylePersona,
@@ -26,6 +27,10 @@ export {
   TIME_OF_DAY_OPTIONS,
   type HomeWorkoutOptions,
   type HomeWorkoutResult,
+  type HomeWorkoutTrioResult,
+  type WorkoutTrioOption,
+  type WorkoutOptionLabel,
+  type TrioLabelsConfig,
   type TimeOfDay,
 } from './services/home-workout.service';
 

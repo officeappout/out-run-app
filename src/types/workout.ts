@@ -12,6 +12,9 @@ export interface LevelGoal {
   exerciseName: string; // Display name (e.g., "Push-ups", "Plank")
   targetValue: number;  // Target reps or seconds
   unit: 'reps' | 'seconds'; // Unit of measurement
+  /** Admin-defined progress percentage awarded when this goal is fully met.
+   *  If undefined, the engine defaults to 5%. */
+  progressBonus?: number;
 }
 
 export interface Level {

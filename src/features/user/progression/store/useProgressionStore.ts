@@ -552,7 +552,7 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         return state;
       }
       
-      // Calculate progress using volume-based formula
+      // Pay-as-you-go: strictly linear — (Completed Sets / Target Sets) × baseGain (minSets ignored)
       const volumeRatio = Math.min(1, currentSets / session.requiredSets);
       const sessionGain = volumeRatio * session.baseGain;
       

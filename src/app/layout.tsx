@@ -34,7 +34,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />
       </head>
       
-      <body className="antialiased pb-20">
+      <body className="antialiased bg-[#F8FAFC]">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

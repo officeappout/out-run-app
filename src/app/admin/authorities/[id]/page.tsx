@@ -3,16 +3,17 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getAuthority, updateAuthority, createAuthority } from '@/features/admin/services/authority.service';
+import { getAuthority, updateAuthority, createAuthority, syncUserCount } from '@/features/admin/services/authority.service';
 import { Authority, AuthorityType } from '@/types/admin-types';
-import { Save, X, Loader2, ArrowRight, Upload, Building2, Users, Search } from 'lucide-react';
+import { Save, X, Loader2, ArrowRight, Upload, Building2, Users, Search, Megaphone, TrendingUp, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
 import Link from 'next/link';
 import { ref, uploadBytesResumable, getDownloadURL, getStorage } from 'firebase/storage';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getPressureLogs, groupLogsByDay, type PressureLogEntry } from '@/features/arena/services/pressure.service';
 
 const storage = getStorage();
 
@@ -20,6 +21,135 @@ interface User {
   id: string;
   name: string;
   email?: string;
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  email: 'אימייל',
+  link: 'קישור',
+  share: 'שיתוף',
+};
+
+function PressureAnalyticsSection({
+  pressureCount,
+  logs,
+  userLookup,
+}: {
+  pressureCount: number;
+  logs: PressureLogEntry[];
+  userLookup: Map<string, string>;
+}) {
+  const [showTable, setShowTable] = useState(false);
+  const daily = useMemo(() => groupLogsByDay(logs), [logs]);
+  const maxDay = Math.max(...daily.map((d) => d.count), 1);
+  const last30Total = logs.length;
+
+  if (pressureCount === 0 && last30Total === 0) return null;
+
+  return (
+    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-6 shadow-sm">
+      <h2 className="text-xl font-bold flex items-center gap-2 text-amber-800 mb-4">
+        <Megaphone size={20} className="text-amber-600" />
+        <span className="w-1 h-6 bg-amber-500 rounded-full"></span>
+        מד לחץ עירוני
+      </h2>
+
+      <div className="grid grid-cols-2 gap-4 mb-5">
+        <div className="bg-white/80 rounded-xl p-4 border border-amber-200">
+          <p className="text-sm text-amber-700 font-medium">סה&quot;כ לחיצות</p>
+          <p className="text-3xl font-black text-amber-900 mt-1">{pressureCount}</p>
+        </div>
+        <div className="bg-white/80 rounded-xl p-4 border border-amber-200">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={14} className="text-amber-600" />
+            <p className="text-sm text-amber-700 font-medium">30 ימים אחרונים</p>
+          </div>
+          <p className="text-3xl font-black text-amber-900 mt-1">{last30Total}</p>
+        </div>
+      </div>
+
+      {/* Mini bar chart */}
+      <div className="bg-white/80 rounded-xl p-4 border border-amber-200">
+        <p className="text-xs font-bold text-amber-700 mb-3">פעילות יומית (30 יום)</p>
+        <div className="flex items-end gap-[2px] h-20">
+          {daily.map((d) => {
+            const heightPct = d.count > 0 ? Math.max(8, (d.count / maxDay) * 100) : 0;
+            return (
+              <div
+                key={d.date}
+                className="flex-1 group relative"
+                title={`${d.date}: ${d.count}`}
+              >
+                <div
+                  className={`w-full rounded-t-sm transition-all ${
+                    d.count >= 10 ? 'bg-red-500' : d.count >= 5 ? 'bg-orange-400' : d.count > 0 ? 'bg-amber-400' : 'bg-gray-200'
+                  }`}
+                  style={{ height: `${heightPct}%` }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-[10px] text-gray-400">30 יום</span>
+          <span className="text-[10px] text-gray-400">היום</span>
+        </div>
+      </div>
+
+      {/* Pressure Users Table */}
+      {logs.length > 0 && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowTable((v) => !v)}
+            className="flex items-center gap-2 text-sm font-bold text-amber-800 hover:text-amber-900 transition-colors"
+          >
+            {showTable ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            אווטירים שלחצו ({logs.length})
+          </button>
+
+          {showTable && (
+            <div className="mt-3 bg-white/80 rounded-xl border border-amber-200 overflow-hidden">
+              <table className="w-full text-right text-sm" dir="rtl">
+                <thead className="bg-amber-100/60 text-amber-800">
+                  <tr>
+                    <th className="px-4 py-2.5 font-bold">שם אווטיר</th>
+                    <th className="px-4 py-2.5 font-bold">תאריך ושעה</th>
+                    <th className="px-4 py-2.5 font-bold">פלטפורמה</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-100">
+                  {logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-amber-50/50 transition-colors">
+                      <td className="px-4 py-2.5 font-medium text-gray-900">
+                        {userLookup.get(log.uid) ?? log.uid.slice(0, 8) + '...'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-600">
+                        {log.timestamp.toLocaleDateString('he-IL', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}{' '}
+                        {log.timestamp.toLocaleTimeString('he-IL', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                          {PLATFORM_LABELS[log.platform] ?? log.platform}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function EditAuthorityPage() {
@@ -39,17 +169,31 @@ export default function EditAuthorityPage() {
     type: 'city' as AuthorityType,
     logoUrl: '',
     managerIds: [] as string[],
+    contactType: 'whatsapp' as 'whatsapp' | 'email' | 'link',
+    contactValue: '',
+    contactPersonName: '',
   });
   
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [coordinatorSearch, setCoordinatorSearch] = useState('');
+  const [pressureLogs, setPressureLogs] = useState<PressureLogEntry[]>([]);
+  const [syncingCount, setSyncingCount] = useState(false);
+
+  const userLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of users) {
+      map.set(u.id, u.name);
+    }
+    return map;
+  }, [users]);
 
   useEffect(() => {
     loadUsers();
     if (!isNew) {
       loadAuthority();
+      getPressureLogs(authorityId, 30).then(setPressureLogs).catch(() => {});
     } else {
       setLoading(false);
     }
@@ -89,6 +233,9 @@ export default function EditAuthorityPage() {
         type: data.type,
         logoUrl: data.logoUrl || '',
         managerIds: data.managerIds || [],
+        contactType: data.contactType || 'whatsapp',
+        contactValue: data.contactValue || '',
+        contactPersonName: data.contactPersonName || '',
       });
     } catch (error) {
       console.error('Error loading authority:', error);
@@ -151,13 +298,20 @@ export default function EditAuthorityPage() {
     try {
       setIsSubmitting(true);
       
+      const leagueFields = {
+        contactType: formData.contactType,
+        contactValue: formData.contactValue || undefined,
+        contactPersonName: formData.contactPersonName || undefined,
+      };
+
       if (isNew) {
         await createAuthority({
           name: formData.name,
           type: formData.type,
           logoUrl: formData.logoUrl || undefined,
           managerIds: formData.managerIds,
-          userCount: 0, // Will be calculated separately
+          userCount: 0,
+          ...leagueFields,
         });
       } else {
         await updateAuthority(authorityId, {
@@ -165,6 +319,7 @@ export default function EditAuthorityPage() {
           type: formData.type,
           logoUrl: formData.logoUrl || undefined,
           managerIds: formData.managerIds,
+          ...leagueFields,
         });
       }
       
@@ -184,6 +339,20 @@ export default function EditAuthorityPage() {
         ? formData.managerIds.filter(id => id !== userId)
         : [...formData.managerIds, userId],
     });
+  };
+
+  const handleSyncCount = async () => {
+    if (isNew || !authorityId) return;
+    try {
+      setSyncingCount(true);
+      const newCount = await syncUserCount(authorityId);
+      setAuthority((prev) => prev ? { ...prev, userCount: newCount } : prev);
+    } catch (error) {
+      console.error('Error syncing user count:', error);
+      alert('שגיאה בעדכון ספירת משתמשים');
+    } finally {
+      setSyncingCount(false);
+    }
   };
 
   // Filter users based on search query
@@ -421,20 +590,115 @@ export default function EditAuthorityPage() {
           )}
         </div>
 
-        {/* User Count Info */}
+        {/* League & Contact Settings */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 mb-6">
+            <span className="w-1 h-6 bg-amber-500 rounded-full"></span>
+            הגדרות ליגה וקשר
+          </h2>
+
+          <div className="space-y-6">
+            {/* Contact Person Name */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                איש קשר עירוני
+              </label>
+              <input
+                type="text"
+                value={formData.contactPersonName}
+                onChange={(e) => setFormData({ ...formData, contactPersonName: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent text-black bg-white"
+                placeholder="לדוגמה: יוסי ממחלקת ספורט"
+              />
+              <p className="text-xs text-gray-400 mt-1">השם שיוצג בהודעת הלחץ לאווטירים</p>
+            </div>
+
+            {/* Contact Type */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                אמצעי קשר
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ['whatsapp', 'WhatsApp'],
+                  ['email', 'אימייל'],
+                  ['link', 'קישור'],
+                ] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, contactType: val })}
+                    className={`py-3 rounded-xl text-sm font-bold transition-all ${
+                      formData.contactType === val
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Contact Value */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                {formData.contactType === 'whatsapp' ? 'מספר טלפון' :
+                 formData.contactType === 'email' ? 'כתובת אימייל' : 'כתובת URL'}
+              </label>
+              <input
+                type={formData.contactType === 'email' ? 'email' : 'text'}
+                value={formData.contactValue}
+                onChange={(e) => setFormData({ ...formData, contactValue: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent text-black bg-white"
+                placeholder={
+                  formData.contactType === 'whatsapp' ? '972501234567' :
+                  formData.contactType === 'email' ? 'sport@city.muni.il' : 'https://...'
+                }
+                dir="ltr"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Pillar 7 — Pressure Analytics (30-day) */}
+        {!isNew && authority && (
+          <PressureAnalyticsSection
+            pressureCount={authority.pressureCount ?? 0}
+            logs={pressureLogs}
+            userLookup={userLookup}
+          />
+        )}
+
+        {/* User Count Info + Sync */}
         {!isNew && authority && (
           <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <Users size={24} className="text-gray-600" />
-              <div>
-                <div className="font-bold text-gray-900">מספר משתמשים</div>
-                <div className="text-2xl font-black text-gray-700 mt-1">
-                  {authority.userCount || 0}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-bold text-gray-900">מספר משתמשים</div>
+                  <div className="text-2xl font-black text-gray-700 mt-1">
+                    {authority.userCount || 0}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    סופר לפי משתמשים עם core.authorityId תואם לרשות זו
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  מספר זה מתעדכן אוטומטית על פי המשתמשים המקושרים לרשות זו
-                </p>
               </div>
+              <button
+                type="button"
+                onClick={handleSyncCount}
+                disabled={syncingCount}
+                className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500 text-white rounded-xl font-bold text-sm hover:bg-cyan-600 transition-colors disabled:opacity-50 shadow-sm"
+              >
+                {syncingCount ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={16} />
+                )}
+                {syncingCount ? 'מסנכרן...' : 'סנכרן ספירה'}
+              </button>
             </div>
           </div>
         )}

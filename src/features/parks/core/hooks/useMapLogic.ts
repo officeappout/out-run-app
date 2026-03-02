@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';
 import { useUserStore } from '@/features/user';
+import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { useRouteFilter } from './useRouteFilter';
 import { MapboxService } from '../services/mapbox.service';
 import { generateDynamicRoutes } from '../services/route-generator.service';
@@ -42,6 +43,9 @@ export const useMapLogic = () => {
   const { triggerLap, addCoord, updateRunData } = useRunningPlayer();
   const { status, startSession, pauseSession, resumeSession, endSession, updateDistance } = useSessionStore();
   const { profile } = useUserStore();
+
+  // JIT Setup — Health Declaration must be signed before starting GPS workout
+  const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
 
   // Local State
   const [currentUserPos, setCurrentUserPos] = useState<{ lat: number, lng: number } | null>(null);
@@ -343,7 +347,8 @@ export const useMapLogic = () => {
     };
   }, [isWorkoutActive, isWorkoutPaused, currentUserPos, status, runDistance]);
 
-  const startActiveWorkout = () => {
+  // Internal function that actually kicks off the running session
+  const _doStartActiveWorkout = () => {
     // Clear any old running data and initialize fresh
     const runningPlayer = useRunningPlayer.getState();
     runningPlayer.clearRunningData();
@@ -374,6 +379,13 @@ export const useMapLogic = () => {
       // No location yet – start without a seeded path
       setLivePath([]);
     }
+  };
+
+  // Public wrapper — runs JIT check (Health Declaration) before starting
+  const startActiveWorkout = () => {
+    interceptWorkoutStart(() => {
+      _doStartActiveWorkout();
+    });
   };
 
   const routesToDisplay = useMemo(() => {
@@ -570,6 +582,8 @@ export const useMapLogic = () => {
     setSuggestions, setAllRoutes,
     updateFilter, startActiveWorkout, handleAddressSelect, handleAICoachRequest,
     fetchAllNavigationRoutes, handleLocationClick, handleActivityChange, handleShuffle,
-    pauseSession, resumeSession, endSession, triggerLap, addCoord
+    pauseSession, resumeSession, endSession, triggerLap, addCoord,
+    // JIT Setup Modal state (for rendering in the Map page)
+    jitState, dismissJIT, cancelJIT,
   };
 };

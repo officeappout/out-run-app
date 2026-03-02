@@ -240,6 +240,11 @@ function normalizeAuthority(docId: string, data: any): Authority {
     activityLog: Array.isArray(data?.activityLog) ? data.activityLog.map(normalizeActivityEntry) : [],
     tasks: Array.isArray(data?.tasks) ? data.tasks.map(normalizeTask) : [],
     financials: normalizeFinancials(data?.financials),
+    // League contact fields (Pillar 6/7)
+    contactType: data?.contactType || undefined,
+    contactValue: data?.contactValue || undefined,
+    contactPersonName: data?.contactPersonName || undefined,
+    pressureCount: typeof data?.pressureCount === 'number' ? data.pressureCount : undefined,
     createdAt: toDate(data?.createdAt),
     updatedAt: toDate(data?.updatedAt),
   };
@@ -453,6 +458,11 @@ export async function createAuthority(data: Omit<Authority, 'id' | 'createdAt' |
       pipelineStatus: data.pipelineStatus || 'lead',
       activityLog: data.activityLog || [],
       tasks: data.tasks || [],
+      // League contact fields
+      contactType: data.contactType || null,
+      contactValue: data.contactValue || null,
+      contactPersonName: data.contactPersonName || null,
+      pressureCount: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -540,6 +550,19 @@ export async function updateAuthority(
     if (data.financials !== undefined) {
       updateData.financials = serializeFinancials(data.financials);
       details += `: financials updated`;
+    }
+    // League contact fields
+    if (data.contactType !== undefined) {
+      updateData.contactType = data.contactType || null;
+      details += `: contactType changed to "${data.contactType}"`;
+    }
+    if (data.contactValue !== undefined) {
+      updateData.contactValue = data.contactValue || null;
+      details += `: contactValue updated`;
+    }
+    if (data.contactPersonName !== undefined) {
+      updateData.contactPersonName = data.contactPersonName || null;
+      details += `: contactPersonName changed to "${data.contactPersonName}"`;
     }
     
     console.log('[Authority] Saving to Firestore:', updateData);
@@ -733,6 +756,56 @@ export async function deleteTask(
   
   const updatedTasks = (authority.tasks || []).filter(t => t.id !== taskId);
   await updateAuthority(authorityId, { tasks: updatedTasks }, adminInfo);
+}
+
+/**
+ * Recalculate userCount for an authority by querying users with matching core.authorityId.
+ * Returns the new count.
+ */
+export async function syncUserCount(authorityId: string): Promise<number> {
+  const q = query(
+    collection(db, 'users'),
+    where('core.authorityId', '==', authorityId),
+  );
+  const snap = await getDocs(q);
+  const count = snap.size;
+
+  const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
+  await updateDoc(docRef, { userCount: count, updatedAt: serverTimestamp() });
+  return count;
+}
+
+/**
+ * Bulk-sync userCount for ALL authorities. Returns a map of authorityId -> count.
+ */
+export async function syncAllUserCounts(): Promise<Map<string, number>> {
+  const usersSnap = await getDocs(collection(db, 'users'));
+  const countMap = new Map<string, number>();
+
+  usersSnap.docs.forEach((d) => {
+    const aid = d.data()?.core?.authorityId;
+    if (aid && typeof aid === 'string') {
+      countMap.set(aid, (countMap.get(aid) ?? 0) + 1);
+    }
+  });
+
+  const batch = writeBatch(db);
+  let batchCount = 0;
+
+  for (const [aid, count] of countMap) {
+    batch.update(doc(db, AUTHORITIES_COLLECTION, aid), {
+      userCount: count,
+      updatedAt: serverTimestamp(),
+    });
+    batchCount++;
+    if (batchCount >= 490) {
+      await batch.commit();
+      batchCount = 0;
+    }
+  }
+  if (batchCount > 0) await batch.commit();
+
+  return countMap;
 }
 
 /**

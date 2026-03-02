@@ -113,6 +113,8 @@ export interface CategoryMetrics {
   percentage: number;
   /** Whether daily goal is met */
   isGoalMet: boolean;
+  /** Number of discrete workout sessions logged today */
+  sessions: number;
 }
 
 /**
@@ -168,6 +170,9 @@ export interface WeeklyActivitySummary {
   
   /** Total minutes per category for the week */
   categoryTotals: Record<ActivityCategory, number>;
+
+  /** Total discrete workout sessions per category for the week */
+  categorySessions: Record<ActivityCategory, number>;
   
   /** Weekly goals per category */
   categoryGoals: Record<ActivityCategory, number>;
@@ -284,6 +289,45 @@ export const DEFAULT_WEEKLY_GOALS: Record<ActivityCategory, number> = {
  */
 export const STREAK_MINIMUM_MINUTES = 10;
 
+// ============================================================================
+// WHO COMPLIANCE BASELINE
+// ============================================================================
+
+/**
+ * WHO Physical Activity Guidelines (adults 18-64).
+ * These are fixed baselines — NOT the user's personal goal.
+ * The UI shows a "WHO Gold Medal" when BOTH conditions are met in a week.
+ *
+ * Source: WHO 2020 Guidelines on Physical Activity and Sedentary Behaviour
+ * - At least 150 minutes of moderate-intensity aerobic activity per week
+ * - At least 2 sessions of muscle-strengthening activities per week
+ */
+export const WHO_COMPLIANCE_BASELINE = {
+  /** Minimum weekly aerobic minutes (strength + cardio combined) */
+  weeklyAerobicMinutes: 150,
+  /** Minimum strength sessions per week */
+  minStrengthSessions: 2,
+  /** Upper recommended range (for "extra credit" visualization) */
+  weeklyAerobicMinutesUpper: 300,
+} as const;
+
+/**
+ * Weekly compliance snapshot — computed from ActivityStore data.
+ * Used by UI to show personal-goal progress vs. WHO baseline status.
+ */
+export interface WeeklyComplianceStatus {
+  /** Total aerobic minutes this week (strength + cardio categories) */
+  totalAerobicMinutes: number;
+  /** Number of distinct strength sessions logged this week */
+  strengthSessionCount: number;
+  /** Whether the WHO aerobic baseline (150 min) is met */
+  aerobicBaselineMet: boolean;
+  /** Whether the WHO strength baseline (2 sessions) is met */
+  strengthBaselineMet: boolean;
+  /** Whether BOTH WHO conditions are met (= "Gold Medal") */
+  whoCompliant: boolean;
+}
+
 /**
  * Create empty category metrics
  */
@@ -298,6 +342,7 @@ export function createEmptyCategoryMetrics(
     weeklyGoalMinutes,
     percentage: 0,
     isGoalMet: false,
+    sessions: 0,
   };
 }
 

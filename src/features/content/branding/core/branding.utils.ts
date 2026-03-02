@@ -77,6 +77,14 @@ export interface TagResolverContext {
   targetValue?: string;
   /** Percentage progress toward next level (0-100) (for @אחוז_התקדמות_רמה tag) */
   goalProgressPercent?: number;
+
+  // === Logic Cue Context (Coach's Note) ===
+  /** Intensity reasoning, e.g. "מנוחה מקוצרת ל-45 שניות ללחץ מטבולי" */
+  intensityReason?: string;
+  /** Challenge type, e.g. "הוזרקה התקדמות רמה+1 לאתגר הכוח שלך" */
+  challengeType?: string;
+  /** Equipment adaptation, e.g. "חלופות משקל גוף בלבד – ללא ציוד" */
+  equipmentAdaptation?: string;
 }
 
 /**
@@ -706,6 +714,20 @@ export function resolveDescription(
       return `${Math.round(context.goalProgressPercent)}%`;
     }
     return '0%';
+  });
+
+  // ── Logic Cue Tags (Coach's Note) ─────────────────────────────────
+
+  resolved = resolved.replace(/@סיבת_עצימות/g, () => {
+    return context.intensityReason || '';
+  });
+
+  resolved = resolved.replace(/@סוג_אתגר/g, () => {
+    return context.challengeType || '';
+  });
+
+  resolved = resolved.replace(/@התאמת_ציוד/g, () => {
+    return context.equipmentAdaptation || '';
   });
 
   // Also support the notification tags for consistency

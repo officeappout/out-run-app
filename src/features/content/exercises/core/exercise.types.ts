@@ -191,7 +191,10 @@ export type MuscleGroup =
   | 'cardio'
   | 'full_body'
   | 'core'
-  | 'legs';
+  | 'legs'
+  | 'serratus'
+  | 'adductors'
+  | 'hip_flexors';
 
 /**
  * Labels for muscle groups (for UI display)
@@ -216,6 +219,9 @@ export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, { he: string; en: string }
   full_body: { he: 'כל הגוף', en: 'Full Body' },
   core: { he: 'ליבה', en: 'Core' },
   legs: { he: 'רגליים', en: 'Legs' },
+  serratus: { he: 'המסור', en: 'Serratus' },
+  adductors: { he: 'מקרבי הירך', en: 'Adductors' },
+  hip_flexors: { he: 'כופפי הירך', en: 'Hip Flexors' },
 };
 
 export type EquipmentType =
@@ -246,7 +252,8 @@ export type MovementGroup =
   | 'horizontal_pull'
   | 'vertical_pull'
   | 'core'
-  | 'isolation';
+  | 'isolation'
+  | 'flexibility';
 
 /**
  * Exercise tags for classification and filtering
@@ -443,6 +450,9 @@ export interface AlternativeEquipmentRequirement {
 /**
  * Exercise document structure in Firestore
  */
+/** Access tier required to view/use this content. 1=Starter, 2=Municipal, 3=Pro/Elite */
+export type ContentTier = 1 | 2 | 3;
+
 export interface Exercise {
   id: string;
   /**
@@ -515,8 +525,8 @@ export interface Exercise {
   secondsPerRep?: number;
   /**
    * Default rest seconds between sets for this exercise.
-   * Default: 30 seconds.
-   * Note: This is a fallback value. Advanced workout programs will override this.
+   * @deprecated — Tier Engine is now the single source of truth for rest.
+   * Kept for Firestore backward compat but no longer consumed by the generator.
    */
   defaultRestSeconds?: number;
   /**
@@ -578,6 +588,12 @@ export interface Exercise {
    * If not set, no location-based gaps will be flagged.
    */
   requiredLocations?: ExecutionLocation[];
+
+  /**
+   * Access tier required for this exercise. Default: 1 (Starter / free)
+   * User must have accessLevel >= requiredTier OR exercise id in unlockedProgramIds
+   */
+  requiredTier?: ContentTier;
   
   createdAt?: Date;
   updatedAt?: Date;

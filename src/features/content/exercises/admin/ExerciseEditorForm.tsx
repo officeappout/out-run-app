@@ -188,6 +188,9 @@ export default function ExerciseEditorForm({
     
     // === PRODUCTION REQUIREMENTS ===
     requiredLocations: initialData?.requiredLocations ? [...initialData.requiredLocations] : [],
+    
+    // === ACCESS CONTROL ===
+    requiredTier: initialData?.requiredTier ?? 1,
   });
 
   // CRITICAL: Sanitize highlights on initial load
@@ -423,6 +426,9 @@ export default function ExerciseEditorForm({
         
         // === PRODUCTION REQUIREMENTS ===
         requiredLocations: initialData.requiredLocations ? [...initialData.requiredLocations] : [],
+        
+        // === ACCESS CONTROL ===
+        requiredTier: initialData.requiredTier ?? 1,
       });
       setHighlights(sanitizedHighlights);
       setExecutionMethods(sanitizedExecutionMethods);
@@ -565,6 +571,9 @@ export default function ExerciseEditorForm({
       
       // === PRODUCTION REQUIREMENTS ===
       requiredLocations: formData.requiredLocations,
+      
+      // === ACCESS CONTROL ===
+      requiredTier: formData.requiredTier ?? 1,
       
       // === MEDIA (synced) ===
       media: {

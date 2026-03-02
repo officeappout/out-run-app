@@ -51,6 +51,13 @@ interface ConcentricRingsProgressProps {
   className?: string;
   /** Compact mode (smaller, no legend) */
   compact?: boolean;
+  /**
+   * Dynamic dominant color: when true, the center text and glow
+   * shift color to match the category with the most logged minutes.
+   * This creates a "chameleon" effect — more Cardio = Lime center,
+   * more Strength = Cyan center, etc.
+   */
+  dynamicCenterColor?: boolean;
 }
 
 // ============================================================================
@@ -175,6 +182,7 @@ export default function ConcentricRingsProgress({
   animationDuration = 1,
   className = '',
   compact = false,
+  dynamicCenterColor = false,
 }: ConcentricRingsProgressProps) {
   // Fetch ring data from activity store
   const { ringData: storeRingData, totalMinutesToday, isLoading } = useDailyActivity();
@@ -182,23 +190,39 @@ export default function ConcentricRingsProgress({
   // Use custom data or store data
   const rings = customRingData || storeRingData;
   
-  // Calculate dimensions
-  const actualSize = compact ? 100 : size;
-  const actualStrokeWidth = compact ? 8 : strokeWidth;
+  // Calculate dimensions — respect explicit size prop; compact only affects text sizing
+  const actualSize = size;
+  const actualStrokeWidth = strokeWidth;
   const center = actualSize / 2;
-  const padding = actualStrokeWidth / 2 + 4;
-  
+
+  // Proportional padding & gap: at large sizes (80+) use generous spacing;
+  // at small/medium sizes (≤50) flush rings with 0px gap for a solid disc look.
+  const isSmall = actualSize <= 50;
+  const padding = isSmall
+    ? actualStrokeWidth / 2
+    : actualStrokeWidth / 2 + 4;
+  const ringGap = isSmall
+    ? actualStrokeWidth
+    : actualStrokeWidth + 4;
+
   // Ring radii (outermost to innermost)
   const ringRadii = useMemo(() => {
     const maxRadius = center - padding;
-    const ringGap = actualStrokeWidth + 4;
     return [
       maxRadius,                    // Outer ring
       maxRadius - ringGap,          // Middle ring
       maxRadius - ringGap * 2,      // Inner ring
-    ];
-  }, [center, padding, actualStrokeWidth]);
+    ].map(r => Math.max(r, 1));     // Clamp to ≥1 to prevent negatives
+  }, [center, padding, ringGap]);
   
+  // Dynamic dominant color: pick the hex color of the ring with the most logged minutes
+  const dominantRingColor = useMemo(() => {
+    if (!dynamicCenterColor || rings.length === 0) return undefined;
+    const sorted = [...rings].sort((a, b) => b.value - a.value);
+    // Only apply if the dominant ring has non-zero value
+    return sorted[0]?.value > 0 ? sorted[0].color : undefined;
+  }, [dynamicCenterColor, rings]);
+
   // Calculate center display value
   const centerValue = useMemo(() => {
     if (rings.length === 0) return { main: '0', sub: '' };
@@ -256,7 +280,7 @@ export default function ConcentricRingsProgress({
           width={actualSize} 
           height={actualSize}
           viewBox={`0 0 ${actualSize} ${actualSize}`}
-          className="overflow-visible"
+          className={isSmall ? '' : 'overflow-visible'}
         >
           {/* Gradient definitions */}
           <defs>
@@ -308,15 +332,21 @@ export default function ConcentricRingsProgress({
             transition={{ delay: 0.3, duration: 0.3 }}
             className="absolute inset-0 flex flex-col items-center justify-center"
           >
-            <span className={`font-black text-gray-900 dark:text-white leading-none ${
-              compact ? 'text-xl' : 'text-3xl'
-            }`}>
+            <span
+              className={`font-black leading-none ${compact ? 'text-xl' : 'text-3xl'} ${
+                dominantRingColor ? '' : 'text-gray-900 dark:text-white'
+              }`}
+              style={dominantRingColor ? { color: dominantRingColor } : undefined}
+            >
               {centerValue.main}
             </span>
             {centerValue.sub && (
-              <span className={`font-bold text-gray-400 ${
-                compact ? 'text-[10px]' : 'text-xs'
-              }`}>
+              <span
+                className={`font-bold ${compact ? 'text-[10px]' : 'text-xs'} ${
+                  dominantRingColor ? '' : 'text-gray-400'
+                }`}
+                style={dominantRingColor ? { color: dominantRingColor, opacity: 0.7 } : undefined}
+              >
                 {centerValue.sub}
               </span>
             )}
@@ -371,13 +401,13 @@ export function CompactRingsProgress({
     <ConcentricRingsProgress
       size={size}
       strokeWidth={strokeWidth}
-      showCenter={size >= 50} // Only show center content if large enough
+      showCenter={size >= 50}
       centerMode="percentage"
       showLegend={false}
       ringData={ringData}
-      animationDuration={0.8}
+      animationDuration={0.6}
       className={className}
-      compact={true}
+      compact={size <= 100}
     />
   );
 }

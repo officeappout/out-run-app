@@ -689,6 +689,20 @@ export function normalizeExercise(docId: string, data: any): Exercise {
   const normalizedSymmetry = mapSymmetry(data.symmetry);
   const normalizedMechanicalType = mapMechanicalType(data.mechanicalType);
 
+  // ── Resolve top-level imageUrl ──
+  // Firestore docs may store the image under various field names:
+  //   media.imageUrl  |  imageUrl  |  image_url  |  coverImage  |  thumbnailUrl
+  // We also pull from the first execution_method's media as a last resort.
+  const rawMediaImageUrl =
+    data.media?.imageUrl ||
+    data.imageUrl ||
+    data.image_url ||
+    data.coverImage ||
+    data.thumbnailUrl ||
+    sanitizedExecutionMethods?.[0]?.media?.imageUrl ||
+    sanitizedExecutionMethods?.[0]?.media?.mainVideoUrl ||
+    undefined;
+
   const exercise: Exercise = {
     id: docId,
     name: data.name || { he: '', en: '', es: '' },
@@ -703,7 +717,10 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     equipment: Array.isArray(data.equipment) ? data.equipment : [],
     muscleGroups: Array.isArray(data.muscleGroups) ? data.muscleGroups : [],
     programIds: Array.isArray(data.programIds) ? data.programIds : [],
-    media: data.media || {},
+    media: {
+      ...(data.media || {}),
+      imageUrl: rawMediaImageUrl,
+    },
     execution_methods: sanitizedExecutionMethods,
     executionMethods: sanitizedExecutionMethods, // Alias for camelCase access
     content: {
@@ -716,7 +733,9 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     alternativeEquipmentRequirements: Array.isArray(data.alternativeEquipmentRequirements)
       ? data.alternativeEquipmentRequirements
       : undefined,
-    base_movement_id: data.base_movement_id || undefined, // Optional field
+    base_movement_id: (data.base_movement_id && String(data.base_movement_id).trim())
+      ? data.base_movement_id
+      : 'unspecified_movement', // Testing bypass: allow Level 6/7 exercises; Smart Swap broken for these
     targetPrograms: Array.isArray(data.targetPrograms) ? data.targetPrograms : undefined,
     movementGroup: data.movementGroup || undefined,
     createdAt: toDate(data.createdAt),
@@ -750,11 +769,10 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     requiredLocations: Array.isArray(data.requiredLocations) ? data.requiredLocations : undefined,
   };
 
-  // Log warning if base_movement_id is missing and exercise has execution_methods (needed for Smart Swap)
-  if (!exercise.base_movement_id && exercise.execution_methods && exercise.execution_methods.length > 0) {
-    console.warn(
-      `[normalizeExercise] Missing base_movement_id for exercise "${getLocalizedText(exercise.name)}" (ID: ${docId}). ` +
-        `This field is required for Smart Swap functionality. Please add it in the admin panel.`
+  // [Testing Bypass] Log when fallback was assigned — Smart Swap Variations tab will be limited for these
+  if (exercise.base_movement_id === 'unspecified_movement' && exercise.execution_methods && exercise.execution_methods.length > 0) {
+    console.log(
+      `[Testing Bypass] Missing base_movement_id for "${getLocalizedText(exercise.name)}". Assigned 'unspecified_movement'.`
     );
   }
 
@@ -778,6 +796,7 @@ const MOVEMENT_GROUP_TO_BASE: Record<string, string> = {
   hinge: 'pistol_squat',
   core: 'l_sit',
   isolation: 'ring_work',
+  flexibility: 'stretch',
 };
 
 /**

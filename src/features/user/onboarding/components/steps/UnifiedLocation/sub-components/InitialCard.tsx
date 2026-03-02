@@ -5,11 +5,15 @@ import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import type { InitialCardProps } from '../location-types';
 
-export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually }: InitialCardProps) {
+export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity }: InitialCardProps) {
+  const isExplorer = mode === 'explorer';
   const userName = typeof window !== 'undefined' 
     ? sessionStorage.getItem('onboarding_personal_name') || ''
     : '';
   const isFemale = gender === 'female';
+
+  // Dynamic location anchor for the headline
+  const locationAnchor = detectedNeighborhood || detectedCity || null;
   
   return (
     <motion.div
@@ -20,13 +24,17 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
       className="absolute bottom-0 left-0 right-0 z-20"
       dir="rtl"
     >
-      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-12 pb-4">
-        <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-6 border-t border-slate-100/40">
+      <div className="bg-gradient-to-t from-white via-white/98 to-transparent pt-12 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(91,194,242,0.10)] p-6 pb-8 border-t border-slate-100/40">
           <h2 
             className="text-2xl font-bold leading-tight text-slate-900 mb-3"
             style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right' }}
           >
-            {userName ? (
+            {isExplorer ? (
+              locationAnchor
+                ? <>הגינה הכי קרובה ל{locationAnchor}</>
+                : <>היי, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>
+            ) : userName ? (
               <>היי {userName}, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>
             ) : (
               <>בואו נמצא את הגינה הכי קרובה אליכם</>
@@ -36,9 +44,11 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             className="text-slate-600 leading-relaxed text-sm mb-4"
             style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right' }}
           >
-            מיפינו מאות גינות כושר ברחבי הארץ, עם מתקנים שמתאימים לאימוני OUT.
-            {' '}
-            {t('אשר את המיקום שלך ונמצא את הגינה הקרובה אליך.', 'אשרי את המיקום שלך ונמצא את הגינה הקרובה אלייך.')}
+            {isExplorer ? (
+              <>מיפינו מאות גינות כושר, מגרשים ומסלולים ברחבי הארץ. {t('אשר את המיקום שלך ונגלה מה יש באזור!', 'אשרי את המיקום שלך ונגלה מה יש באזור!')}</>
+            ) : (
+              <>מיפינו מאות גינות כושר ברחבי הארץ, עם מתקנים שמתאימים לאימוני OUT.{' '}{t('אשר את המיקום שלך ונמצא את הגינה הקרובה אליך.', 'אשרי את המיקום שלך ונמצא את הגינה הקרובה אלייך.')}</>
+            )}
           </p>
 
           {locationError && (
@@ -64,7 +74,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
 
           <button
             onClick={onSearchManually}
-            className="w-full mt-3 text-slate-500 hover:text-[#5BC2F2] text-sm py-2 transition-colors"
+            className="w-full mt-4 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             או חפשו ידנית

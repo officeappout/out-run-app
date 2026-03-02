@@ -1,5 +1,6 @@
 import { RunningProfile } from '../../../workout-engine/core/types/running.types';
 import { DomainTrackProgress, ReadyForSplitStatus } from './progression.types';
+import type { RecurringTemplate } from '../../scheduling/types/schedule.types';
 
 // ==========================================
 // Level Goal Progress Tracking
@@ -147,6 +148,17 @@ export interface UserProgression {
   // --- Level Goal Progress Tracking ---
   // Tracks user's performance on admin-defined target exercises per level
   levelGoalProgress?: UserLevelGoalProgress[];
+
+  // --- 48-Hour Muscle Shield (Split Engine) ---
+  /** Muscle groups trained in the last session. Excluded from next session for Habit Builder path. */
+  lastSessionMuscleGroups?: import('@/features/content/exercises/core/exercise.types').MuscleGroup[];
+  /** Date of last session 'YYYY-MM-DD' */
+  lastSessionDate?: string;
+  /** Focus of last session ('push' | 'pull') for Push/Pull rotation */
+  lastSessionFocus?: string;
+
+  /** Ordered skill IDs for multi-skill hybrid (Path C, 2+ skills). Drives P1/P2/P3 rotation in calisthenics_upper. */
+  skillFocusIds?: string[];
 }
 
 // ==========================================
@@ -162,7 +174,32 @@ export interface EquipmentProfile {
 // ==========================================
 // 4.1 Dashboard / Home Mode
 // ==========================================
-export type DashboardMode = 'DEFAULT' | 'RUNNING' | 'PERFORMANCE';
+export type DashboardMode = 'DEFAULT' | 'RUNNING' | 'PERFORMANCE' | 'HYBRID';
+
+// ==========================================
+// 4.2 Primary Track (Persona Engine)
+// Derived from questionnaire goals during onboarding.
+// Drives dashboard mode, ring priority, and future WHO compliance.
+// ==========================================
+export type PrimaryTrack = 'health' | 'strength' | 'run' | 'hybrid';
+
+// ==========================================
+// 4.2 Access Control — Tiered Affiliations
+// ==========================================
+
+/** Access tier: 1 = Starter (free), 2 = Municipal (city), 3 = Pro/Elite (school/company) */
+export type AccessTier = 1 | 2 | 3;
+
+export interface UserAffiliation {
+  type: 'city' | 'school' | 'company';
+  id: string;           // e.g., 'tel-aviv', 'school_123', 'intel'
+  tier: AccessTier;
+  name?: string;        // Display name (e.g., "תל אביב", "בית ספר הרצוג")
+  joinedAt?: Date;
+}
+
+/** Onboarding path chosen at the Gateway */
+export type OnboardingPath = 'MAP_ONLY' | 'FULL_PROGRAM';
 
 // ==========================================
 // 5. הפרופיל המלא והסופי (Root Object)
@@ -189,6 +226,30 @@ export interface UserFullProfile {
 
     // Active Reserve Status — gives +20 scoring boost to reservist-targeted content
     isActiveReserve?: boolean;
+
+    // --- Access Control (Modular Onboarding) ---
+    /** Computed effective access level: Math.max() across all affiliations. Default: 1 */
+    accessLevel?: AccessTier;
+    /** List of affiliations granting access (cities via GPS, schools/companies via code) */
+    affiliations?: UserAffiliation[];
+    /** Individually unlocked program IDs (purchase/code bypass) */
+    unlockedProgramIds?: string[];
+    /** Whether the user's identity has been verified (onboardingProgress = 100%) */
+    isVerified?: boolean;
+
+    /** Age group for Safe-City Map segregation — derived from birthDate */
+    ageGroup?: 'minor' | 'adult';
+
+    /** Viral gate: count of friends successfully referred. Social features unlock at 1. */
+    referralCount?: number;
+  };
+
+  // ── Pillar 1 — Social graph (denormalized for fast client queries) ───────────
+  social?: {
+    /** IDs of community_groups the user has joined (mirrors group_members sub-collection) */
+    groupIds?: string[];
+    /** Cached display of referralCount for partner-count widgets */
+    partnerCount?: number;
   };
 
   // כאן יושבת המערכת החדשה המאוחדת
@@ -208,17 +269,51 @@ export interface UserFullProfile {
   lifestyle: {
     hasDog: boolean;
     commute: { method: 'bus' | 'car' | 'bike' | 'walk'; workLocation?: { lat: number; lng: number }; enableChallenges: boolean };
-    scheduleDays?: string[]; // Array of Hebrew day letters: ['א', 'ב', 'ג'] - workout days
-    trainingTime?: string; // HH:MM format - preferred workout time
+    scheduleDays?: string[]; // Array of Hebrew day letters: ['א', 'ב', 'ג'] - workout days (legacy, kept for backward compat)
+    trainingTime?: string; // HH:MM format - preferred workout time (consumed by UTS Momentum Guard)
+    trainingHistory?: 'none' | '1-2' | '3+'; // Training frequency from lifestyle wizard
     dashboardMode?: DashboardMode; // Explicit dashboard mode override (DEFAULT/RUNNING/PERFORMANCE)
+    primaryTrack?: PrimaryTrack; // Persona-derived track: drives dashboard mode, ring priority, WHO compliance
     lifestyleTags?: string[]; // Lifestyle tags from selected persona (e.g., ['office_worker', 'student'])
+    /**
+     * UTS Phase 1 — per-day program assignment template.
+     * Keys = Hebrew day letters (Sun='א'…Sat='ש').
+     * Values = Firestore program document ID array for that day.
+     * Empty array value = explicit rest day (generates active recovery).
+     * Omitted key = silent rest day (no document written).
+     *
+     * Example: { 'א': ['push_prog_id'], 'ג': ['pull_prog_id', 'core_prog_id'], 'ה': [] }
+     */
+    recurringTemplate?: RecurringTemplate;
   };
   
   // Persona (Lemur) selection
   personaId?: string; // ID of selected persona
   profileCompleted?: boolean; // Whether deep dive refinement questionnaire was completed
 
+  // --- Onboarding & Completion Tracking ---
+  /** 0-100 profile completion percentage (drives Verified Badge at 100%) */
+  onboardingProgress?: number;
+  /** Gateway path chosen: MAP_ONLY (quick explore) or FULL_PROGRAM (full onboarding) */
+  onboardingPath?: OnboardingPath;
+  /** Current onboarding status: tracks position in the adaptive waterfall */
+  onboardingStatus?: 'IN_PROGRESS' | 'COMPLETED' | 'PENDING_LIFESTYLE' | 'MAP_ONLY' | 'ONBOARDING';
+  /** Current onboarding step within the flow */
+  onboardingStep?: string;
+  /** Whether the first workout has been generated and is ready */
+  firstWorkoutReady?: boolean;
+  /** Location context for the first generated workout */
+  firstWorkoutLocation?: string;
+  /** Park ID used for the first workout (if park workout) */
+  firstWorkoutParkId?: string;
+
   health: { injuries: string[]; connectedWatch: 'apple' | 'garmin' | 'none' };
+
+  /** User settings (push notifications, calendar sync, etc.) */
+  settings?: {
+    pushEnabled?: boolean;
+    calendarSync?: boolean;
+  };
 
   running: RunningProfile; // מתוך קובץ הריצה הנפרד
 

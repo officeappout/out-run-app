@@ -30,12 +30,59 @@ export type LevelDoc = Level;
 export type ProgramDoc = Program;
 
 /**
- * Convert Firestore timestamp to Date
+ * Convert Firestore timestamp to Date — bulletproof against every shape
+ * Firestore returns can take: Timestamp, Date, {seconds, nanoseconds}, number, or string.
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
+function toDate(timestamp: any): Date | undefined {
   if (!timestamp) return undefined;
+  // Already a JS Date
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  // Firestore Timestamp with .toDate()
+  if (typeof timestamp.toDate === 'function') {
+    try { return timestamp.toDate(); } catch { /* fall through */ }
+  }
+  // Plain object with seconds (e.g. serialised Timestamp from SSR / REST)
+  if (typeof timestamp === 'object' && typeof timestamp.seconds === 'number') {
+    return new Date(timestamp.seconds * 1000);
+  }
+  // Numeric epoch (milliseconds)
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  // ISO string
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Unrecognised — return undefined so callers degrade gracefully
+  return undefined;
+}
+
+/**
+ * Deep-remove undefined values from any object/array before writing to Firestore.
+ * - Replaces `undefined` with `null` at every nesting level.
+ * - Safe for plain objects, arrays, and primitives.
+ */
+function deepCleanForFirestore<T>(value: T): T {
+  if (value === undefined) return null as unknown as T;
+  if (value === null || typeof value !== 'object') return value;
+  if (value instanceof Date || value instanceof Timestamp) return value;
+
+  if (Array.isArray(value)) {
+    return value.map(deepCleanForFirestore) as unknown as T;
+  }
+
+  const cleaned: Record<string, any> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v === undefined) {
+      // Option: omit key entirely — but callers may need null to clear a field
+      // So we convert to null
+      cleaned[k] = null;
+    } else {
+      cleaned[k] = deepCleanForFirestore(v);
+    }
+  }
+  return cleaned as T;
 }
 
 // ==========================================
@@ -73,20 +120,31 @@ export async function getAllQuestions(
     }
     
     const snapshot = await getDocs(q);
-    let questions = snapshot.docs.map(doc => {
-      const data = doc.data();
-      // Migrate old string format to new format
-      const title = migrateTextToMultilingual(data.title);
-      const description = migrateTextToMultilingual(data.description);
-      
-      return {
-        id: doc.id,
-        ...data,
-        title: title || { he: { neutral: '' } },
-        description: description,
-        createdAt: toDate(data.createdAt),
-        updatedAt: toDate(data.updatedAt),
-      } as OnboardingQuestion;
+    let questions = snapshot.docs.map(d => {
+      try {
+        const data = d.data();
+        const title = migrateTextToMultilingual(data.title);
+        const description = migrateTextToMultilingual(data.description);
+        
+        return {
+          id: d.id,
+          ...data,
+          title: title || { he: { neutral: '' } },
+          description: description,
+          createdAt: toDate(data.createdAt),
+          updatedAt: toDate(data.updatedAt),
+        } as OnboardingQuestion;
+      } catch (mapErr) {
+        console.error(`[getAllQuestions] Skipping corrupt question doc ${d.id}:`, mapErr);
+        // Return a minimal safe stub so the list still loads
+        return {
+          id: d.id,
+          title: { he: { neutral: `[שגיאה] ${d.id}` } },
+          type: 'choice' as const,
+          part: 'assessment' as const,
+          isFirstQuestion: false,
+        } as OnboardingQuestion;
+      }
     });
 
     // Apply language filter
@@ -186,16 +244,18 @@ export async function getFirstQuestion(
     );
     const snapshot = await getDocs(q);
     
-    if (snapshot.empty) return null;
+    if (snapshot.empty) {
+      console.warn(`[getFirstQuestion] No document found with part="${part}" AND isFirstQuestion=true`);
+      return null;
+    }
     
-    let questions = snapshot.docs.map(doc => {
-      const data = doc.data();
-      // Migrate old string format to new format
+    const allQuestions = snapshot.docs.map(d => {
+      const data = d.data();
       const title = migrateTextToMultilingual(data.title);
       const description = migrateTextToMultilingual(data.description);
       
       return {
-        id: doc.id,
+        id: d.id,
         ...data,
         title: title || { he: { neutral: '' } },
         description: description,
@@ -204,29 +264,30 @@ export async function getFirstQuestion(
       } as OnboardingQuestion;
     });
 
-    // Apply language filter
+    // Try to narrow by language, but fall back to full set if nothing passes
     const targetLanguage = language || 'he';
-    questions = questions.filter((question) => {
+    const langFiltered = allQuestions.filter((question) => {
       if (typeof question.title === 'string') {
         return targetLanguage === 'he';
       }
-      const langContent = question.title[targetLanguage];
+      const langContent = (question.title as MultilingualText)[targetLanguage];
       if (langContent && (langContent.neutral || langContent.female)) {
         return true;
       }
       if (question.language !== undefined) {
         return question.language === targetLanguage;
       }
-      return question.title.he && (question.title.he.neutral || question.title.he.female);
+      // Fallback: accept if Hebrew content exists (default language)
+      const heContent = (question.title as MultilingualText).he;
+      return heContent && (heContent.neutral || heContent.female);
     });
 
-    // Apply gender filter
+    // Try to narrow by gender, but fall back if nothing passes
     const targetGender = gender || 'neutral';
-    questions = questions.filter((question) => {
-      if (typeof question.title === 'string') {
-        return true;
-      }
-      const langContent = question.title[targetLanguage];
+    const base = langFiltered.length > 0 ? langFiltered : allQuestions;
+    const genderFiltered = base.filter((question) => {
+      if (typeof question.title === 'string') return true;
+      const langContent = (question.title as MultilingualText)[targetLanguage];
       if (langContent) {
         if (targetGender === 'neutral') return true;
         return langContent.neutral !== undefined || langContent.female !== undefined;
@@ -237,9 +298,15 @@ export async function getFirstQuestion(
       return true;
     });
 
-    if (questions.length === 0) return null;
+    // Final fallback chain: gender-filtered → lang-filtered → all
+    const result = genderFiltered.length > 0 ? genderFiltered : (langFiltered.length > 0 ? langFiltered : allQuestions);
+
+    if (result.length === 0) {
+      console.warn(`[getFirstQuestion] Filters eliminated all candidates for part="${part}"`);
+      return null;
+    }
     
-    return questions[0];
+    return result[0];
   } catch (error) {
     console.error('Error fetching first question:', error);
     throw error;
@@ -303,14 +370,10 @@ export async function createQuestion(data: Omit<OnboardingQuestion, 'id' | 'crea
     delete questionData.language;
     delete questionData.gender;
 
-    // Clean any other undefined values
-    Object.keys(questionData).forEach(key => {
-      if (questionData[key] === undefined) {
-        delete questionData[key];
-      }
-    });
+    // Final deep sweep — guarantee zero undefined at any nesting level
+    const safeData = deepCleanForFirestore(questionData);
 
-    const docRef = await addDoc(collection(db, QUESTIONS_COLLECTION), questionData);
+    const docRef = await addDoc(collection(db, QUESTIONS_COLLECTION), safeData);
     return docRef.id;
   } catch (error) {
     console.error('Error creating question:', error);
@@ -368,14 +431,14 @@ export async function updateQuestion(
         key !== 'progressIconSvg'
       ) {
         const value = (data as any)[key];
-        // Skip undefined values - Firebase doesn't accept them
         if (value !== undefined) {
           updateData[key] = value;
         }
       }
     });
 
-    await updateDoc(docRef, updateData);
+    // Final deep sweep before write
+    await updateDoc(docRef, deepCleanForFirestore(updateData));
   } catch (error) {
     console.error('Error updating question:', error);
     throw error;
@@ -423,18 +486,27 @@ export async function getAnswersByQuestionId(
     );
     const snapshot = await getDocs(q);
     
-    let answers = snapshot.docs.map(doc => {
-      const data = doc.data();
-      // Migrate old string format to new format
-      const text = migrateTextToMultilingual(data.text);
-      
-      return {
-        id: doc.id,
-        ...data,
-        text: text || { he: { neutral: '' } },
-        createdAt: toDate(data.createdAt),
-        updatedAt: toDate(data.updatedAt),
-      } as OnboardingAnswer;
+    let answers = snapshot.docs.map(d => {
+      try {
+        const data = d.data();
+        const text = migrateTextToMultilingual(data.text);
+        
+        return {
+          id: d.id,
+          ...data,
+          text: text || { he: { neutral: '' } },
+          createdAt: toDate(data.createdAt),
+          updatedAt: toDate(data.updatedAt),
+        } as OnboardingAnswer;
+      } catch (mapErr) {
+        console.error(`[getAnswersByQuestionId] Skipping corrupt answer doc ${d.id}:`, mapErr);
+        return {
+          id: d.id,
+          questionId,
+          text: { he: { neutral: `[שגיאה] ${d.id}` } },
+          order: 0,
+        } as OnboardingAnswer;
+      }
     });
 
     // Apply language filter
@@ -527,12 +599,8 @@ export async function createAnswer(data: Omit<OnboardingAnswer, 'id' | 'createdA
       masterProgramSubLevels: data.masterProgramSubLevels !== undefined ? (data.masterProgramSubLevels || null) : null,
       // Legacy numeric
       assignedLevel: data.assignedLevel !== undefined ? (data.assignedLevel || null) : null,
-      // Handle assignedResults: array of AnswerResult objects
-      assignedResults: data.assignedResults !== undefined 
-        ? (Array.isArray(data.assignedResults) && data.assignedResults.length > 0 
-            ? data.assignedResults 
-            : null)
-        : null,
+      // Handle assignedResults: array of AnswerResult objects (deep-sanitised)
+      assignedResults: sanitizeAssignedResults(data.assignedResults),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -541,12 +609,42 @@ export async function createAnswer(data: Omit<OnboardingAnswer, 'id' | 'createdA
     delete cleanData.language;
     delete cleanData.gender;
 
-    const docRef = await addDoc(collection(db, ANSWERS_COLLECTION), cleanData);
+    // Final deep sweep — guarantee zero undefined at any nesting level
+    const safeData = deepCleanForFirestore(cleanData);
+
+    const docRef = await addDoc(collection(db, ANSWERS_COLLECTION), safeData);
     return docRef.id;
   } catch (error) {
     console.error('Error creating answer:', error);
     throw error;
   }
+}
+
+/**
+ * Strip undefined values from an AnswerResult item so Firestore doesn't choke.
+ * Required fields (programId, levelId) fall back to empty string if somehow missing.
+ */
+function sanitizeAnswerResult(item: Record<string, any>): Record<string, any> {
+  const clean: Record<string, any> = {
+    programId: item.programId ?? '',
+    levelId: item.levelId ?? '',
+  };
+  if (item.masterProgramSubLevels !== undefined && item.masterProgramSubLevels !== null) {
+    clean.masterProgramSubLevels = item.masterProgramSubLevels;
+  }
+  if (item.nextQuestionnaireId !== undefined && item.nextQuestionnaireId !== null) {
+    clean.nextQuestionnaireId = item.nextQuestionnaireId;
+  }
+  return clean;
+}
+
+/**
+ * Sanitize an assignedResults array: strip undefined values from each item.
+ * Returns null if the input is falsy or empty.
+ */
+function sanitizeAssignedResults(results: any): any[] | null {
+  if (!Array.isArray(results) || results.length === 0) return null;
+  return results.map(sanitizeAnswerResult);
 }
 
 /**
@@ -596,14 +694,9 @@ function cleanAnswerData(data: Partial<Omit<OnboardingAnswer, 'id' | 'createdAt'
     cleaned.assignedLevel = data.assignedLevel || null;
   }
 
-  // Handle assignedResults: array of AnswerResult objects
+  // Handle assignedResults: array of AnswerResult objects (deep-sanitised)
   if (data.assignedResults !== undefined) {
-    if (Array.isArray(data.assignedResults) && data.assignedResults.length > 0) {
-      cleaned.assignedResults = data.assignedResults;
-    } else {
-      // If empty array or undefined, set to null to clear it
-      cleaned.assignedResults = null;
-    }
+    cleaned.assignedResults = sanitizeAssignedResults(data.assignedResults);
   }
 
   // Handle text: migrate to MultilingualText if needed
@@ -615,14 +708,8 @@ function cleanAnswerData(data: Partial<Omit<OnboardingAnswer, 'id' | 'createdAt'
     }
   }
 
-  // Remove any undefined values that might have slipped through
-  Object.keys(cleaned).forEach(key => {
-    if (cleaned[key] === undefined) {
-      delete cleaned[key];
-    }
-  });
-
-  return cleaned;
+  // Final deep sweep — guarantee zero undefined at any nesting level
+  return deepCleanForFirestore(cleaned);
 }
 
 /**

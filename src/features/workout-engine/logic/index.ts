@@ -57,6 +57,11 @@ export {
   type WorkoutStructure,
   type DifficultyLevel,
   type WorkoutStats,
+  type TierName,
+  type TierConfig,
+  TIER_TABLE,
+  resolveTier,
+  restSafetyFloor,
 } from './WorkoutGenerator';
 
 // ContextualEngine - Location/Lifestyle/Intent filtering

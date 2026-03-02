@@ -1,27 +1,43 @@
 "use client";
 
 import { useMemo } from 'react';
-import type { UserFullProfile, DashboardMode } from '@/types/user-profile';
+import type { UserFullProfile, DashboardMode, PrimaryTrack } from '@/types/user-profile';
 import type { OnboardingAnswer } from '@/types/onboarding-questionnaire';
 
 /**
- * Decide which dashboard mode to show based on:
- * 1) Explicit override in user.lifestyle.dashboardMode
- * 2) Heuristics on onboarding answers (keywords)
- * 3) Fallback to DEFAULT
+ * Map PrimaryTrack → DashboardMode (must stay in sync with track-mapper.service.ts)
+ */
+const TRACK_TO_MODE: Record<PrimaryTrack, DashboardMode> = {
+  health: 'DEFAULT',
+  strength: 'PERFORMANCE',
+  run: 'RUNNING',
+  hybrid: 'HYBRID',
+};
+
+/**
+ * Decide which dashboard mode to show.
+ *
+ * Resolution priority:
+ * 1) Explicit override in user.lifestyle.dashboardMode (coach/admin can force)
+ * 2) Persona Engine: user.lifestyle.primaryTrack → deterministic mapping
+ * 3) Legacy heuristics: onboarding answer keywords (for pre-Persona users)
+ * 4) Fallback to DEFAULT
  */
 export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
   return useMemo<DashboardMode>(() => {
     if (!user) return 'DEFAULT';
 
-    // 1. Direct override from lifestyle
+    // 1. Direct override from lifestyle (coach / admin can force a mode)
     if (user.lifestyle?.dashboardMode) {
       return user.lifestyle.dashboardMode;
     }
 
-    // 2. Infer from onboarding answers if available
-    // First, prefer explicit widgetTrigger set from the Admin Panel on the answer documents.
-    // Then, fall back to legacy keyword-based heuristics for older users.
+    // 2. Persona Engine: primaryTrack → deterministic dashboard mode
+    if (user.lifestyle?.primaryTrack) {
+      return TRACK_TO_MODE[user.lifestyle.primaryTrack];
+    }
+
+    // 3. Legacy: infer from onboarding answers for users who onboarded before Persona Engine
     const onboardingAnswers = (user as any)?.onboarding?.answers;
     if (onboardingAnswers) {
       try {
@@ -31,7 +47,7 @@ export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
           : Object.values(onboardingAnswers as Record<string, OnboardingAnswer>);
 
         if (answersArray && answersArray.length > 0) {
-          // 2a. New source of truth: widgetTrigger on answers
+          // 3a. widgetTrigger on answers (admin-tagged)
           const hasRunningTrigger = answersArray.some(
             (answer) => (answer as OnboardingAnswer).widgetTrigger === 'RUNNING',
           );
@@ -47,7 +63,7 @@ export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
           }
         }
 
-        // 2b. Legacy fallback: text search on raw answers structure (for old users)
+        // 3b. Legacy fallback: text search on raw answers structure (for old users)
         const text = JSON.stringify(onboardingAnswers).toLowerCase();
 
         // RUNNING-related keywords
@@ -92,8 +108,7 @@ export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
       }
     }
 
-    // 3. Default mode
+    // 4. Default mode
     return 'DEFAULT';
   }, [user]);
 }
-

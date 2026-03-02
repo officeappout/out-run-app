@@ -5,6 +5,8 @@
  * Supports:
  * - Static routing via `nextQuestionId` on each answer
  * - Conditional routing via `conditionalRoutes` — evaluated against all previous answers
+ * - Assessment-aware visibility via `question.logic.visibility` conditions
+ * - Rule-driven category skip / question injection via `AssessmentContext`
  * - Workflow chaining via `nextQuestionnaireId` — triggers the orchestrator to switch quiz
  */
 import { 
@@ -14,11 +16,12 @@ import {
 } from '@/features/admin/services/questionnaire.service';
 import { 
   OnboardingQuestion, 
-  OnboardingAnswer, 
-  QuestionnaireProgress 
+  QuestionnaireProgress,
+  VisibilityCondition,
 } from '@/types/onboarding-questionnaire';
 
 import { AnswerResult } from '@/types/onboarding-questionnaire';
+import type { AssessmentContext } from '@/features/user/onboarding/types/visual-assessment.types';
 
 // ============================================================================
 // CONDITIONAL ROUTING TYPES
@@ -32,11 +35,18 @@ export interface ConditionalRoute {
   /** The condition to evaluate against previous answers */
   condition: {
     /** Type of condition */
-    type: 'answer_equals' | 'answer_includes' | 'answer_count_gte';
-    /** The questionId whose answer we check */
+    type:
+      | 'answer_equals'
+      | 'answer_includes'
+      | 'answer_count_gte'
+      | 'assessment_level'
+      | 'tier_equals';
+    /** The questionId whose answer we check (or assessment field like 'push'). */
     questionId: string;
     /** The expected value (single string for equals, string for includes, number for count) */
     value: string | number;
+    /** Operator for assessment_level conditions. Defaults to '==' if omitted. */
+    operator?: '>' | '>=' | '<' | '<=' | '==' | '!=';
   };
   /** Where to route if the condition is true */
   targetQuestionId: string;
@@ -63,21 +73,21 @@ export interface DynamicQuestionNode {
   type: 'choice' | 'input';
   part: 'assessment' | 'personal';
   layoutType?: 'large-card' | 'horizontal-list';
-  progressIcon?: string; // Icon name for progress bar display
-  progressIconSvg?: string; // Custom SVG icon content (overrides progressIcon)
+  progressIcon?: string;
+  progressIconSvg?: string;
+  /** Branching logic metadata (visibility conditions & category tag). */
+  logic?: OnboardingQuestion['logic'];
   answers: Array<{
     id: string;
     text: string;
-    imageUrl?: string; // Optional image URL for the answer
+    imageUrl?: string;
     nextQuestionId?: string | null;
-    /** Conditional routes — evaluated before static nextQuestionId */
     conditionalRoutes?: ConditionalRoute[];
-    /** Workflow chaining trigger — signals the orchestrator to switch quiz */
     chainTrigger?: WorkflowChainTrigger;
     assignedLevel?: number;
     assignedLevelId?: string | null;
     assignedProgramId?: string | null;
-    assignedResults?: AnswerResult[]; // Multiple program+level assignments
+    assignedResults?: AnswerResult[];
     masterProgramSubLevels?: Record<string, number>;
   }>;
 }
@@ -93,6 +103,20 @@ export class DynamicOnboardingEngine {
   private language: 'he' | 'en' | 'ru' = 'he';
   private gender: 'male' | 'female' | 'neutral' = 'neutral';
 
+  /**
+   * Visual-assessment context — populated via `setAssessmentContext()`.
+   * Used by visibility conditions and rule-driven skip/inject logic.
+   */
+  private assessmentCtx: AssessmentContext | null = null;
+
+  /** Question IDs injected by rules (shown in addition to normal flow). */
+  private injectedQuestionIds: Set<string> = new Set();
+  /** Category tags to skip (populated from rules or `assessmentCtx.skippedCategories`). */
+  private skippedCategories: Set<string> = new Set();
+
+  /** Maximum depth for auto-skipping invisible questions (prevents infinite loops). */
+  private static readonly MAX_SKIP_DEPTH = 25;
+
   constructor() {
     this.progress = {
       answers: {},
@@ -101,8 +125,48 @@ export class DynamicOnboardingEngine {
     };
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ASSESSMENT CONTEXT
+  // ══════════════════════════════════════════════════════════════════
+
   /**
-   * Initialize engine - load first question or specific question by ID
+   * Feed the engine with visual-assessment results so that question
+   * visibility and conditional routes can reference assessment levels.
+   *
+   * Also processes rule-driven skip/inject overrides from the context.
+   */
+  setAssessmentContext(ctx: AssessmentContext): void {
+    this.assessmentCtx = ctx;
+
+    // Populate rule-driven overrides
+    if (ctx.skippedCategories) {
+      for (const cat of ctx.skippedCategories) this.skippedCategories.add(cat);
+    }
+    if (ctx.injectedQuestionIds) {
+      for (const qId of ctx.injectedQuestionIds) this.injectedQuestionIds.add(qId);
+    }
+
+    console.log('[Engine] Assessment context set:', {
+      levels: ctx.levels,
+      average: ctx.average,
+      tier: ctx.tier,
+      skippedCategories: [...this.skippedCategories],
+      injectedQuestionIds: [...this.injectedQuestionIds],
+    });
+  }
+
+  /** Returns the current assessment context (if set). */
+  getAssessmentContext(): AssessmentContext | null {
+    return this.assessmentCtx;
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ══════════════════════════════════════════════════════════════════
+
+  /**
+   * Initialize engine — load first question or specific question by ID.
+   * Call `setAssessmentContext()` *before* initialize if assessment data is available.
    */
   async initialize(
     part: 'assessment' | 'personal' = 'assessment', 
@@ -110,51 +174,62 @@ export class DynamicOnboardingEngine {
     language?: 'he' | 'en' | 'ru',
     gender?: 'male' | 'female' | 'neutral'
   ): Promise<void> {
-    // Store language and gender for subsequent question loads
     if (language) this.language = language;
     if (gender) this.gender = gender;
     
     let questionToLoad;
     
     if (startQuestionId) {
-      // Load specific question by ID
       questionToLoad = await getQuestion(startQuestionId);
       if (!questionToLoad) {
         throw new Error(`Question ${startQuestionId} not found`);
       }
     } else {
-      // Load first question for the part with language/gender filters
       questionToLoad = await getFirstQuestion(part, this.language, this.gender);
       if (!questionToLoad) {
-        throw new Error(`No first question found for part: ${part}`);
+        throw new Error(
+          `No first question found for part: "${part}". ` +
+          `Make sure a question in the Admin Panel has the "שאלה ראשונה" (Entry Point) checkbox ` +
+          `checked and part="${part}". Language=${this.language}, gender=${this.gender}.`
+        );
       }
     }
 
-    await this.loadQuestion(questionToLoad.id);
-    this.progress.currentQuestionId = questionToLoad.id;
+    const firstNode = await this.loadQuestion(questionToLoad.id);
+
+    // If the first question is invisible, fast-forward to the next visible one.
+    if (!this.isQuestionVisible(firstNode)) {
+      console.log(`[Engine] First question "${firstNode.id}" hidden by logic — skipping`);
+      const visible = await this.findNextVisibleQuestion(firstNode);
+      if (visible) {
+        this.currentQuestion = visible;
+        this.progress.currentQuestionId = visible.id;
+      } else {
+        this.progress.isPart1Complete = true;
+        this.currentQuestion = null;
+      }
+    } else {
+      this.progress.currentQuestionId = questionToLoad.id;
+    }
   }
 
-  /**
-   * Load a question with its answers from Firestore
-   */
-  private async loadQuestion(questionId: string): Promise<DynamicQuestionNode> {
-    // Check cache (but note: cache doesn't account for language/gender, so we may need to reload)
-    // For now, always reload to ensure correct language/gender
-    // TODO: Implement proper cache key with language/gender
+  // ══════════════════════════════════════════════════════════════════
+  // QUESTION LOADING
+  // ══════════════════════════════════════════════════════════════════
 
+  private async loadQuestion(questionId: string): Promise<DynamicQuestionNode> {
     const questionData = await getQuestionWithAnswers(questionId, this.language, this.gender);
     if (!questionData) {
       throw new Error(`Question ${questionId} not found`);
     }
 
-    // 🔍 Debug: Inspect raw question from Firestore
     console.log('DynamicOnboardingEngine :: Loaded question from Firestore:', {
       id: questionData.id,
       type: (questionData as any).type,
       layoutType: (questionData as any).layoutType,
+      logic: (questionData as any).logic,
     });
 
-    // ✅ Normalize layoutType coming from Admin / Firestore (support Hebrew labels if they slipped in)
     const rawLayoutType = (questionData as any).layoutType;
     let normalizedLayoutType: 'large-card' | 'horizontal-list' = 'large-card';
     if (rawLayoutType === 'horizontal-list' || rawLayoutType === 'רשימה אופקית') {
@@ -172,6 +247,7 @@ export class DynamicOnboardingEngine {
       layoutType: normalizedLayoutType,
       progressIcon: questionData.progressIcon,
       progressIconSvg: questionData.progressIconSvg,
+      logic: (questionData as any).logic || undefined,
       answers: questionData.answers.map(a => ({
         id: a.id,
         text: a.text,
@@ -192,52 +268,139 @@ export class DynamicOnboardingEngine {
     return node;
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // VISIBILITY EVALUATION
+  // ══════════════════════════════════════════════════════════════════
+
   /**
-   * Get current question
+   * Evaluate whether a question should be visible given the current
+   * assessment context, previous answers, and rule-driven overrides.
    */
-  getCurrentQuestion(): DynamicQuestionNode | null {
-    return this.currentQuestion;
+  isQuestionVisible(question: DynamicQuestionNode): boolean {
+    // Rule-driven category skip
+    if (question.logic?.category && this.skippedCategories.has(question.logic.category)) {
+      console.log(`[Engine] Question "${question.id}" hidden: category "${question.logic.category}" skipped by rule`);
+      return false;
+    }
+
+    // Logic visibility conditions (all must pass — AND)
+    const conditions = question.logic?.visibility;
+    if (!conditions || conditions.length === 0) return true;
+
+    return conditions.every(cond => this.evaluateVisibilityCondition(cond));
   }
 
   /**
-   * Evaluate conditional routes against all previous answers.
-   * Returns the targetQuestionId of the first matching route, or null if none match.
+   * Evaluate a single VisibilityCondition against the engine's state.
+   */
+  private evaluateVisibilityCondition(cond: VisibilityCondition): boolean {
+    const { type, field, operator, value } = cond;
+
+    switch (type) {
+      case 'assessment_level': {
+        if (!this.assessmentCtx) return true; // No context → don't block
+        const actual: number =
+          field === 'average'
+            ? this.assessmentCtx.average
+            : this.assessmentCtx.levels[field] ?? 0;
+        return this.compareValues(actual, operator, value);
+      }
+      case 'tier_equals': {
+        if (!this.assessmentCtx) return true;
+        const tierValue = this.assessmentCtx.tier;
+        return this.compareValues(tierValue, operator, value);
+      }
+      case 'answer_equals': {
+        const answerId = this.progress.answers[field];
+        if (!answerId) return false;
+        return this.compareValues(answerId, operator, value);
+      }
+      case 'answer_not_equals': {
+        const answerId = this.progress.answers[field];
+        if (!answerId) return true; // Not answered yet → not equal
+        return answerId !== String(value);
+      }
+      default:
+        return true;
+    }
+  }
+
+  /** Generic comparison helper (works with numbers and strings). */
+  private compareValues(
+    actual: string | number,
+    operator: string,
+    expected: string | number,
+  ): boolean {
+    const numActual = typeof actual === 'number' ? actual : parseFloat(actual);
+    const numExpected = typeof expected === 'number' ? expected : parseFloat(String(expected));
+    const canCompareNumeric = !isNaN(numActual) && !isNaN(numExpected);
+
+    switch (operator) {
+      case '>':  return canCompareNumeric && numActual > numExpected;
+      case '>=': return canCompareNumeric && numActual >= numExpected;
+      case '<':  return canCompareNumeric && numActual < numExpected;
+      case '<=': return canCompareNumeric && numActual <= numExpected;
+      case '==': return String(actual) === String(expected);
+      case '!=': return String(actual) !== String(expected);
+      default:   return true;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // CONDITIONAL ROUTING
+  // ══════════════════════════════════════════════════════════════════
+
+  /**
+   * Evaluate conditional routes against previous answers AND assessment data.
+   * Returns the targetQuestionId of the first matching route, or null.
    */
   private evaluateConditionalRoutes(routes: ConditionalRoute[]): string | null {
     for (const route of routes) {
-      const { type, questionId, value } = route.condition;
+      const { type, questionId, value, operator } = route.condition;
       const previousAnswerId = this.progress.answers[questionId];
-
-      if (!previousAnswerId && type !== 'answer_count_gte') continue;
 
       switch (type) {
         case 'answer_equals':
           if (previousAnswerId === value) return route.targetQuestionId;
           break;
         case 'answer_includes':
-          // Check if the answer string contains the value substring
           if (previousAnswerId && typeof value === 'string' && previousAnswerId.includes(value)) {
             return route.targetQuestionId;
           }
           break;
         case 'answer_count_gte':
-          // Check total number of answers so far
           if (Object.keys(this.progress.answers).length >= (value as number)) {
             return route.targetQuestionId;
           }
           break;
+        case 'assessment_level': {
+          if (!this.assessmentCtx) break;
+          const fieldVal =
+            questionId === 'average'
+              ? this.assessmentCtx.average
+              : this.assessmentCtx.levels[questionId] ?? 0;
+          if (this.compareValues(fieldVal, operator || '>', value)) {
+            return route.targetQuestionId;
+          }
+          break;
+        }
+        case 'tier_equals': {
+          if (this.assessmentCtx && this.assessmentCtx.tier === value) {
+            return route.targetQuestionId;
+          }
+          break;
+        }
       }
     }
-    return null; // No route matched — fall back to static nextQuestionId
+    return null;
   }
 
   /**
    * Resolve the next question ID for an answer:
-   * 1. Conditional routes (evaluated first — first match wins)
+   * 1. Conditional routes (first match wins)
    * 2. Static nextQuestionId (fallback)
    */
   private resolveNextQuestionId(answer: DynamicQuestionNode['answers'][0]): string | null {
-    // Priority 1: Conditional routes
     if (answer.conditionalRoutes && answer.conditionalRoutes.length > 0) {
       const conditionalTarget = this.evaluateConditionalRoutes(answer.conditionalRoutes);
       if (conditionalTarget) {
@@ -245,12 +408,48 @@ export class DynamicOnboardingEngine {
         return conditionalTarget;
       }
     }
-    // Priority 2: Static next question
     return answer.nextQuestionId || null;
   }
 
   /**
-   * Answer current question and move to next
+   * Walk the question chain starting from `startNode` and return the first
+   * question whose visibility conditions pass. Skips up to MAX_SKIP_DEPTH
+   * invisible questions. Returns null if no visible question is found.
+   */
+  private async findNextVisibleQuestion(
+    startNode: DynamicQuestionNode,
+    depth: number = 0,
+  ): Promise<DynamicQuestionNode | null> {
+    if (depth >= DynamicOnboardingEngine.MAX_SKIP_DEPTH) {
+      console.warn('[Engine] Max skip depth reached — stopping auto-skip');
+      return null;
+    }
+
+    // Look at the first answer's routing to find the next candidate
+    const firstAnswer = startNode.answers[0];
+    if (!firstAnswer) return null;
+
+    const nextId = this.resolveNextQuestionId(firstAnswer);
+    if (!nextId) return null;
+
+    const candidate = await this.loadQuestion(nextId);
+    if (this.isQuestionVisible(candidate)) return candidate;
+
+    console.log(`[Engine] Question "${candidate.id}" hidden — skipping (depth=${depth + 1})`);
+    return this.findNextVisibleQuestion(candidate, depth + 1);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ANSWERING
+  // ══════════════════════════════════════════════════════════════════
+
+  getCurrentQuestion(): DynamicQuestionNode | null {
+    return this.currentQuestion;
+  }
+
+  /**
+   * Answer current question and move to the next *visible* question.
+   * Invisible questions (hidden by logic or skipped categories) are auto-skipped.
    */
   async answer(answerId: string): Promise<{
     nextQuestion: DynamicQuestionNode | null;
@@ -261,7 +460,6 @@ export class DynamicOnboardingEngine {
     assignedProgramId?: string;
     assignedResults?: AnswerResult[];
     masterProgramSubLevels?: Record<string, number>;
-    /** If set, the orchestrator should switch to a new questionnaire */
     chainTrigger?: WorkflowChainTrigger;
   }> {
     if (!this.currentQuestion) {
@@ -276,34 +474,18 @@ export class DynamicOnboardingEngine {
     // Save answer
     this.progress.answers[this.currentQuestion.id] = answerId;
 
-    // Check if this answer terminates Part 1 (has assignedResults, assignedLevelId, or assignedLevel)
+    // Check if this answer terminates the flow (assignedResults / assignedLevelId)
     const hasAssignedResults = answer.assignedResults && answer.assignedResults.length > 0;
     if (hasAssignedResults || answer.assignedLevelId || answer.assignedLevel) {
-      // ⚠️ Guard: Warn if any result targets a Master program directly
-      // Master programs should only receive levels via aggregation of child programs.
       if (hasAssignedResults) {
-        for (const r of answer.assignedResults!) {
-          if (!r.masterProgramSubLevels || Object.keys(r.masterProgramSubLevels).length === 0) {
-            // No sub-levels → the result targets the program directly
-            // This is fine for child programs, but a warning for master programs
-            // (can't check isMaster here without fetching; admin UI handles prevention)
-          }
-        }
-      }
-
-      // Use assignedResults if available, otherwise fall back to legacy single assignment
-      if (hasAssignedResults) {
-        // Store first result as primary (for backwards compatibility)
-        const firstResult = answer.assignedResults[0];
+        const firstResult = answer.assignedResults![0];
         this.progress.assignedLevelId = firstResult.levelId;
         this.progress.assignedProgramId = firstResult.programId;
         if (firstResult.masterProgramSubLevels) {
           this.progress.masterProgramSubLevels = firstResult.masterProgramSubLevels;
         }
-        // Store all results in progress (we'll need to extend QuestionnaireProgress type)
         (this.progress as any).assignedResults = answer.assignedResults;
       } else {
-        // Legacy: single assignment
         this.progress.assignedLevel = answer.assignedLevel;
         this.progress.assignedLevelId = answer.assignedLevelId || undefined;
         this.progress.assignedProgramId = answer.assignedProgramId || undefined;
@@ -319,18 +501,17 @@ export class DynamicOnboardingEngine {
       return {
         nextQuestion: null,
         isPart1Complete: true,
-        isComplete: false, // Part 2 still needs to run
+        isComplete: false,
         assignedLevel: answer.assignedLevel,
         assignedLevelId: answer.assignedLevelId || undefined,
         assignedProgramId: answer.assignedProgramId || undefined,
-        assignedResults: answer.assignedResults || undefined, // NEW: Return all results
+        assignedResults: answer.assignedResults || undefined,
         masterProgramSubLevels: answer.masterProgramSubLevels || undefined,
       };
     }
 
-    // Check for workflow chain trigger (switches to a new questionnaire)
+    // Workflow chain trigger
     if (answer.chainTrigger) {
-      // Don't load next question — signal the orchestrator to switch quiz
       return {
         nextQuestion: null,
         isPart1Complete: false,
@@ -339,48 +520,79 @@ export class DynamicOnboardingEngine {
       };
     }
 
-    // Move to next question (conditional routes evaluated first, then static)
+    // ── Navigate to next visible question ──
     const resolvedNextId = this.resolveNextQuestionId(answer);
-    if (resolvedNextId) {
-      const nextQuestion = await this.loadQuestion(resolvedNextId);
-      this.progress.currentQuestionId = nextQuestion.id;
 
-      return {
-        nextQuestion,
-        isPart1Complete: false,
-        isComplete: false,
-      };
+    // Check injected questions first: if there are injected questions
+    // that haven't been answered yet, surface them before continuing the normal chain.
+    const nextInjected = this.popNextInjectedQuestion();
+    if (nextInjected) {
+      const injectedNode = await this.loadQuestion(nextInjected);
+      if (this.isQuestionVisible(injectedNode)) {
+        this.progress.currentQuestionId = injectedNode.id;
+        return { nextQuestion: injectedNode, isPart1Complete: false, isComplete: false };
+      }
     }
 
-    // No next question - Part 1 complete without level assignment (shouldn't happen)
+    if (resolvedNextId) {
+      const nextNode = await this.loadQuestion(resolvedNextId);
+
+      // Auto-skip hidden questions
+      if (!this.isQuestionVisible(nextNode)) {
+        console.log(`[Engine] Question "${nextNode.id}" hidden — auto-skipping`);
+        const visible = await this.findNextVisibleQuestion(nextNode);
+        if (visible) {
+          this.progress.currentQuestionId = visible.id;
+          return { nextQuestion: visible, isPart1Complete: false, isComplete: false };
+        }
+        // No more visible questions
+        this.progress.isPart1Complete = true;
+        this.currentQuestion = null;
+        this.progress.currentQuestionId = undefined;
+        return { nextQuestion: null, isPart1Complete: true, isComplete: false };
+      }
+
+      this.progress.currentQuestionId = nextNode.id;
+      return { nextQuestion: nextNode, isPart1Complete: false, isComplete: false };
+    }
+
+    // No next question
     this.progress.isPart1Complete = true;
     this.currentQuestion = null;
     this.progress.currentQuestionId = undefined;
-
-    return {
-      nextQuestion: null,
-      isPart1Complete: true,
-      isComplete: false,
-    };
+    return { nextQuestion: null, isPart1Complete: true, isComplete: false };
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // INJECTED QUESTIONS QUEUE
+  // ══════════════════════════════════════════════════════════════════
+
   /**
-   * Get current progress
+   * Pop the next un-answered injected question from the queue.
+   * Returns null if all injected questions have been answered.
    */
+  private popNextInjectedQuestion(): string | null {
+    for (const qId of this.injectedQuestionIds) {
+      if (!this.progress.answers[qId]) {
+        this.injectedQuestionIds.delete(qId);
+        return qId;
+      }
+    }
+    return null;
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // PUBLIC ACCESSORS
+  // ══════════════════════════════════════════════════════════════════
+
   getProgress(): QuestionnaireProgress {
     return { ...this.progress };
   }
 
-  /**
-   * Get all answers (for profile creation)
-   */
   getAllAnswers(): Record<string, string> {
     return { ...this.progress.answers };
   }
 
-  /**
-   * Get assigned level and program
-   */
   getAssignedValues(): {
     level?: number;
     levelId?: string;
@@ -395,25 +607,14 @@ export class DynamicOnboardingEngine {
     };
   }
 
-  /**
-   * Mark Part 2 as complete
-   */
   completePart2(): void {
     this.progress.isComplete = true;
   }
 
-  /**
-   * Go back to previous question (if possible)
-   */
   async goBack(): Promise<DynamicQuestionNode | null> {
-    // For now, we don't track previous questions in a stack
-    // This can be enhanced later
     return this.currentQuestion;
   }
 
-  /**
-   * Reset engine
-   */
   reset(): void {
     this.progress = {
       answers: {},
@@ -422,5 +623,8 @@ export class DynamicOnboardingEngine {
     };
     this.currentQuestion = null;
     this.loadedQuestions.clear();
+    this.assessmentCtx = null;
+    this.injectedQuestionIds.clear();
+    this.skippedCategories.clear();
   }
 }

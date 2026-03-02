@@ -39,6 +39,18 @@ export interface Exercise {
   description?: string;
   /** Equipment required for this exercise */
   equipment?: string[];
+  /** Rest time in seconds between sets (from WorkoutGenerator) */
+  restSeconds?: number;
+  /** Rep/hold range for UI display (e.g., {min:6, max:12}) */
+  repsRange?: { min: number; max: number };
+  /** Whether this exercise is an admin-defined goal exercise */
+  isGoalExercise?: boolean;
+  /** Progressive overload: ramped target for this session */
+  rampedTarget?: number;
+  /** Whether this is a timed hold vs rep-based */
+  isTimeBased?: boolean;
+  /** Number of sets (from WorkoutGenerator) */
+  sets?: number;
 }
 
 export interface RouteSegment {
@@ -79,6 +91,10 @@ export interface WorkoutPlan {
   segments: WorkoutSegment[];
   totalDuration: number;
   difficulty: 'easy' | 'medium' | 'hard';
+  /** Training type from the source Program — routes to correct activity ring */
+  trainingType?: 'strength' | 'cardio';
+  /** AI-generated contextual coaching cue (e.g., "Focus on form today") */
+  aiCue?: string;
 }
 
 export interface PlannedRoute {

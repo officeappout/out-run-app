@@ -179,14 +179,15 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
     return { programName, level, maxLevel };
   };
 
-  // Helper to get city/neighborhood from user data
-  // Note: city might be stored in onboarding data or need to be inferred from authority
   const getUserLocation = () => {
-    // Check if city is stored in user data (might be in a field like onboarding.city)
-    // For now, use authority name as city if available
-    const city = authority?.name || (fullProfile as any)?.city || (fullProfile as any)?.onboarding?.city;
-    const neighborhood = (fullProfile as any)?.neighborhood;
-    
+    const raw = authority?.name
+      || (fullProfile as any)?.city
+      || (fullProfile as any)?.onboarding?.city;
+    const city = typeof raw === 'string' ? raw
+      : (raw && typeof raw === 'object' && 'name' in raw) ? String(raw.name)
+      : undefined;
+    const nbRaw = (fullProfile as any)?.neighborhood;
+    const neighborhood = typeof nbRaw === 'string' ? nbRaw : undefined;
     return { city, neighborhood };
   };
 
@@ -584,11 +585,11 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         )}
                         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                           <div className="text-sm text-gray-600 mb-1">משקל</div>
-                          <div className="font-bold text-gray-900">{fullProfile.core.weight || 'טרם סופק'} ק"ג</div>
+                          <div className="font-bold text-gray-900">{fullProfile?.core?.weight || 'טרם סופק'} ק"ג</div>
                         </div>
                         {(() => {
                           // Robust birthDate parsing — handles Date objects, Firestore Timestamps, ISO strings
-                          const rawBirthDate = fullProfile.core.birthDate;
+                          const rawBirthDate = fullProfile?.core?.birthDate;
                           let parsedDate: Date | null = null;
                           if (rawBirthDate) {
                             if (rawBirthDate instanceof Date && !isNaN(rawBirthDate.getTime())) {
@@ -618,50 +619,39 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         })()}
                       </div>
                       
-                      {/* Progress Bar to Next Level */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                            <div className="text-sm text-gray-600 mb-2">התקדמות לרמה הבאה</div>
+                      {/* Progress Bar — from active program track percent (single source of truth) */}
+                      {(() => {
+                        const tracks = (fullProfile.progression as any)?.tracks || {};
+                        const activeProgId =
+                          fullProfile.progression?.activePrograms?.[0]?.templateId ||
+                          fullProfile.progression?.activePrograms?.[0]?.id ||
+                          Object.keys(tracks)[0];
+                        const activeTrack = activeProgId ? tracks[activeProgId] : null;
+                        const trackPercent = typeof activeTrack?.percent === 'number' ? activeTrack.percent : 0;
+                        const trackLevel = activeTrack?.currentLevel ?? 1;
+                        const progName = programs.find(p => p.id === activeProgId)?.name || activeProgId || '—';
+
+                        return (
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-600">התקדמות לרמה הבאה</span>
+                              <span className="text-xs text-gray-400">{progName} • רמה {trackLevel}</span>
+                            </div>
                             <div className="flex items-center gap-3">
                               <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-1000"
-                                  style={{
-                                    width: `${(() => {
-                                      if (!fullProfile.progression.globalXP || fullProfile.progression.globalXP === 0) return 0;
-                                      const currentLevel = (() => {
-                                        const primaryDomain = fullProfile.progression.domains?.upper_body || 
-                                                         fullProfile.progression.domains?.lower_body ||
-                                                         fullProfile.progression.domains?.full_body ||
-                                                         fullProfile.progression.domains?.core;
-                                        return primaryDomain?.currentLevel || 1;
-                                      })();
-                                      const nextLevelXP = currentLevel * 1000;
-                                      const currentXP = fullProfile.progression.globalXP || 0;
-                                      const progressXP = currentXP % 1000;
-                                      return Math.min(Math.round((progressXP / nextLevelXP) * 100), 99);
-                                    })()}%`
-                                  }}
+                                  style={{ width: `${Math.min(Math.round(trackPercent), 100)}%` }}
                                 />
                               </div>
-                              <span className="text-sm font-bold text-gray-700 min-w-[3rem] text-left">
-                                {(() => {
-                                  if (!fullProfile.progression.globalXP || fullProfile.progression.globalXP === 0) return '0%';
-                                  const currentLevel = (() => {
-                                    const primaryDomain = fullProfile.progression.domains?.upper_body || 
-                                                     fullProfile.progression.domains?.lower_body ||
-                                                     fullProfile.progression.domains?.full_body ||
-                                                     fullProfile.progression.domains?.core;
-                                    return primaryDomain?.currentLevel || 1;
-                                  })();
-                                  const nextLevelXP = currentLevel * 1000;
-                                  const currentXP = fullProfile.progression.globalXP || 0;
-                                  const progressXP = currentXP % 1000;
-                                  return `${Math.min(Math.round((progressXP / nextLevelXP) * 100), 99)}%`;
-                                })()}
+                              <span className="text-sm font-bold text-gray-700 min-w-[3rem] text-left tabular-nums">
+                                {Math.round(trackPercent)}%
                               </span>
                             </div>
                           </div>
-                        </div>
+                        );
+                      })()}
+                    </div>
 
                     {/* 4. Equipment Inventory */}
                     <div>
@@ -670,7 +660,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         ציוד מפורט
                       </h3>
                       <div className="space-y-3">
-                        {fullProfile.equipment.home.length > 0 && (
+                        {(fullProfile?.equipment?.home?.length || 0) > 0 && (
                           <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                             <div className="text-sm font-bold text-purple-700 mb-2">ציוד בית</div>
                             <div className="flex flex-wrap gap-2">
@@ -685,7 +675,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           </div>
                         )}
-                        {fullProfile.equipment.office.length > 0 && (
+                        {(fullProfile?.equipment?.office?.length || 0) > 0 && (
                           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                             <div className="text-sm font-bold text-blue-700 mb-2">ציוד משרד</div>
                             <div className="flex flex-wrap gap-2">
@@ -700,7 +690,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           </div>
                         )}
-                        {fullProfile.equipment.outdoor && fullProfile.equipment.outdoor.length > 0 && (
+                        {(fullProfile?.equipment?.outdoor?.length || 0) > 0 && (
                           <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                             <div className="text-sm font-bold text-green-700 mb-2">ציוד חוץ</div>
                             <div className="flex flex-wrap gap-2">
@@ -715,7 +705,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           </div>
                         )}
-                        {fullProfile.core.hasGymAccess && (
+                        {fullProfile?.core?.hasGymAccess && (
                           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                             <div className="flex items-center gap-2">
                               <CheckCircle2 size={18} className="text-amber-600" />
@@ -723,10 +713,10 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           </div>
                         )}
-                        {fullProfile.equipment.home.length === 0 && 
-                         fullProfile.equipment.office.length === 0 &&
-                         (!fullProfile.equipment.outdoor || fullProfile.equipment.outdoor.length === 0) &&
-                         !fullProfile.core.hasGymAccess && (
+                        {(fullProfile?.equipment?.home?.length || 0) === 0 && 
+                         (fullProfile?.equipment?.office?.length || 0) === 0 &&
+                         (fullProfile?.equipment?.outdoor?.length || 0) === 0 &&
+                         !fullProfile?.core?.hasGymAccess && (
                           <div className="text-gray-500 text-sm bg-gray-50 rounded-xl p-4 text-center">
                             אין ציוד רשום
                           </div>
@@ -962,7 +952,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                     <div>
                       <h3 className="text-lg font-black text-gray-900 mb-4">רמות נוכחיות</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        {fullProfile.progression.domains && 
+                        {fullProfile?.progression?.domains && 
                          Object.entries(fullProfile.progression.domains).map(([domain, progress]) => (
                           <div key={domain} className="bg-gray-50 rounded-xl p-4">
                             <div className="text-sm text-gray-500 mb-1">{domain}</div>
@@ -974,7 +964,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           </div>
                         ))}
-                        {(!fullProfile.progression.domains || 
+                        {(!fullProfile?.progression?.domains || 
                           Object.keys(fullProfile.progression.domains).length === 0) && (
                           <div className="col-span-2 text-gray-500 text-sm">אין רמות רשומות</div>
                         )}
@@ -989,7 +979,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                           <div className="text-sm text-gray-600">מטבעות</div>
                         </div>
                         <div className="font-black text-4xl text-yellow-700">
-                          {fullProfile.progression.coins || 0}
+                          {fullProfile?.progression?.coins || 0}
                         </div>
                       </div>
                     </div>
@@ -1653,24 +1643,40 @@ export default function AllUsersPage() {
         const core = data?.core || {};
         const progression = data?.progression || {};
         
-        let calculatedLevel = progression.globalLevel || 1;
-        if (progression.domains) {
-          const domainLevels = Object.values(progression.domains).map((d: any) => d.currentLevel || 0);
-          const maxDomainLevel = Math.max(...domainLevels, calculatedLevel);
-          if (maxDomainLevel > calculatedLevel) {
-            calculatedLevel = maxDomainLevel;
-          }
+        // Effective level: tracks (highest) > domains > globalLevel > 1
+        let effectiveLevel = 1;
+        const tracks = progression.tracks as Record<string, { currentLevel?: number }> | undefined;
+        const domains = progression.domains as Record<string, { currentLevel?: number }> | undefined;
+        if (tracks) {
+          const trackLevels = Object.values(tracks).map((t) => t?.currentLevel || 0);
+          effectiveLevel = Math.max(effectiveLevel, ...trackLevels);
         }
-        
+        if (domains) {
+          const domainLevels = Object.values(domains).map((d) => d?.currentLevel || 0);
+          effectiveLevel = Math.max(effectiveLevel, ...domainLevels);
+        }
+        effectiveLevel = Math.max(effectiveLevel, progression.globalLevel || 1);
+
+        // Program name from activePrograms
+        const activeProg = progression.activePrograms?.[0];
+        const programName = activeProg?.name || activeProg?.templateId || undefined;
+
+        // City name: affiliations[].name > authorityId (string only)
+        const rawAuth = core.authorityId;
+        const affName = (core.affiliations as { name?: string }[])?.[0]?.name;
+        const cityName = affName
+          || (typeof rawAuth === 'string' ? rawAuth : undefined);
+
         return {
           id: docSnap.id,
-          name: core.name || 'Unknown',
+          name: core.name || 'ללא שם',
           email: core.email || undefined,
           phone: core.phone || undefined,
           gender: core.gender || undefined,
           photoURL: core.photoURL || undefined,
           coins: progression.coins || 0,
-          level: calculatedLevel,
+          level: effectiveLevel,
+          effectiveLevel,
           joinDate: data?.createdAt ? data.createdAt : undefined,
           lastActive: data?.lastActive ? data.lastActive : undefined,
           isSuperAdmin: core.isSuperAdmin === true,
@@ -1678,9 +1684,12 @@ export default function AllUsersPage() {
           onboardingStep: data?.onboardingStep || undefined,
           onboardingStatus: data?.onboardingStatus || undefined,
           isAnonymous: core.isAnonymous === true,
-          authorityId: core.authorityId || undefined, // Include authorityId for filtering
-          accountStatus: data?.accountStatus || undefined, // NEW: Account security status
-          accountMethod: data?.accountMethod || undefined, // NEW: Account security method
+          authorityId: typeof rawAuth === 'string' ? rawAuth : undefined,
+          accountStatus: data?.accountStatus || undefined,
+          accountMethod: data?.accountMethod || undefined,
+          programName,
+          cityName,
+          birthDate: core.birthDate || undefined,
         };
       });
       
@@ -1850,12 +1859,12 @@ export default function AllUsersPage() {
               }`}
             >
               <option value="ALL">כל השלבים</option>
-              <option value="LOCATION">LOCATION</option>
-              <option value="EQUIPMENT">EQUIPMENT</option>
-              <option value="HISTORY">HISTORY</option>
-              <option value="SCHEDULE">SCHEDULE</option>
-              <option value="HEALTH_DECLARATION">HEALTH</option>
-              <option value="COMPLETED">COMPLETED</option>
+              <option value="LOCATION">מיקום</option>
+              <option value="EQUIPMENT">ציוד</option>
+              <option value="HISTORY">היסטוריה</option>
+              <option value="SCHEDULE">לוח זמנים</option>
+              <option value="HEALTH_DECLARATION">הצהרת בריאות</option>
+              <option value="COMPLETED">הושלם</option>
             </select>
           </div>
 
@@ -1926,36 +1935,33 @@ export default function AllUsersPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">משתמש</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תוכנית</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">רמה אפקטיבית</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">עיר</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">אימייל</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">טלפון</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מגדר</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">אבטחת חשבון</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">סטטוס</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">רמה</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תאריך לידה</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">מטבעות</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">תאריך הצטרפות</th>
-                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">פעילות אחרונה</th>
+                <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">הצטרפות</th>
                 <th className="text-right py-4 px-6 text-sm font-bold text-gray-700">פעולות</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-gray-500 font-simpler">
+                  <td colSpan={11} className="text-center py-12 text-gray-500 font-simpler" dir="rtl">
                     {searchTerm ? 'לא נמצאו משתמשים התואמים לחיפוש' : 'אין משתמשים'}
                   </td>
                 </tr>
               ) : (
                 paginatedItems.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    {/* משתמש */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         {user.photoURL ? (
-                          <img
-                            src={user.photoURL}
-                            alt={user.name}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
+                          <img src={user.photoURL} alt={user.name} className="w-10 h-10 rounded-full object-cover" />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-[#5BC2F2] text-white flex items-center justify-center font-bold">
                             {user.name.charAt(0).toUpperCase()}
@@ -1965,159 +1971,119 @@ export default function AllUsersPage() {
                           <div className="font-bold text-gray-900 font-simpler">{user.name}</div>
                           {user.isSuperAdmin && (
                             <div className="text-xs text-purple-600 font-medium flex items-center gap-1">
-                              <Shield size={12} />
-                              מנהל מערכת
+                              <Shield size={12} /> מנהל מערכת
                             </div>
                           )}
                         </div>
                       </div>
                     </td>
+                    {/* תוכנית */}
                     <td className="py-4 px-6">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Mail size={16} />
-                        <span className="font-simpler text-black">{user.email || '-'}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-black font-simpler">
-                      {user.phone || '-'}
-                    </td>
-                    <td className="py-4 px-6 text-black font-simpler">
-                      {user.gender === 'male' ? 'זכר' : 
-                       user.gender === 'female' ? 'נקבה' : 
-                       user.gender ? 'אחר' : '-'}
-                    </td>
-                    <td className="py-4 px-6">
-                      {/* Account Security Status Badge with Fallback Logic */}
-                      {(() => {
-                        // Helper: Determine account security status with fallback for old users
-                        const getAccountSecurityBadge = () => {
-                          const accountStatus = (user as any).accountStatus;
-                          const accountMethod = (user as any).accountMethod;
-                          const hasEmail = !!user.email;
-                          const isAnon = user.isAnonymous === true;
-                          
-                          // NEW USERS: Have accountStatus field
-                          if (accountStatus) {
-                            if (accountStatus === 'secured') {
-                              // Secured account
-                              if (accountMethod === 'google') {
-                                return (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                    <Shield size={12} />
-                                    Google
-                                  </span>
-                                );
-                              } else if (accountMethod === 'email') {
-                                return (
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                    <Mail size={12} />
-                                    Email
-                                  </span>
-                                );
-                              } else if (accountMethod === 'phone') {
-                                return (
-                                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                    <Phone size={12} />
-                                    Phone
-                                  </span>
-                                );
-                              } else {
-                                return (
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                    <Shield size={12} />
-                                    מאובטח
-                                  </span>
-                                );
-                              }
-                            } else if (accountStatus === 'unsecured') {
-                              // Unsecured (chose to skip)
-                              return (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                  <AlertCircle size={12} />
-                                  ללא גיבוי
-                                </span>
-                              );
-                            }
-                          }
-                          
-                          // OLD USERS (Fallback): Infer status from isAnonymous + email
-                          if (isAnon && !hasEmail) {
-                            // Anonymous user without email = direct guest (old guest mode)
-                            return (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                <User size={12} />
-                                אורח
-                              </span>
-                            );
-                          } else if (isAnon && hasEmail) {
-                            // Anonymous but has email (old user who linked - treat as secured)
-                            return (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                <Shield size={12} />
-                                מאובטח (ישן)
-                              </span>
-                            );
-                          } else if (!isAnon && hasEmail) {
-                            // Not anonymous + has email = registered/secured (old user)
-                            return (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
-                                <Shield size={12} />
-                                רשום
-                              </span>
-                            );
-                          } else {
-                            // Unknown state
-                            return (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold font-simpler">
-                                -
-                              </span>
-                            );
-                          }
-                        };
-
-                        return getAccountSecurityBadge();
-                      })()}
-                    </td>
-                    <td className="py-4 px-6">
-                      {user.onboardingStatus === 'ONBOARDING' ? (
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold font-simpler">
-                            Onboarding
-                          </span>
-                          {user.onboardingStep && (
-                            <span className="text-xs text-gray-500 font-simpler">
-                              ({user.onboardingStep})
-                            </span>
-                          )}
-                        </div>
-                      ) : user.onboardingStatus === 'COMPLETED' ? (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler">
-                          הושלם
+                      {(user as any).programName ? (
+                        <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-bold font-simpler">
+                          {(user as any).programName}
                         </span>
                       ) : (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold font-simpler">
-                          -
-                        </span>
+                        <span className="text-xs text-gray-400 font-simpler">—</span>
                       )}
                     </td>
+                    {/* רמה אפקטיבית */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-1 text-[#5BC2F2] font-black text-lg font-simpler">
                         <TrendingUp size={18} />
-                        <span>{user.level}</span>
+                        <span>{(user as any).effectiveLevel ?? user.level}</span>
                       </div>
                     </td>
+                    {/* עיר */}
+                    <td className="py-4 px-6">
+                      {(user as any).cityName ? (
+                        <div className="flex items-center gap-1.5 text-gray-700 font-simpler text-sm">
+                          <MapPin size={14} className="text-gray-400 flex-shrink-0" />
+                          <span>{(user as any).cityName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 font-simpler">—</span>
+                      )}
+                    </td>
+                    {/* אימייל */}
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Mail size={16} />
+                        <span className="font-simpler text-black text-sm truncate max-w-[160px]">{user.email || '—'}</span>
+                      </div>
+                    </td>
+                    {/* אבטחת חשבון */}
+                    <td className="py-4 px-6">
+                      {(() => {
+                        const accountStatus = (user as any).accountStatus;
+                        const accountMethod = (user as any).accountMethod;
+                        const hasEmail = !!user.email;
+                        const isAnon = user.isAnonymous === true;
+                        if (accountStatus === 'secured') {
+                          const methodLabel = accountMethod === 'google' ? 'גוגל'
+                            : accountMethod === 'email' ? 'אימייל'
+                            : accountMethod === 'phone' ? 'טלפון' : 'מאובטח';
+                          const methodColor = accountMethod === 'google' ? 'bg-blue-100 text-blue-700'
+                            : accountMethod === 'phone' ? 'bg-purple-100 text-purple-700'
+                            : 'bg-green-100 text-green-700';
+                          return (
+                            <span className={`px-2 py-1 ${methodColor} rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit`}>
+                              <Shield size={12} /> {methodLabel}
+                            </span>
+                          );
+                        }
+                        if (accountStatus === 'unsecured') {
+                          return (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit">
+                              <AlertCircle size={12} /> ללא גיבוי
+                            </span>
+                          );
+                        }
+                        if (isAnon && !hasEmail) return <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit"><User size={12} /> אורח</span>;
+                        if (hasEmail) return <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler flex items-center gap-1 w-fit"><Shield size={12} /> רשום</span>;
+                        return <span className="text-xs text-gray-400">—</span>;
+                      })()}
+                    </td>
+                    {/* סטטוס */}
+                    <td className="py-4 px-6">
+                      {user.onboardingStatus === 'ONBOARDING' ? (
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold font-simpler">בהרשמה</span>
+                          {user.onboardingStep && (
+                            <span className="text-[10px] text-gray-500 font-simpler">({user.onboardingStep})</span>
+                          )}
+                        </div>
+                      ) : user.onboardingStatus === 'COMPLETED' ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold font-simpler">פעיל</span>
+                      ) : (
+                        <span className="text-xs text-gray-400 font-simpler">—</span>
+                      )}
+                    </td>
+                    {/* תאריך לידה */}
+                    <td className="py-4 px-6 text-sm text-black font-simpler">
+                      {(() => {
+                        const raw = (user as any).birthDate;
+                        if (!raw) return '—';
+                        let d: Date | null = null;
+                        if (raw instanceof Date && !isNaN(raw.getTime())) d = raw;
+                        else if (typeof raw?.toDate === 'function') d = raw.toDate();
+                        else if (typeof raw === 'string') { const p = new Date(raw); if (!isNaN(p.getTime())) d = p; }
+                        else if (typeof raw?.seconds === 'number') d = new Date(raw.seconds * 1000);
+                        return d ? d.toLocaleDateString('he-IL') : '—';
+                      })()}
+                    </td>
+                    {/* מטבעות */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-1 text-yellow-600 font-bold font-simpler">
                         <Coins size={16} />
                         <span>{user.coins.toLocaleString()}</span>
                       </div>
                     </td>
+                    {/* הצטרפות */}
                     <td className="py-4 px-6 text-sm text-black font-simpler">
                       {formatFirebaseTimestamp(user.joinDate)}
                     </td>
-                    <td className="py-4 px-6 text-sm text-black font-simpler">
-                      {formatFirebaseTimestamp((user as any).lastActive)}
-                    </td>
+                    {/* פעולות */}
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
                         <button

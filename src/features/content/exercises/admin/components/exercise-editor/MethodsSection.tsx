@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ExecutionMethod, ExecutionLocation } from '../../../core/exercise.types';
 import { GymEquipment } from '../../../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../../../equipment/gear/core/gear-definition.types';
@@ -66,6 +66,11 @@ export default function MethodsSection({
   
   // Track if info section is expanded (collapsed by default)
   const [infoExpanded, setInfoExpanded] = useState(false);
+
+  // Undo-on-delete: buffer the last deleted method for 5 seconds
+  const [deletedMethodBuffer, setDeletedMethodBuffer] =
+    useState<{ method: ExecutionMethod; originalIndex: number } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Get equipment/gear names for display in header
@@ -193,8 +198,10 @@ export default function MethodsSection({
   };
 
   const removeMethod = (index: number) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setDeletedMethodBuffer({ method: deepClone(executionMethods[index]), originalIndex: index });
+
     setExecutionMethods(executionMethods.filter((_, i) => i !== index));
-    // Update expanded indices
     setExpandedMethods(prev => {
       const newSet = new Set<number>();
       prev.forEach(idx => {
@@ -203,10 +210,23 @@ export default function MethodsSection({
         } else if (idx > index) {
           newSet.add(idx - 1);
         }
-        // idx === index is removed, so we don't add it
       });
       return newSet;
     });
+
+    undoTimerRef.current = setTimeout(() => setDeletedMethodBuffer(null), 5000);
+  };
+
+  const handleUndoDelete = () => {
+    if (!deletedMethodBuffer) return;
+    const { method, originalIndex } = deletedMethodBuffer;
+    const restored = [...executionMethods];
+    const insertAt = Math.min(originalIndex, restored.length);
+    restored.splice(insertAt, 0, method);
+    setExecutionMethods(restored);
+    setExpandedMethods(prev => new Set(prev).add(insertAt));
+    setDeletedMethodBuffer(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
   };
 
   return (
@@ -280,8 +300,8 @@ export default function MethodsSection({
                 }`}
                 onClick={() => toggleMethodExpanded(index)}
               >
-                {/* Action Buttons - Far Left (RTL: start of row) - Stop propagation to prevent toggle */}
-                <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                {/* Duplicate Button - Far Left (RTL: start of row) */}
+                <div className="flex items-center ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     onClick={() => duplicateMethod(index)}
@@ -289,14 +309,6 @@ export default function MethodsSection({
                     title="שכפל שיטת ביצוע"
                   >
                     <Copy size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeMethod(index)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="מחק שיטת ביצוע"
-                  >
-                    <X size={16} />
                   </button>
                 </div>
 
@@ -380,7 +392,7 @@ export default function MethodsSection({
                   )}
                 </div>
                 
-                {/* Status Indicators - Right side before chevron */}
+                {/* Status Indicators + Delete - Right side */}
                 <div className="flex items-center gap-1 mr-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   {/* Video Status */}
                   <div 
@@ -417,6 +429,17 @@ export default function MethodsSection({
                       <AlertCircle size={14} />
                     )}
                   </div>
+
+                  {/* Delete - separated from Copy by the entire row */}
+                  <div className="w-px h-4 bg-gray-200 mx-1" />
+                  <button
+                    type="button"
+                    onClick={() => removeMethod(index)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="מחק שיטת ביצוע"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
               </div>
               
@@ -589,6 +612,20 @@ export default function MethodsSection({
           </div>
         </div>
       </div>
+
+      {/* Undo-delete toast */}
+      {deletedMethodBuffer && (
+        <div className="sticky bottom-4 mt-4 flex items-center justify-between px-4 py-3 bg-gray-800 text-white rounded-xl text-sm shadow-lg animate-in slide-in-from-bottom-2 z-10">
+          <span>שיטת הביצוע נמחקה</span>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors mr-4"
+          >
+            ביטול מחיקה ↩
+          </button>
+        </div>
+      )}
     </div>
   );
 }

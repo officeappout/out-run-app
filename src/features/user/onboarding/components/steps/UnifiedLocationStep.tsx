@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { InventoryService } from '@/features/parks';
+import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { ISRAELI_LOCATIONS } from '@/lib/data/israel-locations';
 import dynamic from 'next/dynamic';
@@ -36,6 +36,7 @@ import {
   calculateDistance,
   formatDistance,
   reverseGeocode,
+  forwardGeocode,
   getSettlementType,
   getSettlementNaming,
   findAuthorityIdByCity,
@@ -65,9 +66,10 @@ const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer
 // MAIN COMPONENT (State Machine & Map)
 // ============================================
 
-export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps) {
+const UnifiedLocationStep = React.forwardRef<HTMLDivElement, UnifiedLocationStepProps>(function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss }, ref) {
   const { updateData, setMajorRoadmapStep } = useOnboardingStore();
   const router = useRouter();
+  const isExplorer = mode === 'explorer' || mode === 'bridge';
   const mapRef = useRef<MapRef>(null);
   
   // Get gender from sessionStorage
@@ -158,6 +160,9 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
   // EFFECTS
   // ══════════════════════════════════════════════════════════════════
 
+  // Explorer mode: show INITIAL card (guest-friendly copy) instead of auto-locating.
+  // The user clicks the GPS button themselves for a more intentional UX.
+
   // Load category branding on mount
   useEffect(() => {
     getCategoryBranding()
@@ -225,8 +230,9 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     }, 100);
   }, []);
 
-  // Auto-Zoom: fitBounds on the Hero Route
+  // Auto-Zoom: fitBounds on the Hero Route (disabled in explorer — parks only)
   useEffect(() => {
+    if (isExplorer) return;
     if (!heroRoute || !heroRoute.path || heroRoute.path.length < 2) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
@@ -277,46 +283,58 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     setIsDragging(false);
     if (stage !== LocationStage.CONFIRMING) return;
     
+    // ── IMMEDIATE: Sync coords right away so the marker doesn't feel "stuck" ──
+    const centerLat = viewState.latitude;
+    const centerLng = viewState.longitude;
+    setUserLocation({ lat: centerLat, lng: centerLng });
+    
+    // ── DEBOUNCED: Heavy async work (geocoding, facility fetch) ──
     if (dragTimeoutRef.current) {
       clearTimeout(dragTimeoutRef.current);
     }
     
     dragTimeoutRef.current = setTimeout(async () => {
-      const centerLat = viewState.latitude;
-      const centerLng = viewState.longitude;
-      
       setIsUpdatingLocation(true);
       
       const result = await reverseGeocode(centerLat, centerLng);
       setDetectedCity(result.city);
       setDetectedNeighborhood(result.neighborhood);
       setDisplayName(result.displayName);
-      setUserLocation({ lat: centerLat, lng: centerLng });
       
       const authId = await findAuthorityIdByCity(result.city || '');
       setResolvedAuthorityId(authId);
+      if (authId && typeof window !== 'undefined') {
+        sessionStorage.setItem('selected_authority_id', authId);
+      }
 
-      setIsLoadingCurated(true);
-      const hero = await fetchHeroRoute(centerLat, centerLng, authId, sportContext, selectedSportId);
-      setHeroRoute(hero);
-      setIsLoadingCurated(false);
+      // Explorer mode: parks only — skip all route fetching
+      let hero: RouteWithDistance | null = null;
+      if (!isExplorer) {
+        setIsLoadingCurated(true);
+        hero = await fetchHeroRoute(centerLat, centerLng, authId, sportContext, selectedSportId);
+        setHeroRoute(hero);
+        setIsLoadingCurated(false);
+      }
       const heroArr: RouteWithDistance[] = hero ? [hero] : [];
       const rawFacilities = await fetchNearbyFacilities(centerLat, centerLng, 1600, selectedSportId, heroArr, sportContext);
-      const facilities = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+      const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+      // Explorer: strictly parks — drop any route items that slipped in
+      const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
       setNearbyFacilities(facilities.slice(0, 5));
       setBestMatchIndex(0);
 
-      loadInfrastructureContext(result.city, authId);
-      
-      updateData({
-        locationAllowed: true,
-        city: result.displayName,
-        location: { lat: centerLat, lng: centerLng, city: result.displayName },
-      });
+      if (!isExplorer) {
+        loadInfrastructureContext(result.city, authId);
+        updateData({
+          locationAllowed: true,
+          city: result.displayName,
+          location: { lat: centerLat, lng: centerLng, city: result.displayName },
+        });
+      }
       
       setIsUpdatingLocation(false);
     }, 500);
-  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId]);
+  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId, isExplorer]);
 
   const handleFindLocation = () => {
     if (!navigator.geolocation) {
@@ -341,44 +359,61 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
         
         const authId = await findAuthorityIdByCity(result.city || '');
         setResolvedAuthorityId(authId);
+        if (authId && typeof window !== 'undefined') {
+          sessionStorage.setItem('selected_authority_id', authId);
+        }
 
         setIsLoadingParks(true);
-        setIsLoadingCurated(true);
-        const hero = await fetchHeroRoute(latitude, longitude, authId, sportContext, selectedSportId);
-        setHeroRoute(hero);
-        setIsLoadingCurated(false);
+        // Explorer mode: parks only — skip all route fetching
+        let hero: RouteWithDistance | null = null;
+        if (!isExplorer) {
+          setIsLoadingCurated(true);
+          hero = await fetchHeroRoute(latitude, longitude, authId, sportContext, selectedSportId);
+          setHeroRoute(hero);
+          setIsLoadingCurated(false);
+        }
         const heroArr: RouteWithDistance[] = hero ? [hero] : [];
         const rawFacilities = await fetchNearbyFacilities(latitude, longitude, 1600, selectedSportId, heroArr, sportContext);
-        const facilities = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+        const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+        const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
         setNearbyFacilities(facilities.slice(0, 5));
         setBestMatchIndex(0);
         setIsLoadingParks(false);
 
-        loadInfrastructureContext(result.city, authId);
+        if (!isExplorer) loadInfrastructureContext(result.city, authId);
         
         setShowRadar(true);
         setTimeout(() => setShowRadar(false), 3000);
         setStage(LocationStage.CONFIRMING);
         
-        updateData({
-          locationAllowed: true,
-          city: result.displayName,
-          location: { lat: latitude, lng: longitude, city: result.displayName },
-        });
-        
-        try {
-          const { Analytics } = await import('@/features/analytics/AnalyticsService');
-          Analytics.logPermissionLocationStatus('granted', 'onboarding_unified_location');
-        } catch {}
+        // Explorer: skip onboarding sync & analytics — guests don't trigger these
+        if (!isExplorer) {
+          updateData({
+            locationAllowed: true,
+            city: result.displayName,
+            location: { lat: latitude, lng: longitude, city: result.displayName },
+          });
+          
+          try {
+            const { Analytics } = await import('@/features/analytics/AnalyticsService');
+            Analytics.logPermissionLocationStatus('granted', 'onboarding_unified_location');
+          } catch {}
+        }
       },
       async (error) => {
         setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
+        
+        // Return to INITIAL card so the error red box is visible
+        // and the user can retry or tap "search manually"
         setStage(LocationStage.INITIAL);
         
-        try {
-          const { Analytics } = await import('@/features/analytics/AnalyticsService');
-          Analytics.logPermissionLocationStatus(error.code === 1 ? 'denied' : 'prompt', 'onboarding_unified_location');
-        } catch {}
+        // Explorer: skip analytics — guests don't trigger these
+        if (!isExplorer) {
+          try {
+            const { Analytics } = await import('@/features/analytics/AnalyticsService');
+            Analytics.logPermissionLocationStatus(error.code === 1 ? 'denied' : 'prompt', 'onboarding_unified_location');
+          } catch {}
+        }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -429,6 +464,18 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
   };
 
   const handleConfirm = () => {
+    // Bridge mode: persist authority and dismiss — no onboarding state changes
+    if (mode === 'bridge') {
+      onNext();
+      return;
+    }
+
+    // Explorer mode: dismiss overlay — skip all onboarding sync
+    if (mode === 'explorer') {
+      onExplorerDismiss?.();
+      return;
+    }
+
     const bestRated = nearbyFacilities
       .filter(f => f.rating != null && f.rating > 0)
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
@@ -456,8 +503,25 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
   const handleCitySelect = async (city: CityData) => {
     setSearchQuery('');
     
-    setViewState({ longitude: city.lng, latitude: city.lat, zoom: 14 });
-    setUserLocation({ lat: city.lat, lng: city.lng });
+    // ── Precise Snap: Always forward-geocode to get Mapbox's exact
+    // center for the selected location (city OR neighborhood).
+    // Static DEFAULT_COORDINATES are too generic — Mapbox knows the
+    // precise centroid for "Bavli, Tel Aviv" or "Haifa" alike.
+    let snapLat = city.lat;
+    let snapLng = city.lng;
+
+    const geocodeQuery = city.parentName
+      ? `${city.name}, ${city.parentName}`   // neighborhood: "באבלי, תל אביב-יפו"
+      : city.name;                           // city: "חיפה"
+
+    const exact = await forwardGeocode(geocodeQuery);
+    if (exact) {
+      snapLat = exact.lat;
+      snapLng = exact.lng;
+    }
+    
+    setViewState({ longitude: snapLng, latitude: snapLat, zoom: 14 });
+    setUserLocation({ lat: snapLat, lng: snapLng });
     setDetectedCity(city.parentName || city.name);
     setDetectedNeighborhood(city.parentName ? city.name : null);
     setDisplayName(city.displayName);
@@ -465,29 +529,38 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
     const effectiveCityName = city.parentName || city.name;
     const authId = await findAuthorityIdByCity(effectiveCityName);
     setResolvedAuthorityId(authId);
+    if (authId && typeof window !== 'undefined') {
+      sessionStorage.setItem('selected_authority_id', authId);
+    }
 
     setIsLoadingParks(true);
-    setIsLoadingCurated(true);
-    const hero = await fetchHeroRoute(city.lat, city.lng, authId, sportContext, selectedSportId);
-    setHeroRoute(hero);
-    setIsLoadingCurated(false);
+    // Explorer mode: parks only — skip all route fetching
+    let hero: RouteWithDistance | null = null;
+    if (!isExplorer) {
+      setIsLoadingCurated(true);
+      hero = await fetchHeroRoute(snapLat, snapLng, authId, sportContext, selectedSportId);
+      setHeroRoute(hero);
+      setIsLoadingCurated(false);
+    }
     const heroArr: RouteWithDistance[] = hero ? [hero] : [];
-    const rawFacilities = await fetchNearbyFacilities(city.lat, city.lng, 1600, selectedSportId, heroArr, sportContext);
-    const facilities = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+    const rawFacilities = await fetchNearbyFacilities(snapLat, snapLng, 1600, selectedSportId, heroArr, sportContext);
+    const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+    const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
     setNearbyFacilities(facilities.slice(0, 5));
     setBestMatchIndex(0);
     setIsLoadingParks(false);
 
-    loadInfrastructureContext(effectiveCityName, authId);
+    if (!isExplorer) {
+      loadInfrastructureContext(effectiveCityName, authId);
+      updateData({
+        locationAllowed: true,
+        city: city.displayName,
+        location: { lat: snapLat, lng: snapLng, city: city.displayName },
+      });
+    }
     
     setShowRadar(true);
     setTimeout(() => setShowRadar(false), 3000);
-    
-    updateData({
-      locationAllowed: true,
-      city: city.displayName,
-      location: { lat: city.lat, lng: city.lng, city: city.displayName },
-    });
     
     setStage(LocationStage.CONFIRMING);
   };
@@ -511,7 +584,7 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
   // ══════════════════════════════════════════════════════════════════
 
   return (
-    <div dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-[#F8FAFC] z-50">
+    <div ref={ref} dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-[#F8FAFC] z-50">
       {/* Map Container */}
       <div 
         className="absolute inset-0 overflow-hidden transition-all duration-300"
@@ -629,8 +702,8 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
                 );
             })()}
 
-            {/* Hero Route — Zero-Noise: Only the single closest matching route */}
-            {heroRoute && heroRoute.path && heroRoute.path.length >= 2 && (() => {
+            {/* Hero Route — Zero-Noise: Only the single closest matching route (hidden in explorer) */}
+            {!isExplorer && heroRoute && heroRoute.path && heroRoute.path.length >= 2 && (() => {
               const startPt = heroRoute.path[0];
                 const isHybrid = heroRoute.isHybrid;
                 const heroColor = isHybrid ? '#F97316' : '#06B6D4';
@@ -839,6 +912,9 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
             locationError={locationError}
             onFindLocation={handleFindLocation}
             onSearchManually={handleSearchManually}
+            mode={mode}
+            detectedNeighborhood={detectedNeighborhood}
+            detectedCity={detectedCity}
           />
         )}
 
@@ -862,11 +938,12 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
             infraStats={infraStats}
             cityAssetCounts={cityAssetCounts}
             settlementNaming={settlementNaming}
-            curatedRouteCount={heroRoute ? 1 : 0}
-            heroRoute={heroRoute}
+            curatedRouteCount={isExplorer ? 0 : (heroRoute ? 1 : 0)}
+            heroRoute={isExplorer ? null : heroRoute}
             sportContext={sportContext}
             bestMatchIndex={bestMatchIndex}
             trainingContext={trainingContext}
+            mode={mode}
           />
         )}
 
@@ -883,4 +960,8 @@ export default function UnifiedLocationStep({ onNext }: UnifiedLocationStepProps
       </AnimatePresence>
     </div>
   );
-}
+});
+
+UnifiedLocationStep.displayName = 'UnifiedLocationStep';
+
+export default UnifiedLocationStep;

@@ -183,7 +183,7 @@ export default function HealthDeclarationStep({
   }, [canSubmit, signatureData, isSubmitting, updateData, answers, termsAccepted, usedFastTrack, userName, gender, onContinue, onComplete]);
 
   return (
-    <div className="flex flex-col h-full w-full" dir="rtl">
+    <div className="flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50" dir="rtl">
       {/* ── Scrollable content ── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-36 scroll-smooth">
         {/* Header */}

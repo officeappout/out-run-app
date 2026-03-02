@@ -1,26 +1,32 @@
 "use client";
 
-// Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore, useProgressionStore } from '@/features/user';
-import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
-import { MOCK_STATS, MOCK_PROGRESS } from '@/features/home/data/mock-schedule-data';
-import UserHeaderPill from '@/features/home/components/UserHeaderPill';
-import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
-import StatsOverview from '@/features/home/components/StatsOverview';
-import GuestHeroCard from '@/features/home/components/GuestHeroCard';
-import ProgressCard from '@/features/home/components/ProgressCard';
+import { useUserStore } from '@/features/user';
 import AlertModal from '@/features/home/components/AlertModal';
 import SettingsModal from '@/features/home/components/SettingsModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
-import { SmartGreeting } from '@/features/messages';
-import SecureAccountBanner from '@/components/SecureAccountBanner';
-// BottomNavigation removed (rendered in layout)
+import UserHeaderPill from '@/features/home/components/UserHeaderPill';
+import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
+import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
+import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
+import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
+import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
+import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
+import { isUserVerified } from '@/features/user/identity/services/access-control.service';
+import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
+import { motion, AnimatePresence } from 'framer-motion';
+import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
+import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
+import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 
-import { LogOut, RefreshCcw, Settings } from 'lucide-react';
+import {
+  LogOut, Settings, BadgeCheck, AlertCircle,
+  Shield, RefreshCcw, CheckCircle2, Circle, ChevronDown,
+  CalendarDays, X,
+} from 'lucide-react';
 import { signOutUser } from '@/lib/auth.service';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -28,427 +34,922 @@ import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardi
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { getUserFromFirestore } from '@/lib/firestore.service';
-import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
+import { doc as firestoreDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { isAdminEmailAllowed } from '@/config/feature-flags';
+import StatsOverview from '@/features/home/components/StatsOverview';
+import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
+import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
+import { DaySchedule } from '@/features/home/data/mock-schedule-data';
+
+import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
+
+// ════════════════════════════════════════════════════════════════════
+// 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
+// ════════════════════════════════════════════════════════════════════
+
+function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const completion = useMemo(
+    () => calculateProfileCompletion(profile),
+    [profile],
+  );
+
+  if (completion.isVerified || completion.percentage >= 100) return null;
+
+  const handleGoToStep = (step: string) => {
+    router.push(`/onboarding-new/setup?step=${step}&jit=true`);
+  };
+
+  return (
+    <div dir="rtl">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 px-4 py-2.5 bg-white/80 backdrop-blur-sm"
+      >
+        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2]"
+            initial={{ width: 0 }}
+            animate={{ width: `${completion.percentage}%` }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+          />
+        </div>
+        <span className="text-xs font-bold text-slate-500 min-w-[36px] text-left">
+          {completion.percentage}%
+        </span>
+        <motion.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown size={16} className="text-slate-400" />
+        </motion.div>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden bg-white border-b border-slate-100"
+          >
+            <div className="px-4 py-3 space-y-1.5">
+              {completion.items.map((item) => (
+                <div key={item.id} className="flex items-center gap-2.5 py-1.5">
+                  {item.completed ? (
+                    <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
+                  ) : (
+                    <Circle size={16} className="text-slate-300 flex-shrink-0" />
+                  )}
+                  <span className={`flex-1 text-xs ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}>
+                    {item.label}
+                  </span>
+                  {!item.completed && item.step && (
+                    <button
+                      onClick={() => handleGoToStep(item.step!)}
+                      className="text-[11px] text-[#00C9F2] font-bold hover:underline"
+                    >
+                      השלם
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 2. HERO GLASS CARD — for users without a program yet
+// ════════════════════════════════════════════════════════════════════
+
+function HeroGlassCard({
+  onPress,
+  hasProgram,
+  showHealthDot,
+  hasCompletedAssessment,
+}: {
+  onPress: () => void;
+  hasProgram: boolean;
+  showHealthDot: boolean;
+  /** True once the user has finished the onboarding assessment */
+  hasCompletedAssessment: boolean;
+}) {
+  // Determine copy based on user state
+  let title: string;
+  let subtitle: string;
+
+  if (hasProgram) {
+    title = 'האימון שלך מוכן';
+    subtitle = 'לחץ כדי להתחיל';
+  } else if (!hasCompletedAssessment) {
+    title = 'בוא נעשה יחד את האימון הראשון';
+    subtitle = 'מלא/י אבחון רמה קצר כדי להתאים עבורך תוכנית אישית';
+  } else {
+    title = 'בנה תוכנית אימון';
+    subtitle = 'מותאם אישית למטרות שלך';
+  }
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.3 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onPress}
+      className="w-full relative overflow-hidden rounded-[28px] shadow-xl h-[300px] group"
+    >
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=1400&auto=format&fit=crop')`,
+        }}
+      />
+      <div className="absolute inset-0 bg-black/15" />
+
+      <div className="absolute inset-0 flex items-center justify-center px-8">
+        <div className="relative w-full max-w-[280px] backdrop-blur-xl bg-white/30 border border-white/20 rounded-[32px] px-8 py-10 flex flex-col items-center gap-3 shadow-lg">
+          {showHealthDot && (
+            <div className="absolute top-4 left-4">
+              <AlertCircle size={14} className="text-red-500" />
+            </div>
+          )}
+          <h2
+            className="text-2xl font-black text-white text-center leading-tight"
+            style={{ fontFamily: 'var(--font-simpler)', textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}
+          >
+            {title}
+          </h2>
+          <p
+            className="text-sm text-white/90 text-center font-medium"
+            style={{ fontFamily: 'var(--font-simpler)', textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}
+          >
+            {subtitle}
+          </p>
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// MAIN HOME PAGE — Clean Execution Zone
+// ════════════════════════════════════════════════════════════════════
 
 export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, resetProfile, refreshProfile } = useUserStore();
-  const { goalHistory } = useProgressionStore(); // Listen to progression changes
   const { reset: resetOnboarding } = useOnboardingStore();
   const scheduleState = useSmartSchedule();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
-  const [showSecureBanner, setShowSecureBanner] = useState(true);
-  
-  // ── Dynamic workout state (lifted from StatsOverview) ──
-  // generatedWorkout is the SINGLE SOURCE OF TRUTH for the current workout.
-  // workoutVersion increments on every generation/adjustment to force a
-  // full re-render of the WorkoutPreviewDrawer (clears stale internal state).
+
+  // Selected date drives SmartWeeklySchedule highlight + StatsOverview workout gen
+  const [selectedDate, setSelectedDate] = useState(() => toISODate(new Date()));
+
+  // Training Planner Overlay (calendar icon → full-screen planner)
+  const [showPlanner, setShowPlanner] = useState(false);
+
+  // Lifestyle Wizard State
+  const [showLifestyleWizard, setShowLifestyleWizard] = useState(false);
+
+  // ── Gear Toast (one-time after onboarding) ──
+  const [showGearToast, setShowGearToast] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const flag = sessionStorage.getItem('show_gear_toast');
+    if (!flag) return;
+    sessionStorage.removeItem('show_gear_toast');
+    const timer = setTimeout(() => setShowGearToast(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!showGearToast) return;
+    const timer = setTimeout(() => setShowGearToast(false), 5000);
+    return () => clearTimeout(timer);
+  }, [showGearToast]);
+
+  // ── Post-Workout Celebration Mode ──
+  const [postWorkoutData, setPostWorkoutData] = useState<{
+    workoutType: string; durationMinutes: number; completedAt: string;
+    workoutTitle?: string; streak?: number; thumbnailUrl?: string;
+  } | null>(null);
+  const postWorkoutMsg = useSmartMessage('post_workout');
+  const { celebrate } = useGoalCelebration();
+  const [showMotivationBanner, setShowMotivationBanner] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = sessionStorage.getItem('post_workout_completed');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      const elapsed = Date.now() - new Date(data.completedAt).getTime();
+      if (elapsed < 30 * 60 * 1000) {
+        setPostWorkoutData(data);
+        setShowMotivationBanner(true);
+      }
+    } catch { /* ignore parse errors */ }
+    sessionStorage.removeItem('post_workout_completed');
+  }, []);
+
+  useEffect(() => {
+    if (postWorkoutData) {
+      celebrate('home_post_workout', 500);
+    }
+  }, [postWorkoutData, celebrate]);
+
+  const completionData: CompletionData | undefined = postWorkoutData
+    ? {
+        workoutType: postWorkoutData.workoutType,
+        durationMinutes: postWorkoutData.durationMinutes,
+        workoutTitle: postWorkoutData.workoutTitle,
+        streak: postWorkoutData.streak,
+        thumbnailUrl: postWorkoutData.thumbnailUrl,
+      }
+    : undefined;
+
+  const handleDismissCelebration = useCallback(() => {
+    setPostWorkoutData(null);
+    setShowMotivationBanner(false);
+  }, []);
+
+  const handleRequestMore = useCallback(() => {
+    setPostWorkoutData(null);
+    setShowMotivationBanner(false);
+    setTimeout(() => handleHeroPress(), 200);
+  }, []);
+
+  // Check for query params from post-workout CTA or JIT return
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('openWizard') === 'true') {
+        setShowLifestyleWizard(true);
+        window.history.replaceState({}, '', '/home');
+      }
+      if (params.get('startWorkout') === 'true') {
+        window.history.replaceState({}, '', '/home');
+        // Defer so the page finishes mounting before triggering the workout flow
+        setTimeout(() => handleHeroPress(), 300);
+      }
+    }
+  }, []);
+
+  // JIT Setup Hook
+  const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
+
+  // Lifestyle Bridge Logic
+  const shouldShowBridge =
+    profile?.onboardingStatus === 'PENDING_LIFESTYLE' &&
+    !profile?.lifestyle?.scheduleDays &&
+    !showLifestyleWizard;
+
+  const handleStartWizard = useCallback(() => {
+    setShowLifestyleWizard(true);
+  }, []);
+
+  const handleSkipBridge = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('skipped_bridge', 'true');
+    }
+  }, []);
+
+  const handleWizardComplete = useCallback(async () => {
+    setShowLifestyleWizard(false);
+    await refreshProfile();
+  }, [refreshProfile]);
+
+  // Dashboard mode flags
+  const hasProgram = !!(
+    profile?.progression?.domains && Object.keys(profile.progression.domains).length > 0
+  );
+  const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
+  // Map path vs Assessment path: tracks/domains with level > 1 = assessment done
+  const hasCompletedAssessment = (() => {
+    const tracks = profile?.progression?.tracks ?? {};
+    const domains = profile?.progression?.domains ?? {};
+    const hasLevelAbove1 = (obj: Record<string, { currentLevel?: number } | undefined>) =>
+      Object.values(obj).some((v) => (v?.currentLevel ?? 1) > 1);
+    return (
+      hasLevelAbove1(tracks) ||
+      hasLevelAbove1(domains) ||
+      profile?.onboardingStatus === 'COMPLETED'
+    );
+  })();
+  const verified = isUserVerified(profile);
+
+  // Health declaration check
+  const isHealthMissing = (() => {
+    if (!profile) return false;
+    const healthAccepted =
+      (profile as any)?.healthDeclarationAccepted ||
+      (profile.health as any)?.healthDeclarationAccepted;
+    return !healthAccepted;
+  })();
+
+  // Dev Mode
+  const [showDevPanel, setShowDevPanel] = useState(false);
+  const userEmail = auth.currentUser?.email || profile?.core?.email;
+  const isDevModeAvailable = isAdminEmailAllowed(userEmail ?? null);
+  const currentTier = profile?.core?.accessLevel ?? 1;
+  const isDev = process.env.NODE_ENV === 'development';
+
+  const handleSetTier = async (tier: 1 | 2 | 3) => {
+    if (!profile?.id) return;
+    try {
+      await updateDoc(firestoreDoc(db, 'users', profile.id), { 'core.accessLevel': tier });
+      refreshProfile();
+    } catch (e) {
+      console.error('[DevMode] Failed to set tier:', e);
+    }
+  };
+
+  // Dynamic workout state
   const generatedWorkoutRef = useRef<GeneratedWorkout | null>(null);
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
   const [workoutVersion, setWorkoutVersion] = useState(0);
 
   const handleWorkoutGenerated = useCallback((workout: GeneratedWorkout) => {
-    console.log('[HomePage] Workout generated/updated — syncing state', workout.title);
     generatedWorkoutRef.current = workout;
     setGeneratedWorkout(workout);
     setWorkoutVersion((v) => v + 1);
   }, []);
 
-  // Check if in development mode
-  const isDev = process.env.NODE_ENV === 'development';
+  // Active program templateId — used as the icon key source.
+  // The templateId IS the canonical program name (e.g. 'full_body',
+  // 'upper_body', 'running') and maps directly through PROGRAM_ALIAS_TO_ICON.
+  const programIconKey = profile?.progression?.activePrograms?.[0]?.templateId;
 
-  // טיפול בפתיחת Alert
-  React.useEffect(() => {
-    if (scheduleState.showMissedAlert) {
-      setShowAlert('missed');
-    } else if (scheduleState.showComebackAlert) {
-      setShowAlert('comeback');
-    }
+  // Alerts
+  useEffect(() => {
+    if (scheduleState.showMissedAlert) setShowAlert('missed');
+    else if (scheduleState.showComebackAlert) setShowAlert('comeback');
   }, [scheduleState.showMissedAlert, scheduleState.showComebackAlert]);
 
-  // Force refresh profile from Firestore once we know we're hydrated and have a user
+  // Refresh profile from Firestore
   useEffect(() => {
     if (_hasHydrated && profile?.id) {
-      refreshProfile().catch((error) => {
-        console.error('[HomePage] Error refreshing profile:', error);
-      });
+      refreshProfile().catch((e) => console.error('[HomePage] Error refreshing profile:', e));
     }
   }, [_hasHydrated, profile?.id, refreshProfile]);
 
-  const handleStartWorkout = () => {
-    console.log("[HomePage] Opening Drawer with dynamic workout...");
-    
-    const today = new Date().toISOString().split('T')[0];
-    const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
-    
-    // Use generated workout data when available, fallback to schedule data
-    const gw = generatedWorkoutRef.current;
-    
-    const workoutMetadata = {
-      id: uniqueWorkoutId,
-      title: gw?.title || scheduleState.currentWorkout?.title || 'אימון כוח',
-      description: gw?.description || scheduleState.currentWorkout?.description || 'אימון מותאם אישית על פי הרמה שלך',
-      level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
-      difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
-      duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
-      coverImage: scheduleState.currentWorkout?.imageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-      segments: [],
-    };
-    
-    setSelectedWorkout(workoutMetadata);
-  };
-
-  const handleLogout = async () => {
-    await signOutUser();
-    resetProfile();
-    // Optional: Force reload or redirect to ensure clean state, 
-    // though resetProfile should trigger UI updates (authentication guard will kick in)
-    // router.replace('/onboarding'); // Logic in useEffect below handles this
-  };
-
-  const handleAlertAction = () => {
-    setShowAlert(null);
-    handleStartWorkout();
-  };
-
-  const handleAlertClose = () => {
-    setShowAlert(null);
-  };
-
-  const handleDevReset = async () => {
-    if (!isDev) return; // Safety check - should never reach here in prod
-    
-    if (!confirm('⚠️ Dev Reset: זה ימחק את כל הנתונים המקומיים ויתנתק. להמשיך?')) {
+  // Hero Card Press Handler
+  const handleHeroPress = useCallback(() => {
+    if (!profile?.core?.name) {
+      router.push('/onboarding-new/profile');
       return;
     }
 
-    try {
-      // 1. Clear all localStorage
-      localStorage.clear();
-      
-      // 2. Clear sessionStorage
-      sessionStorage.clear();
-      
-      // 3. Reset Onboarding Store
-      resetOnboarding();
-      
-      // 4. Reset User Store
-      resetProfile();
-      
-      // 5. Sign out from Firebase Auth
-      await signOut(auth);
-      
-      // 6. Redirect to welcome screen (home)
-      router.push('/');
-    } catch (error) {
-      console.error('Error during dev reset:', error);
-      alert('שגיאה באיפוס. נסה שוב.');
+    if (hasProgram) {
+      interceptWorkoutStart(() => {
+        const today = new Date().toISOString().split('T')[0];
+        const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
+        const gw = generatedWorkoutRef.current;
+
+        if (gw?.exercises && typeof window !== 'undefined') {
+          const { getLocalizedText: glt } = require('@/features/content/exercises');
+          const exercises = gw.exercises.map((ex) => {
+            const resolveHighlights = (): string[] => {
+              const methodHighlights = ex.method?.highlights;
+              if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
+                return methodHighlights.map((h: any) =>
+                  typeof h === 'string' ? h : (h?.male || h?.female || ''),
+                ).filter(Boolean);
+              }
+              const contentHighlights = ex.exercise.content?.highlights;
+              if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
+                return contentHighlights;
+              }
+              const instr = ex.exercise.content?.instructions;
+              if (instr) {
+                const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
+                if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
+              }
+              return [];
+            };
+
+            const resolveGoal = (): string => {
+              if (ex.exercise.content?.goal) return ex.exercise.content.goal;
+              const desc = ex.exercise.content?.description;
+              if (desc) {
+                return typeof desc === 'string' ? desc : (desc as any)?.he || (desc as any)?.en || '';
+              }
+              return '';
+            };
+
+            const primaryMuscle = ex.exercise.primaryMuscle;
+            const secondaryMuscles = ex.exercise.secondaryMuscles;
+            const legacyMuscleGroups = ex.exercise.muscleGroups || [];
+            const muscleGroups = legacyMuscleGroups.length > 0
+              ? legacyMuscleGroups
+              : [primaryMuscle, ...(secondaryMuscles || [])].filter(Boolean);
+
+            return {
+              id: ex.exercise.id,
+              name: glt(ex.exercise.name),
+              reps: ex.isTimeBased ? undefined : (
+                ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+                  ? `${ex.sets}×${ex.repsRange.min}-${ex.repsRange.max} חזרות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
+                  : `${ex.sets}×${ex.reps} חזרות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
+              ),
+              duration: ex.isTimeBased ? (
+                ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+                  ? `${ex.sets}×${ex.repsRange.min}-${ex.repsRange.max} שניות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
+                  : `${ex.sets}×${ex.reps} שניות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
+              ) : undefined,
+              videoUrl: ex.method?.media?.mainVideoUrl || ex.exercise.media?.videoUrl || undefined,
+              imageUrl: ex.method?.media?.imageUrl || ex.exercise.media?.imageUrl || undefined,
+              exerciseType: ex.isTimeBased ? 'time' as const : 'reps' as const,
+              exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown') || 'main' as const,
+              isFollowAlong: false,
+              hasAudio: false,
+              highlights: resolveHighlights(),
+              muscleGroups,
+              goal: resolveGoal(),
+              description: resolveGoal(),
+              equipment: ex.method?.equipmentIds || ex.method?.gearIds || [],
+              restSeconds: ex.restSeconds,
+              repsRange: ex.repsRange,
+              isGoalExercise: ex.isGoalExercise,
+              rampedTarget: ex.rampedTarget,
+              isTimeBased: ex.isTimeBased,
+              sets: ex.sets,
+              execution_methods: ex.exercise.execution_methods || ex.exercise.executionMethods || [],
+            };
+          });
+
+          const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
+          const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
+          const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
+
+          const segments: any[] = [];
+          if (warmupExercises.length > 0) {
+            segments.push({
+              id: 'seg-warmup',
+              type: 'station' as const,
+              title: 'חימום',
+              icon: '🔥',
+              target: { type: 'reps' as const, value: 12 },
+              exercises: warmupExercises,
+              isCompleted: false,
+              restBetweenExercises: 5,
+            });
+          }
+          if (mainExercises.length > 0) {
+            segments.push({
+              id: 'seg-main',
+              type: 'station' as const,
+              title: gw.title || 'אימון כוח',
+              icon: '💪',
+              target: { type: 'reps' as const, value: 12 },
+              exercises: mainExercises,
+              isCompleted: false,
+              restBetweenExercises: 10,
+            });
+          }
+          if (cooldownExercises.length > 0) {
+            segments.push({
+              id: 'seg-cooldown',
+              type: 'station' as const,
+              title: 'מתיחות',
+              icon: '🧘',
+              target: { type: 'reps' as const, value: 12 },
+              exercises: cooldownExercises,
+              isCompleted: false,
+              restBetweenExercises: 5,
+            });
+          }
+          if (segments.length === 0) {
+            segments.push({
+              id: 'seg-all',
+              type: 'station' as const,
+              title: gw.title || 'אימון כוח',
+              icon: '💪',
+              target: { type: 'reps' as const, value: 12 },
+              exercises,
+              isCompleted: false,
+              restBetweenExercises: 10,
+            });
+          }
+
+          const workoutPlan = {
+            id: uniqueWorkoutId,
+            name: gw.title || 'אימון כוח',
+            description: gw.description || '',
+            logicCue: gw.logicCue || '',
+            segments,
+            totalDuration: gw.estimatedDuration || 30,
+            difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
+            trainingType: 'strength' as const,
+          };
+
+          sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
+          sessionStorage.setItem('currentWorkoutPlanId', uniqueWorkoutId);
+        }
+
+        setSelectedWorkout({
+          id: uniqueWorkoutId,
+          title: gw?.title || scheduleState.currentWorkout?.title || 'אימון כוח',
+          description: gw?.description || scheduleState.currentWorkout?.description || 'אימון מותאם אישית',
+          level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
+          difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
+          duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
+          coverImage: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+          segments: [],
+        });
+      });
+    } else {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('onboarding_path', isMapOnlyUser ? 'UPGRADE_FROM_MAP' : 'FULL_PROGRAM');
+        if (profile?.core?.name && !sessionStorage.getItem('onboarding_personal_name')) {
+          sessionStorage.setItem('onboarding_personal_name', profile.core.name);
+        }
+        if (profile?.core?.gender && !sessionStorage.getItem('onboarding_personal_gender')) {
+          sessionStorage.setItem('onboarding_personal_gender', profile.core.gender);
+        }
+        if (profile?.core?.birthDate && !sessionStorage.getItem('onboarding_personal_dob')) {
+          const bd = profile.core.birthDate;
+          const dobStr = bd instanceof Date ? bd.toISOString().split('T')[0] : String(bd);
+          sessionStorage.setItem('onboarding_personal_dob', dobStr);
+        }
+      }
+      router.push('/onboarding-new/assessment-visual');
     }
+  }, [hasProgram, isMapOnlyUser, interceptWorkoutStart, profile, scheduleState, router]);
+
+  const handleLogout = async () => { await signOutUser(); resetProfile(); };
+
+  const handleAlertAction = () => { setShowAlert(null); handleHeroPress(); };
+
+  const handleDevReset = async () => {
+    if (!isDev) return;
+    if (!confirm('⚠️ Dev Reset: זה ימחק את כל הנתונים המקומיים ויתנתק. להמשיך?')) return;
+    try {
+      localStorage.clear(); sessionStorage.clear();
+      resetOnboarding(); resetProfile();
+      await signOut(auth); router.push('/');
+    } catch (error) { console.error('Error during dev reset:', error); }
   };
 
-  // בדיקה אם המשתמש השלים Onboarding - רק אחרי שה-Store סיים לטעון מה-localStorage
-  // If localStorage has no profile, fallback to Firestore before redirecting
+  // Firestore fallback
   const [isCheckingFirestore, setIsCheckingFirestore] = useState(false);
   useEffect(() => {
     if (!_hasHydrated || profile || isCheckingFirestore) return;
-
-    // No profile in localStorage — check Firestore before giving up
     const checkFirestore = async () => {
       setIsCheckingFirestore(true);
       try {
         const uid = auth.currentUser?.uid;
-        if (!uid) {
-          // Truly unauthenticated — go to onboarding
-          router.replace('/onboarding-new/roadmap');
-          return;
-        }
-
-        const userDocSnap = await getDoc(firestoreDoc(db, 'users', uid));
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const status = userData?.onboardingStatus;
-
-          if (status === 'COMPLETED' || userData?.onboardingComplete) {
-            // Onboarding IS done — hydrate the store and stay on /home
-            const freshProfile = await getUserFromFirestore(uid);
-            if (freshProfile) {
-              useUserStore.getState().initializeProfile(freshProfile);
-              console.log('[HomePage] Profile recovered from Firestore — staying on /home');
-              setIsCheckingFirestore(false);
-              return; // stay on /home
-            }
+        if (!uid) { router.replace('/onboarding-new/profile'); return; }
+        const snap = await getDoc(firestoreDoc(db, 'users', uid));
+        if (snap.exists()) {
+          const d = snap.data();
+          const s = d?.onboardingStatus;
+          if (s === 'COMPLETED' || s === 'PENDING_LIFESTYLE' || d?.onboardingComplete || s === 'MAP_ONLY') {
+            const fp = await getUserFromFirestore(uid);
+            if (fp) { useUserStore.getState().initializeProfile(fp); setIsCheckingFirestore(false); return; }
           }
         }
-
-        // Onboarding truly not complete — redirect
-        router.replace('/onboarding-new/roadmap');
-      } catch (e) {
-        console.error('[HomePage] Firestore fallback check failed:', e);
-        router.replace('/onboarding-new/roadmap');
-      } finally {
-        setIsCheckingFirestore(false);
-      }
+        router.replace('/onboarding-new/profile');
+      } catch { router.replace('/onboarding-new/profile'); }
+      finally { setIsCheckingFirestore(false); }
     };
-
     checkFirestore();
   }, [_hasHydrated, profile, router, isCheckingFirestore]);
 
-  // מצב טעינה - הצג loading screen עד שה-Store טוען מה-localStorage
+  // Loading states
   if (!_hasHydrated) {
     return (
-      <div className="h-[100dvh] flex items-center justify-center" style={{ height: '100dvh' }}>
-        <p className="text-gray-500">טוען...</p>
+      <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
+        <p className="text-slate-400 animate-pulse text-sm">טוען...</p>
       </div>
     );
   }
 
-  // אם אין פרופיל אחרי rehydration - בודקים Firestore לפני redirect
   if (!profile) {
     return (
-      <div className="h-[100dvh] flex items-center justify-center" style={{ height: '100dvh' }}>
-        <p className="text-gray-500">{isCheckingFirestore ? 'בודק פרופיל...' : 'מעביר להרשמה...'}</p>
+      <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
+        <p className="text-slate-400 text-sm">{isCheckingFirestore ? 'בודק פרופיל...' : 'מעביר להרשמה...'}</p>
       </div>
     );
   }
 
-  // A user is only considered a guest if they have no email AND no onboarding schedule data
-  const hasOnboardingSchedule = !!(
-    profile.lifestyle?.scheduleDays &&
-    profile.lifestyle.scheduleDays.length > 0
-  );
-  const isGuest = !!(profile?.id && !profile.core?.email && !hasOnboardingSchedule);
-  const userName = profile?.core?.name || 'OUTer';
-  const isRestDay = scheduleState.scenario === 'rest';
-  // Dynamic Track: Read directly from profile store
-  const currentTrack = profile?.core?.trackingMode || 'wellness'; // 'wellness' = HEALTH, 'performance' = PERFORMANCE
-
-  // Helper: Check if user has completed onboarding
-  const hasCompletedOnboarding = (userProfile: UserFullProfile | null): boolean => {
-    if (!userProfile) return false;
-    // Check if user has progression data and schedule days (indicates completed onboarding)
-    return !!(
-      userProfile.progression &&
-      userProfile.progression.domains &&
-      Object.keys(userProfile.progression.domains).length > 0 &&
-      userProfile.lifestyle?.scheduleDays &&
-      userProfile.lifestyle.scheduleDays.length > 0
-    );
-  };
-
-  // Helper: Get fitness level from profile (based on initialFitnessTier or domain levels)
-  const getFitnessLevel = (userProfile: UserFullProfile | null): number => {
-    if (!userProfile?.progression?.domains) return 0;
-    
-    // Try to get level from a primary domain (upper_body is usually the main one)
-    const primaryDomain = userProfile.progression.domains.upper_body || 
-                         userProfile.progression.domains.lower_body ||
-                         userProfile.progression.domains.full_body ||
-                         userProfile.progression.domains.core;
-    
-    if (primaryDomain?.currentLevel) {
-      return primaryDomain.currentLevel;
-    }
-    
-    // Fallback to initialFitnessTier mapping
-    const initialTier = userProfile.core?.initialFitnessTier || 1;
-    return initialTier === 1 ? 1 : initialTier === 2 ? 3 : 5;
-  };
-
-  // Helper: Calculate progress percentage towards next level (starts at 0% for new users)
-  const calculateProgressPercentage = (userProfile: UserFullProfile | null): number => {
-    if (!userProfile?.progression) return 0;
-    
-    // For new users (no XP), return 0% (as seen in summary)
-    if (!userProfile.progression.globalXP || userProfile.progression.globalXP === 0) {
-      return 0;
-    }
-    
-    // Calculate percentage based on XP (simplified - can be enhanced with actual XP-to-level logic)
-    const currentLevel = getFitnessLevel(userProfile);
-    const nextLevelXP = currentLevel * 1000; // Mock XP requirement (1000 XP per level)
-    const currentXP = userProfile.progression.globalXP || 0;
-    const progressXP = currentXP % 1000; // XP within current level
-    
-    return Math.min(Math.round((progressXP / nextLevelXP) * 100), 99); // Cap at 99%
-  };
-
-  // Check if account is unsecured (user skipped AccountSecureStep or used anonymous mode)
-  const isAccountUnsecured = (): boolean => {
-    // Check from Firestore data if available (will be synced on mount)
-    // For now, check if user is anonymous OR if they have no email
-    const isAnonymous = auth.currentUser?.isAnonymous || false;
-    const hasEmail = !!profile?.core?.email;
-    
-    // Account is unsecured if: anonymous AND no email (hasn't linked account)
-    return isAnonymous && !hasEmail;
-  };
+  // Build week schedule data
+  const userScheduleDays = (profile?.lifestyle?.scheduleDays as string[]) || [];
+  const hasSchedule = userScheduleDays.length > 0;
+  const WEEK_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+  const todayIndex = new Date().getDay();
+  const realSchedule: DaySchedule[] = WEEK_DAYS.map((day, i) => {
+    const isToday = i === todayIndex;
+    const isTrainingDay = userScheduleDays.includes(day);
+    const isPast = i < todayIndex;
+    const status: DaySchedule['status'] = isToday
+      ? 'today'
+      : isPast && isTrainingDay
+        ? 'completed'
+        : isTrainingDay
+          ? 'scheduled'
+          : 'rest';
+    return { day, date: i + 1, status };
+  });
+  const primaryTrack = (profile?.lifestyle as any)?.primaryTrack;
 
   return (
-    <div className="min-h-[100dvh] bg-[#F3F5F9] pb-20" style={{ minHeight: '100dvh', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
-      {/* Header - Sticky with Gradient Logo and UserHeaderPill */}
-      <header className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-gray-100 dark:border-slate-800">
+    <div className="min-h-[100dvh] bg-[#F8FAFC]">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">
-          {/* Left: Settings & Logout */}
-          <div className="flex items-center gap-2">
+
+          {/* Left: Planner + Settings + Logout */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowPlanner(true)}
+              className="p-2 text-slate-400 hover:text-[#00C9F2] hover:bg-cyan-50 rounded-full transition-all"
+              aria-label="תכנון אימונים"
+            >
+              <CalendarDays size={22} />
+            </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-full active:scale-95 transition-all"
-              title="הגדרות"
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all"
             >
-              <Settings size={24} />
+              <Settings size={22} />
             </button>
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full active:scale-95 transition-all"
-              title="התנתק"
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
             >
-              <LogOut size={24} />
+              <LogOut size={22} />
             </button>
           </div>
 
-          {/* Center: Gradient Logo */}
-          <h1 className="text-3xl font-black bg-gradient-to-r from-[#00C9F2] to-[#00B8D4] bg-clip-text text-transparent tracking-tighter">
-            OUT
-          </h1>
+          {/* Center: Logo */}
+          <div className="flex items-center gap-1.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/logo/Kind=logotype.svg" alt="OUT" className="h-8 object-contain" />
+            {verified && <BadgeCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />}
+          </div>
 
-          {/* Right: User Header Pill with Avatar, Coins & Dynamic Flame */}
-          <UserHeaderPill compact />
+          {/* Right: User pill — taps to profile */}
+          <button onClick={() => router.push('/profile')} className="cursor-pointer">
+            <UserHeaderPill compact />
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {/* Secure Account Banner - Show if account is unsecured */}
-        {isAccountUnsecured() && showSecureBanner && (
-          <SecureAccountBanner
-            userName={userName}
-            onDismiss={() => setShowSecureBanner(false)}
+      {/* ── Profile Progress Bar ── */}
+      <ProfileProgressBar profile={profile} />
+
+      {/* ── Global Motivation Banner (post-workout) ── */}
+      <AnimatePresence>
+        {showMotivationBanner && postWorkoutMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3 }}
+            className="max-w-md mx-auto px-4 pt-3"
+          >
+            <div
+              className="relative flex items-center gap-3 px-4 py-3"
+              dir="rtl"
+              style={{
+                background: '#F0FBFF',
+                border: '1px solid #B8E8F5',
+                borderRadius: 14,
+              }}
+            >
+              <div className="flex-1 text-center text-[14px] font-semibold text-gray-800 leading-relaxed">
+                {postWorkoutMsg.text}
+                {postWorkoutMsg.subText ? ` ${postWorkoutMsg.subText}` : ''}
+              </div>
+              <button
+                onClick={() => setShowMotivationBanner(false)}
+                className="flex-shrink-0 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Main Content: Clean Execution Zone ── */}
+      <div className="max-w-md mx-auto px-4 pt-4 pb-4 space-y-4">
+
+        {/* Week Strip — locked to 1-row week view, no month toggle */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="relative overflow-hidden rounded-3xl"
+        >
+          <SmartWeeklySchedule
+            schedule={realSchedule}
+            currentTrack={primaryTrack === 'performance' ? 'performance' : 'wellness'}
+            scheduleDays={userScheduleDays}
+            programIconKey={programIconKey}
+            selectedDate={selectedDate}
+            onDaySelect={setSelectedDate}
+            userId={profile?.id}
+            recurringTemplate={profile?.lifestyle?.recurringTemplate}
+            calendarMode="week"
+            hideMonthToggle
+            onSwipeDown={() => setShowPlanner(true)}
+            hasCompletedAssessment={hasCompletedAssessment}
+            hasSchedule={hasSchedule}
+            onStartAssessment={handleHeroPress}
+            onSetSchedule={() => setShowLifestyleWizard(true)}
+          />
+        </motion.div>
+
+        {/* StatsOverview — weekly progress + workout trio (trio hidden when post-workout) */}
+        <div style={{ marginTop: 32 }}>
+          <StatsOverview
+            stats={MOCK_STATS}
+            onStartWorkout={handleHeroPress}
+            onWorkoutGenerated={handleWorkoutGenerated}
+            selectedDate={selectedDate}
+            hasCompletedAssessment={hasCompletedAssessment}
+            hideWorkoutSection={!!postWorkoutData}
+          />
+        </div>
+
+        {/* Post-Workout Celebration Card — replaces the workout trio when just completed */}
+        {postWorkoutData && completionData && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+          >
+            <HeroWorkoutCard
+              workout={{ id: 'completed', title: completionData.workoutTitle || '', duration: completionData.durationMinutes, difficulty: 2 } as any}
+              onStart={handleHeroPress}
+              isCompleted
+              completionData={completionData}
+              onRequestMore={handleRequestMore}
+              onDismissCelebration={handleDismissCelebration}
+            />
+          </motion.div>
+        )}
+
+        {/* Hero Glass Card — only for users without a program */}
+        {!hasProgram && (
+          <HeroGlassCard
+            onPress={handleHeroPress}
+            hasProgram={hasProgram}
+            showHealthDot={isHealthMissing && hasProgram}
+            hasCompletedAssessment={hasCompletedAssessment}
           />
         )}
 
-        {/* Smart Greeting - Dynamic context-aware message */}
-        <SmartGreeting 
-          variant="default"
-          showIcon={true}
-          level={getFitnessLevel(profile)}
-          program={Object.keys(profile?.progression?.domains || {})[0] || 'full_body'}
-        />
-
-        {/* Guest Lock Overlay Logic */}
-        {/* Guest Lock Overlay REMOVED */}
-
-        <div className="relative">
-          {/* Smart Weekly Schedule - Hybrid component based on track */}
-          <div className="relative z-10">
-            <SmartWeeklySchedule 
-              schedule={scheduleState.weekSchedule || []} 
-              currentTrack={currentTrack}
-              scheduleDays={profile?.lifestyle?.scheduleDays || []}
+        {/* Lifestyle Bridge Overlay */}
+        <AnimatePresence>
+          {shouldShowBridge && (
+            <BlurryBridgeOverlay
+              onStartWizard={handleStartWizard}
+              onSkip={handleSkipBridge}
             />
-          </div>
-
-          {/* Stats Overview - Conditional widgets based on track */}
-          <div className="relative z-10">
-            <StatsOverview
-              stats={MOCK_STATS}
-              currentTrack={currentTrack}
-              isGuest={isGuest}
-              onStartWorkout={handleStartWorkout}
-              onWorkoutGenerated={handleWorkoutGenerated}
-            />
-          </div>
-        </div>
-
-        {/* Hero Workout Card is now rendered inside StatsOverview */}
-
-        {/* Multi-Program Progress Widgets — Accumulative UI */}
-        {(() => {
-          const tracks = profile?.progression?.tracks;
-          const activeProgramIds: string[] = (profile as any)?.activePrograms?.map((ap: any) => ap.programId) || [];
-          const trackEntries = tracks ? Object.entries(tracks).filter(([, t]: [string, any]) => t && typeof t.currentLevel === 'number') : [];
-          
-          // If we have tracked programs, show individual widgets for each
-          if (trackEntries.length > 1) {
-            return (
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-500 px-1">התוכניות הפעילות שלך</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {trackEntries.map(([programId, trackData]: [string, any]) => (
-                    <ProgressCard
-                      key={programId}
-                      compact
-                      showActivityRings={false}
-                      progress={{
-                        label: trackData?.displayName || programId.replace(/_/g, ' '),
-                        currentLevel: trackData?.currentLevel || 1,
-                        maxLevel: trackData?.maxLevel || 10,
-                        percentage: trackData?.currentPercent || 0,
-                      }}
-                      isLocked={false}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          }
-
-          // Single-program / fallback: original ProgressCard
-          return (
-            <ProgressCard 
-              progress={profile?.progression ? {
-                domain: 'כללי',
-                currentLevel: getFitnessLevel(profile),
-                maxLevel: 10,
-                percentage: calculateProgressPercentage(profile),
-              } : null}
-              isLocked={!profile}
-            />
-          );
-        })()}
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Alert Modals */}
+      {/* ── Training Planner Full-Screen Overlay ── */}
+      <TrainingPlannerOverlay
+        isOpen={showPlanner}
+        onClose={() => setShowPlanner(false)}
+        userId={profile.id}
+        recurringTemplate={profile.lifestyle?.recurringTemplate}
+        scheduleDays={userScheduleDays}
+        programIconKey={programIconKey}
+        selectedDate={selectedDate}
+        onDaySelect={setSelectedDate}
+        onStartWorkout={handleHeroPress}
+      />
+
+      {/* ── Lifestyle Wizard (Full Screen) ── */}
+      <AnimatePresence>
+        {showLifestyleWizard && (
+          <LifestyleWizard
+            onComplete={handleWizardComplete}
+            onSkip={() => {
+              handleSkipBridge();
+              setShowLifestyleWizard(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Modals & Drawers ── */}
+
       {showAlert && (
         <AlertModal
           type={showAlert as 'missed' | 'comeback'}
-          onClose={handleAlertClose}
+          onClose={() => setShowAlert(null)}
           onAction={handleAlertAction}
         />
       )}
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
-      {/* Workout Preview Drawer — key-synced to force full re-render on workout change */}
       <WorkoutPreviewDrawer
         key={`drawer-v${workoutVersion}`}
         isOpen={selectedWorkout !== null}
         onClose={() => setSelectedWorkout(null)}
         workout={selectedWorkout}
         generatedWorkout={generatedWorkout}
-        onStartWorkout={(workoutId) => {
-          router.push(`/workouts/${workoutId}/active`);
-        }}
+        onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
+        onGeneratedWorkoutUpdate={handleWorkoutGenerated}
       />
 
-      {/* Dev-Only Reset Button */}
+      <JITSetupModal
+        isOpen={jitState.isModalOpen}
+        requirements={jitState.requirements}
+        onComplete={jitState.onComplete}
+        onDismiss={dismissJIT}
+        onCancel={cancelJIT}
+      />
+
+      {/* ── Dev Mode ── */}
+      {isDevModeAvailable && (
+        <>
+          <button
+            onClick={() => setShowDevPanel(!showDevPanel)}
+            className="fixed bottom-20 left-4 z-50 w-10 h-10 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-lg transition-all active:scale-95"
+          >
+            <Shield size={18} />
+          </button>
+          {showDevPanel && (
+            <div className="fixed bottom-32 left-4 z-50 bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-56" dir="rtl">
+              <p className="text-xs font-bold text-amber-400 mb-3 flex items-center gap-1.5">
+                <Shield size={14} /> Dev Mode — Tier Toggle
+              </p>
+              <p className="text-[10px] text-gray-500 mb-3">
+                רמה נוכחית: <span className="text-white font-bold">Tier {currentTier}</span>
+              </p>
+              <div className="space-y-2">
+                {([1, 2, 3] as const).map((tier) => (
+                  <button
+                    key={tier}
+                    onClick={() => handleSetTier(tier)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                      currentTier === tier
+                        ? tier === 1 ? 'bg-green-600 text-white' : tier === 2 ? 'bg-blue-600 text-white' : 'bg-violet-600 text-white'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {tier === 1 ? '🟢' : tier === 2 ? '🔵' : '🟣'}
+                    <span>Tier {tier} — {tier === 1 ? 'Starter' : tier === 2 ? 'Community' : 'Elite'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {isDev && (
         <button
           onClick={handleDevReset}
           className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-lg transition-all active:scale-95"
-          title="Dev Reset - מחק כל הנתונים והתחיל מחדש"
         >
           <RefreshCcw size={16} />
           <span>Dev Reset</span>
         </button>
       )}
 
-      {/* Bottom Navigation Removed */}
+      {/* Gear Toast — one-time after completing onboarding */}
+      <AnimatePresence>
+        {showGearToast && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="fixed bottom-24 inset-x-0 z-50 flex justify-center px-4"
+          >
+            <button
+              onClick={() => { setShowGearToast(false); router.push('/profile'); }}
+              className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
+              dir="rtl"
+            >
+              <span className="text-lg">🎒</span>
+              <div className="flex-1 text-right">
+                <p className="text-sm font-bold leading-snug">הציוד עודכן!</p>
+                <p className="text-xs text-slate-300">תמיד אפשר לערוך אותו בפרופיל האישי</p>
+              </div>
+              <ChevronDown size={16} className="text-slate-400 rotate-[-90deg]" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

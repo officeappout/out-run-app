@@ -18,8 +18,8 @@ import {
   type LevelDoc,
   type ProgramDoc
 } from '@/features/admin/services/questionnaire.service';
-import { OnboardingQuestion, OnboardingAnswer, QuestionWithAnswers, MultilingualText, AnswerResult } from '@/types/onboarding-questionnaire';
-import { Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, Globe, Users, List, Workflow, MoreVertical, Activity, UserRoundDown, ArrowUp, Brain, ClipboardCheck, Target, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Upload } from 'lucide-react';
+import { OnboardingQuestion, OnboardingAnswer, QuestionWithAnswers, MultilingualText, AnswerResult, QuestionLogic, VisibilityCondition } from '@/types/onboarding-questionnaire';
+import { Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, Globe, Users, List, Workflow, MoreVertical, Activity, UserRoundDown, ArrowUp, Brain, ClipboardCheck, Target, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Upload, Eye, Tag } from 'lucide-react';
 import ProgramAutocomplete from '@/components/admin/ProgramAutocomplete';
 import ReactFlow, { 
   type Node, 
@@ -188,6 +188,14 @@ export default function QuestionnaireAdminPage() {
         dataToSave.progressIconSvg = null;
       }
 
+      // Clean logic field: remove empty structures, save null if completely empty
+      if (dataToSave.logic) {
+        const logic = { ...dataToSave.logic };
+        if (logic.visibility && logic.visibility.length === 0) delete logic.visibility;
+        if (!logic.category) delete logic.category;
+        dataToSave.logic = (Object.keys(logic).length === 0) ? null : logic;
+      }
+
       if (editingQuestion) {
         // ✅ If marking as first question, unmark others
         if (questionForm.isFirstQuestion) {
@@ -254,6 +262,7 @@ export default function QuestionnaireAdminPage() {
       color: question.color,
       progressIcon: question.progressIcon,
       progressIconSvg: question.progressIconSvg,
+      logic: question.logic || undefined,
       // type, part, and order are not shown in form but preserved when saving
       type: question.type,
       part: question.part,
@@ -519,6 +528,19 @@ function QuestionCard({
                 </div>
               );
             })()}
+            {/* Logic & Visibility Indicators */}
+            {question.logic?.category && (
+              <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-bold rounded flex items-center gap-1">
+                <Tag size={10} />
+                {question.logic.category}
+              </span>
+            )}
+            {question.logic?.visibility && question.logic.visibility.length > 0 && (
+              <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-bold rounded flex items-center gap-1">
+                <Eye size={10} />
+                {question.logic.visibility.length} תנאי נראות
+              </span>
+            )}
           </div>
           
           <h3 className="text-xl font-bold text-gray-900 mb-1">
@@ -942,6 +964,125 @@ function QuestionForm({
         </p>
       </div>
 
+      {/* ── Logic & Visibility Section ── */}
+      <div className="border border-violet-200 rounded-xl p-4 bg-violet-50/30 space-y-4">
+        <div className="flex items-center gap-2">
+          <Eye size={16} className="text-violet-600" />
+          <span className="text-sm font-bold text-violet-800">לוגיקה ונראות (Logic & Visibility)</span>
+        </div>
+        <p className="text-xs text-violet-600">
+          קבע תנאים להצגת השאלה (AND). אם כל התנאים מתקיימים — השאלה תוצג. אם אין תנאים — השאלה תמיד מוצגת.
+        </p>
+
+        {/* Visibility Conditions */}
+        <div className="space-y-2">
+          <span className="text-xs font-bold text-violet-700">תנאי נראות (Visibility Conditions)</span>
+          {(form.logic?.visibility ?? []).map((cond, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-violet-200">
+              {idx > 0 && <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">AND</span>}
+              <select
+                value={cond.type}
+                onChange={(e) => {
+                  const updated = [...(form.logic?.visibility ?? [])];
+                  updated[idx] = { ...updated[idx], type: e.target.value as VisibilityCondition['type'] };
+                  onChange({ ...form, logic: { ...form.logic, visibility: updated } });
+                }}
+                className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg bg-white"
+              >
+                <option value="assessment_level">רמת הערכה (Assessment Level)</option>
+                <option value="answer_equals">תשובה שווה ל (Answer Equals)</option>
+                <option value="answer_not_equals">תשובה לא שווה ל (Answer Not Equals)</option>
+                <option value="tier_equals">דרגה שווה ל (Tier Equals)</option>
+              </select>
+              <input
+                type="text"
+                value={cond.field}
+                onChange={(e) => {
+                  const updated = [...(form.logic?.visibility ?? [])];
+                  updated[idx] = { ...updated[idx], field: e.target.value };
+                  onChange({ ...form, logic: { ...form.logic, visibility: updated } });
+                }}
+                className="w-28 px-2 py-1.5 text-xs border border-gray-300 rounded-lg font-mono"
+                placeholder="שם שדה (push, q_goal...)"
+                dir="ltr"
+              />
+              <select
+                value={cond.operator}
+                onChange={(e) => {
+                  const updated = [...(form.logic?.visibility ?? [])];
+                  updated[idx] = { ...updated[idx], operator: e.target.value as VisibilityCondition['operator'] };
+                  onChange({ ...form, logic: { ...form.logic, visibility: updated } });
+                }}
+                className="w-16 px-2 py-1.5 text-xs border border-gray-300 rounded-lg bg-white text-center font-mono"
+              >
+                <option value=">">&gt;</option>
+                <option value=">=">&gt;=</option>
+                <option value="<">&lt;</option>
+                <option value="<=">&lt;=</option>
+                <option value="==">==</option>
+                <option value="!=">!=</option>
+              </select>
+              <input
+                type="text"
+                value={String(cond.value)}
+                onChange={(e) => {
+                  const updated = [...(form.logic?.visibility ?? [])];
+                  const raw = e.target.value;
+                  const numVal = Number(raw);
+                  updated[idx] = { ...updated[idx], value: !isNaN(numVal) && raw !== '' ? numVal : raw };
+                  onChange({ ...form, logic: { ...form.logic, visibility: updated } });
+                }}
+                className="w-24 px-2 py-1.5 text-xs border border-gray-300 rounded-lg text-center font-mono"
+                placeholder="ערך"
+                dir="ltr"
+              />
+              <button
+                onClick={() => {
+                  const updated = (form.logic?.visibility ?? []).filter((_, i) => i !== idx);
+                  onChange({ ...form, logic: { ...form.logic, visibility: updated.length > 0 ? updated : undefined } });
+                }}
+                className="p-1 text-red-400 hover:text-red-600"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              const newCond: VisibilityCondition = { type: 'assessment_level', field: 'push', operator: '>', value: 10 };
+              const current = form.logic?.visibility ?? [];
+              onChange({ ...form, logic: { ...form.logic, visibility: [...current, newCond] } });
+            }}
+            className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium"
+          >
+            <Plus size={14} /> הוסף תנאי
+          </button>
+        </div>
+
+        {/* Category Tag */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Tag size={14} className="text-violet-600" />
+            <span className="text-xs font-bold text-violet-700">תגית קטגוריה (Category Tag)</span>
+          </div>
+          <input
+            type="text"
+            value={form.logic?.category ?? ''}
+            onChange={(e) => {
+              const val = e.target.value || undefined;
+              onChange({ ...form, logic: { ...form.logic, category: val } });
+            }}
+            className="w-full px-3 py-2 text-sm border border-violet-300 rounded-lg bg-white font-mono"
+            placeholder="לדוגמה: push, pull, core, advanced_only..."
+            dir="ltr"
+          />
+          <p className="text-xs text-violet-500 mt-1">
+            תגית זו מאפשרת למנוע הכללים (Assessment Rules) לדלג על שאלה זו או להזריק אותה לזרימה.
+          </p>
+        </div>
+      </div>
+
       <div>
         <label className="flex items-center gap-2">
           <input
@@ -1102,7 +1243,7 @@ function AnswerManager({
           // Keep level/program links even when leading to next question (optional links)
           assignedLevelId: answerForm.assignedLevelId || null,
           assignedProgramId: answerForm.assignedProgramId || null,
-          assignedResults: undefined,
+          assignedResults: null,
           masterProgramSubLevels: null,
           assignedLevel: null, // legacy
         };
@@ -1139,7 +1280,7 @@ function AnswerManager({
               ? answerForm.masterProgramSubLevels
               : null,
             assignedLevel: null, // legacy
-            assignedResults: undefined,
+            assignedResults: null,
           };
         }
       }
@@ -1229,10 +1370,12 @@ function AnswerManager({
               
               <div className="flex flex-wrap gap-2 mt-2">
                 {answer.nextQuestionId ? (
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded flex items-center gap-1">
                     → שאלה הבאה: {(() => {
                       const nextQ = allQuestions.find(q => q.id === answer.nextQuestionId);
-                      return nextQ ? getTextValue(nextQ.title, 'he', 'neutral') : answer.nextQuestionId;
+                      return nextQ
+                        ? getTextValue(nextQ.title, 'he', 'neutral')
+                        : <span className="font-mono bg-blue-200 px-1 rounded" dir="ltr">{answer.nextQuestionId}</span>;
                     })()}
                   </span>
                 ) : (
@@ -1404,7 +1547,7 @@ function MultipleResultsManager({
       // Clear legacy fields when using multiple results
       assignedLevelId: null,
       assignedProgramId: null,
-      masterProgramSubLevels: undefined,
+      masterProgramSubLevels: null,
     });
     // Show success feedback
     setJustAddedIndex(newIndex);
@@ -1425,7 +1568,7 @@ function MultipleResultsManager({
       // Clear legacy fields
       assignedLevelId: null,
       assignedProgramId: null,
-      masterProgramSubLevels: undefined,
+      masterProgramSubLevels: null,
     });
   };
 
@@ -1433,7 +1576,7 @@ function MultipleResultsManager({
     const updated = currentResults.filter((_, i) => i !== index);
     onChange({
       ...form,
-      assignedResults: updated.length > 0 ? updated : undefined,
+      assignedResults: updated.length > 0 ? updated : null,
     });
   };
 
@@ -1741,9 +1884,9 @@ function AnswerForm({
       // Switching to "Lead to Next Question"
       onChange({ 
         ...form, 
-        nextQuestionId: availableQuestions.length > 0 ? (form.nextQuestionId || availableQuestions[0].id) : undefined,
+        nextQuestionId: availableQuestions.length > 0 ? (form.nextQuestionId || availableQuestions[0].id) : null,
         // Clear finish-specific fields
-        assignedResults: undefined,
+        assignedResults: null,
         assignedLevel: null,
       });
     } else {
@@ -1751,7 +1894,7 @@ function AnswerForm({
       onChange({ 
         ...form, 
         // Clear next question
-        nextQuestionId: undefined,
+        nextQuestionId: null,
         // Initialize assignedResults if not already set
         assignedResults: form.assignedResults && form.assignedResults.length > 0 
           ? form.assignedResults 
@@ -1917,28 +2060,44 @@ function AnswerForm({
 
       {/* Conditional Fields based on toggle */}
       {answerType === 'lead_to_next' && (
-        <div>
+        <div className="space-y-3">
           <label className="block text-sm font-bold text-gray-700 mb-2">שאלה הבאה *</label>
           <select
-            value={form.nextQuestionId || ''}
+            value={availableQuestions.some(q => q.id === form.nextQuestionId) ? (form.nextQuestionId || '') : ''}
             onChange={(e) => onChange({ 
               ...form, 
-              nextQuestionId: e.target.value || undefined,
-              // Clear finish-specific fields but keep level/program links
-              assignedResults: undefined,
+              nextQuestionId: e.target.value || null,
+              assignedResults: null,
               assignedLevel: null,
             })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
           >
-            <option value="">בחר שאלה...</option>
+            <option value="">בחר שאלה מהרשימה...</option>
             {availableQuestions.map((q) => (
               <option key={q.id} value={q.id}>
                 {getTextValue(q.title, 'he', 'neutral') || q.id}
               </option>
             ))}
           </select>
+          {/* Direct Next Question ID input */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 font-bold whitespace-nowrap">או הזן מזהה ישירות:</span>
+            <input
+              type="text"
+              value={form.nextQuestionId || ''}
+              onChange={(e) => onChange({
+                ...form,
+                nextQuestionId: e.target.value || null,
+                assignedResults: null,
+                assignedLevel: null,
+              })}
+              className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs font-mono text-black"
+              placeholder="Next Question ID (לדוגמה: abc123XYZ)"
+              dir="ltr"
+            />
+          </div>
           {availableQuestions.length === 0 && (
-            <p className="text-xs text-gray-500 mt-1">אין שאלות זמינות. צור שאלה אחרת קודם.</p>
+            <p className="text-xs text-gray-500 mt-1">אין שאלות זמינות ברשימה. השתמש בשדה מזהה ישיר למעלה.</p>
           )}
         </div>
       )}
@@ -2898,7 +3057,7 @@ function AnswerEditModal({
           // Keep level/program links even when leading to next question (optional links)
           assignedLevelId: answerForm.assignedLevelId || null,
           assignedProgramId: answerForm.assignedProgramId || null,
-          assignedResults: undefined,
+          assignedResults: null,
           masterProgramSubLevels: null,
           assignedLevel: null,
         };
@@ -2931,7 +3090,7 @@ function AnswerEditModal({
               ? answerForm.masterProgramSubLevels
               : null,
             assignedLevel: null,
-            assignedResults: undefined,
+            assignedResults: null,
           };
         }
       }
@@ -3067,7 +3226,7 @@ function AnswerAddModal({
           // Keep level/program links even when leading to next question (optional links)
           assignedLevelId: answerForm.assignedLevelId || null,
           assignedProgramId: answerForm.assignedProgramId || null,
-          assignedResults: undefined,
+          assignedResults: null,
           masterProgramSubLevels: null,
           assignedLevel: null,
         };
@@ -3100,7 +3259,7 @@ function AnswerAddModal({
               ? answerForm.masterProgramSubLevels
               : null,
             assignedLevel: null,
-            assignedResults: undefined,
+            assignedResults: null,
           };
         }
       }

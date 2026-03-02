@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" fill="none">
+  <rect width="400" height="240" rx="16" fill="#EEF2FF"/>
+  <circle cx="200" cy="95" r="36" fill="#C7D2FE"/>
+  <path d="M200 75 L200 115 M180 95 L220 95" stroke="#818CF8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M160 150 Q180 130 200 150 Q220 170 240 150" stroke="#A5B4FC" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <text x="200" y="190" text-anchor="middle" fill="#94A3B8" font-family="system-ui" font-size="14" font-weight="600">фашч айоерйн</text>
+</svg>

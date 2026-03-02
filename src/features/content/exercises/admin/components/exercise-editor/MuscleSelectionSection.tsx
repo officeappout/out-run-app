@@ -17,6 +17,7 @@ const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
   'chest', 'back', 'shoulders', 'abs', 'obliques', 'forearms',
   'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves',
   'traps', 'core', 'legs', 'full_body', 'cardio',
+  'serratus', 'adductors', 'hip_flexors',
 ];
 
 export default function MuscleSelectionSection({

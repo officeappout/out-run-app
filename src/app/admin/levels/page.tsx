@@ -68,6 +68,7 @@ interface LevelFormState {
   minXP: number;
   maxXP: number;
   targetGoals: LevelGoal[];
+  requiredTier: 1 | 2 | 3;
 }
 
 const EMPTY_FORM: LevelFormState = {
@@ -77,6 +78,7 @@ const EMPTY_FORM: LevelFormState = {
   minXP: 0,
   maxXP: 100,
   targetGoals: [],
+  requiredTier: 1,
 };
 
 // ============================================================================
@@ -112,6 +114,7 @@ export default function LevelsPage() {
   const [showXPSettings, setShowXPSettings] = useState(false);
   const [savingXP, setSavingXP] = useState(false);
   const [xpSaveSuccess, setXpSaveSuccess] = useState(false);
+
 
   // ── Load Data ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -176,6 +179,7 @@ export default function LevelsPage() {
       minXP: level.minXP || 0,
       maxXP: level.maxXP || 0,
       targetGoals: level.targetGoals || [],
+      requiredTier: (level as any).requiredTier ?? 1,
     });
     setEditingId(level.id);
     setShowForm(true);
@@ -195,6 +199,7 @@ export default function LevelsPage() {
         minXP: form.minXP,
         maxXP: form.maxXP,
         targetGoals: form.targetGoals.length > 0 ? form.targetGoals : undefined,
+        requiredTier: form.requiredTier ?? 1,
       };
 
       if (editingId) {
@@ -674,6 +679,21 @@ export default function LevelsPage() {
                   className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-right"
                   placeholder="תיאור קצר של הרמה..."
                 />
+              </div>
+
+              {/* Required Tier */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">רמת גישה נדרשת (Required Tier)</label>
+                <select
+                  value={form.requiredTier ?? 1}
+                  onChange={(e) => setForm({ ...form, requiredTier: parseInt(e.target.value) as 1 | 2 | 3 })}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 bg-white"
+                >
+                  <option value={1}>🟢 Tier 1 — Starter (חינמי)</option>
+                  <option value={2}>🔵 Tier 2 — Community (עירוני)</option>
+                  <option value={3}>🟣 Tier 3 — Elite (מתקדם / בי&quot;ס)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">משתמשים עם רמת גישה נמוכה יותר לא יוכלו לגשת לרמה זו</p>
               </div>
 
               {/* XP Range */}

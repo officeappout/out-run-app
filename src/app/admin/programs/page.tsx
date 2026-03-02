@@ -23,6 +23,7 @@ import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
 import {
   Plus, Edit2, Trash2, Save, X, ChevronDown, ChevronUp,
   Target, Dumbbell, ClipboardList, Crown, Eye, Lock, Check,
+  Settings2, Percent,
 } from 'lucide-react';
 import { useUserRole } from '@/features/admin/services/auth.service';
 // GlobalLevelsManager moved to standalone /admin/levels page
@@ -53,6 +54,9 @@ export default function ProgramsAdminPage() {
     isMaster: false,
     imageUrl: '',
     subPrograms: [],
+    requiredTier: 1,
+    trainingType: 'strength',
+    iconKey: 'muscle',
   });
 
   useEffect(() => {
@@ -74,10 +78,17 @@ export default function ProgramsAdminPage() {
 
   const handleSaveProgram = async () => {
     try {
+      // Ensure no undefined values reach Firestore (Firebase rejects undefined)
+      const sanitizedForm = {
+        ...programForm,
+        trainingType: programForm.trainingType || 'strength',
+        iconKey: programForm.iconKey || 'muscle',
+      };
+
       if (editingProgram) {
-        await updateProgram(editingProgram, programForm);
+        await updateProgram(editingProgram, sanitizedForm);
       } else {
-        await createProgram(programForm as Omit<Program, 'id' | 'createdAt' | 'updatedAt'>);
+        await createProgram(sanitizedForm as Omit<Program, 'id' | 'createdAt' | 'updatedAt'>);
       }
       await loadPrograms();
       setEditingProgram(null);
@@ -110,6 +121,10 @@ export default function ProgramsAdminPage() {
       isMaster: program.isMaster || false,
       imageUrl: program.imageUrl || '',
       subPrograms: program.subPrograms || [],
+      requiredTier: program.requiredTier ?? 1,
+      movementPattern: program.movementPattern,
+      trainingType: program.trainingType || 'strength',
+      iconKey: program.iconKey || 'muscle',
     });
     setShowNewForm(false);
   };
@@ -128,6 +143,9 @@ export default function ProgramsAdminPage() {
       isMaster: false,
       imageUrl: '',
       subPrograms: [],
+      requiredTier: 1,
+      trainingType: 'strength',
+      iconKey: 'muscle',
     });
   };
 
@@ -210,10 +228,41 @@ export default function ProgramsAdminPage() {
                 ) : (
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
                         {program.isMaster && (
                           <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded">
-                            Master Program
+                            תוכנית ראשית
+                          </span>
+                        )}
+                        {(program.requiredTier ?? 1) > 1 && (
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded ${
+                            program.requiredTier === 3 
+                              ? 'bg-violet-100 text-violet-700' 
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {program.requiredTier === 3 ? '🟣 עלית' : '🔵 קהילתי'}
+                          </span>
+                        )}
+                        {program.movementPattern && (
+                          <span className="px-2.5 py-1 bg-cyan-100 text-cyan-700 text-xs font-bold rounded">
+                            {program.movementPattern === 'push' ? '💪 דחיפה' :
+                             program.movementPattern === 'pull' ? '🏋️ משיכה' :
+                             program.movementPattern === 'legs' ? '🦵 רגליים' :
+                             program.movementPattern === 'core' ? '🧘 ליבה' : program.movementPattern}
+                          </span>
+                        )}
+                        {program.trainingType && (
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded ${
+                            program.trainingType === 'cardio'
+                              ? 'bg-lime-100 text-lime-700'
+                              : 'bg-sky-100 text-sky-700'
+                          }`}>
+                            {program.trainingType === 'cardio' ? '🟩 טבעת קרדיו' : '🟦 טבעת כוח'}
+                          </span>
+                        )}
+                        {program.iconKey && (
+                          <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded">
+                            📅 אייקון: {{ muscle: 'שריר', full_body: 'כל הגוף', pullup: 'מתח', leg: 'רגליים', core: 'ליבה', shoe: 'ריצה', heart: 'בריאות' }[program.iconKey] || program.iconKey}
                           </span>
                         )}
                         {program.maxLevels && (
@@ -222,8 +271,50 @@ export default function ProgramsAdminPage() {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">{program.name}</h3>
-                      {/* Bidirectional Link: Show which Master(s) this program belongs to */}
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
+                        {program.name}
+                        {/* Inline role indicator */}
+                        {program.isMaster ? (
+                          <span className="mr-2 text-sm font-medium text-purple-600">👑 ראשית</span>
+                        ) : (
+                          (() => {
+                            const isChild = programs.some(p => p.isMaster && p.subPrograms?.includes(program.id));
+                            return isChild ? (
+                              <span className="mr-2 text-sm font-medium text-blue-500">🔗 תת-תוכנית</span>
+                            ) : (
+                              <span className="mr-2 text-sm font-medium text-gray-400">📦 עצמאית</span>
+                            );
+                          })()
+                        )}
+                      </h3>
+                      {/* Master → Children: explicit linked children list */}
+                      {program.isMaster && program.subPrograms && program.subPrograms.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          <span className="text-xs text-purple-500 font-semibold self-center">תתי-תוכניות:</span>
+                          {program.subPrograms.map(childId => {
+                            const childProg = programs.find(p => p.id === childId);
+                            return (
+                              <span
+                                key={childId}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-lg border border-purple-200"
+                              >
+                                {childProg?.movementPattern === 'push' ? '💪' :
+                                 childProg?.movementPattern === 'pull' ? '🏋️' :
+                                 childProg?.movementPattern === 'legs' ? '🦵' :
+                                 childProg?.movementPattern === 'core' ? '🧘' : '📋'}
+                                {childProg?.name || childId}
+                                <span className="text-purple-400 text-[10px]">({childId})</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {program.isMaster && (!program.subPrograms || program.subPrograms.length === 0) && (
+                        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-red-50 text-red-600 text-xs font-medium rounded border border-red-200 w-fit">
+                          ⚠️ תוכנית ראשית ללא תתי-תוכניות מחוברות
+                        </div>
+                      )}
+                      {/* Child → Parent: Show which Master(s) this program belongs to */}
                       {!program.isMaster && (() => {
                         const parentMasters = programs.filter(
                           p => p.isMaster && p.subPrograms?.includes(program.id)
@@ -513,7 +604,7 @@ function ProgramForm({
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -525,6 +616,80 @@ function ProgramForm({
             Master Program (תוכנית ראשית)
           </span>
         </label>
+      </div>
+
+      {/* ── Required Tier (Access Level) ── */}
+      <div>
+        <label className="block text-sm font-bold text-gray-700 mb-2">רמת גישה נדרשת (Required Tier)</label>
+        <select
+          value={form.requiredTier ?? 1}
+          onChange={(e) => onChange({ ...form, requiredTier: parseInt(e.target.value) as 1 | 2 | 3 })}
+          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+        >
+          <option value={1}>🟢 Tier 1 — Starter (חינמי)</option>
+          <option value={2}>🔵 Tier 2 — Community (עירוני)</option>
+          <option value={3}>🟣 Tier 3 — Elite (מתקדם / בי"ס)</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">משתמשים עם רמת גישה נמוכה יותר לא יוכלו לגשת לתוכנית זו</p>
+      </div>
+
+      {/* ── Movement Pattern (for volume mapping) ── */}
+      {!form.isMaster && (
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">תבנית תנועה (Movement Pattern)</label>
+          <select
+            value={form.movementPattern ?? ''}
+            onChange={(e) => onChange({ ...form, movementPattern: (e.target.value || undefined) as any })}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+          >
+            <option value="">ללא (תוכנית כללית)</option>
+            <option value="push">💪 Push (דחיפה)</option>
+            <option value="pull">🏋️ Pull (משיכה)</option>
+            <option value="legs">🦵 Legs (רגליים)</option>
+            <option value="core">🧘 Core (ליבה)</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            קובע את המיפוי של "יעד נפח שבועי" ב-מנהל ההתקדמות. תוכניות ללא תבנית לא יציגו שדה נפח.
+          </p>
+        </div>
+      )}
+
+      {/* ── Activity Ring Color & Schedule Display Icon ── */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">צבע טבעת פעילות (Activity Ring Color)</label>
+          <select
+            value={form.trainingType || 'strength'}
+            onChange={(e) => onChange({ ...form, trainingType: (e.target.value as 'strength' | 'cardio') || 'strength' })}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+          >
+            <option value="strength">🟦 כוח — Cyan (#06B6D4)</option>
+            <option value="cardio">🟩 קרדיו — Lime (#84CC16)</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            לאיזו טבעת פעילות ייכנסו דקות האימון — כוח (Cyan) או קרדיו (Lime).
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">אייקון לוח זמנים (Schedule Display Icon)</label>
+          <select
+            value={form.iconKey || 'muscle'}
+            onChange={(e) => onChange({ ...form, iconKey: e.target.value || 'muscle' })}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+          >
+            <option value="muscle">💪 שריר — Muscle (ברירת מחדל)</option>
+            <option value="full_body">🧍 כל הגוף — Full Body</option>
+            <option value="pullup">🏋️ מתח — Pull-up Target</option>
+            <option value="leg">🦵 רגליים — Leg</option>
+            <option value="core">🧘 ליבה — Sparkles</option>
+            <option value="shoe">🏃 ריצה — Running</option>
+            <option value="heart">❤️ בריאות — Heart</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            האייקון שמוצג בלוח השבועי ובכרטיסי ההתקדמות של התוכנית.
+          </p>
+        </div>
       </div>
 
       {form.isMaster && (
@@ -631,6 +796,57 @@ function ProgramForm({
 // Shown inline beneath each program card when "יעדי רמות" is toggled.
 // For Master Programs, automatically displays inherited goals from sub-programs.
 
+// ── Training OS: Per-level protocol config (program-specific) ────────
+// Volume targets (weeklyVolumeTarget) and intensity gating (maxIntenseWorkoutsPerWeek)
+// are stored in ProgramLevelSettings and resolved via the Lead Program model
+// at runtime (see lead-program.service.ts). They are editable in the
+// Progression Manager (admin/progression-manager).
+// Only protocol-related settings remain here per-program.
+interface ProtocolLevelConfig {
+  protocolProbability: number;
+  allowEMOM: boolean;
+  allowRestPause: boolean;
+  allowPyramid: boolean;
+  allowSupersets: boolean;
+}
+
+function getDefaultProtocolConfig(lvl: number): ProtocolLevelConfig {
+  return {
+    protocolProbability: lvl <= 5 ? 0 : lvl <= 12 ? 0.1 : 0.2,
+    allowEMOM: lvl > 5,
+    allowRestPause: lvl > 10,
+    allowPyramid: lvl > 10,
+    allowSupersets: lvl > 5,
+  };
+}
+
+/** Convert ProgramLevelSettings → local editing config */
+function settingsToProtocolConfig(s: ProgramLevelSettings | undefined, lvl: number): ProtocolLevelConfig {
+  const defaults = getDefaultProtocolConfig(lvl);
+  if (!s) return defaults;
+  const prefs = s.preferredProtocols ?? [];
+  return {
+    protocolProbability: s.protocolProbability ?? defaults.protocolProbability,
+    allowEMOM: prefs.includes('emom') || (!s.preferredProtocols && defaults.allowEMOM),
+    allowRestPause: prefs.includes('pyramid') || (!s.preferredProtocols && defaults.allowRestPause),
+    allowPyramid: prefs.includes('pyramid') || (!s.preferredProtocols && defaults.allowPyramid),
+    allowSupersets: prefs.includes('antagonist_pair') || prefs.includes('superset') || (!s.preferredProtocols && defaults.allowSupersets),
+  };
+}
+
+/** Convert local config → Firestore fields for save */
+function protocolConfigToSettingsFields(cfg: ProtocolLevelConfig): Partial<ProgramLevelSettings> {
+  const preferredProtocols: ProgramLevelSettings['preferredProtocols'] = [];
+  if (cfg.allowEMOM) preferredProtocols.push('emom');
+  if (cfg.allowPyramid) preferredProtocols.push('pyramid');
+  if (cfg.allowSupersets) preferredProtocols.push('antagonist_pair');
+
+  return {
+    protocolProbability: cfg.protocolProbability,
+    preferredProtocols,
+  };
+}
+
 function LevelGoalsPanel({ program, allPrograms }: { program: Program; allPrograms: Program[] }) {
   const maxLevels = program.maxLevels || 5;
 
@@ -642,7 +858,10 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
   const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
 
   // Temporary goal being edited per level
-  const [editingGoals, setEditingGoals] = useState<Record<number, EditingGoal[]>>({});
+  const [editingGoals, setEditingGoals] = useState<Record<number, EditingGoal[]>>({}); 
+
+  // Protocol config: per-level state (program-specific)
+  const [protocolConfig, setProtocolConfig] = useState<Record<number, ProtocolLevelConfig>>({});
 
   // Load data
   useEffect(() => {
@@ -688,7 +907,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
     load();
   }, [program.id, program.isMaster, program.subPrograms]);
 
-  // Start editing a level → copy existing goals to local state
+  // Start editing a level → copy existing goals + Training OS config to local state
   const handleExpandLevel = (lvl: number) => {
     if (expandedLevel === lvl) {
       setExpandedLevel(null);
@@ -702,6 +921,20 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
       ...prev,
       [lvl]: existing.map((g, i) => ({ ...g, _key: `${g.exerciseId}_${i}` })),
     }));
+
+    // Copy protocol config into editing state
+    setProtocolConfig((prev) => ({
+      ...prev,
+      [lvl]: settingsToProtocolConfig(levelSettings[lvl], lvl),
+    }));
+  };
+
+  // Update a single protocol config field for a level
+  const updateProtocol = (lvl: number, patch: Partial<ProtocolLevelConfig>) => {
+    setProtocolConfig((prev) => ({
+      ...prev,
+      [lvl]: { ...(prev[lvl] || getDefaultProtocolConfig(lvl)), ...patch },
+    }));
   };
 
   const addGoal = (lvl: number) => {
@@ -709,7 +942,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
       ...prev,
       [lvl]: [
         ...(prev[lvl] || []),
-        { exerciseId: '', exerciseName: '', targetValue: 10, unit: 'reps' as const, _key: `new_${Date.now()}` },
+        { exerciseId: '', exerciseName: '', targetValue: 10, unit: 'reps' as const, progressBonus: 5, _key: `new_${Date.now()}` },
       ],
     }));
   };
@@ -733,14 +966,20 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
     try {
       const goals: LevelGoal[] = (editingGoals[lvl] || [])
         .filter((g) => g.exerciseId)
-        .map(({ exerciseId, exerciseName, targetValue, unit }) => ({
+        .map(({ exerciseId, exerciseName, targetValue, unit, progressBonus }) => ({
           exerciseId,
           exerciseName,
           targetValue,
           unit,
+          progressBonus: progressBonus ?? 5,
         }));
 
       const existing = levelSettings[lvl];
+      
+      // Merge protocol config into save payload (program-specific only)
+      const protoConfig = protocolConfig[lvl] || getDefaultProtocolConfig(lvl);
+      const osFields = protocolConfigToSettingsFields(protoConfig);
+
       await saveProgramLevelSettings({
         programId: program.id,
         levelNumber: lvl,
@@ -750,6 +989,11 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
         restMultiplier: existing?.restMultiplier ?? 1.0,
         volumeAdjustment: existing?.volumeAdjustment ?? 0,
         targetGoals: goals,
+        // Training OS fields
+        ...osFields,
+        // SA Safety fields (persisted from level editor)
+        straightArmRatio: existing?.straightArmRatio,
+        weeklySACap: existing?.weeklySACap,
       });
 
       // Update local state
@@ -758,6 +1002,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
         [lvl]: {
           ...(prev[lvl] || { id: '', programId: program.id, levelNumber: lvl, levelDescription: `רמה ${lvl}`, progressionWeight: 1.0 }),
           targetGoals: goals,
+          ...osFields,
         },
       }));
     } catch (err) {
@@ -937,6 +1182,22 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                         </select>
                       </div>
 
+                      {/* Progress Bonus % */}
+                      <div className="w-20">
+                        <label className="text-xs font-bold text-amber-600 mb-1 flex items-center gap-1">
+                          <Percent size={12} />
+                          בונוס
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={goal.progressBonus ?? 5}
+                          onChange={(e) => updateGoal(lvl, goal._key, { progressBonus: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2.5 border border-amber-300 rounded-xl text-center font-bold text-amber-700 bg-amber-50 focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                        />
+                      </div>
+
                       {/* Remove */}
                       <button
                         onClick={() => removeGoal(lvl, goal._key)}
@@ -948,8 +1209,8 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                     </div>
                   ))}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-3 pt-2">
+                  {/* Sum indicator + Add Goal Button */}
+                  <div className="flex items-center justify-between pt-1 pb-2">
                     <button
                       onClick={() => addGoal(lvl)}
                       className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-700 transition-colors"
@@ -957,6 +1218,179 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                       <Plus size={16} />
                       הוסף יעד
                     </button>
+                    {currentGoals.length > 0 && (
+                      <span className={`text-xs font-black px-3 py-1 rounded-full ${
+                        currentGoals.reduce((s, g) => s + (g.progressBonus ?? 5), 0) === 100
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        סה״כ: {currentGoals.reduce((s, g) => s + (g.progressBonus ?? 5), 0)}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* ── Protocol Controls (Program-Specific) ─────────── */}
+                  {(() => {
+                    const cfg = protocolConfig[lvl] || getDefaultProtocolConfig(lvl);
+                    return (
+                      <div className="mt-4 pt-4 border-t border-gray-200 space-y-5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Settings2 size={16} className="text-cyan-600" />
+                          <h5 className="text-sm font-bold text-gray-800">סגנון אימון — הגדרות תוכנית</h5>
+                        </div>
+
+                        {/* Info note about Lead Program model */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-[10px] text-gray-500">
+                            💡 יעדי נפח שבועי ושליטת עצימות (3-Bolt) מוגדרים ב<strong>מנהל ההתקדמות</strong> (Progression Manager).
+                            בזמן ריצה, ה-Lead Program (הרמה הגבוהה ביותר של המשתמש) קובע את התקציב.
+                            כאן מוגדר רק <strong>סגנון האימון</strong> הייחודי לתוכנית זו.
+                          </p>
+                        </div>
+
+                        {/* 1. Protocol Toggles */}
+                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <ClipboardList size={14} className="text-purple-600" />
+                            <span className="text-xs font-bold text-purple-800">פרוטוקולים מותרים (Protocol Toggles)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {([
+                              { key: 'allowEMOM' as const, label: 'EMOM', desc: 'Every Minute On the Minute' },
+                              { key: 'allowSupersets' as const, label: 'Supersets', desc: 'סופר-סטים (Push + Pull)' },
+                              { key: 'allowPyramid' as const, label: 'Pyramid', desc: 'סטים עולים/יורדים' },
+                              { key: 'allowRestPause' as const, label: 'Rest-Pause', desc: 'הפסקה קצרה באמצע סט' },
+                            ]).map((item) => (
+                              <label
+                                key={item.key}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                  cfg[item.key]
+                                    ? 'bg-purple-100 border-purple-400'
+                                    : 'bg-white border-gray-200 hover:border-purple-300'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={cfg[item.key]}
+                                  onChange={(e) => updateProtocol(lvl, { [item.key]: e.target.checked })}
+                                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                />
+                                <div>
+                                  <span className="text-xs font-bold text-gray-800 block">{item.label}</span>
+                                  <span className="text-[10px] text-gray-500">{item.desc}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 2. Protocol Probability */}
+                        <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Percent size={14} className="text-cyan-600" />
+                            <span className="text-xs font-bold text-cyan-800">סיכוי הזרקת פרוטוקול</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={5}
+                              value={Math.round(cfg.protocolProbability * 100)}
+                              onChange={(e) => updateProtocol(lvl, { protocolProbability: parseInt(e.target.value) / 100 })}
+                              className="flex-1 h-2 bg-cyan-200 rounded-full appearance-none cursor-pointer accent-cyan-600"
+                            />
+                            <div className="w-16 text-center">
+                              <span className="text-lg font-black text-cyan-700">
+                                {Math.round(cfg.protocolProbability * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-cyan-500 mt-1">
+                            {cfg.protocolProbability === 0
+                              ? 'פרוטוקולים כבויים — סטים ישרים בלבד'
+                              : `סיכוי של ${Math.round(cfg.protocolProbability * 100)}% שהמנוע יזריק ${
+                                  [cfg.allowEMOM && 'EMOM', cfg.allowPyramid && 'Pyramid', cfg.allowSupersets && 'Supersets']
+                                    .filter(Boolean).join(' / ') || 'פרוטוקול'
+                                }`
+                            }
+                          </p>
+                        </div>
+
+                        {/* 3. SA Safety Cap + SA Ratio */}
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Target size={14} className="text-amber-600" />
+                            <span className="text-xs font-bold text-amber-800">בטיחות זרוע ישרה (Straight Arm Safety)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* SA Ratio */}
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-600 mb-1 block">
+                                יחס SA באימון (Straight Arm Ratio)
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={100}
+                                  step={5}
+                                  value={Math.round((settings?.straightArmRatio ?? (lvl <= 10 ? 0.4 : 0.5)) * 100)}
+                                  onChange={(e) => {
+                                    setLevelSettings((prev) => ({
+                                      ...prev,
+                                      [lvl]: {
+                                        ...(prev[lvl] || { id: '', programId: program.id, levelNumber: lvl, levelDescription: `רמה ${lvl}`, progressionWeight: 1.0 }),
+                                        straightArmRatio: parseInt(e.target.value) / 100,
+                                      },
+                                    }));
+                                  }}
+                                  className="flex-1 h-2 bg-amber-200 rounded-full appearance-none cursor-pointer accent-amber-600"
+                                />
+                                <span className="text-sm font-black text-amber-700 w-12 text-center">
+                                  {Math.round((settings?.straightArmRatio ?? (lvl <= 10 ? 0.4 : 0.5)) * 100)}%
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-amber-500 mt-0.5">
+                                אחוז תרגילי זרוע ישרה מתוך סה&quot;כ. מומלץ: 30-50%.
+                              </p>
+                            </div>
+
+                            {/* Weekly SA Cap */}
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-600 mb-1 block">
+                                מכסת SA שבועית (Weekly SA Cap)
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                placeholder="ללא הגבלה"
+                                value={settings?.weeklySACap ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                  setLevelSettings((prev) => ({
+                                    ...prev,
+                                    [lvl]: {
+                                      ...(prev[lvl] || { id: '', programId: program.id, levelNumber: lvl, levelDescription: `רמה ${lvl}`, progressionWeight: 1.0 }),
+                                      weeklySACap: val,
+                                    },
+                                  }));
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-center focus:ring-2 focus:ring-amber-400 focus:border-transparent text-sm"
+                              />
+                              <p className="text-[10px] text-amber-500 mt-0.5">
+                                סטים מקסימליים של זרוע ישרה בשבוע. ריק = ללא הגבלה.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Save Actions */}
+                  <div className="flex items-center gap-3 pt-4 mt-2 border-t border-gray-100">
                     <div className="flex-1" />
                     <button
                       onClick={() => saveLevel(lvl)}

@@ -9,6 +9,16 @@ import { OnboardingData, OnboardingStepId } from '../types';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import { recalculateAncestorMasters } from '@/features/user/progression/services/progression.service';
+import { derivePrimaryTrack, trackToDashboardMode } from './track-mapper.service';
+import { loadAssessmentContext } from './branching-logic.service';
+import {
+  getProgramPathFromStorage,
+  getMuscleFocusFromStorage,
+  getSkillFocusFromStorage,
+  deriveActiveProgramFromMuscleFocus,
+  deriveActiveProgramFromSkillFocus,
+  getFocusDomainsForMuscleFocus,
+} from './assessment-path-config.service';
 
 // Step order mapping for analytics
 const STEP_ORDER: Record<OnboardingStepId, number> = {
@@ -364,15 +374,18 @@ export async function syncOnboardingToFirestore(
       };
     }
     // Sync birthDate from sessionStorage (set during the onboarding questionnaire)
+    // Key is 'onboarding_personal_dob' (written by profile/roadmap pages)
     if (typeof window !== 'undefined') {
-      const storedBirthDate = sessionStorage.getItem('onboarding_personal_birthdate');
+      const storedBirthDate = sessionStorage.getItem('onboarding_personal_dob');
       if (storedBirthDate) {
         try {
           const dateObj = new Date(storedBirthDate);
           if (!isNaN(dateObj.getTime())) {
+            const ageYears = (Date.now() - dateObj.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
             updateData.core = {
               ...updateData.core,
-              birthDate: Timestamp.fromDate(dateObj), // Firestore Timestamp for proper querying
+              birthDate: Timestamp.fromDate(dateObj),
+              ageGroup: ageYears < 18 ? 'minor' : 'adult',
             };
           }
         } catch (e) {
@@ -507,6 +520,38 @@ export async function syncOnboardingToFirestore(
     }
 
     // ================================================================
+    // PERSONA ENGINE: Derive primaryTrack from goals (on COMPLETED)
+    // Sets lifestyle.primaryTrack + lifestyle.dashboardMode atomically.
+    // Priority: SET_PROGRAM_TRACK rule override > goal-based derivation
+    // ================================================================
+    if (step === 'COMPLETED') {
+      const assessmentCtx = loadAssessmentContext();
+      const ruleOverrideTrack = assessmentCtx?.programTrack;
+
+      const goalIds: string[] =
+        (data as any).selectedGoalIds ||
+        onboardingAnswers.allGoals ||
+        [];
+
+      const primaryTrack = ruleOverrideTrack || derivePrimaryTrack(goalIds, onboardingAnswers) || 'health';
+      const dashboardMode = trackToDashboardMode(primaryTrack) || 'DEFAULT';
+
+      updateData.lifestyle = {
+        ...updateData.lifestyle,
+        primaryTrack,
+        dashboardMode,
+      };
+
+      updateData.onboardingComplete = true;
+
+      console.log(
+        '[OnboardingSync] Persona Engine → primaryTrack:', primaryTrack,
+        ruleOverrideTrack ? '(SET_PROGRAM_TRACK override)' : '(goal-derived)',
+        '→ dashboardMode:', dashboardMode,
+      );
+    }
+
+    // ================================================================
     // PROGRAM & LEVEL ASSIGNMENT (on COMPLETED)
     // Priority: assignedResults > legacy fields > GOAL_TO_PROGRAM
     // ================================================================
@@ -577,10 +622,81 @@ export async function syncOnboardingToFirestore(
         }
       }
 
+      // Path B (body_focus): Override program assignment from muscle selection
+      const path = getProgramPathFromStorage();
+      const muscleIds = getMuscleFocusFromStorage();
+      const isPathBBodyFocus = path === 'body_focus' && muscleIds.length > 0;
+
+      // Path C (skills): Specialist (1 skill) vs Generalist (2+ skills) program linkage
+      let skillIds = getSkillFocusFromStorage();
+      if (path === 'skills' && effectiveResults && effectiveResults.length > 0 && skillIds.length === 0) {
+        skillIds = effectiveResults.map((r) => r.programId);
+      }
+      const isPathCSkills = path === 'skills' && skillIds.length > 0;
+
       if (effectiveResults && effectiveResults.length > 0) {
+        // Path C: Override activeProgramId and focusDomains from skill focus (Specialist vs Generalist)
+        if (isPathCSkills) {
+          const activeProgramId = deriveActiveProgramFromSkillFocus(skillIds);
+          const focusDomains = [...skillIds];
+          // Filter to selected skills only, preserve order
+          const skillResults = skillIds
+            .map((sid) => effectiveResults.find((r) => r.programId === sid))
+            .filter((r): r is NonNullable<typeof r> => r != null);
+          if (skillResults.length === 0) {
+            const fallback = effectiveResults[0];
+            skillResults.push(fallback);
+          }
+          const primaryResult = skillResults[0];
+          if (skillIds.length === 1) {
+            effectiveResults = [{ ...primaryResult, programId: skillIds[0], levelId: primaryResult.levelId }];
+          } else {
+            effectiveResults = [
+              {
+                ...primaryResult,
+                programId: 'calisthenics_upper',
+                levelId: primaryResult.levelId,
+                masterProgramSubLevels: Object.fromEntries(
+                  skillResults.map((r) => {
+                    const m = r.levelId.match(/(\d+)/);
+                    return [r.programId, m ? parseInt(m[1], 10) : 1];
+                  })
+                ),
+              },
+            ];
+          }
+          console.log(
+            '[OnboardingSync] Path C: activeProgram=',
+            activeProgramId,
+            'skillFocusIds=',
+            skillIds,
+            'focusDomains=',
+            focusDomains,
+          );
+        }
+        // Path B: Override primaryProgramId and focusDomains from muscle selection
+        else if (isPathBBodyFocus) {
+          const activeProgramId = deriveActiveProgramFromMuscleFocus(muscleIds);
+          const focusDomains = getFocusDomainsForMuscleFocus(muscleIds);
+          const primaryResult = effectiveResults[0];
+          const masterSub = primaryResult.masterProgramSubLevels ?? { push: 0, pull: 0, legs: 0, core: 0 };
+          const maxLevel = Math.max(masterSub.push ?? 0, masterSub.pull ?? 0, masterSub.legs ?? 0, masterSub.core ?? 0) || 10;
+          effectiveResults = [{
+            ...primaryResult,
+            programId: activeProgramId,
+            levelId: `${activeProgramId}_level_${maxLevel}`,
+            masterProgramSubLevels: masterSub,
+          }];
+          console.log(
+            '[OnboardingSync] Path B override: activeProgram=', activeProgramId,
+            'focusDomains=', focusDomains,
+            'masterSubLevels=', masterSub,
+          );
+        }
+
         // ✅ USE DYNAMIC QUESTIONNAIRE RESULTS (Highest Priority)
         console.log('[OnboardingSync] Using assignedResults from dynamic questionnaire:', effectiveResults);
-        
+
         // Primary result for backwards compatibility
         const primaryResult = effectiveResults[0];
         const primaryProgramId = primaryResult.programId;
@@ -616,6 +732,12 @@ export async function syncOnboardingToFirestore(
 
           // Add to activePrograms (accumulative — don't overwrite existing)
           if (!existingProgramIds.has(result.programId)) {
+            const focusDomains =
+              isPathCSkills && result.programId === 'calisthenics_upper'
+                ? skillIds
+                : isPathBBodyFocus
+                  ? getFocusDomainsForMuscleFocus(muscleIds)
+                  : [result.programId];
             activeProgramEntries.push({
               id: result.programId,
               templateId: result.programId,
@@ -623,7 +745,7 @@ export async function syncOnboardingToFirestore(
               startDate: new Date().toISOString(),
               durationWeeks: 52,
               currentWeek: 1,
-              focusDomains: [result.programId] as any,
+              focusDomains: focusDomains as any,
             });
           }
         }
@@ -633,6 +755,10 @@ export async function syncOnboardingToFirestore(
           ...(updateData.progression?.tracks || {}),
           ...quizTracks,
         };
+        console.log(
+          '[OnboardingSync] Writing progression.tracks (Path B/C assessment levels):',
+          mergedTracks
+        );
 
         // Merge activePrograms (keep existing + add new from quiz)
         const mergedActivePrograms = [
@@ -653,6 +779,7 @@ export async function syncOnboardingToFirestore(
             currentWeek: 1,
             focusDomains: [primaryProgramId] as any,
           }],
+          ...(isPathCSkills && skillIds.length >= 2 ? { skillFocusIds: skillIds } : {}),
         };
 
         // Store assignedResults on the document for future reference

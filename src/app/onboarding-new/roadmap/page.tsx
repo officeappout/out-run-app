@@ -11,6 +11,31 @@ import { Check } from 'lucide-react';
 
 export default function RoadmapPage() {
   const router = useRouter();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DEPRECATED: This route is replaced by the new Adaptive Onboarding flow
+  // ═══════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    console.warn('[Roadmap] DEPRECATED — Redirecting to /onboarding-new/profile');
+    router.replace('/onboarding-new/profile');
+  }, [router]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-[#5BC2F2] border-t-transparent rounded-full mx-auto mb-4" />
+        <p className="text-slate-600">מפנה...</p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LEGACY CODE BELOW — KEPT FOR REFERENCE ONLY
+// ═══════════════════════════════════════════════════════════════════════
+
+function RoadmapPageLegacy() {
+  const router = useRouter();
   const { language: storeLanguage, setLanguage: setStoreLanguage } = useAppStore();
   
   // Local language state (supports 'ru' which store doesn't yet)

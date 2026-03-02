@@ -3,8 +3,8 @@
  * Pure helpers, scoring engine, data fetching, and copy matrix.
  */
 
-import { getAllParks } from '@/features/parks';
-import { InventoryService } from '@/features/parks';
+import { getAllParks } from '@/features/parks/core/services/parks.service';
+import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { ISRAELI_LOCATIONS, type IsraeliLocation, type LocationType } from '@/lib/data/israel-locations';
 import type { Map as MapboxGLMap } from 'mapbox-gl';
@@ -106,16 +106,36 @@ export async function reverseGeocode(lat: number, lng: number): Promise<{
       return { city: null, neighborhood: null, displayName: 'מיקום לא ידוע' };
     }
     
+    // Mapbox returns features from most-specific to least-specific.
+    // We pick the FIRST match for each type to get the most precise result.
+    // This prevents Tel Aviv's "locality" entry from overwriting a real
+    // neighborhood like "פלורנטין" or "נווה צדק".
     let city: string | null = null;
     let neighborhood: string | null = null;
+    let locality: string | null = null;
     
     for (const feature of data.features) {
-      if (feature.place_type.includes('place')) {
-        city = feature.text_he || feature.text;
+      const types: string[] = feature.place_type || [];
+      const name = feature.text_he || feature.text;
+      
+      // City = first "place" type match
+      if (!city && types.includes('place')) {
+        city = name;
       }
-      if (feature.place_type.includes('neighborhood') || feature.place_type.includes('locality')) {
-        neighborhood = feature.text_he || feature.text;
+      // Neighborhood = first "neighborhood" type match (most specific)
+      if (!neighborhood && types.includes('neighborhood')) {
+        neighborhood = name;
       }
+      // Locality = first "locality" type match (fallback for neighborhood)
+      if (!locality && types.includes('locality')) {
+        locality = name;
+      }
+    }
+    
+    // Use locality as neighborhood fallback, but only if it's different
+    // from the city (prevents "תל אביב-יפו" from appearing as both)
+    if (!neighborhood && locality && locality !== city) {
+      neighborhood = locality;
     }
     
     const displayName = neighborhood && city
@@ -126,6 +146,31 @@ export async function reverseGeocode(lat: number, lng: number): Promise<{
   } catch (error) {
     console.error('Reverse geocoding failed:', error);
     return { city: null, neighborhood: null, displayName: 'מיקום לא ידוע' };
+  }
+}
+
+/**
+ * Forward geocode a neighborhood/city name using Mapbox API.
+ * Returns the exact center coordinates for the given place name.
+ * Used when the user selects a neighborhood from the search list to snap
+ * the map to its precise location (instead of the generic city center).
+ */
+export async function forwardGeocode(
+  placeName: string,
+  country = 'il'
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(placeName)}.json?access_token=${MAPBOX_TOKEN}&country=${country}&language=he&limit=1&types=neighborhood,locality,place`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.features || data.features.length === 0) return null;
+
+    const [lng, lat] = data.features[0].center;
+    return { lat, lng };
+  } catch (error) {
+    console.warn('Forward geocoding failed:', error);
+    return null;
   }
 }
 

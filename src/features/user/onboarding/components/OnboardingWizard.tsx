@@ -14,7 +14,6 @@ import ScheduleStep from './steps/ScheduleStep';
 import HealthDeclarationStep from './HealthDeclarationStep';
 import AccountSecureStep from './steps/AccountSecureStep';
 import ProcessingStep from './steps/ProcessingStep';
-import SummaryStep from './steps/SummaryStep';
 import { syncOnboardingToFirestore } from '../services/onboarding-sync.service';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
@@ -51,19 +50,59 @@ export default function OnboardingWizard() {
     : 'he') as OnboardingLanguage;
   const locale = getOnboardingLocale(savedLanguage);
 
-  // ── Step definitions ──────────────────────────────────────────────
-  const wizardSteps: OnboardingStepId[] = [
-    'PERSONA',
-    'PERSONAL_STATS',
-    'EQUIPMENT',
-    'SCHEDULE',
-    'LOCATION',
-    'HEALTH_DECLARATION',
-    'ACCOUNT_SECURE',
-    'PROCESSING',        // Animated processing screen
-    'COMPLETED',         // Firestore sync marker (never rendered)
-    'SUMMARY',
-  ];
+  // ── JIT mode (triggered from workout start) ──────────────────────
+  const isJIT = searchParams?.get('jit') === 'true';
+  const jitStep = searchParams?.get('step') as OnboardingStepId | null;
+
+  // ── Dynamic step sequence based on onboarding path ──────────────
+  const onboardingPath = typeof window !== 'undefined'
+    ? sessionStorage.getItem('onboarding_path') || null
+    : null;
+
+  const wizardSteps: OnboardingStepId[] = useMemo(() => {
+    // JIT mode: only show the specific requested step
+    if (isJIT && jitStep) {
+      return [jitStep, 'COMPLETED', 'SUMMARY'];
+    }
+
+    // MAP_ONLY path: minimal steps for map explorers converting to full users
+    if (onboardingPath === 'MAP_ONLY') {
+      return [
+        'HEALTH_DECLARATION',
+        'ACCOUNT_SECURE',
+        'PROCESSING',
+        'COMPLETED',
+        'SUMMARY',
+      ];
+    }
+
+    // UPGRADE_FROM_MAP: MAP_ONLY user building a program
+    // Dynamic Quiz -> Persona -> Equipment -> Dashboard
+    // Skips: Personal Stats, Schedule, Location (Schedule is JIT on dashboard)
+    if (onboardingPath === 'UPGRADE_FROM_MAP') {
+      return [
+        'PERSONA',
+        'EQUIPMENT',
+        'PROCESSING',
+        'COMPLETED',
+        'SUMMARY',
+      ];
+    }
+
+    // FULL_PROGRAM path (default): full onboarding sequence
+    return [
+      'PERSONA',
+      'PERSONAL_STATS',
+      'EQUIPMENT',
+      'SCHEDULE',
+      'LOCATION',
+      'HEALTH_DECLARATION',
+      'ACCOUNT_SECURE',
+      'PROCESSING',
+      'COMPLETED',
+      'SUMMARY',
+    ];
+  }, [isJIT, jitStep, onboardingPath]);
 
   const currentStepIndex = wizardSteps.indexOf(currentStep);
 
@@ -98,8 +137,17 @@ export default function OnboardingWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Resume / roadmap initialisation
+  // JIT mode: force current step to the requested JIT step on mount
   useEffect(() => {
+    if (isJIT && jitStep && currentStep !== jitStep) {
+      setStep(jitStep);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJIT, jitStep]);
+
+  // Resume / roadmap initialisation (skip when JIT — handled above)
+  useEffect(() => {
+    if (isJIT) return;
     if (resumeStep && wizardSteps.includes(resumeStep)) {
       setStep(resumeStep);
       return;
@@ -110,7 +158,7 @@ export default function OnboardingWizard() {
       setStep('PERSONA');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [majorRoadmapStep, resumeStep]);
+  }, [majorRoadmapStep, resumeStep, isJIT]);
 
   // Auto-skip ACCOUNT_SECURE for already-authenticated (non-anonymous) users
   useEffect(() => {
@@ -161,23 +209,71 @@ export default function OnboardingWizard() {
     }
   };
 
+  // ── JIT save handler with Firestore sync + profile hydration ─────
+  const handleJITSave = async () => {
+    await syncOnboardingToFirestore('COMPLETED', data).catch(() => {});
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        const freshProfile = await getUserFromFirestore(uid);
+        if (freshProfile) {
+          useUserStore.getState().initializeProfile(freshProfile);
+        }
+      }
+    } catch { /* /profile will self-recover */ }
+    await new Promise((r) => setTimeout(r, 700));
+    const returnTo = typeof window !== 'undefined'
+      ? sessionStorage.getItem('jit_return_to') : null;
+    if (returnTo) sessionStorage.removeItem('jit_return_to');
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('profile_update_toast', '1');
+    }
+    if (returnTo === 'workout') router.push('/home?startWorkout=true');
+    else if (returnTo === 'profile') router.push('/profile');
+    else router.push('/home');
+  };
+
+  // Wrap step onNext: in JIT mode → handleJITSave, otherwise normal advance
+  const stepOnNext = (coinReward = 10) => {
+    if (isJIT) return handleJITSave;
+    return () => handleNext(undefined, coinReward);
+  };
+
+  // Determine if the current step is the last content step before processing/system steps
+  const isLastContentStep = (() => {
+    const nextIdx = currentStepIndex + 1;
+    if (nextIdx >= wizardSteps.length) return true;
+    const remaining = wizardSteps.slice(nextIdx);
+    return remaining.every(s =>
+      s === 'HEALTH_DECLARATION' || s === 'ACCOUNT_SECURE' || s === 'PROCESSING' || s === 'COMPLETED' || s === 'SUMMARY'
+    );
+  })();
+
   // ── Render ─────────────────────────────────────────────────────────
   const renderStepContent = () => {
     switch (currentStep) {
       case 'PERSONA':
-        return <PersonaStep onNext={() => handleNext('PERSONAL_STATS', 10)} />;
+        return <PersonaStep onNext={() => handleNext(undefined, 10)} />;
 
       case 'PERSONAL_STATS':
-        return <PersonalStatsStep onNext={() => handleNext('EQUIPMENT', 10)} />;
+        return <PersonalStatsStep onNext={stepOnNext(10)} isJIT={isJIT} isLastStep={isLastContentStep} />;
 
       case 'EQUIPMENT':
-        return <EquipmentStep onNext={() => handleNext('SCHEDULE', 10)} />;
+        return <EquipmentStep onNext={stepOnNext(10)} isJIT={isJIT} isLastStep={isLastContentStep} />;
 
       case 'SCHEDULE':
-        return <ScheduleStep onNext={() => handleNext('LOCATION', 10)} />;
+        return <ScheduleStep onNext={stepOnNext(10)} isJIT={isJIT} isLastStep={isLastContentStep} />;
 
       case 'LOCATION':
-        return <UnifiedLocationStep onNext={() => handleNext('HEALTH_DECLARATION', 10)} />;
+        return <UnifiedLocationStep onNext={() => {
+          // In FULL_PROGRAM path, LOCATION exits to roadmap for phase 2 transition
+          // In JIT/MAP_ONLY, just advance to next step
+          if (!isJIT && onboardingPath !== 'MAP_ONLY') {
+            handleNext('HEALTH_DECLARATION', 10);
+          } else {
+            handleNext(undefined, 10);
+          }
+        }} />;
 
       case 'HEALTH_DECLARATION':
         return (
@@ -231,30 +327,13 @@ export default function OnboardingWizard() {
         );
 
       case 'PROCESSING':
-        // Full-screen animated processing — auto-advances after 4.5 s
         return (
           <ProcessingStep
-            onNext={() => {
-              setStep('SUMMARY');
-            }}
-          />
-        );
-
-      case 'COMPLETED':
-        // Handled by useEffect — never renders
-        return null;
-
-      case 'SUMMARY':
-        return (
-          <SummaryStep
             onNext={async () => {
               useOnboardingStore.getState().setMajorRoadmapStep(2);
 
-              // Ensure Firestore has the COMPLETED status
               await syncOnboardingToFirestore('COMPLETED', data).catch(() => {});
 
-              // Populate the user store with the fresh Firestore profile
-              // so that /home's guard sees a valid profile and doesn't redirect back
               try {
                 const uid = auth.currentUser?.uid;
                 if (uid) {
@@ -267,10 +346,34 @@ export default function OnboardingWizard() {
                 console.warn('[OnboardingWizard] Failed to hydrate user store, /home will self-recover:', e);
               }
 
-              router.push('/home');
+              if (typeof window !== 'undefined') {
+                sessionStorage.setItem('show_gear_toast', '1');
+              }
+
+              const jitReturn = typeof window !== 'undefined'
+                ? sessionStorage.getItem('jit_return_to')
+                : null;
+              if (jitReturn) {
+                sessionStorage.removeItem('jit_return_to');
+              }
+              if (jitReturn === 'workout') {
+                router.push('/home?startWorkout=true');
+              } else if (jitReturn === 'profile') {
+                router.push('/profile');
+              } else {
+                router.push('/home');
+              }
             }}
           />
         );
+
+      case 'COMPLETED':
+        // Handled by useEffect — never renders
+        return null;
+
+      case 'SUMMARY':
+        // Deprecated — kept for type compatibility, auto-redirects
+        return null;
 
       default:
         return <PersonaStep onNext={() => handleNext('PERSONAL_STATS', 10)} />;

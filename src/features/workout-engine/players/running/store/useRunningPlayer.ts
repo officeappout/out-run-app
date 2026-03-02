@@ -660,16 +660,23 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         
         if (userId && finalCalories > 0) {
           const progressionState = useProgressionStore.getState();
-          // Award coins equal to calories
           await progressionState.awardWorkoutCoins(finalCalories).catch((error) => {
             console.error('[useRunningPlayer] Error awarding workout coins:', error);
           });
-          
-          // Mark today as completed (syncs to Firestore dailyProgress)
-          await progressionState.markTodayAsCompleted('running').catch((error) => {
-            console.error('[useRunningPlayer] Error marking today as completed:', error);
-          });
         }
+
+        // Unified completion sync: dailyActivity + dailyProgress + streaks + session flag
+        const durationMinutes = Math.max(Math.round(sessionState.totalDuration / 60), 1);
+        const { syncWorkoutCompletion } = await import('@/features/workout-engine/services/completion-sync.service');
+        await syncWorkoutCompletion({
+          workoutType: 'running',
+          durationMinutes,
+          calories: finalCalories,
+          activityCategory: 'cardio',
+          displayIcon: 'run-fast',
+        }).catch((error) => {
+          console.error('[useRunningPlayer] Error in syncWorkoutCompletion:', error);
+        });
         
         // Set status to finished
         sessionState.endSession();

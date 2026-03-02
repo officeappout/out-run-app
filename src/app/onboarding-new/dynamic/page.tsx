@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DynamicOnboardingEngine, DynamicQuestionNode } from '@/features/user/onboarding/engine/DynamicOnboardingEngine';
+import { loadAssessmentContext } from '@/features/user/onboarding/services/branching-logic.service';
 import { useUserStore } from '@/features/user';
 import { mapAnswersToProfile } from '@/features/user/identity/services/profile.service';
 import { getOnboardingLocale } from '@/lib/i18n/onboarding-locales';
@@ -17,6 +18,7 @@ import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { auth } from '@/lib/firebase';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
+import { generateFirstWorkout } from '@/features/workout-engine/services/first-workout.service';
 
 /**
  * Dynamic Onboarding Page
@@ -93,7 +95,15 @@ export default function DynamicOnboardingPage() {
           savedGender === 'male' ? 'male' : 
           savedGender === 'female' ? 'female' : 
           'neutral';
-        
+
+        // Feed the engine with visual-assessment context (levels, tier, rule overrides)
+        // so that question visibility and conditional routes are assessment-aware.
+        const assessmentCtx = loadAssessmentContext();
+        if (assessmentCtx) {
+          engine.setAssessmentContext(assessmentCtx);
+          console.log('[DynamicOnboarding] Assessment context loaded:', assessmentCtx);
+        }
+
         await engine.initialize('assessment', undefined, currentLang, gender);
         const question = engine.getCurrentQuestion();
         setCurrentQuestion(question);
@@ -330,6 +340,58 @@ export default function DynamicOnboardingPage() {
       // Note: Master-level aggregation is now handled automatically in onboarding-sync.service.ts
       // when step === 'COMPLETED'. No need for duplicate recalculation here.
 
+      // ── FIRST WORKOUT GENERATION (Spec 1.5) ──────────────────────────
+      // Generate the user's first workout immediately after assessment.
+      // Uses GPS (if available) to find nearby parks with equipment.
+      // Falls back to home/bodyweight workout if no GPS or no park.
+      try {
+        const uid = auth.currentUser?.uid;
+        if (uid && profile) {
+          // Check if user has GPS coordinates from the onboarding flow
+          let gpsCoordinates: { lat: number; lng: number } | null = null;
+          
+          // Try to get GPS from profile location data
+          const profileLat = (profile as any)?.location?.coordinates?.lat
+            || (profile as any)?.location?.lat;
+          const profileLng = (profile as any)?.location?.coordinates?.lng
+            || (profile as any)?.location?.lng;
+          
+          if (profileLat && profileLng) {
+            gpsCoordinates = { lat: profileLat, lng: profileLng };
+          } else if (typeof window !== 'undefined') {
+            // Try sessionStorage for location data set during onboarding
+            const savedLat = sessionStorage.getItem('onboarding_gps_lat');
+            const savedLng = sessionStorage.getItem('onboarding_gps_lng');
+            if (savedLat && savedLng) {
+              gpsCoordinates = { lat: parseFloat(savedLat), lng: parseFloat(savedLng) };
+            }
+          }
+
+          console.log('[Onboarding] Generating first workout...',
+            gpsCoordinates ? `GPS: ${gpsCoordinates.lat.toFixed(4)}, ${gpsCoordinates.lng.toFixed(4)}` : 'No GPS');
+
+          const firstWorkoutResult = await generateFirstWorkout({
+            userProfile: profile,
+            gpsCoordinates,
+            userId: uid,
+          });
+
+          console.log(`[Onboarding] First workout ready: ${firstWorkoutResult.location} workout with ${firstWorkoutResult.workout.workout.exercises.length} exercises`);
+          
+          // Store location context in sessionStorage for the home page
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('first_workout_location', firstWorkoutResult.location);
+            if (firstWorkoutResult.nearbyPark) {
+              sessionStorage.setItem('first_workout_park_name', firstWorkoutResult.nearbyPark.name);
+            }
+          }
+        }
+      } catch (workoutErr) {
+        console.warn('[Onboarding] First workout generation failed (non-blocking):', workoutErr);
+        // Non-blocking: user can still proceed even if workout generation fails.
+        // A workout will be generated on-demand when they open the home page.
+      }
+
       // Show result loading animation
       setShowResultLoading(true);
     } catch (err: any) {
@@ -344,9 +406,11 @@ export default function DynamicOnboardingPage() {
     setShowProgramResult(true);
   }, []);
 
-  // Handle program result continue - navigate to Roadmap with Step 2 active
+  // Handle program result continue — route based on onboarding path
+  // Handle program result continue — route to Health Declaration
   const handleProgramResultContinue = useCallback(() => {
-    router.push('/onboarding-new/roadmap');
+    // After animated result, go directly to Health Declaration
+    router.push('/onboarding-new/health');
   }, [router]);
 
   // Show reveal screens if active

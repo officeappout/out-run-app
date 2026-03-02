@@ -85,18 +85,19 @@ export async function getAllExercises(): Promise<Exercise[]> {
 }
 
 /**
- * Get exercises by search term (searches in name)
+ * Get exercises by search term (strict name-only matching).
  */
 export async function searchExercises(searchTerm: string): Promise<Exercise[]> {
   try {
     const allExercises = await getAllExercises();
-    const lowerSearchTerm = searchTerm.toLowerCase();
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return allExercises;
 
-    return allExercises.filter(
-      (exercise) =>
-        getLocalizedText(exercise.name).toLowerCase().includes(lowerSearchTerm) ||
-        exercise.content?.goal?.toLowerCase().includes(lowerSearchTerm)
-    );
+    return allExercises.filter((exercise) => {
+      const he = (exercise.name?.he ?? '').toLowerCase();
+      const en = (exercise.name?.en ?? '').toLowerCase();
+      return he.includes(q) || en.includes(q);
+    });
   } catch (error) {
     console.error('Error searching exercises:', error);
     throw error;
@@ -638,7 +639,7 @@ export async function deleteExercise(
 }
 
 /**
- * Duplicate an exercise (create a copy with "Copy of" prefix)
+ * Duplicate an exercise (create a copy with "(Copy)" suffix)
  * Preserves ALL metadata fields from the original exercise
  */
 export async function duplicateExercise(exerciseId: string): Promise<string> {
@@ -651,8 +652,8 @@ export async function duplicateExercise(exerciseId: string): Promise<string> {
     const duplicateData: ExerciseFormData = {
       // === BASIC FIELDS ===
       name: {
-        he: `עותק של ${originalExercise.name.he || originalExercise.name.en || ''}`,
-        en: `Copy of ${originalExercise.name.en || originalExercise.name.he || ''}`,
+        he: `${originalExercise.name.he || originalExercise.name.en || ''} (עותק)`,
+        en: `${originalExercise.name.en || originalExercise.name.he || ''} (Copy)`,
         es: originalExercise.name.es,
       },
       type: originalExercise.type,

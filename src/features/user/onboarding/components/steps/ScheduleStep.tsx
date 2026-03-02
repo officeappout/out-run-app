@@ -2,14 +2,21 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Check, Calendar, Clock, ChevronDown, Lightbulb, Bell, RefreshCw } from 'lucide-react';
+import {
+  Coins, Check, Calendar, Clock, ChevronDown, Lightbulb, Bell, RefreshCw,
+  Sofa, Footprints, Flame, Building2, TreePine, Dumbbell, Home as HomeIcon,
+  Bike, Sparkles, Heart, Zap,
+} from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import StickyActionButton from '@/components/ui/StickyActionButton';
 
 interface ScheduleStepProps {
   onNext: () => void;
+  isJIT?: boolean;
+  isLastStep?: boolean;
 }
 
 const DAYS_HEBREW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -72,7 +79,7 @@ function CoinFly({
 }
 
 
-export default function ScheduleStep({ onNext }: ScheduleStepProps) {
+export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStepProps) {
   const { updateData, data, claimReward, hasClaimedReward, coins } = useOnboardingStore();
   
   // Get current language
@@ -89,6 +96,48 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
   
   // Gender-aware translation helper
   const t = (male: string, female: string) => gender === 'female' ? female : male;
+
+  // ── Deep History (merged from HistoryStep) ──────────────────────
+  const [historyFreq, setHistoryFreq] = useState<string>(data.historyFrequency || '');
+  const [historyLocs, setHistoryLocs] = useState<string[]>(data.historyLocations || []);
+  const [historySpts, setHistorySpts] = useState<string[]>(data.historySports || []);
+  const historyDone = historyFreq !== '';
+
+  const FREQ_OPTIONS = [
+    { id: 'none',  label: isHebrew ? 'לא התאמנתי' : "I didn't train", icon: Sofa,       bg: 'bg-slate-50', color: 'text-slate-500' },
+    { id: '1-2',   label: isHebrew ? '1-2 פעמים בשבוע' : '1-2/week',   icon: Footprints, bg: 'bg-blue-50',  color: 'text-blue-500'  },
+    { id: '3+',    label: isHebrew ? '3+ פעמים בשבוע' : '3+/week',     icon: Flame,      bg: 'bg-orange-50',color: 'text-orange-500' },
+  ];
+  const LOC_OPTIONS = [
+    { id: 'studio', label: isHebrew ? 'סטודיו/חוגים' : 'Studio',  icon: Building2 },
+    { id: 'park',   label: isHebrew ? 'גינת כושר' : 'Park',       icon: TreePine },
+    { id: 'home',   label: isHebrew ? 'בית' : 'Home',              icon: HomeIcon },
+    { id: 'gym',    label: isHebrew ? 'חדר כושר' : 'Gym',          icon: Dumbbell },
+  ];
+  const SPORT_OPTIONS = [
+    { id: 'running',  label: isHebrew ? 'ריצה' : 'Running',      icon: Zap },
+    { id: 'swimming', label: isHebrew ? 'שחייה' : 'Swimming',    icon: Heart },
+    { id: 'yoga',     label: isHebrew ? 'יוגה/פילאטיס' : 'Yoga', icon: Sparkles },
+    { id: 'cycling',  label: isHebrew ? 'רכיבה' : 'Cycling',     icon: Bike },
+    { id: 'strength', label: isHebrew ? 'כוח' : 'Strength',      icon: Dumbbell },
+    { id: 'cardio',   label: isHebrew ? 'קרדיו' : 'Cardio',      icon: Heart },
+    { id: 'crossfit', label: isHebrew ? 'קרוספיט' : 'CrossFit',  icon: Flame },
+  ];
+
+  const handleHistoryFreq = (id: string) => {
+    setHistoryFreq(id);
+    updateData({ historyFrequency: id });
+  };
+  const toggleHistoryLoc = (id: string) => {
+    const next = historyLocs.includes(id) ? historyLocs.filter(l => l !== id) : [...historyLocs, id];
+    setHistoryLocs(next);
+    updateData({ historyLocations: next });
+  };
+  const toggleHistorySport = (id: string) => {
+    const next = historySpts.includes(id) ? historySpts.filter(s => s !== id) : [...historySpts, id];
+    setHistorySpts(next);
+    updateData({ historySports: next });
+  };
 
   // Recommended frequency (default 3, can be based on goal)
   const RECOMMENDED_FREQUENCY = 3;
@@ -247,6 +296,9 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
       trainingTime: time,
       scheduleDayIndices: selectedDays,
       scheduleDays: scheduleDays,
+      historyFrequency: historyFreq,
+      historyLocations: historyLocs,
+      historySports: historySpts,
       ...(notificationsEnabled && { notificationsEnabled: true } as any),
       ...(calendarSyncEnabled && { calendarSyncEnabled: true } as any),
     });
@@ -260,10 +312,9 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
     frequency > 0 && 
     selectedDays.length === frequency;
 
-  // Recommendation logic
-  const historyFrequency = data.historyFrequency || '';
-  const showRecommendationA = historyFrequency === 'none' && frequency >= 3;
-  const showRecommendationB = (historyFrequency === '1-2' || historyFrequency === '3+') && frequency === 1;
+  // Recommendation logic — uses the local historyFreq state (synced to store)
+  const showRecommendationA = historyFreq === 'none' && frequency >= 3;
+  const showRecommendationB = (historyFreq === '1-2' || historyFreq === '3+') && frequency === 1;
   const hasRecommendation = showRecommendationA || showRecommendationB;
 
   return (
@@ -357,6 +408,109 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Deep History Section (merged from HistoryStep) ────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-right space-y-4"
+      >
+        {/* Q1: Frequency */}
+        <div className="space-y-2">
+          <h4 className="text-sm font-bold text-slate-800">
+            {t('איך נראתה שגרת האימונים שלך בחודש האחרון?', 'איך נראתה שגרת האימונים שלך בחודש האחרון?')}
+          </h4>
+          <div className="space-y-1.5">
+            {FREQ_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const sel = historyFreq === opt.id;
+              return (
+                <motion.button
+                  key={opt.id}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleHistoryFreq(opt.id)}
+                  className={`w-full p-3 rounded-xl border transition-all flex items-center gap-3 ${
+                    sel ? 'bg-[#00C9F2]/8 border-[#00C9F2]/50' : 'bg-white border-slate-100'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg ${sel ? 'bg-[#00C9F2]/15' : opt.bg}`}>
+                    <Icon size={16} className={sel ? 'text-[#00C9F2]' : opt.color} strokeWidth={2} />
+                  </div>
+                  <span className={`text-sm flex-1 text-right ${sel ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                    {opt.label}
+                  </span>
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${sel ? 'bg-[#00C9F2]' : 'bg-slate-100'}`}>
+                    {sel && <Check size={10} className="text-white" strokeWidth={3} />}
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Q2+Q3: Location + Sports (revealed after Q1) */}
+        <AnimatePresence>
+          {historyDone && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-4 overflow-hidden"
+            >
+              <div className="h-px bg-slate-100" />
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-slate-800">
+                  {t('איפה התאמנת בדרך כלל?', 'איפה התאמנת בדרך כלל?')}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {LOC_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const sel = historyLocs.includes(opt.id);
+                    return (
+                      <motion.button
+                        key={opt.id}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => toggleHistoryLoc(opt.id)}
+                        className={`px-3 py-1.5 rounded-xl border text-sm flex items-center gap-1.5 transition-all ${
+                          sel ? 'bg-[#00C9F2]/10 border-[#00C9F2]/50 text-[#00C9F2] font-semibold' : 'bg-white border-slate-100 text-slate-600'
+                        }`}
+                      >
+                        <Icon size={13} strokeWidth={2} />
+                        <span>{opt.label}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-slate-800">
+                  {isHebrew ? 'באילו ענפי ספורט?' : 'Which sports?'}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {SPORT_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const sel = historySpts.includes(opt.id);
+                    return (
+                      <motion.button
+                        key={opt.id}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => toggleHistorySport(opt.id)}
+                        className={`px-3 py-1.5 rounded-xl border text-sm flex items-center gap-1.5 transition-all ${
+                          sel ? 'bg-[#00C9F2]/10 border-[#00C9F2]/50 text-[#00C9F2] font-semibold' : 'bg-white border-slate-100 text-slate-600'
+                        }`}
+                      >
+                        <Icon size={13} strokeWidth={2} />
+                        <span>{opt.label}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.section>
 
       {/* Section 1: Frequency */}
       <section className="mb-5 text-right">
@@ -724,39 +878,18 @@ export default function ScheduleStep({ onNext }: ScheduleStepProps) {
       {/* Spacer */}
       <div className="flex-grow"></div>
 
-      {/* Footer - Continue Button with Pulse Animation */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="mt-auto pt-4 pb-6"
-      >
-        <motion.button
-          onClick={handleContinue}
-          disabled={!canContinue}
-          animate={canContinue ? {
-            boxShadow: [
-              '0 10px 25px rgba(91, 194, 242, 0.3)',
-              '0 15px 35px rgba(91, 194, 242, 0.5)',
-              '0 10px 25px rgba(91, 194, 242, 0.3)',
-            ],
-          } : {}}
-          transition={canContinue ? {
-            boxShadow: {
-              repeat: Infinity,
-              duration: 2,
-              ease: 'easeInOut',
-            },
-          } : {}}
-          className={`w-full font-black py-4 rounded-2xl text-lg transition-all duration-300 ${
-            canContinue 
-              ? 'bg-[#5BC2F2] hover:bg-[#4AADE3] text-white hover:scale-[1.02] active:scale-[0.98]' 
-              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-          }`}
-        >
-          {locale.common.continue}
-        </motion.button>
-      </motion.div>
+      <StickyActionButton
+        label={isJIT
+          ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
+          : isLastStep
+            ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
+            : locale.common.continue}
+        successLabel={isJIT
+          ? (savedLanguage === 'he' ? 'הלו״ז עודכן!' : 'Schedule Updated!')
+          : undefined}
+        disabled={!canContinue}
+        onPress={handleContinue}
+      />
     </div>
   );
 }

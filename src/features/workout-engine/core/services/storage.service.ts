@@ -25,6 +25,16 @@ export interface WorkoutHistoryEntry {
   routeId?: string; // If guided route
   routeName?: string;
   earnedCoins: number;
+
+  // ── Training OS fields ────────────────────────────────────────────────
+  /** Whether this was a recovery/maintenance workout (does not consume weekly volume budget) */
+  isRecovery?: boolean;
+  /** Difficulty level (1-3 bolts) used for this workout */
+  difficulty?: 1 | 2 | 3;
+  /** Total sets completed in this strength session */
+  setsCompleted?: number;
+  /** Total sets planned for this strength session */
+  setsPlanned?: number;
 }
 
 /**

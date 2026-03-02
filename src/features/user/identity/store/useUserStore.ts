@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { UserFullProfile } from '../../core/types/user.types';
+import { UserFullProfile, AccessTier } from '../../core/types/user.types';
 import { auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import { getUserAccessLevel, isUserVerified } from '../services/access-control.service';
 
 // ==========================================
 // State Interface
@@ -21,6 +22,13 @@ interface UserState {
   resetProfile: () => void;
   refreshProfile: () => Promise<void>;
   setHasHydrated: (state: boolean) => void;
+
+  // Access Control (Computed)
+  getAccessLevel: () => AccessTier;
+  getIsVerified: () => boolean;
+
+  // Viral Gate: social features unlock at 1 referral (or admin/dev bypass)
+  getSocialUnlocked: () => boolean;
 }
 
 // ==========================================
@@ -38,9 +46,15 @@ const customStorage = {
       
       if (!state?.profile) return str;
       
-      // המרת ISO strings חזרה ל-Date objects
+      // המרת birthDate חזרה ל-Date — handles ISO string, serialized Timestamp { seconds, nanoseconds }, etc.
       if (state.profile.core?.birthDate) {
-        state.profile.core.birthDate = new Date(state.profile.core.birthDate);
+        const raw = state.profile.core.birthDate;
+        if (typeof raw === 'object' && raw !== null && typeof raw.seconds === 'number') {
+          state.profile.core.birthDate = new Date(raw.seconds * 1000);
+        } else {
+          const d = new Date(raw);
+          state.profile.core.birthDate = isNaN(d.getTime()) ? undefined : d;
+        }
       }
       
       // המרת תאריכים ב-activePrograms
@@ -174,12 +188,21 @@ export const useUserStore = create<UserState>()(
       // בדיקה אם המשתמש השלים Onboarding
       hasCompletedOnboarding: () => {
         const profile = get().profile;
-        // משתמש נחשב כמי שהשלים Onboarding אם יש לו ימי אימון מוגדרים בלייפסטייל
-        return !!(
-          profile &&
+        if (!profile) return false;
+        
+        // User completed onboarding if:
+        // 1. They have schedule days set (full completion), OR
+        // 2. Their status is PENDING_LIFESTYLE (completed Phase 1, bridge will show), OR
+        // 3. Their status is COMPLETED
+        const hasSchedule = !!(
           profile.lifestyle?.scheduleDays &&
           profile.lifestyle.scheduleDays.length > 0
         );
+        const status = (profile as any)?.onboardingStatus;
+        const isPendingLifestyle = status === 'PENDING_LIFESTYLE';
+        const isCompleted = status === 'COMPLETED';
+        
+        return hasSchedule || isPendingLifestyle || isCompleted;
       },
 
       // איפוס פרופיל (לצורך logout או reset)
@@ -201,6 +224,24 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           console.error('[useUserStore] Error refreshing profile from Firestore:', error);
         }
+      },
+
+      // --- Access Control Getters ---
+      getAccessLevel: (): AccessTier => {
+        return getUserAccessLevel(get().profile);
+      },
+
+      getIsVerified: (): boolean => {
+        return isUserVerified(get().profile);
+      },
+
+      getSocialUnlocked: (): boolean => {
+        const p = get().profile;
+        if (!p) return false;
+        // Dev bypass disabled for testing — uncomment to re-enable:
+        // if (process.env.NODE_ENV === 'development') return true;
+        if (p.core?.isSuperAdmin) return true;
+        return (p.core?.referralCount ?? 0) >= 1;
       },
     }),
     {

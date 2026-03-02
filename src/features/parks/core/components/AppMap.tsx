@@ -43,6 +43,10 @@ interface AppMapProps {
   userBearing?: number;
   /** When true, shows admin-only infrastructure toggle */
   isAdmin?: boolean;
+  /** Callback to expose the internal MapRef for flyover camera control */
+  onMapRef?: (ref: MapRef) => void;
+  /** When true, AppMap skips its built-in one-time auto-zoom so external code can drive the camera */
+  skipInitialZoom?: boolean;
 }
 
 export default function AppMap({
@@ -57,6 +61,8 @@ export default function AppMap({
   isNavigationMode = false,
   userBearing = 0,
   isAdmin = false,
+  onMapRef,
+  skipInitialZoom = false,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -89,8 +95,10 @@ export default function AppMap({
   }, []);
 
   // ✅ ONE-TIME AUTO-ZOOM: Zoom to user location when first coordinates arrive
+  // Skipped when parent drives the camera via useFlyoverEntrance
   useEffect(() => {
     if (
+      skipInitialZoom ||
       hasInitialZoomed.current ||
       !currentLocation ||
       !mapRef.current ||
@@ -111,7 +119,7 @@ export default function AppMap({
       duration: 2000,
       essential: true
     });
-  }, [currentLocation, isMapLoaded, focusedRoute, isActiveWorkout, destinationMarker]);
+  }, [currentLocation, isMapLoaded, focusedRoute, isActiveWorkout, destinationMarker, skipInitialZoom]);
 
   // Navigation mode camera following
   useEffect(() => {
@@ -263,6 +271,10 @@ export default function AppMap({
     });
 
     setIsMapLoaded(true);
+
+    if (onMapRef && mapRef.current) {
+      onMapRef(mapRef.current);
+    }
   };
 
   return (
