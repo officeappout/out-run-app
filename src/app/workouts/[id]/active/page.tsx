@@ -391,12 +391,6 @@ export default function ActiveWorkoutPage() {
     }
   }, [flowState, celebrate]);
 
-  // === LIVE PRESENCE (Social Map heartbeat while workout is active) ===
-  useWorkoutPresence({
-    activityStatus: 'strength',
-    workoutTitle: workoutPlan?.name,
-  });
-
   // === KUDOS INBOX (receive High Fives from map viewers) ===
   const { currentKudo, dismissKudo } = useKudosInbox(
     flowState === 'active' ? auth.currentUser?.uid : undefined,
@@ -423,6 +417,12 @@ export default function ActiveWorkoutPage() {
   const [error, setError] = useState<string | null>(null);
   // Workout location for location-aware media selection in player components
   const [workoutLocation, setWorkoutLocation] = useState<string>('home');
+
+  // === LIVE PRESENCE (Social Map heartbeat while workout is active) ===
+  useWorkoutPresence({
+    activityStatus: 'strength',
+    workoutTitle: workoutPlan?.name,
+  });
 
   // === USER PROGRESSION (real data from Firestore) ===
   const { profile, refreshProfile } = useUserStore();
