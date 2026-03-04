@@ -22,6 +22,7 @@ import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPre
 import { WorkoutPreviewDrawer } from '@/features/workout-engine/players/strength';
 
 import { ActiveDashboard } from '@/features/workout-engine/players/running';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import WorkoutSummaryPage from '@/features/workout-engine/summary/WorkoutSummaryPage';
 import { StrengthDopamineScreen, StrengthSummaryPage } from '@/features/workout-engine/components/strength';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -74,6 +75,7 @@ const demoWorkoutPlan: WorkoutPlan = {
 export default function FullMapView() {
   const logic = useMapLogic();
   const { status: runStatus } = useSessionStore();
+  const routeZones = useRunningPlayer((s) => s.routeZones);
   const safecity = useSafeCityMap(logic.currentUserPos ?? null);
   const flyover = useFlyoverEntrance(logic.currentUserPos ?? null);
   const social = useSocialLiveMap(logic.currentUserPos ?? null, flyover.flyoverComplete);
@@ -204,6 +206,7 @@ export default function FullMapView() {
           currentLocation={logic.currentUserPos}
           userBearing={logic.userBearing}
           livePath={logic.isWorkoutActive ? logic.livePath : undefined}
+          livePathZones={logic.isWorkoutActive ? routeZones : undefined}
           isActiveWorkout={logic.isWorkoutActive}
           isNavigationMode={logic.isNavigationMode}
           onRouteSelect={logic.setSelectedRoute}

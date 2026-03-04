@@ -250,8 +250,10 @@ export default function ExercisesAdminPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
 
-  // ── Search is purely local — no Firestore, no remount ──
+  // ── Filters — purely local, no Firestore calls ──
   const [searchTerm, setSearchTerm] = useState('');
+  const [programFilter, setProgramFilter] = useState<string>('all');
+  const [levelFilter, setLevelFilter] = useState<number | 'all'>('all');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Non-blocking toast notification
@@ -327,8 +329,41 @@ export default function ExercisesAdminPage() {
     return () => { cancelled = true; };
   }, [activeTab]);
 
+  // ── Compute available levels from all exercises ──
+  const availableLevels = useMemo(() => {
+    const levels = new Set<number>();
+    for (const ex of allExercises) {
+      if (ex.targetPrograms) {
+        for (const tp of ex.targetPrograms) {
+          if (typeof tp.level === 'number') levels.add(tp.level);
+        }
+      }
+    }
+    return Array.from(levels).sort((a, b) => a - b);
+  }, [allExercises]);
+
+  // Reset level filter when it no longer applies
+  useEffect(() => {
+    if (levelFilter !== 'all' && !availableLevels.includes(levelFilter)) {
+      setLevelFilter('all');
+    }
+  }, [availableLevels, levelFilter]);
+
+  const hasActiveFilters =
+    searchTerm.trim() !== '' ||
+    programFilter !== 'all' ||
+    levelFilter !== 'all' ||
+    filterMissingIds;
+
+  const clearAllFilters = useCallback(() => {
+    setSearchTerm('');
+    setProgramFilter('all');
+    setLevelFilter('all');
+    setFilterMissingIds(false);
+  }, []);
+
   // ── Client-side filtering (instant, zero network) ──
-  // STRICT: match ONLY against the raw name.he / name.en strings.
+  // All filters combine with AND logic.
   const filteredExercises = useMemo(() => {
     let list = allExercises;
 
@@ -336,14 +371,36 @@ export default function ExercisesAdminPage() {
       list = list.filter((ex) => !ex.base_movement_id);
     }
 
+    // Text search — name.he / name.en only
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((ex) => {
-      const he = (ex.name?.he ?? '').toLowerCase();
-      const en = (ex.name?.en ?? '').toLowerCase();
-      return he.includes(q) || en.includes(q);
-    });
-  }, [allExercises, searchTerm, filterMissingIds]);
+    if (q) {
+      list = list.filter((ex) => {
+        const he = (ex.name?.he ?? '').toLowerCase();
+        const en = (ex.name?.en ?? '').toLowerCase();
+        return he.includes(q) || en.includes(q);
+      });
+    }
+
+    // Program + Level filter — must match within the SAME targetPrograms entry
+    if (programFilter !== 'all' && levelFilter !== 'all') {
+      list = list.filter((ex) =>
+        ex.targetPrograms?.some(
+          (tp) => tp.programId === programFilter && tp.level === levelFilter,
+        ),
+      );
+    } else if (programFilter !== 'all') {
+      list = list.filter((ex) =>
+        ex.programIds?.includes(programFilter) ||
+        ex.targetPrograms?.some((tp) => tp.programId === programFilter),
+      );
+    } else if (levelFilter !== 'all') {
+      list = list.filter((ex) =>
+        ex.targetPrograms?.some((tp) => tp.level === levelFilter),
+      );
+    }
+
+    return list;
+  }, [allExercises, searchTerm, filterMissingIds, programFilter, levelFilter]);
 
   // ── Pre-compute thumbnail URLs once when source data changes ──
   const thumbnailMap = useMemo(() => {
@@ -508,9 +565,7 @@ export default function ExercisesAdminPage() {
           <h1 className="text-3xl font-black text-gray-900">ניהול תרגילים</h1>
           <p className="text-gray-500 mt-2">
             {allExercises.length > 0
-              ? `${filteredExercises.length === allExercises.length
-                  ? allExercises.length
-                  : `${filteredExercises.length} / ${allExercises.length}`} תרגילים`
+              ? `${allExercises.length} תרגילים במערכת`
               : 'צור וערוך תרגילי אימון'}
           </p>
         </div>
@@ -590,32 +645,70 @@ export default function ExercisesAdminPage() {
         </div>
       </div>
 
-      {/* Search Bar — pure local state, no form submission, no Firestore */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <div className="relative">
-          <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="חפש תרגיל לפי שם בלבד..."
-            className="w-full pr-12 pl-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {searchTerm && (
+      {/* Filters Bar */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="חפש תרגיל לפי שם..."
+              className="w-full pr-10 pl-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+
+          {/* Program filter */}
+          <select
+            value={programFilter}
+            onChange={(e) => setProgramFilter(e.target.value)}
+            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="all">כל התוכניות</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+
+          {/* Level filter */}
+          <select
+            value={levelFilter}
+            onChange={(e) => {
+              const v = e.target.value;
+              setLevelFilter(v === 'all' ? 'all' : Number(v));
+            }}
+            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="all">כל הרמות</option>
+            {availableLevels.map((lv) => (
+              <option key={lv} value={lv}>רמה {lv}</option>
+            ))}
+          </select>
+
+          {/* Clear */}
+          {hasActiveFilters && (
             <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('');
-                searchInputRef.current?.focus();
-              }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+              onClick={clearAllFilters}
+              className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
             >
-              ✕
+              <X size={14} />
+              נקה סינון
             </button>
           )}
+        </div>
+
+        {/* Counter */}
+        <div className="text-sm text-gray-500">
+          מציג{' '}
+          <span className="font-black text-gray-800">{filteredExercises.length}</span>
+          {' '}מתוך{' '}
+          <span className="font-black text-gray-800">{allExercises.length}</span>
+          {' '}תרגילים
         </div>
       </div>
 
@@ -624,26 +717,23 @@ export default function ExercisesAdminPage() {
         {filteredExercises.length === 0 ? (
           <div className="text-center py-20">
             <div className="bg-gray-50 inline-flex p-4 rounded-full mb-4">
-              {searchTerm ? <Search size={32} className="text-gray-400" /> : <Plus size={32} className="text-gray-400" />}
+              {hasActiveFilters ? <Search size={32} className="text-gray-400" /> : <Plus size={32} className="text-gray-400" />}
             </div>
             <h3 className="text-lg font-bold text-gray-900">
-              {searchTerm ? 'לא נמצאו תרגילים' : 'אין תרגילים עדיין'}
+              {hasActiveFilters ? 'לא נמצאו תרגילים' : 'אין תרגילים עדיין'}
             </h3>
             <p className="text-gray-500 mt-2">
-              {searchTerm
-                ? `לא נמצאו תרגילים התואמים ל-"${searchTerm}"`
+              {hasActiveFilters
+                ? 'לא נמצאו תרגילים התואמים לסינון הנוכחי'
                 : 'התחל על ידי הוספת התרגיל הראשון למערכת'}
             </p>
-            {searchTerm && (
+            {hasActiveFilters && (
               <button
                 type="button"
-                onClick={() => {
-                  setSearchTerm('');
-                  searchInputRef.current?.focus();
-                }}
+                onClick={clearAllFilters}
                 className="mt-4 text-cyan-600 hover:text-cyan-700 text-sm font-bold"
               >
-                נקה חיפוש
+                נקה סינון
               </button>
             )}
           </div>
@@ -711,16 +801,13 @@ export default function ExercisesAdminPage() {
                 ? `${allExercises.length} תרגילים סה"כ`
                 : `${filteredExercises.length} תוצאות מתוך ${allExercises.length}`}
             </span>
-            {searchTerm && (
+            {hasActiveFilters && (
               <button
                 type="button"
-                onClick={() => {
-                  setSearchTerm('');
-                  searchInputRef.current?.focus();
-                }}
+                onClick={clearAllFilters}
                 className="text-cyan-600 hover:text-cyan-700 font-bold"
               >
-                נקה חיפוש
+                נקה סינון
               </button>
             )}
           </div>

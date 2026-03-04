@@ -73,6 +73,20 @@ class AudioService {
   }
 
   /**
+   * Speak an arbitrary Hebrew message.
+   */
+  speak(message: string): void {
+    if (!this.isSupported || !this.speechSynthesis) return;
+    this.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = 'he-IL';
+    utterance.rate = 1.1;
+    utterance.pitch = 1.0;
+    utterance.volume = 0.9;
+    this.speechSynthesis.speak(utterance);
+  }
+
+  /**
    * Stop any ongoing speech
    */
   stop(): void {

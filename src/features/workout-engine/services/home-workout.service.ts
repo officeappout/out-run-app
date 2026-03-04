@@ -1611,7 +1611,9 @@ function applyIntenseModifiers(
     const targetLevel = Math.max(...Array.from(userProgramLevels.values())) + 1;
     const candidate = allExercises.find(ex =>
       !usedIds.has(ex.id)
-      && ex.targetPrograms?.some(tp => tp.level === targetLevel)
+      && ex.targetPrograms?.some(tp =>
+        userProgramLevels.has(tp.programId) && tp.level === targetLevel,
+      )
       && ex.exerciseRole !== 'cooldown'
       && ex.exerciseRole !== 'warmup',
     );
@@ -1780,12 +1782,17 @@ function applyEasyLevelDowngrade(
     const tp = ex.exercise.targetPrograms;
     if (!tp?.length) continue;
 
-    const exLevel = tp[0]?.level ?? maxUserLevel;
+    // Find the level for this exercise within one of the user's programs
+    const relevantTp = tp.find(t => userProgramLevels.has(t.programId));
+    const exLevel = relevantTp?.level ?? maxUserLevel;
     if (exLevel <= easyLevel) continue;
 
+    // Replacement must belong to one of the user's programs at the easy level
     const replacement = allExercises.find(raw =>
       !usedIds.has(raw.id)
-      && raw.targetPrograms?.some(t => t.level === easyLevel)
+      && raw.targetPrograms?.some(t =>
+        userProgramLevels.has(t.programId) && t.level === easyLevel,
+      )
       && raw.exerciseRole !== 'cooldown'
       && raw.exerciseRole !== 'warmup'
       && raw.primaryMuscle === ex.exercise.primaryMuscle,

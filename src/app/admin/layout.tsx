@@ -26,9 +26,12 @@ import {
     Bell,
     FileText,
     LayoutGrid,
-    Map,
+        Map,
     Signal,
     GraduationCap,
+    Footprints,
+    Activity,
+    GitMerge,
     GitBranch,
     BarChart3,
 } from 'lucide-react';
@@ -40,7 +43,7 @@ import { getAuthoritiesByManager } from '@/features/admin/services/authority.ser
 import { signOutUser } from '@/lib/auth.service';
 
 // Section IDs for collapsible state
-type SectionId = 'overview' | 'municipalities' | 'appCore' | 'production' | 'brandComm' | 'system';
+type SectionId = 'overview' | 'municipalities' | 'appCore' | 'running' | 'production' | 'brandComm' | 'system';
 
 // Helper to check if a section contains the active path
 const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boolean => {
@@ -50,6 +53,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boo
         overview: ['/admin', '/admin/roadmap'],
         municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages'],
         appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds'],
+        running: ['/admin/running'],
         production: ['/admin/content-matrix', '/admin/content-status'],
         brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator'],
         system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs'],
@@ -98,7 +102,7 @@ export default function AdminLayout({
     // Auto-expand section containing active path
     useEffect(() => {
         if (pathname) {
-            const sections: SectionId[] = ['overview', 'municipalities', 'appCore', 'production', 'brandComm', 'system'];
+            const sections: SectionId[] = ['overview', 'municipalities', 'appCore', 'running', 'production', 'brandComm', 'system'];
             for (const section of sections) {
                 if (sectionContainsPath(section, pathname)) {
                     setExpandedSections(prev => {
@@ -444,6 +448,21 @@ export default function AdminLayout({
                                                 <SidebarLink href="/admin/brands" icon={Package} label="מותגי ציוד" />
                                                 <SidebarLink href="/admin/gear-definitions" icon={Package} label="ציוד אישי" />
                                             </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Section: ריצה (Running Engine) */}
+                            {!onlyAuthorityManager && (
+                                <>
+                                    <SectionHeader sectionId="running" icon={Footprints} label="מנוע ריצה" />
+                                    {expandedSections.has('running') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/running" icon={LayoutDashboard} label="דשבורד ריצה" />
+                                            <SidebarLink href="/admin/running/pace-map" icon={Activity} label="מפת קצבים" />
+                                            <SidebarLink href="/admin/running/workouts" icon={Dumbbell} label="תבניות אימונים" />
+                                            <SidebarLink href="/admin/running/programs" icon={GitMerge} label="תוכניות והתקדמות" />
                                         </div>
                                     )}
                                 </>

@@ -72,10 +72,10 @@ export async function signUp(email: string, password: string, displayName?: stri
           },
           health: { injuries: [], connectedWatch: 'none' },
           running: {
-            weeklyMileageGoal: 0,
-            runFrequency: 1,
+            isUnlocked: false,
+            currentGoal: 'couch_to_5k',
             activeProgram: null,
-            paceProfile: { easyPace: 0, thresholdPace: 0, vo2MaxPace: 0, qualityWorkoutsHistory: [] },
+            paceProfile: { basePace: 0, profileType: 3, qualityWorkoutsHistory: [], qualityWorkoutCount: 0, lastSelfCorrectionDate: null },
           },
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),

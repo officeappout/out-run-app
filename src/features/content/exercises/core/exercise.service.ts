@@ -28,6 +28,7 @@ import {
   sanitizeLocalizedText,
   normalizeExercise,
   deepMergeForUpdate,
+  convertUndefinedToNull,
 } from '../services/exercise-mapping.utils';
 
 // Re-export analysis functions for backward compatibility
@@ -196,7 +197,8 @@ export async function createExercise(
       updatedAt: serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, EXERCISES_COLLECTION), exerciseData);
+    const cleanedExerciseData = convertUndefinedToNull(exerciseData);
+    const docRef = await addDoc(collection(db, EXERCISES_COLLECTION), cleanedExerciseData);
     
     // Log audit action
     if (adminInfo) {
@@ -466,7 +468,8 @@ export async function updateExercise(
       allMetadataPreserved: Object.keys(metadataBeingSaved),
     });
 
-    await updateDoc(docRef, updateData);
+    const cleanedUpdateData = convertUndefinedToNull(updateData);
+    await updateDoc(docRef, cleanedUpdateData);
     
     // =========================================================================
     // VERIFICATION: Check that ALL metadata fields are still in the database
@@ -859,13 +862,13 @@ export async function saveExerciseDraft(
     // Sanitize the draft data
     const sanitized = sanitizeExerciseData(draftData);
     
-    await updateDoc(docRef, {
+    await updateDoc(docRef, convertUndefinedToNull({
       draft: {
         data: sanitized,
         savedAt: serverTimestamp(),
       },
       updatedAt: serverTimestamp(),
-    });
+    }));
   } catch (error) {
     console.error('Error saving exercise draft:', error);
     throw error;

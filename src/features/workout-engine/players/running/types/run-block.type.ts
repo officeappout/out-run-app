@@ -1,31 +1,30 @@
-// סוגי הבלוקים האפשריים (חימום, ריצה, הליכה וכו')
+import type { RunZoneType } from '../../../core/types/running.types';
+
 export type RunBlockType = 'warmup' | 'run' | 'walk' | 'interval' | 'recovery' | 'cooldown';
 
 export type RunBlock = {
   id: string;
-  
-  // סוג הבלוק - קובע את הלוגיקה הפנימית (למשל: חימום לא נחשב בקצב ממוצע)
   type: RunBlockType;
-  
-  // הכותרת שמוצגת למשתמש באפליקציה (למשל: "ריצה מהירה מאוד")
-  label: string; 
-  
-  // אופציה א': משך הבלוק בשניות (למשל: 300 שניות ל-5 דקות חימום)
-  durationSeconds?: number; 
-  
-  // אופציה ב': מרחק הבלוק במטרים (למשל: 400 מטר לאינטרוול)
-  // הערה: חובה שאחד מהשדות (זמן או מרחק) יהיה מלא
+  label: string;
+  durationSeconds?: number;
   distanceMeters?: number;
-  
-  // טווח הקצב המבוקש באחוזים מקצב הבסיס (לפי טבלאות האפיון)
-  // למשל: אינטרוול עצים יהיה בין 98% ל-102%
   targetPacePercentage?: {
     min: number;
     max: number;
   };
-  
-  // צבע הבר בגרף האימון (למשל: אדום למאמץ גבוה, ירוק למנוחה)
+  zoneType?: RunZoneType;
+  isQualityExercise?: boolean;
   colorHex: string;
+  blockMode?: 'pace' | 'effort';
+  effortConfig?: {
+    effortLevel: 'moderate' | 'hard' | 'max';
+    recoveryType?: 'jog_down' | 'walk_down';
+    inclinePercent?: number;
+  };
+  restBetweenSetsSeconds?: number;
+  restType?: 'standing' | 'walk' | 'jog';
+  /** Set by materializeWorkout() for rest blocks injected between interval sets. Never saved to Firestore. */
+  _isSynthesizedRest?: true;
 };
 
 export default RunBlock;

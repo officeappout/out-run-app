@@ -7,10 +7,11 @@ import { create } from 'zustand';
 import { Route } from '@/features/parks';
 import { Lap, GeoPoint } from '../../../core/types/session.types';
 import { watchPosition, clearWatch, calculateDistance } from '@/lib/services/location.service';
+import type RunWorkout from '../types/run-workout.type';
 
 export interface WorkoutSettings {
   autoLapMode: 'distance' | 'time' | 'off';
-  autoLapValue: number; // Distance in km (0.1-2.0) or Time in minutes (1-10)
+  autoLapValue: number;
   enableAudio: boolean;
   enableAutoPause: boolean;
   enableCountdown: boolean;
@@ -23,10 +24,11 @@ interface RunningPlayerState {
   
   // Running-specific Metrics
   laps: Lap[];
-  currentPace: number;  // minutes per km
+  currentPace: number;
   routeCoords: number[][];
+  routeZones: (string | null)[];
   lastPosition: { lat: number; lng: number } | null;
-  totalCalories: number; // Real-time calculated calories
+  totalCalories: number;
   
   // Route Planning
   suggestedRoutes: Route[];
@@ -46,9 +48,17 @@ interface RunningPlayerState {
   // GPS Tracking
   gpsWatchId: number | null;
   durationIntervalId: NodeJS.Timeout | null;
-  wakeLock: WakeLockSentinel | null; // Screen wake lock to prevent phone from sleeping
-  gpsAccuracy: number | null; // Current GPS accuracy in meters
-  gpsStatus: 'searching' | 'poor' | 'good' | 'perfect'; // GPS signal status
+  wakeLock: WakeLockSentinel | null;
+  gpsAccuracy: number | null;
+  gpsStatus: 'searching' | 'poor' | 'good' | 'perfect';
+
+  // ── Planned Run State ────────────────────────────────────────────
+  currentWorkout: RunWorkout | null;
+  currentBlockIndex: number;
+  blockElapsedSeconds: number;
+  blockElapsedMeters: number;
+  blockSetNumber: number;
+  totalBlockSets: number;
   
   // Actions
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
@@ -77,6 +87,13 @@ interface RunningPlayerState {
   initializeRunningData: () => void;
   clearRunningData: () => void;
   finishWorkout: () => Promise<void>;
+
+  // ── Planned Run Actions ──────────────────────────────────────────
+  setCurrentWorkout: (workout: RunWorkout | null) => void;
+  advanceBlock: () => void;
+  tickBlockElapsed: () => void;
+  addBlockDistance: (meters: number) => void;
+  resetPlannedRun: () => void;
 }
 
 export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
@@ -85,7 +102,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   activityType: 'running',
   laps: [], // Start empty - will be initialized when workout starts
   currentPace: 0,
-  routeCoords: [], // Start empty - prevents old paths from appearing
+  routeCoords: [],
+  routeZones: [],
   lastPosition: null,
   totalCalories: 0, // Start with 0 calories
   suggestedRoutes: [],
@@ -106,6 +124,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   wakeLock: null,
   gpsAccuracy: null,
   gpsStatus: 'searching',
+
+  // Planned Run Initial State
+  currentWorkout: null,
+  currentBlockIndex: 0,
+  blockElapsedSeconds: 0,
+  blockElapsedMeters: 0,
+  blockSetNumber: 1,
+  totalBlockSets: 1,
   
   // Setters
   setRunMode: (mode) => set({ runMode: mode }),
@@ -456,10 +482,13 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     });
   },
   
-  // Add GPS coordinate
+  // Add GPS coordinate, tagged with the current block's zoneType if in planned run
   addCoord: (coord) => {
+    const { currentWorkout, currentBlockIndex } = get();
+    const zoneType = currentWorkout?.blocks?.[currentBlockIndex]?.zoneType ?? null;
     set((state) => ({
-      routeCoords: [...state.routeCoords, coord]
+      routeCoords: [...state.routeCoords, coord],
+      routeZones: [...state.routeZones, zoneType],
     }));
   },
   
@@ -548,25 +577,33 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     set({
       laps: [{ id: '1', lapNumber: 1, distanceMeters: 0, durationSeconds: 0, splitPace: 0, isActive: true }],
       currentPace: 0,
-      routeCoords: [], // Clear any old route data
-      activeRoutePath: [], // Clear any old active route
+      routeCoords: [],
+      routeZones: [],
+      activeRoutePath: [],
     });
   },
 
   // Clear running data
   clearRunningData: () => {
     const { stopGPSTracking } = get();
-    stopGPSTracking(); // Stop GPS tracking when clearing data
+    stopGPSTracking();
     
     set({
-      laps: [], // Clear all laps
+      laps: [],
       currentPace: 0,
-      routeCoords: [], // Clear route coordinates
-      activeRoutePath: [], // Clear active route
+      routeCoords: [],
+      routeZones: [],
+      activeRoutePath: [],
       isSnapshotVisible: false,
       lastCompletedLap: null,
       lastPosition: null,
-      totalCalories: 0, // Reset calories
+      totalCalories: 0,
+      currentWorkout: null,
+      currentBlockIndex: 0,
+      blockElapsedSeconds: 0,
+      blockElapsedMeters: 0,
+      blockSetNumber: 1,
+      totalBlockSets: 1,
     });
   },
 
@@ -689,5 +726,57 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         }
       }
     }
+  },
+
+  // ── Planned Run Actions ────────────────────────────────────────────
+
+  setCurrentWorkout: (workout) => {
+    if (!workout) {
+      get().resetPlannedRun();
+      return;
+    }
+    set({
+      currentWorkout: workout,
+      currentBlockIndex: 0,
+      blockElapsedSeconds: 0,
+      blockElapsedMeters: 0,
+      blockSetNumber: 1,
+      totalBlockSets: 1,
+    });
+  },
+
+  advanceBlock: () => {
+    const { currentWorkout, currentBlockIndex } = get();
+    if (!currentWorkout) return;
+
+    const nextIndex = currentBlockIndex + 1;
+    if (nextIndex >= currentWorkout.blocks.length) {
+      return;
+    }
+
+    set({
+      currentBlockIndex: nextIndex,
+      blockElapsedSeconds: 0,
+      blockElapsedMeters: 0,
+    });
+  },
+
+  tickBlockElapsed: () => {
+    set((s) => ({ blockElapsedSeconds: s.blockElapsedSeconds + 1 }));
+  },
+
+  addBlockDistance: (meters) => {
+    set((s) => ({ blockElapsedMeters: s.blockElapsedMeters + meters }));
+  },
+
+  resetPlannedRun: () => {
+    set({
+      currentWorkout: null,
+      currentBlockIndex: 0,
+      blockElapsedSeconds: 0,
+      blockElapsedMeters: 0,
+      blockSetNumber: 1,
+      totalBlockSets: 1,
+    });
   },
 }));

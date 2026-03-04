@@ -13,6 +13,49 @@ import { useFacilities } from '../hooks/useFacilities';
 import { Popup } from 'react-map-gl';
 import LemurMarker from '@/components/LemurMarker';
 
+/**
+ * Group consecutive coordinates sharing the same zoneType into separate
+ * GeoJSON LineString features so each segment can be styled independently.
+ * Adjacent segments share a boundary point to avoid visual gaps.
+ */
+function segmentPathByZone(
+  coords: [number, number][],
+  zones: (string | null)[],
+): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+  if (coords.length < 2) return { type: 'FeatureCollection', features };
+
+  let segStart = 0;
+  let currentZone = zones[0] ?? '_default';
+
+  for (let i = 1; i < coords.length; i++) {
+    const zone = zones[i] ?? '_default';
+    if (zone !== currentZone) {
+      features.push({
+        type: 'Feature',
+        properties: { zoneType: currentZone },
+        geometry: {
+          type: 'LineString',
+          coordinates: coords.slice(segStart, i + 1),
+        },
+      });
+      segStart = i;
+      currentZone = zone;
+    }
+  }
+
+  features.push({
+    type: 'Feature',
+    properties: { zoneType: currentZone },
+    geometry: {
+      type: 'LineString',
+      coordinates: coords.slice(segStart),
+    },
+  });
+
+  return { type: 'FeatureCollection', features };
+}
+
 // 1. טעינת תמיכה בעברית (RTL) - חובה לעברית תקינה
 if (typeof window !== 'undefined' && !mapboxgl.getRTLTextPluginStatus()) {
   try {
@@ -35,17 +78,15 @@ interface AppMapProps {
   selectedRoute?: Route | null;
   onRouteSelect?: (route: Route) => void;
   livePath?: [number, number][];
+  livePathZones?: (string | null)[];
   isActiveWorkout?: boolean;
   showCarousel?: boolean;
   loadingRouteIds?: Set<string>;
   destinationMarker?: { lat: number; lng: number } | null;
   isNavigationMode?: boolean;
   userBearing?: number;
-  /** When true, shows admin-only infrastructure toggle */
   isAdmin?: boolean;
-  /** Callback to expose the internal MapRef for flyover camera control */
   onMapRef?: (ref: MapRef) => void;
-  /** When true, AppMap skips its built-in one-time auto-zoom so external code can drive the camera */
   skipInitialZoom?: boolean;
 }
 
@@ -56,6 +97,7 @@ export default function AppMap({
   selectedRoute,
   onRouteSelect,
   livePath,
+  livePathZones,
   isActiveWorkout,
   destinationMarker,
   isNavigationMode = false,
@@ -212,17 +254,26 @@ export default function AppMap({
     };
   }, [visibleRoutes, focusedRoute]);
 
+  const hasZones = livePathZones && livePathZones.some((z) => z != null);
+
   const livePathGeoJSON = useMemo(() => {
     if (!livePath || livePath.length < 2) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'LineString',
-        coordinates: livePath
-      }
-    };
-  }, [livePath]);
+
+    if (!hasZones) {
+      return {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { zoneType: '_default' },
+            geometry: { type: 'LineString', coordinates: livePath },
+          },
+        ],
+      };
+    }
+
+    return segmentPathByZone(livePath, livePathZones!);
+  }, [livePath, livePathZones, hasZones]);
 
   const handleMapLoad = (e: any) => {
     // Mark map as loaded only when style is ready
@@ -352,25 +403,40 @@ export default function AppMap({
           </Source>
         )}
 
-        {/* 5. מסלול חי - כחול חזק */}
+        {/* 5. Live path — multi-color when zone data is available */}
         {isActiveWorkout && livePathGeoJSON && (
           <Source id="live-path" type="geojson" data={livePathGeoJSON as any}>
             <Layer
-                id="live-path-outline"
-                type="line"
-                paint={{
-                    'line-color': '#ffffff',
-                    'line-width': 9,
-                    'line-opacity': 0.6
-                }}
+              id="live-path-outline"
+              type="line"
+              paint={{
+                'line-color': '#ffffff',
+                'line-width': 9,
+                'line-opacity': 0.6,
+              }}
             />
             <Layer
               id="live-path-line"
               type="line"
               paint={{
-                'line-color': '#2563eb',
+                'line-color': hasZones
+                  ? [
+                      'match',
+                      ['get', 'zoneType'],
+                      'interval_short', '#0D9488',
+                      'fartlek_fast',   '#0D9488',
+                      'tempo',          '#0891B2',
+                      'fartlek_medium', '#F59E0B',
+                      'long_run',       '#10B981',
+                      'easy',           '#34D399',
+                      'jogging',        '#6EE7B7',
+                      'recovery',       '#60A5FA',
+                      'walk',           '#9CA3AF',
+                      '#2563eb',
+                    ]
+                  : '#2563eb',
                 'line-width': 6,
-                'line-opacity': 1
+                'line-opacity': 1,
               }}
               layout={{ 'line-join': 'round', 'line-cap': 'round' }}
             />

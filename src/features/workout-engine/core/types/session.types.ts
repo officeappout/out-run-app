@@ -13,6 +13,7 @@ export interface GeoPoint {
   timestamp: number;
   altitude?: number;
   accuracy?: number;
+  zoneType?: string;
 }
 
 export interface Lap {

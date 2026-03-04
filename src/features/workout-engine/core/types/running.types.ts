@@ -1,111 +1,338 @@
 // ==========================================
-// 1. הגדרת המטרות והיכולת (מהמצגת עמ' 2-3)
+// 1. Runner Goals & Classification
 // ==========================================
-export type RunnerGoal = 
-  | 'couch_to_5k'       // להתחיל לרוץ (רצים חדשים/חוזרים) [cite: 21, 26]
-  | 'maintain_fitness'  // לשמור על כושר קיים [cite: 23]
-  | 'improve_speed_10k' // לשפר קצב ל-10 ק"מ (מתחת ל-6:00) [cite: 7]
-  | 'improve_speed_5k'  // לשפר קצב ל-5 ק"מ
-  | 'improve_endurance'; // רץ שרוצה לרוץ לאט יותר מ-6:00 [cite: 8]
+export type RunnerGoal =
+  | 'couch_to_5k'
+  | 'maintain_fitness'
+  | 'improve_speed_10k'
+  | 'improve_speed_5k'
+  | 'improve_endurance';
+
+/**
+ * Profile 1: Fast improver (basePace < 360s, i.e. faster than 6:00/km)
+ * Profile 2: Slow improver (basePace >= 360s)
+ * Profile 3: Beginner / returning runner (couch_to_5k)
+ * Profile 4: Maintenance runner (maintain_fitness)
+ */
+export type RunnerProfileType = 1 | 2 | 3 | 4;
 
 export interface RunningOnboardingData {
   currentAbility: {
-    canRunContinuous: boolean; // האם יכול לרוץ ברצף? [cite: 27]
-    continuousTimeMinutes: number; // 5-15, 15-30, 30-45+ [cite: 29, 31, 43]
-    referencePace?: string; // תוצאת שיא אחרונה (למשל 10 ק"מ ב-50 דק') [cite: 141]
+    canRunContinuous: boolean;
+    continuousTimeMinutes: number;
+    referencePace?: string;
   };
-  targetDistance: 3 | 5 | 10; // מרחק יעד [cite: 30, 34]
-  weeklyFrequency: 1 | 2 | 3 | 4; // כמה פעמים בשבוע [cite: 33, 152]
+  targetDistance: 3 | 5 | 10;
+  weeklyFrequency: 1 | 2 | 3 | 4;
 }
 
 // ==========================================
-// 2. מערכת קצבים חכמה (הליבה של המצגת עמ' 7-8)
+// 2. Pace Zone System
 // ==========================================
-export type RunZoneType = 
-  | 'walk'              // הליכה (125-160% או קבוע) [cite: 241, 344]
-  | 'recovery'          // ריצת התאוששות (145-165%) [cite: 241]
-  | 'easy'              // ריצה קלה / חימום (130-145%) [cite: 241]
-  | 'long_run'          // ריצת נפח
-  | 'fartlek_medium'    // פרטלק בינוני
-  | 'tempo'             // טמפו / סף לקטט (105-112%) [cite: 241]
-  | 'fartlek_fast'      // פרטלק מהיר / קצב 10 ק"מ
-  | 'interval_short';   // אינטרוולים קצרים (98-102%) [cite: 241]
+export type RunZoneType =
+  | 'walk'
+  | 'jogging'
+  | 'recovery'
+  | 'easy'
+  | 'long_run'
+  | 'fartlek_medium'
+  | 'tempo'
+  | 'fartlek_fast'
+  | 'interval_short';
 
-// המבנה ששומר את קצב הבסיס והאזורים המחושבים
+export const ALL_RUN_ZONES: RunZoneType[] = [
+  'walk', 'jogging', 'recovery', 'easy', 'long_run',
+  'fartlek_medium', 'tempo', 'fartlek_fast', 'interval_short',
+];
+
+/** Computed pace boundaries for a single zone, derived at runtime. */
+export interface ComputedPaceZone {
+  minPace: number;
+  maxPace: number;
+  label: string;
+}
+
+// ── PaceMapConfig (admin-editable global table) ──────────────────────
+
+/**
+ * One row in the pace-map percentage table.
+ * Walk uses fixed values; all other zones use percentages of basePace.
+ */
+export interface PaceZoneRule {
+  fixedMinSeconds?: number;
+  fixedMaxSeconds?: number;
+  minPercent?: number;
+  maxPercent?: number;
+  label: string;
+}
+
+export interface PaceMapConfig {
+  id: string;
+  profileFast:        Record<RunZoneType, PaceZoneRule>;
+  profileSlow:        Record<RunZoneType, PaceZoneRule>;
+  profileBeginner:    Record<RunZoneType, PaceZoneRule>;
+  profileMaintenance: Record<RunZoneType, PaceZoneRule>;
+  lastUpdatedBy?: string;
+  version: number;
+}
+
+/** Helper to pick the right config table for a given profile type. */
+export type PaceMapKey = 'profileFast' | 'profileSlow' | 'profileBeginner' | 'profileMaintenance';
+
+// ── PaceProfile (stored in Firestore on the user document) ───────────
+
+export type PerformanceZone = 'below_low' | 'low' | 'mid' | 'high' | 'above_high';
+
+export interface QualityWorkoutRecord {
+  workoutId: string;
+  date: string;
+  qualityExerciseAvgPace: number;
+  targetZone: RunZoneType;
+  performanceZone: PerformanceZone;
+  impactOnBasePaceSeconds: number;
+}
+
 export interface PaceProfile {
-  basePace: number; // הקצב בשניות לק"מ (למשל: 330 שניות = 5:30) [cite: 233]
-  
-  // האזורים המחושבים (מעוגלים ל-5 שניות הקרובות לנוחות) [cite: 234, 239]
-  zones: {
-    [key in RunZoneType]: {
-      minPace: number; // שניות לק"מ
-      maxPace: number;
-      label: string;   // "5:30-5:45"
-    }
-  };
-
-  // היסטוריית אימוני איכות לצורך עדכון קצב הבסיס [cite: 279]
-  qualityWorkoutsHistory: {
-    workoutId: string;
-    date: Date;
-    avgPace: number;
-    performanceZone: 'low' | 'mid' | 'high' | 'out'; // האם עמד בטווח? [cite: 264, 271, 273]
-    impactOnBasePace: number; // כמה שניות שיפר/האט (למשל -3.2 שניות) [cite: 266, 287]
-  }[];
+  basePace: number;
+  profileType: RunnerProfileType;
+  qualityWorkoutsHistory: QualityWorkoutRecord[];
+  qualityWorkoutCount: number;
+  lastSelfCorrectionDate: string | null;
 }
 
 // ==========================================
-// 3. מבנה אימון ריצה (עמ' 15)
+// 3. Workout Structure (runtime blocks)
 // ==========================================
 export interface RunningWorkout {
   id: string;
-  name: string; // "אימון אינטרוולים קלאסי"
-  description: string; // "נועד לשפר יכולת אנאירובית..." [cite: 191]
-  
-  isQualityWorkout: boolean; // האם זה אימון שמשפיע על קצב הבסיס? 
-  
+  name: string;
+  description: string;
+  isQualityWorkout: boolean;
   structure: {
-    warmup: { durationOrDist: number; type: 'time' | 'dist'; zone: RunZoneType }; 
-    
-    // הליבה של האימון (יכולה להיות חזרות)
+    warmup: { durationOrDist: number; type: 'time' | 'dist'; zone: RunZoneType };
     mainSet: {
-      sets: number; // מספר הקפות [cite: 205]
+      sets: number;
       exercises: {
-        type: 'interval' | 'rest' | 'strength'; // ריצה או מנוחה או כוח
-        zone?: RunZoneType; // קצב יעד (למשל: ריצה מהירה מאוד) [cite: 207]
+        type: 'interval' | 'rest' | 'strength';
+        zone?: RunZoneType;
         durationOrDist: number;
-        durationType: 'time' | 'dist'; 
+        durationType: 'time' | 'dist';
       }[];
     };
-    
-    cooldown: { durationOrDist: number; type: 'time' | 'dist'; zone: RunZoneType }; 
+    cooldown: { durationOrDist: number; type: 'time' | 'dist'; zone: RunZoneType };
   };
-  
-  videoIds?: string[]; // סרטונים בסוף האימון [cite: 367]
+  videoIds?: string[];
+}
+
+// ── Workout & Program Templates (admin-authored, Firestore) ──────────
+
+export interface RunBlockTemplate {
+  id: string;
+  type: import('../../players/running/types/run-block.type').RunBlockType;
+  zoneType: RunZoneType;
+  isQualityExercise: boolean;
+  measureBy: 'time' | 'distance';
+  baseValue: number;
+  sets: number;
+  label: string;
+  colorHex: string;
+  restBetweenSetsSeconds?: number;
+  restType?: 'standing' | 'walk' | 'jog';
+  blockMode?: 'pace' | 'effort';
+  effortConfig?: {
+    effortLevel: 'moderate' | 'hard' | 'max';
+    recoveryType?: 'jog_down' | 'walk_down';
+    inclinePercent?: number;
+  };
+}
+
+// ── Workout Category (pool system) ───────────────────────────────────
+
+export type WorkoutCategory =
+  | 'short_intervals'
+  | 'long_intervals'
+  | 'fartlek_easy'
+  | 'fartlek_structured'
+  | 'tempo'
+  | 'hill_long'
+  | 'hill_short'
+  | 'hill_sprints'
+  | 'long_run'
+  | 'easy_run'
+  | 'strides';
+
+// ── Progression Rules (discriminated union) ──────────────────────────
+
+export interface AddSetsRule {
+  type: 'add_sets';
+  value: number;
+  everyWeeks: number;
+  appliesTo: 'all' | string[];
+}
+
+export interface IncreaseBaseValueRule {
+  type: 'increase_base_value_percent';
+  value: number;
+  everyWeeks: number;
+  appliesTo: 'all' | string[];
+}
+
+export interface IncreaseDistanceRule {
+  type: 'increase_distance';
+  value: number;
+  everyWeeks: number;
+  appliesTo: 'all' | string[];
+}
+
+export interface WalkRunRatioRule {
+  type: 'adjust_walk_run_ratio';
+  initialRunSeconds: number;
+  initialWalkSeconds: number;
+  runIncrementSeconds: number;
+  walkDecrementSeconds: number;
+  everyWeeks: 1 | 2;
+  maxContinuousRunSeconds: number;
+  minWalkSeconds: number;
+}
+
+export interface RestReductionRule {
+  type: 'reduce_rest';
+  reductionSecondsPerStep: number;
+  everyWeeks: number;
+  minRestSeconds: number;
+  appliesTo: string[];
+}
+
+export interface DeloadWeekRule {
+  type: 'deload_week';
+  everyWeeks: 3 | 4;
+  volumeReductionPercent: number;
+  intensityReductionPercent: number;
+  maintainFrequency: boolean;
+  skipQualityWorkouts: boolean;
+}
+
+export interface TaperRule {
+  type: 'taper';
+  weeksBeforeEnd: 1 | 2;
+  volumeReductionPercent: number;
+  maintainIntensity: boolean;
+  maintainFrequency: boolean;
+  includeRacePaceWorkout: boolean;
+}
+
+export type ProgressionRule =
+  | AddSetsRule
+  | IncreaseBaseValueRule
+  | IncreaseDistanceRule
+  | WalkRunRatioRule
+  | RestReductionRule
+  | DeloadWeekRule
+  | TaperRule;
+
+// ── Volume Caps ──────────────────────────────────────────────────────
+
+export interface VolumeCap {
+  type: 'cap';
+  target: 'weekly_volume' | 'single_run' | 'sets_per_block' | 'total_session';
+  maxValue: number;
+  maxWeeklyIncreasePercent: number;
+}
+
+// ── Week Slots & Phases ──────────────────────────────────────────────
+
+export interface WeekSlot {
+  id: string;
+  slotType: 'quality_primary' | 'quality_secondary' | 'long_run' | 'easy_run' | 'recovery';
+  required: boolean;
+  priority: number;
+  allowedCategories: WorkoutCategory[];
+}
+
+export interface ProgramPhase {
+  name: 'base' | 'build' | 'peak' | 'taper';
+  startWeek: number;
+  endWeek: number;
+  weekSlots: WeekSlot[];
+  progressionRules: ProgressionRule[];
+  qualityPool: WorkoutCategory[];
+  volumeMultiplier: number;
+}
+
+// ── 80/20 Validation ─────────────────────────────────────────────────
+
+export interface WeekIntensityBreakdown {
+  weekNumber: number;
+  totalMinutes: number;
+  easyMinutes: number;
+  hardMinutes: number;
+  hardPercent: number;
+  isValid: boolean;
+}
+
+export interface IntensityDistributionConfig {
+  targetHardPercent: number;
+  tolerancePercent: number;
+}
+
+// ── Workout & Program Templates ──────────────────────────────────────
+
+export interface RunWorkoutTemplate {
+  id: string;
+  name: string;
+  isQualityWorkout: boolean;
+  targetProfileTypes: RunnerProfileType[];
+  blocks: RunBlockTemplate[];
+  videoIds?: string[];
+  /** Lower = preferred when multiple templates match a pool slot. */
+  priority?: number;
+  category?: WorkoutCategory;
+}
+
+export interface RunProgramWeekTemplate {
+  weekNumber: number;
+  workoutIds: string[];
+}
+
+export interface RunProgramTemplate {
+  id: string;
+  name: string;
+  targetDistance: '3k' | '5k' | '10k' | 'maintenance';
+  targetProfileTypes: RunnerProfileType[];
+  canonicalWeeks: number;
+  canonicalFrequency: 2 | 3 | 4;
+  weekTemplates: RunProgramWeekTemplate[];
+  /** Flat rules — legacy; prefer phase-level rules in `phases`. */
+  progressionRules: ProgressionRule[];
+  phases?: ProgramPhase[];
+  volumeCaps?: VolumeCap[];
 }
 
 // ==========================================
-// 4. תוכנית אימונים פעילה (עמ' 16)
+// 4. Active Running Program (user-specific)
 // ==========================================
 export interface ActiveRunningProgram {
-  programId: string; // "5k_improver"
+  programId: string;
   startDate: Date;
-  currentWeek: number; // שבוע 8 מתוך 16 [cite: 352]
+  currentWeek: number;
   schedule: {
     week: number;
     day: number;
     workoutId: string;
-    status: 'pending' | 'completed' | 'skipped' | 'swapped'; // תמיכה בהחלפה/פספוס 
+    status: 'pending' | 'completed' | 'skipped' | 'swapped';
     actualPerformance?: {
       avgPace: number;
-      completionRate: number; // כמה מהאימון בוצע
+      completionRate: number;
     };
   }[];
 }
-// זה המשתנה שהיה חסר!
+
+// ==========================================
+// 5. Running Profile (root on user document)
+// ==========================================
 export interface RunningProfile {
-  isUnlocked: boolean;          // האם המשתמש בכלל פתח את עולם הריצה?
-  currentGoal: RunnerGoal;      // (הוגדר למעלה)
-  paceProfile?: PaceProfile;    // (הוגדר למעלה)
-  activeProgram?: ActiveRunningProgram; // (הוגדר למעלה)
+  isUnlocked: boolean;
+  currentGoal: RunnerGoal;
+  paceProfile?: PaceProfile;
+  activeProgram?: ActiveRunningProgram;
 }
