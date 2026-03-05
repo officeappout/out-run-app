@@ -273,7 +273,27 @@ export default function EditRunProgramTemplatePage() {
                           </div>
                           <div>
                             <label className="block text-xs font-bold text-gray-600 mb-1">מכפיל נפח</label>
-                            <input type="number" step="0.1" value={phase.volumeMultiplier} onChange={(e) => updatePhase(pi, { volumeMultiplier: parseFloat(e.target.value) || 1 })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" min={0.1} max={2} />
+                            {typeof phase.volumeMultiplier === 'number' ? (
+                              <div className="flex items-center gap-2">
+                                <input type="number" step="0.1" value={phase.volumeMultiplier} onChange={(e) => updatePhase(pi, { volumeMultiplier: parseFloat(e.target.value) || 1 })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm" min={0.1} max={2} />
+                                <button type="button" onClick={() => { const weeks = phase.endWeek - phase.startWeek + 1; updatePhase(pi, { volumeMultiplier: Array.from({ length: weeks }, () => typeof phase.volumeMultiplier === 'number' ? phase.volumeMultiplier : 1) }); }} className="whitespace-nowrap text-xs text-cyan-600 hover:text-cyan-800 font-bold" title="הגדר מכפיל שונה לכל שבוע בפאזה">לפי שבוע</button>
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">מכפיל לכל שבוע</span>
+                                  <button type="button" onClick={() => updatePhase(pi, { volumeMultiplier: 1 })} className="text-xs text-gray-500 hover:text-gray-700 font-bold">אחיד</button>
+                                </div>
+                                <div className="grid grid-cols-4 gap-1">
+                                  {phase.volumeMultiplier.map((val, wi) => (
+                                    <div key={wi} className="relative">
+                                      <label className="absolute -top-1.5 right-1 text-[10px] text-gray-400 bg-white px-0.5">ש{phase.startWeek + wi}</label>
+                                      <input type="number" step="0.05" min={0.1} max={2} value={val} onChange={(e) => { const arr = [...(phase.volumeMultiplier as number[])]; arr[wi] = parseFloat(e.target.value) || 1; updatePhase(pi, { volumeMultiplier: arr }); }} className={`w-full px-2 py-1.5 border rounded text-xs text-center ${val < 1 ? 'border-amber-300 bg-amber-50' : val > 1 ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300'}`} />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div>

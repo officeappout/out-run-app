@@ -91,6 +91,25 @@ export default function PlanSimulatorPage() {
 
   const maxVolume = Math.max(...weeklyVolumes.map((w) => w.minutes), 1);
 
+  // Resolve per-week volume multiplier from phases for display
+  const weekMultiplierMap = useMemo(() => {
+    const map = new Map<number, number>();
+    if (!template?.phases) return map;
+    for (const phase of template.phases) {
+      const vm = phase.volumeMultiplier;
+      const phaseWeeks = phase.endWeek - phase.startWeek + 1;
+      for (let i = 0; i < phaseWeeks; i++) {
+        const wk = phase.startWeek + i;
+        if (typeof vm === 'number') {
+          if (vm !== 1) map.set(wk, vm);
+        } else if (Array.isArray(vm) && i < vm.length && vm[i] !== 1) {
+          map.set(wk, vm[i]);
+        }
+      }
+    }
+    return map;
+  }, [template]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -177,29 +196,36 @@ export default function PlanSimulatorPage() {
           {/* Volume Graph (P2 Enhancement) */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">נפח שבועי (דקות)</h2>
-            <div className="flex items-end gap-1 h-40">
+            <div className="flex items-end gap-1" style={{ height: 180 }}>
               {weeklyVolumes.map((wv) => {
-                const intensity = result.intensityBreakdown.find((b) => b.weekNumber === wv.weekNumber);
                 const isDeload = template.phases?.some(
                   (p) => p.progressionRules.some((r) => r.type === 'deload_week' && wv.weekNumber % (r as { everyWeeks: number }).everyWeeks === 0),
                 );
                 const isTaper = template.phases?.some(
                   (p) => p.name === 'taper' && wv.weekNumber >= p.startWeek && wv.weekNumber <= p.endWeek,
                 );
+                const mul = weekMultiplierMap.get(wv.weekNumber);
+                const isStepBack = mul !== undefined && mul < 1;
 
                 let barColor = '#3B82F6';
                 if (isTaper) barColor = '#8B5CF6';
                 else if (isDeload) barColor = '#F59E0B';
+                else if (isStepBack) barColor = '#06B6D4';
 
-                const heightPct = maxVolume > 0 ? (wv.minutes / maxVolume) * 100 : 0;
+                const barMaxHeight = 140;
+                const barHeight = maxVolume > 0 ? Math.max(2, Math.round((wv.minutes / maxVolume) * barMaxHeight)) : 2;
 
                 return (
-                  <div key={wv.weekNumber} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] text-gray-500 font-bold">{wv.minutes}</span>
+                  <div key={wv.weekNumber} className="flex-1 flex flex-col items-center justify-end gap-1" style={{ height: '100%' }}>
+                    {mul !== undefined ? (
+                      <span className={`text-[9px] font-black ${isStepBack ? 'text-cyan-600' : 'text-emerald-600'}`}>×{mul}</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-500 font-bold">{wv.minutes}</span>
+                    )}
                     <div
                       className="w-full rounded-t-sm transition-all"
-                      style={{ height: `${heightPct}%`, backgroundColor: barColor, minHeight: 2 }}
-                      title={`שבוע ${wv.weekNumber}: ${wv.minutes} דק׳${isDeload ? ' (deload)' : ''}${isTaper ? ' (taper)' : ''}`}
+                      style={{ height: barHeight, backgroundColor: barColor }}
+                      title={`שבוע ${wv.weekNumber}: ${wv.minutes} דק׳${mul !== undefined ? ` (×${mul})` : ''}${isDeload ? ' (deload)' : ''}${isTaper ? ' (taper)' : ''}`}
                     />
                     <span className="text-[9px] text-gray-400">{wv.weekNumber}</span>
                   </div>
@@ -208,6 +234,7 @@ export default function PlanSimulatorPage() {
             </div>
             <div className="flex gap-4 mt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-500" /> רגיל</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-cyan-500" /> Step-back</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-500" /> Deload</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-purple-500" /> Taper</span>
             </div>
@@ -266,10 +293,18 @@ export default function PlanSimulatorPage() {
             <div className="space-y-4 max-h-[600px] overflow-y-auto">
               {result.plan.weeks.map((week) => {
                 const intensity = result.intensityBreakdown.find((b) => b.weekNumber === week.weekNumber);
+                const mul = weekMultiplierMap.get(week.weekNumber);
                 return (
                   <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-gray-800">שבוע {week.weekNumber}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-800">שבוע {week.weekNumber}</span>
+                        {mul !== undefined && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${mul < 1 ? 'bg-cyan-100 text-cyan-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            ×{mul}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-2 text-xs">
                         <span className="text-gray-500">{week.workouts.length} אימונים</span>
                         {intensity && (
@@ -297,10 +332,13 @@ export default function PlanSimulatorPage() {
                           {workout.blocks.map((block) => (
                             <span
                               key={block.id}
-                              className="px-2 py-0.5 rounded text-[10px] font-medium text-white"
+                              className={`px-2 py-0.5 rounded text-[10px] font-medium text-white ${block._isDynamicWrapper ? 'ring-1 ring-dashed ring-white/60' : ''}`}
                               style={{ backgroundColor: block.colorHex }}
-                              title={`${block.label}${block.durationSeconds ? ` — ${Math.round(block.durationSeconds / 60)}דק׳` : ''}${block._isSynthesizedRest ? ' (מנוחה)' : ''}`}
+                              title={`${block.label}${block.durationSeconds ? ` — ${Math.round(block.durationSeconds / 60)}דק׳` : ''}${block._isSynthesizedRest ? ' (מנוחה)' : ''}${block._isDynamicWrapper ? ' (אוטומטי)' : ''}`}
                             >
+                              {block._isDynamicWrapper && !block._isSynthesizedRest && (
+                                <span className="mr-0.5 opacity-80">⚡</span>
+                              )}
                               {block.label}
                               {block.durationSeconds ? ` ${Math.round(block.durationSeconds / 60)}′` : ''}
                               {block.targetPacePercentage
@@ -314,6 +352,10 @@ export default function PlanSimulatorPage() {
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-4 flex items-center gap-1 text-xs text-gray-400">
+              <span>⚡</span>
+              <span>= בלוק חימום/שחרור/סטריידס שהוזרק אוטומטית לפי קטגוריית האימון</span>
             </div>
           </div>
         </>

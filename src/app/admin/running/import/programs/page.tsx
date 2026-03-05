@@ -51,7 +51,7 @@ interface ImportPhase {
   weekSlots?: WeekSlot[];
   progressionRules?: ProgressionRule[];
   qualityPool?: WorkoutCategory[];
-  volumeMultiplier?: number;
+  volumeMultiplier?: number | number[];
 }
 
 interface ImportProgramJSON {
@@ -130,6 +130,15 @@ function validateProgram(p: Record<string, unknown>): ValidationError[] {
         }
         if (typeof phase.endWeek !== 'number') {
           errors.push({ path: `phases[${i}].endWeek`, message: 'חסר' });
+        }
+        if (phase.volumeMultiplier !== undefined) {
+          if (Array.isArray(phase.volumeMultiplier)) {
+            if (phase.volumeMultiplier.some((v: unknown) => typeof v !== 'number' || v <= 0)) {
+              errors.push({ path: `phases[${i}].volumeMultiplier`, message: 'כל הערכים במערך חייבים להיות מספרים חיוביים' });
+            }
+          } else if (typeof phase.volumeMultiplier !== 'number' || phase.volumeMultiplier <= 0) {
+            errors.push({ path: `phases[${i}].volumeMultiplier`, message: 'חייב להיות מספר חיובי או מערך מספרים' });
+          }
         }
       }
     }

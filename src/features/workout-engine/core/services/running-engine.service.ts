@@ -30,7 +30,10 @@ import type {
   ProgramPhase,
   WeekIntensityBreakdown,
   IntensityDistributionConfig,
+  WarmupCooldownConfig,
 } from '../types/running.types';
+
+import { WARMUP_COOLDOWN_BY_CATEGORY } from '../config/warmup-cooldown-config';
 
 import type { RunBlock, RunBlockType } from '../../players/running/types/run-block.type';
 import type { RunWorkout } from '../../players/running/types/run-workout.type';
@@ -498,6 +501,107 @@ function nextBlockId(): string {
 }
 
 const REST_COLOR_HEX = '#9CA3AF';
+const WARMUP_COLOR_HEX = '#60A5FA';   // blue-400
+const COOLDOWN_COLOR_HEX = '#818CF8'; // indigo-400
+const STRIDES_COLOR_HEX = '#F59E0B';  // amber-500
+const STRIDES_REST_SECONDS = 45;
+
+/**
+ * Build dynamic warmup/cooldown/strides blocks from a WarmupCooldownConfig.
+ * All generated blocks are flagged with `_isDynamicWrapper: true`.
+ */
+function buildWrapperBlocks(
+  wrapConfig: WarmupCooldownConfig,
+  userProfile: PaceProfile,
+  config: PaceMapConfig,
+): { warmupBlocks: RunBlock[]; cooldownBlocks: RunBlock[] } {
+  const warmupBlocks: RunBlock[] = [];
+  const cooldownBlocks: RunBlock[] = [];
+
+  // ── Warmup ──
+  if (wrapConfig.warmupMinutes > 0) {
+    const zones = userProfile.basePace > 0
+      ? computeZones(userProfile.basePace, userProfile.profileType, config)
+      : null;
+    const zone = zones?.[wrapConfig.warmupZone];
+
+    const warmup: RunBlock = {
+      id: nextBlockId(),
+      type: 'warmup',
+      label: 'חימום',
+      durationSeconds: wrapConfig.warmupMinutes * 60,
+      colorHex: WARMUP_COLOR_HEX,
+      isQualityExercise: false,
+      blockMode: 'pace',
+      zoneType: wrapConfig.warmupZone,
+      _isDynamicWrapper: true,
+    };
+    if (zone) {
+      warmup.targetPacePercentage = { min: zone.minPace, max: zone.maxPace };
+    }
+    warmupBlocks.push(warmup);
+  }
+
+  // ── Strides (appended at end of warmup, before core set) ──
+  if (wrapConfig.includeStrides) {
+    const count = wrapConfig.stridesCount ?? 4;
+    const dur = wrapConfig.stridesDurationSeconds ?? 20;
+
+    for (let i = 0; i < count; i++) {
+      warmupBlocks.push({
+        id: nextBlockId(),
+        type: 'run',
+        label: `סטריידס (${i + 1}/${count})`,
+        durationSeconds: dur,
+        colorHex: STRIDES_COLOR_HEX,
+        isQualityExercise: true,
+        blockMode: 'effort',
+        effortConfig: { effortLevel: 'hard' },
+        _isDynamicWrapper: true,
+      });
+
+      if (i < count - 1) {
+        warmupBlocks.push({
+          id: nextBlockId(),
+          type: 'walk',
+          label: 'הליכת התאוששות',
+          durationSeconds: STRIDES_REST_SECONDS,
+          colorHex: REST_COLOR_HEX,
+          isQualityExercise: false,
+          blockMode: 'pace',
+          _isSynthesizedRest: true,
+          _isDynamicWrapper: true,
+        });
+      }
+    }
+  }
+
+  // ── Cooldown ──
+  if (wrapConfig.cooldownMinutes > 0) {
+    const zones = userProfile.basePace > 0
+      ? computeZones(userProfile.basePace, userProfile.profileType, config)
+      : null;
+    const zone = zones?.[wrapConfig.cooldownZone];
+
+    const cooldown: RunBlock = {
+      id: nextBlockId(),
+      type: 'cooldown',
+      label: 'שחרור',
+      durationSeconds: wrapConfig.cooldownMinutes * 60,
+      colorHex: COOLDOWN_COLOR_HEX,
+      isQualityExercise: false,
+      blockMode: 'pace',
+      zoneType: wrapConfig.cooldownZone,
+      _isDynamicWrapper: true,
+    };
+    if (zone) {
+      cooldown.targetPacePercentage = { min: zone.minPace, max: zone.maxPace };
+    }
+    cooldownBlocks.push(cooldown);
+  }
+
+  return { warmupBlocks, cooldownBlocks };
+}
 
 /**
  * Convert a RunWorkoutTemplate into a playable RunWorkout by:
@@ -505,6 +609,7 @@ const REST_COLOR_HEX = '#9CA3AF';
  *   2. Expanding sets into individual rep blocks with synthesized rest blocks between them
  *   3. Handling Profile 3 (beginner) walk/run ratio overrides
  *   4. Resolving blockMode=effort (no zone computation)
+ *   5. Dynamically injecting warmup/cooldown wrappers when the template has none
  */
 export function materializeWorkout(
   template: RunWorkoutTemplate,
@@ -521,22 +626,42 @@ export function materializeWorkout(
     return materializeBeginnerWorkout(template, weekNumber, walkRunRule, rules);
   }
 
-  const expandedBlocks: RunBlock[] = [];
+  const coreBlocks: RunBlock[] = [];
 
   for (const blockTpl of template.blocks) {
     const progressed = applyProgressionToBlock(blockTpl, weekNumber, rules);
     const repBlocks = expandBlockWithRests(progressed, userProfile, config);
-    expandedBlocks.push(...repBlocks);
+    coreBlocks.push(...repBlocks);
+  }
+
+  // Dynamic wrapper injection:
+  // Only inject if the template has NO manual warmup/cooldown AND has a known category.
+  const hasManualWarmup = template.blocks.some((b) => b.type === 'warmup');
+  const hasManualCooldown = template.blocks.some((b) => b.type === 'cooldown');
+  const shouldInject = !hasManualWarmup && !hasManualCooldown && template.category;
+
+  let finalBlocks: RunBlock[];
+
+  if (shouldInject) {
+    const wrapConfig = WARMUP_COOLDOWN_BY_CATEGORY[template.category!];
+    if (wrapConfig && (wrapConfig.warmupMinutes > 0 || wrapConfig.cooldownMinutes > 0 || wrapConfig.includeStrides)) {
+      const { warmupBlocks, cooldownBlocks } = buildWrapperBlocks(wrapConfig, userProfile, config);
+      finalBlocks = [...warmupBlocks, ...coreBlocks, ...cooldownBlocks];
+    } else {
+      finalBlocks = coreBlocks;
+    }
+  } else {
+    finalBlocks = coreBlocks;
   }
 
   return {
     id: `${template.id}_w${weekNumber}`,
     title: template.name,
-    description: template.blocks.length > 0
-      ? `${expandedBlocks.length} blocks`
+    description: finalBlocks.length > 0
+      ? `${finalBlocks.length} blocks`
       : undefined,
     isQualityWorkout: template.isQualityWorkout,
-    blocks: expandedBlocks,
+    blocks: finalBlocks,
   };
 }
 
@@ -769,6 +894,20 @@ export function applyDeload(plan: RunPlan, rule: DeloadWeekRule): RunPlan {
   });
 
   return { ...plan, weeks: adjustedWeeks };
+}
+
+/**
+ * Resolve the volume multiplier for a specific week within a phase.
+ * - Single number → returned as-is for every week.
+ * - Array → index 0 maps to phase.startWeek; out-of-bounds returns 1.0.
+ */
+function getWeekMultiplier(phase: ProgramPhase, weekNumber: number): number {
+  const vm = phase.volumeMultiplier;
+  if (typeof vm === 'number') return vm;
+  if (!Array.isArray(vm) || vm.length === 0) return 1;
+  const idx = weekNumber - phase.startWeek;
+  if (idx < 0 || idx >= vm.length) return 1;
+  return vm[idx];
 }
 
 /** Scale a single block's duration or distance by a multiplier. */
@@ -1056,6 +1195,16 @@ export function generatePlan(
         const combinedRules = [...(template.progressionRules ?? []), ...phaseRules];
         const workout = materializeWorkout(selected, w, combinedRules, userProfile, config);
         weekWorkouts.push(workout);
+      }
+
+      // Apply per-week volume multiplier (step-back weeks)
+      const weekMul = getWeekMultiplier(phase, w);
+      if (weekMul !== 1) {
+        for (const wo of weekWorkouts) {
+          wo.blocks = wo.blocks.map((b) =>
+            b._isSynthesizedRest ? b : scaleBlockVolume(b, weekMul),
+          );
+        }
       }
     } else {
       const weekTpl = template.weekTemplates.find((wt) => wt.weekNumber === w);

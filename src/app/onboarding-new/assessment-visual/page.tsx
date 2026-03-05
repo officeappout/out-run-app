@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -97,24 +99,27 @@ export default function VisualAssessmentPage() {
   }, []);
 
   // ── Demographics (from sessionStorage set by Profile page) ───
+  // isHydrated: true only after we've read sessionStorage, so route guards
+  // don't fire prematurely and send users back to profile before data is loaded.
 
-  const demographics: UserDemographics | null = useMemo(() => {
-    if (typeof window === 'undefined') return null;
+  const [demographics, setDemographics] = useState<UserDemographics | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
+  useEffect(() => {
     const dob = sessionStorage.getItem('onboarding_personal_dob');
     const gender = sessionStorage.getItem('onboarding_personal_gender') as
       | 'male'
       | 'female'
       | null;
-    if (!dob || !gender) return null;
-
-    const birth = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-
-    return { age, gender };
+    if (dob && gender) {
+      const birth = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      setDemographics({ age, gender });
+    }
+    setIsHydrated(true);
   }, []);
 
   // ── Path config (from onboarding_program_path) ───────────────
@@ -173,8 +178,11 @@ export default function VisualAssessmentPage() {
   }, []);
 
   // ── Initialise on mount ──────────────────────────────────────
+  // Only run redirect when isHydrated so we don't send users back to profile
+  // before sessionStorage has been read.
 
   useEffect(() => {
+    if (!isHydrated) return;
     if (!authReady || !demographics) {
       if (authReady && !demographics) router.replace('/onboarding-new/profile');
       return;
@@ -194,7 +202,7 @@ export default function VisualAssessmentPage() {
     } else {
       setStep('tier');
     }
-  }, [authReady, demographics, pathConfig, router]);
+  }, [authReady, isHydrated, demographics, pathConfig, router]);
 
   // Clean up cache on unmount
   useEffect(() => () => clearContentCache(), []);
@@ -598,6 +606,7 @@ export default function VisualAssessmentPage() {
 
   if (
     !authReady ||
+    !isHydrated ||
     step === 'loading' ||
     (authReady && demographics && !pathConfig)
   ) {

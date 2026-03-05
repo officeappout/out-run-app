@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Map, { Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -29,6 +29,10 @@ export default function RunSummary({ onFinish }: Props) {
   const { currentPace, routeCoords, activityType, clearRunningData } = useRunningPlayer();
   const { profile, updateProfile } = useUserStore();
   const [drawerPosition, setDrawerPosition] = useState('half');
+  const [dateLabel, setDateLabel] = useState('');
+  useEffect(() => {
+    setDateLabel(new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }));
+  }, []);
 
   // Calculate calories and coins
   const userWeight = profile?.core?.weight || 70;
@@ -196,7 +200,7 @@ export default function RunSummary({ onFinish }: Props) {
           האימון<br />הושלם!
         </h1>
         <p className="text-gray-400 mb-8 text-lg font-medium">
-          {new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {dateLabel}
         </p>
 
         <div className="grid grid-cols-2 gap-4 mb-6">

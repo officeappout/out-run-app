@@ -208,6 +208,18 @@ export default function NewRunWorkoutTemplatePage() {
               הוסף בלוק
             </button>
           </div>
+
+          {/* Dynamic wrapper banner */}
+          {category && !blocks.some((b) => b.type === 'warmup' || b.type === 'cooldown') ? (
+            <div className="mb-4 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">
+              חימום ושחרור יוזרקו <strong>אוטומטית</strong> לפי קטגוריה ({category}). הגדר בלוקי warmup/cooldown ידנית כדי לעקוף.
+            </div>
+          ) : blocks.some((b) => b.type === 'warmup' || b.type === 'cooldown') ? (
+            <div className="mb-4 px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-500">
+              חימום/שחרור מוגדרים ידנית — לא יוזרקו אוטומטית.
+            </div>
+          ) : null}
+
           <div className="space-y-4">
             {blocks.map((block, idx) => (
               <div

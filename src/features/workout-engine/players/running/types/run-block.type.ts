@@ -25,6 +25,8 @@ export type RunBlock = {
   restType?: 'standing' | 'walk' | 'jog';
   /** Set by materializeWorkout() for rest blocks injected between interval sets. Never saved to Firestore. */
   _isSynthesizedRest?: true;
+  /** Set by materializeWorkout() for warmup/cooldown/strides blocks auto-injected based on category. */
+  _isDynamicWrapper?: true;
 };
 
 export default RunBlock;

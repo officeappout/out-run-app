@@ -1,20 +1,22 @@
 /**
  * Visual Content Resolver
  *
- * Fetches video and copy for assessment sliders directly from
- * ProgramLevelSettings (Admin Panel source of truth). No fallback or
- * automatic content searching — Admin data is the only source.
+ * Fetches video and copy for assessment sliders from the
+ * `visual_assessment_content` collection (managed via /admin/visual-assessment).
+ * Selects the best video variant based on user demographics (gender + age).
  */
 
-import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { getVisualContentItem } from './visual-assessment-content.service';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
-import type { UserDemographics } from '../types/visual-assessment.types';
+import type { UserDemographics, VideoVariant } from '../types/visual-assessment.types';
 import type { MultilingualText } from '@/types/onboarding-questionnaire';
 
 // ── Category → Program ID mapping ──────────────────────────────────
 //
 // Assessment sliders use movement-pattern names ("push", "pull", "legs", "core")
 // or skill program IDs. This map bridges movementPattern → childProgramId.
+// The visual_assessment_content collection stores documents keyed by programId,
+// so we need this mapping to translate slider categories to doc lookups.
 // ────────────────────────────────────────────────────────────────────
 
 let categoryProgramMap: Map<string, string> | null = null;
@@ -101,27 +103,81 @@ export interface ResolvedContent {
   raw: unknown;
 }
 
+// ── Demographic variant selection ──────────────────────────────────
+
+/**
+ * Pick the best VideoVariant for the given demographics.
+ *
+ * Priority:
+ *  1. Exact gender match + age in range + isDefault
+ *  2. Exact gender match + age in range
+ *  3. gender === 'all' + age in range + isDefault
+ *  4. gender === 'all' + age in range
+ *  5. isDefault (ignore demographics)
+ *  6. First variant (ultimate fallback)
+ */
+function selectVariant(
+  variants: VideoVariant[],
+  demographics: UserDemographics,
+): VideoVariant | null {
+  if (variants.length === 0) return null;
+
+  const { age, gender } = demographics;
+
+  const inAgeRange = (v: VideoVariant) =>
+    age >= (v.ageRange?.min ?? 0) && age <= (v.ageRange?.max ?? 999);
+
+  const genderMatch = (v: VideoVariant) =>
+    v.gender === gender;
+
+  const genderAll = (v: VideoVariant) =>
+    v.gender === 'all';
+
+  // Tier 1: exact gender + age + default
+  const t1 = variants.find((v) => genderMatch(v) && inAgeRange(v) && v.isDefault);
+  if (t1) return t1;
+
+  // Tier 2: exact gender + age
+  const t2 = variants.find((v) => genderMatch(v) && inAgeRange(v));
+  if (t2) return t2;
+
+  // Tier 3: gender=all + age + default
+  const t3 = variants.find((v) => genderAll(v) && inAgeRange(v) && v.isDefault);
+  if (t3) return t3;
+
+  // Tier 4: gender=all + age
+  const t4 = variants.find((v) => genderAll(v) && inAgeRange(v));
+  if (t4) return t4;
+
+  // Tier 5: any default
+  const t5 = variants.find((v) => v.isDefault);
+  if (t5) return t5;
+
+  // Tier 6: first variant
+  return variants[0];
+}
+
 // ── Core resolver ──────────────────────────────────────────────────
 
 /**
- * Fetch video and copy from ProgramLevelSettings for a given category + level.
- * Admin Panel is the source of truth — no fallback logic.
+ * Fetch video and copy from `visual_assessment_content` for a given
+ * category + level, selecting the best variant for the user's demographics.
  */
 export async function resolveContent(
   category: string,
   level: number,
-  _demographics: UserDemographics,
-  _lang: string = 'he',
+  demographics: UserDemographics,
+  lang: string = 'he',
 ): Promise<ResolvedContent> {
   const programId = await resolveCategoryToProgramId(category);
-  const cacheKey = `${programId}_${level}`;
+  const cacheKey = `${programId}_${level}_${demographics.gender}_${demographics.age}`;
 
   const cached = getCached(cacheKey);
   if (cached !== undefined) return cached;
 
-  const settings = await getProgramLevelSetting(programId, level);
+  const content = await getVisualContentItem(programId, level);
 
-  if (!settings) {
+  if (!content) {
     const empty: ResolvedContent = {
       category,
       level,
@@ -137,22 +193,24 @@ export async function resolveContent(
     return empty;
   }
 
+  const variant = selectVariant(content.videoVariants, demographics);
+
   const boldTitle =
-    settings.assessmentBoldTitle?.trim() ||
-    settings.levelDescription?.trim() ||
+    resolveText(content.boldTitle, lang, demographics.gender) ||
     `${category} — רמה ${level}`;
-  const detailedDescription = settings.levelDescription?.trim() || '';
+  const detailedDescription =
+    resolveText(content.detailedDescription, lang, demographics.gender);
 
   const result: ResolvedContent = {
     category,
     level,
-    videoUrl: settings.assessmentVideoUrl?.trim() || null,
-    videoUrlMov: settings.assessmentVideoUrlMov?.trim() || null,
-    videoUrlWebm: settings.assessmentVideoUrlWebm?.trim() || null,
-    thumbnailUrl: settings.assessmentThumbnailUrl?.trim() || null,
+    videoUrl: variant?.videoUrl?.trim() || null,
+    videoUrlMov: variant?.videoUrlMov?.trim() || null,
+    videoUrlWebm: variant?.videoUrlWebm?.trim() || null,
+    thumbnailUrl: variant?.thumbnailUrl?.trim() || null,
     boldTitle,
     detailedDescription,
-    raw: settings,
+    raw: content,
   };
 
   setCache(cacheKey, result);

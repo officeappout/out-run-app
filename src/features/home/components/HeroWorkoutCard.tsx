@@ -40,7 +40,7 @@ export function pickHeroExercise(exercises?: WorkoutExercise[]): WorkoutExercise
   );
 
   if (mandatory.length === 0) return exercises[0];
-  return mandatory[Math.floor(Math.random() * mandatory.length)];
+  return mandatory[0];
 }
 
 /**

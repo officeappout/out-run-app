@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -30,6 +32,7 @@ export default function IdentityProfilePage() {
   // Auth state — resolved via onAuthStateChanged so we never hit a stale null
   const [authUser, setAuthUser] = useState<User | null>(auth.currentUser);
   const [authReady, setAuthReady] = useState(!!auth.currentUser);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -37,6 +40,10 @@ export default function IdentityProfilePage() {
       setAuthReady(true);
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    setIsHydrated(true);
   }, []);
 
   // Form state
@@ -209,15 +216,15 @@ export default function IdentityProfilePage() {
   // ── Auth guard: don't render the form until we have a confirmed uid ──
   const resolvedUid = resolveUid(authUser);
 
-  // Redirect to Gateway if auth fully settled but no uid was found from any source.
-  // This catches the case where someone navigates directly to /onboarding-new/profile
-  // without going through Gateway (and therefore has no signInGuest session).
+  // Redirect to Gateway only after hydration so we don't redirect before
+  // sessionStorage (gateway_uid) has been read.
   useEffect(() => {
+    if (!isHydrated) return;
     if (authReady && !resolveUid(authUser)) {
       console.warn('[Profile] Auth settled with no uid — redirecting to /gateway');
       router.replace('/gateway');
     }
-  }, [authReady, authUser, router]);
+  }, [authReady, isHydrated, authUser, router]);
 
   if (!resolvedUid) {
     return (

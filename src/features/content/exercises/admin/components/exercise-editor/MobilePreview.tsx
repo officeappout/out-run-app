@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ExerciseFormData, AppLanguage } from '../../../core/exercise.types';
 import { Program } from '../../../../programs/core/program.types';
 import {
@@ -75,6 +75,10 @@ export default function MobilePreview({ formData, activeLang, programs = [] }: M
   const [imageError, setImageError] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [previewGender, setPreviewGender] = useState<'male' | 'female'>('male');
+  const [clockTime, setClockTime] = useState('--:--');
+  useEffect(() => {
+    setClockTime(new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }));
+  }, []);
 
   const name =
     formData.name?.[activeLang] ||
@@ -209,7 +213,7 @@ export default function MobilePreview({ formData, activeLang, programs = [] }: M
           <div className="absolute top-0 w-full px-4 pt-2 z-20">
             <div className="flex justify-between items-center text-white text-xs font-semibold">
               <span style={{ fontFamily: 'var(--font-simpler)' }}>
-                {new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                {clockTime}
               </span>
               <span className="text-sm">🔋</span>
             </div>

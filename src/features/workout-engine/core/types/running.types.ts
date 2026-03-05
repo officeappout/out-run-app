@@ -146,6 +146,18 @@ export interface RunBlockTemplate {
   };
 }
 
+// ── Smart Warmup/Cooldown Wrapper Config ─────────────────────────────
+
+export interface WarmupCooldownConfig {
+  warmupMinutes: number;
+  warmupZone: RunZoneType;
+  cooldownMinutes: number;
+  cooldownZone: RunZoneType;
+  includeStrides?: boolean;
+  stridesCount?: number;
+  stridesDurationSeconds?: number;
+}
+
 // ── Workout Category (pool system) ───────────────────────────────────
 
 export type WorkoutCategory =
@@ -256,7 +268,12 @@ export interface ProgramPhase {
   weekSlots: WeekSlot[];
   progressionRules: ProgressionRule[];
   qualityPool: WorkoutCategory[];
-  volumeMultiplier: number;
+  /**
+   * Single number = uniform multiplier for every week in the phase.
+   * Array = per-week multiplier; index 0 corresponds to startWeek.
+   * Values < 1 represent step-back / recovery weeks (e.g. 0.8).
+   */
+  volumeMultiplier: number | number[];
 }
 
 // ── 80/20 Validation ─────────────────────────────────────────────────
