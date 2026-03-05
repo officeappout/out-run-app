@@ -180,7 +180,9 @@ function zoneTypeLabel(zone: RunZoneType): string {
     fartlek_medium: 'פארטלק בינוני',
     tempo:          'טמפו',
     fartlek_fast:   'פארטלק מהיר',
+    interval_long:  'אינטרוול ארוך',
     interval_short: 'אינטרוול קצר',
+    sprint:         'ספרינט',
   };
   return labels[zone] ?? zone;
 }

@@ -423,7 +423,9 @@ export default function AppMap({
                   ? [
                       'match',
                       ['get', 'zoneType'],
-                      'interval_short', '#0D9488',
+                      'sprint',         '#DC2626',
+                      'interval_short', '#E11D48',
+                      'interval_long',  '#0D9488',
                       'fartlek_fast',   '#0D9488',
                       'tempo',          '#0891B2',
                       'fartlek_medium', '#F59E0B',

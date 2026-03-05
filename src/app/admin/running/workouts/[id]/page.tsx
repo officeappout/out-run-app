@@ -33,7 +33,9 @@ const ZONE_LABELS: Record<RunZoneType, string> = {
   fartlek_medium: 'פארטלק בינוני',
   tempo: 'טמפו',
   fartlek_fast: 'פארטלק מהיר',
+  interval_long: 'אינטרוולים ארוכים / VO2max',
   interval_short: 'אינטרוולים קצרים',
+  sprint: 'ספרינט',
 };
 const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 const WORKOUT_CATEGORIES: { value: WorkoutCategory; label: string }[] = [
@@ -372,6 +374,28 @@ export default function EditRunWorkoutTemplatePage() {
                           <option value="walk">הליכה</option>
                           <option value="jog">ריצת התאוששות</option>
                         </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1">זון מנוחה / Float</label>
+                        <select
+                          value={(block as Record<string, unknown>).restZoneType as string ?? 'recovery'}
+                          onChange={(e) => updateBlock(idx, { restZoneType: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="recovery">התאוששות (רגיל)</option>
+                          <option value="fartlek_medium">Float — פארטלק בינוני</option>
+                          <option value="easy">ריצה קלה</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-600 mb-1">תווית מנוחה (אופציונלי)</label>
+                        <input
+                          type="text"
+                          value={(block as Record<string, unknown>).restLabel as string ?? ''}
+                          onChange={(e) => updateBlock(idx, { restLabel: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                          placeholder="למשל: float 2 דק׳ — מתחת לסף"
+                        />
                       </div>
                     </>
                   )}

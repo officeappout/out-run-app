@@ -12,7 +12,6 @@ import {
   LocalizedText, 
   ExecutionLocation, 
   ExecutionMethod,
-  getLocalizedText,
 } from '../core/exercise.types';
 
 // ============================================================================
@@ -38,12 +37,46 @@ export function sanitizeLocalizedText(text: LocalizedText | undefined): Localize
 // ============================================================================
 
 /**
- * Convert Firestore timestamp to Date
+ * Convert Firestore timestamp to Date — resilient to serialized / malformed inputs.
+ *
+ * Handles:
+ *  - null / undefined → undefined
+ *  - Date instance → returned as-is
+ *  - Firestore Timestamp instance (has .toDate()) → .toDate()
+ *  - Plain object with {seconds, nanoseconds} (serialized Timestamp) → new Date(seconds * 1000)
+ *  - Numeric value (epoch ms) → new Date(value)
+ *  - String value → new Date(value)  (ISO-8601 or any parseable format)
+ *  - Anything else → undefined (no crash)
  */
-export function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+export function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
+
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+
+  if (typeof timestamp === 'object') {
+    const ts = timestamp as Record<string, unknown>;
+
+    if (typeof ts.toDate === 'function') {
+      try { return (ts as Timestamp).toDate(); } catch { /* fall through */ }
+    }
+
+    if (typeof ts.seconds === 'number') {
+      return new Date(ts.seconds * 1000);
+    }
+
+    if (typeof ts._seconds === 'number') {
+      return new Date((ts._seconds as number) * 1000);
+    }
+  }
+
+  if (typeof timestamp === 'number') return new Date(timestamp);
+
+  if (typeof timestamp === 'string') {
+    const parsed = new Date(timestamp);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+
+  return undefined;
 }
 
 // ============================================================================
@@ -769,12 +802,8 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     requiredLocations: Array.isArray(data.requiredLocations) ? data.requiredLocations : undefined,
   };
 
-  // [Testing Bypass] Log when fallback was assigned — Smart Swap Variations tab will be limited for these
-  if (exercise.base_movement_id === 'unspecified_movement' && exercise.execution_methods && exercise.execution_methods.length > 0) {
-    console.log(
-      `[Testing Bypass] Missing base_movement_id for "${getLocalizedText(exercise.name)}". Assigned 'unspecified_movement'.`
-    );
-  }
+  // Silenced: previously logged per-exercise when base_movement_id was missing.
+  // The Admin exercises page has a dedicated diagnostic panel for this.
 
   return exercise;
 }

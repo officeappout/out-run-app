@@ -34,21 +34,25 @@ const profileFast: Record<RunZoneType, PaceZoneRule> = {
   fartlek_medium:  pct(115, 120, 'פארטלק בינוני'),
   tempo:           pct(105, 112, 'טמפו / סף לקטט'),
   fartlek_fast:    pct(103, 107, 'פארטלק מהיר / קצב 10 ק״מ'),
-  interval_short:  pct(98,  102, 'אינטרוולים קצרים'),
+  interval_long:   pct(98,  103, 'אינטרוולים ארוכים / VO2max'),
+  interval_short:  pct(93,   97, 'אינטרוולים קצרים'),
+  sprint:          pct(87,   92, 'ספרינט'),
 };
 
 // ── Profile 2 — Slow improver (basePace >= 360s / slower than 6:00) ─
 
 const profileSlow: Record<RunZoneType, PaceZoneRule> = {
   walk:            walkZone,
-  jogging:         pct(123, 137, 'ריצת ג׳וגינג'),    // merged with recovery for this profile
+  jogging:         pct(123, 137, 'ריצת ג׳וגינג'),
   recovery:        pct(123, 137, 'ריצת התאוששות'),
   easy:            pct(108, 127, 'ריצה קלה / חימום'),
-  long_run:        pct(108, 127, 'ריצת נפח'),         // same range as easy for slow runners
+  long_run:        pct(108, 127, 'ריצת נפח'),
   fartlek_medium:  pct(106, 114, 'פארטלק בינוני'),
   tempo:           pct(101, 109, 'טמפו / סף לקטט'),
   fartlek_fast:    pct(96,  104, 'פארטלק מהיר / קצב 10 ק״מ'),
-  interval_short:  pct(94,  101, 'אינטרוולים קצרים'),
+  interval_long:   pct(94,  101, 'אינטרוולים ארוכים / VO2max'),
+  interval_short:  pct(90,   96, 'אינטרוולים קצרים'),
+  sprint:          pct(85,   92, 'ספרינט'),
 };
 
 // ── Profile 3 — Beginner (same percentages as slow, numbers hidden in UI) ─

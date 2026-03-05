@@ -1,0 +1,950 @@
+[
+  {
+    "name": "6x400m — אינטרוולים קצרים קלאסי",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b1_run",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 6,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "8x400m — נפח אינטרוולים קצרים",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b2_run",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 8,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "5x600m — אינטרוולים קצרים ארוכים",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b3_run",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 600,
+        "sets": 5,
+        "label": "600מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "5x1000m — אינטרוולים ארוכים קלאסי",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b4_run",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1000,
+        "sets": 5,
+        "label": "1000מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "4x1200m — סף אנאירובי",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b5_run",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1200,
+        "sets": 4,
+        "label": "1200מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 150,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "3x1600m — מייל חוזר",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b6_run",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1600,
+        "sets": 3,
+        "label": "1600מ׳ מייל",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 180,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "10x200m — ספרינטים קצרים",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b7_run",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 10,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "walk"
+      }
+    ]
+  },
+  {
+    "name": "8x300m — ספרינט מורחב",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b8_run",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 300,
+        "sets": 8,
+        "label": "300מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "walk"
+      }
+    ]
+  },
+  {
+    "name": "פירמידה 200-400-800-400-200",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b9_200",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 1,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "walk"
+      },
+      {
+        "id": "b9_400",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b9_800",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 1,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      },
+      {
+        "id": "b9_400b",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b9_200b",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 1,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 0,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "סולם 200-400-600-800-1000",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b10_200",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 1,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "walk"
+      },
+      {
+        "id": "b10_400",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "jog"
+      },
+      {
+        "id": "b10_600",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 600,
+        "sets": 1,
+        "label": "600מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b10_800",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 1,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      },
+      {
+        "id": "b10_1000",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1000,
+        "sets": 1,
+        "label": "1000מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 0,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "6x800m — VO2max קלאסי",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b11_run",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 6,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "12x200m — ספרינט נפח גבוה",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b12_run",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 12,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 45,
+        "restType": "walk"
+      }
+    ]
+  },
+  {
+    "name": "4x1600m — מייל חוזר עילית",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b13_run",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1600,
+        "sets": 4,
+        "label": "1600מ׳ מייל",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 180,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "16x100m — ספרינט פיצוץ",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b14_run",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 100,
+        "sets": 16,
+        "label": "100מ׳ ספרינט מלא",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 45,
+        "restType": "walk"
+      }
+    ]
+  },
+  {
+    "name": "6x300m — ספרינט עמידה",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 3,
+    "blocks": [
+      {
+        "id": "b15_run",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 300,
+        "sets": 6,
+        "label": "300מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "10x400m — נפח אינטרוולים קצרים מקסימלי",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1],
+    "category": "short_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b16_run",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 10,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "3x(4x400m) — סטים מקובצים",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b17_set1",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 4,
+        "label": "סט 1 — 400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "jog"
+      },
+      {
+        "id": "b17_rest1",
+        "type": "recovery",
+        "zoneType": "recovery",
+        "isQualityExercise": false,
+        "measureBy": "time",
+        "baseValue": 180,
+        "sets": 1,
+        "label": "מנוחה בין סטים",
+        "colorHex": "#60A5FA",
+        "blockMode": "pace"
+      },
+      {
+        "id": "b17_set2",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 4,
+        "label": "סט 2 — 400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "jog"
+      },
+      {
+        "id": "b17_rest2",
+        "type": "recovery",
+        "zoneType": "recovery",
+        "isQualityExercise": false,
+        "measureBy": "time",
+        "baseValue": 180,
+        "sets": 1,
+        "label": "מנוחה בין סטים",
+        "colorHex": "#60A5FA",
+        "blockMode": "pace"
+      },
+      {
+        "id": "b17_set3",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 4,
+        "label": "סט 3 — 400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "פירמידה כפולה 200-400-800-800-400-200",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b18_200",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 1,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 60,
+        "restType": "walk"
+      },
+      {
+        "id": "b18_400",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "jog"
+      },
+      {
+        "id": "b18_800a",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 2,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      },
+      {
+        "id": "b18_400b",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "jog"
+      },
+      {
+        "id": "b18_200b",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 1,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 0,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "סולם יורד 1600-1200-800-400",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b19_1600",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1600,
+        "sets": 1,
+        "label": "1600מ׳ מייל",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 180,
+        "restType": "jog"
+      },
+      {
+        "id": "b19_1200",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1200,
+        "sets": 1,
+        "label": "1200מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 150,
+        "restType": "jog"
+      },
+      {
+        "id": "b19_800",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 1,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b19_400",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ סיום מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 0,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "8x800m — VO2max נפח",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1],
+    "category": "long_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b20_run",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 8,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "מיקס 3 אזורים — 200+400+800 x3",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b21_200",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 3,
+        "label": "200מ׳ ספרינט",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 45,
+        "restType": "walk"
+      },
+      {
+        "id": "b21_rest1",
+        "type": "recovery",
+        "zoneType": "recovery",
+        "isQualityExercise": false,
+        "measureBy": "time",
+        "baseValue": 120,
+        "sets": 1,
+        "label": "מנוחה בין אזורים",
+        "colorHex": "#60A5FA",
+        "blockMode": "pace"
+      },
+      {
+        "id": "b21_400",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 3,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "jog"
+      },
+      {
+        "id": "b21_rest2",
+        "type": "recovery",
+        "zoneType": "recovery",
+        "isQualityExercise": false,
+        "measureBy": "time",
+        "baseValue": 120,
+        "sets": 1,
+        "label": "מנוחה בין אזורים",
+        "colorHex": "#60A5FA",
+        "blockMode": "pace"
+      },
+      {
+        "id": "b21_800",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 3,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 120,
+        "restType": "jog"
+      }
+    ]
+  },
+  {
+    "name": "8x200m עמידה — ספרינט עוצמה",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "short_intervals",
+    "priority": 3,
+    "blocks": [
+      {
+        "id": "b22_run",
+        "type": "interval",
+        "zoneType": "sprint",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 200,
+        "sets": 8,
+        "label": "200מ׳ ספרינט + עמידה",
+        "colorHex": "#DC2626",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "סולם עולה-יורד 400-800-1200-800-400",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1, 2],
+    "category": "long_intervals",
+    "priority": 1,
+    "blocks": [
+      {
+        "id": "b23_400a",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ מהיר",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 75,
+        "restType": "jog"
+      },
+      {
+        "id": "b23_800a",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 1,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b23_1200",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1200,
+        "sets": 1,
+        "label": "1200מ׳ שיא",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 150,
+        "restType": "jog"
+      },
+      {
+        "id": "b23_800b",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 800,
+        "sets": 1,
+        "label": "800מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b23_400b",
+        "type": "interval",
+        "zoneType": "interval_short",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 400,
+        "sets": 1,
+        "label": "400מ׳ סיום",
+        "colorHex": "#E11D48",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 0,
+        "restType": "standing"
+      }
+    ]
+  },
+  {
+    "name": "2x(3x1000m) — מייל כפול מקובץ",
+    "isQualityWorkout": true,
+    "targetProfileTypes": [1],
+    "category": "long_intervals",
+    "priority": 2,
+    "blocks": [
+      {
+        "id": "b24_set1",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1000,
+        "sets": 3,
+        "label": "סט 1 — 1000מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      },
+      {
+        "id": "b24_rest",
+        "type": "recovery",
+        "zoneType": "recovery",
+        "isQualityExercise": false,
+        "measureBy": "time",
+        "baseValue": 240,
+        "sets": 1,
+        "label": "מנוחה בין סטים",
+        "colorHex": "#60A5FA",
+        "blockMode": "pace"
+      },
+      {
+        "id": "b24_set2",
+        "type": "interval",
+        "zoneType": "interval_long",
+        "isQualityExercise": true,
+        "measureBy": "distance",
+        "baseValue": 1000,
+        "sets": 3,
+        "label": "סט 2 — 1000מ׳ VO2max",
+        "colorHex": "#0D9488",
+        "blockMode": "pace",
+        "restBetweenSetsSeconds": 90,
+        "restType": "jog"
+      }
+    ]
+  }
+]

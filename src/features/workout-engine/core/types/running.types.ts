@@ -38,11 +38,14 @@ export type RunZoneType =
   | 'fartlek_medium'
   | 'tempo'
   | 'fartlek_fast'
-  | 'interval_short';
+  | 'interval_long'
+  | 'interval_short'
+  | 'sprint';
 
 export const ALL_RUN_ZONES: RunZoneType[] = [
   'walk', 'jogging', 'recovery', 'easy', 'long_run',
-  'fartlek_medium', 'tempo', 'fartlek_fast', 'interval_short',
+  'fartlek_medium', 'tempo', 'fartlek_fast',
+  'interval_long', 'interval_short', 'sprint',
 ];
 
 /** Computed pace boundaries for a single zone, derived at runtime. */

@@ -30,7 +30,8 @@ import type {
 const VALID_BLOCK_TYPES = ['warmup', 'run', 'walk', 'interval', 'recovery', 'cooldown'];
 const VALID_ZONE_TYPES = [
   'walk', 'jogging', 'recovery', 'easy', 'long_run',
-  'fartlek_medium', 'tempo', 'fartlek_fast', 'interval_short',
+  'fartlek_medium', 'tempo', 'fartlek_fast',
+  'interval_long', 'interval_short', 'sprint',
 ];
 const VALID_CATEGORIES: WorkoutCategory[] = [
   'short_intervals', 'long_intervals', 'fartlek_easy', 'fartlek_structured',
