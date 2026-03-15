@@ -3,7 +3,7 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DynamicOnboardingEngine, DynamicQuestionNode } from '@/features/user/onboarding/engine/DynamicOnboardingEngine';
@@ -16,8 +16,10 @@ import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLa
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { auth } from '@/lib/firebase';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
+import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { generateFirstWorkout } from '@/features/workout-engine/services/first-workout.service';
 
 /**
@@ -58,11 +60,17 @@ export default function DynamicOnboardingPage() {
   const [showProgramResult, setShowProgramResult] = useState(false);
   const [finalLevelNumber, setFinalLevelNumber] = useState<number>(1);
 
+  // Strict Mode guard — prevent double-initialization race condition
+  const initCalledRef = useRef(false);
+
   // UI state
   const [isAnimating, setIsAnimating] = useState(false);
   // Track question index for progress calculation
   const [questionIndex, setQuestionIndex] = useState(0);
   const estimatedTotalQuestions = 8; // Estimated questions in fitness assessment
+
+  // History stack for back navigation
+  const [questionHistory, setQuestionHistory] = useState<typeof currentQuestion[]>([]);
   
   // Get language and direction - memoized at component level
   const savedLanguage = typeof window !== 'undefined' 
@@ -70,14 +78,22 @@ export default function DynamicOnboardingPage() {
     : 'he';
   const direction = savedLanguage === 'he' ? 'rtl' : 'ltr';
 
+  const isRunningTrackRender = typeof window !== 'undefined' &&
+    sessionStorage.getItem('gateway_track') === 'RUNNING';
+
   // Save claim params
   useEffect(() => {
     if (claimCoins) sessionStorage.setItem('onboarding_claim_coins', claimCoins);
     if (claimCalories) sessionStorage.setItem('onboarding_claim_calories', claimCalories);
   }, [claimCoins, claimCalories]);
 
-  // Initialize engine - load first question with language and gender from sessionStorage
+  // Initialize engine - load first question with language and gender from sessionStorage.
+  // Uses initCalledRef to prevent React Strict Mode from triggering a second concurrent
+  // init(), which would race against the first and cause a UI flicker.
   useEffect(() => {
+    if (initCalledRef.current) return;
+    initCalledRef.current = true;
+
     const init = async () => {
       try {
         setLoading(true);
@@ -104,7 +120,14 @@ export default function DynamicOnboardingPage() {
           console.log('[DynamicOnboarding] Assessment context loaded:', assessmentCtx);
         }
 
-        await engine.initialize('assessment', undefined, currentLang, gender);
+        // Track-aware initialization:
+        // Running track → start directly at q_run_goal (the running tree entry point)
+        // Strength track → use default getFirstQuestion (Firestore isFirstQuestion query)
+        const gatewayTrack = sessionStorage.getItem('gateway_track');
+        const isRunningTrack = gatewayTrack === 'RUNNING';
+        const startQuestionId = isRunningTrack ? 'q_run_goal' : undefined;
+
+        await engine.initialize('assessment', startQuestionId, currentLang, gender);
         const question = engine.getCurrentQuestion();
         setCurrentQuestion(question);
         setError(null);
@@ -123,12 +146,99 @@ export default function DynamicOnboardingPage() {
     }
   }, []);
 
+  // ── Running metadata accumulator ─────────────────────────────────
+  // Collects metadata from each running answer and saves to sessionStorage
+  // on tree completion so the bridge service can generate the program.
+  const accumulateRunningMetadata = useCallback((
+    question: DynamicQuestionNode,
+    answerId: string,
+    extraMeta?: Record<string, unknown>,
+  ) => {
+    const isRunning = (question as any).logic?.category === 'running' ||
+                      question.id.startsWith('q_run_');
+    if (!isRunning) return;
+
+    let accumulated: Record<string, unknown> = {};
+    try {
+      const stored = sessionStorage.getItem('onboarding_running_answers');
+      if (stored) accumulated = JSON.parse(stored);
+    } catch {}
+
+    // Merge metadata from the selected answer
+    const selectedAnswer = question.answers.find(a => a.id === answerId);
+    if (selectedAnswer?.metadata) {
+      Object.assign(accumulated, selectedAnswer.metadata);
+    }
+
+    // Merge any extra metadata (e.g., paceInputSeconds from input questions)
+    if (extraMeta) {
+      Object.assign(accumulated, extraMeta);
+    }
+
+    sessionStorage.setItem('onboarding_running_answers', JSON.stringify(accumulated));
+  }, []);
+
+  // Next-question routing for input-type questions (no answer objects in Firestore).
+  // null = terminal — dynamic phase ends and handleComplete() fires.
+  const INPUT_NEXT_QUESTION: Record<string, string | null> = {
+    'q_run_pace_input': null,
+  };
+
   // Handle answer selection in Part 1
   const handleAnswer = async (answerId: string) => {
     if (!currentQuestion) return;
 
+    // ── Input-type question (e.g., pace/time entry) ──
+    // Guard must match DynamicQuestionRenderer: Firestore may store
+    // the question as type:'choice', so also check by question ID.
+    if (currentQuestion.type === 'input' || currentQuestion.id === 'q_run_pace_input') {
+      setIsAnimating(true);
+      setTimeout(async () => {
+        try {
+          const nextId = INPUT_NEXT_QUESTION[currentQuestion.id];
+          if (!(currentQuestion.id in INPUT_NEXT_QUESTION)) {
+            throw new Error(`No next question configured for input question "${currentQuestion.id}"`);
+          }
+
+          // Save input-specific metadata (paceInputSeconds for pace input)
+          accumulateRunningMetadata(currentQuestion, '', {
+            paceInputSeconds: parseInt(answerId, 10),
+          });
+
+          if (nextId === null) {
+            setIsPart1Complete(true);
+            setCurrentQuestion(null);
+            await handleComplete();
+          } else {
+            const result = await engine.answerInputQuestion(answerId, nextId);
+
+            if (result.nextQuestion) {
+              setQuestionHistory(prev => [...prev, currentQuestion]);
+              setCurrentQuestion(result.nextQuestion);
+              setSelectedAnswerId(undefined);
+              setQuestionIndex(prev => prev + 1);
+            } else {
+              setIsPart1Complete(true);
+              setCurrentQuestion(null);
+              await handleComplete();
+            }
+          }
+        } catch (err: any) {
+          console.error('Error processing input answer:', err);
+          setError(err.message || 'שגיאה בעיבוד התשובה');
+        } finally {
+          setIsAnimating(false);
+        }
+      }, 300);
+      return;
+    }
+
+    // ── Choice-type question (standard flow) ──
     setSelectedAnswerId(answerId);
     setIsAnimating(true);
+
+    // Accumulate running metadata from the selected answer
+    accumulateRunningMetadata(currentQuestion, answerId);
 
     // Wait a bit for animation
     setTimeout(async () => {
@@ -168,7 +278,7 @@ export default function DynamicOnboardingPage() {
             masterProgramSubLevels: result.masterProgramSubLevels,
           });
         } else if (result.nextQuestion) {
-          // Continue Part 1
+          setQuestionHistory(prev => [...prev, currentQuestion]);
           setCurrentQuestion(result.nextQuestion);
           setSelectedAnswerId(undefined);
           setQuestionIndex(prev => prev + 1);
@@ -315,6 +425,10 @@ export default function DynamicOnboardingPage() {
       
       console.log('✅ Profile initialized with Level:', effectiveLevel, 'LevelId:', effectiveLevelId, 'Program:', effectiveProgramId, 'SubLevels:', effectiveSubLevels);
 
+      // Detect running track once — used for sync step and first-workout guard.
+      const isRunningTrack = typeof window !== 'undefined' &&
+        sessionStorage.getItem('gateway_track') === 'RUNNING';
+
       // ✅ PERSISTENCE FIX: Sync assignedResults to Firestore immediately
       // This ensures quiz results are saved even if user drops off before Phase 2
       try {
@@ -330,8 +444,13 @@ export default function DynamicOnboardingPage() {
           selectedPersonaIds: savedPersonaId ? [savedPersonaId] : [],
           lifestyleTags: savedPersonaTags,
         };
+
+        // Running users: use 'PROCESSING' so the running bridge does NOT
+        // fire yet — it needs runningPlanWeeks which is selected later.
+        // The actual COMPLETED + bridge call happens in health/page.tsx.
+        const syncStep = isRunningTrack ? 'PROCESSING' as any : 'COMPLETED';
         
-        await syncOnboardingToFirestore('COMPLETED', syncPayload);
+        await syncOnboardingToFirestore(syncStep, syncPayload);
         console.log('✅ assignedResults synced to Firestore');
       } catch (syncErr) {
         console.warn('[Onboarding] Firestore sync failed (non-blocking):', syncErr);
@@ -344,9 +463,13 @@ export default function DynamicOnboardingPage() {
       // Generate the user's first workout immediately after assessment.
       // Uses GPS (if available) to find nearby parks with equipment.
       // Falls back to home/bodyweight workout if no GPS or no park.
+      // SKIP for running-track users — they get running workouts, not strength.
+      if (isRunningTrack) {
+        console.log('[Onboarding] Running track detected — skipping strength first-workout generation');
+      }
       try {
         const uid = auth.currentUser?.uid;
-        if (uid && profile) {
+        if (uid && profile && !isRunningTrack) {
           // Check if user has GPS coordinates from the onboarding flow
           let gpsCoordinates: { lat: number; lng: number } | null = null;
           
@@ -392,13 +515,20 @@ export default function DynamicOnboardingPage() {
         // A workout will be generated on-demand when they open the home page.
       }
 
-      // Show result loading animation
+      // Running track: skip loading animation, go straight to schedule
+      if (isRunningTrack) {
+        firePhaseConfetti();
+        router.push('/onboarding-new/running-schedule');
+        return;
+      }
+
+      // Strength/other tracks: show loading animation + program result
       setShowResultLoading(true);
     } catch (err: any) {
       console.error('Error completing onboarding:', err);
       alert('שגיאה בשמירת הפרופיל. אנא נסה שוב.');
     }
-  }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile]);
+  }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile, router]);
 
   // Handle result loading complete - show program result
   const handleResultLoadingComplete = useCallback(() => {
@@ -407,10 +537,17 @@ export default function DynamicOnboardingPage() {
   }, []);
 
   // Handle program result continue — route based on onboarding path
-  // Handle program result continue — route to Health Declaration
+  // Handle program result continue — route based on tree branch
   const handleProgramResultContinue = useCallback(() => {
-    // After animated result, go directly to Health Declaration
-    router.push('/onboarding-new/health');
+    const hasRunningAnswers =
+      typeof window !== 'undefined' &&
+      !!sessionStorage.getItem('onboarding_running_answers');
+
+    if (hasRunningAnswers) {
+      router.push('/onboarding-new/running-schedule');
+    } else {
+      router.push('/onboarding-new/health');
+    }
   }, [router]);
 
   // Show reveal screens if active
@@ -491,7 +628,20 @@ export default function DynamicOnboardingPage() {
   // Phase 1 progress: 30% (personal details done) + up to 70% (questions)
   // Formula: min(30 + (questionIndex / estimatedTotalQuestions) * 70, 100)
   const phase1Progress = Math.min(30 + (questionIndex / estimatedTotalQuestions) * 70, 100);
+
+  // Running track: segment 1 fills progressively as user answers questions
+  const runningSegmentFill = Math.min(100, (questionIndex / Math.max(estimatedTotalQuestions, 1)) * 100);
   
+  const handleGoBack = () => {
+    if (questionHistory.length > 0) {
+      const prev = questionHistory[questionHistory.length - 1];
+      setQuestionHistory(h => h.slice(0, -1));
+      setCurrentQuestion(prev);
+      setSelectedAnswerId(undefined);
+      setQuestionIndex(i => Math.max(0, i - 1));
+    }
+  };
+
   if (!isPart1Complete && currentQuestion) {
     return (
       <OnboardingLayout
@@ -501,10 +651,15 @@ export default function DynamicOnboardingPage() {
         progressIcon={currentQuestion.progressIcon}
         progressIconSvg={currentQuestion.progressIconSvg}
         onContinue={() => {}}
-        onBack={() => {}}
+        onBack={handleGoBack}
         canContinue={!!selectedAnswerId}
-        showBack={false}
+        showBack={!isFirstQuestion}
+        hideBack={isFirstQuestion}
         hideContinueButton={true}
+        {...(isRunningTrackRender
+          ? { totalSegments: RUNNING_PHASES.TOTAL, currentSegment: RUNNING_PHASES.QUESTIONNAIRE, segmentFillPercent: runningSegmentFill, phaseLabel: RUNNING_PHASES.labels[RUNNING_PHASES.QUESTIONNAIRE] }
+          : { totalSegments: STRENGTH_PHASES.TOTAL, currentSegment: STRENGTH_PHASES.QUESTIONNAIRE, segmentFillPercent: runningSegmentFill, phaseLabel: STRENGTH_PHASES.labels[STRENGTH_PHASES.QUESTIONNAIRE] }
+        )}
       >
         <AnimatePresence mode="wait">
           <motion.div

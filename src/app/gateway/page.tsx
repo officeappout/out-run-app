@@ -9,7 +9,7 @@ import { signInGuest, onAuthStateChange } from '@/lib/auth.service';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, Dumbbell, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral } from '@/features/safecity/services/referral.service';
 
@@ -135,9 +135,8 @@ export default function GatewayPage() {
               router.push('/home');
             } else if (path === 'MAP_ONLY') {
               router.push('/explorer');
-            } else {
-              router.push('/onboarding-new/profile');
             }
+            // No default redirect — user stays on gateway to choose a track
           }
         } catch (e) {
           console.error('[Gateway] Error checking onboarding status:', e);
@@ -149,11 +148,13 @@ export default function GatewayPage() {
 
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──
   const handleExploreMap = async () => {
+    isBusyRef.current = true;
     setShowGuestTransition(true);
 
     try {
       const { user } = await signInGuest();
       if (!user) {
+        isBusyRef.current = false;
         setShowGuestTransition(false);
         return;
       }
@@ -219,24 +220,27 @@ export default function GatewayPage() {
       }, 1200);
     } catch (error) {
       console.error('[Gateway] Explore map error:', error);
+      isBusyRef.current = false;
       setShowGuestTransition(false);
     }
   };
 
-  // ── Path B: GET PROGRAM — Auth only, Firestore scaffold is handled by Profile page ──
-  const handleGetProgram = async () => {
+  // ── Path B/C: GET PROGRAM — Auth only, Firestore scaffold is handled by Profile page ──
+  const handleGetProgram = async (track: 'STRENGTH' | 'RUNNING') => {
+    isBusyRef.current = true;
     setLoading(true);
     try {
       const { user } = await signInGuest();
       if (!user) {
+        isBusyRef.current = false;
         setLoading(false);
         return;
       }
-      // Persist uid so Profile page can use it immediately even if
-      // onAuthStateChanged hasn't fired yet on the next page.
-      try { sessionStorage.setItem('gateway_uid', user.uid); } catch {}
+      try {
+        sessionStorage.setItem('gateway_uid', user.uid);
+        sessionStorage.setItem('gateway_track', track);
+      } catch {}
 
-      // Process referral if this user came via an invite link
       const referrerUid = getStoredReferrer();
       if (referrerUid && referrerUid !== user.uid) {
         processReferral(referrerUid, user.uid, '').catch(() => {});
@@ -246,6 +250,7 @@ export default function GatewayPage() {
       router.push('/onboarding-new/profile');
     } catch (error) {
       console.error('[Gateway] Get program error:', error);
+      isBusyRef.current = false;
       setLoading(false);
     }
   };
@@ -334,46 +339,71 @@ export default function GatewayPage() {
             </div>
           </motion.button>
 
-          {/* Card B: Build a Training Program */}
+          {/* Card B: Running Plans */}
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.25 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
             whileTap={{ scale: isBusy ? 1 : 0.97 }}
-            onClick={handleGetProgram}
+            onClick={() => handleGetProgram('RUNNING')}
             disabled={isBusy}
-            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-52 text-right disabled:opacity-60 group"
+            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-right disabled:opacity-60 group"
           >
-            {/* Background Image */}
+            <div
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+              style={{
+                backgroundImage: `url('https://images.unsplash.com/photo-1461897104016-0b3b00b1ea56?q=80&w=1200&auto=format&fit=crop')`,
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
+            {loading && (
+              <div className="absolute inset-0 z-10 bg-white/60 flex items-center justify-center">
+                <Loader2 size={28} className="text-orange-500 animate-spin" />
+              </div>
+            )}
+            <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Footprints size={18} className="text-orange-500" />
+                <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  תוכנית ריצה
+                </h2>
+              </div>
+              <p className="text-sm text-slate-500 font-normal" style={{ fontFamily: 'var(--font-simpler)' }}>
+                מ-0 ל-5K או שיפור זמנים
+              </p>
+            </div>
+          </motion.button>
+
+          {/* Card C: Strength Plans */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            whileTap={{ scale: isBusy ? 1 : 0.97 }}
+            onClick={() => handleGetProgram('STRENGTH')}
+            disabled={isBusy}
+            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-right disabled:opacity-60 group"
+          >
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
               style={{
                 backgroundImage: `url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1200&auto=format&fit=crop')`,
               }}
             />
-
-            {/* White gradient overlay — bottom to top */}
             <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
-
-            {/* Loading spinner overlay */}
             {loading && (
               <div className="absolute inset-0 z-10 bg-white/60 flex items-center justify-center">
                 <Loader2 size={28} className="text-[#5BC2F2] animate-spin" />
               </div>
             )}
-
-            {/* Content: Stacked at bottom-right */}
             <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
-              <h2
-                className="text-xl font-bold text-slate-900 mb-1.5"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                בנה תוכנית אימון
-              </h2>
-              <p
-                className="text-sm text-slate-500 font-normal"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
+              <div className="flex items-center gap-2 mb-1.5">
+                <Dumbbell size={18} className="text-[#5BC2F2]" />
+                <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  תוכנית כוח
+                </h2>
+              </div>
+              <p className="text-sm text-slate-500 font-normal" style={{ fontFamily: 'var(--font-simpler)' }}>
                 אימון מותאם אישית למטרות שלך
               </p>
             </div>

@@ -24,7 +24,8 @@ import {
   GeneratedWorkout,
   WorkoutExercise,
 } from '@/features/workout-engine/logic/WorkoutGenerator';
-import { MOCK_EXERCISES, getMockExerciseStats, AVAILABLE_PROGRAMS, getProgramLevelRange } from '@/features/workout-engine/mocks/MockExercises';
+import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import type { Program as ProgramDoc } from '@/features/content/programs/core/program.types';
 import { resolveNotificationText, resolveDescription, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { Clock, Timer, RotateCcw, Repeat } from 'lucide-react';
 
@@ -189,8 +190,10 @@ export default function SimulatorPage() {
   const [workoutTitles, setWorkoutTitles] = useState<WorkoutTitle[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Programs from Firestore
+  const [programs, setPrograms] = useState<ProgramDoc[]>([]);
+
   // UI State
-  const [useMockData, setUseMockData] = useState<boolean>(false);
   const [chaosRunCount, setChaosRunCount] = useState<number>(0);
   const [expandedSection, setExpandedSection] = useState<string | null>('controls');
   
@@ -238,15 +241,17 @@ export default function SimulatorPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [exercisesData, equipmentData, notificationsData, descriptionsData, titlesData] = await Promise.all([
+      const [exercisesData, equipmentData, programsData, notificationsData, descriptionsData, titlesData] = await Promise.all([
         getAllExercises(),
         getAllGymEquipment(),
+        getAllPrograms(),
         loadNotifications(),
         loadSmartDescriptions(),
         loadWorkoutTitles(),
       ]);
       setExercises(exercisesData);
       setGymEquipment(equipmentData);
+      setPrograms(programsData);
       setNotifications(notificationsData);
       setSmartDescriptions(descriptionsData);
       setWorkoutTitles(titlesData);
@@ -284,8 +289,7 @@ export default function SimulatorPage() {
   // ========== CONTEXTUAL ENGINE ==========
   
   useEffect(() => {
-    const exerciseData = useMockData ? MOCK_EXERCISES : exercises;
-    if (exerciseData.length === 0) return;
+    if (exercises.length === 0) return;
     
     const engine = createContextualEngine();
     const filterContext: ContextualFilterContext = {
@@ -294,15 +298,14 @@ export default function SimulatorPage() {
       injuryShield: context.injuryAreas,
       intentMode: context.intentMode,
       availableEquipment: gymEquipment.map(eq => eq.id),
-      getUserLevelForExercise: () => context.userLevel, // Simulator uses a single global level
-      // Only apply program filter when using mock data
-      selectedProgram: useMockData ? context.selectedProgram : undefined,
+      getUserLevelForExercise: () => context.userLevel,
+      selectedProgram: context.selectedProgram,
       levelTolerance: 3,
     };
     
-    const result = engine.filterAndScore(exerciseData as any, filterContext);
+    const result = engine.filterAndScore(exercises as any, filterContext);
     setContextualResult(result);
-  }, [exercises, context, gymEquipment, useMockData]);
+  }, [exercises, context, gymEquipment]);
 
   // ========== WORKOUT GENERATOR ==========
   
@@ -443,10 +446,10 @@ export default function SimulatorPage() {
     const newLocation = randomItem(LOCATION_OPTIONS).value;
     const newIntent = randomItem(INTENT_OPTIONS).value;
     const newInjuries = randomItems(INJURY_AREAS, Math.floor(Math.random() * 3));
-    const newProgram = randomItem([...AVAILABLE_PROGRAMS]).id;
-    // Get level range for this program and pick a random level
-    const levelRange = getProgramLevelRange(newProgram);
-    const newLevel = Math.floor(Math.random() * (Math.min(levelRange.max, 15) - levelRange.min + 1)) + levelRange.min;
+    const newProgram = programs.length > 0
+      ? randomItem(programs).id
+      : 'upper_body';
+    const newLevel = Math.floor(Math.random() * 10) + 1;
     const newTime = randomItem(TIME_OPTIONS).value;
     const newDaysInactive = randomItem([0, 1, 2, 7, 14, 30]);
     const newTrigger = randomItem(TRIGGER_OPTIONS).value as any;
@@ -469,7 +472,6 @@ export default function SimulatorPage() {
       timeOfDay: newTimeOfDay,
     }));
     
-    setUseMockData(true);
     setChaosRunCount(prev => prev + 1);
   };
 
@@ -530,15 +532,6 @@ export default function SimulatorPage() {
                 </div>
                 </div>
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded-lg">
-                <input
-                  type="checkbox"
-                  checked={useMockData}
-                  onChange={(e) => setUseMockData(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-purple-600"
-                />
-                <span className="text-sm font-medium text-gray-700">Mock Data</span>
-              </label>
               <button
                 onClick={generateRandomContext}
                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
@@ -725,15 +718,10 @@ export default function SimulatorPage() {
                 onChange={(e) => updateContext('selectedProgram', e.target.value as ProgramId)}
                 className="w-full px-3 py-2.5 border border-indigo-200 rounded-xl text-sm font-medium bg-white"
               >
-                {AVAILABLE_PROGRAMS.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label} ({p.labelEn})</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-              {useMockData && (
-                <p className="text-xs text-indigo-500 mt-2">
-                  ⚡ רק תרגילים עם רמה בתוכנית זו יוצגו
-                </p>
-              )}
         </div>
 
             {/* User Level */}
@@ -785,7 +773,7 @@ export default function SimulatorPage() {
           <div className="col-span-8 space-y-4">
             
             {/* Chaos Report (if active) */}
-            {chaosRunCount > 0 && useMockData && (
+            {chaosRunCount > 0 && (
               <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 rounded-2xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold flex items-center gap-2">
@@ -1052,12 +1040,10 @@ export default function SimulatorPage() {
                               אין תרגילים זמינים. סיבות אפשריות:
                             </p>
                             <ul className="text-xs text-red-500 mt-2 list-disc list-inside">
-                              {useMockData && (
-                                <li className="font-bold">
-                                  אין תרגילים ברמה {context.userLevel} בתוכנית "{AVAILABLE_PROGRAMS.find(p => p.id === context.selectedProgram)?.label}" 
-                                  (טווח: {context.userLevel - 3}-{context.userLevel + 3})
-                                </li>
-                              )}
+                              <li className="font-bold">
+                                אין תרגילים ברמה {context.userLevel} בתוכנית &quot;{programs.find(p => p.id === context.selectedProgram)?.name || context.selectedProgram}&quot;
+                                (טווח: {context.userLevel - 3}-{context.userLevel + 3})
+                              </li>
                               <li>מגבלות מיקום ({context.location}) - זיעה≤{context.effectiveSweatLimit}, רעש≤{context.effectiveNoiseLimit}</li>
                               {context.injuryAreas.length > 0 && <li>Injury Shield ({context.injuryAreas.length} אזורים)</li>}
                               {context.intentMode === 'field' && <li>מצב שטח דורש fieldReady=true וללא ציוד</li>}

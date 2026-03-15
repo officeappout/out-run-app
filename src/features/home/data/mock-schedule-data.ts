@@ -144,6 +144,6 @@ export interface UserProgress {
 export const MOCK_PROGRESS: UserProgress = {
   domain: 'פלג גוף תחתון',
   currentLevel: 5,
-  maxLevel: 10,
+  maxLevel: 25,
   percentage: 80, // 80% לרמה 6
 };

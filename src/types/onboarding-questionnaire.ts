@@ -109,6 +109,8 @@ export interface OnboardingAnswer {
   gender?: 'male' | 'female' | 'neutral'; // Optional: gender filter (legacy, for backwards compatibility)
   // Dashboard widget trigger for home screen
   widgetTrigger?: 'DEFAULT' | 'PERFORMANCE' | 'RUNNING';
+  /** Optional link to an exercise from the exercises collection. */
+  exerciseId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

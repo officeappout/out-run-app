@@ -77,6 +77,16 @@ export interface WorkoutMetadataContext {
   /** Current day period: 'start_of_week' | 'mid_week' | 'weekend' */
   dayPeriod?: string;
 
+  // === Running-Specific Context ===
+  /** User's base pace in seconds per kilometer (for @קצב_בסיס tag) */
+  runningBasePace?: number;
+  /** Target race distance label, e.g. '5 ק"מ' (for @מרחק_יעד tag) */
+  targetDistanceLabel?: string;
+  /** Current program phase, e.g. 'base' | 'build' | 'peak' | 'taper' (for @שלב_תוכנית tag) */
+  programPhase?: string;
+  /** Running workout category, e.g. 'short_intervals' | 'tempo' (for scoring) */
+  runningCategory?: string;
+
   // === Program Hierarchy Context ===
   /** Active Reserve flag — gives +20 to reservist-targeted content */
   isActiveReserve?: boolean;
@@ -594,6 +604,9 @@ export async function resolveWorkoutMetadata(
       dominantMuscle: ctx.dominantMuscle,
       categoryLabel: ctx.categoryLabel,
       category: ctx.category,
+      runningBasePace: ctx.runningBasePace,
+      targetDistanceLabel: ctx.targetDistanceLabel,
+      programPhase: ctx.programPhase,
       ...logicTagOverrides,
     };
 

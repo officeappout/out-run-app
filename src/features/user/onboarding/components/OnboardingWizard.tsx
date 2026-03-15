@@ -160,6 +160,23 @@ export default function OnboardingWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [majorRoadmapStep, resumeStep, isJIT]);
 
+  // Auto-skip HEALTH_DECLARATION if already accepted (e.g. during running onboarding)
+  useEffect(() => {
+    if (currentStep !== 'HEALTH_DECLARATION') return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    getUserFromFirestore(uid).then((p) => {
+      const accepted =
+        (p as any)?.healthDeclarationAccepted ||
+        (p as any)?.health?.healthDeclarationAccepted;
+      if (accepted) {
+        updateData({ healthDeclarationAccepted: true } as any);
+        setStep('ACCOUNT_SECURE');
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
+
   // Auto-skip ACCOUNT_SECURE for already-authenticated (non-anonymous) users
   useEffect(() => {
     if (currentStep === 'ACCOUNT_SECURE' && isAlreadyAuthenticated()) {

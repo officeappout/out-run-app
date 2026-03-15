@@ -138,6 +138,24 @@ export class ContextualEngine {
         }
       }
       
+      // ── SKILL GATE ──────────────────────────────────────────────────
+      // Elite exercises (tagged 'skill' or with any targetProgram level > 15)
+      // require the user to be at least Level 15 in that program domain.
+      // This prevents mid-level users from seeing Muscle-ups, Planche, etc.
+      // regardless of the general ±3 level tolerance.
+      const SKILL_GATE_MIN_LEVEL = 15;
+      const exerciseTags = exercise.tags || [];
+      const isSkillTagged = exerciseTags.includes('skill' as any);
+      const hasEliteLevel = exercise.targetPrograms?.some(tp => tp.level > SKILL_GATE_MIN_LEVEL);
+
+      if (isSkillTagged || hasEliteLevel) {
+        const userEffective = context.getUserLevelForExercise(exercise);
+        if (userEffective < SKILL_GATE_MIN_LEVEL) {
+          excludedCount++;
+          continue;
+        }
+      }
+
       // Injury Shield filter
       if (!this.passesInjuryShield(exercise, context.injuryShield)) {
         excludedCount++;

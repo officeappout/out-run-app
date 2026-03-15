@@ -258,6 +258,8 @@ export default function RunWorkoutTemplatesPage() {
                 <th className="px-6 py-4 text-sm font-bold text-gray-700">פרופילים</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-700">איכות</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-700">בלוקים</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-700">דירוג</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-700">תגיות</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-700 text-center">פעולות</th>
               </tr>
             </thead>
@@ -283,6 +285,40 @@ export default function RunWorkoutTemplatesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{t.blocks?.length ?? 0} בלוקים</td>
+                  <td className="px-6 py-4">
+                    {t.intensityRank != null ? (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                        t.intensityRank === 1 ? 'bg-emerald-100 text-emerald-700' :
+                        t.intensityRank === 2 ? 'bg-amber-100 text-amber-700' :
+                        t.intensityRank >= 3 ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {t.intensityRank}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {Array.isArray(t.tags) && t.tags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {t.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                              tag === 'beginner_only'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
                       <Link

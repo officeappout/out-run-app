@@ -7,7 +7,7 @@
  * Key Business Rules:
  * - Only updates from completed sets (not planned)
  * - Recovery workouts (isRecovery=true) are excluded from budget
- * - Weekly budget resets on Monday (ISO week start)
+ * - Weekly budget resets on Sunday (calendar week start)
  * - Remaining budget feeds into WorkoutGenerator for smart volume adjustment
  * - Future-proofed for running metrics (duration/distance)
  * 
@@ -94,7 +94,7 @@ export interface SessionLog {
 interface WeeklyVolumeState {
   // Identity
   userId: string;
-  weekStartDate: string; // ISO date of Monday (YYYY-MM-DD)
+  weekStartDate: string; // ISO date of Sunday (YYYY-MM-DD)
 
   // Strength metrics
   strength: StrengthVolumeMetrics;
@@ -160,8 +160,14 @@ interface WeeklyVolumeState {
   /** Get exercise IDs from the last N sessions (for Variety Guard anti-boredom). */
   getRecentExerciseIds: (lastN?: number) => string[];
 
-  /** Check if the week needs to be reset (new ISO week) */
+  /** Check if the week needs to be reset (new calendar week) */
   checkAndResetWeek: (userId: string, weeklyBudget: number, weeklyMinutesGoal?: number) => void;
+
+  /**
+   * Recalculate running session count from the Activity Store's weekActivities.
+   * Scans all daily activities for the current week and sums cardio sessions.
+   */
+  recalculateFromActivities: () => void;
 
   /** Full reset (logout) */
   reset: () => void;
@@ -172,16 +178,19 @@ interface WeeklyVolumeState {
 // ============================================================================
 
 /**
- * Get the Monday of the current ISO week as 'YYYY-MM-DD'
+ * Get the Sunday of the current calendar week as 'YYYY-MM-DD'.
+ * Uses local date (not UTC) so the boundary matches the user's timezone.
  */
 function getCurrentWeekStart(): string {
   const now = new Date();
-  const day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  const diff = day === 0 ? -6 : 1 - day; // Adjust to Monday
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().split('T')[0];
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() - dayOfWeek);
+  sunday.setHours(0, 0, 0, 0);
+  const y = sunday.getFullYear();
+  const m = String(sunday.getMonth() + 1).padStart(2, '0');
+  const d = String(sunday.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /**
@@ -391,11 +400,72 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
     const currentWeek = getCurrentWeekStart();
     const state = get();
 
-    if (state.weekStartDate !== currentWeek || state.userId !== userId) {
+    // Only reset when the calendar week actually changed
+    if (state.weekStartDate !== currentWeek) {
       console.log(
         `[WeeklyVolume] New week detected (${state.weekStartDate} → ${currentWeek}). Resetting.`,
       );
       get().initializeWeek(userId, weeklyBudget, weeklyMinutesGoal);
+      return;
+    }
+
+    // First load or user switch — initialize without wiping existing same-week data
+    if (!state.isInitialized || state.userId !== userId) {
+      set({
+        userId,
+        strength: { ...state.strength, weeklyBudget },
+        activeMinutes: { ...state.activeMinutes, weeklyGoal: weeklyMinutesGoal ?? state.activeMinutes.weeklyGoal },
+        lastUpdated: new Date(),
+        isInitialized: true,
+      });
+    }
+  },
+
+  // ── Recalculate from Activity Store ─────────────────────────────────
+  recalculateFromActivities: () => {
+    try {
+      // Dynamic import to avoid circular dependency at module level
+      const { useActivityStore } = require('@/features/activity/store/useActivityStore');
+      const activityState = useActivityStore.getState();
+      const weekActivities = activityState.weekActivities ?? {};
+
+      const weekStart = getCurrentWeekStart();
+
+      let totalCardioSessions = 0;
+      let totalCardioMinutes = 0;
+      let totalDistanceKm = 0;
+
+      for (const [dateStr, activity] of Object.entries(weekActivities)) {
+        if (dateStr < weekStart) continue;
+
+        const cardio = (activity as { categories?: { cardio?: { sessions?: number; minutes?: number } } })
+          ?.categories?.cardio;
+        totalCardioSessions += cardio?.sessions ?? 0;
+        totalCardioMinutes += cardio?.minutes ?? 0;
+      }
+
+      // Estimate distance from minutes (rough 6 min/km for recalculation fallback)
+      totalDistanceKm = totalCardioMinutes / 6;
+
+      set((state) => ({
+        running: {
+          ...state.running,
+          totalDuration: totalCardioMinutes,
+          totalDistance: Math.max(state.running.totalDistance, totalDistanceKm),
+        },
+        activeMinutes: {
+          ...state.activeMinutes,
+          sessionCount: Math.max(state.activeMinutes.sessionCount, totalCardioSessions),
+        },
+        lastUpdated: new Date(),
+      }));
+
+      console.log(
+        `[WeeklyVolume] Recalculated from activities: ` +
+        `${totalCardioSessions} cardio sessions, ${totalCardioMinutes} min`,
+      );
+    } catch (err) {
+      console.warn('[WeeklyVolume] recalculateFromActivities failed:', err);
     }
   },
 

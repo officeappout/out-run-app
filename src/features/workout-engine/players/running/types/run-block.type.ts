@@ -27,6 +27,13 @@ export type RunBlock = {
   _isSynthesizedRest?: true;
   /** Set by materializeWorkout() for warmup/cooldown/strides blocks auto-injected based on category. */
   _isDynamicWrapper?: true;
+  /** Optional drill/exercise reference for technique-drill blocks within a running workout. */
+  drillRef?: {
+    exerciseId: string;
+    videoUrl?: string;
+    thumbnailUrl?: string;
+    repsCount?: number;
+  };
 };
 
 export default RunBlock;

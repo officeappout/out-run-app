@@ -10,6 +10,7 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { Dumbbell } from 'lucide-react';
 import { useWeeklyProgress } from '@/features/activity';
 import { useUserStore } from '@/features/user';
 import { getProgramIcon } from '@/features/content/programs';
@@ -133,6 +134,50 @@ export function StrengthVolumeWidget({
 
     return result;
   }, [customRows, summary, profile, layout]);
+
+  // ── Upsell: user finished running but NOT strength → show blurred card ──
+  const dashboardMode = profile?.lifestyle?.dashboardMode;
+  const strengthIncomplete = !profile?.personaId && !profile?.progression?.domains;
+  const showStrengthUpsell = dashboardMode === 'RUNNING' && strengthIncomplete;
+
+  if (showStrengthUpsell) {
+    return (
+      <div className={`w-full max-w-[358px] mx-auto ${className}`} dir="rtl">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 px-1">
+          התקדמות שבועית
+        </h3>
+        <div className="relative overflow-hidden bg-white dark:bg-slate-800" style={CARD_STYLE}>
+          {/* Blurred placeholder content */}
+          <div className="filter blur-[6px] opacity-40 pointer-events-none select-none">
+            <SegmentedBar segments={3} completed={0} />
+            <div className="flex items-center justify-between mt-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">{getProgramIcon('muscle', 'w-5 h-5')}</span>
+                <span className="text-sm font-semibold text-gray-400">אימוני כוח</span>
+              </div>
+              <span className="text-sm font-bold text-gray-300 tabular-nums">0/3</span>
+            </div>
+          </div>
+
+          {/* CTA overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-[1px] rounded-xl">
+            <div className="w-10 h-10 rounded-full bg-[#5BC2F2]/10 flex items-center justify-center">
+              <Dumbbell size={20} className="text-[#5BC2F2]" />
+            </div>
+            <p className="text-sm font-bold text-slate-800 dark:text-white text-center px-4">
+              השלם את פרופיל הכוח שלך
+            </p>
+            <a
+              href="/onboarding-new/program-path?track=strength"
+              className="text-xs font-bold text-[#5BC2F2] hover:underline"
+            >
+              להגיע ל-100% →
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (rows.length === 0) return null;
 

@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Play, ArrowLeft } from 'lucide-react';
+import { Play, ArrowLeft, Clock, Zap } from 'lucide-react';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 import { formatPaceSeconds } from '../../../../core/services/running-engine.service';
+import RunStoryBar from './RunStoryBar';
 import type RunWorkout from '../../types/run-workout.type';
 
 interface WorkoutPreviewScreenProps {
@@ -28,61 +29,108 @@ export default function WorkoutPreviewScreen({
     0,
   );
 
+  const blockIntensity = (b: (typeof workout.blocks)[number]): number => {
+    if (b.effortConfig?.effortLevel === 'max') return 5;
+    if (b.effortConfig?.effortLevel === 'hard') return 4;
+    if (b.type === 'interval') return 4;
+    if (b.type === 'run') return 3;
+    if (b.type === 'recovery' || b.type === 'walk') return 1.5;
+    if (b.type === 'warmup' || b.type === 'cooldown') return 1;
+    return 2;
+  };
+  const avgIntensity =
+    workout.blocks.length > 0
+      ? workout.blocks.reduce((s, b) => s + blockIntensity(b), 0) /
+        workout.blocks.length
+      : 2;
+  const difficultyLabel =
+    avgIntensity >= 4 ? 'קשה' : avgIntensity >= 2.5 ? 'בינוני' : 'קל';
+  const difficultyColor =
+    avgIntensity >= 4 ? '#EF4444' : avgIntensity >= 2.5 ? '#F59E0B' : '#10B981';
+
   return (
     <div
-      className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-white"
+      className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-transparent"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
-      {/* Header */}
-      <header className="bg-[#00ADEF] text-white h-14 min-h-[3.5rem] flex items-center justify-between px-4 shadow-sm z-30 shrink-0">
-        <div className="w-11" />
-        <h1 className="text-lg font-bold tracking-wide">סקירת אימון</h1>
-        <button
-          onClick={onBack}
-          className="w-8 h-8 flex items-center justify-center rounded-full active:bg-white/20 transition-colors min-w-[44px] min-h-[44px]"
-        >
-          <ArrowLeft className="transform rotate-180" size={24} />
-        </button>
+      {/* ── Dark header with Story Bar ── */}
+      <header
+        className="shrink-0 z-30"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.85) 100%)',
+        }}
+      >
+        {/* Nav row */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <div className="w-8" />
+          <button
+            onClick={onBack}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-white active:bg-white/20 transition-colors min-w-[44px] min-h-[44px]"
+          >
+            <ArrowLeft className="transform rotate-180" size={24} />
+          </button>
+        </div>
+
+        {/* Title overlay on dark header */}
+        <div className="px-5 pb-2" dir="rtl">
+          <h1 className="text-xl font-black text-white leading-tight">
+            {workout.title}
+          </h1>
+          {workout.description && (
+            <p className="text-xs text-white/50 mt-1 leading-relaxed line-clamp-2">
+              {workout.logicCue || workout.description}
+            </p>
+          )}
+        </div>
+
+        {/* Story Bar — shows workout structure as a visual overview */}
+        <RunStoryBar
+          blocks={workout.blocks}
+          currentBlockIndex={-1}
+          blockProgress={0}
+          isPaused={false}
+        />
       </header>
 
-      {/* Workout title + summary strip */}
-      <div className="px-6 pt-6 pb-2">
-        <h2 className="text-2xl font-black text-gray-900">{workout.title}</h2>
-        {workout.description && (
-          <p className="text-sm text-gray-500 mt-1">{workout.description}</p>
-        )}
-
-        <div className="flex items-center gap-4 mt-3">
-          {workout.isQualityWorkout && (
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-              אימון איכות
-            </span>
-          )}
-          {totalDuration > 0 && (
-            <span className="text-xs text-gray-400">
-              {formatOverviewDuration(totalDuration)}
-            </span>
-          )}
-          {totalDistance > 0 && (
-            <span className="text-xs text-gray-400">
-              {formatOverviewDistance(totalDistance)}
-            </span>
-          )}
-          <span className="text-xs text-gray-400">
-            {workout.blocks.length} בלוקים
+      {/* ── Summary pills ── */}
+      <div
+        className="flex items-center gap-2 px-5 py-3 bg-white border-b border-slate-100"
+        dir="rtl"
+      >
+        {totalDuration > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+            <Clock size={12} className="text-slate-400" />
+            {formatOverviewDuration(totalDuration)}
           </span>
-        </div>
+        )}
+        {totalDistance > 0 && (
+          <span className="text-xs text-slate-500 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+            {formatOverviewDistance(totalDistance)}
+          </span>
+        )}
+        <span
+          className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border"
+          style={{
+            color: difficultyColor,
+            backgroundColor: `${difficultyColor}10`,
+            borderColor: `${difficultyColor}30`,
+          }}
+        >
+          <Zap size={12} />
+          {difficultyLabel}
+        </span>
+        {workout.isQualityWorkout && (
+          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+            אימון איכות
+          </span>
+        )}
       </div>
 
-      {/* Divider */}
-      <div className="px-6">
-        <div className="h-px bg-gray-200 my-3" />
-      </div>
-
-      {/* Block list */}
-      <div className="flex-grow overflow-auto px-6 pb-32">
+      {/* ── Block list ── */}
+      <div className="flex-grow overflow-auto px-5 pt-3 pb-32 bg-white" dir="rtl">
         <div className="space-y-2">
-          {workout.blocks.map((block, i) => {
+          {workout.blocks.map((block) => {
             let paceLabel = '';
             if (showNumbers && basePace > 0) {
               if (block.zoneType && zones) {
@@ -90,10 +138,10 @@ export default function WorkoutPreviewScreen({
                 paceLabel = `${formatPaceSeconds(z.minPace)}–${formatPaceSeconds(z.maxPace)}`;
               } else if (block.targetPacePercentage) {
                 const minP = Math.round(
-                  basePace * block.targetPacePercentage.min / 100,
+                  (basePace * block.targetPacePercentage.min) / 100,
                 );
                 const maxP = Math.round(
-                  basePace * block.targetPacePercentage.max / 100,
+                  (basePace * block.targetPacePercentage.max) / 100,
                 );
                 paceLabel = `${formatPaceSeconds(minP)}–${formatPaceSeconds(maxP)}`;
               }
@@ -108,28 +156,26 @@ export default function WorkoutPreviewScreen({
             return (
               <div
                 key={block.id}
-                className="flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3"
+                className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 border border-slate-100"
               >
                 {/* Color indicator */}
                 <div
-                  className="w-1 h-10 rounded-full shrink-0"
+                  className="w-1.5 h-10 rounded-full shrink-0"
                   style={{ backgroundColor: block.colorHex || '#9CA3AF' }}
                 />
 
                 {/* Info */}
                 <div className="flex-grow min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-900 truncate">
-                      {block.label}
-                    </span>
-                  </div>
+                  <span className="text-sm font-bold text-slate-900 truncate block">
+                    {block.label}
+                  </span>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-slate-400">
                       {metaLabel}
                     </span>
                     {paceLabel && (
                       <span
-                        className="text-[11px] text-gray-500 font-medium"
+                        className="text-[11px] text-slate-500 font-medium"
                         dir="ltr"
                       >
                         {paceLabel} /ק"מ
@@ -137,25 +183,22 @@ export default function WorkoutPreviewScreen({
                     )}
                   </div>
                 </div>
-
-                {/* Block index badge */}
-                <span className="text-[11px] font-bold text-gray-300 bg-gray-100 w-6 h-6 rounded-full flex items-center justify-center shrink-0">
-                  {i + 1}
-                </span>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Sticky start button */}
+      {/* ── Sticky start button ── */}
       <div
         className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-auto"
-        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+        style={{
+          paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+        }}
       >
         <button
           onClick={onStart}
-          className="w-full h-14 bg-[#00ADEF] text-white rounded-2xl flex items-center justify-center gap-3 text-lg font-bold shadow-lg active:scale-[0.98] transition-transform"
+          className="w-full h-14 rounded-2xl flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform text-white bg-gradient-to-l from-[#00C9F2] to-[#00AEEF]"
         >
           <Play size={24} fill="currentColor" />
           <span>התחל אימון</span>

@@ -11,6 +11,9 @@ import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
+import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -204,7 +207,8 @@ export default function IdentityProfilePage() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      // Redirect to program path selection, then assessment-visual
+      firePhaseConfetti();
+
       router.push('/onboarding-new/program-path');
     } catch (error) {
       console.error('[Identity] Error saving profile:', error);
@@ -239,13 +243,13 @@ export default function IdentityProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col" dir={direction}>
-      {/* Header */}
-      <div className="w-full max-w-md mx-auto px-6 pt-safe pt-8">
-        <div className="flex items-center justify-between mb-2">
-          <div className="w-10" /> {/* Spacer for symmetry */}
-          <h1 className="text-3xl font-black text-slate-900">OutRun</h1>
-          <div className="w-10" />
-        </div>
+      {/* Story bar + phase label */}
+      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <OnboardingStoryBar
+          totalPhases={STRENGTH_PHASES.TOTAL}
+          currentPhase={STRENGTH_PHASES.PROFILE}
+          phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROFILE]}
+        />
       </div>
 
       {/* Main Content */}

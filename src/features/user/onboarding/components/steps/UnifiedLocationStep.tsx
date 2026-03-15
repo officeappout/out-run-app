@@ -66,7 +66,7 @@ const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer
 // MAIN COMPONENT (State Machine & Map)
 // ============================================
 
-const UnifiedLocationStep = React.forwardRef<HTMLDivElement, UnifiedLocationStepProps>(function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss }, ref) {
+function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, purpose }: UnifiedLocationStepProps) {
   const { updateData, setMajorRoadmapStep } = useOnboardingStore();
   const router = useRouter();
   const isExplorer = mode === 'explorer' || mode === 'bridge';
@@ -584,7 +584,7 @@ const UnifiedLocationStep = React.forwardRef<HTMLDivElement, UnifiedLocationStep
   // ══════════════════════════════════════════════════════════════════
 
   return (
-    <div ref={ref} dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-[#F8FAFC] z-50">
+    <div dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-[#F8FAFC] z-50">
       {/* Map Container */}
       <div 
         className="absolute inset-0 overflow-hidden transition-all duration-300"
@@ -915,6 +915,7 @@ const UnifiedLocationStep = React.forwardRef<HTMLDivElement, UnifiedLocationStep
             mode={mode}
             detectedNeighborhood={detectedNeighborhood}
             detectedCity={detectedCity}
+            purpose={purpose}
           />
         )}
 
@@ -960,8 +961,6 @@ const UnifiedLocationStep = React.forwardRef<HTMLDivElement, UnifiedLocationStep
       </AnimatePresence>
     </div>
   );
-});
-
-UnifiedLocationStep.displayName = 'UnifiedLocationStep';
+}
 
 export default UnifiedLocationStep;

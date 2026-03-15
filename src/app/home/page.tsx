@@ -34,7 +34,7 @@ import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardi
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { getUserFromFirestore } from '@/lib/firestore.service';
-import { doc as firestoreDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
 import StatsOverview from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -42,6 +42,7 @@ import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOv
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 
 import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
+import { useDashboardMode } from '@/hooks/useDashboardMode';
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -59,6 +60,24 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
   if (completion.isVerified || completion.percentage >= 100) return null;
 
   const handleGoToStep = (step: string) => {
+    if (step === 'GPS_PERMISSION') {
+      if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async () => {
+            const uid = auth.currentUser?.uid;
+            if (uid) {
+              await setDoc(
+                firestoreDoc(db, 'users', uid),
+                { core: { gpsEnabled: true } },
+                { merge: true },
+              );
+            }
+          },
+          () => { /* denied — no-op */ },
+        );
+      }
+      return;
+    }
     router.push(`/onboarding-new/setup?step=${step}&jit=true`);
   };
 
@@ -206,6 +225,7 @@ export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, resetProfile, refreshProfile } = useUserStore();
   const { reset: resetOnboarding } = useOnboardingStore();
+  const resolvedDashboardMode = useDashboardMode(profile);
   const scheduleState = useSmartSchedule();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -642,7 +662,12 @@ export default function HomePage() {
   }
 
   // Build week schedule data
-  const userScheduleDays = (profile?.lifestyle?.scheduleDays as string[]) || [];
+  const lifestyleScheduleDays = (profile?.lifestyle?.scheduleDays as string[]) || [];
+  const runningScheduleDays = (profile?.running?.scheduleDays as string[]) ?? [];
+  const isRunningMode = resolvedDashboardMode === 'RUNNING' || resolvedDashboardMode === 'HYBRID';
+  const userScheduleDays = isRunningMode && runningScheduleDays.length > 0
+    ? runningScheduleDays
+    : lifestyleScheduleDays;
   const hasSchedule = userScheduleDays.length > 0;
   const WEEK_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
   const todayIndex = new Date().getDay();
@@ -650,9 +675,11 @@ export default function HomePage() {
     const isToday = i === todayIndex;
     const isTrainingDay = userScheduleDays.includes(day);
     const isPast = i < todayIndex;
+    // Running mode: never auto-mark past days as completed — the running
+    // schedule entries carry their own status (pending / completed / skipped).
     const status: DaySchedule['status'] = isToday
       ? 'today'
-      : isPast && isTrainingDay
+      : isPast && isTrainingDay && !isRunningMode
         ? 'completed'
         : isTrainingDay
           ? 'scheduled'
@@ -753,7 +780,7 @@ export default function HomePage() {
         >
           <SmartWeeklySchedule
             schedule={realSchedule}
-            currentTrack={primaryTrack === 'performance' ? 'performance' : 'wellness'}
+            currentTrack={isRunningMode ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
             scheduleDays={userScheduleDays}
             programIconKey={programIconKey}
             selectedDate={selectedDate}
@@ -767,6 +794,10 @@ export default function HomePage() {
             hasSchedule={hasSchedule}
             onStartAssessment={handleHeroPress}
             onSetSchedule={() => setShowLifestyleWizard(true)}
+            runningSchedule={profile?.running?.activeProgram?.schedule as any}
+            runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
+            runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
+            runningBasePace={profile?.running?.paceProfile?.basePace}
           />
         </motion.div>
 

@@ -55,6 +55,8 @@ const CAP_TARGETS = [
   { value: 'single_run', label: 'ריצה בודדת (דקות)' },
   { value: 'sets_per_block', label: 'סטים לבלוק' },
   { value: 'total_session', label: 'אימון שלם (דקות)' },
+  { value: 'weekly_distance', label: 'מרחק שבועי (מטרים)' },
+  { value: 'single_run_distance', label: 'מרחק ריצה בודדת (מטרים)' },
 ] as const;
 
 const emptyPhase = (startWeek: number, endWeek: number): ProgramPhase => ({
@@ -347,7 +349,7 @@ export default function EditRunProgramTemplatePage() {
                     </select>
                     <input type="number" value={cap.maxValue} onChange={(e) => setVolumeCaps((c) => c.map((v, i) => (i === ci ? { ...v, maxValue: parseInt(e.target.value, 10) || 0 } : v)))} className="w-24 px-3 py-2 border border-gray-300 rounded text-sm" />
                     <span className="text-gray-500 text-xs">גידול שבועי מקס׳:</span>
-                    <input type="number" value={cap.maxWeeklyIncreasePercent} onChange={(e) => setVolumeCaps((c) => c.map((v, i) => (i === ci ? { ...v, maxWeeklyIncreasePercent: parseInt(e.target.value, 10) || 10 } : v)))} className="w-16 px-3 py-2 border border-gray-300 rounded text-sm" />
+                    <input type="number" value={cap.maxWeeklyIncreasePercent ?? ''} onChange={(e) => setVolumeCaps((c) => c.map((v, i) => (i === ci ? { ...v, maxWeeklyIncreasePercent: e.target.value ? parseInt(e.target.value, 10) : undefined } : v)))} className="w-16 px-3 py-2 border border-gray-300 rounded text-sm" placeholder="%" />
                     <span className="text-gray-500 text-xs">%</span>
                     <button type="button" onClick={() => setVolumeCaps((c) => c.filter((_, i) => i !== ci))} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18} /></button>
                   </div>

@@ -6,8 +6,10 @@ import { getProgram } from '@/features/content/programs';
 import { getLevel } from '@/features/content/programs';
 import { Program, Level } from '@/features/content/programs';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
-import { Check, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import OnboardingStoryBar from './OnboardingStoryBar';
+import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '../constants/onboarding-phases';
 
 interface ProgramResultProps {
   levelNumber: number;
@@ -79,7 +81,7 @@ const SparkleEffect = ({ delay, angle, distance }: { delay: number; angle: numbe
 const CircularGauge = ({ 
   targetPercentage, 
   levelNumber, 
-  totalLevels = 10,
+  totalLevels = 25,
   language = 'he',
   onCountComplete,
 }: { 
@@ -372,45 +374,13 @@ export default function ProgramResult({
       }}
       dir={direction}
     >
-      {/* Progress Bar at top - Phase 1 complete */}
-      <div className="absolute top-0 left-0 right-0 px-4 pt-3 pb-2 z-20">
-        <div className={`flex gap-1.5 ${direction === 'rtl' ? 'flex-row-reverse' : 'flex-row'}`}>
-          {[0, 1, 2].map((index) => {
-            const segmentPhase = direction === 'rtl' ? 2 - index : index;
-            
-            if (segmentPhase === 0) {
-              // Phase 1 - Complete with checkmark
-              return (
-                <motion.div
-                  key={index}
-                  className="h-1.5 flex-1 rounded-full bg-[#5BC2F2] relative overflow-visible flex items-center justify-center"
-                  initial={{ backgroundColor: '#5BC2F2' }}
-                  animate={{ backgroundColor: '#10b981' }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                >
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.6, type: 'spring', stiffness: 200 }}
-                    className="absolute -top-2"
-                  >
-                    <div className="w-5 h-5 rounded-full bg-[#10b981] flex items-center justify-center shadow-md">
-                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                    </div>
-                  </motion.div>
-                </motion.div>
-              );
-            } else {
-              // Future phases - empty
-              return (
-                <div
-                  key={index}
-                  className="h-1.5 flex-1 rounded-full bg-slate-200"
-                />
-              );
-            }
-          })}
-        </div>
+      {/* Unified 5-phase story bar — Phase 4 active */}
+      <div className="absolute top-0 left-0 right-0 z-20" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <OnboardingStoryBar
+          totalPhases={TOTAL_PHASES}
+          currentPhase={STRENGTH_PHASES.RESULT}
+          phaseLabel={STRENGTH_LABELS[STRENGTH_PHASES.RESULT]}
+        />
       </div>
 
       {/* Confetti Effect */}
@@ -491,7 +461,7 @@ export default function ProgramResult({
               <CircularGauge
                 targetPercentage={actualPercentage}
                 levelNumber={levelNumber}
-                totalLevels={10}
+                totalLevels={25}
                 language={language}
                 onCountComplete={handleCountComplete}
               />

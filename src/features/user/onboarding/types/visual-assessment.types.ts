@@ -53,6 +53,12 @@ export interface VisualAssessmentContent {
   linkedProgramId?: string;
   /** Links to a specific level within the linked program. */
   linkedLevelId?: string;
+  /** Optional link to an exercise from the exercises collection. */
+  exerciseId?: string | null;
+  /** When true, this level appears in the 'simple' onboarding slider. */
+  showInOnboarding?: boolean;
+  /** Short instructional text shown in the slider bubble during onboarding. */
+  onboardingBubbleText?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

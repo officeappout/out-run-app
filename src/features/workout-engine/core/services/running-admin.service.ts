@@ -16,6 +16,7 @@ import type {
   PaceMapConfig,
   RunWorkoutTemplate,
   RunProgramTemplate,
+  WorkoutCategory,
 } from '../types/running.types';
 import { DEFAULT_PACE_MAP_CONFIG } from '../config/pace-map-config';
 
@@ -23,6 +24,27 @@ const CONFIG_COLLECTION = 'config';
 const PACE_MAP_CONFIG_ID = 'paceMapConfig';
 const WORKOUT_TEMPLATES_COLLECTION = 'runWorkoutTemplates';
 const PROGRAM_TEMPLATES_COLLECTION = 'runProgramTemplates';
+
+/** Normalizes Hebrew/alternate category strings stored in legacy Firestore docs. */
+const CATEGORY_ALIAS: Record<string, WorkoutCategory> = {
+  'ריצה ארוכה': 'long_run',
+  'ריצה קלה': 'easy_run',
+  'אינטרוולים קצרים': 'short_intervals',
+  'אינטרוולים ארוכים': 'long_intervals',
+  'פארטלק קל': 'fartlek_easy',
+  'פארטלק מובנה': 'fartlek_structured',
+  'טמפו': 'tempo',
+  'עליות ארוכות': 'hill_long',
+  'עליות קצרות': 'hill_short',
+  'ספרינט עליות': 'hill_sprints',
+  'סטרייד': 'strides',
+  'סטריידים': 'strides',
+};
+
+function normalizeCategory(raw: string | undefined): WorkoutCategory | undefined {
+  if (!raw) return undefined;
+  return (CATEGORY_ALIAS[raw] as WorkoutCategory) ?? (raw as WorkoutCategory);
+}
 
 // ── PaceMapConfig ─────────────────────────────────────────────────────
 
@@ -57,7 +79,14 @@ export async function savePaceMapConfig(config: PaceMapConfig): Promise<boolean>
 export async function getRunWorkoutTemplates(): Promise<RunWorkoutTemplate[]> {
   const ref = collection(db, WORKOUT_TEMPLATES_COLLECTION);
   const snap = await getDocs(ref);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as RunWorkoutTemplate));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      ...data,
+      category: normalizeCategory(data.category),
+    } as RunWorkoutTemplate;
+  });
 }
 
 export async function getRunWorkoutTemplate(id: string): Promise<RunWorkoutTemplate | null> {

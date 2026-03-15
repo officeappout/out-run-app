@@ -466,7 +466,7 @@ export default function StrengthSummaryPage({
   programId: propProgramId,
   programName = 'תוכנית כל הגוף',
   currentLevel = 5,
-  maxLevel = 10,
+  maxLevel = 25,
   progressToNextLevel = 80,
   onFinish,
   // Training OS

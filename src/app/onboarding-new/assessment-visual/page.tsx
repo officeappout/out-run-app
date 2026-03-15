@@ -13,6 +13,9 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import TierSelectionCard from '@/features/user/onboarding/components/visual-assessment/TierSelectionCard';
 import VisualSlider from '@/features/user/onboarding/components/visual-assessment/VisualSlider';
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
+import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
+import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
+import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '@/features/user/onboarding/constants/onboarding-phases';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import { evaluateRules } from '@/features/user/onboarding/services/assessment-rule-engine.service';
 import {
@@ -157,20 +160,20 @@ export default function VisualAssessmentPage() {
   }, []);
 
   // ── Load path config on mount ────────────────────────────────
+  // Always use async version to fetch per-category maxLevels from programs.
 
   useEffect(() => {
     let cancelled = false;
     const syncConfig = getPathConfigSync();
-    if (syncConfig.path !== 'skills') {
-      setPathConfig(syncConfig);
-      return;
-    }
+    // Set sync config immediately so the UI can start rendering
+    setPathConfig(syncConfig);
+    // Then load the full async config with program-derived maxLevels
     loadPathConfigAsync()
       .then((config) => {
         if (!cancelled) setPathConfig(config);
       })
       .catch(() => {
-        if (!cancelled) setPathConfig(syncConfig);
+        // sync config already set — no action needed
       });
     return () => {
       cancelled = true;
@@ -585,7 +588,7 @@ export default function VisualAssessmentPage() {
         console.warn('[Assessment] Sync returned false — data may be incomplete');
       }
 
-      // Skip the dynamic questionnaire — go directly to health declaration
+      firePhaseConfetti();
       router.push('/onboarding-new/health');
     } catch (err) {
       console.error('[Assessment] Save error:', err);
@@ -635,14 +638,7 @@ export default function VisualAssessmentPage() {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {/* App header */}
-      <div className="w-full max-w-md mx-auto px-6 pt-6 pb-1 shrink-0">
-        <div className="flex items-center justify-center">
-          <h1 className="text-2xl font-black text-slate-900">OutRun</h1>
-        </div>
-      </div>
-
-      {/* Flow content — fills remaining space */}
+      {/* Flow content — fills all available space */}
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto overflow-hidden min-h-0">
         <AnimatePresence mode="wait">
           {/* ── Tier Selection ─────────────────────────────────── */}
@@ -689,6 +685,7 @@ export default function VisualAssessmentPage() {
                   pathConfig,
                   categories[categoryIndex],
                 )}
+                mode="simple"
               />
             </motion.div>
           )}
@@ -700,19 +697,27 @@ export default function VisualAssessmentPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex flex-col"
             >
-              <div className="text-center">
-                <Loader2
-                  size={40}
-                  className="text-[#5BC2F2] animate-spin mx-auto mb-4"
-                />
-                <h2 className="text-xl font-black text-slate-900 mb-2">
-                  מנתח תוצאות...
-                </h2>
-                <p className="text-sm text-slate-500">
-                  בודק את הפרופיל שלך ומתאים תוכנית
-                </p>
+              <OnboardingStoryBar
+                totalPhases={TOTAL_PHASES}
+                currentPhase={STRENGTH_PHASES.ASSESSMENT}
+                phaseFillPercent={100}
+                phaseLabel={STRENGTH_LABELS[STRENGTH_PHASES.ASSESSMENT]}
+              />
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <Loader2
+                    size={40}
+                    className="text-[#5BC2F2] animate-spin mx-auto mb-4"
+                  />
+                  <h2 className="text-xl font-black text-slate-900 mb-2">
+                    מנתח תוצאות...
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    בודק את הפרופיל שלך ומתאים תוכנית
+                  </p>
+                </div>
               </div>
             </motion.div>
           )}
@@ -747,11 +752,13 @@ export default function VisualAssessmentPage() {
                 onLevelConfirm={handleFollowUpConfirm}
                 stepIndex={followUpIndex}
                 totalSteps={followUpCategories.length}
+                mode="simple"
               />
             </motion.div>
           )}
 
-          {/* ── Result loading animation (existing component) ─── */}
+          {/* ── Result loading animation ─── */}
+          {/* ResultLoading renders its own fixed-inset overlay with the unified story bar */}
           {step === 'resultLoading' && result && (
             <motion.div
               key="resultLoading"
@@ -768,7 +775,8 @@ export default function VisualAssessmentPage() {
             </motion.div>
           )}
 
-          {/* ── Result screen (existing ProgramResult component) ── */}
+          {/* ── Result screen — Phase 4 active ── */}
+          {/* ProgramResult renders its own fixed-inset overlay with the unified story bar */}
           {step === 'result' && result && (
             <motion.div
               key="result"
@@ -794,16 +802,23 @@ export default function VisualAssessmentPage() {
               key="saving"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex flex-col"
             >
-              <div className="text-center">
-                <Loader2
-                  size={36}
-                  className="text-[#5BC2F2] animate-spin mx-auto mb-4"
-                />
-                <h2 className="text-xl font-black text-slate-900 mb-2">
-                  שומר תוצאות...
-                </h2>
+              <OnboardingStoryBar
+                totalPhases={TOTAL_PHASES}
+                currentPhase={STRENGTH_PHASES.HEALTH}
+                phaseLabel={STRENGTH_LABELS[STRENGTH_PHASES.HEALTH]}
+              />
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <Loader2
+                    size={36}
+                    className="text-[#5BC2F2] animate-spin mx-auto mb-4"
+                  />
+                  <h2 className="text-xl font-black text-slate-900 mb-2">
+                    שומר תוצאות...
+                  </h2>
+                </div>
               </div>
             </motion.div>
           )}

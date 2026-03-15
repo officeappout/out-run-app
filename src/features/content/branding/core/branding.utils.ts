@@ -78,6 +78,14 @@ export interface TagResolverContext {
   /** Percentage progress toward next level (0-100) (for @אחוז_התקדמות_רמה tag) */
   goalProgressPercent?: number;
 
+  // === Running-Specific Context ===
+  /** User's base pace in seconds per km (for @קצב_בסיס tag, e.g. 360 → "6:00") */
+  runningBasePace?: number;
+  /** Target race distance label (for @מרחק_יעד tag, e.g. "5 ק\"מ") */
+  targetDistanceLabel?: string;
+  /** Current program phase (for @שלב_תוכנית tag, e.g. 'base' → 'בניית בסיס') */
+  programPhase?: string;
+
   // === Logic Cue Context (Coach's Note) ===
   /** Intensity reasoning, e.g. "מנוחה מקוצרת ל-45 שניות ללחץ מטבולי" */
   intensityReason?: string;
@@ -716,6 +724,35 @@ export function resolveDescription(
     return '0%';
   });
 
+  // ── Running Tags ─────────────────────────────────────────────────
+
+  const PHASE_LABELS_HE: Record<string, string> = {
+    base: 'בניית בסיס',
+    build: 'בנייה',
+    peak: 'שיא',
+    taper: 'הורדת עומסים',
+  };
+
+  resolved = resolved.replace(/@קצב_בסיס/g, () => {
+    if (context.runningBasePace && context.runningBasePace > 0) {
+      const mins = Math.floor(context.runningBasePace / 60);
+      const secs = Math.round(context.runningBasePace % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    return '';
+  });
+
+  resolved = resolved.replace(/@מרחק_יעד/g, () => {
+    return context.targetDistanceLabel || '';
+  });
+
+  resolved = resolved.replace(/@שלב_תוכנית/g, () => {
+    if (context.programPhase && PHASE_LABELS_HE[context.programPhase]) {
+      return PHASE_LABELS_HE[context.programPhase];
+    }
+    return context.programPhase || '';
+  });
+
   // ── Logic Cue Tags (Coach's Note) ─────────────────────────────────
 
   resolved = resolved.replace(/@סיבת_עצימות/g, () => {
@@ -945,6 +982,22 @@ export function getAvailableDescriptionTags(): Array<{
       tag: '@קטגוריה',
       description: 'שם קטגוריית האימון (כוח / סיבולת / ניידות / תחזוקת גוף)',
       example: 'אימון @קטגוריה ל@פרסונה',
+    },
+    // ── Running Tags ──
+    {
+      tag: '@קצב_בסיס',
+      description: 'קצב הבסיס של הרץ (דק\'/ק"מ)',
+      example: 'הקצב שלך: @קצב_בסיס לקילומטר',
+    },
+    {
+      tag: '@מרחק_יעד',
+      description: 'מרחק מטרה (2 ק"מ / 5 ק"מ / 10 ק"מ)',
+      example: 'אימון ל-@מרחק_יעד',
+    },
+    {
+      tag: '@שלב_תוכנית',
+      description: 'שלב נוכחי בתוכנית הריצה (בניית בסיס / בנייה / שיא / הורדת עומסים)',
+      example: 'שלב @שלב_תוכנית — @את/ה בדרך הנכונה',
     },
     // ── Level Goal Tags ──
     {

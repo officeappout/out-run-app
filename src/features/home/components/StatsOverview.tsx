@@ -7,6 +7,19 @@ import { StrengthVolumeWidget } from './widgets/StrengthVolumeWidget';
 import { ProgramProgressCard } from './widgets/ProgramProgressCard';
 import { LoadAdvisorBanner } from './widgets/LoadAdvisorBanner';
 import { RunForecastWidget } from './widgets/RunForecastWidget';
+import RunProgressCircle from './widgets/RunProgressCircle';
+import WeeklyExecutionCard from './widgets/WeeklyExecutionCard';
+import NextRunWorkoutCard from './widgets/NextRunWorkoutCard';
+import MissedWorkoutBanner from '@/features/workout-engine/players/running/components/MissedWorkoutBanner';
+import { PlanRealignPopup, RebuildPopup } from '@/features/workout-engine/players/running/components/PlanAlignmentPopup';
+import {
+  handleProgramAlignment,
+  rollBackOneWeek,
+  calculateCurrentWeek,
+  autoSkipMissedEntries,
+  getCurrentUid,
+  type AlignmentAction,
+} from '@/features/workout-engine/core/services/workout-completion.service';
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
 import { ConcentricRingsProgress } from './rings/ConcentricRingsProgress';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -131,10 +144,12 @@ function ProgressRingInline({
   percentage,
   size = 80,
   strokeWidth = 6,
+  color = '#00C9F2',
 }: {
   percentage: number;
   size?: number;
   strokeWidth?: number;
+  color?: string;
 }) {
   const center = size / 2;
   const radius = (size - strokeWidth) / 2 - 1;
@@ -152,7 +167,7 @@ function ProgressRingInline({
         />
         <motion.circle
           cx={center} cy={center} r={radius}
-          fill="none" stroke="#00C9F2" strokeWidth={strokeWidth}
+          fill="none" stroke={color} strokeWidth={strokeWidth}
           strokeLinecap="round" strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: circumference - filled }}
@@ -198,6 +213,7 @@ export default function StatsOverview({
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
+  const recalculateFromActivities = useWeeklyVolumeStore((s) => s.recalculateFromActivities);
 
   // ── Weekly Budget Sync: init/reset store when profile loads ───────────
   useEffect(() => {
@@ -218,12 +234,13 @@ export default function StatsOverview({
         const budget =
           lead?.weeklyVolumeTarget ?? calculateWeeklyBudget(baseLevel, Math.max(1, scheduleDays));
         checkAndResetWeek(profile.id, budget);
+        recalculateFromActivities();
       })
       .catch((err) => console.warn('[StatsOverview] Budget sync failed:', err));
     return () => {
       cancelled = true;
     };
-  }, [profile?.id, profile?.lifestyle?.scheduleDays, profile?.progression?.tracks, isGuest, checkAndResetWeek]);
+  }, [profile?.id, profile?.lifestyle?.scheduleDays, profile?.progression?.tracks, isGuest, checkAndResetWeek, recalculateFromActivities]);
 
   // Get real activity data from the Activity Store
   const { 
@@ -262,6 +279,38 @@ export default function StatsOverview({
   
   const displaySteps = stepsToday > 0 ? stepsToday : (stats?.steps || 0);
 
+  // ── Missed-Workout Alignment (Running) ──
+  const [alignmentAction, setAlignmentAction] = useState<AlignmentAction>({ type: 'none' });
+  const [showRealignPopup, setShowRealignPopup] = useState(false);
+  const [showRebuildPopup, setShowRebuildPopup] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const lastWorkoutDate = profile?.running?.lastWorkoutDate;
+
+  useEffect(() => {
+    const runProgram = profile?.running?.activeProgram;
+    if (!runProgram) return;
+    const action = handleProgramAlignment(runProgram, lastWorkoutDate ?? null);
+    setAlignmentAction(action);
+    if (action.type === 'plan_realign') setShowRealignPopup(true);
+    if (action.type === 'rebuild') setShowRebuildPopup(true);
+  }, [profile?.running?.activeProgram, lastWorkoutDate]);
+
+  const handleRollBack = useCallback(async () => {
+    const uid = getCurrentUid();
+    const prog = profile?.running?.activeProgram;
+    if (!uid || !prog) return;
+    await rollBackOneWeek(uid, prog);
+    setShowRealignPopup(false);
+    window.location.reload();
+  }, [profile?.running?.activeProgram]);
+
+  const dismissAlignment = useCallback(() => {
+    setShowRealignPopup(false);
+    setShowRebuildPopup(false);
+    setBannerDismissed(true);
+  }, []);
+
   // ── Build shared program progress data (used in PERFORMANCE and DEFAULT) ──
   // SINGLE SOURCE OF TRUTH: progression.tracks is always the freshest data.
   // progression.domains is a legacy mirror that may lag behind.
@@ -288,8 +337,8 @@ export default function StatsOverview({
     const level = track?.currentLevel ?? domain?.currentLevel ?? 1;
     // Percent: tracks > 0
     const percent = track?.percent != null ? Math.round(track.percent) : 0;
-    // MaxLevel: domains > 10
-    const maxLvl = domain?.maxLevel ?? 10;
+    // MaxLevel: domains > 25
+    const maxLvl = domain?.maxLevel ?? 25;
     const hasData = !!(activeProgram || primaryDomainId);
 
     if (process.env.NODE_ENV === 'development') {
@@ -534,6 +583,16 @@ export default function StatsOverview({
   // Generate workout on mount / date change — UTS Phase 2 date-reactive path
   useEffect(() => {
     if (!profile || isGuest || didGenerate.current) return;
+
+    // Pure RUNNING mode: strength workouts are never shown.
+    // NextRunWorkoutCard reads profile.running.activeProgram directly — no trio needed.
+    // HYBRID falls through and generates the strength side normally.
+    if (mode === 'RUNNING') {
+      didGenerate.current = true;
+      setIsGenerating(false);
+      return;
+    }
+
     didGenerate.current = true;
     lastGeneratedDate.current = targetDate;
 
@@ -574,11 +633,11 @@ export default function StatsOverview({
       })
       .then(entry => {
         const isRestDay = entry?.type === 'rest';
-        const activeProgram = profile.progression?.activePrograms?.[0]?.templateId || 'full_body';
+        const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
         const scheduledProgramIds =
           entry?.type === 'training' && entry.programIds?.length
             ? entry.programIds
-            : [activeProgram];
+            : activeProgram ? [activeProgram] : [];
 
         console.log(
           `[UTS] Schedule for ${targetDate}: type=${entry?.type ?? 'none'}` +
@@ -689,6 +748,99 @@ export default function StatsOverview({
     onStartWorkout?.();
   }, [trioResult, onWorkoutGenerated, onStartWorkout]);
 
+  // ── Nudge popup state (for locked widgets) — must be before any early return ──
+  const [showNudge, setShowNudge] = useState(false);
+
+  const handleLockedWidgetTap = () => {
+    if (!hasCompletedAssessment) {
+      setShowNudge(true);
+    }
+  };
+
+  // ── Derive weekly session counts for compact stats card ──
+  const strengthSessions = weeklySummaryData?.categorySessions?.strength ?? 0;
+  const scheduleDaysCount = profile?.lifestyle?.scheduleDays?.length ?? 3;
+  const strengthGoal = Math.max(1, scheduleDaysCount);
+
+  // Running sessions: use the running schedule as source of truth (matches Profile page)
+  const runningScheduleCompletedThisWeek = useMemo(() => {
+    const schedule = profile?.running?.activeProgram?.schedule as Array<{
+      week?: number; status?: string;
+    }> | undefined;
+    if (!schedule?.length) return 0;
+    const currentWeek = profile?.running?.activeProgram?.currentWeek ?? 1;
+    return schedule.filter(
+      (e) => e.week === currentWeek && e.status === 'completed',
+    ).length;
+  }, [profile?.running?.activeProgram]);
+
+  const cardioSessions = Math.max(
+    weeklySummaryData?.categorySessions?.cardio ?? 0,
+    runningScheduleCompletedThisWeek,
+  );
+  const hasRunningPlan = mode === 'RUNNING' || mode === 'HYBRID'
+    || profile?.lifestyle?.primaryTrack === 'run'
+    || profile?.lifestyle?.primaryTrack === 'hybrid';
+  const runningGoal = Math.max(1, Math.ceil(scheduleDaysCount * 0.4));
+  const [showRunningCTA, setShowRunningCTA] = useState(false);
+
+
+  // ── Build carousel slides from tracks / subPrograms ──
+  type ProgramSlide = {
+    id: string;
+    name: string;
+    iconKey: string;
+    level: number;
+    maxLevel: number;
+    percent: number;
+  };
+
+  const programSlides = useMemo<ProgramSlide[]>(() => {
+    const tracks = profile?.progression?.tracks;
+    const domains = profile?.progression?.domains;
+    const subs = programMeta?.subPrograms ?? [];
+
+    const slideIds = subs.length > 0
+      ? subs
+      : tracks
+        ? Object.keys(tracks)
+        : primaryDomainId
+          ? [primaryDomainId]
+          : [];
+
+    if (slideIds.length === 0 && primaryDomainId) {
+      return [{
+        id: primaryDomainId,
+        name: resolvedProgramName,
+        iconKey: resolvedProgramIcon,
+        level: domainLevel,
+        maxLevel: domainMaxLevel,
+        percent: inLevelPercent,
+      }];
+    }
+
+    return slideIds.map((sid) => {
+      const track = tracks?.[sid];
+      const domain = domains?.[sid];
+      return {
+        id: sid,
+        name: PROGRAM_NAME_HE[sid.toLowerCase()] ?? sid,
+        iconKey: resolveIconKey(undefined, sid),
+        level: track?.currentLevel ?? domain?.currentLevel ?? 1,
+        maxLevel: domain?.maxLevel ?? 25,
+        percent: track?.percent != null ? Math.round(track.percent) : 0,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    profile?.progression?.tracks, profile?.progression?.domains,
+    programMeta?.subPrograms, primaryDomainId,
+    resolvedProgramName, resolvedProgramIcon, domainLevel, domainMaxLevel, inLevelPercent,
+  ]);
+
+  const [activeSlide, setActiveSlide] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+
   // ── Shared Carousel / Hero Section ──
   const renderWorkoutSection = () => (
     <div>
@@ -750,13 +902,119 @@ export default function StatsOverview({
 
   // ── Render: RUNNING Mode ──
   if (mode === 'RUNNING') {
-    return (
-      <div className="space-y-8">
-        <RunningStatsWidget weeklyDistance={12.5} weeklyGoal={20} calories={caloriesToday || 450} />
-        <RunForecastWidget averagePaceMinPerKm={5.8} referenceDistanceKm={5} />
+    const runFreq = profile?.running?.generatedProgramTemplate?.canonicalFrequency ?? 3;
+    const strengthScheduleTotal = Math.max(1, profile?.lifestyle?.scheduleDays?.length ?? 3);
+    const hasStrengthPlan = !!(profile?.personaId || (profile?.progression?.domains && Object.keys(profile.progression.domains).length > 0));
 
-        {!hideWorkoutSection && renderWorkoutSection()}
+    const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+    const todayHebrewLetter = DAY_LETTERS[new Date().getDay()];
+    const runScheduleDays = profile?.running?.scheduleDays ?? [];
+    const isRunDayToday = runScheduleDays.includes(todayHebrewLetter);
+
+    return (
+      <div className="space-y-5">
+        {/* ── Rest Day: show card FIRST when it's a rest day ── */}
+        {!isRunDayToday && (
+          <div className="w-full max-w-[358px] mx-auto">
+            <NextRunWorkoutCard />
+          </div>
+        )}
+
+        {/* ── Top Row: Running Circle + Strength Circle ── */}
+        <div
+          className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
+          style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
+        >
+          <RunProgressCircle />
+
+          {hasStrengthPlan ? (
+            <div
+              className="bg-white dark:bg-slate-800 flex items-center gap-2.5 px-3 py-3"
+              dir="rtl"
+              style={{
+                borderRadius: 16,
+                border: '0.5px solid #E0E9FF',
+                boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span style={{ color: '#0AC2B6' }} className="flex-shrink-0">
+                    {getProgramIcon(resolvedProgramIcon, 'w-4 h-4')}
+                  </span>
+                  <h3 className="text-[14px] font-bold text-gray-900 dark:text-white truncate leading-tight">
+                    {resolvedProgramName}
+                  </h3>
+                </div>
+                <p className="text-[13px] text-gray-600 dark:text-gray-300 font-semibold">
+                  רמה {domainLevel}/{domainMaxLevel}
+                </p>
+              </div>
+              <ProgressRingInline percentage={inLevelPercent} size={66} strokeWidth={5.5} color="#0AC2B6" />
+            </div>
+          ) : (
+            <button
+              onClick={onStartWorkout}
+              dir="rtl"
+              className="bg-gradient-to-br from-[#0AC2B6]/10 to-[#0AC2B6]/5 flex flex-col items-center justify-center p-4 text-center"
+              style={{ borderRadius: 16, border: '1px dashed #0AC2B6' }}
+            >
+              <Dumbbell className="w-6 h-6 mb-1.5" style={{ color: '#0AC2B6' }} />
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200">התאמת תוכנית כוח</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">השלם אבחון לפתוח תוכנית</p>
+            </button>
+          )}
+        </div>
+
+        {/* ── Missed Workout Banner ── */}
+        {alignmentAction.type === 'quality_makeup' && !bannerDismissed && (
+          <div className="w-full max-w-[358px] mx-auto">
+            <MissedWorkoutBanner
+              onDoIt={() => onStartWorkout?.()}
+              onContinue={dismissAlignment}
+            />
+          </div>
+        )}
+
+        {/* ── Today's Workout Card (only on run days — rest day shown above) ── */}
+        {isRunDayToday && (
+          <div className="w-full max-w-[358px] mx-auto">
+            <NextRunWorkoutCard />
+          </div>
+        )}
+
+        {/* ── Weekly Execution: Running + Strength Bars ── */}
+        <div className="w-full max-w-[358px] mx-auto">
+          <WeeklyExecutionCard
+            runDone={cardioSessions}
+            runTotal={runFreq}
+            strengthDone={weeklySummaryData?.categorySessions?.strength ?? 0}
+            strengthTotal={strengthScheduleTotal}
+          />
+        </div>
+
         {renderModals()}
+
+        {/* ── Alignment Popups (Layer 3 & 4) ── */}
+        <PlanRealignPopup
+          open={showRealignPopup}
+          onContinue={dismissAlignment}
+          onBackOneWeek={handleRollBack}
+          onReset={() => {
+            setShowRealignPopup(false);
+            window.location.href = '/onboarding-new/dynamic';
+          }}
+          onClose={() => setShowRealignPopup(false)}
+        />
+        <RebuildPopup
+          open={showRebuildPopup}
+          onRebuild={() => {
+            setShowRebuildPopup(false);
+            window.location.href = '/onboarding-new/dynamic';
+          }}
+          onContinue={dismissAlignment}
+          onClose={() => setShowRebuildPopup(false)}
+        />
       </div>
     );
   }
@@ -847,83 +1105,6 @@ export default function StatsOverview({
       </div>
     );
   }
-
-  // ── Nudge popup state (for locked widgets) ──
-  const [showNudge, setShowNudge] = useState(false);
-
-  const handleLockedWidgetTap = () => {
-    if (!hasCompletedAssessment) {
-      setShowNudge(true);
-    }
-  };
-
-  // ── Derive weekly session counts for compact stats card ──
-  const strengthSessions = weeklySummaryData?.categorySessions?.strength ?? 0;
-  const scheduleDaysCount = profile?.lifestyle?.scheduleDays?.length ?? 3;
-  const strengthGoal = Math.max(1, scheduleDaysCount);
-
-  const cardioSessions = weeklySummaryData?.categorySessions?.cardio ?? 0;
-  const hasRunningPlan = mode === 'RUNNING' || mode === 'HYBRID'
-    || profile?.lifestyle?.primaryTrack === 'run'
-    || profile?.lifestyle?.primaryTrack === 'hybrid';
-  const runningGoal = Math.max(1, Math.ceil(scheduleDaysCount * 0.4));
-  const [showRunningCTA, setShowRunningCTA] = useState(false);
-
-  // ── Build carousel slides from tracks / subPrograms ──
-  type ProgramSlide = {
-    id: string;
-    name: string;
-    iconKey: string;
-    level: number;
-    maxLevel: number;
-    percent: number;
-  };
-
-  const programSlides = useMemo<ProgramSlide[]>(() => {
-    const tracks = profile?.progression?.tracks;
-    const domains = profile?.progression?.domains;
-    const subs = programMeta?.subPrograms ?? [];
-
-    const slideIds = subs.length > 0
-      ? subs
-      : tracks
-        ? Object.keys(tracks)
-        : primaryDomainId
-          ? [primaryDomainId]
-          : [];
-
-    if (slideIds.length === 0 && primaryDomainId) {
-      return [{
-        id: primaryDomainId,
-        name: resolvedProgramName,
-        iconKey: resolvedProgramIcon,
-        level: domainLevel,
-        maxLevel: domainMaxLevel,
-        percent: inLevelPercent,
-      }];
-    }
-
-    return slideIds.map((sid) => {
-      const track = tracks?.[sid];
-      const domain = domains?.[sid];
-      return {
-        id: sid,
-        name: PROGRAM_NAME_HE[sid.toLowerCase()] ?? sid,
-        iconKey: resolveIconKey(undefined, sid),
-        level: track?.currentLevel ?? domain?.currentLevel ?? 1,
-        maxLevel: domain?.maxLevel ?? 10,
-        percent: track?.percent != null ? Math.round(track.percent) : 0,
-      };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    profile?.progression?.tracks, profile?.progression?.domains,
-    programMeta?.subPrograms, primaryDomainId,
-    resolvedProgramName, resolvedProgramIcon, domainLevel, domainMaxLevel, inLevelPercent,
-  ]);
-
-  const [activeSlide, setActiveSlide] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
 
   // DEFAULT / HEALTH MODE
   return (

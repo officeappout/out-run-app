@@ -6,8 +6,8 @@ import PlannedGeneralMetrics from './PlannedGeneralMetrics';
 import BlockCountdownPanel from './BlockCountdownPanel';
 
 const slides = [
-  { id: 'general', component: PlannedGeneralMetrics },
   { id: 'interval', component: BlockCountdownPanel },
+  { id: 'general', component: PlannedGeneralMetrics },
 ] as const;
 
 export default function PlannedCarousel() {
@@ -35,11 +35,11 @@ export default function PlannedCarousel() {
 
   return (
     <div
-      className="relative w-full overflow-hidden"
-      style={{ fontFamily: 'var(--font-simpler)' }}
+      className="relative w-full overflow-hidden flex flex-col"
+      style={{ fontFamily: 'var(--font-simpler)', touchAction: 'pan-y' }}
     >
       <motion.div
-        className="flex"
+        className="flex flex-1"
         animate={{ x: `-${currentSlide * slideWidthPercent}%` }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         style={{ width: `${slides.length * 100}%` }}
@@ -52,11 +52,12 @@ export default function PlannedCarousel() {
               className="w-full flex-shrink-0"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.2}
+              dragElastic={0.15}
+              dragDirectionLock
               onDragEnd={handleDragEnd}
-              style={{ width: `${slideWidthPercent}%` }}
+              style={{ width: `${slideWidthPercent}%`, touchAction: 'pan-y' }}
             >
-              <div className="w-full min-h-[220px] flex flex-col items-stretch">
+              <div className="w-full h-[220px] flex flex-col items-stretch justify-center overflow-hidden">
                 <Component />
               </div>
             </motion.div>
@@ -64,8 +65,8 @@ export default function PlannedCarousel() {
         })}
       </motion.div>
 
-      {/* Pagination dots — matches FreeRun carousel exactly */}
-      <div className="flex justify-center gap-2 mt-2 pb-2">
+      {/* Pagination dots — pinned to very bottom */}
+      <div className="flex justify-center gap-2 pb-3 pt-1">
         {slides.map((_, index) => (
           <button
             key={index}

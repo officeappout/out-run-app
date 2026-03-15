@@ -91,42 +91,31 @@ function waitForAuth(): Promise<void> {
 }
 
 /**
- * Ensures the requested userId matches the current Firebase Auth user.
- * Awaits auth readiness first, then verifies the live UID.
+ * Waits for Firebase Auth readiness, then returns the authenticated UID.
+ * Callers should use the returned UID for all Firestore operations
+ * instead of relying on a UID passed from component props.
  */
-async function ensureAuth(userId: string): Promise<boolean> {
-  if (!userId) {
-    console.warn('[UserSchedule] ensureAuth — empty userId');
-    return false;
-  }
-
+async function resolveAuthUid(): Promise<string | null> {
   await waitForAuth();
 
   const cur = auth.currentUser;
   if (!cur) {
-    console.warn('[UserSchedule] ensureAuth FAIL — no currentUser after waitForAuth');
-    return false;
+    console.warn('[UserSchedule] resolveAuthUid — no currentUser after waitForAuth');
+    return null;
   }
-  if (cur.uid !== userId) {
-    console.warn(
-      `[UserSchedule] ensureAuth FAIL — UID mismatch: requested="${userId}" actual="${cur.uid}"`,
-    );
-    return false;
-  }
-  return true;
+  return cur.uid;
 }
 
 // ── Read ───────────────────────────────────────────────────────────────────
 
 export async function getScheduleEntry(
-  userId: string,
+  _userId: string,
   date: string,
 ): Promise<UserScheduleEntry | null> {
-  if (!(await ensureAuth(userId))) return null;
+  const uid = await resolveAuthUid();
+  if (!uid) return null;
 
-  const id = docId(userId, date);
-  const uid = auth.currentUser?.uid;
-  console.log(`[UserSchedule] READ  docId="${id}"  uid="${uid}"  match=${id.startsWith(uid + '_')}`);
+  const id = docId(uid, date);
   try {
     const ref = doc(db, COLLECTION, id);
     const snap = await getDoc(ref);
@@ -139,19 +128,20 @@ export async function getScheduleEntry(
 }
 
 export async function getWeekEntries(
-  userId: string,
+  _userId: string,
   sundayISO: string,
 ): Promise<UserScheduleEntry[]> {
-  if (!(await ensureAuth(userId))) return [];
+  const uid = await resolveAuthUid();
+  if (!uid) return [];
   try {
     const dates = Array.from({ length: 7 }, (_, i) => addDays(sundayISO, i));
-    const refs = dates.map(d => doc(db, COLLECTION, docId(userId, d)));
+    const refs = dates.map(d => doc(db, COLLECTION, docId(uid, d)));
     const snaps = await Promise.all(refs.map(r => getDoc(r)));
     return snaps
       .filter(s => s.exists())
       .map(s => s.data() as UserScheduleEntry);
   } catch (err) {
-    console.error(`[UserSchedule] getWeekEntries failed for ${userId} week ${sundayISO}:`, err);
+    console.error(`[UserSchedule] getWeekEntries failed for ${uid} week ${sundayISO}:`, err);
     return [];
   }
 }
@@ -159,18 +149,19 @@ export async function getWeekEntries(
 // ── Hydration ──────────────────────────────────────────────────────────────
 
 export async function hydrateFromTemplate(
-  userId: string,
+  _userId: string,
   date: string,
   template: RecurringTemplate,
 ): Promise<UserScheduleEntry | null> {
-  if (!(await ensureAuth(userId))) return null;
+  const uid = await resolveAuthUid();
+  if (!uid) return null;
 
   const dayLetter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
   const programIds = template[dayLetter];
   if (!programIds) return null;
 
   const entry: UserScheduleEntry = {
-    userId,
+    userId: uid,
     date,
     programIds,
     type: programIds.length === 0 ? 'rest' : 'training',
@@ -180,13 +171,13 @@ export async function hydrateFromTemplate(
     updatedAt: serverTimestamp(),
   };
 
-  const id = docId(userId, date);
+  const id = docId(uid, date);
   try {
     const ref = doc(db, COLLECTION, id);
     await setDoc(ref, entry, { merge: false });
     return entry;
   } catch (err) {
-    console.error(`[UserSchedule] HYDRATE FAILED  path=${COLLECTION}/${id}  uid=${auth.currentUser?.uid}`, err);
+    console.error(`[UserSchedule] HYDRATE FAILED  path=${COLLECTION}/${id}  uid=${uid}`, err);
     return null;
   }
 }
@@ -196,34 +187,37 @@ export async function hydrateFromTemplate(
 export async function upsertScheduleEntry(
   entry: Omit<UserScheduleEntry, 'createdAt' | 'updatedAt'>,
 ): Promise<void> {
-  if (!(await ensureAuth(entry.userId))) {
-    console.warn('[UserSchedule] upsertScheduleEntry skipped — auth not ready or UID mismatch');
+  const uid = await resolveAuthUid();
+  if (!uid) {
+    console.warn('[UserSchedule] upsertScheduleEntry skipped — no authenticated user');
     return;
   }
 
-  const id = docId(entry.userId, entry.date);
+  const safeEntry = { ...entry, userId: uid };
+  const id = docId(uid, safeEntry.date);
   try {
     const ref = doc(db, COLLECTION, id);
     await setDoc(
       ref,
-      { ...entry, updatedAt: serverTimestamp(), createdAt: serverTimestamp() },
+      { ...safeEntry, updatedAt: serverTimestamp(), createdAt: serverTimestamp() },
       { merge: true },
     );
     console.log(`[UserSchedule] WRITE OK  path=${COLLECTION}/${id}`);
   } catch (err) {
-    console.error(`[UserSchedule] WRITE FAILED  path=${COLLECTION}/${id}  uid=${auth.currentUser?.uid}`, err);
+    console.error(`[UserSchedule] WRITE FAILED  path=${COLLECTION}/${id}  uid=${uid}`, err);
     throw err;
   }
 }
 
 export async function markCompleted(
-  userId: string,
+  _userId: string,
   date: string,
   workoutId: string,
 ): Promise<void> {
-  if (!(await ensureAuth(userId))) return;
+  const uid = await resolveAuthUid();
+  if (!uid) return;
 
-  const id = docId(userId, date);
+  const id = docId(uid, date);
   try {
     const ref = doc(db, COLLECTION, id);
     await setDoc(
@@ -248,19 +242,21 @@ export async function markCompleted(
  * The target date receives the training entry with the new date.
  */
 export async function moveScheduleEntry(
-  userId: string,
+  _userId: string,
   fromDate: string,
   toDate: string,
 ): Promise<boolean> {
   if (fromDate === toDate) return false;
-  if (!(await ensureAuth(userId))) return false;
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
 
   try {
-    const source = await getScheduleEntry(userId, fromDate);
+    const source = await getScheduleEntry(uid, fromDate);
     if (!source || source.type !== 'training') return false;
 
     const moved: UserScheduleEntry = {
       ...source,
+      userId: uid,
       date: toDate,
       source: 'manual',
       completed: false,
@@ -269,8 +265,8 @@ export async function moveScheduleEntry(
       updatedAt: serverTimestamp(),
     };
 
-    const toId = docId(userId, toDate);
-    const fromId = docId(userId, fromDate);
+    const toId = docId(uid, toDate);
+    const fromId = docId(uid, fromDate);
 
     await setDoc(doc(db, COLLECTION, toId), moved, { merge: false });
 

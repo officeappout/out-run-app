@@ -81,6 +81,9 @@ function docToContent(id: string, data: Record<string, unknown>): VisualAssessme
     detailedDescription: (data.detailedDescription as VisualAssessmentContent['detailedDescription']) ?? {},
     linkedProgramId: (data.linkedProgramId as string) ?? undefined,
     linkedLevelId: (data.linkedLevelId as string) ?? undefined,
+    exerciseId: (data.exerciseId as string) ?? undefined,
+    showInOnboarding: data.showInOnboarding === true,
+    onboardingBubbleText: (data.onboardingBubbleText as string) ?? undefined,
     createdAt: toDate(data.createdAt as Timestamp | Date | undefined),
     updatedAt: toDate(data.updatedAt as Timestamp | Date | undefined),
   };
@@ -127,6 +130,35 @@ export async function getVisualContentByCategory(
   }
 }
 
+/**
+ * Fetch the level numbers that have showInOnboarding === true for a category.
+ * Returns a sorted array of level numbers. Used to build dynamic simple-mode steps.
+ *
+ * Important: Fetches ALL docs for the category and filters client-side,
+ * because Firestore excludes documents that are missing the field entirely
+ * from `where('showInOnboarding', '==', true)` queries.
+ */
+export async function getOnboardingLevels(category: string): Promise<number[]> {
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where('category', '==', category),
+      orderBy('level', 'asc'),
+    );
+    const snap = await getDocs(q);
+    const levels = snap.docs
+      .filter(d => d.data().showInOnboarding === true)
+      .map(d => (d.data().level as number) ?? 0)
+      .filter(l => l > 0);
+
+    console.log(`[VisualContentService] getOnboardingLevels("${category}"): ${snap.docs.length} total docs, ${levels.length} with showInOnboarding=true → [${levels.join(', ')}]`);
+    return levels;
+  } catch (error) {
+    console.error('[VisualContentService] getOnboardingLevels error:', error);
+    return [];
+  }
+}
+
 /** Fetch a single document by category+level. */
 export async function getVisualContentItem(
   category: string,
@@ -170,6 +202,9 @@ export async function saveVisualContent(
       detailedDescription: data.detailedDescription ?? {},
       linkedProgramId: data.linkedProgramId ?? null,
       linkedLevelId: data.linkedLevelId ?? null,
+      exerciseId: data.exerciseId ?? null,
+      showInOnboarding: data.showInOnboarding ?? false,
+      onboardingBubbleText: data.onboardingBubbleText ?? '',
       updatedAt: serverTimestamp(),
       createdAt: existing.exists() ? existing.data()?.createdAt : serverTimestamp(),
     };
@@ -212,6 +247,54 @@ export async function deleteVisualContent(
   }
 }
 
+/**
+ * Delete all documents for a given category whose level exceeds `maxLevel`.
+ * Used to purge legacy 25-level docs when a program's maxLevels has been reduced.
+ */
+export async function purgeLevelsAbove(
+  category: string,
+  maxLevel: number,
+): Promise<number> {
+  const q = query(
+    collection(db, COLLECTION),
+    where('category', '==', category),
+  );
+  const snap = await getDocs(q);
+  let deleted = 0;
+
+  const batch = writeBatch(db);
+  for (const d of snap.docs) {
+    const level = (d.data().level as number) ?? 0;
+    if (level > maxLevel) {
+      batch.delete(d.ref);
+      deleted++;
+    }
+  }
+
+  if (deleted > 0) await batch.commit();
+  return deleted;
+}
+
+/**
+ * Delete ALL documents whose category matches the given value.
+ * Used to purge entire ghost/orphan categories (e.g. legacy "push", "pull").
+ */
+export async function purgeCategory(category: string): Promise<number> {
+  const q = query(
+    collection(db, COLLECTION),
+    where('category', '==', category),
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return 0;
+
+  const batch = writeBatch(db);
+  for (const d of snap.docs) {
+    batch.delete(d.ref);
+  }
+  await batch.commit();
+  return snap.size;
+}
+
 // ── Seed ───────────────────────────────────────────────────────────
 
 const PRIMARY_CATEGORIES = ['push', 'pull', 'legs', 'core'];
@@ -220,7 +303,7 @@ const MAX_LEVEL = 25;
 const CATEGORY_LABELS: Record<string, { he: string; en: string }> = {
   push: { he: 'דחיפה', en: 'Push' },
   pull: { he: 'משיכה', en: 'Pull' },
-  legs: { he: 'רגליים', en: 'Legs' },
+  legs: { he: 'פלג גוף תחתון', en: 'Legs' },
   core: { he: 'ליבה', en: 'Core' },
 };
 

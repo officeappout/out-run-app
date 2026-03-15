@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Coins, ArrowRight, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Activity, Target } from 'lucide-react';
+import { Coins, ArrowRight, ChevronRight, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Activity, Target } from 'lucide-react';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { DictionaryKey, getTranslation } from '@/lib/i18n/dictionaries';
 import { useAppStore } from '@/store/useAppStore';
@@ -36,10 +37,18 @@ interface OnboardingLayoutProps {
   // Stepper mode props (for roadmap)
   activeStepNumber?: number; // Which step is active (1, 2, or 3)
   
+  // Segmented story bar (Instagram-style discrete segments)
+  totalSegments?: number;
+  currentSegment?: number; // 1-based: which segment is active
+  segmentFillPercent?: number; // 0-100: fill within the active segment (for dynamic questions)
+  /** Phase label displayed above the segmented bar (e.g., "שלב 2: תכנון לוח זמנים"). */
+  phaseLabel?: string;
+  
   // Common props
   children: React.ReactNode;
   onBack?: () => void;
   showBack?: boolean;
+  hideBack?: boolean; // Force-hide back button (e.g. first question)
 }
 
 export default function OnboardingLayout({
@@ -60,10 +69,16 @@ export default function OnboardingLayout({
   continueLabel: overrideContinueLabel,
   hideContinueButton = false,
   activeStepNumber = 1, // For stepper mode
+  totalSegments,
+  currentSegment,
+  segmentFillPercent,
+  phaseLabel,
   children,
   onBack,
   showBack = false,
+  hideBack = false,
 }: OnboardingLayoutProps) {
+  const router = useRouter();
   const coins = useOnboardingStore((state) => state.coins);
   const [coinBounce, setCoinBounce] = React.useState(false);
   
@@ -172,8 +187,46 @@ export default function OnboardingLayout({
     return Math.min(100, completedPhases * phaseWeight + (withinPhase / 100) * phaseWeight);
   }, [majorRoadmapStep, phaseProgress]);
 
+  const useSegmentedStoryBar = totalSegments !== undefined && currentSegment !== undefined;
+
   const renderSegmentedProgressBar = () => {
     if (headerType !== 'progress') return null;
+
+    if (useSegmentedStoryBar) {
+      return (
+        <div className="w-full px-5 pt-3 pb-2">
+          {phaseLabel && (
+            <p className="text-[13px] font-bold text-slate-500 text-center mb-2 tracking-wide">
+              {phaseLabel}
+            </p>
+          )}
+          <div className="flex gap-1">
+            {Array.from({ length: totalSegments }, (_, i) => {
+              const segIndex = i + 1;
+              const isCompleted = segIndex < currentSegment;
+              const isActive = segIndex === currentSegment;
+              const fillPct = isActive && segmentFillPercent !== undefined
+                ? Math.min(100, Math.max(0, segmentFillPercent))
+                : isActive ? 100 : 0;
+
+              const barColor = isCompleted ? '#10b981' : '#5BC2F2';
+
+              return (
+                <div key={i} className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: barColor }}
+                    initial={false}
+                    animate={{ width: isCompleted ? '100%' : `${fillPct}%` }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="w-full px-5 pt-3 pb-2">
@@ -351,6 +404,40 @@ export default function OnboardingLayout({
 
   // Remove stepper mode - all screens now use progress mode
   // Stepper mode is deprecated and converted to progress mode
+
+  // Segmented story-bar only mode: thin fixed header, children own their layout.
+  // Used by static running screens (schedule, plan-length, summary, health).
+  // The dynamic page passes isDynamicMode=true and falls through to the full layout.
+  if (useSegmentedStoryBar && !isDynamicMode && !title && !subtitle) {
+    const handleBack = onBack || (() => router.back());
+    const headerHeight = phaseLabel ? 64 : 40;
+    return (
+      <div dir={direction} className="relative min-h-[100dvh] flex flex-col" style={{ minHeight: '100dvh' }}>
+        <header
+          className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          {renderSegmentedProgressBar()}
+          {!hideBack && (
+            <button
+              onClick={handleBack}
+              className="absolute top-0 right-3 flex items-center justify-center w-10 h-10"
+              style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
+              aria-label="חזרה"
+            >
+              <ChevronRight size={22} className="text-slate-400" />
+            </button>
+          )}
+        </header>
+        <div
+          className="flex-1 flex flex-col"
+          style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + ${headerHeight}px)` }}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   // Progress mode (Dynamic Questionnaire/Wizard) - New layout with segmented progress bar
   return (

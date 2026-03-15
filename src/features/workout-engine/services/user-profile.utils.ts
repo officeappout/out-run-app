@@ -210,3 +210,27 @@ export function getBaseUserLevel(userProfile: UserFullProfile): number {
 
   return maxLevel;
 }
+
+/**
+ * Ensure the core track has a level even when the user didn't assess core.
+ * Derives a "Virtual Core Level" from the average of push, pull, and legs.
+ * Returns the original tracks if core already has a level > 0.
+ */
+export function ensureVirtualCoreLevel(
+  tracks: Record<string, { currentLevel: number; percent: number }>,
+): Record<string, { currentLevel: number; percent: number }> {
+  const coreLevel = tracks.core?.currentLevel ?? 0;
+  if (coreLevel > 0) return tracks;
+
+  const assessed = (['push', 'pull', 'legs'] as const)
+    .map(k => tracks[k]?.currentLevel ?? 0)
+    .filter(l => l > 0);
+
+  if (assessed.length === 0) return tracks;
+
+  const virtualCore = Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length);
+  return {
+    ...tracks,
+    core: { currentLevel: virtualCore, percent: 0 },
+  };
+}

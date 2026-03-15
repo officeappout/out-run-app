@@ -8,9 +8,18 @@ import { signInAnonymously, User } from 'firebase/auth';
 import { OnboardingData, OnboardingStepId } from '../types';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { recalculateAncestorMasters } from '@/features/user/progression/services/progression.service';
 import { derivePrimaryTrack, trackToDashboardMode } from './track-mapper.service';
+import { isRunningBranchCompleted, bridgeRunningOnboarding } from './running-onboarding-bridge.service';
 import { loadAssessmentContext } from './branching-logic.service';
+import { generatePlan } from '@/features/workout-engine/core/services/running-engine.service';
+import {
+  getPaceMapConfig,
+  getRunWorkoutTemplates,
+} from '@/features/workout-engine/core/services/running-admin.service';
+import { DEFAULT_PACE_MAP_CONFIG } from '@/features/workout-engine/core/config/pace-map-config';
+import type { PaceProfile, WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import {
   getProgramPathFromStorage,
   getMuscleFocusFromStorage,
@@ -88,6 +97,14 @@ export async function syncOnboardingToFirestore(
     if (!user) {
       console.warn('[OnboardingSync] Cannot sync: user not authenticated');
       return false;
+    }
+
+    // Immediately correct profile.id in the Zustand store to match Firebase UID.
+    // This closes the race window where profile.id is the stale local ID.
+    const storeProfile = useUserStore.getState().profile;
+    if (storeProfile && storeProfile.id !== user.uid) {
+      console.log(`[OnboardingSync] Correcting profile.id: "${storeProfile.id}" → "${user.uid}"`);
+      useUserStore.setState({ profile: { ...storeProfile, id: user.uid } });
     }
 
     const userDocRef = doc(db, USERS_COLLECTION, user.uid);
@@ -348,6 +365,31 @@ export async function syncOnboardingToFirestore(
         trainingTime: data.trainingTime,
       };
     }
+
+    // ── Running Schedule (from RunningScheduleStep) ──────────────────────────
+    // weeklyFrequency is consumed by PlanGeneratorService via bridgeRunningOnboarding.
+    // Merged directly into updateData.running (same fix as scheduleDays).
+    if ((data as any).runningWeeklyFrequency !== undefined) {
+      if (!updateData.running) updateData.running = {} as any;
+      updateData.running.weeklyFrequency = (data as any).runningWeeklyFrequency;
+    }
+    // Store the running-specific reminder time under lifestyle.reminders.runningTime
+    if ((data as any).runningScheduleTime) {
+      updateData.lifestyle = {
+        ...updateData.lifestyle,
+        reminders: {
+          ...(updateData.lifestyle?.reminders ?? {}),
+          runningTime: (data as any).runningScheduleTime,
+        },
+      };
+    }
+    // Keep a dedicated running schedule days array on the running sub-document.
+    // Merged directly into updateData.running to avoid dot-notation vs full-object
+    // race condition when the COMPLETED block reassigns updateData.running.
+    if ((data as any).runningScheduleDays && Array.isArray((data as any).runningScheduleDays)) {
+      if (!updateData.running) updateData.running = {} as any;
+      updateData.running.scheduleDays = (data as any).runningScheduleDays;
+    }
     
     // Update name if we have it from sessionStorage
     if (userName && updateData.core) {
@@ -578,7 +620,7 @@ export async function syncOnboardingToFirestore(
       const domainLevelMap: Record<number, number> = { 1: 1, 2: 3, 3: 5 };
       const initialLevel = domainLevelMap[fitnessLevel] || 1;
       const DOMAIN_MAX_LEVELS: Record<string, number> = {
-        upper_body: 22, lower_body: 10, full_body: 15,
+        upper_body: 22, lower_body: 20, full_body: 25,
         core: 18, flexibility: 12, running: 20,
         handstand: 25, pull_up_pro: 20,
       };
@@ -680,7 +722,7 @@ export async function syncOnboardingToFirestore(
           const focusDomains = getFocusDomainsForMuscleFocus(muscleIds);
           const primaryResult = effectiveResults[0];
           const masterSub = primaryResult.masterProgramSubLevels ?? { push: 0, pull: 0, legs: 0, core: 0 };
-          const maxLevel = Math.max(masterSub.push ?? 0, masterSub.pull ?? 0, masterSub.legs ?? 0, masterSub.core ?? 0) || 10;
+          const maxLevel = Math.max(masterSub.push ?? 0, masterSub.pull ?? 0, masterSub.legs ?? 0, masterSub.core ?? 0) || 1;
           effectiveResults = [{
             ...primaryResult,
             programId: activeProgramId,
@@ -727,6 +769,25 @@ export async function syncOnboardingToFirestore(
           if (result.masterProgramSubLevels) {
             for (const [childId, childLevel] of Object.entries(result.masterProgramSubLevels)) {
               quizTracks[childId] = { currentLevel: childLevel, percent: 0 };
+            }
+
+            // Virtual Core Level: if user didn't assess core (level is 0/missing),
+            // derive it from the average of push, pull, and legs so the engine
+            // can pick appropriate basic core exercises instead of skipping core entirely.
+            const sub = result.masterProgramSubLevels as Record<string, number>;
+            const coreLevel = sub.core ?? 0;
+            if (coreLevel === 0) {
+              const pushLvl = sub.push ?? 0;
+              const pullLvl = sub.pull ?? 0;
+              const legsLvl = sub.legs ?? 0;
+              const assessed = [pushLvl, pullLvl, legsLvl].filter(l => l > 0);
+              if (assessed.length > 0) {
+                const virtualCore = Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length);
+                quizTracks['core'] = { currentLevel: virtualCore, percent: 0 };
+                console.log(
+                  `[OnboardingSync] Virtual Core Level: core was 0 → derived ${virtualCore} from avg(${assessed.join(', ')})`,
+                );
+              }
             }
           }
 
@@ -790,6 +851,9 @@ export async function syncOnboardingToFirestore(
           ...(r.masterProgramSubLevels ? { masterProgramSubLevels: r.masterProgramSubLevels } : {}),
         }));
 
+      } else if (updateData.running?.isUnlocked) {
+        // Running-only user with no strength quiz results — skip strength program assignment.
+        console.log('[OnboardingSync] Running-only user detected (no assignedResults, running.isUnlocked=true). Skipping strength program fallback.');
       } else {
         // ============================================================
         // PRIORITY 2 / FALLBACK: GOAL_TO_PROGRAM legacy mapping
@@ -797,7 +861,7 @@ export async function syncOnboardingToFirestore(
         // ============================================================
         console.log('[OnboardingSync] No assignedResults found, falling back to GOAL_TO_PROGRAM mapping');
         
-        const primaryGoal = (data as any).selectedGoalIds?.[0] || (data as any).selectedGoal || 'full_body';
+        const primaryGoal = (data as any).selectedGoalIds?.[0] || (data as any).selectedGoal || 'healthy_lifestyle';
         const assignedProgramId = GOAL_TO_PROGRAM[primaryGoal] || 'full_body';
 
         updateData.currentProgramId = assignedProgramId;
@@ -840,6 +904,214 @@ export async function syncOnboardingToFirestore(
       }
     }
 
+    // ================================================================
+    // RUNNING IMPROVEMENT BRIDGE (on COMPLETED)
+    // If the dynamic questionnaire included a running improvement branch,
+    // aggregate answers into RunningOnboardingData, generate a program
+    // template via PlanGeneratorService, and persist both on the user doc.
+    // ================================================================
+    if (step === 'COMPLETED') {
+      let runningAnswers: Record<string, string> | null = null;
+
+      if (typeof window !== 'undefined') {
+        try {
+          const storedRunning = sessionStorage.getItem('onboarding_running_answers');
+          if (storedRunning) {
+            runningAnswers = JSON.parse(storedRunning);
+          }
+        } catch (e) {
+          console.warn('[OnboardingSync] Could not parse running answers:', e);
+        }
+      }
+
+      // Inject weeklyFrequency from RunningScheduleStep (single source of truth).
+      // The bridge's parseAnswers expects a number, so we pass a numeric value.
+      if (runningAnswers && (data as any).runningWeeklyFrequency !== undefined) {
+        (runningAnswers as any).weeklyFrequency = Number((data as any).runningWeeklyFrequency);
+      }
+
+      // Inject user-selected plan length from PlanLengthStep (overrides resolveWeeks)
+      if (runningAnswers) {
+        try {
+          const storedAnswers = sessionStorage.getItem('onboarding_running_answers');
+          if (storedAnswers) {
+            const parsed = JSON.parse(storedAnswers);
+            if (typeof parsed.runningPlanWeeks === 'number') {
+              (runningAnswers as any).runningPlanWeeks = parsed.runningPlanWeeks;
+            }
+          }
+        } catch {}
+      }
+
+      if (runningAnswers && isRunningBranchCompleted(runningAnswers)) {
+        try {
+          const bridge = bridgeRunningOnboarding(runningAnswers);
+
+          const paceProfile: PaceProfile = {
+            basePace: bridge.basePace,
+            profileType: bridge.programTemplate.targetProfileTypes[0] ?? 2,
+            qualityWorkoutsHistory: [],
+            qualityWorkoutCount: 0,
+            lastSelfCorrectionDate: null,
+          };
+
+          updateData.running = {
+            ...updateData.running,
+            isUnlocked: true,
+            currentGoal: bridge.runnerGoal,
+            paceProfile,
+            onboardingData: bridge.runningOnboardingData,
+            generatedProgramTemplate: {
+              id: bridge.programTemplate.id,
+              name: bridge.programTemplate.name,
+              targetDistance: bridge.programTemplate.targetDistance,
+              canonicalWeeks: bridge.programTemplate.canonicalWeeks,
+              canonicalFrequency: bridge.programTemplate.canonicalFrequency,
+              targetProfileTypes: bridge.programTemplate.targetProfileTypes,
+              maxIntensityRank: bridge.programTemplate.maxIntensityRank,
+              ...(bridge.programTemplate.excludeCategories
+                ? { excludeCategories: bridge.programTemplate.excludeCategories }
+                : {}),
+            },
+          };
+
+          // ── Generate ActiveRunningProgram with full schedule ──────────
+          // Fetch workout templates + pace config from Firestore, then call
+          // generatePlan() to produce the week-by-week workout schedule.
+          try {
+            const [paceMapConfig, workoutTemplates] = await Promise.all([
+              getPaceMapConfig().catch(() => DEFAULT_PACE_MAP_CONFIG),
+              getRunWorkoutTemplates().catch(() => []),
+            ]);
+
+            // ── Matchmaker Diagnostic ─────────────────────────────────
+            const dist = bridge.programTemplate.targetDistance;
+            const profiles = bridge.programTemplate.targetProfileTypes;
+            const maxRank = bridge.programTemplate.maxIntensityRank ?? Infinity;
+            const excludeCats = bridge.programTemplate.excludeCategories ?? [];
+
+            const categoryCounts: Record<string, number> = {};
+            const profileCounts: Record<string, number> = {};
+            for (const t of workoutTemplates) {
+              const cat = t.category ?? 'unknown';
+              categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
+              const key = JSON.stringify(t.targetProfileTypes ?? []);
+              profileCounts[key] = (profileCounts[key] ?? 0) + 1;
+            }
+
+            const matchingProfile = workoutTemplates.filter((t) => {
+              if (!t.targetProfileTypes || t.targetProfileTypes.length === 0) return true;
+              return t.targetProfileTypes.some((p) => profiles.includes(p));
+            });
+
+            console.log(
+              `🧪 [Matchmaker] Searching for workouts with: dist=${dist}, profiles=[${profiles}], maxRank=${maxRank}, excludeCats=[${excludeCats}]`,
+            );
+            console.log(
+              `🧪 [Matchmaker] Template census: ${workoutTemplates.length} total | ${matchingProfile.length} match profile [${profiles}]`,
+            );
+            console.log(`🧪 [Matchmaker] Categories in DB:`, categoryCounts);
+            console.log(`🧪 [Matchmaker] Profile distributions:`, profileCounts);
+
+            if (matchingProfile.length === 0 && workoutTemplates.length > 0) {
+              console.error(
+                `🚨 [Matchmaker] PROFILE MISMATCH: ${workoutTemplates.length} templates exist but NONE match profiles [${profiles}]. ` +
+                `DB has profiles: ${Object.keys(profileCounts).join(', ')}. ` +
+                `Run the Fix Profiles admin script or upload templates for profiles [${profiles}].`,
+              );
+            }
+
+            if (workoutTemplates.length > 0) {
+              const planResult = generatePlan(
+                bridge.programTemplate,
+                paceProfile,
+                paceMapConfig,
+                workoutTemplates,
+              );
+
+              // Build category lookup from workout templates (templateId → category + name)
+              const templateCategoryMap = new Map<string, { category?: WorkoutCategory; name: string }>();
+              for (const tpl of workoutTemplates) {
+                templateCategoryMap.set(tpl.id, { category: tpl.category, name: tpl.name });
+              }
+
+              // Flatten plan weeks → ActiveRunningProgram.schedule entries
+              const schedule: Array<{
+                week: number;
+                day: number;
+                workoutId: string;
+                status: 'pending';
+                category?: WorkoutCategory;
+                workoutName?: string;
+              }> = [];
+
+              for (const planWeek of planResult.plan.weeks) {
+                planWeek.workouts.forEach((workout, dayIdx) => {
+                  // workout.id = `${templateId}_w${weekNumber}` — extract templateId
+                  const templateId = workout.id.replace(/_w\d+$/, '');
+                  const tplMeta = templateCategoryMap.get(templateId);
+
+                  schedule.push({
+                    week: planWeek.weekNumber,
+                    day: dayIdx + 1,
+                    workoutId: workout.id,
+                    status: 'pending',
+                    category: tplMeta?.category,
+                    workoutName: tplMeta?.name ?? workout.title,
+                  });
+                });
+              }
+
+              updateData.running.activeProgram = {
+                programId: bridge.programTemplate.id,
+                startDate: new Date().toISOString(),
+                currentWeek: 1,
+                schedule,
+              };
+
+              console.log(
+                `[OnboardingSync] ActiveRunningProgram created: ${schedule.length} entries across ${planResult.plan.weeks.length} weeks`,
+                planResult.warnings.length > 0 ? `(${planResult.warnings.length} warnings)` : '',
+              );
+
+              // Bridge: build recurringTemplate from running scheduleDays so that
+              // hydrateFromTemplate() can produce UTS entries for running training days.
+              // activePrograms is intentionally NOT touched — mode is the UI guard.
+              // Hybrid users keep their strength activePrograms intact.
+              const runScheduleDays: string[] = (data as any).runningScheduleDays
+                ?? updateData.running?.scheduleDays ?? [];
+              if (runScheduleDays.length > 0) {
+                const runTemplate: Record<string, string[]> = {};
+                for (const dayLetter of runScheduleDays) {
+                  runTemplate[dayLetter] = [bridge.programTemplate.id];
+                }
+                updateData.lifestyle = {
+                  ...updateData.lifestyle,
+                  recurringTemplate: runTemplate,
+                };
+                console.log('[OnboardingSync] recurringTemplate built from scheduleDays:', runScheduleDays);
+              }
+            } else {
+              console.warn('[OnboardingSync] No workout templates available — activeProgram deferred to first run');
+            }
+          } catch (planErr) {
+            console.warn('[OnboardingSync] Plan generation failed (non-critical, activeProgram deferred):', planErr);
+          }
+
+          if (updateData.lifestyle) {
+            updateData.lifestyle.primaryTrack = 'run';
+            updateData.lifestyle.dashboardMode = 'RUNNING';
+          } else {
+            updateData.lifestyle = { primaryTrack: 'run', dashboardMode: 'RUNNING' } as any;
+          }
+
+          console.log('[OnboardingSync] Running bridge completed:', bridge.programTemplate.name);
+        } catch (err) {
+          console.warn('[OnboardingSync] Running bridge failed (non-critical):', err);
+        }
+      }
+    }
+
     // Sanitize all undefined values before saving to Firestore
     // Firestore doesn't accept undefined - we need to either omit or use null
     const sanitizeObject = (obj: any): any => {
@@ -866,6 +1138,18 @@ export async function syncOnboardingToFirestore(
     // Save to Firestore (merge with existing data)
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
+
+    // Diagnostic: confirm what running data was saved
+    if (step === 'COMPLETED' && sanitizedUpdateData.running) {
+      const hasActiveProgram = !!sanitizedUpdateData.running.activeProgram?.schedule?.length;
+      const hasTemplate = !!sanitizedUpdateData.running.generatedProgramTemplate;
+      if (hasActiveProgram) {
+        const schedLen = sanitizedUpdateData.running.activeProgram.schedule.length;
+        console.log(`✅ [Onboarding] Active Program successfully saved to Firestore (${schedLen} workouts)`);
+      } else if (hasTemplate) {
+        console.warn('⚠️ [Onboarding] generatedProgramTemplate saved, but activeProgram is MISSING — workout templates could not be read from Firestore');
+      }
+    }
 
     // ─── Trigger Master Program Recalculation (if tracks exist) ────────────
     if (step === 'COMPLETED' && updateData.progression?.tracks) {

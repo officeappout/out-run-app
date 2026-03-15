@@ -132,9 +132,19 @@ export default function CleanUploadPage() {
       )}
 
       {log.length > 0 && (
-        <div className="mt-6 bg-gray-900 text-gray-100 p-4 rounded-xl text-sm font-mono space-y-1 max-h-80 overflow-auto">
+        <div className="mt-6 bg-gray-950 border border-gray-700 rounded-xl p-5 text-sm font-mono space-y-0.5 max-h-80 overflow-auto">
           {log.map((l, i) => (
-            <div key={i}>{l}</div>
+            <div
+              key={i}
+              className={`leading-relaxed ${
+                l.includes('✗') || l.toLowerCase().includes('error') ? 'text-red-400' :
+                l.startsWith('✓') || l.includes('✓') ? 'text-emerald-400' :
+                l.startsWith('⚠') ? 'text-amber-400' :
+                'text-gray-100'
+              }`}
+            >
+              {l}
+            </div>
           ))}
         </div>
       )}

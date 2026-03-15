@@ -51,8 +51,8 @@ const LEVEL_EQUIVALENCE_COLLECTION = 'level_equivalence_rules';
 const PROGRAMS_COLLECTION = 'programs';
 const USERS_COLLECTION = 'users';
 
-// Threshold for "Ready for Split" recommendation
-const READY_FOR_SPLIT_LEVEL = 10;
+// Threshold for "Ready for Split" recommendation (Full Body → Upper/Lower)
+const READY_FOR_SPLIT_LEVEL = 13;
 const READY_FOR_SPLIT_PROGRAMS = ['full_body'];
 
 /**
@@ -830,12 +830,10 @@ function checkReadyForSplit(
   activeProgramId: string,
   newLevel: number
 ): ReadyForSplitStatus | undefined {
-  // Only check for full_body program
   if (!READY_FOR_SPLIT_PROGRAMS.includes(activeProgramId)) {
     return undefined;
   }
   
-  // Check if level threshold is reached
   if (newLevel >= READY_FOR_SPLIT_LEVEL) {
     return {
       isReady: true,
@@ -845,6 +843,169 @@ function checkReadyForSplit(
   }
   
   return undefined;
+}
+
+// ============================================================================
+// PROGRAM EVOLUTION ENGINE
+// ============================================================================
+
+const EVOLUTION_UPPER_LOWER_LEVEL = 13;
+const EVOLUTION_PPL_LEVEL = 18;
+
+interface PendingEvolution {
+  targetSplit: 'upper_lower' | 'push_pull_legs';
+  triggeredAt: string;
+  sourceProgram: string;
+  sourceLevelAtTrigger: number;
+  subLevelsSnapshot: Record<string, number>;
+}
+
+/**
+ * Evaluate whether a program evolution should be triggered.
+ *
+ * - full_body reaching L13 → pendingProgramEvolution: 'upper_lower'
+ * - upper_body reaching L18 → pendingProgramEvolution: 'push_pull_legs'
+ *
+ * Returns undefined if no evolution is warranted.
+ */
+function evaluateProgramEvolution(
+  tracks: { [programId: string]: DomainTrackProgress },
+  activeProgramId: string,
+  newLevel: number,
+): PendingEvolution | undefined {
+  const subLevels: Record<string, number> = {};
+  for (const childId of ['push', 'pull', 'legs', 'core']) {
+    subLevels[childId] = tracks[childId]?.currentLevel ?? 0;
+  }
+
+  if (activeProgramId === 'full_body' && newLevel >= EVOLUTION_UPPER_LOWER_LEVEL) {
+    return {
+      targetSplit: 'upper_lower',
+      triggeredAt: new Date().toISOString(),
+      sourceProgram: activeProgramId,
+      sourceLevelAtTrigger: newLevel,
+      subLevelsSnapshot: subLevels,
+    };
+  }
+
+  if (activeProgramId === 'upper_body' && newLevel >= EVOLUTION_PPL_LEVEL) {
+    return {
+      targetSplit: 'push_pull_legs',
+      triggeredAt: new Date().toISOString(),
+      sourceProgram: activeProgramId,
+      sourceLevelAtTrigger: newLevel,
+      subLevelsSnapshot: subLevels,
+    };
+  }
+
+  return undefined;
+}
+
+/**
+ * Execute the program evolution: transfer sub-levels from the source program
+ * into new program entries. Called when the user accepts the evolution prompt.
+ *
+ * Level Transfer Rules:
+ *   full_body → upper_body + lower_body
+ *     upper_body inherits max(push, pull) levels
+ *     lower_body inherits max(legs, core) levels
+ *     Sub-tracks (push, pull, legs, core) carry over unchanged
+ *
+ *   upper_body → push + pull + legs
+ *     Each inherits its own sub-level from tracks
+ *     core stays as-is
+ */
+export function buildEvolvedPrograms(
+  evolution: PendingEvolution,
+): {
+  newActivePrograms: Array<{
+    id: string;
+    templateId: string;
+    name: string;
+    startDate: string;
+    durationWeeks: number;
+    currentWeek: number;
+    focusDomains: string[];
+  }>;
+  newTracks: Record<string, { currentLevel: number; percent: number }>;
+} {
+  const snap = evolution.subLevelsSnapshot;
+  const now = new Date().toISOString();
+
+  if (evolution.targetSplit === 'upper_lower') {
+    const upperLevel = Math.max(snap.push ?? 1, snap.pull ?? 1);
+    const lowerLevel = Math.max(snap.legs ?? 1, snap.core ?? 1);
+
+    return {
+      newActivePrograms: [
+        {
+          id: 'upper_body',
+          templateId: 'upper_body',
+          name: 'Upper Body',
+          startDate: now,
+          durationWeeks: 52,
+          currentWeek: 1,
+          focusDomains: ['push', 'pull'],
+        },
+        {
+          id: 'lower_body',
+          templateId: 'lower_body',
+          name: 'Lower Body',
+          startDate: now,
+          durationWeeks: 52,
+          currentWeek: 1,
+          focusDomains: ['legs', 'core'],
+        },
+      ],
+      newTracks: {
+        upper_body: { currentLevel: upperLevel, percent: 0 },
+        lower_body: { currentLevel: lowerLevel, percent: 0 },
+        push: { currentLevel: snap.push ?? 1, percent: 0 },
+        pull: { currentLevel: snap.pull ?? 1, percent: 0 },
+        legs: { currentLevel: snap.legs ?? 1, percent: 0 },
+        core: { currentLevel: snap.core ?? 1, percent: 0 },
+      },
+    };
+  }
+
+  // push_pull_legs split
+  return {
+    newActivePrograms: [
+      {
+        id: 'push',
+        templateId: 'push',
+        name: 'Push',
+        startDate: now,
+        durationWeeks: 52,
+        currentWeek: 1,
+        focusDomains: ['push'],
+      },
+      {
+        id: 'pull',
+        templateId: 'pull',
+        name: 'Pull',
+        startDate: now,
+        durationWeeks: 52,
+        currentWeek: 1,
+        focusDomains: ['pull'],
+      },
+      {
+        id: 'legs',
+        templateId: 'legs',
+        name: 'Legs',
+        startDate: now,
+        durationWeeks: 52,
+        currentWeek: 1,
+        focusDomains: ['legs', 'core'],
+      },
+    ],
+    newTracks: {
+      push: { currentLevel: snap.push ?? 1, percent: 0 },
+      pull: { currentLevel: snap.pull ?? 1, percent: 0 },
+      legs: { currentLevel: snap.legs ?? 1, percent: 0 },
+      core: { currentLevel: snap.core ?? 1, percent: 0 },
+    },
+  };
 }
 
 // ============================================================================
@@ -1252,6 +1413,20 @@ async function processBottomUpMasterCompletion(
       'progression.readyForSplit': readyForSplit,
       updatedAt: serverTimestamp(),
     });
+  }
+
+  // ── 7b. Program Evolution Engine ──────────────────────────────────────
+  const pendingEvolution = evaluateProgramEvolution(updatedTracks, activeProgramId, masterNewLevel);
+  if (pendingEvolution) {
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    await updateDoc(userDocRef, {
+      'progression.pendingProgramEvolution': pendingEvolution,
+      updatedAt: serverTimestamp(),
+    });
+    console.log(
+      `[Evolution Engine] Triggered: ${activeProgramId} L${masterNewLevel} → ${pendingEvolution.targetSplit}`,
+      `(sub-levels: ${JSON.stringify(pendingEvolution.subLevelsSnapshot)})`,
+    );
   }
 
   // ── 8. Build result ─────────────────────────────────────────────────────

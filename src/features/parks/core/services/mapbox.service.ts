@@ -6,10 +6,19 @@ const BASE_URL = 'https://api.mapbox.com/directions/v5/mapbox';
 // פונקציית עזר: ממירה כל פורמט של נקודה לפורמט ש-Mapbox אוהב: [lng, lat]
 const toCoord = (input: any): [number, number] | null => {
   if (!input) return null;
-  if (Array.isArray(input) && input.length >= 2) return [input[0], input[1]];
-  if (typeof input === 'object' && 'lng' in input && 'lat' in input) return [input.lng, input.lat];
-  // תמיכה למקרה שהאובייקט מגיע בפורמט Mapbox LngLat
-  if (typeof input === 'object' && '_lng' in input && '_lat' in input) return [input._lng, input._lat];
+
+  if (Array.isArray(input) && input.length >= 2) {
+    const lng = input[0], lat = input[1];
+    if (typeof lng === 'number' && !isNaN(lng) && typeof lat === 'number' && !isNaN(lat)) return [lng, lat];
+    return null;
+  }
+
+  if (typeof input === 'object') {
+    const lng = input.lng ?? input._lng;
+    const lat = input.lat ?? input._lat;
+    if (typeof lng === 'number' && !isNaN(lng) && typeof lat === 'number' && !isNaN(lat)) return [lng, lat];
+  }
+
   return null;
 };
 

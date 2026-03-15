@@ -219,8 +219,8 @@ export default function LandingPage() {
             } else if (path === 'MAP_ONLY' || status === 'MAP_ONLY') {
               router.push('/explorer');
             } else {
-              // Default: start at profile
-              router.push('/onboarding-new/profile');
+              // Default: user exists but no clear status — let them choose a track
+              router.push('/gateway');
             }
           }
         } catch (e) {

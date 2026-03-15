@@ -41,6 +41,12 @@ interface RunningPlayerState {
   // Snapshot State
   isSnapshotVisible: boolean;
   lastCompletedLap: Lap | null;
+
+  // Pace smoothing
+  paceHistory: number[];
+
+  // Map follow (Pillar 6)
+  isMapFollowEnabled: boolean;
   
   // Workout Settings
   settings: WorkoutSettings;
@@ -88,9 +94,13 @@ interface RunningPlayerState {
   clearRunningData: () => void;
   finishWorkout: () => Promise<void>;
 
+  // Map follow (Pillar 6)
+  setMapFollowEnabled: (v: boolean) => void;
+
   // ── Planned Run Actions ──────────────────────────────────────────
   setCurrentWorkout: (workout: RunWorkout | null) => void;
   advanceBlock: () => void;
+  jumpToBlock: (targetIndex: number) => void;
   tickBlockElapsed: () => void;
   addBlockDistance: (meters: number) => void;
   resetPlannedRun: () => void;
@@ -112,6 +122,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   lastViewport: { latitude: 32.0853, longitude: 34.7818, zoom: 15 },
   isSnapshotVisible: false,
   lastCompletedLap: null,
+  paceHistory: [],
+  isMapFollowEnabled: true,
   settings: {
     autoLapMode: 'off',
     autoLapValue: 1.0, // Default 1 km for distance mode
@@ -353,52 +365,59 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     requestWakeLock();
 
     let lastPos: { lat: number; lng: number } | null = null;
-    const DISTANCE_THRESHOLD = 5; // Only add point if > 5 meters from last point
+    let lastTimestamp: number | null = null;
+    const DISTANCE_THRESHOLD = 5;
+    const MIN_SPEED_MS = 0.5;   // 1.8 km/h — below this, display "--:--"
+    const MAX_PACE_MIN_KM = 15; // hard cap — ignore anything slower
 
-    // Watch position using location service with accuracy filtering
     const watchId = watchPosition(
       (location) => {
         const { lat, lng, accuracy } = location;
         const currentPos = { lat, lng };
 
-        // Determine GPS status based on accuracy
         let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect';
-        if (accuracy <= 10) {
-          gpsStatus = 'perfect';
-        } else if (accuracy <= 30) {
-          gpsStatus = 'good';
-        } else {
-          gpsStatus = 'poor';
-        }
+        if (accuracy <= 10) gpsStatus = 'perfect';
+        else if (accuracy <= 30) gpsStatus = 'good';
+        else gpsStatus = 'poor';
 
-        // Update GPS accuracy and status in store
         set({ gpsAccuracy: accuracy, gpsStatus });
 
-        // Calculate distance delta from last position
         if (lastPos) {
           const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
-          
-          // Only update if distance is significant (filter GPS noise and stationary points)
+
           if (distanceDelta > DISTANCE_THRESHOLD) {
-            // Update route coordinates (Mapbox format: [lng, lat])
             get().addCoord([lng, lat]);
-            
-            // Update running data (convert meters to km)
-            const distanceDeltaKm = distanceDelta / 1000;
-            const { laps } = get();
-            const activeLap = laps.find(l => l.isActive);
-            const currentDuration = activeLap?.durationSeconds || 0;
-            
-            get().updateRunData(distanceDeltaKm, currentDuration);
-            
-            console.log(`[GPS] Position added: ${distanceDelta.toFixed(1)}m from last, accuracy: ${accuracy.toFixed(1)}m`);
-          } else {
-            console.log(`[GPS] Position skipped: ${distanceDelta.toFixed(1)}m < ${DISTANCE_THRESHOLD}m threshold`);
+
+            // Track block-level distance for planned-run progression
+            get().addBlockDistance(distanceDelta);
+
+            // Track total distance in the session store (km)
+            try {
+              const { useSessionStore } = require('@/features/workout-engine/core/store/useSessionStore');
+              useSessionStore.getState().updateDistance(distanceDelta / 1000);
+            } catch { /* fallback — session store unavailable */ }
+
+            const now = Date.now();
+            const timeDeltaSeconds = lastTimestamp ? (now - lastTimestamp) / 1000 : 0;
+
+            if (timeDeltaSeconds > 0) {
+              const speedMs = distanceDelta / timeDeltaSeconds;
+
+              if (speedMs < MIN_SPEED_MS) {
+                set({ currentPace: 0 });
+              } else {
+                const instantPaceMinKm = 1000 / (speedMs * 60);
+                if (instantPaceMinKm <= MAX_PACE_MIN_KM) {
+                  get().updateRunData(distanceDelta / 1000, instantPaceMinKm);
+                }
+              }
+            }
+
+            lastTimestamp = now;
           }
         } else {
-          // First position - always add to route
           get().addCoord([lng, lat]);
-          console.log(`[GPS] First position: accuracy ${accuracy.toFixed(1)}m`);
+          lastTimestamp = Date.now();
         }
 
         lastPos = currentPos;
@@ -497,78 +516,63 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     set({ currentPace: pace });
   },
   
-  // Update running data (called when distance changes)
-  updateRunData: (distanceDelta: number, duration: number) => {
-    const { laps, settings } = get();
-    const distanceDeltaMeters = distanceDelta * 1000;
-    
-    // Calculate pace
-    const pace = distanceDelta > 0 ? (duration / 60) / distanceDelta : 0;
-    
-    // Get total distance from session store (it tracks cumulative distance)
+  // Update running data with instantaneous pace (min/km) and distance delta (km)
+  updateRunData: (distanceDeltaKm: number, instantPaceMinKm: number) => {
+    const { laps, settings, paceHistory } = get();
+    const distanceDeltaMeters = distanceDeltaKm * 1000;
+
+    // 5-point weighted rolling average
+    const newHistory = [...paceHistory.slice(-4), instantPaceMinKm];
+    const weights = newHistory.map((_, i) => i + 1);
+    const weightSum = weights.reduce((a, b) => a + b, 0);
+    const smoothedPace = newHistory.reduce((sum, p, i) => sum + p * weights[i], 0) / weightSum;
+
     let totalDistanceKm = 0;
     if (typeof window !== 'undefined') {
       try {
         const { useSessionStore } = require('@/features/workout-engine/core/store/useSessionStore');
-        const sessionState = useSessionStore.getState();
-        totalDistanceKm = sessionState.totalDistance || 0;
-      } catch (error) {
-        // Fallback: if session store unavailable, use 0
-        totalDistanceKm = 0;
-      }
+        totalDistanceKm = useSessionStore.getState().totalDistance || 0;
+      } catch { totalDistanceKm = 0; }
     }
-    
-    // Calculate calories: Calories = Distance (km) × Weight (kg) × 1.036
-    // Get user weight from store (default 70kg if not available)
+
     let userWeight = 70;
     if (typeof window !== 'undefined') {
       try {
         const { useUserStore } = require('@/features/user/identity/store/useUserStore');
-        const userState = useUserStore.getState();
-        userWeight = userState.profile?.core?.weight || 70;
-      } catch (error) {
-        // Fallback to default weight
-      }
+        userWeight = useUserStore.getState().profile?.core?.weight || 70;
+      } catch { /* fallback */ }
     }
-    
+
     const calculatedCalories = Math.round(totalDistanceKm * userWeight * 1.036);
-    
-    // If no laps exist, initialize the first lap
-    let updatedLaps = laps.length === 0 
+
+    let updatedLaps = laps.length === 0
       ? [{ id: '1', lapNumber: 1, distanceMeters: 0, durationSeconds: 0, splitPace: 0, isActive: true }]
       : laps;
-    
-    // Update active lap
-    updatedLaps = updatedLaps.map(lap => 
+
+    updatedLaps = updatedLaps.map(lap =>
       lap.isActive ? {
         ...lap,
         distanceMeters: lap.distanceMeters + distanceDeltaMeters,
-        durationSeconds: duration,
-        splitPace: pace
+        splitPace: smoothedPace,
       } : lap
     );
-    
-    // Check for distance-based auto-lap trigger
+
     if (settings.autoLapMode === 'distance' && settings.autoLapValue > 0) {
       const activeLap = updatedLaps.find(lap => lap.isActive);
       if (activeLap) {
-        // Check if distance threshold reached (convert km to meters)
         const thresholdMeters = settings.autoLapValue * 1000;
-        console.log(`[Auto-Lap] Checking Distance: Current ${activeLap.distanceMeters.toFixed(2)}m vs Target ${thresholdMeters}m`);
-        
         if (activeLap.distanceMeters >= thresholdMeters) {
-          console.log(`[Auto-Lap] Distance threshold reached! Triggering lap.`);
-          // Trigger lap automatically
           get().triggerLap();
-          return; // Exit early since triggerLap will update state
+          return;
         }
       }
     }
-    
+
     set({
-      currentPace: pace,
+      currentPace: smoothedPace,
+      paceHistory: newHistory,
       laps: updatedLaps,
-      totalCalories: calculatedCalories
+      totalCalories: calculatedCalories,
     });
   },
   
@@ -591,6 +595,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     set({
       laps: [],
       currentPace: 0,
+      paceHistory: [],
       routeCoords: [],
       routeZones: [],
       activeRoutePath: [],
@@ -598,6 +603,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       lastCompletedLap: null,
       lastPosition: null,
       totalCalories: 0,
+      isMapFollowEnabled: true,
       currentWorkout: null,
       currentBlockIndex: 0,
       blockElapsedSeconds: 0,
@@ -705,12 +711,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         // Unified completion sync: dailyActivity + dailyProgress + streaks + session flag
         const durationMinutes = Math.max(Math.round(sessionState.totalDuration / 60), 1);
         const { syncWorkoutCompletion } = await import('@/features/workout-engine/services/completion-sync.service');
+        const totalDistanceKm = sessionState.totalDistance ?? 0;
         await syncWorkoutCompletion({
           workoutType: 'running',
           durationMinutes,
           calories: finalCalories,
           activityCategory: 'cardio',
           displayIcon: 'run-fast',
+          distanceKm: totalDistanceKm,
         }).catch((error) => {
           console.error('[useRunningPlayer] Error in syncWorkoutCompletion:', error);
         });
@@ -727,6 +735,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       }
     }
   },
+
+  setMapFollowEnabled: (v) => set({ isMapFollowEnabled: v }),
 
   // ── Planned Run Actions ────────────────────────────────────────────
 
@@ -750,12 +760,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     if (!currentWorkout) return;
 
     const nextIndex = currentBlockIndex + 1;
-    if (nextIndex >= currentWorkout.blocks.length) {
-      return;
-    }
+    if (nextIndex >= currentWorkout.blocks.length) return;
 
     set({
       currentBlockIndex: nextIndex,
+      blockElapsedSeconds: 0,
+      blockElapsedMeters: 0,
+    });
+  },
+
+  jumpToBlock: (targetIndex) => {
+    const { currentWorkout } = get();
+    if (!currentWorkout || targetIndex < 0 || targetIndex >= currentWorkout.blocks.length) return;
+    set({
+      currentBlockIndex: targetIndex,
       blockElapsedSeconds: 0,
       blockElapsedMeters: 0,
     });

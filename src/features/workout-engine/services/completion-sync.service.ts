@@ -11,6 +11,7 @@
 
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
+import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 
 export type CompletionWorkoutType = 'strength' | 'running' | 'walking' | 'cycling' | 'hybrid';
@@ -21,6 +22,8 @@ export interface CompletionPayload {
   calories: number;
   activityCategory: ActivityCategory;
   displayIcon: string;
+  /** Distance in km (running workouts) */
+  distanceKm?: number;
   /** Workout title for post-workout card (e.g. "אימון רגליים קשה") */
   workoutTitle?: string;
   /** Thumbnail URL for the completed workout hero image */
@@ -36,6 +39,12 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
     payload.durationMinutes,
     payload.calories,
   );
+
+  // 1b. Weekly Volume Store → running distance/duration tracking
+  if (payload.workoutType === 'running') {
+    const distanceKm = payload.distanceKm ?? (payload.durationMinutes / 6);
+    useWeeklyVolumeStore.getState().recordRunningSession(distanceKm, payload.durationMinutes);
+  }
 
   // 2. Progression Store → dailyProgress + goalHistory (Firestore write)
   await useProgressionStore.getState().markTodayAsCompleted(payload.workoutType).catch((err) => {

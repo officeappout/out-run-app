@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import OnboardingStoryBar from './OnboardingStoryBar';
+import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '../constants/onboarding-phases';
 
 interface ResultLoadingProps {
   targetLevel: number;
@@ -83,37 +85,14 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
       }}
       dir={direction}
     >
-      {/* 3-Segment Progress Bar at top */}
-      <div className="absolute top-0 left-0 right-0 px-4 pt-3 pb-2">
-        <div className={`flex gap-1.5 ${direction === 'rtl' ? 'flex-row-reverse' : 'flex-row'}`}>
-          {[0, 1, 2].map((index) => {
-            // In RTL: index 0 is rightmost (phase 1), in LTR: index 0 is leftmost (phase 1)
-            const segmentPhase = direction === 'rtl' ? 2 - index : index;
-            let fillPercent = 0;
-            
-            if (segmentPhase === 0) {
-              // Phase 1 - filling to 100% during calculation
-              fillPercent = progress;
-            } else {
-              // Future phases
-              fillPercent = 0;
-            }
-            
-            return (
-              <div
-                key={index}
-                className="h-1.5 flex-1 rounded-full bg-slate-200 overflow-hidden"
-              >
-                <motion.div
-                  className="h-full rounded-full bg-[#5BC2F2]"
-                  initial={{ width: '30%' }}
-                  animate={{ width: `${fillPercent}%` }}
-                  transition={{ duration: 0.1 }}
-                />
-              </div>
-            );
-          })}
-        </div>
+      {/* Unified 5-phase story bar — Phase 4 filling as analysis progresses */}
+      <div className="absolute top-0 left-0 right-0 z-20" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <OnboardingStoryBar
+          totalPhases={TOTAL_PHASES}
+          currentPhase={STRENGTH_PHASES.RESULT}
+          phaseFillPercent={progress}
+          phaseLabel={STRENGTH_LABELS[STRENGTH_PHASES.RESULT]}
+        />
       </div>
 
       {/* Central Content */}

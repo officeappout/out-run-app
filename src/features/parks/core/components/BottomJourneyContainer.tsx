@@ -10,8 +10,6 @@ interface BottomJourneyContainerProps {
   routes: Route[];
   currentActivity: ActivityType;
   onActivityChange: (type: ActivityType) => void;
-  userLocation: { lat: number, lng: number } | null;
-  onRouteUpdated?: (routeId: string, newPath: [number, number][], newDistance?: number) => void;
   onShuffle?: () => void;
   onRouteFocus?: (route: Route) => void;
   focusedRouteId?: string | null;
@@ -27,7 +25,6 @@ export default function BottomJourneyContainer({
   routes,
   currentActivity,
   onActivityChange,
-  userLocation,
   onShuffle,
   onRouteFocus,
   focusedRouteId,

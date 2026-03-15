@@ -191,11 +191,11 @@ export async function generateHomeWorkout(
   // Difficulty is NOT forced to 1 — difficulty is irrelevant for recovery days
   // because the pool is stripped to cooldown/flexibility/warmup exercises.
   // Difficulty 1 = light strength workout (separate concept).
-  const fallbackProgram = userProfile.progression?.activePrograms?.[0]?.templateId || 'full_body';
+  const fallbackProgram = userProfile.progression?.activePrograms?.[0]?.templateId;
   const effectiveProgramIds =
     scheduledProgramIds?.length
       ? scheduledProgramIds
-      : [fallbackProgram];
+      : fallbackProgram ? [fallbackProgram] : [];
 
   const effectiveProfile: typeof userProfile = {
     ...userProfile,
@@ -1209,8 +1209,8 @@ async function _buildSharedPipeline(
   } = options;
 
   // ── 0. UTS Schedule Override ──────────────────────────────────────────
-  const fallbackProgram = userProfile.progression?.activePrograms?.[0]?.templateId || 'full_body';
-  const effectiveProgramIds = scheduledProgramIds?.length ? scheduledProgramIds : [fallbackProgram];
+  const fallbackProgram = userProfile.progression?.activePrograms?.[0]?.templateId;
+  const effectiveProgramIds = scheduledProgramIds?.length ? scheduledProgramIds : fallbackProgram ? [fallbackProgram] : [];
 
   const effectiveProfile: typeof userProfile = {
     ...userProfile,

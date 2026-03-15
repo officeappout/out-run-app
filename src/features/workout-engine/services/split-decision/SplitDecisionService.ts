@@ -217,15 +217,96 @@ export interface GetWorkoutContextInput {
 }
 
 /**
- * Get the full split workout context for workout generation.
- *
- * @param input.userProfile - Full user profile
- * @param input.weeklyBudget - Weekly set budget (from Lead Program or calculateWeeklyBudget)
- * @param input.selectedDate - ISO date 'YYYY-MM-DD' for generation
- * @returns SplitWorkoutContext with splitType, excludedMuscleGroups, dailySetBudget, etc.
+ * Detect domain deficits and determine if session merging is needed.
+ * Compares completed sets per domain against expected weekly budget.
+ * Returns the most-underserved domain if deficit exceeds 40% of weekly target.
  */
+function detectDomainDeficit(
+  domainSetsCompletedThisWeek: Record<string, number>,
+  aggregateBudgetInfo: AggregateBudgetInfo | undefined,
+  remainingScheduleDays: number,
+): { deficitDomain: string; deficitSets: number; deficitPercent: number } | undefined {
+  if (!aggregateBudgetInfo || remainingScheduleDays <= 0) return undefined;
+
+  const DEFICIT_THRESHOLD_PERCENT = 0.4;
+  let worstDomain: string | undefined;
+  let worstDeficitPercent = 0;
+  let worstDeficitSets = 0;
+
+  for (const db of aggregateBudgetInfo.domainBudgets) {
+    const completed = domainSetsCompletedThisWeek[db.domain] ?? 0;
+    const expected = db.weekly;
+    if (expected <= 0) continue;
+
+    const deficit = expected - completed;
+    const deficitPercent = deficit / expected;
+
+    if (deficitPercent > DEFICIT_THRESHOLD_PERCENT && deficitPercent > worstDeficitPercent) {
+      worstDomain = db.domain;
+      worstDeficitPercent = deficitPercent;
+      worstDeficitSets = deficit;
+    }
+  }
+
+  if (!worstDomain) return undefined;
+
+  return {
+    deficitDomain: worstDomain,
+    deficitSets: worstDeficitSets,
+    deficitPercent: worstDeficitPercent,
+  };
+}
+
+/**
+ * Apply smart merging: if a domain has a significant deficit, override the
+ * session type to broaden coverage. For example, a 'pull' deficit when the
+ * next session is 'push' → upgrade to 'upper_lower' to catch up on pull.
+ */
+function applySmartMerge(
+  sessionType: SessionType,
+  deficit: { deficitDomain: string; deficitSets: number; deficitPercent: number },
+): { mergedSessionType: SessionType; mergeApplied: boolean } {
+  const PUSH_DOMAINS = new Set(['push']);
+  const PULL_DOMAINS = new Set(['pull']);
+  const UPPER_DOMAINS = new Set(['push', 'pull']);
+  const LOWER_DOMAINS = new Set(['legs', 'core']);
+
+  const domain = deficit.deficitDomain;
+  const isUpperSession = ['push_pull_mixed', 'push_pull_rotation', 'upper_lower'].includes(sessionType);
+  const isFullBody = sessionType.startsWith('full_body');
+
+  if (isFullBody) return { mergedSessionType: sessionType, mergeApplied: false };
+
+  if (UPPER_DOMAINS.has(domain) && !isUpperSession) {
+    console.log(
+      `[Smart Merge] Domain "${domain}" deficit ${Math.round(deficit.deficitPercent * 100)}% → ` +
+      `upgrading ${sessionType} to full_body_high for catch-up`,
+    );
+    return { mergedSessionType: 'full_body_high', mergeApplied: true };
+  }
+
+  if (LOWER_DOMAINS.has(domain) && isUpperSession) {
+    console.log(
+      `[Smart Merge] Domain "${domain}" deficit ${Math.round(deficit.deficitPercent * 100)}% → ` +
+      `upgrading ${sessionType} to full_body_high for catch-up`,
+    );
+    return { mergedSessionType: 'full_body_high', mergeApplied: true };
+  }
+
+  if ((PUSH_DOMAINS.has(domain) || PULL_DOMAINS.has(domain)) && sessionType === 'push_pull_legs') {
+    console.log(
+      `[Smart Merge] Domain "${domain}" deficit ${Math.round(deficit.deficitPercent * 100)}% → ` +
+      `shifting push_pull_legs priority to include ${domain}`,
+    );
+    return { mergedSessionType: 'upper_lower', mergeApplied: true };
+  }
+
+  return { mergedSessionType: sessionType, mergeApplied: false };
+}
+
 export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutContext {
-  const { userProfile, weeklyBudget, selectedDate, aggregateBudgetInfo } = input;
+  const { userProfile, weeklyBudget, selectedDate, aggregateBudgetInfo,
+          domainSetsCompletedThisWeek, remainingScheduleDays } = input;
   const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 3;
   const userLevel = getBaseUserLevel(userProfile);
 
@@ -246,7 +327,25 @@ export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutCo
 
   const freqIndex = getFrequencyIndex(scheduleDays);
   const levelTier = getLevelTier(userLevel);
-  const sessionType = SPLIT_MATRIX[freqIndex]?.[levelTier] ?? 'full_body_ab';
+  let sessionType: SessionType = SPLIT_MATRIX[freqIndex]?.[levelTier] ?? 'full_body_ab';
+
+  // ── Smart Merging: volume-based recovery ──────────────────────────────
+  let mergeApplied = false;
+  if (domainSetsCompletedThisWeek && remainingScheduleDays != null && remainingScheduleDays > 0) {
+    const deficit = detectDomainDeficit(
+      domainSetsCompletedThisWeek,
+      aggregateBudgetInfo,
+      remainingScheduleDays,
+    );
+    if (deficit) {
+      const merge = applySmartMerge(sessionType, deficit);
+      if (merge.mergeApplied) {
+        sessionType = merge.mergedSessionType;
+        mergeApplied = true;
+      }
+    }
+  }
+
   const splitLogic = resolveSplitLogic(sessionType);
 
   const scheduleDaysForBudget = Math.max(1, scheduleDays);

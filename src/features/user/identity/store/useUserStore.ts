@@ -134,9 +134,11 @@ export const useUserStore = create<UserState>()(
       profile: null,
       _hasHydrated: false,
 
-      // אתחול פרופיל (מהשירות onboarding)
       initializeProfile: (profile: UserFullProfile) => {
-        // שמירה ב-localStorage דרך persist middleware
+        const firebaseUid = auth.currentUser?.uid;
+        if (firebaseUid && profile.id !== firebaseUid) {
+          profile = { ...profile, id: firebaseUid };
+        }
         set({ profile, _hasHydrated: true });
       },
 
@@ -253,9 +255,15 @@ export const useUserStore = create<UserState>()(
           console.error('Error rehydrating user store:', error);
           return;
         }
-        // לאחר טעינת הנתונים מה-localStorage
         if (state) {
           state.setHasHydrated(true);
+
+          const profile = state.profile;
+          const firebaseUid = auth.currentUser?.uid;
+          if (profile && firebaseUid && profile.id !== firebaseUid) {
+            console.log(`[useUserStore] Correcting stale profile.id: "${profile.id}" → "${firebaseUid}"`);
+            useUserStore.setState({ profile: { ...profile, id: firebaseUid } });
+          }
         }
       },
     }

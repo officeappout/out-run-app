@@ -8,6 +8,8 @@ import {
   saveVisualContent,
   deleteVisualContent,
   seedPlaceholderContent,
+  purgeLevelsAbove,
+  purgeCategory,
 } from '@/features/user/onboarding/services/visual-assessment-content.service';
 import type {
   VisualAssessmentContent,
@@ -34,18 +36,13 @@ import {
   Globe,
   Link2,
 } from 'lucide-react';
+import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
+import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const PRIMARY_CATEGORIES = ['push', 'pull', 'legs', 'core'];
 const DEFAULT_MAX_LEVELS = 25;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  push: 'דחיפה (Push)',
-  pull: 'משיכה (Pull)',
-  legs: 'רגליים (Legs)',
-  core: 'ליבה (Core)',
-};
 
 const GENDER_OPTIONS: { value: VideoVariant['gender']; label: string }[] = [
   { value: 'all', label: 'הכל' },
@@ -104,6 +101,17 @@ export default function VisualAssessmentAdminPage() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [programsLoading, setProgramsLoading] = useState(true);
 
+  // Exercises
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+
+  // Toast
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
   // Filters
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterMissing, setFilterMissing] = useState(false);
@@ -117,14 +125,22 @@ export default function VisualAssessmentAdminPage() {
   const [newCategory, setNewCategory] = useState('');
   const [newLevel, setNewLevel] = useState(1);
 
-  // Child programs (isMaster === false) for category selection
-  const childPrograms = useMemo(() => programs.filter(p => !p.isMaster), [programs]);
+  // All assignable programs — non-master child programs + any program that
+  // already has visual assessment content (so legacy/skill docs are visible).
+  const assignablePrograms = useMemo(() => {
+    const nonMaster = programs.filter(p => !p.isMaster);
+    const existingCategoryIds = new Set(items.map(i => i.category));
+    const extras = programs.filter(
+      p => p.isMaster && existingCategoryIds.has(p.id) && !nonMaster.some(c => c.id === p.id),
+    );
+    return [...nonMaster, ...extras];
+  }, [programs, items]);
 
-  // Build a category → display label map from programs
+  // Build category → display label map purely from program data
   const categoryLabelMap = useMemo(() => {
-    const map: Record<string, string> = { ...CATEGORY_LABELS };
+    const map: Record<string, string> = {};
     for (const p of programs) {
-      if (!map[p.id]) map[p.id] = p.name;
+      map[p.id] = p.name;
     }
     return map;
   }, [programs]);
@@ -145,7 +161,11 @@ export default function VisualAssessmentAdminPage() {
     finally { setProgramsLoading(false); }
   }, []);
 
-  useEffect(() => { loadData(); loadPrograms(); }, [loadData, loadPrograms]);
+  const loadExercises = useCallback(async () => {
+    try { setExercises(await getAllExercises()); } catch (err) { console.error('Failed to load exercises:', err); }
+  }, []);
+
+  useEffect(() => { loadData(); loadPrograms(); loadExercises(); }, [loadData, loadPrograms, loadExercises]);
 
   const programMap = useMemo(() => {
     const map = new Map<string, Program>();
@@ -194,6 +214,109 @@ export default function VisualAssessmentAdminPage() {
     finally { setSaving(false); }
   };
 
+  const handleSeedProgram = async () => {
+    if (!newCategory) return;
+    const prog = programMap.get(newCategory);
+    const maxLvl = prog?.maxLevels ?? DEFAULT_MAX_LEVELS;
+    const displayName = prog?.name ?? newCategory;
+
+    const existingIds = new Set(items.map(i => i.id));
+    const toCreate: number[] = [];
+    for (let l = 1; l <= maxLvl; l++) {
+      if (!existingIds.has(`${newCategory}_${l}`)) toCreate.push(l);
+    }
+
+    if (toCreate.length === 0) {
+      alert(`כל ${maxLvl} הרמות כבר קיימות עבור ${displayName}`);
+      return;
+    }
+
+    if (!confirm(`ליצור ${toCreate.length} רמות חדשות (מתוך ${maxLvl}) עבור "${displayName}"?`)) return;
+
+    setSaving(true);
+    try {
+      for (const level of toCreate) {
+        await saveVisualContent({
+          category: newCategory,
+          level,
+          videoVariants: [],
+          boldTitle: { he: { neutral: `${displayName} — רמה ${level}` }, en: { neutral: `${displayName} — Level ${level}` } },
+          detailedDescription: emptyMultilingualText(),
+          linkedProgramId: prog ? prog.id : undefined,
+        });
+      }
+      showToast(`✅ נוצרו ${toCreate.length} רמות עבור ${displayName}`);
+      await loadData();
+      setShowAddNew(false);
+    } catch (error) { console.error('[AdminVisualAssessment] Seed program error:', error); alert('שגיאה ביצירת רמות'); }
+    finally { setSaving(false); }
+  };
+
+  const handlePurgeLegacy = async () => {
+    const toPurge = assignablePrograms.filter(p => {
+      const max = p.maxLevels ?? DEFAULT_MAX_LEVELS;
+      return items.some(i => i.category === p.id && i.level > max);
+    });
+
+    if (toPurge.length === 0) {
+      alert('אין מסמכים לגזום — כל הרמות בטווח מקסימלי.');
+      return;
+    }
+
+    const summary = toPurge.map(p => {
+      const max = p.maxLevels ?? DEFAULT_MAX_LEVELS;
+      const excess = items.filter(i => i.category === p.id && i.level > max).length;
+      return `${p.name}: ${excess} רמות מעל ${max}`;
+    }).join('\n');
+
+    if (!confirm(`למחוק רמות עודפות?\n\n${summary}`)) return;
+
+    setSaving(true);
+    let totalDeleted = 0;
+    try {
+      for (const p of toPurge) {
+        const max = p.maxLevels ?? DEFAULT_MAX_LEVELS;
+        const deleted = await purgeLevelsAbove(p.id, max);
+        totalDeleted += deleted;
+      }
+      showToast(`🗑️ נמחקו ${totalDeleted} רמות עודפות`);
+      await loadData();
+    } catch (error) { console.error('[AdminVisualAssessment] Purge error:', error); alert('שגיאה במחיקה'); }
+    finally { setSaving(false); }
+  };
+
+  // Ghost / orphan categories — categories found in items but not matching any program ID
+  const orphanCategories = useMemo(() => {
+    const programIds = new Set(programs.map(p => p.id));
+    return [...new Set(items.map(i => i.category))].filter(c => !programIds.has(c));
+  }, [items, programs]);
+
+  const handlePurgeGhosts = async () => {
+    if (orphanCategories.length === 0) {
+      alert('אין קטגוריות יתומות — הכל מסונכרן.');
+      return;
+    }
+
+    const summary = orphanCategories.map(cat => {
+      const count = items.filter(i => i.category === cat).length;
+      return `"${cat}": ${count} מסמכים`;
+    }).join('\n');
+
+    if (!confirm(`למחוק את כל המסמכים בקטגוריות יתומות (לא מקושרות לתוכנית)?\n\n${summary}\n\nפעולה זו בלתי הפיכה!`)) return;
+
+    setSaving(true);
+    let totalDeleted = 0;
+    try {
+      for (const cat of orphanCategories) {
+        const deleted = await purgeCategory(cat);
+        totalDeleted += deleted;
+      }
+      showToast(`🗑️ נמחקו ${totalDeleted} מסמכי רפאים`);
+      await loadData();
+    } catch (error) { console.error('[AdminVisualAssessment] Ghost purge error:', error); alert('שגיאה במחיקה'); }
+    finally { setSaving(false); }
+  };
+
   // ── Edit ────────────────────────────────────────────────────────
 
   const handleStartEdit = (item: VisualAssessmentContent) => {
@@ -212,6 +335,7 @@ export default function VisualAssessmentAdminPage() {
       console.log('[AdminVisualAssessment] handleSave — payload snapshot:', {
         category: payload.category,
         level: payload.level,
+        exerciseId: payload.exerciseId ?? '(none)',
         videoVariantsCount: payload.videoVariants?.length ?? 0,
         videoVariantsDetail: (payload.videoVariants ?? []).map(v => ({
           id: v.id,
@@ -228,6 +352,7 @@ export default function VisualAssessmentAdminPage() {
       }
 
       await saveVisualContent(payload);
+      showToast('✅ נשמר בהצלחה');
       await loadData();
       setEditingId(null);
       setEditForm(null);
@@ -360,6 +485,13 @@ export default function VisualAssessmentAdminPage() {
 
   return (
     <div dir="rtl" className="max-w-6xl mx-auto">
+      {/* Success toast */}
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-xl text-sm font-bold animate-bounce">
+          {toast}
+        </div>
+      )}
+
       {/* Header + Context */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
         <div>
@@ -377,11 +509,25 @@ export default function VisualAssessmentAdminPage() {
             <Plus size={16} /> הוסף רמה חדשה
           </button>
           {isSuperAdmin && (
-            <button onClick={handleSeed} disabled={seeding}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 text-sm">
-              {seeding ? <Loader2 size={16} className="animate-spin" /> : <Database size={16} />}
-              <span>{seeding ? 'יוצר...' : 'זרע תבניות בסיס'}</span>
-            </button>
+            <>
+              <button onClick={handleSeed} disabled={seeding}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 text-sm">
+                {seeding ? <Loader2 size={16} className="animate-spin" /> : <Database size={16} />}
+                <span>{seeding ? 'יוצר...' : 'זרע תבניות בסיס'}</span>
+              </button>
+              <button type="button" onClick={handlePurgeLegacy} disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-50 text-sm">
+                <Trash2 size={16} />
+                <span>גזום רמות עודפות</span>
+              </button>
+              {orphanCategories.length > 0 && (
+                <button type="button" onClick={handlePurgeGhosts} disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-xl font-medium hover:bg-red-900 transition-colors disabled:opacity-50 text-sm">
+                  <Trash2 size={16} />
+                  <span>מחק רפאים ({orphanCategories.length})</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -399,7 +545,7 @@ export default function VisualAssessmentAdminPage() {
                 <select value={newCategory} onChange={e => { setNewCategory(e.target.value); setNewLevel(1); }}
                   className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white" disabled={programsLoading}>
                   <option value="">— בחר תוכנית —</option>
-                  {childPrograms.map(p => (
+                  {assignablePrograms.map(p => (
                     <option key={p.id} value={p.id}>{p.name}{p.movementPattern ? ` (${p.movementPattern})` : ''}</option>
                   ))}
                 </select>
@@ -411,10 +557,14 @@ export default function VisualAssessmentAdminPage() {
                   className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm text-center" disabled={!newCategory} />
                 {selectedProg && <p className="text-[10px] !text-slate-400 mt-0.5">מקסימום {maxLvl} רמות עבור {selectedProg.name}</p>}
               </div>
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-2 flex-wrap">
                 <button onClick={handleAddNewLevel} disabled={saving || !newCategory}
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} צור
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} צור רמה
+                </button>
+                <button type="button" onClick={handleSeedProgram} disabled={saving || !newCategory}
+                  className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 disabled:opacity-50">
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />} צור כל הרמות
                 </button>
                 <button onClick={() => setShowAddNew(false)} className="px-4 py-2 bg-slate-200 !text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-300">ביטול</button>
               </div>
@@ -428,13 +578,20 @@ export default function VisualAssessmentAdminPage() {
         <Filter size={16} className="!text-slate-400" />
         <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
           className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm !text-slate-800 focus:ring-2 focus:ring-cyan-400 outline-none">
-          <option value="all">כל הקטגוריות</option>
-          {/* Dynamic categories from child programs */}
-          {childPrograms.map(p => <option key={p.id} value={p.id}>{p.name}{p.movementPattern ? ` (${p.movementPattern})` : ''}</option>)}
-          {/* Legacy categories from existing data not matching a child program id */}
-          {[...new Set(items.map(i => i.category))].filter(c => !childPrograms.some(p => p.id === c)).map(cat => (
-            <option key={cat} value={cat}>{categoryLabelMap[cat] ?? cat}</option>
-          ))}
+          <option value="all">כל הקטגוריות ({items.length})</option>
+          {/* Real programs only */}
+          {assignablePrograms.map(p => {
+            const count = items.filter(i => i.category === p.id).length;
+            return <option key={p.id} value={p.id}>{p.name}{p.movementPattern ? ` (${p.movementPattern})` : ''} [{count}]</option>;
+          })}
+          {/* Orphan / ghost categories — marked for deletion */}
+          {orphanCategories.length > 0 && (
+            <option disabled>── רפאים (למחיקה) ──</option>
+          )}
+          {orphanCategories.map(cat => {
+            const count = items.filter(i => i.category === cat).length;
+            return <option key={cat} value={cat}>⚠️ {cat} [{count}]</option>;
+          })}
         </select>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={filterMissing} onChange={e => setFilterMissing(e.target.checked)}
@@ -443,6 +600,45 @@ export default function VisualAssessmentAdminPage() {
         </label>
         <span className="text-sm !text-slate-400 mr-auto">{filteredItems.length} תוצאות</span>
       </div>
+
+      {/* Ghost Categories Warning */}
+      {orphanCategories.length > 0 && (
+        <div className="flex items-center gap-3 p-4 mb-4 bg-red-50 border-2 border-red-200 rounded-2xl">
+          <span className="text-2xl">👻</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold !text-red-800">
+              {orphanCategories.length} קטגוריות רפאים: {orphanCategories.map(c => `"${c}"`).join(', ')}
+            </p>
+            <p className="text-xs !text-red-600 mt-0.5">
+              מסמכים אלו לא מקושרים לשום תוכנית ולא ייטענו באונבורדינג. לחץ &quot;מחק רפאים&quot; לניקוי.
+            </p>
+          </div>
+          <button type="button" onClick={handlePurgeGhosts} disabled={saving}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50 whitespace-nowrap">
+            מחק {items.filter(i => orphanCategories.includes(i.category)).length} מסמכים
+          </button>
+        </div>
+      )}
+
+      {/* Program Summary Chips */}
+      {filterCategory === 'all' && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {assignablePrograms.map(p => {
+            const total = p.maxLevels ?? DEFAULT_MAX_LEVELS;
+            const existing = items.filter(i => i.category === p.id).length;
+            const withVideo = items.filter(i => i.category === p.id && i.videoVariants.length > 0).length;
+            return (
+              <button key={p.id} onClick={() => setFilterCategory(p.id)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-slate-200 hover:border-cyan-400 transition-colors text-xs font-bold !text-slate-700">
+                <span>{p.name}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${existing === 0 ? 'bg-slate-100 !text-slate-400' : withVideo === existing ? 'bg-emerald-100 !text-emerald-700' : 'bg-amber-100 !text-amber-700'}`}>
+                  {withVideo}/{existing}/{total}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Content List */}
       <div className="space-y-3">
@@ -462,10 +658,16 @@ export default function VisualAssessmentAdminPage() {
                 {/* Row header */}
                 <div className="flex items-center gap-4 px-5 py-4">
                   <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide ${
-                    item.category === 'push' ? 'bg-red-100 !text-red-700' :
-                    item.category === 'pull' ? 'bg-blue-100 !text-blue-700' :
-                    item.category === 'legs' ? 'bg-green-100 !text-green-700' :
-                    item.category === 'core' ? 'bg-orange-100 !text-orange-700' : 'bg-slate-100 !text-slate-700'
+                    (() => {
+                      const pattern = programMap.get(item.category)?.movementPattern ?? item.category;
+                      switch (pattern) {
+                        case 'push': return 'bg-red-100 !text-red-700';
+                        case 'pull': return 'bg-blue-100 !text-blue-700';
+                        case 'legs': return 'bg-green-100 !text-green-700';
+                        case 'core': return 'bg-orange-100 !text-orange-700';
+                        default:     return 'bg-violet-100 !text-violet-700';
+                      }
+                    })()
                   }`}>{categoryLabelMap[item.category] ?? item.category}</span>
 
                   <span className="text-lg font-black !text-slate-800 min-w-[60px]">רמה {item.level}</span>
@@ -478,6 +680,25 @@ export default function VisualAssessmentAdminPage() {
                     </span>
                   )}
 
+                  {/* Linked exercise badge */}
+                  {item.showInOnboarding && (
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-100 !text-cyan-700 text-[10px] font-bold">
+                      👁️ אונבורדינג
+                    </span>
+                  )}
+
+                  {item.onboardingBubbleText && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 !text-amber-700 text-[10px] font-bold max-w-[120px] truncate">
+                      💬 {item.onboardingBubbleText}
+                    </span>
+                  )}
+
+                  {item.exerciseId && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 !text-emerald-700 text-[10px] font-bold">
+                      🎬 {exercises.find(e => e.id === item.exerciseId)?.name?.he ?? item.exerciseId}
+                    </span>
+                  )}
+
                   <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                     item.videoVariants.length > 0 ? 'bg-emerald-100 !text-emerald-700' : 'bg-slate-100 !text-slate-400'
                   }`}>{item.videoVariants.length} וידאו</span>
@@ -485,11 +706,11 @@ export default function VisualAssessmentAdminPage() {
                   <div className="flex gap-1">
                     {isEditing ? (
                       <>
-                        <button onClick={handleSave} disabled={saving}
+                        <button type="button" onClick={handleSave} disabled={saving}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-white rounded-lg text-sm font-medium hover:bg-cyan-600 disabled:opacity-50 transition-colors">
                           {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} שמור
                         </button>
-                        <button onClick={handleCancelEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 rounded-lg text-sm font-medium hover:bg-slate-300 !text-slate-700 transition-colors">
+                        <button type="button" onClick={handleCancelEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 rounded-lg text-sm font-medium hover:bg-slate-300 !text-slate-700 transition-colors">
                           <X size={14} /> ביטול
                         </button>
                       </>
@@ -534,6 +755,65 @@ export default function VisualAssessmentAdminPage() {
                           </select>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Show in Onboarding toggle */}
+                    <label className="flex items-center gap-3 px-4 py-3 bg-cyan-50 border border-cyan-200 rounded-xl cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editForm.showInOnboarding ?? false}
+                        onChange={e => setEditForm({ ...editForm, showInOnboarding: e.target.checked })}
+                        className="w-5 h-5 rounded border-cyan-300 text-cyan-600 focus:ring-cyan-400"
+                      />
+                      <div>
+                        <span className="text-sm font-bold !text-cyan-800">👁️ הצג באונבורדינג (Simple Mode)</span>
+                        <p className="text-[11px] !text-cyan-600 mt-0.5">כשמופעל, הרמה תופיע בסליידר הפשוט בזמן ההרשמה</p>
+                      </div>
+                    </label>
+
+                    {/* Onboarding Bubble Text */}
+                    <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-bold text-amber-700">
+                        💬 טקסט בועה באונבורדינג
+                      </div>
+                      <input
+                        type="text"
+                        value={editForm.onboardingBubbleText ?? ''}
+                        onChange={e => setEditForm({ ...editForm, onboardingBubbleText: e.target.value })}
+                        placeholder="לדוגמה: ״אני יכול/ה לעשות שכיבות סמיכה רגילות״"
+                        className="w-full px-3 py-2 rounded-xl border border-amber-200 text-sm bg-white"
+                        dir="rtl"
+                      />
+                      <p className="text-[11px] text-amber-600">
+                        הטקסט יוצג בבועה הצפה מעל הסליידר באונבורדינג. השאירו ריק כדי להציג את תיאור הרמה.
+                      </p>
+                    </div>
+
+                    {/* Exercise Linking */}
+                    <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-bold text-emerald-700">
+                        🎬 קישור תרגיל
+                      </div>
+                      <ExerciseAutocomplete
+                        exercises={exercises}
+                        selectedId={editForm.exerciseId || ''}
+                        onChange={(exerciseId) =>
+                          setEditForm({ ...editForm, exerciseId })
+                        }
+                        placeholder="חפש תרגיל לקישור..."
+                      />
+                      {editForm.exerciseId && (
+                        <button
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, exerciseId: null })}
+                          className="text-xs text-red-500 hover:text-red-700 underline"
+                        >
+                          הסר קישור תרגיל
+                        </button>
+                      )}
+                      <p className="text-xs text-emerald-600">
+                        קישור תרגיל ישויך לרמה הנוכחית — הסרטון שלו ישמש כ-fallback באונבורדינג.
+                      </p>
                     </div>
 
                     {/* Bold Title — Multilingual */}

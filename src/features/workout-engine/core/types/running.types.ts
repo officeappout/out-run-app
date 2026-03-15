@@ -21,9 +21,17 @@ export interface RunningOnboardingData {
     canRunContinuous: boolean;
     continuousTimeMinutes: number;
     referencePace?: string;
+    /** Beginner ability tier: 'none' | '5_15' | '15_30' | '30_45' | '45_plus' */
+    abilityTier?: 'none' | '5_15' | '15_30' | '30_45' | '45_plus';
   };
-  targetDistance: 3 | 5 | 10;
+  targetDistance: '2k' | '3k' | '5k' | '10k' | 'maintenance';
   weeklyFrequency: 1 | 2 | 3 | 4;
+  /** How many months the runner has been training consistently. */
+  runningHistoryMonths: number;
+  /** Whether the runner has current injuries that require safety restrictions. */
+  hasInjuries: boolean;
+  /** Runner goal path from the decision tree. */
+  goalPath?: 'start_running' | 'improve_time' | 'maintain_fitness';
 }
 
 // ==========================================
@@ -249,9 +257,10 @@ export type ProgressionRule =
 
 export interface VolumeCap {
   type: 'cap';
-  target: 'weekly_volume' | 'single_run' | 'sets_per_block' | 'total_session';
+  target: 'weekly_volume' | 'single_run' | 'sets_per_block' | 'total_session' | 'weekly_distance' | 'single_run_distance';
+  /** For time-based targets: minutes. For distance targets: meters. For sets: count. */
   maxValue: number;
-  maxWeeklyIncreasePercent: number;
+  maxWeeklyIncreasePercent?: number;
 }
 
 // ── Week Slots & Phases ──────────────────────────────────────────────
@@ -287,6 +296,7 @@ export interface WeekIntensityBreakdown {
   easyMinutes: number;
   hardMinutes: number;
   hardPercent: number;
+  totalKm: number;
   isValid: boolean;
 }
 
@@ -307,6 +317,12 @@ export interface RunWorkoutTemplate {
   /** Lower = preferred when multiple templates match a pool slot. */
   priority?: number;
   category?: WorkoutCategory;
+  /** Semantic tags for filtering — e.g. 'beginner_only', 'speed', 'elite'. */
+  tags?: string[];
+  /** Progressive intensity rank (1 = easiest variant, higher = harder).
+   *  Used by selectWorkoutFromPool to prefer easier variants early in a phase
+   *  and harder variants later. */
+  intensityRank?: number;
 }
 
 export interface RunProgramWeekTemplate {
@@ -317,7 +333,7 @@ export interface RunProgramWeekTemplate {
 export interface RunProgramTemplate {
   id: string;
   name: string;
-  targetDistance: '3k' | '5k' | '10k' | 'maintenance';
+  targetDistance: '2k' | '3k' | '5k' | '10k' | 'maintenance';
   targetProfileTypes: RunnerProfileType[];
   canonicalWeeks: number;
   canonicalFrequency: 2 | 3 | 4;
@@ -326,6 +342,10 @@ export interface RunProgramTemplate {
   progressionRules: ProgressionRule[];
   phases?: ProgramPhase[];
   volumeCaps?: VolumeCap[];
+  /** Hard ceiling on intensityRank for workout selection. Set by PlanGenerator for novice runners. */
+  maxIntensityRank?: number;
+  /** Categories to exclude from workout selection (e.g. hill_sprints for injured runners). */
+  excludeCategories?: WorkoutCategory[];
 }
 
 // ==========================================
@@ -340,6 +360,8 @@ export interface ActiveRunningProgram {
     day: number;
     workoutId: string;
     status: 'pending' | 'completed' | 'skipped' | 'swapped';
+    category?: WorkoutCategory;
+    workoutName?: string;
     actualPerformance?: {
       avgPace: number;
       completionRate: number;
@@ -355,4 +377,11 @@ export interface RunningProfile {
   currentGoal: RunnerGoal;
   paceProfile?: PaceProfile;
   activeProgram?: ActiveRunningProgram;
+  generatedProgramTemplate?: Pick<RunProgramTemplate,
+    'id' | 'name' | 'targetDistance' | 'canonicalWeeks' | 'canonicalFrequency' |
+    'targetProfileTypes' | 'maxIntensityRank' | 'excludeCategories'>;
+  weeklyFrequency?: number;
+  scheduleDays?: string[];
+  onboardingData?: RunningOnboardingData;
+  lastWorkoutDate?: string;
 }

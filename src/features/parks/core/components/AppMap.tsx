@@ -80,14 +80,14 @@ interface AppMapProps {
   livePath?: [number, number][];
   livePathZones?: (string | null)[];
   isActiveWorkout?: boolean;
-  showCarousel?: boolean;
-  loadingRouteIds?: Set<string>;
   destinationMarker?: { lat: number; lng: number } | null;
   isNavigationMode?: boolean;
   userBearing?: number;
   isAdmin?: boolean;
   onMapRef?: (ref: MapRef) => void;
   skipInitialZoom?: boolean;
+  isAutoFollowEnabled?: boolean;
+  onUserPanDetected?: () => void;
 }
 
 export default function AppMap({
@@ -105,6 +105,8 @@ export default function AppMap({
   isAdmin = false,
   onMapRef,
   skipInitialZoom = false,
+  isAutoFollowEnabled = true,
+  onUserPanDetected,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -179,19 +181,18 @@ export default function AppMap({
     }
   }, [isNavigationMode, currentLocation, userBearing, isMapLoaded]);
 
-  // Smooth camera following during active workout (industry-standard GPS tracking)
+  // Smooth camera following during active workout — skipped when user pans away
   useEffect(() => {
+    if (!isAutoFollowEnabled) return;
     if (isActiveWorkout && currentLocation && mapRef.current && isMapLoaded && !isNavigationMode) {
-      // Use easeTo for smooth, continuous following (like Strava/Nike)
       mapRef.current.easeTo({
         center: [currentLocation.lng, currentLocation.lat],
-        zoom: 17, // Slightly zoomed in for active tracking
-        duration: 500, // Smooth 500ms transition
-        easing: (t) => t * (2 - t), // Ease-out curve for natural movement
-        essential: true, // Continue even if user interacts
+        zoom: 17,
+        duration: 500,
+        easing: (t) => t * (2 - t),
       });
     }
-  }, [isActiveWorkout, currentLocation, isMapLoaded, isNavigationMode]);
+  }, [isAutoFollowEnabled, isActiveWorkout, currentLocation, isMapLoaded, isNavigationMode]);
 
   useEffect(() => {
     if (destinationMarker && mapRef.current && isMapLoaded && !focusedRoute) {
@@ -321,6 +322,13 @@ export default function AppMap({
       setTimeout(applyHebrewLabels, 100);
     });
 
+    // Detect user-initiated pan to disable auto-follow
+    map.on('movestart', (evt: any) => {
+      if (evt.originalEvent && isActiveWorkout) {
+        onUserPanDetected?.();
+      }
+    });
+
     setIsMapLoaded(true);
 
     if (onMapRef && mapRef.current) {
@@ -349,7 +357,7 @@ export default function AppMap({
         <MapLayersControl />
 
         {/* 4. מסלולים מתוכננים - עם צבעים דינמיים ✅ */}
-        {!isActiveWorkout && visibleLayers?.has('routes') && (
+        {!isActiveWorkout && visibleLayers?.includes('routes') && (
           <Source id="routes" type="geojson" data={routesGeoJSON as any}>
             {/* שכבת מסגרת לבנה למסלול (Outline) - רק למסלול ממוקד */}
             <Layer
@@ -544,7 +552,7 @@ export default function AppMap({
 
         {/* Facilities Layers */}
         {facilities.map((f) => {
-          if (!visibleLayers?.has(f.type as any)) return null;
+          if (!visibleLayers?.includes(f.type as any)) return null;
 
           const isPassive = ['water', 'toilet'].includes(f.type);
 

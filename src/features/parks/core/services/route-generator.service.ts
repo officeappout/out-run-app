@@ -149,17 +149,18 @@ export async function generateDynamicRoutes(
     parks
   } = options;
 
-  console.log(`[RouteGenerator] Starting generation. Target: ${targetDistance.toFixed(1)}km, Activity: ${activity}`);
+  const safeDistance = typeof targetDistance === 'number' && !isNaN(targetDistance) ? targetDistance : 3;
+  console.log(`[RouteGenerator] Starting generation. Target: ${safeDistance.toFixed(1)}km, Activity: ${activity}`);
 
   // 1. Find fitness anchor if needed
   const fitnessAnchor = preferences.includeStrength
-    ? await findFitnessAnchor(userLocation, targetDistance, parks)
+    ? await findFitnessAnchor(userLocation, safeDistance, parks)
     : null;
 
   // 2. Generate waypoint candidates
   const candidateWaypoints = generateRandomWaypoints(
     userLocation,
-    targetDistance,
+    safeDistance,
     15, // More candidates for variety
     routeGenerationIndex
   );
@@ -243,13 +244,13 @@ export async function generateDynamicRoutes(
       // Flexible but realistic distance window:
       // Accept anything between (target - 0.5km) and (target + 2.5km),
       // e.g. for 3km → [2.5km, 5.5km]
-      const minKm = Math.max(0.5, targetDistance - 0.5);
-      const maxKm = targetDistance + 2.5;
+      const minKm = Math.max(0.5, safeDistance - 0.5);
+      const maxKm = safeDistance + 2.5;
       if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
         console.warn(
           `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
             1,
-          )}km outside allowed range [${minKm.toFixed(1)}–${maxKm.toFixed(1)}]km (target ${targetDistance.toFixed(
+          )}km outside allowed range [${minKm.toFixed(1)}–${maxKm.toFixed(1)}]km (target ${safeDistance.toFixed(
             1,
           )}km)`,
         );
@@ -261,8 +262,8 @@ export async function generateDynamicRoutes(
         continue;
       }
 
-      // ✅ VALID ROUTE!
-      const durationMinutes = Math.round((routeDistanceKm / (activity === 'cycling' ? 20 : 6)) * 60);
+      // Use Mapbox API duration (in seconds) as the single source of truth
+      const durationMinutes = Math.round(result.duration / 60);
       const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 65));
       const hasGym = !!fitnessAnchor;
 

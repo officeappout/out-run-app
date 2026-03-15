@@ -6,14 +6,15 @@ import {
   EquipmentProfile 
 } from '../../core/types/user.types';
 import { RunningProfile } from '@/features/workout-engine/core/types/running.types';
+import { auth } from '@/lib/firebase';
 
 // ==========================================
 // הגדרת מפות רמות לכל תחום (Max Levels)
 // ==========================================
 const DOMAIN_MAX_LEVELS: Record<TrainingDomainId, number> = {
   upper_body: 22,
-  lower_body: 10,
-  full_body: 15,
+  lower_body: 20,
+  full_body: 25,
   core: 18,
   flexibility: 12,
   running: 20,
@@ -338,7 +339,7 @@ export function mapAnswersToProfile(
     : undefined;
 
   const profile: UserFullProfile = {
-    id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // מזהה ייחודי
+    id: auth.currentUser?.uid ?? '',
     core: {
       name,
       initialFitnessTier,

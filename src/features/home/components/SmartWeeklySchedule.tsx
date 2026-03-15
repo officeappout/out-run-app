@@ -11,9 +11,10 @@
  */
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, X, LayoutGrid, Circle as CircleIcon, CalendarDays } from 'lucide-react';
+import { Bed, Check, X, LayoutGrid, Circle as CircleIcon, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
 import { useDailyProgress } from '../hooks/useDailyProgress';
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
@@ -38,9 +39,19 @@ type CalendarMode = 'week' | 'month';
 /** Journey state: Map path (no assessment), Assessment path (no schedule), or Active */
 export type ScheduleJourneyState = 'map' | 'assessment' | 'active';
 
+export interface RunningScheduleEntry {
+  week: number;
+  day: number;
+  workoutId: string;
+  status: 'pending' | 'completed' | 'skipped' | 'swapped';
+  category?: string;
+  workoutName?: string;
+  actualPerformance?: { avgPace: number; completionRate: number };
+}
+
 interface SmartWeeklyScheduleProps {
   schedule: DaySchedule[];
-  currentTrack?: 'wellness' | 'performance';
+  currentTrack?: 'wellness' | 'performance' | 'running';
   scheduleDays?: string[];
   programIconKey?: string;
   onDayClick?: (day: DaySchedule) => void;
@@ -76,6 +87,14 @@ interface SmartWeeklyScheduleProps {
   onStartAssessment?: () => void;
   /** Called when user taps "קבע לו״ז אימונים" (Assessment path) */
   onSetSchedule?: () => void;
+  /** Running program schedule entries for the current week */
+  runningSchedule?: RunningScheduleEntry[];
+  /** Current program week number */
+  runningCurrentWeek?: number;
+  /** Program start date (ISO or Date) */
+  runningProgramStartDate?: string | Date;
+  /** Base pace in seconds per km */
+  runningBasePace?: number;
 }
 
 interface DayActivityData {
@@ -124,6 +143,47 @@ const MINI_RING_GOALS = {
   cardio: 20,
   maintenance: 15,
 } as const;
+
+// ── Running Workout Category → Color (Admin Panel sync) ──
+const CATEGORY_COLORS: Record<string, string> = {
+  easy_run:             '#4CAF50',
+  long_run:             '#2E7D32',
+  short_intervals:      '#E11D48',
+  long_intervals:       '#0D9488',
+  fartlek_easy:         '#CE93D8',
+  fartlek_structured:   '#AB47BC',
+  tempo:                '#9C27B0',
+  hill_long:            '#FF7043',
+  hill_short:           '#EF6C00',
+  hill_sprints:         '#DC2626',
+  strides:              '#00BAF7',
+  recovery:             '#B0BEC5',
+};
+
+const CATEGORY_LABELS_HE: Record<string, string> = {
+  easy_run:             'ריצה קלה',
+  long_run:             'ריצה ארוכה',
+  short_intervals:      'אינטרוולים קצרים',
+  long_intervals:       'אינטרוולים ארוכים',
+  fartlek_easy:         'פארטלק קל',
+  fartlek_structured:   'פארטלק מובנה',
+  tempo:                'ריצת טמפו',
+  hill_long:            'עליות ארוכות',
+  hill_short:           'עליות קצרות',
+  hill_sprints:         'ספרינט עליות',
+  strides:              'סטריידים',
+  recovery:             'התאוששות',
+};
+
+function getCategoryColor(category: string | undefined): string {
+  if (!category) return '#00BAF7';
+  return CATEGORY_COLORS[category] ?? '#00BAF7';
+}
+
+function getCategoryLabel(category: string | undefined): string {
+  if (!category) return 'אימון ריצה';
+  return CATEGORY_LABELS_HE[category] ?? category;
+}
 
 // Helper to build RingData array from day categories
 function buildMiniRingData(
@@ -393,6 +453,287 @@ function DayTooltip({
 }
 
 // ============================================================================
+// RUNNING WORKOUT CARDS — Daily Focus View
+// Shows only today's workout, or a rest-day state with "Next Up" teaser.
+// Completed workouts this week appear as compact cards below.
+// ============================================================================
+
+function RunningWorkoutCards({
+  entries,
+  currentWeek,
+  basePace,
+  onCardClick,
+  todayScheduleDay,
+}: {
+  entries: RunningScheduleEntry[];
+  currentWeek: number;
+  basePace: number;
+  onCardClick: (entry: RunningScheduleEntry) => void;
+  todayScheduleDay?: number;
+}) {
+  if (entries.length === 0) return null;
+
+  // Split entries: today's workout vs the rest
+  const todayEntry = todayScheduleDay != null
+    ? entries.find((e) => e.day === todayScheduleDay && (e.status === 'pending' || !e.status))
+    : entries.find((e) => e.status === 'pending' || !e.status);
+
+  const nextUpEntry = todayEntry
+    ? null
+    : entries.find((e) => e.status === 'pending' || !e.status);
+
+  const completedEntries = entries.filter((e) => e.status === 'completed');
+  const completedCount = completedEntries.length;
+  const isRestDay = !todayEntry;
+
+  return (
+    <div className="mt-4 space-y-2.5" dir="rtl">
+      <div className="flex items-center justify-between px-1 mb-1">
+        <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
+          {isRestDay ? 'יום מנוחה' : 'האימון שלך היום'}
+        </h3>
+        <span className="text-[11px] font-medium text-gray-400">
+          שבוע {currentWeek} · {completedCount}/{entries.length}
+        </span>
+      </div>
+
+      {/* ── Today's workout (primary focus) ── */}
+      {todayEntry && (
+        <TodayWorkoutCard
+          entry={todayEntry}
+          onCardClick={onCardClick}
+        />
+      )}
+
+      {/* ── Rest Day state ── */}
+      {isRestDay && (
+        <div
+          className="rounded-2xl overflow-hidden text-right"
+          style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}
+        >
+          <div className="flex items-center gap-3 py-4 px-4">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(0,186,247,0.08)' }}
+            >
+              <Moon size={20} style={{ color: '#00BAF7' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                היום זה להתאושש 🧘
+              </p>
+              {nextUpEntry && (
+                <p className="text-xs text-slate-400 mt-0.5">
+                  הבא: {nextUpEntry.workoutName || getCategoryLabel(nextUpEntry.category)}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Completed this week (compact) ── */}
+      {completedCount > 0 && (
+        <div className="space-y-1.5 mt-1">
+          {completedEntries.map((entry) => (
+            <CompactWorkoutCard key={`${entry.week}-${entry.day}`} entry={entry} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// TODAY WORKOUT CARD — full-size, tappable primary card
+// ============================================================================
+
+function TodayWorkoutCard({
+  entry,
+  onCardClick,
+}: {
+  entry: RunningScheduleEntry;
+  onCardClick: (entry: RunningScheduleEntry) => void;
+}) {
+  const color = getCategoryColor(entry.category);
+  const label = entry.workoutName || getCategoryLabel(entry.category);
+
+  return (
+    <motion.button
+      onClick={() => onCardClick(entry)}
+      whileTap={{ scale: 0.97 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full flex items-stretch rounded-2xl overflow-hidden text-right ring-2 ring-offset-1"
+      style={{
+        border: '0.5px solid #E0E9FF',
+        boxShadow: `0 0 12px ${color}30, 0 2px 8px rgba(0,0,0,0.04)`,
+        ['--tw-ring-color' as string]: color,
+        background: 'white',
+      }}
+    >
+      <div
+        className="flex-shrink-0"
+        style={{ width: 4, backgroundColor: color, borderRadius: '0 8px 8px 0' }}
+      />
+      <div className="flex items-center gap-3 flex-1 py-3.5 px-4 min-w-0">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `${color}15`, color }}
+        >
+          {getCategoryIcon(entry.category, 'w-5 h-5')}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+              {label}
+            </p>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0"
+              style={{ background: color }}
+            >
+              היום
+            </span>
+          </div>
+          <span className="text-xs text-gray-400 mt-0.5">
+            אימון {entry.day}
+          </span>
+        </div>
+        <svg width="7" height="12" viewBox="0 0 7 12" fill="none" className="text-gray-300 rotate-180 flex-shrink-0">
+          <path d="M1 1L6 6L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    </motion.button>
+  );
+}
+
+// ============================================================================
+// COMPACT WORKOUT CARD — slim row for completed / upcoming entries
+// Shows: Icon · Workout Name · Duration estimate · Checkmark
+// ============================================================================
+
+const CATEGORY_DURATION_ESTIMATE: Record<string, string> = {
+  easy_run: '25–35 דק׳',
+  recovery: '20–25 דק׳',
+  short_intervals: '30–40 דק׳',
+  long_intervals: '35–45 דק׳',
+  fartlek_easy: '30–35 דק׳',
+  fartlek_structured: '35–40 דק׳',
+  tempo: '30–40 דק׳',
+  long_run: '45–60 דק׳',
+  hill_long: '35–45 דק׳',
+  hill_short: '25–35 דק׳',
+  hill_sprints: '25–30 דק׳',
+  strides: '25–30 דק׳',
+};
+
+function CompactWorkoutCard({ entry }: { entry: RunningScheduleEntry }) {
+  const color = getCategoryColor(entry.category);
+  const isCompleted = entry.status === 'completed';
+  const isSkipped = entry.status === 'skipped';
+  const label = entry.workoutName || getCategoryLabel(entry.category);
+  const durationHint = CATEGORY_DURATION_ESTIMATE[entry.category ?? ''] ?? '30 דק׳';
+
+  return (
+    <div
+      className="flex items-center gap-2.5 rounded-xl py-2 px-3 text-right"
+      style={{
+        border: '0.5px solid #E0E9FF',
+        background: 'white',
+        opacity: isCompleted || isSkipped ? 0.65 : 1,
+      }}
+    >
+      <div
+        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: `${color}12`, color }}
+      >
+        {isCompleted ? (
+          <Check className="w-3.5 h-3.5 text-green-500" />
+        ) : (
+          getCategoryIcon(entry.category, 'w-3.5 h-3.5')
+        )}
+      </div>
+      <p className={`text-[13px] font-semibold flex-1 min-w-0 truncate ${
+        isCompleted ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'
+      }`}>
+        {label}
+      </p>
+      <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
+        {durationHint}
+      </span>
+      {isCompleted && (
+        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+          <Check className="w-3 h-3 text-green-600" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// RUNNING DAY ICON (color-coded for calendar strip)
+// ============================================================================
+
+function getCategoryIcon(category: string | undefined, className: string) {
+  switch (category) {
+    case 'short_intervals':
+    case 'long_intervals':
+      return <Zap className={className} />;
+    case 'tempo':
+      return <Timer className={className} />;
+    case 'long_run':
+      return <TrendingUp className={className} />;
+    case 'hill_long':
+    case 'hill_short':
+    case 'hill_sprints':
+      return <Mountain className={className} />;
+    default:
+      return <Footprints className={className} />;
+  }
+}
+
+function RunningDayIcon({
+  entry,
+  isToday,
+}: {
+  entry: RunningScheduleEntry | undefined;
+  isToday: boolean;
+}) {
+  if (!entry) return null;
+  const color = getCategoryColor(entry.category);
+  const isCompleted = entry.status === 'completed';
+
+  if (isCompleted) {
+    return (
+      <motion.div
+        initial={{ scale: 0.8 }}
+        animate={{ scale: 1 }}
+        className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm"
+        style={{ backgroundColor: color, boxShadow: `0 3px 10px ${color}40` }}
+      >
+        <Check className="w-5 h-5 stroke-[3]" />
+      </motion.div>
+    );
+  }
+
+  const iconColor = isToday ? color : `${color}80`;
+
+  return (
+    <div
+      className="flex items-center justify-center"
+      style={{
+        width: 44,
+        height: 44,
+        color: iconColor,
+        filter: isToday ? `drop-shadow(0 0 6px ${color}60)` : undefined,
+      }}
+    >
+      {getCategoryIcon(entry.category, 'w-5 h-5')}
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -416,7 +757,12 @@ export default function SmartWeeklySchedule({
   hasSchedule = true,
   onStartAssessment,
   onSetSchedule,
+  runningSchedule,
+  runningCurrentWeek,
+  runningProgramStartDate,
+  runningBasePace,
 }: SmartWeeklyScheduleProps) {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [internalCalendarMode, setInternalCalendarMode] = useState<CalendarMode>('week');
@@ -439,6 +785,47 @@ export default function SmartWeeklySchedule({
   });
   
   const isHealthMode = currentTrack === 'wellness';
+  const isRunningMode = currentTrack === 'running';
+  const plannedDotColor = isRunningMode ? '#00BAF7' : '#00C9F2';
+
+  // Infer workout category from day position in the frequency cycle
+  const freq = scheduleDays.length || 3;
+
+  const currentWeekEntries = useMemo(() => {
+    if (!isRunningMode || !runningSchedule?.length || !runningCurrentWeek) return [];
+    const entries = runningSchedule.filter((e) => e.week === runningCurrentWeek);
+    return entries.map((entry) => ({
+      ...entry,
+      category: entry.category || 'easy_run',
+      workoutName: entry.workoutName || (CATEGORY_LABELS_HE[entry.category ?? ''] ?? 'אימון ריצה'),
+    }));
+  }, [isRunningMode, runningSchedule, runningCurrentWeek]);
+
+  // Map running schedule entries to week day indices (0=Sunday)
+  const runningEntriesByDayIndex = useMemo(() => {
+    if (!isRunningMode || !currentWeekEntries.length) return new Map<number, RunningScheduleEntry>();
+    const map = new Map<number, RunningScheduleEntry>();
+    const trainingDayIndices = scheduleDays
+      .map((letter) => HEBREW_DAYS.indexOf(letter as typeof HEBREW_DAYS[number]))
+      .filter((i) => i >= 0)
+      .sort((a, b) => a - b);
+    currentWeekEntries.forEach((entry) => {
+      // entry.day is 1-indexed (1st workout, 2nd workout, …)
+      const slotIndex = entry.day - 1;
+      const dayIdx = trainingDayIndices[slotIndex];
+      if (dayIdx !== undefined) map.set(dayIdx, entry);
+    });
+    return map;
+  }, [isRunningMode, currentWeekEntries, scheduleDays]);
+
+  const handleRunCardClick = useCallback((entry: RunningScheduleEntry) => {
+    const params = new URLSearchParams();
+    params.set('workoutId', entry.workoutId);
+    params.set('week', String(entry.week));
+    params.set('day', String(entry.day));
+    params.set('context', 'running');
+    router.push(`/map?${params.toString()}`);
+  }, [router]);
 
   // View mode: default from track, togglable per session
   const defaultViewMode: ScheduleViewMode = isHealthMode ? 'rings' : 'icons';
@@ -563,11 +950,32 @@ export default function SmartWeeklySchedule({
         }
       }
       
+      // Running mode: completion is determined by running entries, not the
+      // generic schedule prop (which hard-codes past training days as completed).
+      if (isRunningMode) {
+        const runEntry = runningEntriesByDayIndex.get(i);
+        if (runEntry) {
+          dayData = {
+            ...dayData,
+            hasActivity: runEntry.status === 'completed',
+            isCompleted: runEntry.status === 'completed',
+            isMissed: runEntry.status === 'skipped',
+          };
+        } else if (!isRestDay) {
+          dayData = {
+            ...dayData,
+            hasActivity: false,
+            isCompleted: false,
+            isMissed: false,
+          };
+        }
+      }
+
       map.set(i, dayData);
     }
     
     return map;
-  }, [schedule, scheduleDays, todayActivity, todayProgress]);
+  }, [schedule, scheduleDays, todayActivity, todayProgress, isRunningMode, runningEntriesByDayIndex]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -609,9 +1017,35 @@ export default function SmartWeeklySchedule({
   // Get day icon based on track, view mode, and status.
   // In "icons" view, delegates to the unified SmartDayIcon wrapper.
   // In "rings" view, keeps the CompactRingsProgress rendering.
-  const getDayIcon = (day: DaySchedule, dayData: DayActivityData, isCellSelected: boolean) => {
+  const getDayIcon = (day: DaySchedule, dayData: DayActivityData, isCellSelected: boolean, dayIndex: number) => {
     const { day: dayLetter } = day;
     const planned = isTrainingDay(dayLetter);
+
+    // ── Running mode: ALL days handled here — never fall through to strength ──
+    if (isRunningMode) {
+      const runEntry = runningEntriesByDayIndex.get(dayIndex);
+      if (runEntry) {
+        return <RunningDayIcon entry={runEntry} isToday={dayData.isToday} />;
+      }
+      if (dayData.isRest || !planned) {
+        return <Bed className="text-gray-400 dark:text-gray-500 text-lg" />;
+      }
+      // Planned training day without a running entry: pending running icon
+      const pendingColor = dayData.isToday ? '#00BAF7' : '#00BAF780';
+      return (
+        <div
+          className="flex items-center justify-center"
+          style={{
+            width: 44,
+            height: 44,
+            color: pendingColor,
+            filter: dayData.isToday ? 'drop-shadow(0 0 6px #00BAF760)' : undefined,
+          }}
+        >
+          <Footprints className="w-5 h-5" />
+        </div>
+      );
+    }
 
     // 1. Missed training day: Ghost Ring (same for both modes)
     if (dayData.isMissed && !dayData.isToday && !dayData.isFuture) {
@@ -966,7 +1400,7 @@ export default function SmartWeeklySchedule({
                           className="flex items-center justify-center relative"
                           style={{ width: 44, height: 44, overflow: 'visible' }}
                         >
-                          {dayData && getDayIcon(day, dayData, isCellSelected)}
+                          {dayData && getDayIcon(day, dayData, isCellSelected, index)}
 
                           {/* Cyan dot — Y=48 from button top (4px below the 44px icon) */}
                           {planned && (
@@ -980,8 +1414,8 @@ export default function SmartWeeklySchedule({
                                   style={{
                                     width: 4,
                                     height: 4,
-                                    backgroundColor: '#00C9F2',
-                                    boxShadow: '0 0 6px 1px rgba(0,201,242,0.5)',
+                                    backgroundColor: plannedDotColor,
+                                    boxShadow: `0 0 6px 1px ${plannedDotColor}80`,
                                   }}
                                 />
                               ) : (
@@ -1037,6 +1471,17 @@ export default function SmartWeeklySchedule({
         </AnimatePresence>
         </div>
       </motion.div>
+
+      {/* ── Running Workout Cards (below strip) ── */}
+      {isRunningMode && currentWeekEntries.length > 0 && calendarMode === 'week' && (
+        <RunningWorkoutCards
+          entries={currentWeekEntries}
+          currentWeek={runningCurrentWeek ?? 1}
+          basePace={runningBasePace ?? 0}
+          onCardClick={handleRunCardClick}
+          todayScheduleDay={runningEntriesByDayIndex.get(new Date().getDay())?.day}
+        />
+      )}
     </div>
   );
 }

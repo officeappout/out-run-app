@@ -70,7 +70,7 @@ export default function ProgressCard({
   // Extract data safely
   const label = progress.label || progress.domain || "התקדמות";
   const currentLevel = progress.currentLevel || 0;
-  const totalLevels = progress.totalLevels || progress.maxLevel || 10;
+  const totalLevels = progress.totalLevels || progress.maxLevel || 25;
   const percentage = progress.percentage || progress.progressPercent || 0;
   const remainingPercent = 100 - percentage;
 

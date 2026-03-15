@@ -197,7 +197,11 @@ function debouncedSync(syncFn: () => Promise<void>) {
 // ============================================================================
 
 function getTodayString(): string {
-  return new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function getWeekStartString(): string {
@@ -205,7 +209,11 @@ function getWeekStartString(): string {
   const dayOfWeek = now.getDay();
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - dayOfWeek);
-  return weekStart.toISOString().split('T')[0];
+  weekStart.setHours(0, 0, 0, 0);
+  const y = weekStart.getFullYear();
+  const m = String(weekStart.getMonth() + 1).padStart(2, '0');
+  const d = String(weekStart.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function calculatePercentage(current: number, goal: number): number {
@@ -233,8 +241,12 @@ function calculateWeeklySummary(
   userProgram: string
 ): WeeklyActivitySummary {
   const weekStart = getWeekStartString();
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekEndDate = new Date(weekStart + 'T00:00:00');
+  weekEndDate.setDate(weekEndDate.getDate() + 6);
+  const weekEndY = weekEndDate.getFullYear();
+  const weekEndM = String(weekEndDate.getMonth() + 1).padStart(2, '0');
+  const weekEndD = String(weekEndDate.getDate()).padStart(2, '0');
+  const weekEnd = `${weekEndY}-${weekEndM}-${weekEndD}`;
   
   const categoryTotals: Record<ActivityCategory, number> = {
     strength: 0,
@@ -290,7 +302,7 @@ function calculateWeeklySummary(
   
   return {
     weekStart,
-    weekEnd: weekEnd.toISOString().split('T')[0],
+    weekEnd,
     categoryTotals,
     categorySessions,
     categoryGoals,
@@ -420,8 +432,20 @@ export const useActivityStore = create<ActivityStore>()(
         durationMinutes: number,
         calories?: number
       ) => {
-        const state = get();
-        if (!state.today) return;
+        let state = get();
+
+        // Auto-initialize today if the store hasn't loaded yet
+        if (!state.today || state.today.date !== getTodayString()) {
+          const todayStr = getTodayString();
+          const userId = state.today?.userId || '';
+          console.warn(
+            `[ActivityStore] logWorkout called with stale/missing today ` +
+            `(had=${state.today?.date}, need=${todayStr}). Auto-initializing.`,
+          );
+          set({ today: createEmptyDailyActivity(userId, todayStr) });
+          state = get();
+          if (!state.today) return;
+        }
         
         const updatedMetrics = updateCategoryMetrics(state.today.categories[category], durationMinutes);
         updatedMetrics.sessions = (state.today.categories[category].sessions ?? 0) + 1;
@@ -631,13 +655,41 @@ export const useActivityStore = create<ActivityStore>()(
           );
           
           const weekSnapshot = await getDocs(weekActivitiesQuery);
+          const existingWeek = get().weekActivities ?? {};
           const weekActivities: Record<string, DailyActivity> = {};
           
           weekSnapshot.forEach((docSnap) => {
-            const data = fromFirestoreFormat(docSnap.data());
-            weekActivities[data.date] = data;
+            const serverDay = fromFirestoreFormat(docSnap.data());
+            const localDay = existingWeek[serverDay.date];
+
+            // Merge: keep whichever version has more sessions per category
+            if (localDay) {
+              const merged = { ...serverDay };
+              (['strength', 'cardio', 'maintenance'] as const).forEach((cat) => {
+                const localSessions = localDay.categories?.[cat]?.sessions ?? 0;
+                const serverSessions = serverDay.categories?.[cat]?.sessions ?? 0;
+                const localMinutes = localDay.categories?.[cat]?.minutes ?? 0;
+                const serverMinutes = serverDay.categories?.[cat]?.minutes ?? 0;
+                if (localSessions > serverSessions || localMinutes > serverMinutes) {
+                  merged.categories = {
+                    ...merged.categories,
+                    [cat]: { ...localDay.categories[cat] },
+                  };
+                }
+              });
+              weekActivities[serverDay.date] = merged;
+            } else {
+              weekActivities[serverDay.date] = serverDay;
+            }
           });
           
+          // Preserve any local-only days not yet in Firestore
+          for (const [dateStr, localDay] of Object.entries(existingWeek)) {
+            if (!weekActivities[dateStr] && dateStr >= weekStart) {
+              weekActivities[dateStr] = localDay;
+            }
+          }
+
           // Add today if not in the query results
           weekActivities[targetDate] = todayActivity;
           
@@ -662,10 +714,31 @@ export const useActivityStore = create<ActivityStore>()(
             currentStreak = calculatedStreak;
           }
           
-          // 5. Update store
+          // 5. Update store — merge today with local state to avoid losing
+          //    sessions logged before Firestore write completed
           const state = get();
+          let mergedToday = todayActivity;
+          if (state.today && state.today.date === targetDate && state.today.userId === userId) {
+            (['strength', 'cardio', 'maintenance'] as const).forEach((cat) => {
+              const localSessions = state.today!.categories[cat]?.sessions ?? 0;
+              const serverSessions = mergedToday.categories[cat]?.sessions ?? 0;
+              const localMinutes = state.today!.categories[cat]?.minutes ?? 0;
+              const serverMinutes = mergedToday.categories[cat]?.minutes ?? 0;
+              if (localSessions > serverSessions || localMinutes > serverMinutes) {
+                mergedToday = {
+                  ...mergedToday,
+                  categories: {
+                    ...mergedToday.categories,
+                    [cat]: { ...state.today!.categories[cat] },
+                  },
+                };
+              }
+            });
+          }
+          weekActivities[targetDate] = mergedToday;
+
           set({
-            today: todayActivity,
+            today: mergedToday,
             weekActivities,
             currentStreak,
             longestStreak: Math.max(longestStreak, currentStreak),

@@ -12,6 +12,8 @@ import type { LocationType } from '@/lib/data/israel-locations';
 
 export type LocationStepMode = 'onboarding' | 'explorer' | 'bridge';
 
+export type MapPurpose = 'running' | 'strength' | 'general';
+
 export interface UnifiedLocationStepProps {
   onNext: () => void;
   /** 'onboarding' (default): full onboarding flow with progress bar/coins.
@@ -22,6 +24,8 @@ export interface UnifiedLocationStepProps {
   /** When true, GPS permission request is deferred. Only manual search is available.
    *  Used for Strength Path users who defer GPS to their first map visit. */
   skipGPS?: boolean;
+  /** Context for the location step: changes copy/behavior based on why the user arrived. */
+  purpose?: MapPurpose;
 }
 
 // ── Lifestyle / Persona ──────────────────────────────────
@@ -154,6 +158,8 @@ export interface InitialCardProps {
   detectedNeighborhood?: string | null;
   /** Detected city name (e.g. "תל אביב-יפו") — fallback for headline */
   detectedCity?: string | null;
+  /** Context for copy switching (running vs strength vs general) */
+  purpose?: MapPurpose;
 }
 
 export interface ConfirmationCardProps {

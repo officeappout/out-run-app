@@ -84,6 +84,7 @@ export default function NewRunWorkoutTemplatePage() {
   const [saving, setSaving] = useState(false);
   const [category, setCategory] = useState<WorkoutCategory | ''>('');
   const [priority, setPriority] = useState<number | ''>('');
+  const [intensityRank, setIntensityRank] = useState<number | ''>('');
 
   useEffect(() => {
     getPaceMapConfig().then(setConfig).catch(() => {});
@@ -113,6 +114,7 @@ export default function NewRunWorkoutTemplatePage() {
       })),
       ...(category ? { category } : {}),
       ...(priority !== '' ? { priority: Number(priority) } : {}),
+      ...(intensityRank !== '' ? { intensityRank: Number(intensityRank) } : {}),
     };
     setSaving(true);
     try {
@@ -193,6 +195,18 @@ export default function NewRunWorkoutTemplatePage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 placeholder="אופציונלי"
                 min={1}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">דירוג עוצמה (1=קל, 2=בינוני, 3=קשה)</label>
+              <input
+                type="number"
+                value={intensityRank}
+                onChange={(e) => setIntensityRank(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                placeholder="אופציונלי — לפרוגרסיה בתוך פאזה"
+                min={1}
+                max={5}
               />
             </div>
           </div>

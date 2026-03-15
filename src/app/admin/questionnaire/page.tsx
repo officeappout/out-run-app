@@ -21,6 +21,9 @@ import {
 import { OnboardingQuestion, OnboardingAnswer, QuestionWithAnswers, MultilingualText, AnswerResult, QuestionLogic, VisibilityCondition } from '@/types/onboarding-questionnaire';
 import { Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, Globe, Users, List, Workflow, MoreVertical, Activity, UserRoundDown, ArrowUp, Brain, ClipboardCheck, Target, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Upload, Eye, Tag } from 'lucide-react';
 import ProgramAutocomplete from '@/components/admin/ProgramAutocomplete';
+import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
+import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import ReactFlow, { 
   type Node, 
   type Edge, 
@@ -1152,6 +1155,7 @@ function AnswerManager({
   const [showNewForm, setShowNewForm] = useState(false);
   const [levels, setLevels] = useState<LevelDoc[]>([]);
   const [programs, setPrograms] = useState<ProgramDoc[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [answerForm, setAnswerForm] = useState<Partial<OnboardingAnswer>>({
     text: { he: { neutral: '' } },
@@ -1159,15 +1163,15 @@ function AnswerManager({
   });
 
   useEffect(() => {
-    // Load levels/programs once per expanded question
     const loadMeta = async () => {
       setIsMetaLoading(true);
       try {
-        const [lvls, progs] = await Promise.all([getLevels(), getPrograms()]);
+        const [lvls, progs, exs] = await Promise.all([getLevels(), getPrograms(), getAllExercises()]);
         setLevels(lvls);
         setPrograms(progs);
+        setExercises(exs);
       } catch (e) {
-        console.error('Failed to load levels/programs:', e);
+        console.error('Failed to load levels/programs/exercises:', e);
       } finally {
         setIsMetaLoading(false);
       }
@@ -1233,53 +1237,49 @@ function AnswerManager({
         : answerForm.text;
 
       if (hasNextQuestion) {
-        // Type: Lead to Next Question
         cleanData = {
           questionId,
           text,
           imageUrl: answerForm.imageUrl || null,
+          exerciseId: answerForm.exerciseId || null,
           order: answerForm.order || answers.length,
           nextQuestionId: answerForm.nextQuestionId || null,
-          // Keep level/program links even when leading to next question (optional links)
           assignedLevelId: answerForm.assignedLevelId || null,
           assignedProgramId: answerForm.assignedProgramId || null,
           assignedResults: null,
           masterProgramSubLevels: null,
-          assignedLevel: null, // legacy
+          assignedLevel: null,
         };
       } else {
-        // Type: Finish & Assign Result
-        // Use assignedResults if available, otherwise fall back to legacy single assignment
         if (hasAssignedResults && answerForm.assignedResults) {
           cleanData = {
             questionId,
             text,
             imageUrl: answerForm.imageUrl || null,
+            exerciseId: answerForm.exerciseId || null,
             order: answerForm.order || answers.length,
             nextQuestionId: null,
             assignedResults: answerForm.assignedResults,
-            // Clear legacy fields when using multiple results
             assignedLevelId: null,
             assignedProgramId: null,
             masterProgramSubLevels: null,
             assignedLevel: null,
           };
         } else {
-          // Legacy: single assignment
           const selectedProgram = programs.find(p => p.id === answerForm.assignedProgramId);
           cleanData = {
             questionId,
             text,
             imageUrl: answerForm.imageUrl || null,
+            exerciseId: answerForm.exerciseId || null,
             order: answerForm.order || answers.length,
             nextQuestionId: null,
             assignedLevelId: answerForm.assignedLevelId || null,
             assignedProgramId: answerForm.assignedProgramId || null,
-            // ✅ Save sub-levels only if Master Program
             masterProgramSubLevels: selectedProgram?.isMaster && answerForm.masterProgramSubLevels
               ? answerForm.masterProgramSubLevels
               : null,
-            assignedLevel: null, // legacy
+            assignedLevel: null,
             assignedResults: null,
           };
         }
@@ -1341,6 +1341,7 @@ function AnswerManager({
             currentQuestionId={questionId}
             levels={levels}
             programs={programs}
+            exercises={exercises}
             isMetaLoading={isMetaLoading}
             onChange={setAnswerForm}
             onSave={handleSaveAnswer}
@@ -1448,12 +1449,13 @@ function AnswerManager({
                   setAnswerForm({
                     text,
                     imageUrl: answer.imageUrl,
+                    exerciseId: answer.exerciseId || null,
                     nextQuestionId: answer.nextQuestionId || undefined,
                     assignedLevelId: answer.assignedLevelId || null,
                     assignedProgramId: answer.assignedProgramId || null,
                     assignedResults: answer.assignedResults || undefined,
                     masterProgramSubLevels: answer.masterProgramSubLevels || undefined,
-                    assignedLevel: answer.assignedLevel ?? null, // legacy
+                    assignedLevel: answer.assignedLevel ?? null,
                     order: answer.order,
                   });
                 }}
@@ -1818,6 +1820,7 @@ function AnswerForm({
   currentQuestionId,
   levels,
   programs,
+  exercises = [],
   isMetaLoading,
   onChange,
   onSave,
@@ -1828,6 +1831,7 @@ function AnswerForm({
   currentQuestionId: string;
   levels: LevelDoc[];
   programs: ProgramDoc[];
+  exercises?: Exercise[];
   isMetaLoading: boolean;
   onChange: (form: Partial<OnboardingAnswer>) => void;
   onSave: () => void;
@@ -2001,8 +2005,34 @@ function AnswerForm({
         </p>
       </div>
 
-      {/* Legacy "Link to Level/Program" removed — use MultipleResultsManager instead */}
-      {/* Widget Trigger - NEW FIELD */}
+      {/* Exercise Linking */}
+      <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-md">
+        <label className="block text-sm font-bold text-emerald-900 mb-1">
+          🎬 קישור תרגיל (אופציונלי)
+        </label>
+        <ExerciseAutocomplete
+          exercises={exercises}
+          selectedId={form.exerciseId || ''}
+          onChange={(exerciseId) =>
+            onChange({ ...form, exerciseId })
+          }
+          placeholder="חפש תרגיל לקישור..."
+        />
+        {form.exerciseId && (
+          <button
+            type="button"
+            onClick={() => onChange({ ...form, exerciseId: null })}
+            className="mt-1 text-xs text-red-500 hover:text-red-700 underline"
+          >
+            הסר קישור תרגיל
+          </button>
+        )}
+        <p className="text-xs text-emerald-600 mt-1">
+          קישור תרגיל יציג את הסרטון שלו בכרטיס התשובה באונבורדינג.
+        </p>
+      </div>
+
+      {/* Widget Trigger */}
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <label className="block text-sm font-bold text-blue-900 mb-1">
           ⚡ השפעה על הדאשבורד (Widget Trigger)
@@ -2993,10 +3023,12 @@ function AnswerEditModal({
 }) {
   const [levels, setLevels] = useState<LevelDoc[]>([]);
   const [programs, setPrograms] = useState<ProgramDoc[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [answerForm, setAnswerForm] = useState<Partial<OnboardingAnswer>>({
     text: typeof answer.text === 'string' ? { he: { neutral: answer.text } } : answer.text,
     imageUrl: answer.imageUrl,
+    exerciseId: answer.exerciseId || null,
     nextQuestionId: answer.nextQuestionId || undefined,
     assignedLevelId: answer.assignedLevelId || null,
     assignedProgramId: answer.assignedProgramId || null,
@@ -3010,11 +3042,12 @@ function AnswerEditModal({
     const loadMeta = async () => {
       setIsMetaLoading(true);
       try {
-        const [lvls, progs] = await Promise.all([getLevels(), getPrograms()]);
+        const [lvls, progs, exs] = await Promise.all([getLevels(), getPrograms(), getAllExercises()]);
         setLevels(lvls);
         setPrograms(progs);
+        setExercises(exs);
       } catch (e) {
-        console.error('Failed to load levels/programs:', e);
+        console.error('Failed to load levels/programs/exercises:', e);
       } finally {
         setIsMetaLoading(false);
       }
@@ -3052,9 +3085,9 @@ function AnswerEditModal({
           questionId: question.id,
           text,
           imageUrl: answerForm.imageUrl || null,
+          exerciseId: answerForm.exerciseId || null,
           order: answerForm.order || answer.order,
           nextQuestionId: answerForm.nextQuestionId || null,
-          // Keep level/program links even when leading to next question (optional links)
           assignedLevelId: answerForm.assignedLevelId || null,
           assignedProgramId: answerForm.assignedProgramId || null,
           assignedResults: null,
@@ -3062,12 +3095,12 @@ function AnswerEditModal({
           assignedLevel: null,
         };
       } else {
-        // Use assignedResults if available, otherwise fall back to legacy
         if (hasAssignedResults && answerForm.assignedResults) {
           cleanData = {
             questionId: question.id,
             text,
             imageUrl: answerForm.imageUrl || null,
+            exerciseId: answerForm.exerciseId || null,
             order: answerForm.order || answer.order,
             nextQuestionId: null,
             assignedResults: answerForm.assignedResults,
@@ -3082,6 +3115,7 @@ function AnswerEditModal({
             questionId: question.id,
             text,
             imageUrl: answerForm.imageUrl || null,
+            exerciseId: answerForm.exerciseId || null,
             order: answerForm.order || answer.order,
             nextQuestionId: null,
             assignedLevelId: answerForm.assignedLevelId || null,
@@ -3135,6 +3169,7 @@ function AnswerEditModal({
           currentQuestionId={question.id}
           levels={levels}
           programs={programs}
+          exercises={exercises}
           isMetaLoading={isMetaLoading}
           onChange={setAnswerForm}
           onSave={handleSave}
@@ -3168,6 +3203,7 @@ function AnswerAddModal({
 }) {
   const [levels, setLevels] = useState<LevelDoc[]>([]);
   const [programs, setPrograms] = useState<ProgramDoc[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const question = allQuestions.find(q => q.id === questionId);
   const [answerForm, setAnswerForm] = useState<Partial<OnboardingAnswer>>({
@@ -3179,11 +3215,12 @@ function AnswerAddModal({
     const loadMeta = async () => {
       setIsMetaLoading(true);
       try {
-        const [lvls, progs] = await Promise.all([getLevels(), getPrograms()]);
+        const [lvls, progs, exs] = await Promise.all([getLevels(), getPrograms(), getAllExercises()]);
         setLevels(lvls);
         setPrograms(progs);
+        setExercises(exs);
       } catch (e) {
-        console.error('Failed to load levels/programs:', e);
+        console.error('Failed to load levels/programs/exercises:', e);
       } finally {
         setIsMetaLoading(false);
       }
@@ -3221,9 +3258,9 @@ function AnswerAddModal({
           questionId,
           text,
           imageUrl: answerForm.imageUrl || null,
+          exerciseId: answerForm.exerciseId || null,
           order: answerForm.order || (question?.answers.length || 0),
           nextQuestionId: answerForm.nextQuestionId || null,
-          // Keep level/program links even when leading to next question (optional links)
           assignedLevelId: answerForm.assignedLevelId || null,
           assignedProgramId: answerForm.assignedProgramId || null,
           assignedResults: null,
@@ -3231,12 +3268,12 @@ function AnswerAddModal({
           assignedLevel: null,
         };
       } else {
-        // Use assignedResults if available, otherwise fall back to legacy
         if (hasAssignedResults && answerForm.assignedResults) {
           cleanData = {
             questionId,
             text,
             imageUrl: answerForm.imageUrl || null,
+            exerciseId: answerForm.exerciseId || null,
             order: answerForm.order || (question?.answers.length || 0),
             nextQuestionId: null,
             assignedResults: answerForm.assignedResults,
@@ -3251,6 +3288,7 @@ function AnswerAddModal({
             questionId,
             text,
             imageUrl: answerForm.imageUrl || null,
+            exerciseId: answerForm.exerciseId || null,
             order: answerForm.order || (question?.answers.length || 0),
             nextQuestionId: null,
             assignedLevelId: answerForm.assignedLevelId || null,
@@ -3293,6 +3331,7 @@ function AnswerAddModal({
           currentQuestionId={questionId}
           levels={levels}
           programs={programs}
+          exercises={exercises}
           isMetaLoading={isMetaLoading}
           onChange={setAnswerForm}
           onSave={handleSave}

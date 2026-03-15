@@ -5,16 +5,32 @@ import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import type { InitialCardProps } from '../location-types';
 
-export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity }: InitialCardProps) {
+export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity, purpose }: InitialCardProps) {
   const isExplorer = mode === 'explorer';
+  const isRunning = purpose === 'running';
   const userName = typeof window !== 'undefined' 
     ? sessionStorage.getItem('onboarding_personal_name') || ''
     : '';
   const isFemale = gender === 'female';
 
-  // Dynamic location anchor for the headline
   const locationAnchor = detectedNeighborhood || detectedCity || null;
-  
+
+  const headline = isRunning
+    ? <>{isFemale ? 'בואי' : 'בוא'} נאשר מיקום כדי שנטען את אימון הריצה שלך</>
+    : isExplorer
+      ? (locationAnchor
+          ? <>הגינה הכי קרובה ל{locationAnchor}</>
+          : <>היי, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>)
+      : userName
+        ? <>היי {userName}, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>
+        : <>בואו נמצא את הגינה הכי קרובה אליכם</>;
+
+  const subtitle = isRunning
+    ? <>נמצא לך מסלול ריצה וגם גינות כושר בדרך</>
+    : isExplorer
+      ? <>מיפינו מאות גינות כושר, מגרשים ומסלולים ברחבי הארץ. {t('אשר את המיקום שלך ונגלה מה יש באזור!', 'אשרי את המיקום שלך ונגלה מה יש באזור!')}</>
+      : <>מיפינו מאות גינות כושר ברחבי הארץ, עם מתקנים שמתאימים לאימוני OUT.{' '}{t('אשר את המיקום שלך ונמצא את הגינה הקרובה אליך.', 'אשרי את המיקום שלך ונמצא את הגינה הקרובה אלייך.')}</>;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -30,25 +46,13 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             className="text-2xl font-bold leading-tight text-slate-900 mb-3"
             style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right' }}
           >
-            {isExplorer ? (
-              locationAnchor
-                ? <>הגינה הכי קרובה ל{locationAnchor}</>
-                : <>היי, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>
-            ) : userName ? (
-              <>היי {userName}, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>
-            ) : (
-              <>בואו נמצא את הגינה הכי קרובה אליכם</>
-            )}
+            {headline}
           </h2>
           <p 
             className="text-slate-600 leading-relaxed text-sm mb-4"
             style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right' }}
           >
-            {isExplorer ? (
-              <>מיפינו מאות גינות כושר, מגרשים ומסלולים ברחבי הארץ. {t('אשר את המיקום שלך ונגלה מה יש באזור!', 'אשרי את המיקום שלך ונגלה מה יש באזור!')}</>
-            ) : (
-              <>מיפינו מאות גינות כושר ברחבי הארץ, עם מתקנים שמתאימים לאימוני OUT.{' '}{t('אשר את המיקום שלך ונמצא את הגינה הקרובה אליך.', 'אשרי את המיקום שלך ונמצא את הגינה הקרובה אלייך.')}</>
-            )}
+            {subtitle}
           </p>
 
           {locationError && (

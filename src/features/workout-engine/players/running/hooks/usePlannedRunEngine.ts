@@ -160,7 +160,7 @@ export function usePlannedRunEngine(): PlannedRunEngine {
     basePace,
     profileType,
     currentPaceSeconds,
-    currentPaceFormatted: formatPaceSeconds(currentPaceSeconds),
+    currentPaceFormatted: currentPaceSeconds <= 0 ? '--:--' : formatPaceSeconds(currentPaceSeconds),
     targetPaceFormatted:
       targetMinPace > 0 && targetMaxPace > 0
         ? `${formatPaceSeconds(targetMinPace)}–${formatPaceSeconds(targetMaxPace)}`

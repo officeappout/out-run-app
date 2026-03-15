@@ -4,22 +4,29 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
+import {
+  markSessionComplete,
+  getCurrentUid,
+  type SessionSummary,
+} from '@/features/workout-engine/core/services/workout-completion.service';
 import WorkoutPreviewScreen from './WorkoutPreviewScreen';
 import PlannedRunActive from './PlannedRunActive';
-import PlannedRunPaused from './PlannedRunPaused';
 import FreeRunSummary from '../FreeRun/FreeRunSummary';
 
 export default function PlannedRun() {
   const router = useRouter();
-  const { status, startSession, endSession, clearSession } = useSessionStore();
+  const { status, startSession, endSession, clearSession, totalDistance, totalDuration } = useSessionStore();
   const {
     currentWorkout,
     startGPSTracking,
     stopGPSTracking,
     clearRunningData,
     initializeRunningData,
+    currentPace,
   } = useRunningPlayer();
+  const profile = useUserStore((s) => s.profile);
 
   // Unlock audio for iOS on mount
   useEffect(() => {
@@ -56,7 +63,32 @@ export default function PlannedRun() {
     router.push('/map');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const uid = getCurrentUid();
+    const activeProgram = profile?.running?.activeProgram;
+    const weekStr = typeof window !== 'undefined' ? sessionStorage.getItem('planned_run_week') : null;
+    const dayStr = typeof window !== 'undefined' ? sessionStorage.getItem('planned_run_day') : null;
+
+    if (uid && activeProgram && weekStr && dayStr) {
+      const week = parseInt(weekStr, 10);
+      const day = parseInt(dayStr, 10);
+      const avgPace = currentPace || 0;
+      const targetDist = currentWorkout?.totalDistance || 0;
+      const completionRate = targetDist > 0 ? Math.min(1, totalDistance / targetDist) : 1;
+
+      const summary: SessionSummary = {
+        avgPace,
+        completionRate,
+        distanceKm: totalDistance,
+        durationSeconds: totalDuration,
+      };
+
+      await markSessionComplete(uid, week, day, summary, activeProgram);
+
+      sessionStorage.removeItem('planned_run_week');
+      sessionStorage.removeItem('planned_run_day');
+    }
+
     clearRunningData();
     clearSession();
     router.push('/home');
@@ -64,12 +96,10 @@ export default function PlannedRun() {
 
   // ── State machine ────────────────────────────────────────────────
 
-  // No workout loaded — should not reach here, but guard anyway
   if (!currentWorkout) {
     return null;
   }
 
-  // Pre-start preview
   if (status === 'idle') {
     return (
       <WorkoutPreviewScreen
@@ -80,16 +110,11 @@ export default function PlannedRun() {
     );
   }
 
-  // Post-workout summary (reuse Free Run summary)
   if (status === 'finished') {
     return <FreeRunSummary onDelete={handleDelete} onSave={handleSave} />;
   }
 
-  // Paused
-  if (status === 'paused') {
-    return <PlannedRunPaused onBack={handleBack} />;
-  }
-
-  // Active (default)
+  // Both 'active' and 'paused' are handled inside PlannedRunActive
+  // (it renders its own Strength-style pause overlay when paused)
   return <PlannedRunActive onBack={handleBack} />;
 }

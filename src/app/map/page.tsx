@@ -1,16 +1,9 @@
-"use client";
-
-// Force dynamic rendering to prevent SSR issues with window/localStorage
-export const dynamic = 'force-dynamic';
-
 /**
- * /map — Full-featured Map for registered users.
+ * /map — Server Component entry point.
  *
- * This is the heavy map with route generation, GPS tracking, workout player,
- * and all related services. Guest/MAP_ONLY users go to /explorer instead.
- *
- * FullMapView is loaded via next/dynamic to avoid SSR issues with
- * browser-only APIs (Mapbox, geolocation, etc.).
+ * Reads searchParams on the server and hands them down as props
+ * so the client tree has the workoutId from millisecond zero —
+ * no hydration mismatch, no useEffect patch.
  */
 
 import React, { Suspense } from 'react';
@@ -28,10 +21,21 @@ const FullMapView = dynamicImport(
   }
 );
 
-export default function MapPage() {
+interface MapPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function MapPage({ searchParams }: MapPageProps) {
+  const params = await searchParams;
+  const initialWorkoutId = (typeof params?.workoutId === 'string' ? params.workoutId : null);
+  const initialContext = (typeof params?.context === 'string' ? params.context : null);
+
   return (
     <Suspense fallback={<div className="h-[100dvh] w-full flex items-center justify-center bg-[#f3f4f6]">טוען...</div>}>
-      <FullMapView />
+      <FullMapView
+        initialWorkoutId={initialWorkoutId}
+        initialContext={initialContext}
+      />
     </Suspense>
   );
 }

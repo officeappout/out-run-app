@@ -1,13 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
     MapPin,
-    Home,
-    Briefcase,
-    History,
     Footprints,
     Activity,
     Bike,
@@ -60,12 +57,6 @@ export default function NavigationHub({
     const localInputRef = useRef<HTMLInputElement>(null);
     const actualInputRef = inputRef || localInputRef;
 
-    const [recentHistory] = useState<Array<{ text: string; coords: [number, number] }>>([
-        { text: 'פארק הירקון, תל אביב', coords: [34.8016, 32.1006] },
-        { text: 'דיזנגוף סנטר', coords: [34.7742, 32.0754] },
-        { text: 'חוף גורדון', coords: [34.7674, 32.0833] }
-    ]);
-
     // Sync scroll with selection
     useEffect(() => {
         if (navState === 'navigating' && carouselRef.current) {
@@ -105,8 +96,7 @@ export default function NavigationHub({
         }
     }, [navState, actualInputRef]);
 
-    // Items to display in the list
-    const displayItems = searchQuery.length >= 3 ? suggestions : recentHistory;
+    const displayItems = searchQuery.length >= 3 ? suggestions : [];
 
     return (
         <div className="fixed inset-0 z-[60] pointer-events-none flex flex-col items-center">
@@ -162,46 +152,17 @@ export default function NavigationHub({
                                     )}
                                 </div>
 
-                                {/* Quick Access */}
-                                <div className="p-4 space-y-1 border-b border-gray-100">
-                                    <button className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-all group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-                                                <Home size={18} />
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-gray-900 text-sm">הביתה</div>
-                                                <div className="text-[10px] text-gray-400 font-medium">הגדר כתובת בית</div>
-                                            </div>
-                                        </div>
-                                        <ChevronRight size={16} className="text-gray-300" />
-                                    </button>
-
-                                    <button className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-all group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600">
-                                                <Briefcase size={18} />
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-gray-900 text-sm">עבודה</div>
-                                                <div className="text-[10px] text-gray-400 font-medium">הגדר כתובת עבודה</div>
-                                            </div>
-                                        </div>
-                                        <ChevronRight size={16} className="text-gray-300" />
-                                    </button>
-                                </div>
-
-                                {/* Results / History */}
+                                {/* Results */}
                                 <div className="p-4">
+                                    {searchQuery.length >= 3 && (
                                     <div className="flex items-center gap-2 mb-3 px-1">
-                                        <History size={12} className="text-gray-400" />
+                                        <Search size={12} className="text-gray-400" />
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                            {searchQuery.length >= 3 ? 'תוצאות חיפוש' : 'חיפושים אחרונים'}
+                                            תוצאות חיפוש
                                         </span>
-                                        {searchQuery.length >= 3 && (
-                                            <span className="text-[10px] text-gray-300">({suggestions.length})</span>
-                                        )}
+                                        <span className="text-[10px] text-gray-300">({suggestions.length})</span>
                                     </div>
+                                    )}
 
                                     {/* ✅ FIX #3: Proper z-index, bg-white, and visible text */}
                                     <div className="relative z-50 max-h-[50vh] overflow-y-auto bg-white rounded-xl shadow-lg">

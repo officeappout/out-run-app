@@ -2,20 +2,20 @@
 
 import RunBlock from './run-block.type';
 
-// הגדרת אימון ריצה שלם
 export type RunWorkout = {
   id: string;
-  title: string;       // למשל: "אימון אינטרוולים"
-  description?: string; // תיאור קצר למשתמש
-  
-  // האם זה אימון שמשפיע על חישוב קצב הבסיס? 
+  title: string;
+  description?: string;
   isQualityWorkout: boolean;
-  
-  // רשימת הבלוקים שמרכיבים את האימון (חימום -> אינטרוול -> מנוחה -> שחרור)
-  blocks: RunBlock[]; 
-  
-  // סרטון אופציונלי להדרכה לפני/אחרי
+  blocks: RunBlock[];
   videoUrl?: string;
+
+  /** Coaching explanation resolved from Firestore metadata (replaces generic description in briefing). */
+  logicCue?: string;
+  /** Motivational phrase resolved from Firestore metadata. */
+  aiCue?: string;
+  /** Where the metadata came from ('firestore' | 'fallback'). */
+  metadataSource?: 'firestore' | 'fallback';
 };
 
 export default RunWorkout;

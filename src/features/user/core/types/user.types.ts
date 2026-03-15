@@ -30,7 +30,7 @@ export interface UserLevelGoalProgress {
 // ==========================================
 export type TrainingDomainId =
   | 'upper_body'   // פלג גוף עליון (למשל: 22 רמות)
-  | 'lower_body'   // פלג גוף תחתון (למשל: 10 רמות)
+  | 'lower_body'   // פלג גוף תחתון (למשל: 25 רמות)
   | 'full_body'    // כל הגוף
   | 'core'         // ליבה ובטן
   | 'flexibility'  // גמישות / מוביליטי
@@ -130,9 +130,21 @@ export interface UserProgression {
   };
 
   // --- Ready for Split Recommendation ---
-  // Triggered when full_body level reaches threshold (10)
+  // Triggered when full_body level reaches threshold (L13)
   // Suggests transitioning to split training (upper/lower)
   readyForSplit?: ReadyForSplitStatus;
+
+  // --- Program Evolution Engine ---
+  // Set when a level threshold is crossed. UI should prompt the user to evolve.
+  // 'upper_lower' = Full Body L13+ → Upper/Lower split
+  // 'push_pull_legs' = Upper/Lower L18+ → Push/Pull/Legs split
+  pendingProgramEvolution?: {
+    targetSplit: 'upper_lower' | 'push_pull_legs';
+    triggeredAt: string;
+    sourceProgram: string;
+    sourceLevelAtTrigger: number;
+    subLevelsSnapshot: Record<string, number>;
+  };
 
   // --- Program Progress Tracking (Golden Content Hyper-Personalization) ---
   // Progress percentage (0-100) in the user's current primary program
@@ -285,6 +297,11 @@ export interface UserFullProfile {
      * Example: { 'א': ['push_prog_id'], 'ג': ['pull_prog_id', 'core_prog_id'], 'ה': [] }
      */
     recurringTemplate?: RecurringTemplate;
+    /** Per-track reminder times (HH:MM). Written by RunningScheduleStep / ScheduleStep. */
+    reminders?: {
+      runningTime?: string;   // preferred running workout time
+      strengthTime?: string;  // preferred strength workout time
+    };
   };
   
   // Persona (Lemur) selection

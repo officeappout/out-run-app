@@ -118,7 +118,7 @@ export default function ContentSection({
                 // Find the selected program to get its maxLevels
                 const selectedProgram = programs.find(p => p.id === assignment.programId);
                 // Default to 10 if no program selected or maxLevels not defined
-                const DEFAULT_MAX_LEVELS = 10;
+                const DEFAULT_MAX_LEVELS = 25;
                 const maxLevels = selectedProgram?.maxLevels || DEFAULT_MAX_LEVELS;
                 
                 // Generate level options based on program's maxLevels

@@ -89,6 +89,7 @@ export interface DynamicQuestionNode {
     assignedProgramId?: string | null;
     assignedResults?: AnswerResult[];
     masterProgramSubLevels?: Record<string, number>;
+    metadata?: Record<string, unknown>;
   }>;
 }
 
@@ -117,12 +118,21 @@ export class DynamicOnboardingEngine {
   /** Maximum depth for auto-skipping invisible questions (prevents infinite loops). */
   private static readonly MAX_SKIP_DEPTH = 25;
 
+  /** Prevents concurrent or duplicate initialize() calls. */
+  private _initializing = false;
+  private _initialized = false;
+
   constructor() {
     this.progress = {
       answers: {},
       isPart1Complete: false,
       isComplete: false,
     };
+  }
+
+  /** True once initialize() has resolved at least once. */
+  get initialized(): boolean {
+    return this._initialized;
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -167,6 +177,9 @@ export class DynamicOnboardingEngine {
   /**
    * Initialize engine — load first question or specific question by ID.
    * Call `setAssessmentContext()` *before* initialize if assessment data is available.
+   *
+   * Guarded: silently returns if already initialized or if another
+   * initialize() call is in-flight (prevents Strict Mode race conditions).
    */
   async initialize(
     part: 'assessment' | 'personal' = 'assessment', 
@@ -174,6 +187,12 @@ export class DynamicOnboardingEngine {
     language?: 'he' | 'en' | 'ru',
     gender?: 'male' | 'female' | 'neutral'
   ): Promise<void> {
+    if (this._initialized || this._initializing) {
+      console.log('[Engine] initialize() skipped — already initialized or in-flight');
+      return;
+    }
+    this._initializing = true;
+
     if (language) this.language = language;
     if (gender) this.gender = gender;
     
@@ -211,6 +230,9 @@ export class DynamicOnboardingEngine {
     } else {
       this.progress.currentQuestionId = questionToLoad.id;
     }
+
+    this._initialized = true;
+    this._initializing = false;
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -260,6 +282,7 @@ export class DynamicOnboardingEngine {
         assignedProgramId: a.assignedProgramId || undefined,
         assignedResults: (a as any).assignedResults || undefined,
         masterProgramSubLevels: (a as any).masterProgramSubLevels || undefined,
+        metadata: (a as any).metadata || undefined,
       })),
     };
 
@@ -564,6 +587,54 @@ export class DynamicOnboardingEngine {
   }
 
   // ══════════════════════════════════════════════════════════════════
+  // FREE-FORM INPUT ANSWERING
+  // ══════════════════════════════════════════════════════════════════
+
+  /**
+   * Answer a free-form input question (type: 'input') that has no
+   * predefined answer objects. Saves the raw value and navigates
+   * to the specified next question.
+   */
+  async answerInputQuestion(
+    value: string,
+    nextQuestionId: string,
+  ): Promise<{
+    nextQuestion: DynamicQuestionNode | null;
+    isPart1Complete: boolean;
+    isComplete: boolean;
+  }> {
+    if (!this.currentQuestion) {
+      throw new Error('No current question');
+    }
+
+    this.progress.answers[this.currentQuestion.id] = value;
+
+    if (nextQuestionId) {
+      const nextNode = await this.loadQuestion(nextQuestionId);
+
+      if (!this.isQuestionVisible(nextNode)) {
+        const visible = await this.findNextVisibleQuestion(nextNode);
+        if (visible) {
+          this.progress.currentQuestionId = visible.id;
+          return { nextQuestion: visible, isPart1Complete: false, isComplete: false };
+        }
+        this.progress.isPart1Complete = true;
+        this.currentQuestion = null;
+        this.progress.currentQuestionId = undefined;
+        return { nextQuestion: null, isPart1Complete: true, isComplete: false };
+      }
+
+      this.progress.currentQuestionId = nextNode.id;
+      return { nextQuestion: nextNode, isPart1Complete: false, isComplete: false };
+    }
+
+    this.progress.isPart1Complete = true;
+    this.currentQuestion = null;
+    this.progress.currentQuestionId = undefined;
+    return { nextQuestion: null, isPart1Complete: true, isComplete: false };
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   // INJECTED QUESTIONS QUEUE
   // ══════════════════════════════════════════════════════════════════
 
@@ -626,5 +697,7 @@ export class DynamicOnboardingEngine {
     this.assessmentCtx = null;
     this.injectedQuestionIds.clear();
     this.skippedCategories.clear();
+    this._initialized = false;
+    this._initializing = false;
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ChevronLeft, Check, UserCircle } from 'lucide-react';
@@ -9,6 +9,9 @@ import {
   type MuscleGroup,
 } from '@/features/content/exercises/core/exercise.types';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
+import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
+import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 
 /** Muscle group ID → SVG path (public/assets/icons/muscles/ or fallback to public/icons/muscles/) */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -54,6 +57,22 @@ function persistToStorage(path: ProgramPathType, muscleIds: string[], skillIds: 
 
 export default function ProgramPathPage() {
   const router = useRouter();
+
+  // Loading guard — don't render strength content until we've confirmed the
+  // user is NOT on the running track. Without this, the strength selector
+  // flashes for one frame before the useEffect redirect fires.
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const track = sessionStorage.getItem('gateway_track');
+    if (track === 'RUNNING') {
+      router.replace('/onboarding-new/dynamic');
+      return;
+    }
+    setIsReady(true);
+  }, [router]);
+
   const [path, setPath] = useState<ProgramPathType>(null);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -110,12 +129,32 @@ export default function ProgramPathPage() {
     router.push('/onboarding-new/assessment-visual');
   };
 
+  if (!isReady) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: '#F4FAFD' }}
+      >
+        <div className="animate-spin w-8 h-8 border-4 border-[#5BC2F2] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen flex flex-col"
       style={{ backgroundColor: '#F4FAFD' }}
       dir="rtl"
     >
+      {/* Shared story bar */}
+      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <OnboardingStoryBar
+          totalPhases={STRENGTH_PHASES.TOTAL}
+          currentPhase={STRENGTH_PHASES.PROGRAM_PATH}
+          phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROGRAM_PATH]}
+          onPhaseComplete={firePhaseConfetti}
+        />
+      </div>
       <div className="w-full max-w-md mx-auto px-4 py-6 pb-8 flex flex-col flex-1">
         {/* Header */}
         <motion.div

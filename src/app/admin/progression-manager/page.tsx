@@ -195,7 +195,7 @@ async function deleteProgressionRule(ruleId: string): Promise<void> {
   }
 }
 
-async function generateDefaultRulesForProgram(programId: string, maxLevels: number = 10): Promise<void> {
+async function generateDefaultRulesForProgram(programId: string, maxLevels: number = 25): Promise<void> {
   try {
     for (let level = 1; level <= maxLevels; level++) {
       const defaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
@@ -541,7 +541,7 @@ export default function ProgressionManagerPage() {
     
     setSaving(true);
     try {
-      await generateDefaultRulesForProgram(selectedProgramId, selectedProgram.maxLevels || 10);
+      await generateDefaultRulesForProgram(selectedProgramId, selectedProgram.maxLevels || 25);
       await loadRulesForProgram(selectedProgramId);
     } catch (error) {
       console.error('Error generating defaults:', error);

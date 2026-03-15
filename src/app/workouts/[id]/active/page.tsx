@@ -443,7 +443,7 @@ export default function ActiveWorkoutPage() {
     return {
       programId: activeProgramId,
       currentLevel: track?.currentLevel ?? domain?.currentLevel ?? 1,
-      maxLevel: domain?.maxLevel ?? 10,
+      maxLevel: domain?.maxLevel ?? 25,
       percent: track?.percent ?? 0,
       streak: prog?.globalStreak ?? 0,
     };

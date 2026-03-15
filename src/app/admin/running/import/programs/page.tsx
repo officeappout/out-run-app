@@ -55,7 +55,7 @@ interface ImportPhase {
 
 interface ImportProgramJSON {
   name: string;
-  targetDistance: '3k' | '5k' | '10k' | 'maintenance';
+  targetDistance: '2k' | '3k' | '5k' | '10k' | 'maintenance';
   targetProfileTypes: RunnerProfileType[];
   canonicalWeeks: number;
   canonicalFrequency: 2 | 3 | 4;
@@ -73,7 +73,7 @@ interface ValidationError {
   severity: 'error' | 'warning';
 }
 
-const VALID_DISTANCES = ['3k', '5k', '10k', 'maintenance'];
+const VALID_DISTANCES = ['2k', '3k', '5k', '10k', 'maintenance'];
 const VALID_FREQUENCIES = [2, 3, 4];
 const VALID_PHASE_NAMES = ['base', 'build', 'peak', 'taper'];
 const VALID_SLOT_TYPES = ['quality_primary', 'quality_secondary', 'long_run', 'easy_run', 'recovery'];
@@ -81,7 +81,26 @@ const VALID_CATEGORIES: WorkoutCategory[] = [
   'short_intervals', 'long_intervals', 'fartlek_easy', 'fartlek_structured',
   'tempo', 'hill_long', 'hill_short', 'hill_sprints', 'long_run', 'easy_run', 'strides',
 ];
-const VALID_CAP_TARGETS = ['weekly_volume', 'single_run', 'sets_per_block', 'total_session'];
+const VALID_CAP_TARGETS = ['weekly_volume', 'single_run', 'sets_per_block', 'total_session', 'weekly_distance', 'single_run_distance'];
+
+/**
+ * Hebrew / alternate category strings found in the DB → canonical WorkoutCategory.
+ * When counting templates per category, we normalize DB values through this map.
+ */
+const CATEGORY_ALIASES: Record<string, WorkoutCategory> = {
+  'ריצה ארוכה': 'long_run',
+  'ריצה קלה': 'easy_run',
+  'אינטרוולים קצרים': 'short_intervals',
+  'אינטרוולים ארוכים': 'long_intervals',
+  'פארטלק קל': 'fartlek_easy',
+  'פארטלק מובנה': 'fartlek_structured',
+  'טמפו': 'tempo',
+  'עליות ארוכות': 'hill_long',
+  'עליות קצרות': 'hill_short',
+  'ספרינט עליות': 'hill_sprints',
+  'סטרייד': 'strides',
+  'סטריידים': 'strides',
+};
 
 const PHASE_COLORS: Record<string, string> = {
   base: 'bg-emerald-100 text-emerald-700 border-emerald-300',
@@ -101,6 +120,7 @@ const SLOT_TYPE_LABELS: Record<string, string> = {
 function validateProgram(
   p: Record<string, unknown>,
   dbCategories: Set<string>,
+  dbCategoryCount: Map<string, number>,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
@@ -187,8 +207,10 @@ function validateProgram(
               for (const cat of slot.allowedCategories) {
                 if (!VALID_CATEGORIES.includes(cat))
                   errors.push({ path: `phases[${i}].weekSlots[${s}].allowedCategories`, message: `קטגוריה לא חוקית: "${cat}"`, severity: 'error' });
-                if (!dbCategories.has(cat))
-                  errors.push({ path: `phases[${i}].weekSlots[${s}].allowedCategories`, message: `קטגוריה "${cat}" לא קיימת ב-DB (0 תבניות)`, severity: 'warning' });
+                if (!dbCategories.has(cat)) {
+                  const count = dbCategoryCount.get(cat) ?? 0;
+                  errors.push({ path: `phases[${i}].weekSlots[${s}].allowedCategories`, message: `קטגוריה "${cat}" — ${count} תבניות ב-DB. ייבא אימונים עם קטגוריה זו קודם.`, severity: 'warning' });
+                }
               }
             }
           }
@@ -246,11 +268,11 @@ function validateProgram(
       for (let i = 0; i < (p.volumeCaps as VolumeCap[]).length; i++) {
         const cap = (p.volumeCaps as VolumeCap[])[i];
         if (!VALID_CAP_TARGETS.includes(cap.target))
-          errors.push({ path: `volumeCaps[${i}].target`, message: `לא חוקי: "${cap.target}"`, severity: 'error' });
+          errors.push({ path: `volumeCaps[${i}].target`, message: `לא חוקי: "${cap.target}". ערכים חוקיים: ${VALID_CAP_TARGETS.join(', ')}`, severity: 'error' });
         if (typeof cap.maxValue !== 'number' || cap.maxValue <= 0)
           errors.push({ path: `volumeCaps[${i}].maxValue`, message: 'חייב להיות מספר חיובי', severity: 'error' });
-        if (typeof cap.maxWeeklyIncreasePercent !== 'number')
-          errors.push({ path: `volumeCaps[${i}].maxWeeklyIncreasePercent`, message: 'חסר', severity: 'error' });
+        if (cap.maxWeeklyIncreasePercent != null && typeof cap.maxWeeklyIncreasePercent !== 'number')
+          errors.push({ path: `volumeCaps[${i}].maxWeeklyIncreasePercent`, message: 'חייב להיות מספר אם קיים', severity: 'warning' });
       }
     }
   }
@@ -338,16 +360,17 @@ export default function ImportProgramTemplatesPage() {
       getRunProgramTemplates(),
     ]);
 
-    // Build category → count map from DB
+    // Build category → count map from DB, normalizing Hebrew aliases to canonical keys
     const dbCategoryCount = new Map<string, number>();
     for (const w of allWorkouts) {
       if (w.category) {
-        dbCategoryCount.set(w.category, (dbCategoryCount.get(w.category) ?? 0) + 1);
+        const canonical = CATEGORY_ALIASES[w.category] ?? w.category;
+        dbCategoryCount.set(canonical, (dbCategoryCount.get(canonical) ?? 0) + 1);
       }
     }
     const dbCategories = new Set(dbCategoryCount.keys());
 
-    const errors = validateProgram(program, dbCategories);
+    const errors = validateProgram(program, dbCategories, dbCategoryCount);
     if (errors.some((e) => e.severity === 'error')) {
       setValidationErrors(errors);
       setStage('input');
@@ -702,15 +725,27 @@ export default function ImportProgramTemplatesPage() {
                 <h2 className="text-lg font-bold text-gray-900">Volume Caps</h2>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {preview.program.volumeCaps.map((cap, i) => (
-                  <div key={i} className="bg-gray-50 rounded-lg p-3 text-sm">
-                    <div className="text-gray-500">{cap.target}</div>
-                    <div className="font-bold text-gray-900">
-                      {cap.maxValue} {cap.target === 'sets_per_block' ? 'סטים' : 'דק׳'}
+                {preview.program.volumeCaps.map((cap, i) => {
+                  const isDistance = cap.target === 'weekly_distance' || cap.target === 'single_run_distance';
+                  const unit = cap.target === 'sets_per_block'
+                    ? 'סטים'
+                    : isDistance
+                      ? 'מ׳'
+                      : 'דק׳';
+                  const displayValue = isDistance && cap.maxValue >= 1000
+                    ? `${(cap.maxValue / 1000).toFixed(1)} ק״מ`
+                    : `${cap.maxValue} ${unit}`;
+
+                  return (
+                    <div key={i} className="bg-gray-50 rounded-lg p-3 text-sm">
+                      <div className="text-gray-500">{cap.target}</div>
+                      <div className="font-bold text-gray-900">{displayValue}</div>
+                      {cap.maxWeeklyIncreasePercent != null && (
+                        <div className="text-xs text-gray-400">עליה שבועית: {cap.maxWeeklyIncreasePercent}%</div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-400">עליה שבועית: {cap.maxWeeklyIncreasePercent}%</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

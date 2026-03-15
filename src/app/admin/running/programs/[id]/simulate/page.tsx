@@ -198,19 +198,15 @@ export default function PlanSimulatorPage() {
             <h2 className="text-lg font-bold text-gray-900 mb-4">נפח שבועי (דקות)</h2>
             <div className="flex items-end gap-1" style={{ height: 180 }}>
               {weeklyVolumes.map((wv) => {
-                const isDeload = template.phases?.some(
-                  (p) => p.progressionRules.some((r) => r.type === 'deload_week' && wv.weekNumber % (r as { everyWeeks: number }).everyWeeks === 0),
-                );
                 const isTaper = template.phases?.some(
                   (p) => p.name === 'taper' && wv.weekNumber >= p.startWeek && wv.weekNumber <= p.endWeek,
                 );
                 const mul = weekMultiplierMap.get(wv.weekNumber);
-                const isStepBack = mul !== undefined && mul < 1;
+                const isDeload = mul !== undefined && mul < 1;
 
                 let barColor = '#3B82F6';
                 if (isTaper) barColor = '#8B5CF6';
                 else if (isDeload) barColor = '#F59E0B';
-                else if (isStepBack) barColor = '#06B6D4';
 
                 const barMaxHeight = 140;
                 const barHeight = maxVolume > 0 ? Math.max(2, Math.round((wv.minutes / maxVolume) * barMaxHeight)) : 2;
@@ -218,7 +214,7 @@ export default function PlanSimulatorPage() {
                 return (
                   <div key={wv.weekNumber} className="flex-1 flex flex-col items-center justify-end gap-1" style={{ height: '100%' }}>
                     {mul !== undefined ? (
-                      <span className={`text-[9px] font-black ${isStepBack ? 'text-cyan-600' : 'text-emerald-600'}`}>×{mul}</span>
+                      <span className={`text-[9px] font-black ${isDeload ? 'text-amber-600' : 'text-emerald-600'}`}>×{mul}</span>
                     ) : (
                       <span className="text-[10px] text-gray-500 font-bold">{wv.minutes}</span>
                     )}
@@ -234,8 +230,7 @@ export default function PlanSimulatorPage() {
             </div>
             <div className="flex gap-4 mt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-500" /> רגיל</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-cyan-500" /> Step-back</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-500" /> Deload</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-500" /> Deload (×&lt;1)</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-purple-500" /> Taper</span>
             </div>
           </div>
@@ -249,6 +244,7 @@ export default function PlanSimulatorPage() {
                   <tr className="border-b border-gray-200 text-gray-600">
                     <th className="py-2 px-3 text-right font-bold">שבוע</th>
                     <th className="py-2 px-3 text-right font-bold">סה״כ (דק׳)</th>
+                    <th className="py-2 px-3 text-right font-bold">סה״כ (ק״מ)</th>
                     <th className="py-2 px-3 text-right font-bold">קל (דק׳)</th>
                     <th className="py-2 px-3 text-right font-bold">קשה (דק׳)</th>
                     <th className="py-2 px-3 text-right font-bold">% קשה</th>
@@ -260,6 +256,7 @@ export default function PlanSimulatorPage() {
                     <tr key={week.weekNumber} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-2 px-3 font-bold">{week.weekNumber}</td>
                       <td className="py-2 px-3">{week.totalMinutes}</td>
+                      <td className="py-2 px-3 font-bold text-blue-600">{week.totalKm}</td>
                       <td className="py-2 px-3 text-emerald-600">{week.easyMinutes}</td>
                       <td className="py-2 px-3 text-red-600">{week.hardMinutes}</td>
                       <td className="py-2 px-3">
@@ -300,17 +297,22 @@ export default function PlanSimulatorPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-800">שבוע {week.weekNumber}</span>
                         {mul !== undefined && (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${mul < 1 ? 'bg-cyan-100 text-cyan-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                            ×{mul}
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${mul < 1 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {mul < 1 ? 'Deload ' : ''}×{mul}
                           </span>
                         )}
                       </div>
                       <div className="flex gap-2 text-xs">
                         <span className="text-gray-500">{week.workouts.length} אימונים</span>
                         {intensity && (
-                          <span className={`px-2 py-0.5 rounded-full font-bold ${intensity.isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                            {intensity.hardPercent}% קשה
-                          </span>
+                          <>
+                            <span className="px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-700">
+                              {intensity.totalKm} ק״מ
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full font-bold ${intensity.isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                              {intensity.hardPercent}% קשה
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>

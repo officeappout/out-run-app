@@ -131,11 +131,19 @@ export interface OnboardingData {
   equipmentList: string[]; // Array of gear definition IDs
   hasGym?: boolean; // User also trains at gym
   
-  // Phase 2 - Schedule
+  // Phase 2 - Schedule (Strength)
   trainingDays: number;
   trainingTime: string;
-  scheduleDays?: string[]; // Array of Hebrew day letters like ['א', 'ג', 'ה'] - actual selected days
+  scheduleDays?: string[]; // Array of Hebrew day letters like ['א', 'ג', 'ה'] - actual selected days (merged)
   scheduleDayIndices?: number[]; // Array of day indices (0-6) for reference
+
+  // Running Schedule (set by RunningScheduleStep)
+  runningWeeklyFrequency?: number;          // 1–4, consumed by PlanGeneratorService
+  runningScheduleDays?: string[];           // Hebrew letters e.g. ['א', 'ג', 'ה']
+  runningScheduleDayIndices?: number[];     // numeric indices for re-hydrating UI
+  runningScheduleTime?: string;            // HH:MM — stored in lifestyle.reminders.runningTime
+  runningNotificationsEnabled?: boolean;   // running reminder preference
+  runningPlanWeeks?: number;               // user-selected plan length (4–52), overrides resolveWeeks()
   
   // Account Security (Backup & Security)
   accountSecured?: boolean; // True if user linked Google/Email/Phone

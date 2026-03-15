@@ -73,6 +73,23 @@ class AudioService {
   }
 
   /**
+   * Announce a new block during a planned run (e.g., 'מתחילים ריצה קלה').
+   */
+  announceBlock(blockLabel: string): void {
+    this.speak(`מתחילים ${blockLabel}`);
+    console.log('[AudioService] Block announcement:', blockLabel);
+  }
+
+  /**
+   * Announce a pace deviation hint.
+   * @param status 'slow' | 'fast'
+   */
+  announcePaceHint(status: 'slow' | 'fast'): void {
+    const message = status === 'slow' ? 'קצב איטי, תאיצו קצת' : 'קצב מהיר, תאטו קצת';
+    this.speak(message);
+  }
+
+  /**
    * Speak an arbitrary Hebrew message.
    */
   speak(message: string): void {

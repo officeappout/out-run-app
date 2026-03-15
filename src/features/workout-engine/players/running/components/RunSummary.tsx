@@ -167,6 +167,19 @@ export default function RunSummary({ onFinish }: Props) {
   const [showEmailDrawer, setShowEmailDrawer] = useState(false);
   const [showInlineAccount, setShowInlineAccount] = useState(false);
 
+  // Auto-open drawer after first workout (mirrors StrengthSummaryPage logic)
+  useEffect(() => {
+    const isAnonymous = auth.currentUser?.isAnonymous ?? true;
+    const hasEmail = !!profile?.core?.email;
+    const dismissed = typeof window !== 'undefined' &&
+      sessionStorage.getItem('dismissed_email_cta') === 'true';
+
+    if (!hasEmail && isAnonymous && !dismissed) {
+      const timer = setTimeout(() => setShowEmailDrawer(true), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [profile]);
+
   const handleClaim = () => {
     setShowEmailDrawer(true);
   };

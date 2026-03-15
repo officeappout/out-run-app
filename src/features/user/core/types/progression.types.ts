@@ -109,7 +109,7 @@ export interface WorkoutCompletionData {
 export interface WorkoutExerciseResult {
   exerciseId: string;
   exerciseName: string;
-  programLevels: Record<string, number>; // From MockExercises programLevels
+  programLevels: Record<string, number>; // Per-program level mapping from exercise targetPrograms
   setsCompleted: number;
   repsPerSet: number[];
   targetReps: number;

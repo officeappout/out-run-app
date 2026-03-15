@@ -38,6 +38,31 @@ function resolveColor(zoneType: string): string {
   return ZONE_COLOR_MAP[zoneType] ?? '#9E9E9E';
 }
 
+const FARTLEK_SHORT_KEYWORDS = ['15/15', '30/30', '200/200', 'micro', 'מיקרו'];
+const FARTLEK_LONG_KEYWORDS = ['1000', 'mile', 'pyramid', 'פירמידה', '1-2-3-4', 'מייל'];
+
+function computeFartlekIntensityRank(name: string, blocks: Record<string, unknown>[]): number {
+  const nameLower = (name ?? '').toLowerCase();
+  if (FARTLEK_SHORT_KEYWORDS.some((kw) => nameLower.includes(kw))) return 1;
+  if (FARTLEK_LONG_KEYWORDS.some((kw) => nameLower.includes(kw))) return 3;
+
+  const runBlocks = blocks.filter(
+    (b) => b.type === 'run' || b.type === 'interval' || b.type === 'sprint' || b.type === 'float',
+  );
+  if (runBlocks.length === 0) return 2;
+
+  let maxDuration = 0;
+  let maxDistance = 0;
+  for (const block of runBlocks) {
+    if (block.measureBy === 'time' && (block.baseValue as number) > maxDuration) maxDuration = block.baseValue as number;
+    if (block.measureBy === 'distance' && (block.baseValue as number) > maxDistance) maxDistance = block.baseValue as number;
+  }
+
+  if (maxDistance >= 800 || maxDuration >= 180) return 3;
+  if (maxDistance >= 400 || maxDuration >= 60) return 2;
+  return 1;
+}
+
 function resolveZoneType(block: Record<string, unknown>): string {
   const zone = block.zoneType as string;
   if (zone === 'fartlek_medium' || zone === 'recovery') return zone;
@@ -140,9 +165,11 @@ export default function CleanUploadFartlekPage() {
           }
         }
 
+        const intensityRank = computeFartlekIntensityRank(data.name as string, blocks);
         const ref = doc(collection(db, COLLECTION));
-        await setDoc(ref, { ...data, blocks, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        await setDoc(ref, { ...data, blocks, intensityRank, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         uploaded++;
+        addLog(`  ✓ "${data.name}" → intensityRank: ${intensityRank}`);
         if (uploaded % 6 === 0) addLog(`  ${uploaded}/${RAW_TEMPLATES.length} הועלו...`);
       }
 
@@ -206,8 +233,21 @@ export default function CleanUploadFartlekPage() {
       )}
 
       {log.length > 0 && (
-        <div className="mt-6 bg-gray-900 text-gray-100 p-4 rounded-xl text-sm font-mono space-y-1 max-h-96 overflow-auto">
-          {log.map((l, i) => <div key={i}>{l}</div>)}
+        <div className="mt-6 bg-gray-950 border border-gray-700 rounded-xl p-5 text-sm font-mono space-y-0.5 max-h-96 overflow-auto">
+          {log.map((l, i) => (
+            <div
+              key={i}
+              className={`leading-relaxed ${
+                l.includes('✗') || l.toLowerCase().includes('error') ? 'text-red-400' :
+                l.startsWith('✓') || l.includes('✓') ? 'text-emerald-400' :
+                l.startsWith('⚠') || l.includes('⚡') ? 'text-amber-400' :
+                l.startsWith('🔄') ? 'text-cyan-400' :
+                'text-gray-100'
+              }`}
+            >
+              {l}
+            </div>
+          ))}
         </div>
       )}
 

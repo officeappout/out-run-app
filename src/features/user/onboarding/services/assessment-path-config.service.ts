@@ -162,9 +162,9 @@ export function getPathConfigSync(): AssessmentPathConfig {
       path: 'health',
       categories: [...PRIMARY_CATEGORIES],
       minLevel: 1,
-      maxLevel: 10,
+      maxLevel: 25,
       skipTier: true,
-      clampTierLevel: (lvl) => Math.max(1, Math.min(10, lvl)),
+      clampTierLevel: (lvl) => Math.max(1, Math.min(25, lvl)),
     };
   }
 
@@ -174,14 +174,13 @@ export function getPathConfigSync(): AssessmentPathConfig {
     return {
       path: 'body_focus',
       categories,
-      minLevel: 10,
-      maxLevel: 20,
+      minLevel: 1,
+      maxLevel: 25,
       skipTier: true,
-      clampTierLevel: (lvl) => Math.max(10, Math.min(20, lvl)),
+      clampTierLevel: (lvl) => Math.max(1, Math.min(25, lvl)),
     };
   }
 
-  // Path 3 or legacy: return default for skills (will be overridden by loadPathConfigAsync)
   if (path === 'skills') {
     const skillIds = getSkillFocusFromStorage();
     return {
@@ -206,56 +205,68 @@ export function getPathConfigSync(): AssessmentPathConfig {
 }
 
 /**
- * Load full config for Path 3 (skills) — fetches maxLevels per skill.
+ * Load full config — fetches maxLevels per category from the programs collection.
+ * Works for all paths (skills, health, body_focus, legacy).
  */
 export async function loadPathConfigAsync(): Promise<AssessmentPathConfig> {
-  const path = getProgramPathFromStorage();
+  const baseConfig = getPathConfigSync();
+  const programs = await getAllPrograms();
 
-  if (path !== 'skills') {
-    return getPathConfigSync();
+  // Build a movementPattern → maxLevels map from child programs
+  const patternMaxMap: Record<string, number> = {};
+  for (const p of programs) {
+    if (!p.isMaster && p.movementPattern && p.maxLevels) {
+      patternMaxMap[p.movementPattern] = p.maxLevels;
+    }
+    // Also map by program ID directly
+    if (p.maxLevels) {
+      patternMaxMap[p.id] = p.maxLevels;
+    }
   }
 
-  const skillIds = getSkillFocusFromStorage();
-  if (skillIds.length === 0) {
+  if (baseConfig.path === 'skills') {
+    const skillIds = getSkillFocusFromStorage();
+    const skillMaxLevels: Record<string, number> = {};
+
+    for (const skillId of skillIds.length > 0 ? skillIds : [...PRIMARY_CATEGORIES]) {
+      if (patternMaxMap[skillId] != null) {
+        skillMaxLevels[skillId] = patternMaxMap[skillId];
+      } else {
+        const settings = await getProgramLevelSettingsByProgram(skillId).catch(
+          () => [],
+        );
+        const maxFromSettings =
+          settings.length > 0
+            ? Math.max(...settings.map((s) => s.levelNumber))
+            : 15;
+        skillMaxLevels[skillId] = maxFromSettings;
+      }
+    }
+
     return {
-      ...getPathConfigSync(),
-      categories: [...PRIMARY_CATEGORIES],
-      skillMaxLevels: {},
+      ...baseConfig,
+      categories: skillIds.length > 0 ? skillIds : [...PRIMARY_CATEGORIES],
+      skillMaxLevels,
     };
   }
 
-  const programs = await getAllPrograms();
+  // For primary categories — resolve maxLevels per category from program data
   const skillMaxLevels: Record<string, number> = {};
-
-  for (const skillId of skillIds) {
-    const program = programs.find((p) => p.id === skillId);
-    if (program?.maxLevels) {
-      skillMaxLevels[skillId] = program.maxLevels;
-    } else {
-      const settings = await getProgramLevelSettingsByProgram(skillId).catch(
-        () => [],
-      );
-      const maxFromSettings =
-        settings.length > 0
-          ? Math.max(...settings.map((s) => s.levelNumber))
-          : 15;
-      skillMaxLevels[skillId] = program?.maxLevels ?? maxFromSettings;
+  for (const cat of baseConfig.categories) {
+    const fromPattern = patternMaxMap[cat];
+    if (fromPattern != null) {
+      skillMaxLevels[cat] = fromPattern;
     }
   }
 
   return {
-    path: 'skills',
-    categories: skillIds,
-    minLevel: 1,
-    maxLevel: 25,
-    skillMaxLevels,
-    skipTier: true,
-    clampTierLevel: (lvl) => lvl,
+    ...baseConfig,
+    skillMaxLevels: Object.keys(skillMaxLevels).length > 0 ? skillMaxLevels : undefined,
   };
 }
 
 /**
- * Get max level for a category when path is skills.
+ * Get max level for a specific category, respecting per-program maxLevels.
  */
 export function getMaxLevelForCategory(
   config: AssessmentPathConfig,
