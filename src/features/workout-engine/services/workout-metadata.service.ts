@@ -86,9 +86,13 @@ export interface WorkoutMetadataContext {
   programPhase?: string;
   /** Running workout category, e.g. 'short_intervals' | 'tempo' (for scoring) */
   runningCategory?: string;
+  /** Current week number in the running plan (1-based) */
+  weekNumber?: number;
+  /** Total weeks in the running plan (for milestone detection) */
+  totalWeeks?: number;
 
   // === Program Hierarchy Context ===
-  /** Active Reserve flag — gives +20 to reservist-targeted content */
+  /** Active Reserve flag — gives +2 to reservist-targeted content */
   isActiveReserve?: boolean;
   /** The user's currently active (child) program ID (e.g., 'push', 'pull') */
   activeProgramId?: string;
@@ -96,6 +100,32 @@ export interface WorkoutMetadataContext {
   programLevel?: number;
   /** IDs of all ancestor master programs (e.g., ['upper_body', 'full_body']) */
   ancestorProgramIds?: string[];
+
+  // === Sub-Persona Context ===
+  /** User's age in years (derived from birthDate) for sub-persona scoring */
+  userAge?: number;
+
+  // === Travel & Environment Context ===
+  /** True when user is outside their home country (timezone !== Asia/Jerusalem or explicit flag) */
+  isAbroad?: boolean;
+  /** BundleIDs of the last 5 content pieces shown, for anti-repetition scoring */
+  recentBundleIds?: string[];
+
+  // === Strategic Coaching Context (for @פער_שבועי, @סיבת_רצף, etc.) ===
+  /** Domain with the lowest weekly quota % (Hebrew name, e.g. "דחיפה") */
+  weeklyGapDomain?: string;
+  /** How far behind that domain is (0-100) */
+  weeklyGapPercent?: number;
+  /** User's consecutive training-day streak */
+  streakDays?: number;
+  /** Display name of today's progression step (e.g. "Diamond Push-ups 3×8") */
+  currentProgressionStep?: string;
+  /** Average rep count across workout exercises (for physiological focus tag) */
+  avgRepCount?: number;
+  /** Total sets completed this week */
+  weeklyCompletedSets?: number;
+  /** Defined weekly set quota (target) */
+  weeklySetQuota?: number;
 }
 
 export interface ResolvedWorkoutMetadata {
@@ -109,6 +139,8 @@ export interface ResolvedWorkoutMetadata {
   logicCue: string | null;
   /** Source of the resolved metadata (for debugging) */
   source: 'firestore' | 'fallback';
+  /** BundleID of the winning title (if any) — for cross-content coherence */
+  bundleId?: string;
 }
 
 // ============================================================================
@@ -126,6 +158,13 @@ export type TrioVariant = 'balanced' | 'intense' | 'naked' | 'easy';
 
 /** Enable detailed console logs for Title/Description resolution (debugging). */
 const DEBUG_METADATA_RESOLUTION = true;
+
+/**
+ * BUNDLE SYNC: When a Title with a bundleId is selected, subsequent fetches
+ * (Description, Phrase, LogicCue) receive this boost for rows sharing the
+ * same bundleId. This ensures all content pieces tell a coherent "story".
+ */
+const BUNDLE_SYNC_BOOST = 50;
 
 // ============================================================================
 // HELPERS
@@ -209,8 +248,32 @@ const SCORABLE_FIELDS: Array<{
  *
  * Returns -1 if the row is incompatible (e.g., gender mismatch).
  */
+/**
+ * Persona values that target a specific demographic.
+ * When the user has NO persona, content rows tagged with any of these
+ * are hard-excluded so generic users never see "Young Mom" or "Senior" titles.
+ */
+const DEMOGRAPHIC_PERSONA_TAGS = new Set([
+  'parent', 'mom', 'senior', 'high_tech', 'army', 'reservist', 'student',
+]);
+
 function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   let score = 0;
+
+  // ── PERSONA-NEUTRAL GUARD ("David Clause") ──
+  // If the user has NO persona defined, hard-exclude any content row that
+  // targets a specific demographic persona. Only general, weather-based,
+  // time-of-day, and difficulty-based content should survive.
+  const rowPersona = row.persona;
+  if (
+    (!ctx.persona || ctx.persona === '') &&
+    rowPersona &&
+    rowPersona !== '' &&
+    rowPersona !== 'any' &&
+    DEMOGRAPHIC_PERSONA_TAGS.has(rowPersona)
+  ) {
+    return -1; // Hard exclude — no persona user must not see persona-specific content
+  }
 
   for (const field of SCORABLE_FIELDS) {
     const rowVal = row[field.rowField];
@@ -319,12 +382,185 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   }
 
   // ============================================================================
-  // RESERVIST BOOST (+20)
+  // RESERVIST BOOST (+2)
   // ============================================================================
   // If the user has isActiveReserve=true and the row targets persona='reservist',
-  // give a massive +20 boost to surface reservist-relevant content.
+  // give a +2 boost (aligned with other contextual bonuses). This ensures
+  // reservists see military-themed content without monopolizing the pool —
+  // they'll also see relevant time-of-day, location, and progress content.
   if (ctx.isActiveReserve && row.persona === 'reservist') {
-    score += 20;
+    score += 2;
+  }
+
+  // ============================================================================
+  // YOUNG MOM SUB-PERSONA (+15 keyword boost)
+  // ============================================================================
+  // Female + parent persona + age <= 35 → "Young Mom" sub-persona.
+  // Boost content that contains postpartum/toning keywords.
+  const isYoungMom =
+    ctx.gender === 'female' &&
+    ctx.persona === 'parent' &&
+    ctx.userAge !== undefined &&
+    ctx.userAge <= 35;
+
+  if (isYoungMom) {
+    const rowText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+
+    const YOUNG_MOM_KEYWORDS = ['חיטוב', 'בטן', 'רצפת אגן', 'אחרי הלילה'];
+    const hasKeyword = YOUNG_MOM_KEYWORDS.some(kw => rowText.includes(kw));
+    if (hasKeyword) {
+      score += 15;
+    }
+  }
+
+  // ============================================================================
+  // PARENT TIME-WINDOW BOOST (+20)
+  // ============================================================================
+  // 08:00-09:00 = post-dropoff window → boost morning content
+  // 16:00-17:30 = park/pickup window → boost afternoon content
+  if (ctx.persona === 'parent') {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const minuteOfDay = h * 60 + m;
+
+    const isPostDropoff = minuteOfDay >= 480 && minuteOfDay < 540;   // 08:00–09:00
+    const isParkTime = minuteOfDay >= 960 && minuteOfDay < 1050;     // 16:00–17:30
+    const rowTimeOfDay = row.timeOfDay;
+
+    if (isPostDropoff && rowTimeOfDay === 'morning') {
+      score += 20;
+    }
+    if (isParkTime && rowTimeOfDay === 'afternoon') {
+      score += 20;
+    }
+  }
+
+  // ============================================================================
+  // DESK RESET BOOST (+30) — High-Tech & Students, 12:00-14:00
+  // ============================================================================
+  // During lunch hours, boost desk-friendly content for sedentary personas.
+  if (ctx.persona === 'high_tech' || ctx.persona === 'student') {
+    const deskNow = new Date();
+    const deskH = deskNow.getHours();
+    const isDeskWindow = deskH >= 12 && deskH < 14;
+
+    if (isDeskWindow) {
+      const rowText = (
+        (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+        (row.description || '') + ' ' + (row.cue || '')
+      ).toLowerCase();
+
+      const DESK_KEYWORDS = ['כיסא', 'שולחן', 'משרד', 'ספרייה', 'מתיחות', 'עיניים'];
+      if (DESK_KEYWORDS.some(kw => rowText.includes(kw))) {
+        score += 30;
+      }
+    }
+  }
+
+  // ============================================================================
+  // MIDDLE SCHOOL SUB-PERSONA (+20) — Students aged 13-15
+  // ============================================================================
+  const age = ctx.userAge;
+  if (ctx.persona === 'student' && age !== undefined && age >= 13 && age <= 15) {
+    const msText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+      (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+    const MS_KEYWORDS = ['חטיבה', 'stats', 'גיימינג', 'gaming', 'reset'];
+    if (MS_KEYWORDS.some(kw => msText.includes(kw))) {
+      score += 20;
+    }
+  }
+
+  // ============================================================================
+  // HIGH SCHOOL & PRE-ARMY SUB-PERSONA (+20) — Students aged 16-19
+  // ============================================================================
+  if (ctx.persona === 'student' && age !== undefined && age >= 16 && age <= 19) {
+    const hsText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+      (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+    const HS_KEYWORDS = ['צבא', 'גיבוש', 'בגרות', 'academic weapon', 'physique', 'aesthetic', 'תיכון'];
+    if (HS_KEYWORDS.some(kw => hsText.includes(kw))) {
+      score += 20;
+    }
+  }
+
+  // ============================================================================
+  // SENIOR SUB-PERSONA (+25) — Age 65+ or senior persona
+  // ============================================================================
+  if (ctx.persona === 'senior' || (age !== undefined && age >= 65)) {
+    const srText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+      (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+    const SENIOR_KEYWORDS = ['מפרקים', 'נכדים', 'עצמאות', 'יציבות', 'בריאות', 'נחת'];
+    if (SENIOR_KEYWORDS.some(kw => srText.includes(kw))) {
+      score += 25;
+    }
+  }
+
+  // ============================================================================
+  // SEASONAL SCORING (+20) — Winter / Summer keyword boosts
+  // ============================================================================
+  const currentMonth = new Date().getMonth(); // 0-11
+  const isWinter = currentMonth >= 10 || currentMonth <= 2;  // Nov–Mar
+  const isSummer = currentMonth >= 5 && currentMonth <= 8;   // Jun–Sep
+
+  if (isWinter || isSummer) {
+    const seasonText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+      (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+
+    if (isWinter) {
+      const WINTER_KW = ['חורף', 'גשם', 'בית', 'סלון', 'קר'];
+      if (WINTER_KW.some(kw => seasonText.includes(kw))) score += 20;
+    }
+    if (isSummer) {
+      const SUMMER_KW = ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'];
+      if (SUMMER_KW.some(kw => seasonText.includes(kw))) score += 20;
+    }
+  }
+
+  // ============================================================================
+  // AIRPORT BOOST (+35) — Travel-themed content at airports
+  // ============================================================================
+  if (ctx.location === 'airport') {
+    const airText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+      (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+    const AIRPORT_KW = ['טיסה', 'טרמינל', 'שדה תעופה', 'נחיתה', 'מטוס'];
+    if (AIRPORT_KW.some(kw => airText.includes(kw))) score += 35;
+  }
+
+  // ============================================================================
+  // ABROAD BOOST (+25) — User outside home country
+  // ============================================================================
+  const detectedAbroad = ctx.isAbroad ??
+    (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone !== 'Asia/Jerusalem');
+
+  if (detectedAbroad) {
+    const abroadText = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+      (row.description || '') + ' ' + (row.cue || '')
+    ).toLowerCase();
+    const ABROAD_KW = ['חו"ל', 'חופשה', 'טיול', 'בלי ציוד', 'רצף'];
+    if (ABROAD_KW.some(kw => abroadText.includes(kw))) score += 25;
+  }
+
+  // ============================================================================
+  // DIVERSITY PENALTY (-50) — Anti-repetition via recent bundleId history
+  // ============================================================================
+  const recentIds = ctx.recentBundleIds;
+  if (recentIds && recentIds.length > 0 && row.bundleId) {
+    if (recentIds.includes(row.bundleId)) {
+      score -= 50;
+    }
   }
 
   // ============================================================================
@@ -377,6 +613,116 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
     score += 1;
   }
 
+  // ============================================================================
+  // RUNNING CATEGORY BOOST (+40) — Match content to running workout type
+  // ============================================================================
+  const userRunCat = ctx.runningCategory;
+  if (userRunCat) {
+    const rowRunCat = row.runningCategory;
+    if (rowRunCat && rowRunCat === userRunCat) {
+      score += 40;
+    } else {
+      const runCatText = (
+        (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+        (row.description || '') + ' ' + (row.cue || '') + ' ' +
+        (row.bundleId || '')
+      ).toLowerCase();
+      if (runCatText.includes(userRunCat.replace(/_/g, ' ')) || runCatText.includes(userRunCat)) {
+        score += 40;
+      }
+    }
+  }
+
+  // ============================================================================
+  // RUNNING PHASE BOOST (+30) — Match content to program phase
+  // ============================================================================
+  const userPhase = ctx.programPhase;
+  if (userPhase) {
+    const rowPhase = row.programPhase;
+    if (rowPhase && rowPhase === userPhase) {
+      score += 30;
+    } else {
+      const phaseText = (
+        (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+        (row.description || '') + ' ' + (row.cue || '') + ' ' +
+        (row.bundleId || '')
+      ).toLowerCase();
+      if (phaseText.includes(userPhase)) {
+        score += 30;
+      }
+    }
+  }
+
+  // ============================================================================
+  // PERSONA + RUNNING CATEGORY COMBO (+20)
+  // ============================================================================
+  // Double alignment: content targets both the user's persona AND category.
+  if (userRunCat && ctx.persona) {
+    const rowPersona = row.persona;
+    const rowRunCategory = row.runningCategory;
+    if (rowPersona && rowRunCategory && rowPersona === ctx.persona && rowRunCategory === userRunCat) {
+      score += 20;
+    }
+  }
+
+  // ============================================================================
+  // WEEK NUMBER BOOST (+25) — Milestone content targeting
+  // ============================================================================
+  // Boost content whose weekNumber field matches, OR whose text contains
+  // milestone keywords when the user is at a relevant point in the plan.
+  const wk = ctx.weekNumber;
+  if (wk !== undefined) {
+    // Field match: row explicitly targets this week
+    const rowWeek = row.weekNumber;
+    if (rowWeek !== undefined && Number(rowWeek) === wk) {
+      score += 25;
+    }
+
+    // Keyword match: midpoint & finish content
+    const total = ctx.totalWeeks ?? 0;
+    const isFirstWeek = wk === 1;
+    const isMidpoint = total > 0 && wk === Math.ceil(total / 2);
+    const isFinalWeek = total > 0 && wk >= total;
+
+    if (isFirstWeek || isMidpoint || isFinalWeek) {
+      const wkText = (
+        (row.text || '') + ' ' + (row.phrase || '') + ' ' +
+        (row.description || '') + ' ' + (row.cue || '')
+      ).toLowerCase();
+
+      const MILESTONE_KW: Record<string, string[]> = {
+        first:  ['שבוע ראשון', 'התחלה', 'יוצאים לדרך'],
+        mid:    ['חצי דרך', 'אמצע', 'חציון'],
+        final:  ['סיום', 'שבוע אחרון', 'קו הסיום', 'הגענו'],
+      };
+
+      const activeKw = [
+        ...(isFirstWeek ? MILESTONE_KW.first : []),
+        ...(isMidpoint ? MILESTONE_KW.mid : []),
+        ...(isFinalWeek ? MILESTONE_KW.final : []),
+      ];
+      if (activeKw.some(kw => wkText.includes(kw))) {
+        score += 25;
+      }
+    }
+  }
+
+  // ============================================================================
+  // WEEK-PHASE AWARENESS (+15) — Late-plan boost for peak/taper content
+  // ============================================================================
+  // If the user is deep into the plan (week > 8), boost peak-phase content.
+  // If in final 2 weeks, boost taper content.
+  if (wk !== undefined && wk > 8) {
+    const rowPhaseForWeek = row.programPhase;
+    if (rowPhaseForWeek === 'peak') {
+      score += 15;
+    }
+    const total = ctx.totalWeeks ?? 0;
+    if (total > 0 && wk >= total - 1 && rowPhaseForWeek === 'taper') {
+      score += 15;
+    }
+  }
+
   return score;
 }
 
@@ -385,6 +731,13 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
  */
 function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   const reasons: string[] = [];
+
+  // Persona-neutral guard debug
+  const rp = row.persona;
+  if ((!ctx.persona || ctx.persona === '') && rp && rp !== '' && rp !== 'any' && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
+    reasons.push(`persona_neutral_EXCLUDED(row=${rp})`);
+  }
+
   for (const field of SCORABLE_FIELDS) {
     const rowVal = row[field.rowField];
     const ctxVal = ctx[field.ctxKey];
@@ -418,7 +771,142 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   if (row.minLevel != null || row.maxLevel != null) {
     if (ctx.programLevel != null) reasons.push(`levelRange=${row.minLevel ?? '?'}-${row.maxLevel ?? '?'}`);
   }
-  if (ctx.isActiveReserve && row.persona === 'reservist') reasons.push('reservist(+20)');
+  if (ctx.isActiveReserve && row.persona === 'reservist') reasons.push('reservist(+2)');
+
+  // Young Mom sub-persona
+  const isYoungMomDebug = ctx.gender === 'female' && ctx.persona === 'parent' && ctx.userAge !== undefined && ctx.userAge <= 35;
+  if (isYoungMomDebug) {
+    const debugText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+    if (['חיטוב', 'בטן', 'רצפת אגן', 'אחרי הלילה'].some(kw => debugText.includes(kw))) {
+      reasons.push('youngMom_keyword(+15)');
+    }
+  }
+
+  // Parent time-window
+  if (ctx.persona === 'parent') {
+    const nowDbg = new Date();
+    const mod = nowDbg.getHours() * 60 + nowDbg.getMinutes();
+    if (mod >= 480 && mod < 540 && row.timeOfDay === 'morning') reasons.push('parentDropoff(+20)');
+    if (mod >= 960 && mod < 1050 && row.timeOfDay === 'afternoon') reasons.push('parentPark(+20)');
+  }
+
+  // Desk Reset
+  if (ctx.persona === 'high_tech' || ctx.persona === 'student') {
+    const deskDbgH = new Date().getHours();
+    if (deskDbgH >= 12 && deskDbgH < 14) {
+      const deskDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+      if (['כיסא', 'שולחן', 'משרד', 'ספרייה', 'מתיחות', 'עיניים'].some(kw => deskDbgText.includes(kw))) {
+        reasons.push('deskReset_boost(+30)');
+      }
+    }
+  }
+
+  // Age-based sub-persona debug reasons
+  const dbgAge = ctx.userAge;
+  if (dbgAge !== undefined) {
+    const ageText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+    if (ctx.persona === 'student' && dbgAge >= 13 && dbgAge <= 15) {
+      if (['חטיבה', 'stats', 'גיימינג', 'gaming', 'reset'].some(kw => ageText.includes(kw))) {
+        reasons.push('middleSchool_boost(+20)');
+      }
+    }
+    if (ctx.persona === 'student' && dbgAge >= 16 && dbgAge <= 19) {
+      if (['צבא', 'גיבוש', 'בגרות', 'academic weapon', 'physique', 'aesthetic', 'תיכון'].some(kw => ageText.includes(kw))) {
+        reasons.push('armyPrep_boost(+20)');
+      }
+    }
+    if (ctx.persona === 'senior' || dbgAge >= 65) {
+      if (['מפרקים', 'נכדים', 'עצמאות', 'יציבות', 'בריאות', 'נחת'].some(kw => ageText.includes(kw))) {
+        reasons.push('senior_boost(+25)');
+      }
+    }
+  }
+
+  // Seasonal, Airport, Abroad, Diversity
+  const dbgMonth = new Date().getMonth();
+  const dbgIsWinter = dbgMonth >= 10 || dbgMonth <= 2;
+  const dbgIsSummer = dbgMonth >= 5 && dbgMonth <= 8;
+  if (dbgIsWinter || dbgIsSummer) {
+    const seasonDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+    if (dbgIsWinter && ['חורף', 'גשם', 'בית', 'סלון', 'קר'].some(kw => seasonDbgText.includes(kw))) {
+      reasons.push('winter_boost(+20)');
+    }
+    if (dbgIsSummer && ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'].some(kw => seasonDbgText.includes(kw))) {
+      reasons.push('summer_boost(+20)');
+    }
+  }
+  if (ctx.location === 'airport') {
+    const airDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+    if (['טיסה', 'טרמינל', 'שדה תעופה', 'נחיתה', 'מטוס'].some(kw => airDbgText.includes(kw))) {
+      reasons.push('airport_boost(+35)');
+    }
+  }
+  const dbgAbroad = ctx.isAbroad ?? (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone !== 'Asia/Jerusalem');
+  if (dbgAbroad) {
+    const abroadDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+    if (['חו"ל', 'חופשה', 'טיול', 'בלי ציוד', 'רצף'].some(kw => abroadDbgText.includes(kw))) {
+      reasons.push('abroad_boost(+25)');
+    }
+  }
+  if (ctx.recentBundleIds?.length && row.bundleId && ctx.recentBundleIds.includes(row.bundleId)) {
+    reasons.push('diversity_penalty(-50)');
+  }
+
+  // Running scoring debug
+  if (ctx.runningCategory) {
+    const rcMatch = row.runningCategory === ctx.runningCategory;
+    if (!rcMatch) {
+      const rcText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '') + ' ' + (row.bundleId || '')).toLowerCase();
+      const rcKey = ctx.runningCategory.replace(/_/g, ' ');
+      if (rcText.includes(rcKey) || rcText.includes(ctx.runningCategory)) {
+        reasons.push(`runCategory_boost(+40,text)`);
+      }
+    } else {
+      reasons.push(`runCategory_boost(+40,field)`);
+    }
+  }
+  if (ctx.programPhase) {
+    const rpMatch = row.programPhase === ctx.programPhase;
+    if (!rpMatch) {
+      const rpText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '') + ' ' + (row.bundleId || '')).toLowerCase();
+      if (rpText.includes(ctx.programPhase)) {
+        reasons.push(`runPhase_boost(+30,text)`);
+      }
+    } else {
+      reasons.push(`runPhase_boost(+30,field)`);
+    }
+  }
+  if (ctx.runningCategory && ctx.persona && row.persona === ctx.persona && row.runningCategory === ctx.runningCategory) {
+    reasons.push(`runCombo_boost(+20)`);
+  }
+
+  // Week number debug
+  const dbgWk = ctx.weekNumber;
+  if (dbgWk !== undefined) {
+    if (row.weekNumber !== undefined && Number(row.weekNumber) === dbgWk) {
+      reasons.push(`weekNumber_boost(+25,field=w${dbgWk})`);
+    }
+    const dbgTotal = ctx.totalWeeks ?? 0;
+    const dbgFirst = dbgWk === 1;
+    const dbgMid = dbgTotal > 0 && dbgWk === Math.ceil(dbgTotal / 2);
+    const dbgFinal = dbgTotal > 0 && dbgWk >= dbgTotal;
+    if (dbgFirst || dbgMid || dbgFinal) {
+      const wkDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
+      const msKw = [
+        ...(dbgFirst ? ['שבוע ראשון', 'התחלה', 'יוצאים לדרך'] : []),
+        ...(dbgMid ? ['חצי דרך', 'אמצע', 'חציון'] : []),
+        ...(dbgFinal ? ['סיום', 'שבוע אחרון', 'קו הסיום', 'הגענו'] : []),
+      ];
+      if (msKw.some(kw => wkDbgText.includes(kw))) {
+        reasons.push(`weekNumber_boost(+25,milestone=w${dbgWk}/${dbgTotal})`);
+      }
+    }
+    if (dbgWk > 8) {
+      if (row.programPhase === 'peak') reasons.push('weekPhase_boost(+15,peak)');
+      if (dbgTotal > 0 && dbgWk >= dbgTotal - 1 && row.programPhase === 'taper') reasons.push('weekPhase_boost(+15,taper)');
+    }
+  }
+
   const rowCat = (row.category || '').toLowerCase();
   if (ctx.location === 'office' && (rowCat === 'mobility' || rowCat === 'flexibility')) {
     reasons.push('office_mobility(+3)');
@@ -432,35 +920,45 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   return reasons;
 }
 
+interface ScoredFetchResult {
+  text: string | null;
+  bundleId?: string;
+}
+
 /**
  * Generic scored fetch: load all rows from a subcollection,
  * score each against the context, pick the highest, shuffle among ties.
  *
- * @param parentDoc  Parent doc path (e.g., 'workoutTitles')
- * @param subCol     Subcollection name (e.g., 'titles')
- * @param textField  The field that contains the user-facing string
- * @param ctx        The user's metadata context
+ * @param parentDoc      Parent doc path (e.g., 'workoutTitles')
+ * @param subCol         Subcollection name (e.g., 'titles')
+ * @param textField      The field that contains the user-facing string
+ * @param ctx            The user's metadata context
+ * @param activeBundleId If set, rows sharing this bundleId get +BUNDLE_SYNC_BOOST
  */
 async function scoredFetch(
   parentDoc: string,
   subCol: string,
   textField: string,
   ctx: WorkoutMetadataContext,
-): Promise<string | null> {
+  activeBundleId?: string,
+): Promise<ScoredFetchResult> {
   try {
     const ref = collection(db, METADATA_BASE, parentDoc, subCol);
     const snap = await getDocs(ref);
-    if (snap.empty) return null;
+    if (snap.empty) return { text: null };
 
     const allRows = snap.docs.map(d => d.data());
 
-    // Score every row
     let bestScore = -1;
     let bestRows: any[] = [];
 
     for (const row of allRows) {
-      const score = scoreContentRow(row, ctx);
-      if (score < 0) continue; // Hard-excluded (gender mismatch)
+      let score = scoreContentRow(row, ctx);
+      if (score < 0) continue;
+
+      if (activeBundleId && row.bundleId && row.bundleId === activeBundleId) {
+        score += BUNDLE_SYNC_BOOST;
+      }
 
       if (score > bestScore) {
         bestScore = score;
@@ -470,26 +968,28 @@ async function scoredFetch(
       }
     }
 
-    if (bestRows.length === 0) return null;
+    if (bestRows.length === 0) return { text: null };
 
-    // Shuffle: pick random among the highest-scoring rows
     const picked = bestRows[Math.floor(Math.random() * bestRows.length)];
     const result = picked[textField] || null;
 
     if (DEBUG_METADATA_RESOLUTION && result) {
       const contentType = parentDoc === 'workoutTitles' ? 'Title' : parentDoc === 'smartDescriptions' ? 'Description' : 'Phrase';
       const reasons = getMatchReasons(picked, ctx);
+      if (activeBundleId && picked.bundleId === activeBundleId) {
+        reasons.push(`bundleSync=${activeBundleId}(+${BUNDLE_SYNC_BOOST})`);
+      }
       console.group(`[WorkoutMetadata] ${contentType} resolution`);
       console.log(`Result: "${result}"`);
-      console.log(`Score: ${bestScore} | Tied rows: ${bestRows.length}`);
+      console.log(`Score: ${bestScore} | Tied rows: ${bestRows.length}${picked.bundleId ? ` | bundleId: ${picked.bundleId}` : ''}`);
       console.log(`Why chosen: ${reasons.length ? reasons.join('; ') : '(base score only)'}`);
       console.groupEnd();
     }
 
-    return result;
+    return { text: result, bundleId: picked.bundleId };
   } catch (error) {
     console.warn(`[WorkoutMetadata] Error in scoredFetch(${parentDoc}/${subCol}):`, error);
-    return null;
+    return { text: null };
   }
 }
 
@@ -497,16 +997,16 @@ async function scoredFetch(
 // FETCH WRAPPERS (delegate to Scoring Engine)
 // ============================================================================
 
-async function fetchWorkoutTitle(ctx: WorkoutMetadataContext): Promise<string | null> {
+async function fetchWorkoutTitle(ctx: WorkoutMetadataContext): Promise<ScoredFetchResult> {
   return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx);
 }
 
-async function fetchSmartDescription(ctx: WorkoutMetadataContext): Promise<string | null> {
-  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx);
+async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
+  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId);
 }
 
-async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext): Promise<string | null> {
-  return scoredFetch('motivationalPhrases', PHRASES_SUBCOLLECTION, 'phrase', ctx);
+async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
+  return scoredFetch('motivationalPhrases', PHRASES_SUBCOLLECTION, 'phrase', ctx, activeBundleId);
 }
 
 /**
@@ -517,6 +1017,7 @@ async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext): Promise<str
 async function fetchLogicCue(
   ctx: WorkoutMetadataContext,
   variant: TrioVariant,
+  activeBundleId?: string,
 ): Promise<string | null> {
   try {
     const ref = collection(db, METADATA_BASE, LOGIC_CUES_PARENT, LOGIC_CUES_SUBCOLLECTION);
@@ -530,8 +1031,11 @@ async function fetchLogicCue(
         const row = doc.data();
         const rowVariant = row.variant;
         if (rowVariant && rowVariant !== variant && rowVariant !== 'all') continue;
-        const score = scoreContentRow(row, ctx) + (rowVariant === variant ? 2 : 0);
+        let score = scoreContentRow(row, ctx) + (rowVariant === variant ? 2 : 0);
         if (score < 0) continue;
+        if (activeBundleId && row.bundleId && row.bundleId === activeBundleId) {
+          score += BUNDLE_SYNC_BOOST;
+        }
         if (score > bestScore) { bestScore = score; bestRows = [row]; }
         else if (score === bestScore) { bestRows.push(row); }
       }
@@ -540,7 +1044,8 @@ async function fetchLogicCue(
         const picked = bestRows[Math.floor(Math.random() * bestRows.length)];
         const result = picked.text || picked.cue || null;
         if (DEBUG_METADATA_RESOLUTION && result) {
-          console.log(`[WorkoutMetadata] LogicCue (${variant}): "${result}" | score=${bestScore} | tied=${bestRows.length}`);
+          const bundleNote = activeBundleId && picked.bundleId === activeBundleId ? ` | bundle=${activeBundleId}(+${BUNDLE_SYNC_BOOST})` : '';
+          console.log(`[WorkoutMetadata] LogicCue (${variant}): "${result}" | score=${bestScore} | tied=${bestRows.length}${bundleNote}`);
         }
         return result;
       }
@@ -562,26 +1067,42 @@ async function fetchLogicCue(
  * Falls back to null for each field if Firestore has no matching data
  * (the caller should use the WorkoutGenerator's hardcoded fallback in that case).
  */
+/**
+ * Resolve workout metadata from Firestore.
+ *
+ * Two-pass Bundle Sync strategy:
+ *   Pass 1 — Fetch the Title (no bundle context yet). Extract its bundleId.
+ *   Pass 2 — Fetch Description, Phrase, and LogicCue in parallel, passing
+ *            the winning Title's bundleId so rows with the same ID get +50.
+ *
+ * This ensures all content pieces tell a coherent "story" when bundled
+ * content exists in Firestore, while gracefully degrading to independent
+ * scoring when no bundleId is present.
+ */
 export async function resolveWorkoutMetadata(
   ctx: WorkoutMetadataContext,
   variant?: TrioVariant,
   logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
 ): Promise<ResolvedWorkoutMetadata> {
   try {
-    const fetches: [
-      Promise<string | null>,
-      Promise<string | null>,
-      Promise<string | null>,
-      Promise<string | null>,
-    ] = [
-      fetchWorkoutTitle(ctx),
-      fetchSmartDescription(ctx),
-      fetchMotivationalPhrase(ctx),
-      variant ? fetchLogicCue(ctx, variant) : Promise.resolve(null),
-    ];
+    // ── Pass 1: Title (anchor for bundle sync) ──
+    const titleResult = await fetchWorkoutTitle(ctx);
+    const activeBundleId = titleResult.bundleId;
 
-    const [title, description, aiCue, logicCue] = await Promise.all(fetches);
+    if (DEBUG_METADATA_RESOLUTION && activeBundleId) {
+      console.log(`[WorkoutMetadata] Bundle anchor: "${activeBundleId}" — syncing Description, Phrase, LogicCue`);
+    }
 
+    // ── Pass 2: Remaining content with bundle boost ──
+    const [descriptionResult, phraseResult, logicCue] = await Promise.all([
+      fetchSmartDescription(ctx, activeBundleId),
+      fetchMotivationalPhrase(ctx, activeBundleId),
+      variant ? fetchLogicCue(ctx, variant, activeBundleId) : Promise.resolve(null),
+    ]);
+
+    const title = titleResult.text;
+    const description = descriptionResult.text;
+    const aiCue = phraseResult.text;
     const hasAnyFirestoreData = title || description || aiCue || logicCue;
 
     const tagCtx: TagResolverContext = {
@@ -607,6 +1128,17 @@ export async function resolveWorkoutMetadata(
       runningBasePace: ctx.runningBasePace,
       targetDistanceLabel: ctx.targetDistanceLabel,
       programPhase: ctx.programPhase,
+      runningCategory: ctx.runningCategory,
+      weekNumber: ctx.weekNumber,
+      totalWeeks: ctx.totalWeeks,
+      // Strategic coaching tags
+      weeklyGapDomain: ctx.weeklyGapDomain,
+      weeklyGapPercent: ctx.weeklyGapPercent,
+      streakDays: ctx.streakDays,
+      currentProgressionStep: ctx.currentProgressionStep,
+      avgRepCount: ctx.avgRepCount,
+      weeklyCompletedSets: ctx.weeklyCompletedSets,
+      weeklySetQuota: ctx.weeklySetQuota,
       ...logicTagOverrides,
     };
 
@@ -616,6 +1148,7 @@ export async function resolveWorkoutMetadata(
       aiCue: aiCue ? resolveContentTags(aiCue, tagCtx) : null,
       logicCue: logicCue ? resolveContentTags(logicCue, tagCtx) : null,
       source: hasAnyFirestoreData ? 'firestore' : 'fallback',
+      bundleId: activeBundleId,
     };
   } catch (error) {
     console.warn('[WorkoutMetadata] Resolve failed, using fallback:', error);

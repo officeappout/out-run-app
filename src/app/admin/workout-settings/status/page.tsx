@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useIsMounted } from '@/hooks/useIsMounted';
-import { CheckCircle2, XCircle, AlertCircle, BarChart3 } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, BarChart3, Download } from 'lucide-react';
 import Link from 'next/link';
 
 interface MatrixCell {
@@ -31,6 +31,7 @@ function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
 }
 
 const PERSONA_OPTIONS = [
+  { value: '__general__', label: 'כללי (ללא פרסונה)', isGeneral: true },
   { value: 'parent', label: 'הורה' },
   { value: 'student', label: 'סטודנט' },
   { value: 'school_student', label: 'תלמיד' },
@@ -43,13 +44,36 @@ const PERSONA_OPTIONS = [
 ];
 
 const LOCATION_OPTIONS = [
-  { value: 'home', label: 'בית' },
+  { value: '__any__', label: 'כל מיקום', isAny: true },
   { value: 'park', label: 'פארק' },
+  { value: 'home', label: 'בית' },
   { value: 'office', label: 'משרד' },
-  { value: 'street', label: 'רחוב' },
   { value: 'gym', label: 'מכון כושר' },
+  { value: 'street', label: 'רחוב' },
   { value: 'library', label: 'ספרייה' },
 ];
+
+/** Check if a Firestore row's persona is "general" (empty/undefined/any) */
+function isGeneralPersona(val: string | undefined | null): boolean {
+  return !val || val === '' || val === 'any' || val === 'all' || val === 'general';
+}
+
+/** Check if a Firestore row's location is "any" (empty/undefined/any/all) */
+function isAnyLocation(val: string | undefined | null): boolean {
+  return !val || val === '' || val === 'any' || val === 'all';
+}
+
+/** Match a Firestore row's persona against a matrix persona value */
+function matchesPersona(rowPersona: string | undefined | null, matrixPersona: string): boolean {
+  if (matrixPersona === '__general__') return isGeneralPersona(rowPersona);
+  return rowPersona === matrixPersona;
+}
+
+/** Match a Firestore row's location against a matrix location value */
+function matchesLocation(rowLocation: string | undefined | null, matrixLocation: string): boolean {
+  if (matrixLocation === '__any__') return isAnyLocation(rowLocation);
+  return rowLocation === matrixLocation;
+}
 
 const DAYS_INACTIVE_OPTIONS = [1, 2, 7, 30];
 const JOURNEY_DAYS = [0, 1, 2, 3, 7, 14, 30];
@@ -111,6 +135,7 @@ export default function MessagingStatusPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [smartDescriptions, setSmartDescriptions] = useState<any[]>([]);
   const [workoutTitles, setWorkoutTitles] = useState<any[]>([]);
+  const [logicCues, setLogicCues] = useState<any[]>([]);
   const [matrix, setMatrix] = useState<MatrixCell[]>([]);
   const [viewMode, setViewMode] = useState<'phrases' | 'notifications' | 'descriptions' | 'titles'>('phrases');
   const [journeyMode, setJourneyMode] = useState<boolean>(false);
@@ -137,16 +162,18 @@ export default function MessagingStatusPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [phrasesData, notificationsData, descriptionsData, titlesData] = await Promise.all([
+      const [phrasesData, notificationsData, descriptionsData, titlesData, logicCuesData] = await Promise.all([
         loadPhrases(),
         loadInactivityNotifications(),
         loadSmartDescriptions(),
         loadWorkoutTitles(),
+        loadLogicCues(),
       ]);
       setPhrases(phrasesData);
       setNotifications(notificationsData);
       setSmartDescriptions(descriptionsData);
       setWorkoutTitles(titlesData);
+      setLogicCues(logicCuesData);
     } catch (error) {
       console.error('Error loading data:', error);
       alert('שגיאה בטעינת הנתונים');
@@ -211,37 +238,47 @@ export default function MessagingStatusPage() {
     }
   };
 
+  const loadLogicCues = async () => {
+    try {
+      const cuesRef = collection(db, `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`);
+      const snapshot = await getDocs(cuesRef);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error) {
+      console.error('Error loading logic cues:', error);
+      return [];
+    }
+  };
+
+  /** Shared global filter — identical to the one used by buildMatrix */
+  const applyGlobalFilters = (items: any[]) => {
+    return items.filter((item) => {
+      if (genderFilter !== 'all') {
+        if (item.gender && item.gender !== 'both' && item.gender !== genderFilter) {
+          return false;
+        }
+      }
+      if (sportFilter !== '' && item.sportType && item.sportType !== sportFilter) {
+        return false;
+      }
+      if (experienceFilter !== '' && item.experienceLevel && item.experienceLevel !== experienceFilter) {
+        return false;
+      }
+      if (progressFilter !== '' && item.progressRange && item.progressRange !== progressFilter) {
+        return false;
+      }
+      if (dayPeriodFilter !== '' && item.dayPeriod && item.dayPeriod !== dayPeriodFilter) {
+        return false;
+      }
+      return true;
+    });
+  };
+
   const buildMatrix = () => {
     const matrixData: MatrixCell[] = [];
-
-    // === FILTER HELPER: Apply global filters to content rows ===
-    const applyFilters = (items: any[]) => {
-      return items.filter((item) => {
-        // Gender filter
-        if (genderFilter !== 'all') {
-          if (item.gender && item.gender !== 'both' && item.gender !== genderFilter) {
-            return false;
-          }
-        }
-        // Sport filter
-        if (sportFilter !== '' && item.sportType && item.sportType !== sportFilter) {
-          return false;
-        }
-        // Experience filter
-        if (experienceFilter !== '' && item.experienceLevel && item.experienceLevel !== experienceFilter) {
-          return false;
-        }
-        // Progress filter
-        if (progressFilter !== '' && item.progressRange && item.progressRange !== progressFilter) {
-          return false;
-        }
-        // Day period filter
-        if (dayPeriodFilter !== '' && item.dayPeriod && item.dayPeriod !== dayPeriodFilter) {
-          return false;
-        }
-        return true;
-      });
-    };
+    const applyFilters = applyGlobalFilters;
 
     // Journey Mode: Days 0-30 on X-axis, Gender rows for selected persona
     if (journeyMode && viewMode === 'notifications') {
@@ -266,7 +303,7 @@ export default function MessagingStatusPage() {
             
             const matchingNotifications = applyFilters(
               notifications.filter(
-                (n) => n.persona === persona.value && 
+                (n) => matchesPersona(n.persona, persona.value) && 
                        n.triggerType === 'Inactivity' &&
                        n.daysInactive === closestDay &&
                        (n.gender === genderRow.value || (!n.gender && genderRow.value === 'male'))
@@ -300,43 +337,60 @@ export default function MessagingStatusPage() {
       return;
     }
 
-    // Regular Matrix Mode
-    // Build matrix for Phrases view
-    if (viewMode === 'phrases') {
+    // Regular Matrix Mode — uses exact combination matching via helpers
+    // Helper to build a Persona × Location matrix for any content type
+    const buildLocationMatrix = (
+      items: any[],
+      countField: 'phraseCount' | 'descriptionCount' | 'titleCount',
+    ) => {
       const personsToShow = selectedPersona
         ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
         : PERSONA_OPTIONS;
 
       personsToShow.forEach((persona) => {
         LOCATION_OPTIONS.forEach((location) => {
-          const matchingPhrases = applyFilters(
-            phrases.filter(
-              (p) => p.persona === persona.value && p.location === location.value
+          const matching = applyFilters(
+            items.filter(
+              (row) => matchesPersona(row.persona, persona.value) && matchesLocation(row.location, location.value)
             )
           );
-          const phraseCount = matchingPhrases.length;
-          const maleCount = matchingPhrases.filter(p => p.gender === 'male' || !p.gender).length;
-          const femaleCount = matchingPhrases.filter(p => p.gender === 'female').length;
-          const bothCount = matchingPhrases.filter(p => p.gender === 'both').length;
-          
-          if (!showMissingOnly || phraseCount === 0) {
-            matrixData.push({
+          const count = matching.length;
+          const maleCount = matching.filter(r => r.gender === 'male' || !r.gender).length;
+          const femaleCount = matching.filter(r => r.gender === 'female').length;
+          const bothCount = matching.filter(r => r.gender === 'both').length;
+
+          if (!showMissingOnly || count === 0) {
+            const cell: MatrixCell = {
               persona: persona.value,
               location: location.value,
-              phraseCount,
+              phraseCount: 0,
               notificationCount: 0,
               descriptionCount: 0,
               titleCount: 0,
               maleCount,
               femaleCount,
               bothCount,
-            });
+            };
+            (cell as any)[countField] = count;
+            matrixData.push(cell);
           }
         });
       });
+    };
+
+    if (viewMode === 'phrases') {
+      buildLocationMatrix(phrases, 'phraseCount');
     }
 
-    // Build matrix for Notifications view
+    if (viewMode === 'descriptions') {
+      buildLocationMatrix(smartDescriptions, 'descriptionCount');
+    }
+
+    if (viewMode === 'titles') {
+      buildLocationMatrix(workoutTitles, 'titleCount');
+    }
+
+    // Build matrix for Notifications view (Persona × DaysInactive)
     if (viewMode === 'notifications') {
       const personsToShow = selectedPersona
         ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
@@ -346,14 +400,14 @@ export default function MessagingStatusPage() {
         DAYS_INACTIVE_OPTIONS.forEach((days) => {
           const matchingNotifications = applyFilters(
             notifications.filter(
-              (n) => n.persona === persona.value && n.daysInactive === days && n.triggerType === 'Inactivity'
+              (n) => matchesPersona(n.persona, persona.value) && n.daysInactive === days && n.triggerType === 'Inactivity'
             )
           );
           const notificationCount = matchingNotifications.length;
           const maleCount = matchingNotifications.filter(n => n.gender === 'male' || !n.gender).length;
           const femaleCount = matchingNotifications.filter(n => n.gender === 'female').length;
           const bothCount = matchingNotifications.filter(n => n.gender === 'both').length;
-          
+
           if (!showMissingOnly || notificationCount === 0) {
             matrixData.push({
               persona: persona.value,
@@ -363,76 +417,6 @@ export default function MessagingStatusPage() {
               notificationCount,
               descriptionCount: 0,
               titleCount: 0,
-              maleCount,
-              femaleCount,
-              bothCount,
-            });
-          }
-        });
-      });
-    }
-
-    // Build matrix for Smart Descriptions view
-    if (viewMode === 'descriptions') {
-      const personsToShow = selectedPersona
-        ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
-        : PERSONA_OPTIONS;
-
-      personsToShow.forEach((persona) => {
-        LOCATION_OPTIONS.forEach((location) => {
-          const matchingDescriptions = applyFilters(
-            smartDescriptions.filter(
-              (d) => d.persona === persona.value && d.location === location.value
-            )
-          );
-          const descriptionCount = matchingDescriptions.length;
-          const maleCount = matchingDescriptions.filter(d => d.gender === 'male' || !d.gender).length;
-          const femaleCount = matchingDescriptions.filter(d => d.gender === 'female').length;
-          const bothCount = matchingDescriptions.filter(d => d.gender === 'both').length;
-          
-          if (!showMissingOnly || descriptionCount === 0) {
-            matrixData.push({
-              persona: persona.value,
-              location: location.value,
-              phraseCount: 0,
-              notificationCount: 0,
-              descriptionCount,
-              titleCount: 0,
-              maleCount,
-              femaleCount,
-              bothCount,
-            });
-          }
-        });
-      });
-    }
-
-    // Build matrix for Workout Titles view (NEW)
-    if (viewMode === 'titles') {
-      const personsToShow = selectedPersona
-        ? PERSONA_OPTIONS.filter(p => p.value === selectedPersona)
-        : PERSONA_OPTIONS;
-
-      personsToShow.forEach((persona) => {
-        LOCATION_OPTIONS.forEach((location) => {
-          const matchingTitles = applyFilters(
-            workoutTitles.filter(
-              (t) => t.persona === persona.value && t.location === location.value
-            )
-          );
-          const titleCount = matchingTitles.length;
-          const maleCount = matchingTitles.filter(t => t.gender === 'male' || !t.gender).length;
-          const femaleCount = matchingTitles.filter(t => t.gender === 'female').length;
-          const bothCount = matchingTitles.filter(t => t.gender === 'both').length;
-          
-          if (!showMissingOnly || titleCount === 0) {
-            matrixData.push({
-              persona: persona.value,
-              location: location.value,
-              phraseCount: 0,
-              notificationCount: 0,
-              descriptionCount: 0,
-              titleCount,
               maleCount,
               femaleCount,
               bothCount,
@@ -471,6 +455,86 @@ export default function MessagingStatusPage() {
     };
   };
 
+  /**
+   * Generate a CSV that mirrors the Coverage Matrix exactly.
+   * Uses the same applyGlobalFilters + matchesPersona/matchesLocation
+   * helpers that buildMatrix uses, so counts are guaranteed to match the UI.
+   * Exports ALL rows (not just missing) with a Status column for verification.
+   */
+  const downloadMissingContentCSV = () => {
+    const personaLabel = (v: string) => PERSONA_OPTIONS.find(p => p.value === v)?.label ?? v;
+    const locationLabel = (v: string) => LOCATION_OPTIONS.find(l => l.value === v)?.label ?? v;
+
+    const csvRows: string[][] = [];
+    csvRows.push(['קטגוריה', 'פרסונה', 'מיקום', 'הקשר/טריגר', 'כמות', 'סטטוס']);
+
+    // Helper: count items for a persona × location cell (same logic as buildLocationMatrix)
+    const countLocationCell = (items: any[], personaVal: string, locationVal: string): number => {
+      return applyGlobalFilters(
+        items.filter(row => matchesPersona(row.persona, personaVal) && matchesLocation(row.location, locationVal))
+      ).length;
+    };
+
+    // Helper: count notifications for a persona × daysInactive cell (same logic as buildMatrix notifications)
+    const countNotificationCell = (personaVal: string, days: number): number => {
+      return applyGlobalFilters(
+        notifications.filter(n => matchesPersona(n.persona, personaVal) && n.daysInactive === days && n.triggerType === 'Inactivity')
+      ).length;
+    };
+
+    const statusLabel = (count: number) => count === 0 ? 'חסר' : count === 1 ? 'חלקי' : 'מכוסה';
+
+    // ── 1. Titles (Persona × Location) ──
+    PERSONA_OPTIONS.forEach((persona) => {
+      LOCATION_OPTIONS.forEach((location) => {
+        const count = countLocationCell(workoutTitles, persona.value, location.value);
+        csvRows.push(['כותרות אימון', personaLabel(persona.value), locationLabel(location.value), '-', String(count), statusLabel(count)]);
+      });
+    });
+
+    // ── 2. Phrases (Persona × Location) ──
+    PERSONA_OPTIONS.forEach((persona) => {
+      LOCATION_OPTIONS.forEach((location) => {
+        const count = countLocationCell(phrases, persona.value, location.value);
+        csvRows.push(['משפטים מוטיבציוניים', personaLabel(persona.value), locationLabel(location.value), '-', String(count), statusLabel(count)]);
+      });
+    });
+
+    // ── 3. Descriptions (Persona × Location) ──
+    PERSONA_OPTIONS.forEach((persona) => {
+      LOCATION_OPTIONS.forEach((location) => {
+        const count = countLocationCell(smartDescriptions, persona.value, location.value);
+        csvRows.push(['תיאורים חכמים', personaLabel(persona.value), locationLabel(location.value), '-', String(count), statusLabel(count)]);
+      });
+    });
+
+    // ── 4. Logic Cues (Persona × Location) ──
+    PERSONA_OPTIONS.forEach((persona) => {
+      LOCATION_OPTIONS.forEach((location) => {
+        const count = countLocationCell(logicCues, persona.value, location.value);
+        csvRows.push(['הערות מאמן', personaLabel(persona.value), locationLabel(location.value), '-', String(count), statusLabel(count)]);
+      });
+    });
+
+    // ── 5. Notifications (Persona × Days Inactive) ──
+    PERSONA_OPTIONS.forEach((persona) => {
+      DAYS_INACTIVE_OPTIONS.forEach((days) => {
+        const count = countNotificationCell(persona.value, days);
+        csvRows.push(['התראות אי-פעילות', personaLabel(persona.value), '-', `${days} ימי אי-פעילות`, String(count), statusLabel(count)]);
+      });
+    });
+
+    const BOM = '\uFEFF';
+    const csvContent = BOM + csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content-coverage-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!mounted) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -500,12 +564,21 @@ export default function MessagingStatusPage() {
           </h1>
           <p className="text-gray-500 mt-2">מעקב אחר כיסוי טקסטים לפי פרסונה, מיקום וימי אי-פעילות</p>
         </div>
-        <Link
-          href="/admin/workout-settings"
-          className="px-4 py-2 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-colors"
-        >
-          ניהול הודעות
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={downloadMissingContentCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition-colors"
+          >
+            <Download size={18} />
+            דוח כיסוי מלא (CSV)
+          </button>
+          <Link
+            href="/admin/workout-settings"
+            className="px-4 py-2 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-colors"
+          >
+            ניהול הודעות
+          </Link>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -665,9 +738,41 @@ export default function MessagingStatusPage() {
             </button>
           </div>
           
-          {/* Journey Mode Toggle (only for notifications) */}
-          {viewMode === 'notifications' && (
-            <div className="flex items-center gap-4">
+          {/* Persona Filter + Missing Toggle (always visible) */}
+          <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-xl border border-gray-200">
+            {/* Persona Selector — always visible */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-bold text-gray-700">פרסונה:</label>
+              <select
+                value={selectedPersona}
+                onChange={(e) => setSelectedPersona(e.target.value)}
+                className="px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+              >
+                <option value="">כל הפרסונות</option>
+                {PERSONA_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Missing Content Filter */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showMissingOnly"
+                checked={showMissingOnly}
+                onChange={(e) => setShowMissingOnly(e.target.checked)}
+                className="w-4 h-4 text-cyan-500 rounded focus:ring-2 focus:ring-cyan-500"
+              />
+              <label htmlFor="showMissingOnly" className="text-sm font-bold text-gray-700 cursor-pointer">
+                הצג רק תוכן חסר
+              </label>
+            </div>
+
+            {/* Journey Mode Toggle (only for notifications) */}
+            {viewMode === 'notifications' && (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-gray-700">מצב מסע:</span>
                 <button
@@ -681,41 +786,8 @@ export default function MessagingStatusPage() {
                   {journeyMode ? 'מסע (0-30 ימים)' : 'רגיל'}
                 </button>
               </div>
-              
-              {/* Persona Selector (for Journey Mode) */}
-              {journeyMode && (
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-bold text-gray-700">פרסונה:</label>
-                  <select
-                    value={selectedPersona}
-                    onChange={(e) => setSelectedPersona(e.target.value)}
-                    className="px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
-                  >
-                    <option value="">כל הפרסונות</option>
-                    {PERSONA_OPTIONS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              
-              {/* Missing Content Filter */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="showMissingOnly"
-                  checked={showMissingOnly}
-                  onChange={(e) => setShowMissingOnly(e.target.checked)}
-                  className="w-4 h-4 text-cyan-500 rounded focus:ring-2 focus:ring-cyan-500"
-                />
-                <label htmlFor="showMissingOnly" className="text-sm font-bold text-gray-700 cursor-pointer">
-                  הצג רק תוכן חסר
-                </label>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -739,9 +811,9 @@ export default function MessagingStatusPage() {
                         יום {day}
                       </th>
                     ))
-                  ) : viewMode === 'phrases' || viewMode === 'descriptions' ? (
+                  ) : viewMode === 'phrases' || viewMode === 'descriptions' || viewMode === 'titles' ? (
                     LOCATION_OPTIONS.map((loc) => (
-                      <th key={loc.value} className="px-4 py-4 text-xs font-bold text-gray-500 uppercase">
+                      <th key={loc.value} className={`px-4 py-4 text-xs font-bold uppercase ${(loc as any).isAny ? 'text-cyan-600 bg-cyan-50' : 'text-gray-500'}`}>
                         {loc.label}
                       </th>
                     ))
@@ -822,8 +894,8 @@ export default function MessagingStatusPage() {
                     if (personaCells.length === 0) return null;
                     
                     return (
-                      <tr key={persona.value} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 font-bold text-gray-900 sticky right-0 bg-white z-10 border-r border-gray-200">
+                      <tr key={persona.value} className={`hover:bg-gray-50 ${(persona as any).isGeneral ? 'bg-emerald-50/40' : ''}`}>
+                        <td className={`px-6 py-4 font-bold sticky right-0 z-10 border-r border-gray-200 ${(persona as any).isGeneral ? 'text-emerald-700 bg-emerald-50' : 'text-gray-900 bg-white'}`}>
                           {persona.label}
                         </td>
                         {journeyMode && viewMode === 'notifications' ? (
@@ -855,12 +927,12 @@ export default function MessagingStatusPage() {
                               </td>
                             );
                           })
-                        ) : viewMode === 'phrases' || viewMode === 'descriptions' ? (
+                        ) : viewMode === 'phrases' || viewMode === 'descriptions' || viewMode === 'titles' ? (
                           LOCATION_OPTIONS.map((loc) => {
                             const cell = personaCells.find((c) => c.location === loc.value);
                             const count = cell ? getCount(cell) : 0;
                             return (
-                              <td key={loc.value} className="px-4 py-4 text-center">
+                              <td key={loc.value} className={`px-4 py-4 text-center ${(loc as any).isAny ? 'bg-cyan-50/30' : ''}`}>
                                 <div
                                   className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${getStatusColor(count)}`}
                                 >

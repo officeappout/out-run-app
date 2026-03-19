@@ -331,6 +331,47 @@ export default function WorkoutSettingsPage() {
   // Programs for programId dropdown
   const [programs, setPrograms] = useState<Program[]>([]);
 
+  // ── Global Metadata Filters ──
+  const [filterPersona, setFilterPersona] = useState<string>('');
+  const [filterLocation, setFilterLocation] = useState<string>('');
+  const [filterTimeOfDay, setFilterTimeOfDay] = useState<string>('');
+  const [filterDaysInactive, setFilterDaysInactive] = useState<string>('');
+  const [filterIntensity, setFilterIntensity] = useState<string>('');
+  const [textSearch, setTextSearch] = useState<string>('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTagField, setBulkTagField] = useState<string>('persona');
+  const [bulkTagValue, setBulkTagValue] = useState<string>('');
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  /** Apply global filters (persona, location, time, text search) to any content row list */
+  const applyGlobalFilters = <T extends Record<string, any>>(items: T[]): T[] => {
+    return items.filter((item) => {
+      if (filterPersona === '__general__') {
+        if (item.persona && item.persona !== '' && item.persona !== 'any' && item.persona !== 'all') return false;
+      } else if (filterPersona && item.persona !== filterPersona) {
+        return false;
+      }
+      if (filterLocation === '__any__') {
+        if (item.location && item.location !== '' && item.location !== 'any' && item.location !== 'all') return false;
+      } else if (filterLocation && item.location !== filterLocation) {
+        return false;
+      }
+      if (filterTimeOfDay && item.timeOfDay && item.timeOfDay !== filterTimeOfDay && item.timeOfDay !== 'any') {
+        return false;
+      }
+      if (filterDaysInactive && item.daysInactive !== undefined && String(item.daysInactive) !== filterDaysInactive) {
+        return false;
+      }
+      if (textSearch.trim()) {
+        const q = textSearch.trim().toLowerCase();
+        const searchable = [item.text, item.phrase, item.description, item.result].filter(Boolean).join(' ').toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
+      return true;
+    });
+  };
+
   // Clean Slate (Danger Zone) state
   const [showCleanSlateModal, setShowCleanSlateModal] = useState(false);
   const [cleanSlateStep, setCleanSlateStep] = useState<'initial' | 'confirm' | 'deleting' | 'done'>('initial');
@@ -700,7 +741,7 @@ export default function WorkoutSettingsPage() {
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200 bg-white rounded-2xl p-4 overflow-x-auto">
         <button
-          onClick={() => setActiveTab('titles')}
+          onClick={() => { setActiveTab('titles'); setSelectedIds(new Set()); }}
           className={`px-6 py-3 font-bold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'titles'
               ? 'border-b-2 border-cyan-500 text-cyan-600'
@@ -711,7 +752,7 @@ export default function WorkoutSettingsPage() {
           כותרות אימון
         </button>
         <button
-          onClick={() => setActiveTab('phrases')}
+          onClick={() => { setActiveTab('phrases'); setSelectedIds(new Set()); }}
           className={`px-6 py-3 font-bold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'phrases'
               ? 'border-b-2 border-cyan-500 text-cyan-600'
@@ -722,7 +763,7 @@ export default function WorkoutSettingsPage() {
           משפטים מוטיבציוניים
         </button>
         <button
-          onClick={() => setActiveTab('notifications')}
+          onClick={() => { setActiveTab('notifications'); setSelectedIds(new Set()); }}
           className={`px-6 py-3 font-bold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'notifications'
               ? 'border-b-2 border-cyan-500 text-cyan-600'
@@ -733,7 +774,7 @@ export default function WorkoutSettingsPage() {
           מנהל התראות
         </button>
         <button
-          onClick={() => setActiveTab('descriptions')}
+          onClick={() => { setActiveTab('descriptions'); setSelectedIds(new Set()); }}
           className={`px-6 py-3 font-bold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'descriptions'
               ? 'border-b-2 border-cyan-500 text-cyan-600'
@@ -744,7 +785,7 @@ export default function WorkoutSettingsPage() {
           תיאורים חכמים
         </button>
         <button
-          onClick={() => setActiveTab('logicCues')}
+          onClick={() => { setActiveTab('logicCues'); setSelectedIds(new Set()); }}
           className={`px-6 py-3 font-bold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'logicCues'
               ? 'border-b-2 border-amber-500 text-amber-600'
@@ -769,6 +810,241 @@ export default function WorkoutSettingsPage() {
           העלאה מרוכזת
         </Link>
       </div>
+
+      {/* ── Global Metadata Filters Bar ── */}
+      <div className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-indigo-50 to-cyan-50 p-4 rounded-2xl border-2 border-indigo-200 shadow-sm">
+        <span className="text-sm font-black text-indigo-700">סינון:</span>
+
+        {/* Text Search */}
+        <div className="relative">
+          <input
+            type="text"
+            value={textSearch}
+            onChange={(e) => { setTextSearch(e.target.value); setSelectedIds(new Set()); }}
+            placeholder="חיפוש טקסט..."
+            className="w-64 px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 pr-3 pl-8"
+          />
+          {textSearch && (
+            <button
+              onClick={() => { setTextSearch(''); setSelectedIds(new Set()); }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Persona filter */}
+        <select
+          value={filterPersona}
+          onChange={(e) => { setFilterPersona(e.target.value); setSelectedIds(new Set()); }}
+          className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="">כל הפרסונות</option>
+          <option value="__general__">כללי (ללא פרסונה)</option>
+          <option value="parent">הורה</option>
+          <option value="student">סטודנט</option>
+          <option value="school_student">תלמיד</option>
+          <option value="office_worker">עובד משרד</option>
+          <option value="remote_worker">עובד מהבית</option>
+          <option value="athlete">ספורטאי</option>
+          <option value="senior">גיל הזהב</option>
+          <option value="reservist">מילואימניק</option>
+          <option value="active_soldier">חייל סדיר</option>
+        </select>
+
+        {/* Location filter */}
+        <select
+          value={filterLocation}
+          onChange={(e) => { setFilterLocation(e.target.value); setSelectedIds(new Set()); }}
+          className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="">כל המיקומים</option>
+          <option value="__any__">כל מיקום (Any)</option>
+          <option value="park">פארק</option>
+          <option value="home">בית</option>
+          <option value="office">משרד</option>
+          <option value="gym">מכון כושר</option>
+          <option value="street">רחוב</option>
+          <option value="library">ספרייה</option>
+        </select>
+
+        {/* Time of Day filter */}
+        <select
+          value={filterTimeOfDay}
+          onChange={(e) => { setFilterTimeOfDay(e.target.value); setSelectedIds(new Set()); }}
+          className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-indigo-400"
+        >
+          <option value="">כל שעות היום</option>
+          <option value="morning">בוקר</option>
+          <option value="noon">צהריים</option>
+          <option value="afternoon">אחה"צ</option>
+          <option value="evening">ערב</option>
+          <option value="night">לילה</option>
+        </select>
+
+        {/* Days Inactive filter (for notifications tab) */}
+        {activeTab === 'notifications' && (
+          <select
+            value={filterDaysInactive}
+            onChange={(e) => { setFilterDaysInactive(e.target.value); setSelectedIds(new Set()); }}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-indigo-400"
+          >
+            <option value="">כל ימי אי-פעילות</option>
+            <option value="1">יום 1</option>
+            <option value="2">יומיים</option>
+            <option value="7">שבוע</option>
+            <option value="30">חודש</option>
+          </select>
+        )}
+
+        {/* Counts */}
+        {(() => {
+          const currentItems =
+            activeTab === 'titles' ? titles :
+            activeTab === 'phrases' ? phrases :
+            activeTab === 'notifications' ? notifications :
+            activeTab === 'descriptions' ? smartDescriptions :
+            activeTab === 'logicCues' ? logicCues : [];
+          const filtered = applyGlobalFilters(currentItems);
+          return (
+            <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-lg border">
+              {filtered.length} / {currentItems.length}
+            </span>
+          );
+        })()}
+
+        {/* Reset */}
+        <button
+          onClick={() => { setFilterPersona(''); setFilterLocation(''); setFilterTimeOfDay(''); setFilterDaysInactive(''); setFilterIntensity(''); setTextSearch(''); setSelectedIds(new Set()); }}
+          className="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition-all"
+        >
+          אפס
+        </button>
+
+        {/* Bulk Tag button */}
+        {selectedIds.size > 0 && (
+          <button
+            onClick={() => setShowBulkTagModal(true)}
+            className="px-4 py-1.5 text-sm bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 transition-all"
+          >
+            שנה תגית ({selectedIds.size} נבחרו)
+          </button>
+        )}
+      </div>
+
+      {/* ── Bulk Tag Modal ── */}
+      {showBulkTagModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" dir="rtl">
+            <h3 className="text-lg font-black text-gray-900 mb-4">שינוי תגית מרוכז</h3>
+            <p className="text-sm text-gray-600 mb-4">{selectedIds.size} פריטים נבחרו</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1">שדה לשינוי:</label>
+                <select
+                  value={bulkTagField}
+                  onChange={(e) => setBulkTagField(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300"
+                >
+                  <option value="persona">פרסונה</option>
+                  <option value="location">מיקום</option>
+                  <option value="timeOfDay">שעה ביום</option>
+                  <option value="gender">מגדר</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1">ערך חדש:</label>
+                {bulkTagField === 'persona' && (
+                  <select value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300">
+                    <option value="">ללא (כללי)</option>
+                    <option value="parent">הורה</option>
+                    <option value="student">סטודנט</option>
+                    <option value="office_worker">עובד משרד</option>
+                    <option value="remote_worker">עובד מהבית</option>
+                    <option value="athlete">ספורטאי</option>
+                    <option value="senior">גיל הזהב</option>
+                    <option value="reservist">מילואימניק</option>
+                  </select>
+                )}
+                {bulkTagField === 'location' && (
+                  <select value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300">
+                    <option value="">כל מיקום (Any)</option>
+                    <option value="park">פארק</option>
+                    <option value="home">בית</option>
+                    <option value="office">משרד</option>
+                    <option value="gym">מכון כושר</option>
+                    <option value="street">רחוב</option>
+                  </select>
+                )}
+                {bulkTagField === 'timeOfDay' && (
+                  <select value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300">
+                    <option value="any">כל שעה</option>
+                    <option value="morning">בוקר</option>
+                    <option value="noon">צהריים</option>
+                    <option value="afternoon">אחה"צ</option>
+                    <option value="evening">ערב</option>
+                    <option value="night">לילה</option>
+                  </select>
+                )}
+                {bulkTagField === 'gender' && (
+                  <select value={bulkTagValue} onChange={(e) => setBulkTagValue(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-300">
+                    <option value="both">שניהם</option>
+                    <option value="male">זכר</option>
+                    <option value="female">נקבה</option>
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={async () => {
+                  setIsBulkUpdating(true);
+                  try {
+                    const collectionPath =
+                      activeTab === 'titles' ? `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles` :
+                      activeTab === 'phrases' ? `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases` :
+                      activeTab === 'notifications' ? `${WORKOUT_METADATA_COLLECTION}/notifications/notifications` :
+                      activeTab === 'descriptions' ? `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions` :
+                      activeTab === 'logicCues' ? `${WORKOUT_METADATA_COLLECTION}/logicCues/cues` : '';
+
+                    if (!collectionPath) { alert('Tab not supported'); return; }
+
+                    const batch = writeBatch(db);
+                    for (const id of selectedIds) {
+                      const docRef = doc(db, collectionPath, id);
+                      batch.update(docRef, { [bulkTagField]: bulkTagValue, updatedAt: serverTimestamp() });
+                    }
+                    await batch.commit();
+                    alert(`עודכנו ${selectedIds.size} פריטים בהצלחה`);
+                    setSelectedIds(new Set());
+                    setShowBulkTagModal(false);
+                    loadData();
+                  } catch (error) {
+                    console.error('Bulk update failed:', error);
+                    alert('שגיאה בעדכון מרוכז');
+                  } finally {
+                    setIsBulkUpdating(false);
+                  }
+                }}
+                disabled={isBulkUpdating}
+                className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 disabled:opacity-50"
+              >
+                {isBulkUpdating ? 'מעדכן...' : `עדכן ${selectedIds.size} פריטים`}
+              </button>
+              <button
+                onClick={() => setShowBulkTagModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Titles Tab */}
       {activeTab === 'titles' && (
@@ -1039,6 +1315,23 @@ export default function WorkoutSettingsPage() {
             <table className="w-full text-right">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-2 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={applyGlobalFilters(titles).length > 0 && applyGlobalFilters(titles).every(t => selectedIds.has(t.id))}
+                      onChange={(e) => {
+                        const filtered = applyGlobalFilters(titles);
+                        if (e.target.checked) {
+                          setSelectedIds(new Set([...selectedIds, ...filtered.map(t => t.id)]));
+                        } else {
+                          const remaining = new Set(selectedIds);
+                          filtered.forEach(t => remaining.delete(t.id));
+                          setSelectedIds(remaining);
+                        }
+                      }}
+                      className="w-4 h-4 text-amber-500 rounded"
+                    />
+                  </th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase">קטגוריה</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase">מיקום</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase">פרסונה</th>
@@ -1049,8 +1342,30 @@ export default function WorkoutSettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {titles.map((title) => (
-                  <tr key={title.id} className="hover:bg-gray-50">
+                {applyGlobalFilters(titles).length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-16 text-center">
+                      <div className="text-gray-400">
+                        <AlertTriangle size={32} className="mx-auto mb-3 opacity-40" />
+                        <p className="font-bold text-lg">לא נמצא תוכן תואם</p>
+                        <p className="text-sm mt-1">נסה לשנות את הפילטרים או לנקות את החיפוש</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : applyGlobalFilters(titles).map((title) => (
+                  <tr key={title.id} className={`hover:bg-gray-50 ${selectedIds.has(title.id) ? 'bg-amber-50' : ''}`}>
+                    <td className="px-2 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(title.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          e.target.checked ? next.add(title.id) : next.delete(title.id);
+                          setSelectedIds(next);
+                        }}
+                        className="w-4 h-4 text-amber-500 rounded"
+                      />
+                    </td>
                     <td className="px-4 py-4">
                       <span className="px-2 py-1 bg-cyan-100 text-cyan-700 rounded text-xs font-bold">
                         {categoryLabels[title.category]}
@@ -1335,6 +1650,23 @@ export default function WorkoutSettingsPage() {
             <table className="w-full text-right">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-2 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={applyGlobalFilters(phrases).length > 0 && applyGlobalFilters(phrases).every(p => selectedIds.has(p.id))}
+                      onChange={(e) => {
+                        const filtered = applyGlobalFilters(phrases);
+                        if (e.target.checked) {
+                          setSelectedIds(new Set([...selectedIds, ...filtered.map(p => p.id)]));
+                        } else {
+                          const remaining = new Set(selectedIds);
+                          filtered.forEach(p => remaining.delete(p.id));
+                          setSelectedIds(remaining);
+                        }
+                      }}
+                      className="w-4 h-4 text-amber-500 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">מיקום</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">פרסונה</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">שעת היום</th>
@@ -1343,8 +1675,30 @@ export default function WorkoutSettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {phrases.map((phrase) => (
-                  <tr key={phrase.id} className="hover:bg-gray-50">
+                {applyGlobalFilters(phrases).length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-16 text-center">
+                      <div className="text-gray-400">
+                        <AlertTriangle size={32} className="mx-auto mb-3 opacity-40" />
+                        <p className="font-bold text-lg">לא נמצא תוכן תואם</p>
+                        <p className="text-sm mt-1">נסה לשנות את הפילטרים או לנקות את החיפוש</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : applyGlobalFilters(phrases).map((phrase) => (
+                  <tr key={phrase.id} className={`hover:bg-gray-50 ${selectedIds.has(phrase.id) ? 'bg-amber-50' : ''}`}>
+                    <td className="px-2 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(phrase.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          e.target.checked ? next.add(phrase.id) : next.delete(phrase.id);
+                          setSelectedIds(next);
+                        }}
+                        className="w-4 h-4 text-amber-500 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
                         {locationLabels[phrase.location] || phrase.location}
@@ -1718,6 +2072,23 @@ export default function WorkoutSettingsPage() {
             <table className="w-full text-right">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-2 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={(() => { const f = applyGlobalFilters(notifications).filter((n) => notificationFilter === 'All' || n.triggerType === notificationFilter); return f.length > 0 && f.every(n => selectedIds.has(n.id)); })()}
+                      onChange={(e) => {
+                        const filtered = applyGlobalFilters(notifications).filter((n) => notificationFilter === 'All' || n.triggerType === notificationFilter);
+                        if (e.target.checked) {
+                          setSelectedIds(new Set([...selectedIds, ...filtered.map(n => n.id)]));
+                        } else {
+                          const remaining = new Set(selectedIds);
+                          filtered.forEach(n => remaining.delete(n.id));
+                          setSelectedIds(remaining);
+                        }
+                      }}
+                      className="w-4 h-4 text-amber-500 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">סוג טריגר</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">פרסונה</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">ימים ללא אימון</th>
@@ -1727,10 +2098,32 @@ export default function WorkoutSettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {notifications
+                {applyGlobalFilters(notifications).filter((n) => notificationFilter === 'All' || n.triggerType === notificationFilter).length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-16 text-center">
+                      <div className="text-gray-400">
+                        <AlertTriangle size={32} className="mx-auto mb-3 opacity-40" />
+                        <p className="font-bold text-lg">לא נמצא תוכן תואם</p>
+                        <p className="text-sm mt-1">נסה לשנות את הפילטרים או לנקות את החיפוש</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : applyGlobalFilters(notifications)
                   .filter((n) => notificationFilter === 'All' || n.triggerType === notificationFilter)
                   .map((notification) => (
-                  <tr key={notification.id} className="hover:bg-gray-50">
+                  <tr key={notification.id} className={`hover:bg-gray-50 ${selectedIds.has(notification.id) ? 'bg-amber-50' : ''}`}>
+                    <td className="px-2 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(notification.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          e.target.checked ? next.add(notification.id) : next.delete(notification.id);
+                          setSelectedIds(next);
+                        }}
+                        className="w-4 h-4 text-amber-500 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">
                         {notification.triggerType === 'Inactivity' ? 'אי-פעילות' :
@@ -2115,6 +2508,23 @@ export default function WorkoutSettingsPage() {
             <table className="w-full text-right">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-2 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={applyGlobalFilters(smartDescriptions).length > 0 && applyGlobalFilters(smartDescriptions).every(d => selectedIds.has(d.id))}
+                      onChange={(e) => {
+                        const filtered = applyGlobalFilters(smartDescriptions);
+                        if (e.target.checked) {
+                          setSelectedIds(new Set([...selectedIds, ...filtered.map(d => d.id)]));
+                        } else {
+                          const remaining = new Set(selectedIds);
+                          filtered.forEach(d => remaining.delete(d.id));
+                          setSelectedIds(remaining);
+                        }
+                      }}
+                      className="w-4 h-4 text-amber-500 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">מיקום</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">פרסונה</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">תיאור</th>
@@ -2122,8 +2532,30 @@ export default function WorkoutSettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {smartDescriptions.map((description) => (
-                  <tr key={description.id} className="hover:bg-gray-50">
+                {applyGlobalFilters(smartDescriptions).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-16 text-center">
+                      <div className="text-gray-400">
+                        <AlertTriangle size={32} className="mx-auto mb-3 opacity-40" />
+                        <p className="font-bold text-lg">לא נמצא תוכן תואם</p>
+                        <p className="text-sm mt-1">נסה לשנות את הפילטרים או לנקות את החיפוש</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : applyGlobalFilters(smartDescriptions).map((description) => (
+                  <tr key={description.id} className={`hover:bg-gray-50 ${selectedIds.has(description.id) ? 'bg-amber-50' : ''}`}>
+                    <td className="px-2 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(description.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedIds);
+                          e.target.checked ? next.add(description.id) : next.delete(description.id);
+                          setSelectedIds(next);
+                        }}
+                        className="w-4 h-4 text-amber-500 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
                         {locationLabels[description.location] || description.location}
@@ -2494,6 +2926,23 @@ export default function WorkoutSettingsPage() {
               <table className="w-full text-right">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="px-2 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={applyGlobalFilters(logicCues).length > 0 && applyGlobalFilters(logicCues).every(c => selectedIds.has(c.id))}
+                        onChange={(e) => {
+                          const filtered = applyGlobalFilters(logicCues);
+                          if (e.target.checked) {
+                            setSelectedIds(new Set([...selectedIds, ...filtered.map(c => c.id)]));
+                          } else {
+                            const remaining = new Set(selectedIds);
+                            filtered.forEach(c => remaining.delete(c.id));
+                            setSelectedIds(remaining);
+                          }
+                        }}
+                        className="w-4 h-4 text-amber-500 rounded"
+                      />
+                    </th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">וריאנט</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">מיקום</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">פרסונה</th>
@@ -2503,8 +2952,30 @@ export default function WorkoutSettingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {logicCues.map((cue) => (
-                    <tr key={cue.id} className="hover:bg-gray-50">
+                  {applyGlobalFilters(logicCues).length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-16 text-center">
+                        <div className="text-gray-400">
+                          <AlertTriangle size={32} className="mx-auto mb-3 opacity-40" />
+                          <p className="font-bold text-lg">לא נמצא תוכן תואם</p>
+                          <p className="text-sm mt-1">נסה לשנות את הפילטרים או לנקות את החיפוש</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : applyGlobalFilters(logicCues).map((cue) => (
+                    <tr key={cue.id} className={`hover:bg-gray-50 ${selectedIds.has(cue.id) ? 'bg-amber-50' : ''}`}>
+                      <td className="px-2 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(cue.id)}
+                          onChange={(e) => {
+                            const next = new Set(selectedIds);
+                            e.target.checked ? next.add(cue.id) : next.delete(cue.id);
+                            setSelectedIds(next);
+                          }}
+                          className="w-4 h-4 text-amber-500 rounded"
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${
                           cue.variant === 'intense' ? 'bg-red-100 text-red-700' :

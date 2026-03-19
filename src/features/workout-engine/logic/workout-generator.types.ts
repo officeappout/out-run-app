@@ -8,7 +8,7 @@
  */
 
 import { Exercise, MechanicalType } from '@/features/content/exercises/core/exercise.types';
-import { ScoredExercise, IntentMode, LifestylePersona } from './ContextualEngine';
+import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 
 // ============================================================================
 // CORE TYPES
@@ -34,12 +34,18 @@ export interface TierConfig {
 }
 
 export const TIER_TABLE: Record<TierName, TierConfig> = {
-  elite: { reps: { min: 1,  max: 2  }, hold: { min: 3,  max: 6  }, rest: { min: 180, max: 240 }, sets: { min: 4, max: 5 } },
+  elite: { reps: { min: 1,  max: 3  }, hold: { min: 3,  max: 6  }, rest: { min: 180, max: 240 }, sets: { min: 4, max: 5 } },
   hard:  { reps: { min: 1,  max: 3  }, hold: { min: 5,  max: 10 }, rest: { min: 120, max: 180 }, sets: { min: 4, max: 5 } },
   match: { reps: { min: 3,  max: 6  }, hold: { min: 10, max: 15 }, rest: { min: 90,  max: 120 }, sets: { min: 3, max: 4 } },
-  easy:  { reps: { min: 6,  max: 10 }, hold: { min: 15, max: 25 }, rest: { min: 60,  max: 90  }, sets: { min: 3, max: 3 } },
-  flow:  { reps: { min: 10, max: 20 }, hold: { min: 25, max: 45 }, rest: { min: 45,  max: 60  }, sets: { min: 3, max: 3 } },
+  easy:  { reps: { min: 10, max: 15 }, hold: { min: 15, max: 25 }, rest: { min: 45,  max: 75  }, sets: { min: 3, max: 3 } },
+  flow:  { reps: { min: 10, max: 15 }, hold: { min: 25, max: 45 }, rest: { min: 45,  max: 60  }, sets: { min: 3, max: 3 } },
 };
+
+/** Horizontal movements at match tier use a wider hypertrophy-friendly rep range */
+export const MATCH_HORIZONTAL_REPS = { min: 6, max: 12 };
+
+export const VERTICAL_MOVEMENT_GROUPS = new Set(['vertical_push', 'vertical_pull']);
+export const HORIZONTAL_MOVEMENT_GROUPS = new Set(['horizontal_push', 'horizontal_pull']);
 
 export function resolveTier(levelDelta: number): TierName {
   if (levelDelta >= 2) return 'elite';
@@ -107,6 +113,8 @@ export interface GeneratedWorkout {
   stats: WorkoutStats;
   isRecovery: boolean;
   totalPlannedSets: number;
+  /** Why Logger: end-to-end pipeline summary for debugging/auditing */
+  pipelineLog?: string[];
 }
 
 export interface VolumeAdjustment {
@@ -184,4 +192,6 @@ export interface WorkoutGenerationContext {
   domainBudgets?: Array<{ domain: string; level: number; weekly: number; daily: number }>;
   /** Phase 4B: Exercise IDs used in last 2 sessions (for Variety Guard anti-boredom penalty). */
   recentExerciseIds?: Set<string>;
+  /** Why Logger: per-filter pool counts from ContextualEngine (passed through for pipeline log). */
+  filterCounts?: FilterStageCounts;
 }

@@ -24,6 +24,7 @@ import {
 } from '@/features/content/exercises/core/exercise.types';
 
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
+import { resolveExerciseLevelForDomains } from './workout-selection.utils';
 
 // ============================================================================
 // TYPES & CONSTANTS — Extracted to ./contextual-engine.types.ts (Phase 4)
@@ -41,6 +42,7 @@ import {
   type ContextualFilterResult,
   type FilterDescription,
   type MechanicalBalance,
+  type FilterStageCounts,
 } from './contextual-engine.types';
 
 // Re-export so all external consumers keep their import path unchanged
@@ -56,6 +58,7 @@ export {
   type ContextualFilterResult,
   type FilterDescription,
   type MechanicalBalance,
+  type FilterStageCounts,
 } from './contextual-engine.types';
 
 /**
@@ -101,12 +104,23 @@ export class ContextualEngine {
     const activeProgramFilters = context.activeProgramFilters ?? [];
     const hasStrictProgramFilter = activeProgramFilters.length > 0;
 
+    const fCounts: FilterStageCounts = {
+      pool_start: exercises.length,
+      excluded_program_filter: 0,
+      excluded_level_tolerance: 0,
+      excluded_skill_gate: 0,
+      excluded_injury_shield: 0,
+      excluded_48h_muscle: 0,
+      excluded_field_mode: 0,
+      excluded_location: 0,
+      excluded_sweat: 0,
+      excluded_noise: 0,
+      after_hard_filters: 0,
+    };
+
+    const activeDomains = context.activeDomains ?? context.activeProgramFilters;
+
     for (const exercise of exercises) {
-      // ── STRICT PROGRAM FILTER ─────────────────────────────────────────
-      // When any program checkbox is checked in the Shadow Matrix,
-      // ONLY exercises matching at least one active program are allowed
-      // in the strength portion. Uses movementGroup / primaryMuscle /
-      // explicit programIds matching (exerciseMatchesProgram).
       let programLevel: number | undefined;
 
       if (hasStrictProgramFilter) {
@@ -115,98 +129,93 @@ export class ContextualEngine {
         );
         if (!matchesAnyProgram) {
           excludedCount++;
-          continue; // Hard-exclude: exercise is NOT in any selected program
+          fCounts.excluded_program_filter++;
+          continue;
         }
       }
 
-      // Legacy programLevels check (for selectedProgram compat)
-      if (context.selectedProgram) {
-        const exerciseAny = exercise as any;
-        if (exerciseAny.programLevels) {
-          programLevel = exerciseAny.programLevels[context.selectedProgram];
-          if (programLevel === undefined) {
-            excludedCount++;
-            continue;
-          }
-          const effectiveLevel = context.getUserLevelForExercise(exercise);
-          const minLevel = Math.max(1, effectiveLevel - levelTolerance);
-          const maxLevel = effectiveLevel + levelTolerance;
-          if (programLevel < minLevel || programLevel > maxLevel) {
-            excludedCount++;
-            continue;
-          }
-        }
+      // Domain-aware level resolution: resolve programLevel from the
+      // targetPrograms entry matching the active domains, not [0].
+      const resolved = resolveExerciseLevelForDomains(exercise, activeDomains);
+      programLevel = resolved.level;
+
+      // Level tolerance filter: exercise must be within ±tolerance of user's domain level
+      const effectiveLevelForTolerance = context.getUserLevelForExercise(exercise);
+      const minLevel = Math.max(1, effectiveLevelForTolerance - levelTolerance);
+      const maxLevel = effectiveLevelForTolerance + levelTolerance;
+      if (programLevel < minLevel || programLevel > maxLevel) {
+        excludedCount++;
+        fCounts.excluded_level_tolerance++;
+        continue;
       }
-      
-      // ── SKILL GATE ──────────────────────────────────────────────────
-      // Elite exercises (tagged 'skill' or with any targetProgram level > 15)
-      // require the user to be at least Level 15 in that program domain.
-      // This prevents mid-level users from seeing Muscle-ups, Planche, etc.
-      // regardless of the general ±3 level tolerance.
+
+      // Skill Gate: uses the domain-resolved level, not .some() across all targetPrograms
       const SKILL_GATE_MIN_LEVEL = 15;
       const exerciseTags = exercise.tags || [];
       const isSkillTagged = exerciseTags.includes('skill' as any);
-      const hasEliteLevel = exercise.targetPrograms?.some(tp => tp.level > SKILL_GATE_MIN_LEVEL);
+      const isEliteInActiveDomain = programLevel > SKILL_GATE_MIN_LEVEL;
 
-      if (isSkillTagged || hasEliteLevel) {
+      if (isSkillTagged || isEliteInActiveDomain) {
         const userEffective = context.getUserLevelForExercise(exercise);
         if (userEffective < SKILL_GATE_MIN_LEVEL) {
           excludedCount++;
+          fCounts.excluded_skill_gate++;
           continue;
         }
       }
 
-      // Injury Shield filter
       if (!this.passesInjuryShield(exercise, context.injuryShield)) {
         excludedCount++;
+        fCounts.excluded_injury_shield++;
         continue;
       }
 
-      // 48-Hour Muscle Shield — exclude exercises targeting recently trained muscles
       if (context.excludedMuscleGroups?.length && !this.passesMuscleShield(exercise, context.excludedMuscleGroups)) {
         excludedCount++;
+        fCounts.excluded_48h_muscle++;
         continue;
       }
       
-      // Field mode filter
       if (context.intentMode === 'field') {
         if (!this.passesFieldMode(exercise)) {
           excludedCount++;
+          fCounts.excluded_field_mode++;
           continue;
         }
       }
       
-      // Find matching execution method for location
       const matchingMethod = this.findMatchingMethod(exercise, context, constraints);
       if (!matchingMethod) {
         excludedCount++;
+        fCounts.excluded_location++;
         continue;
       }
       
-      // Environment constraints (unless bypassed for park)
       if (!constraints.bypassLimits) {
-        // Sweat limit (ignore in blast mode)
         if (context.intentMode !== 'blast') {
           const effectiveSweatLimit = context.intentMode === 'on_the_way' ? 1 : constraints.sweatLimit;
           if (exercise.sweatLevel && exercise.sweatLevel > effectiveSweatLimit) {
             excludedCount++;
+            fCounts.excluded_sweat++;
             continue;
           }
         }
         
-        // Noise limit
         if (exercise.noiseLevel && exercise.noiseLevel > constraints.noiseLimit) {
           excludedCount++;
+          fCounts.excluded_noise++;
           continue;
         }
       }
       
       passedHardFilters.push({ exercise, method: matchingMethod, programLevel });
     }
+
+    fCounts.after_hard_filters = passedHardFilters.length;
     
-    // Step 2: Score exercises (include program level)
+    // Step 2: Score exercises (include domain-resolved program level)
     const scoredExercises = passedHardFilters.map(({ exercise, method, programLevel }) => {
-      const scored = this.scoreExercise(exercise, method, context);
+      const scored = this.scoreExercise(exercise, method, context, activeDomains);
       scored.programLevel = programLevel;
       return scored;
     });
@@ -233,6 +242,7 @@ export class ContextualEngine {
       excludedCount,
       aiCue,
       adjustedRestSeconds: context.intentMode === 'blast' ? BLAST_MODE_REST_SECONDS : undefined,
+      filterCounts: fCounts,
     };
   }
   
@@ -441,6 +451,20 @@ export class ContextualEngine {
       return noIds && noId;
     };
 
+    const ESSENTIAL_GEAR_SET = new Set([
+      'pullup_bar', 'pull_up_bar', 'pullupbar',
+      'dip_bar', 'dip_station', 'dipstation',
+      'parallel_bars', 'bars',
+    ]);
+    const requiresOnlyEssentialGear = (m: ExecutionMethod): boolean => {
+      const eqIds = m.equipmentIds ?? (m.equipmentId ? [m.equipmentId] : []);
+      if (eqIds.length === 0) return false;
+      return eqIds.every(id => {
+        const lower = String(id).toLowerCase();
+        return lower === 'bodyweight' || lower === 'none' || ESSENTIAL_GEAR_SET.has(lower);
+      });
+    };
+
     // ── Priority 1: Exact primary location match ──────────────────────
     let candidates = methods.filter(m => m.location === context.location);
     // Also check locationMapping
@@ -464,6 +488,14 @@ export class ContextualEngine {
       }
     }
 
+    // ── Priority 2.5: Methods requiring only essential gear ───────────
+    // Pull-up bars and dip bars are always available, so exercises
+    // tagged for 'park' that only need bars should be selectable anywhere.
+    const essentialGearCandidates = methods.filter(requiresOnlyEssentialGear);
+    if (essentialGearCandidates.length > 0) {
+      return preferMedia(essentialGearCandidates);
+    }
+
     // ── Priority 3: Bodyweight-only (any method with no equipment) ────
     const bodyweightCandidates = methods.filter(isBodyweight);
     if (bodyweightCandidates.length > 0) {
@@ -480,7 +512,8 @@ export class ContextualEngine {
   private scoreExercise(
     exercise: Exercise,
     method: ExecutionMethod,
-    context: ContextualFilterContext
+    context: ContextualFilterContext,
+    activeDomains?: string[],
   ): ScoredExercise {
     let score = 0;
     const reasoning: string[] = [];
@@ -494,13 +527,16 @@ export class ContextualEngine {
     }
     
     // 2. Level Proximity: +3 points for exact match, -1 per level difference
-    //    Uses Shadow Tracking callback for per-exercise level matching
-    const exerciseLevel = this.getExerciseLevel(exercise);
+    //    Uses domain-aware level resolution + Shadow Tracking callback
+    const { level: exerciseLevel, resolvedDomain } = resolveExerciseLevelForDomains(exercise, activeDomains);
     const userEffectiveLevel = context.getUserLevelForExercise(exercise);
     const levelDiff = Math.abs(exerciseLevel - userEffectiveLevel);
     const levelScore = Math.max(0, 3 - levelDiff);
     score += levelScore;
+    const exerciseName = typeof exercise.name === 'string'
+      ? exercise.name : (exercise.name as any)?.he || exercise.id;
     reasoning.push(`קרבת רמה: +${levelScore} (הפרש ${levelDiff}, רמה אפקטיבית ${userEffectiveLevel})`);
+    reasoning.push(`[LevelResolution] ${exerciseName} → L${exerciseLevel} via ${resolvedDomain ?? 'fallback'}`);
     
     // 3. Blast Mode: Prioritize compound/hybrid
     if (context.intentMode === 'blast') {
@@ -548,13 +584,12 @@ export class ContextualEngine {
   }
   
   /**
-   * Get exercise level (from targetPrograms or default to 1)
+   * Get exercise level, domain-aware.
+   * Resolves from targetPrograms matching the active domains, falling back
+   * to the first targetPrograms entry or recommendedLevel.
    */
-  private getExerciseLevel(exercise: Exercise): number {
-    if (exercise.targetPrograms?.length) {
-      return exercise.targetPrograms[0].level;
-    }
-    return exercise.recommendedLevel || 1;
+  private getExerciseLevel(exercise: Exercise, activeDomains?: string[]): number {
+    return resolveExerciseLevelForDomains(exercise, activeDomains).level;
   }
   
   /**

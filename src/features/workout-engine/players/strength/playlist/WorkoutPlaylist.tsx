@@ -74,7 +74,7 @@ interface WorkoutPlaylistProps {
   restTimeLeft: number;
   formatTime: (s: number) => string;
   exerciseLog: ExerciseResultLog[];
-  handleRepetitionSave: (reps: number) => void;
+  handleRepetitionSave: (reps: number, sideData?: { left: number; right: number }) => void;
 }
 
 export default function WorkoutPlaylist({
@@ -178,8 +178,8 @@ export default function WorkoutPlaylist({
 
   // ── Modal save handler ─────────────────────────────────────────────────
   const handleModalSave = useCallback(
-    (value: number) => {
-      handleRepetitionSave(value);
+    (value: number, sideData?: { left: number; right: number }) => {
+      handleRepetitionSave(value, sideData);
     },
     [handleRepetitionSave],
   );
@@ -251,6 +251,7 @@ export default function WorkoutPlaylist({
         }
         setIndex={modalSetIndex}
         handleRepetitionSave={handleModalSave}
+        isUnilateral={modalExercise?.exercise.symmetry === 'unilateral'}
       />
     </div>
   );

@@ -33,6 +33,7 @@ export type LifestylePersona =
   | 'school_student'
   | 'office_worker'
   | 'home_worker'
+  | 'high_tech'
   | 'senior'
   | 'athlete'
   | 'reservist'
@@ -122,6 +123,15 @@ export interface ContextualFilterContext {
    * Used for Habit Builder path (beginners 4-6 days/week).
    */
   excludedMuscleGroups?: MuscleGroup[];
+
+  /**
+   * Active domain IDs for domain-aware level resolution.
+   * When set, the engine resolves each exercise's level from the matching
+   * targetPrograms entry for these domains (e.g., ['push','pull','legs','core']).
+   * Without this, the engine falls back to targetPrograms[0] which can pick
+   * the wrong level from a different program.
+   */
+  activeDomains?: string[];
 }
 
 /**
@@ -135,6 +145,24 @@ export interface ScoredExercise {
   mechanicalType: MechanicalType;
   /** Level of this exercise in the selected program */
   programLevel?: number;
+}
+
+/**
+ * Per-filter exclusion counts produced by ContextualEngine.filterAndScore.
+ * Tracks how many exercises each hard filter removed from the pool.
+ */
+export interface FilterStageCounts {
+  pool_start: number;
+  excluded_program_filter: number;
+  excluded_level_tolerance: number;
+  excluded_skill_gate: number;
+  excluded_injury_shield: number;
+  excluded_48h_muscle: number;
+  excluded_field_mode: number;
+  excluded_location: number;
+  excluded_sweat: number;
+  excluded_noise: number;
+  after_hard_filters: number;
 }
 
 /**
@@ -158,6 +186,9 @@ export interface ContextualFilterResult {
   
   /** Adjusted rest time (for blast mode) */
   adjustedRestSeconds?: number;
+
+  /** Per-filter pool tracking for the Why Logger */
+  filterCounts?: FilterStageCounts;
 }
 
 /**
@@ -209,6 +240,7 @@ export const LIFESTYLE_LABELS: Record<LifestylePersona, string> = {
   school_student: 'תלמיד',
   office_worker: 'עובד משרד',
   home_worker: 'עובד מהבית',
+  high_tech: 'הייטקיסט',
   senior: 'גיל הזהב',
   athlete: 'ספורטאי',
   reservist: 'מילואימניק',

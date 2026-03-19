@@ -281,8 +281,8 @@ const PROGRAM_ICON_MAP: Record<string, string> = {
   fullbody: '/icons/programs/full_body.svg',
   push: '/icons/programs/muscle.svg',
   upper_body: '/icons/programs/muscle.svg',
-  pull: '/icons/programs/pull_up.svg',
-  calisthenics: '/icons/programs/pull_up.svg',
+  pull: '/icons/programs/muscle.svg',
+  calisthenics: '/icons/programs/muscle.svg',
   legs: '/icons/programs/leg.svg',
   lower_body: '/icons/programs/leg.svg',
   running: '/icons/programs/Run.svg',
@@ -538,7 +538,7 @@ export default function HeroWorkoutCard({
         <div className={`flex items-center gap-2 w-full ${isSide ? 'mb-2' : 'mb-2'}`}>
           {programIconSrc && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={programIconSrc} alt="" width={isSide ? 18 : 22} height={isSide ? 18 : 22} className="flex-shrink-0 opacity-80" />
+            <img src={programIconSrc} alt="" width={isSide ? 18 : 22} height={isSide ? 18 : 22} className="flex-shrink-0 opacity-80" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           )}
           <h4
             className="font-semibold text-gray-800 dark:text-white leading-snug"

@@ -23,7 +23,9 @@ export interface DataEntryModalProps {
   targetReps: number | null;
   lastSavedReps: number | null;
   setIndex: number;
-  handleRepetitionSave: (value: number) => void;
+  handleRepetitionSave: (value: number, sideData?: { left: number; right: number }) => void;
+  /** When true, shows two separate pickers for right/left sides */
+  isUnilateral?: boolean;
 }
 
 const REPS_RANGE = Array.from({ length: 51 }, (_, i) => i);
@@ -39,10 +41,15 @@ export default function DataEntryModal({
   lastSavedReps,
   setIndex,
   handleRepetitionSave,
+  isUnilateral = false,
 }: DataEntryModalProps) {
   // ── Reps state ──────────────────────────────────────────────────────────
   const initialReps = lastSavedReps ?? targetReps ?? 10;
   const [repsValue, setRepsValue] = useState(initialReps);
+
+  // ── Unilateral state (separate values for right/left) ─────────────────
+  const [repsRight, setRepsRight] = useState(initialReps);
+  const [repsLeft, setRepsLeft] = useState(initialReps);
 
   // ── Time state ──────────────────────────────────────────────────────────
   const totalSeconds = lastSavedReps ?? targetReps ?? 30;
@@ -60,6 +67,8 @@ export default function DataEntryModal({
       const reps = lastSavedReps ?? targetReps ?? 10;
       const secs = lastSavedReps ?? targetReps ?? 30;
       setRepsValue(reps);
+      setRepsRight(reps);
+      setRepsLeft(reps);
       setMinutes(Math.floor(secs / 60));
       setSeconds(secs % 60);
       setStopwatchActive(false);
@@ -95,12 +104,17 @@ export default function DataEntryModal({
 
   const handleSave = useCallback(() => {
     if (exerciseType === 'reps') {
-      handleRepetitionSave(repsValue);
+      if (isUnilateral) {
+        const effective = Math.min(repsRight, repsLeft);
+        handleRepetitionSave(effective, { left: repsLeft, right: repsRight });
+      } else {
+        handleRepetitionSave(repsValue);
+      }
     } else {
       handleRepetitionSave(minutes * 60 + seconds);
     }
     onClose();
-  }, [exerciseType, repsValue, minutes, seconds, handleRepetitionSave, onClose]);
+  }, [exerciseType, repsValue, repsRight, repsLeft, isUnilateral, minutes, seconds, handleRepetitionSave, onClose]);
 
   const isTime = exerciseType === 'time';
   const title = isTime ? 'כמה זמן עשית?' : 'כמה חזרות עשית?';
@@ -183,6 +197,22 @@ export default function DataEntryModal({
                     selectedValue={minutes}
                     onChange={setMinutes}
                     label="דק'"
+                  />
+                </div>
+              ) : isUnilateral ? (
+                /* Unilateral: two separate pickers for right/left */
+                <div className="flex items-start gap-6">
+                  <VerticalWheelPicker
+                    values={REPS_RANGE}
+                    selectedValue={repsLeft}
+                    onChange={setRepsLeft}
+                    label="שמאל"
+                  />
+                  <VerticalWheelPicker
+                    values={REPS_RANGE}
+                    selectedValue={repsRight}
+                    onChange={setRepsRight}
+                    label="ימין"
                   />
                 </div>
               ) : (

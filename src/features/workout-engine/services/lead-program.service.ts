@@ -28,6 +28,7 @@ import type { Program, MovementPattern, ProgramLevelSettings } from '@/features/
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { resolveToSlug } from './program-hierarchy.utils';
 
 // ============================================================================
 // TYPES
@@ -106,13 +107,30 @@ export async function resolveLeadProgramBudget(
 
   if (candidates.length === 0) return null;
 
-  // ── 2. Find the candidate where the user has the highest level
+  // ── 2. Find the candidate where the user has the highest level.
+  // Check both the Firestore ID key AND the slug key in tracks,
+  // taking the MAX to avoid stale L1 entries from Firestore IDs.
+  const getTrackLevel = (progId: string): number => {
+    const byId = (tracks as Record<string, any>)[progId]?.currentLevel
+      ?? (tracks as Record<string, any>)[progId]?.level;
+    const slug = resolveToSlug(progId);
+    const bySlug = slug !== progId
+      ? ((tracks as Record<string, any>)[slug]?.currentLevel
+         ?? (tracks as Record<string, any>)[slug]?.level)
+      : undefined;
+    const byPattern = pattern
+      ? ((tracks as Record<string, any>)[pattern]?.currentLevel
+         ?? (tracks as Record<string, any>)[pattern]?.level)
+      : undefined;
+    return Math.max(byId ?? 0, bySlug ?? 0, byPattern ?? 0) || 1;
+  };
+
   let leadProgram: Program = candidates[0];
-  let highestLevel = tracks[candidates[0].id]?.currentLevel ?? 1;
+  let highestLevel = getTrackLevel(candidates[0].id);
 
   for (let i = 1; i < candidates.length; i++) {
     const prog = candidates[i];
-    const userLevel = tracks[prog.id]?.currentLevel ?? 1;
+    const userLevel = getTrackLevel(prog.id);
     if (userLevel > highestLevel) {
       highestLevel = userLevel;
       leadProgram = prog;
@@ -238,11 +256,55 @@ export async function resolveAggregateFullBodyBudget(
     const candidates = programs.filter(
       (p) => p.movementPattern === pattern && !p.isMaster
     );
-    const program = candidates[0]; // Use first matching program for settings lookup
-    const level =
-      program
-        ? userProgramLevels.get(program.id) ?? userProgramLevels.get(pattern) ?? 1
-        : 1;
+    const program = candidates[0];
+
+    // Level resolution: collect ALL possible levels, take the MAX.
+    // The user's profile may have BOTH a stale Firestore-ID entry (L1)
+    // AND a correct slug entry (L19). We must not stop at the first hit.
+    //
+    // Sources (checked in priority order for logging, but MAX wins):
+    //   1. Pattern slug ('push', 'pull', 'legs', 'core') — source of truth
+    //   2. Slug resolved from Firestore ID via resolveToSlug
+    //   3. Firestore ID direct lookup — often stale/default L1
+    let level = 1;
+    let levelSource = 'default(1)';
+
+    if (program) {
+      const slug = resolveToSlug(program.id);
+      const byPattern = userProgramLevels.get(pattern);
+      const bySlug = slug !== pattern ? userProgramLevels.get(slug) : undefined;
+      const byId = userProgramLevels.get(program.id);
+
+      // Collect all found levels with their sources for logging
+      const found: Array<{ level: number; source: string }> = [];
+      if (byPattern !== undefined) found.push({ level: byPattern, source: `pattern(${pattern})` });
+      if (bySlug !== undefined) found.push({ level: bySlug, source: `slug(${slug})` });
+      if (byId !== undefined) found.push({ level: byId, source: `firestoreId(${program.id.slice(0, 8)}…)` });
+
+      if (found.length > 0) {
+        // Take the MAX — the highest level is the real one; L1 entries are stale defaults
+        found.sort((a, b) => b.level - a.level);
+        level = found[0].level;
+        levelSource = found[0].source;
+
+        // Warn if sources disagree (stale Firestore ID entry)
+        if (found.length > 1 && found[0].level !== found[found.length - 1].level) {
+          console.warn(
+            `[LeadProgram] ⚠️ Level conflict for "${pattern}": ` +
+            found.map(f => `${f.source}=L${f.level}`).join(' vs ') +
+            ` → using MAX L${level} from ${levelSource}`,
+          );
+        }
+      } else {
+        console.warn(
+          `[LeadProgram] ⚠️ Level resolution FAILED for domain "${pattern}" ` +
+          `(program.id=${program.id}, slug=${slug}). Defaulting to L1. ` +
+          `userProgramLevels keys: [${Array.from(userProgramLevels.keys()).join(', ')}]`,
+        );
+      }
+    }
+
+    console.log(`[LeadProgram] ${pattern}: resolved L${level} via ${levelSource}`);
 
     let weekly = getDefaultVolumeTarget(level);
     if (program) {

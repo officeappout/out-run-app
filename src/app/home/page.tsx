@@ -503,6 +503,7 @@ export default function HomePage() {
               isTimeBased: ex.isTimeBased,
               sets: ex.sets,
               execution_methods: ex.exercise.execution_methods || ex.exercise.executionMethods || [],
+              reasoning: ex.reasoning,
             };
           });
 
@@ -569,6 +570,7 @@ export default function HomePage() {
             totalDuration: gw.estimatedDuration || 30,
             difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
             trainingType: 'strength' as const,
+            pipelineLog: gw.pipelineLog,
           };
 
           sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));

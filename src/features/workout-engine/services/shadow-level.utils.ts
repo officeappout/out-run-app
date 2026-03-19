@@ -25,6 +25,8 @@ import {
   getLocalizedText,
 } from '@/features/content/exercises/core/exercise.types';
 import { UserFullProfile, TrainingDomainId } from '@/features/user/core/types/user.types';
+import { resolveDataLevel } from './level-resolution.utils';
+import { resolveToSlug } from './program-hierarchy.utils';
 
 // ============================================================================
 // TYPES
@@ -169,14 +171,22 @@ const PROGRAM_MUSCLE_MAP: Record<string, MuscleGroup[]> = {
  */
 export function exerciseMatchesProgram(exercise: Exercise, programKey: string): boolean {
   if (exercise.programIds?.includes(programKey)) return true;
-  if (exercise.targetPrograms?.some((tp) => tp.programId === programKey)) return true;
+  if (exercise.targetPrograms?.some((tp) =>
+    tp.programId === programKey || resolveToSlug(tp.programId) === programKey,
+  )) return true;
+
+  // Also check if any programId resolves to the programKey via slug map
+  if (exercise.programIds?.some(pid => resolveToSlug(pid) === programKey)) return true;
 
   if (programKey === 'full_body') return true;
 
   // Legs: triple-fallback — movementGroup OR primaryMuscle OR name/tags string
   if (programKey === 'legs') {
     if (exercise.programIds?.includes('lower_body')) return true;
-    if (exercise.targetPrograms?.some((tp) => tp.programId === 'lower_body')) return true;
+    if (exercise.targetPrograms?.some((tp) =>
+      tp.programId === 'lower_body' || resolveToSlug(tp.programId) === 'lower_body' ||
+      resolveToSlug(tp.programId) === 'legs',
+    )) return true;
     const mg = exercise.movementGroup;
     if (mg && ['squat', 'hinge', 'lunge'].includes(mg as string)) return true;
     const pm = exercise.primaryMuscle;
@@ -195,7 +205,9 @@ export function exerciseMatchesProgram(exercise: Exercise, programKey: string): 
     const pm = exercise.primaryMuscle;
     if (pm && ['abs', 'core', 'obliques'].includes(pm)) return true;
     if (exercise.programIds?.includes('core')) return true;
-    if (exercise.targetPrograms?.some((tp) => tp.programId === 'core')) return true;
+    if (exercise.targetPrograms?.some((tp) =>
+      tp.programId === 'core' || resolveToSlug(tp.programId) === 'core',
+    )) return true;
     const nameStr = (getLocalizedText(exercise.name) ?? '').toLowerCase();
     const tagsStr = (exercise.tags ?? []).join(' ').toLowerCase();
     const combined = `${nameStr} ${tagsStr}`;
@@ -300,30 +312,78 @@ export function getEffectiveLevelForExercise(
   // ── Step 4: User assessment level via targetPrograms ──────────────────
   // When an exercise has targetPrograms matching the user's active programs,
   // resolve the level from the user's OWN progression (tracks > domains),
-  // NOT the admin-assigned level on the exercise document. The admin level
-  // is a content-classification tag; the user's assessment level is the
-  // runtime driver.
+  // NOT the admin-assigned level on the exercise document.
+  //
+  // Three-layer resolution for each tp.programId:
+  //   Layer A: Direct match (programId is already a slug like 'push')
+  //   Layer B: Firestore ID → slug (e.g. 'J0fLpmJhG0KDN2tQouxh' → 'push')
+  //   Layer C: Slug alias (e.g. 'pulling' → 'pull')
   if (exercise.targetPrograms?.length) {
     const userDomains = userProfile.progression?.domains ?? {};
     const userTracks = userProfile.progression?.tracks ?? {};
-    const activeIds = new Set<string>([
+    const activeTrackSlugs = new Set<string>([
       ...Object.keys(userDomains),
       ...Object.keys(userTracks),
-      ...(userProfile.progression?.activePrograms ?? []).map(p => p.templateId).filter(Boolean),
     ]);
+    const hasActiveTracks = activeTrackSlugs.size > 0;
+
+    const SLUG_ALIAS: Record<string, string[]> = {
+      pulling: ['pull'],
+      pushing: ['push'],
+      upper_body: ['push', 'pull'],
+      lower_body: ['legs'],
+      full_body: ['push', 'pull', 'legs', 'core'],
+    };
+
+    /** Resolve a programId (possibly a Firestore doc ID) to its track slug. */
+    const toSlug = (pid: string): string => {
+      if (activeTrackSlugs.has(pid)) return pid;
+      const mapped = resolveToSlug(pid);
+      if (mapped !== pid) return mapped;
+      return pid;
+    };
+
+    /** Look up the user's level for a resolved slug, checking aliases. */
+    const lookupLevel = (slug: string): number | undefined => {
+      const trackVal = resolveDataLevel(userTracks[slug]);
+      if (trackVal > 0) return trackVal;
+      const domainVal = resolveDataLevel(userDomains[slug as TrainingDomainId]);
+      if (domainVal > 0) return domainVal;
+      const aliases = SLUG_ALIAS[slug];
+      if (aliases) {
+        const aliasLevels = aliases
+          .map(a => {
+            const tv = resolveDataLevel(userTracks[a]);
+            return tv > 0 ? tv : (resolveDataLevel(userDomains[a as TrainingDomainId]) || 0);
+          })
+          .filter(l => l > 0);
+        if (aliasLevels.length > 0) return Math.max(...aliasLevels);
+      }
+      return undefined;
+    };
 
     for (const tp of exercise.targetPrograms) {
-      if (activeIds.has(tp.programId)) {
-        const userLevel = userTracks[tp.programId]?.currentLevel
-          ?? userDomains[tp.programId as TrainingDomainId]?.currentLevel
-          ?? tp.level;
+      const slug = toSlug(tp.programId);
+      const userLevel = lookupLevel(slug);
+      if (userLevel !== undefined) {
         console.log(
           `[ShadowLevel] TARGET PROGRAM: "${exerciseName}" → ` +
-          `program="${tp.programId}" userLevel=${userLevel} (adminTag=${tp.level}) ` +
+          `program="${tp.programId}" (slug="${slug}") userLevel=${userLevel} (adminTag=${tp.level}) ` +
           `(movementGroup=${movementGroup}, muscle=${primaryMuscle})`
         );
         return userLevel;
       }
+    }
+
+    // If we have targetPrograms but couldn't match any slug, fall back to
+    // movement-group-based resolution (Step 5) instead of returning L1.
+    // Log a warning so we can track unmapped exercise→program links.
+    if (hasActiveTracks) {
+      const tpIds = exercise.targetPrograms.map(tp => `${tp.programId}→${toSlug(tp.programId)}`).join(', ');
+      console.warn(
+        `[ShadowLevel] UNMAPPED targetPrograms for "${exerciseName}": [${tpIds}]. ` +
+        `Falling through to movementGroup resolution (Step 5).`,
+      );
     }
   }
 
@@ -386,9 +446,10 @@ function mapMovementGroupToDomainLevel(
       return d('core') ?? fallback;
     }
 
-    // Flexibility → maintenance/full_body domain
+    // Flexibility → maintenance/full_body domain (user-level lookup, not exercise scoring)
     if (movementGroup === 'flexibility') {
-      return d('full_body') ?? fallback;
+      const fbLevel = d('full_body') ?? fallback;
+      return fbLevel;
     }
 
     // Isolation → determine from primaryMuscle
@@ -462,11 +523,13 @@ function getDomainLevelIfExists(
   tracks?: UserFullProfile['progression']['tracks'],
 ): number | undefined {
   const t = tracks ?? {};
-  const dom = domains as Record<string, { currentLevel?: number }>;
-  const fromTrack = t[domainId]?.currentLevel;
-  const fromDomain = dom[domainId]?.currentLevel;
-  const level = fromTrack ?? fromDomain;
-  return level !== undefined && level !== null ? level : undefined;
+  const trackData = t[domainId];
+  const domainData = (domains as Record<string, any>)[domainId];
+  if (!trackData && !domainData) return undefined;
+  const fromTrack = resolveDataLevel(trackData);
+  const fromDomain = resolveDataLevel(domainData);
+  const level = fromTrack || fromDomain;
+  return level > 0 ? level : undefined;
 }
 
 // ============================================================================

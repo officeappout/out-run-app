@@ -258,7 +258,7 @@ export type MovementGroup =
 /**
  * Exercise tags for classification and filtering
  */
-export type ExerciseTag = 'skill' | 'compound' | 'isolation' | 'explosive' | 'hiit_friendly';
+export type ExerciseTag = 'skill' | 'compound' | 'isolation' | 'explosive' | 'hiit_friendly' | 'desk_mobility' | 'chair_stretch';
 
 /**
  * Exercise role in a workout
@@ -281,7 +281,7 @@ export interface InstructionalVideo {
  * Execution Method for an Exercise
  * Defines how an exercise can be performed in different contexts
  */
-export type ExecutionLocation = 'home' | 'park' | 'street' | 'office' | 'school' | 'gym' | 'airport' | 'library';
+export type ExecutionLocation = 'home' | 'park' | 'street' | 'office' | 'school' | 'gym' | 'airport' | 'library' | 'desk';
 export type RequiredGearType = 'fixed_equipment' | 'user_gear' | 'improvised';
 
 /**

@@ -10,6 +10,9 @@ export type RunWorkout = {
   blocks: RunBlock[];
   videoUrl?: string;
 
+  /** Running workout category (e.g., 'short_intervals', 'tempo', 'easy_run'). */
+  category?: string;
+
   /** Coaching explanation resolved from Firestore metadata (replaces generic description in briefing). */
   logicCue?: string;
   /** Motivational phrase resolved from Firestore metadata. */

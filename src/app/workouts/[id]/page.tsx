@@ -164,6 +164,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData
 
     const segments: WorkoutSegment[] = exercises.slice(0, 8).map((ex) => {
       const rangeData = rangeMap[ex.id];
+      const uniSuffix = (ex as any).symmetry === 'unilateral' ? ' (לכל צד)' : '';
       let repsOrDuration: string;
 
       if (rangeData?.repsRange) {
@@ -172,10 +173,10 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData
         const goalSuffix = rangeData.isGoalExercise && rangeData.rampedTarget
           ? ` (יעד: ${rangeData.rampedTarget})` : '';
         repsOrDuration = min !== max
-          ? `${min}-${max} ${unit}${goalSuffix}`
-          : `${min} ${unit}${goalSuffix}`;
+          ? `${min}-${max} ${unit}${uniSuffix}${goalSuffix}`
+          : `${min} ${unit}${uniSuffix}${goalSuffix}`;
       } else {
-        repsOrDuration = ex.type === 'reps' ? '8-12 חזרות' : '20-40 שניות';
+        repsOrDuration = ex.type === 'reps' ? `8-12 חזרות${uniSuffix}` : '20-40 שניות';
       }
 
       return {

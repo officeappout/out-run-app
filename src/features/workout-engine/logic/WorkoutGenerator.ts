@@ -12,6 +12,7 @@
 
 import { Exercise, getLocalizedText } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, LIFESTYLE_LABELS } from './ContextualEngine';
+import { resolveToSlug } from '../services/program-hierarchy.utils';
 
 // Re-export all types so external consumers keep importing from this file
 export type {
@@ -30,6 +31,7 @@ export type {
 } from './workout-generator.types';
 
 export { TIER_TABLE, resolveTier, restSafetyFloor } from './workout-generator.types';
+import { HORIZONTAL_MOVEMENT_GROUPS } from './workout-generator.types';
 
 import type {
   DifficultyLevel,
@@ -177,6 +179,19 @@ export class WorkoutGenerator {
     scoredExercises: ScoredExercise[],
     context: WorkoutGenerationContext,
   ): GeneratedWorkout {
+    const pipelineLog: string[] = [];
+    const fc = context.filterCounts;
+    if (fc) {
+      pipelineLog.push(`pool_start: ${fc.pool_start} exercises`);
+      pipelineLog.push(`after_program_filter: ${fc.pool_start - fc.excluded_program_filter}`);
+      pipelineLog.push(`after_level_tolerance(±3): ${fc.pool_start - fc.excluded_program_filter - fc.excluded_level_tolerance}`);
+      pipelineLog.push(`after_skill_gate: ${fc.pool_start - fc.excluded_program_filter - fc.excluded_level_tolerance - fc.excluded_skill_gate}`);
+      pipelineLog.push(`after_injury_shield: ${fc.after_hard_filters + fc.excluded_location + fc.excluded_sweat + fc.excluded_noise + fc.excluded_field_mode}`);
+      pipelineLog.push(`after_48h_muscle: ${fc.after_hard_filters + fc.excluded_location + fc.excluded_sweat + fc.excluded_noise + fc.excluded_field_mode + fc.excluded_48h_muscle - fc.excluded_48h_muscle}`);
+      pipelineLog.push(`after_location+sweat+noise: ${fc.after_hard_filters}`);
+    }
+    pipelineLog.push(`scored_pool: ${scoredExercises.length}`);
+
     // ── Difficulty Resolution ──
     let difficulty: DifficultyLevel = context.difficulty || 2;
     if (context.isFirstSessionInProgram) difficulty = 1;
@@ -185,13 +200,9 @@ export class WorkoutGenerator {
       console.log('[WorkoutGenerator] Detraining lock active — Intense downgraded to Challenging');
     }
 
-    // Difficulty 1 = light strength workout (exercises still picked from full pool).
-    // Active Recovery = mobility-only mode (triggered by isRecoveryDay, NOT difficulty).
     const isRecovery = context.isRecoveryDay === true;
 
-    // ── Active Recovery Guard ──────────────────────────────────────────────
-    // When explicitly flagged as a recovery day, strip the pool to ONLY
-    // cooldown / flexibility / warmup exercises — zero strength allowed.
+    // ── Active Recovery Guard ──
     if (context.isRecoveryDay === true) {
       const RECOVERY_ROLES = new Set(['cooldown', 'warmup']);
       const before = scoredExercises.length;
@@ -201,13 +212,13 @@ export class WorkoutGenerator {
         if (se.exercise.movementGroup === 'flexibility') return true;
         return false;
       });
+      pipelineLog.push(`after_recovery_guard: ${scoredExercises.length} (was ${before})`);
       console.log(
         `[ActiveRecovery] Pool filtered: ${before} → ${scoredExercises.length} ` +
         `(cooldown/flexibility/warmup only)`,
       );
     }
 
-    // Phase 1 Verification: Domain budgets plumbing
     if (context.domainBudgets?.length) {
       console.group('[WorkoutGenerator] Domain Budgets Received (Phase 1)');
       for (const db of context.domainBudgets) {
@@ -219,20 +230,27 @@ export class WorkoutGenerator {
     // Step 1: Exercise count
     const { exerciseCount, includeAccessories } = getExerciseCountForDuration(context.availableTime);
 
-    // Step 1b: Variety jitter (0-30 pts) — wider range for meaningful refresh variety
+    // Step 1b: Variety jitter (0-51 pts)
     const jitterSeed = getShuffleSeed(context);
     let jRng = jitterSeed;
-    const nextJitter = () => { jRng = (jRng * 1103515245 + 12345) & 0x7fffffff; return jRng % 31; };
-    const jitteredExercises = scoredExercises.map((s) => ({ ...s, score: s.score + nextJitter() }));
+    const jitterMap = new Map<string, number>();
+    const nextJitter = () => { jRng = (jRng * 1103515245 + 12345) & 0x7fffffff; return jRng % 52; };
+    const jitteredExercises = scoredExercises.map((s) => {
+      const j = nextJitter();
+      jitterMap.set(s.exercise.id, j);
+      return { ...s, score: s.score + j, reasoning: [...s.reasoning, `jitter:+${j}`] };
+    });
 
     // Step 1c: Master Synergy Scoring (Phase 4B)
     const synergyExercises = this.applySynergyBonuses(jitteredExercises, context);
 
     // Step 2: Difficulty filter
     const filteredExercises = applyDifficultyFilter(synergyExercises, context, difficulty);
+    pipelineLog.push(`after_difficulty_filter: ${filteredExercises.length}`);
 
     // Step 3: Select exercises
     const selectedExercises = this.selectExercises(filteredExercises, exerciseCount, includeAccessories, context, difficulty);
+    pipelineLog.push(`after_bolt_selection(bolt=${difficulty}): ${selectedExercises.length}`);
 
     // Step 4: Volume
     const volumeAdjustment = calculateVolumeAdjustment(context, difficulty);
@@ -241,34 +259,146 @@ export class WorkoutGenerator {
     // Step 4b: Smart set cap
     const maxCap = context.maxSets != null && context.maxSets > 0 ? context.maxSets : Infinity;
     const domainCount = context.requiredDomains?.length;
-    if (context.dailySetBudget != null || maxCap !== Infinity) {
-      console.group('[Budget Math Formulation] WorkoutGenerator');
-      console.log('dailySetBudget:', context.dailySetBudget ?? '(not set)');
-      console.log('maxSets cap:', maxCap === Infinity ? 'none' : maxCap);
-      console.log('requiredDomains:', domainCount ?? 0);
-      console.groupEnd();
-    }
+    const setsBeforeCap = workoutExercises.reduce((s, e) => s + e.sets, 0);
     workoutExercises = applySmartSetCap(workoutExercises, maxCap, domainCount);
+    const setsAfterCap = workoutExercises.reduce((s, e) => s + e.sets, 0);
+    if (setsAfterCap < setsBeforeCap) {
+      pipelineLog.push(`set_cap_applied: ${setsBeforeCap} → ${setsAfterCap} (daily=${context.dailySetBudget ?? 'n/a'}, max=${maxCap === Infinity ? 'none' : maxCap})`);
+    }
 
     // Step 4c: Global budget guardrail
+    const weeklyBudget = context.remainingWeeklyBudget;
     if (
-      context.remainingWeeklyBudget != null &&
-      context.remainingWeeklyBudget > 0 &&
-      context.remainingWeeklyBudget < workoutExercises.reduce((s, e) => s + e.sets, 0)
+      weeklyBudget != null &&
+      weeklyBudget > 0 &&
+      weeklyBudget < workoutExercises.reduce((s, e) => s + e.sets, 0)
     ) {
-      const cap = context.remainingWeeklyBudget;
-      console.group('[Budget Guard] remainingWeeklyBudget enforcement');
-      console.log('Remaining budget:', cap, 'sets');
-      console.log('Planned sets:', workoutExercises.reduce((s, e) => s + e.sets, 0));
-      console.log('User level:', context.userLevel);
-      console.groupEnd();
-      workoutExercises = applySmartSetCap(workoutExercises, cap, domainCount);
+      const plannedBefore = workoutExercises.reduce((s, e) => s + e.sets, 0);
+      workoutExercises = applySmartSetCap(workoutExercises, weeklyBudget, domainCount);
+      pipelineLog.push(`weekly_guard: ${plannedBefore} → ${workoutExercises.reduce((s, e) => s + e.sets, 0)} (remaining=${weeklyBudget})`);
+    }
+    pipelineLog.push(`weekly_budget: ${weeklyBudget ?? 'n/a'}, used_so_far: ${weeklyBudget != null ? 'see_store' : 'n/a'}, daily_budget: ${context.dailySetBudget ?? 'n/a'}`);
+
+    // Step 4d: "David Rule" — Relative Gap Guard
+    //
+    // Two tiers of protection:
+    //   Tier 1 (original): userLevel > 5  → rescue any L1 exercise
+    //   Tier 2 (strict):   userLevel > 15 → rescue any exercise where
+    //                      programLevel < (domainLevel - 6)
+    //
+    // The swap must preserve movementGroup and find a replacement
+    // within ±2 of the user's domain level.
+    if (context.userLevel > 5 && context.globalExercisePool?.length) {
+      const MAX_GAP = 6; // Tier 2 threshold
+      const SEARCH_RADIUS = 2; // ±2 of domain level for replacements
+
+      const MG_TO_DOMAIN: Record<string, string> = {
+        vertical_pull: 'pull', horizontal_pull: 'pull',
+        vertical_push: 'push', horizontal_push: 'push',
+        squat: 'legs', hinge: 'legs', lunge: 'legs',
+        core: 'core', anti_extension: 'core', anti_rotation: 'core',
+      };
+
+      const rescueIndices: number[] = [];
+      const userLevels = context.userProgramLevels;
+
+      for (let i = 0; i < workoutExercises.length; i++) {
+        const we = workoutExercises[i];
+        if (we.exerciseRole !== 'main') continue;
+        const exLevel = we.programLevel ?? 1;
+        const mg = we.exercise.movementGroup;
+        const targetDomain = mg ? MG_TO_DOMAIN[mg] : undefined;
+        const domainLevel = targetDomain
+          ? (userLevels?.get(targetDomain) ?? context.userLevel)
+          : context.userLevel;
+
+        // Tier 1: always rescue L1 for any user above L5
+        if (exLevel <= 1) {
+          rescueIndices.push(i);
+          continue;
+        }
+
+        // Tier 2: for advanced users (>L15), rescue if gap > MAX_GAP
+        if (context.userLevel > 15 && exLevel < (domainLevel - MAX_GAP)) {
+          rescueIndices.push(i);
+        }
+      }
+
+      if (rescueIndices.length > 0) {
+        console.group(`[DavidRule] 🚨 ${rescueIndices.length} under-level exercise(s) for L${context.userLevel} user — Rescue Re-scan (gap>${MAX_GAP})`);
+        const usedIds = new Set(workoutExercises.map(we => we.exercise.id));
+
+        for (const idx of rescueIndices) {
+          const victim = workoutExercises[idx];
+          const mg = victim.exercise.movementGroup;
+          const victimLevel = victim.programLevel ?? 1;
+          const victimName = getLocalizedText(victim.exercise.name);
+
+          if (!mg) {
+            console.log(`[DavidRule] Skipping "${victimName}" — no movementGroup`);
+            continue;
+          }
+
+          const targetDomain = MG_TO_DOMAIN[mg];
+          const domainLevel = targetDomain
+            ? (userLevels?.get(targetDomain) ?? context.userLevel)
+            : context.userLevel;
+
+          // Search for a replacement that matches movementGroup AND
+          // is within ±SEARCH_RADIUS of the user's domain level
+          const candidates = context.globalExercisePool.filter(ex => {
+            if (usedIds.has(ex.id)) return false;
+            if (ex.movementGroup !== mg) return false;
+            const tps = ex.targetPrograms ?? [];
+            return tps.some(tp => {
+              const slug = resolveToSlug(tp.programId);
+              const exLvl = tp.level;
+              const refLevel = userLevels?.get(slug) ?? userLevels?.get(tp.programId) ?? domainLevel;
+              return Math.abs(exLvl - refLevel) <= SEARCH_RADIUS;
+            });
+          });
+
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => {
+              const aLevel = a.targetPrograms?.find(tp => resolveToSlug(tp.programId) === targetDomain)?.level ?? 1;
+              const bLevel = b.targetPrograms?.find(tp => resolveToSlug(tp.programId) === targetDomain)?.level ?? 1;
+              return Math.abs(aLevel - domainLevel) - Math.abs(bLevel - domainLevel);
+            });
+            const replacement = candidates[0];
+            const repLevel = replacement.targetPrograms?.find(tp => resolveToSlug(tp.programId) === targetDomain)?.level ?? 1;
+            const repName = getLocalizedText(replacement.name);
+            const repMethod = replacement.executionMethods?.[0] ?? {};
+
+            workoutExercises[idx] = {
+              ...workoutExercises[idx],
+              exercise: replacement,
+              method: repMethod as any,
+              mechanicalType: (replacement.mechanicalType || 'none') as any,
+              programLevel: repLevel,
+              isOverLevel: repLevel > domainLevel,
+              levelDelta: repLevel - domainLevel,
+              reasoning: [
+                ...workoutExercises[idx].reasoning,
+                `david_rule:rescued(L${victimLevel}→L${repLevel},mg=${mg},gap=${domainLevel - victimLevel})`,
+              ],
+            };
+
+            usedIds.add(replacement.id);
+            pipelineLog.push(`david_rule: swapped "${victimName}" (L${victimLevel}) → "${repName}" (L${repLevel}) [${mg}]`);
+            console.log(`[DavidRule] ✅ "${victimName}" (L${victimLevel}) → "${repName}" (L${repLevel}) [${mg}, domain=${targetDomain} L${domainLevel}, gap=${domainLevel - victimLevel}]`);
+          } else {
+            console.warn(`[DavidRule] ❌ No rescue candidate for "${victimName}" (L${victimLevel}, mg=${mg}, domain=${targetDomain} L${domainLevel})`);
+            pipelineLog.push(`david_rule: no_rescue_for_"${victimName}"(L${victimLevel},mg=${mg})`);
+          }
+        }
+        console.groupEnd();
+      }
     }
 
     // Step 5: Protocol injection
     const protocolResult = this.selectProtocol(difficulty, context);
 
-    // Step 5: Physiological sort — Upper Body (Push/Pull) → Legs → Core
+    // Step 5: Physiological sort
     workoutExercises = applyPhysiologicalSort(workoutExercises);
 
     // Step 5b: Antagonist pairing
@@ -278,6 +408,48 @@ export class WorkoutGenerator {
 
     // Step 5c: Deduplicate
     workoutExercises = deduplicateExercises(workoutExercises);
+
+    // Step 5d: Horizontal Soft Guarantee (full_body workouts only)
+    if (context.requiredDomains && context.requiredDomains.length >= 3) {
+      const mainEx = workoutExercises.filter(e => e.exerciseRole === 'main');
+      const hasHPush = mainEx.some(e => e.exercise.movementGroup === 'horizontal_push');
+      const hasHPull = mainEx.some(e => e.exercise.movementGroup === 'horizontal_pull');
+
+      const trySwap = (targetGroup: string) => {
+        const candidate = filteredExercises
+          .filter(s => s.exercise.movementGroup === targetGroup
+            && !workoutExercises.some(we => we.exercise.id === s.exercise.id))
+          .sort((a, b) => b.score - a.score)[0];
+        if (!candidate) {
+          console.log(`[HorizontalGuarantee] skipped (no ${targetGroup} in pool)`);
+          return;
+        }
+        const nonHorizontal = mainEx
+          .filter(e => !HORIZONTAL_MOVEMENT_GROUPS.has(e.exercise.movementGroup ?? ''))
+          .sort((a, b) => a.score - b.score);
+        const victim = nonHorizontal[0];
+        if (!victim) return;
+        const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
+        if (idx < 0) return;
+        const victimName = typeof victim.exercise.name === 'string'
+          ? victim.exercise.name : (victim.exercise.name as any)?.he ?? victim.exercise.id;
+        const candName = typeof candidate.exercise.name === 'string'
+          ? candidate.exercise.name : (candidate.exercise.name as any)?.he ?? candidate.exercise.id;
+        workoutExercises[idx] = {
+          ...workoutExercises[idx],
+          exercise: candidate.exercise,
+          method: candidate.method,
+          mechanicalType: candidate.mechanicalType,
+          score: candidate.score,
+          reasoning: [...workoutExercises[idx].reasoning, `horizontal_guarantee:swapped`],
+        };
+        pipelineLog.push(`horizontal_guarantee: swapped [${victimName}] for [${candName}] (${targetGroup} was missing)`);
+        console.log(`[HorizontalGuarantee] swapped [${victimName}] for [${candName}] (${targetGroup} was missing)`);
+      };
+
+      if (!hasHPush) trySwap('horizontal_push');
+      if (!hasHPull) trySwap('horizontal_pull');
+    }
 
     // Step 6: Title/description/cue
     const title = this.generateTitle(context, difficulty);
@@ -291,7 +463,6 @@ export class WorkoutGenerator {
     let structure = this.determineStructure(context, workoutExercises);
     if (protocolResult.structure !== 'standard') {
       structure = protocolResult.structure;
-      console.log(`[WorkoutGenerator] Protocol injected: structure=${structure}`);
     }
     const blastMode = context.intentMode === 'blast' ? this.getBlastModeDetails(context, workoutExercises) : undefined;
 
@@ -302,14 +473,38 @@ export class WorkoutGenerator {
     const stats = calculateWorkoutStats(workoutExercises, difficulty, estimatedDuration, context.userWeight);
     const totalPlannedSets = workoutExercises.reduce((sum, ex) => sum + ex.sets, 0);
 
-    // Debug log
-    console.group('[WorkoutGenerator] Video Resolution & Level Mapping');
+    // ── WHY LOGGER: Per-exercise score breakdown ──
+    const exerciseBreakdowns: string[] = [];
+    workoutExercises.forEach((ex) => {
+      const name = typeof ex.exercise.name === 'string'
+        ? ex.exercise.name
+        : (ex.exercise.name as any)?.he || ex.exercise.id;
+      const pLevel = ex.programLevel ?? '?';
+      const parts = ex.reasoning.join(' ');
+      exerciseBreakdowns.push(`${name}_L${pLevel}: ${parts} TOTAL=${ex.score}`);
+    });
+    pipelineLog.push(...exerciseBreakdowns.map(b => `exercise: ${b}`));
+
+    // ── WHY LOGGER: Console summary ──
+    const poolChain = fc
+      ? `${fc.pool_start}→${fc.pool_start - fc.excluded_program_filter}→${fc.after_hard_filters}`
+      : `${scoredExercises.length}`;
+    console.log(
+      `[Engine] Pool: ${poolChain}→${filteredExercises.length}→${selectedExercises.length} | ` +
+      `Selected: ${workoutExercises.length} | ` +
+      `Budget: ${weeklyBudget ?? '?'}/${context.dailySetBudget ?? '?'} remaining/daily | ` +
+      `Difficulty: ${difficulty} | Sets: ${totalPlannedSets}`,
+    );
+
+    // Level Resolution log — shows which domain each exercise's level was resolved from
+    console.group('[WorkoutGenerator] Level Resolution & Mapping');
     workoutExercises.forEach((ex, i) => {
       const name = typeof ex.exercise.name === 'string' ? ex.exercise.name : (ex.exercise.name as any)?.he || ex.exercise.id;
       const programLevel = ex.programLevel ?? 1;
+      const levelResLog = ex.reasoning.find(r => r.startsWith('[LevelResolution]')) ?? '';
       const videoUrl = ex.method?.media?.mainVideoUrl || (ex.exercise as any).media?.videoUrl || '(none)';
       console.log(
-        `[${i + 1}] ${name} | User Level ${context.userLevel} → Exercise programLevel=${programLevel} | ` +
+        `[${i + 1}] ${name} | programLevel=${programLevel} ${levelResLog} | ` +
         `Tier=${ex.tier} | Sets=${ex.sets} Reps=${ex.reps} Rest=${ex.restSeconds}s | Video=${videoUrl ? 'YES' : 'NO'}`,
       );
     });
@@ -329,6 +524,7 @@ export class WorkoutGenerator {
       stats,
       isRecovery,
       totalPlannedSets,
+      pipelineLog,
     };
   }
 
@@ -375,9 +571,8 @@ export class WorkoutGenerator {
     }
 
     // 3. Hierarchical Vertical Preference — diminishing bonus:
-    //    1st vertical gets +25, 2nd gets +12, rest get +0.
-    //    This lets the engine "stack" 2 verticals before preferring horizontals.
-    const VERTICAL_BONUSES = [25, 12];
+    //    1st vertical gets +15, 2nd gets +8, rest get +0.
+    const VERTICAL_BONUSES = [15, 8];
     const verticalCandidates = exercises
       .filter(ex => {
         const mg = ex.exercise.movementGroup;
@@ -403,22 +598,22 @@ export class WorkoutGenerator {
         reasoning.push(`vertical_pref:+${vBonus}(${ex.exercise.movementGroup})`);
       }
 
-      // Variety Guard (-20): penalize exercises used in last 2 sessions
+      // Variety Guard (-40): penalize exercises used in last 2 sessions
       if (context.recentExerciseIds?.has(ex.exercise.id)) {
-        bonus -= 20;
+        bonus -= 40;
         varietyCount++;
-        reasoning.push('variety_guard:-20');
+        reasoning.push('variety_guard:-40');
       }
 
-      // Naked Strength (+12): prefer bodyweight exercises by default
+      // Naked Strength (+8): prefer bodyweight exercises by default
       const methodAny = ex.method as { gearIds?: string[]; gearId?: string } | undefined;
       const allGear = methodAny?.gearIds ?? (methodAny?.gearId ? [methodAny.gearId] : []);
       const isNaked = allGear.length === 0
         || allGear.every(g => !g || g.toLowerCase() === 'bodyweight' || g.toLowerCase() === 'none');
       if (isNaked) {
-        bonus += 12;
+        bonus += 8;
         nakedCount++;
-        reasoning.push('naked_strength:+12');
+        reasoning.push('naked_strength:+8');
       }
 
       // Equipment Synergy (+8): reward same equipment as dominant
@@ -444,8 +639,8 @@ export class WorkoutGenerator {
     if (verticalCount > 0 || varietyCount > 0 || nakedCount > 0 || equipmentCount > 0 || modalityCount > 0) {
       console.group('[Synergy Scoring] Master Coach Rules');
       if (verticalCount > 0) console.log(`Vertical Preference: ${verticalCount} exercises boosted (diminishing: ${VERTICAL_BONUSES.join('/')})`);
-      if (nakedCount > 0) console.log(`Naked Strength: ${nakedCount} bodyweight exercises boosted (+12)`);
-      if (varietyCount > 0) console.log(`Variety Guard: ${varietyCount} exercises penalized (-20)`);
+      if (nakedCount > 0) console.log(`Naked Strength: ${nakedCount} bodyweight exercises boosted (+8)`);
+      if (varietyCount > 0) console.log(`Variety Guard: ${varietyCount} exercises penalized (-40)`);
       if (dominantGear) console.log(`Equipment Synergy: "${dominantGear}" dominant → ${equipmentCount} exercises boosted (+8)`);
       if (dominantMech) console.log(`Modality Match: "${dominantMech}" dominant → ${modalityCount} exercises boosted (+10)`);
       console.groupEnd();
@@ -478,15 +673,7 @@ export class WorkoutGenerator {
       if (dominanceSelected.length > 0) return dominanceSelected;
     }
 
-    // Domain quota path (full body)
-    if (context.requiredDomains?.length && context.requiredDomains.length > 0) {
-      const domainSelected = selectExercisesWithDomainQuotas(
-        scoredExercises, count, includeAccessories, context, difficulty,
-      );
-      if (domainSelected.length > 0) return domainSelected;
-    }
-
-    // SA hard block
+    // SA hard block — apply BEFORE any selection path
     let safePool = scoredExercises;
     if (
       context.weeklySACap != null &&
@@ -509,6 +696,14 @@ export class WorkoutGenerator {
           `(weekly SA sets ${context.weeklySASets} >= cap ${context.weeklySACap})`,
         );
       }
+    }
+
+    // Domain quota path (full body)
+    if (context.requiredDomains?.length && context.requiredDomains.length > 0) {
+      const domainSelected = selectExercisesWithDomainQuotas(
+        safePool, count, includeAccessories, context, difficulty,
+      );
+      if (domainSelected.length > 0) return domainSelected;
     }
 
     // Score-based selection

@@ -146,6 +146,8 @@ function enrichExercise(
     : null;
 
   // REPS: Only for reps-type exercises, never for time-type (like Plank)
+  const isUni = (ex as any).symmetry === 'unilateral';
+  const perSideSuffix = isUni ? ' (לכל צד)' : '';
   if (exerciseType === 'reps') {
     if (generatedExData?.repsRange) {
       const { min, max } = generatedExData.repsRange;
@@ -154,15 +156,15 @@ function enrichExercise(
         ? ` (יעד: ${generatedExData.rampedTarget})`
         : '';
       reps = min !== max
-        ? `${setsPrefix}${min}-${max} חזרות${goalSuffix}`
-        : `${setsPrefix}${min} חזרות${goalSuffix}`;
+        ? `${setsPrefix}${min}-${max} חזרות${perSideSuffix}${goalSuffix}`
+        : `${setsPrefix}${min} חזרות${perSideSuffix}${goalSuffix}`;
     } else {
       const firestoreReps = (ex as any).reps || (ex as any).defaultReps;
       if (firestoreReps) {
         const repsValue = typeof firestoreReps === 'number' ? firestoreReps : parseInt(String(firestoreReps), 10);
-        reps = isNaN(repsValue) ? String(firestoreReps) : `${repsValue} חזרות`;
+        reps = isNaN(repsValue) ? String(firestoreReps) : `${repsValue} חזרות${perSideSuffix}`;
       } else if (segmentTarget?.type === 'reps' && segmentTarget?.value) {
-        reps = `${segmentTarget.value} חזרות`;
+        reps = `${segmentTarget.value} חזרות${perSideSuffix}`;
       }
     }
   }
@@ -211,6 +213,7 @@ function enrichExercise(
     goal,
     description: goal,
     equipment,
+    symmetry: (ex as any).symmetry as 'bilateral' | 'unilateral' | undefined,
   };
 }
 
@@ -627,6 +630,8 @@ export default function ActiveWorkoutPage() {
           repsPerSet: entry.confirmedReps,
           targetReps: entry.targetReps,
           isCompound: false,
+          ...(entry.confirmedRepsRight && { repsPerSetRight: entry.confirmedRepsRight }),
+          ...(entry.confirmedRepsLeft && { repsPerSetLeft: entry.confirmedRepsLeft }),
         }));
 
         const result = await processWorkoutCompletion({

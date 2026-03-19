@@ -619,11 +619,26 @@ export async function syncOnboardingToFirestore(
       // Map fitness tier to initial level: 1→1, 2→3, 3→5
       const domainLevelMap: Record<number, number> = { 1: 1, 2: 3, 3: 5 };
       const initialLevel = domainLevelMap[fitnessLevel] || 1;
-      const DOMAIN_MAX_LEVELS: Record<string, number> = {
+      const DOMAIN_MAX_LEVELS_FALLBACK: Record<string, number> = {
         upper_body: 22, lower_body: 20, full_body: 25,
         core: 18, flexibility: 12, running: 20,
         handstand: 25, pull_up_pro: 20,
       };
+
+      let dynamicMaxLevels: Record<string, number> = {};
+      try {
+        const { getAllPrograms } = await import('@/features/content/programs/core/program.service');
+        const programs = await getAllPrograms();
+        for (const prog of programs) {
+          if (prog.maxLevels != null && prog.maxLevels > 0) {
+            dynamicMaxLevels[prog.id] = prog.maxLevels;
+          }
+        }
+      } catch (e) {
+        console.warn('[onboarding-sync] Failed to fetch dynamic maxLevels, using fallback', e);
+      }
+
+      const DOMAIN_MAX_LEVELS = { ...DOMAIN_MAX_LEVELS_FALLBACK, ...dynamicMaxLevels };
 
       const initialDomains: Record<string, { currentLevel: number; maxLevel: number; isUnlocked: boolean }> = {};
       for (const [domainId, maxLevel] of Object.entries(DOMAIN_MAX_LEVELS)) {

@@ -171,7 +171,7 @@ export async function generateFirstWorkout(
   const { userProfile, gpsCoordinates, userId } = ctx;
   const hadGPS = !!(gpsCoordinates?.lat && gpsCoordinates?.lng);
 
-  let location: ExecutionLocation = 'home';
+  let location: ExecutionLocation = 'park';
   let nearbyPark: Park | null = null;
 
   // ── Step 1: Attempt park discovery if GPS is available ────────────────
@@ -193,10 +193,10 @@ export async function generateFirstWorkout(
         `[FirstWorkout] Found park "${parkResult.park.name}" at ${Math.round(parkResult.distanceMeters)}m. Using park workout.`,
       );
     } else {
-      console.log('[FirstWorkout] No equipped park within 5km. Falling back to home workout.');
+      console.log('[FirstWorkout] No equipped park within 5km. Using default park workout (calisthenics gear available).');
     }
   } else {
-    console.log('[FirstWorkout] No GPS available. Generating home workout.');
+    console.log('[FirstWorkout] No GPS available. Using default park workout (calisthenics gear available).');
   }
 
   // ── Step 2: Build workout options ────────────────────────────────────
@@ -210,7 +210,7 @@ export async function generateFirstWorkout(
     daysInactiveOverride: 0, // Brand new user, no detraining penalty
     // No equipment override for home (bodyweight only)
     // For park: the engine will resolve equipment from outdoor list
-    equipmentOverride: location === 'home' ? [] : undefined,
+    equipmentOverride: undefined,
   };
 
   // ── Step 3: Generate the workout ─────────────────────────────────────

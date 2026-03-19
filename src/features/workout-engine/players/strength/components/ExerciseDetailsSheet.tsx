@@ -29,6 +29,7 @@ interface ExerciseDetailsSheetProps {
   isPaused: boolean;
   onComplete: (reps?: number) => void;
   onSwap?: () => void;
+  isUnilateral?: boolean;
 }
 
 export default function ExerciseDetailsSheet({
@@ -44,6 +45,7 @@ export default function ExerciseDetailsSheet({
   isPaused,
   onComplete,
   onSwap,
+  isUnilateral = false,
 }: ExerciseDetailsSheetProps) {
   // Card starts at 80% of screen height (showing only top 20% initially)
   const initialCardY = typeof window !== 'undefined' ? window.innerHeight * 0.8 : 640;
@@ -142,7 +144,7 @@ export default function ExerciseDetailsSheet({
                   className="text-lg text-gray-600 dark:text-gray-400 font-bold"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  חזרות
+                  חזרות{isUnilateral ? ' (לכל צד)' : ''}
                 </p>
               </div>
             )}

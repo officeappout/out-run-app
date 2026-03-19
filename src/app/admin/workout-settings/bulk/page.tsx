@@ -2,19 +2,22 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
-import { collection, addDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useMemo } from 'react';
+import { collection, writeBatch, doc, serverTimestamp, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Upload, FileText, CheckCircle2, AlertTriangle, Loader, Bug } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertTriangle, Loader, Bug, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { getAvailableContentTags } from '@/features/content/branding/core/branding.utils';
 
 const WORKOUT_METADATA_COLLECTION = 'workoutMetadata';
+const BATCH_SIZE = 400;
+
+type ContentType = 'titles' | 'phrases' | 'notifications' | 'descriptions' | 'coachTips';
 
 interface BulkUploadResult {
   success: number;
   errors: number;
   errorsList: string[];
-  /** Detailed per-row diagnostics visible in UI */
   diagnostics: RowDiagnostic[];
 }
 
@@ -26,28 +29,70 @@ interface RowDiagnostic {
   parsedFields?: Record<string, string>;
 }
 
-// Valid values for validation
 const VALID_DAY_PERIODS = ['start_of_week', 'mid_week', 'weekend', 'all', ''];
 const VALID_GENDERS = ['male', 'female', 'both', ''];
 const VALID_TRIGGER_TYPES = ['Inactivity', 'Scheduled', 'Location_Based', 'Habit_Maintenance', 'Proximity'];
-const VALID_LOCATIONS = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport', 'library', ''];
+const VALID_LOCATIONS = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport', 'library', 'desk', 'any', ''];
+const VALID_VARIANTS = ['balanced', 'intense', 'naked', 'easy', 'all', ''];
+
+const CONTENT_TYPE_BUTTONS: { key: ContentType; label: string }[] = [
+  { key: 'titles', label: 'כותרות אימון' },
+  { key: 'phrases', label: 'משפטים מוטיבציוניים' },
+  { key: 'notifications', label: 'התראות' },
+  { key: 'descriptions', label: 'תיאורים חכמים' },
+  { key: 'coachTips', label: 'הערות מאמן' },
+];
+
+const COLLECTION_PATHS: Record<ContentType, string> = {
+  titles: `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles`,
+  phrases: `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases`,
+  notifications: `${WORKOUT_METADATA_COLLECTION}/notifications/notifications`,
+  descriptions: `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`,
+  coachTips: `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`,
+};
+
+/**
+ * FNV-1a 32-bit hash → hex string.
+ * Deterministic, fast, good distribution for short strings.
+ */
+function fnv1aHash(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Generate a deterministic Firestore document ID from content fields.
+ * Same content → same ID → re-upload overwrites instead of duplicating.
+ */
+function generateDocId(text: string, persona: string, bundleId: string, gender: string): string {
+  const raw = [text.trim(), persona.trim(), bundleId.trim(), gender.trim()]
+    .filter(Boolean)
+    .join('|');
+  return fnv1aHash(raw);
+}
 
 export default function BulkUploadPage() {
   const [csvInput, setCsvInput] = useState<string>('');
-  const [contentType, setContentType] = useState<'titles' | 'phrases' | 'notifications' | 'descriptions'>('titles');
+  const [contentType, setContentType] = useState<ContentType>('titles');
   const [uploading, setUploading] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [result, setResult] = useState<BulkUploadResult | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
+  // Build the approved @tag set once for validation
+  const approvedTags = useMemo(() => {
+    const tags = getAvailableContentTags();
+    return new Set(tags.map(t => t.tag));
+  }, []);
+
   // ============================================================================
-  // CSV PARSER — handles quoted fields, commas in text, last-column merging
+  // CSV PARSER
   // ============================================================================
 
-  /**
-   * Parse a single CSV line respecting quoted fields.
-   * Handles: "field with, comma", regular fields, and as a fallback
-   * merges excess columns into the last field (for unquoted text with commas).
-   */
   const parseCSVLine = (line: string, expectedColumns: number): string[] => {
     const fields: string[] = [];
     let current = '';
@@ -55,10 +100,8 @@ export default function BulkUploadPage() {
 
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
-      
       if (ch === '"') {
         if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-          // Escaped quote ""
           current += '"';
           i++;
         } else {
@@ -73,9 +116,6 @@ export default function BulkUploadPage() {
     }
     fields.push(current.trim());
 
-    // KEY FIX: If we got more fields than expected, merge the extras into the last field.
-    // This handles the common case where the text/description column contains commas
-    // and the user didn't quote the field.
     if (expectedColumns > 0 && fields.length > expectedColumns) {
       const metaFields = fields.slice(0, expectedColumns - 1);
       const textParts = fields.slice(expectedColumns - 1);
@@ -102,8 +142,6 @@ export default function BulkUploadPage() {
 
     for (let i = 1; i < lines.length; i++) {
       const rawLine = lines[i];
-      
-      // Skip truly empty lines
       if (!rawLine.trim()) {
         diagnostics.push({ row: i + 1, status: 'skipped', reason: 'שורה ריקה', rawLine });
         continue;
@@ -111,7 +149,6 @@ export default function BulkUploadPage() {
 
       const values = parseCSVLine(rawLine, expectedColumns);
 
-      // If we got FEWER columns than expected, that's a real problem
       if (values.length < expectedColumns) {
         diagnostics.push({
           row: i + 1,
@@ -119,7 +156,6 @@ export default function BulkUploadPage() {
           reason: `מספר עמודות שגוי: נמצאו ${values.length}, צפוי ${expectedColumns}. ייתכן שחסרים שדות.`,
           rawLine,
         });
-        console.warn(`[BulkUpload] Row ${i + 1} SKIPPED: got ${values.length} cols, expected ${expectedColumns}. Raw: "${rawLine}"`);
         continue;
       }
 
@@ -128,17 +164,11 @@ export default function BulkUploadPage() {
         row[header] = values[index] || '';
       });
 
-      diagnostics.push({
-        row: i + 1,
-        status: 'ok',
-        reason: 'פורס בהצלחה',
-        rawLine,
-        parsedFields: { ...row },
-      });
+      diagnostics.push({ row: i + 1, status: 'ok', reason: 'פורס בהצלחה', rawLine, parsedFields: { ...row } });
       rows.push(row);
     }
 
-    console.log(`[BulkUpload] Parsed ${rows.length} rows from ${lines.length - 1} data lines. Skipped: ${diagnostics.filter(d => d.status === 'skipped').length}`);
+    console.log(`[BulkUpload] Parsed ${rows.length} rows from ${lines.length - 1} data lines.`);
     return { items: rows, diagnostics };
   };
 
@@ -146,39 +176,55 @@ export default function BulkUploadPage() {
     try {
       const parsed = JSON.parse(text);
       return Array.isArray(parsed) ? parsed : [parsed];
-    } catch (error) {
+    } catch {
       throw new Error('Invalid JSON format');
     }
   };
 
   // ============================================================================
-  // FIELD VALIDATION HELPERS
+  // TAG VALIDATION
   // ============================================================================
 
-  /** Validate a row and return warnings (non-blocking) and errors (blocking) */
+  /** Extract all @tags from a text string and check against the approved set */
+  const validateTags = (text: string): string[] => {
+    if (!text) return [];
+    const warnings: string[] = [];
+    // Match @word patterns (Hebrew + Latin + digits + underscores + slashes)
+    const tagPattern = /@[\u0590-\u05FFa-zA-Z0-9_/]+/g;
+    const found = text.match(tagPattern);
+    if (!found) return [];
+
+    for (const tag of found) {
+      if (!approvedTags.has(tag)) {
+        warnings.push(`תגית לא מוכרת: "${tag}"`);
+      }
+    }
+    return warnings;
+  };
+
+  // ============================================================================
+  // FIELD VALIDATION
+  // ============================================================================
+
   const validateRow = (item: any, rowNum: number): { warnings: string[]; errors: string[] } => {
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    // Validate dayPeriod if present
     const dp = item.dayPeriod || item.תקופה_בשבוע || '';
     if (dp && !VALID_DAY_PERIODS.includes(dp)) {
       warnings.push(`dayPeriod לא תקין: "${dp}" (ערכים תקפים: start_of_week, mid_week, weekend, all)`);
     }
 
-    // Validate gender if present
     const gender = item.gender || item.מגדר || '';
     if (gender && !VALID_GENDERS.includes(gender)) {
       warnings.push(`gender לא תקין: "${gender}" (ערכים תקפים: male, female, both)`);
     }
 
-    // Validate location if present
     const location = item.location || item.מיקום || '';
     if (location && !VALID_LOCATIONS.includes(location)) {
       warnings.push(`location לא תקין: "${location}"`);
     }
 
-    // Validate minLevel / maxLevel
     const rawMin = item.minLevel ?? item.רמה_מינימלית ?? item.min_level ?? '';
     const rawMax = item.maxLevel ?? item.רמה_מקסימלית ?? item.max_level ?? '';
     if (rawMin !== '' && rawMax !== '') {
@@ -189,30 +235,47 @@ export default function BulkUploadPage() {
       }
     }
 
-    // Content-type-specific validation
+    // Per-type content field validation
+    let textContent = '';
+
     if (contentType === 'titles') {
-      const text = item.text || item.טקסט || item.title || item.כותרת || '';
-      if (!text) errors.push('חסר שדה text/טקסט/כותרת');
+      textContent = item.text || item.טקסט || item.title || item.כותרת || '';
+      if (!textContent) errors.push('חסר שדה text/טקסט/כותרת');
     } else if (contentType === 'phrases') {
-      const phrase = item.phrase || item.משפט || item.text || item.טקסט || '';
-      if (!phrase) errors.push('חסר שדה phrase/משפט/טקסט');
+      textContent = item.phrase || item.משפט || item.text || item.טקסט || '';
+      if (!textContent) errors.push('חסר שדה phrase/משפט/טקסט');
     } else if (contentType === 'notifications') {
-      const text = item.text || item.טקסט || item.notificationText || '';
-      if (!text) errors.push('חסר שדה text/טקסט');
+      textContent = item.text || item.טקסט || item.notificationText || '';
+      if (!textContent) errors.push('חסר שדה text/טקסט');
       const trigger = item.triggerType || item.סוג_טריגר || '';
       if (trigger && !VALID_TRIGGER_TYPES.includes(trigger)) {
         warnings.push(`triggerType לא תקין: "${trigger}"`);
       }
     } else if (contentType === 'descriptions') {
-      const desc = item.description || item.תיאור || item.text || item.טקסט || '';
-      if (!desc) errors.push('חסר שדה description/תיאור/טקסט');
+      textContent = item.description || item.תיאור || item.text || item.טקסט || '';
+      if (!textContent) errors.push('חסר שדה description/תיאור/טקסט');
+    } else if (contentType === 'coachTips') {
+      textContent = item.text || item.טקסט || item.cue || item.הערה || '';
+      if (!textContent) errors.push('חסר שדה text/טקסט/cue/הערה');
+      const variant = item.variant || item.וריאנט || '';
+      if (!variant) {
+        errors.push('חסר שדה variant/וריאנט (חובה: balanced, intense, naked, easy, all)');
+      } else if (!VALID_VARIANTS.includes(variant)) {
+        errors.push(`variant לא תקין: "${variant}" (ערכים: balanced, intense, naked, easy, all)`);
+      }
+    }
+
+    // Tag validation on the text content
+    if (textContent) {
+      const tagWarnings = validateTags(textContent);
+      warnings.push(...tagWarnings);
     }
 
     return { warnings, errors };
   };
 
   // ============================================================================
-  // UPLOAD HANDLER
+  // UPLOAD HANDLER (writeBatch)
   // ============================================================================
 
   const handleUpload = async () => {
@@ -228,8 +291,7 @@ export default function BulkUploadPage() {
     try {
       let items: any[] = [];
       let parseDiagnostics: RowDiagnostic[] = [];
-      
-      // Try to parse as JSON first, then CSV
+
       try {
         items = parseJSON(csvInput);
         console.log(`[BulkUpload] Parsed as JSON: ${items.length} items`);
@@ -251,142 +313,143 @@ export default function BulkUploadPage() {
       const allDiagnostics: RowDiagnostic[] = [...parseDiagnostics];
       let successCount = 0;
 
+      // Prepare all valid documents first, then write in batches
+      const validDocs: { data: any; collectionPath: string; docId: string; rowNum: number; warningCount: number }[] = [];
+
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const rowNum = i + 1;
 
-        try {
-          // Pre-validate
-          const validation = validateRow(item, rowNum);
-          
-          // Log warnings to console
-          if (validation.warnings.length > 0) {
-            console.warn(`[BulkUpload] Row ${rowNum} warnings:`, validation.warnings);
-          }
+        const validation = validateRow(item, rowNum);
 
-          // Block on errors
-          if (validation.errors.length > 0) {
-            const errMsg = `שורה ${rowNum}: ${validation.errors.join(', ')}`;
-            errors.push(errMsg);
+        if (validation.warnings.length > 0) {
+          errors.push(`שורה ${rowNum} (אזהרה): ${validation.warnings.join(', ')}`);
+        }
+
+        if (validation.errors.length > 0) {
+          errors.push(`שורה ${rowNum}: ${validation.errors.join(', ')}`);
+          allDiagnostics.push({ row: rowNum, status: 'error', reason: validation.errors.join('; '), parsedFields: item });
+          continue;
+        }
+
+        let collectionPath = '';
+        const data: any = {
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        // Shared enrichment fields
+        const enrichSportType = item.sportType || item.סוג_ספורט || '';
+        const enrichMotivation = item.motivationStyle || item.סגנון_מוטיבציה || '';
+        const enrichExperience = item.experienceLevel || item.רמת_ניסיון || '';
+        const enrichProgress = item.progressRange || item.טווח_התקדמות || '';
+        const enrichDayPeriod = item.dayPeriod || item.תקופה_בשבוע || '';
+        const enrichProgramId = item.programId || item.תוכנית || item.id_תוכנית || '';
+        const enrichMinLevel = item.minLevel ?? item.רמה_מינימלית ?? item.min_level ?? '';
+        const enrichMaxLevel = item.maxLevel ?? item.רמה_מקסימלית ?? item.max_level ?? '';
+        const enrichBundleId = item.bundleId || item.באנדל || item.id_באנדל || '';
+
+        const applySharedFields = () => {
+          if (enrichSportType) data.sportType = enrichSportType;
+          if (enrichMotivation) data.motivationStyle = enrichMotivation;
+          if (enrichExperience) data.experienceLevel = enrichExperience;
+          if (enrichProgress) data.progressRange = enrichProgress;
+          if (enrichDayPeriod) data.dayPeriod = enrichDayPeriod;
+          if (enrichProgramId) data.programId = enrichProgramId;
+          if (enrichMinLevel !== '' && enrichMinLevel !== undefined) data.minLevel = parseInt(String(enrichMinLevel)) || undefined;
+          if (enrichMaxLevel !== '' && enrichMaxLevel !== undefined) data.maxLevel = parseInt(String(enrichMaxLevel)) || undefined;
+          if (enrichBundleId) data.bundleId = enrichBundleId;
+        };
+
+        if (contentType === 'titles') {
+          collectionPath = `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles`;
+          data.category = item.category || item.קטגוריה || 'general';
+          data.location = item.location || item.מיקום || '';
+          data.persona = item.persona || item.פרסונה || '';
+          data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
+          data.gender = item.gender || item.מגדר || 'both';
+          data.text = item.text || item.טקסט || item.title || item.כותרת || '';
+          applySharedFields();
+        } else if (contentType === 'phrases') {
+          collectionPath = `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases`;
+          data.location = item.location || item.מיקום || 'home';
+          data.persona = item.persona || item.פרסונה || '';
+          data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
+          data.gender = item.gender || item.מגדר || 'both';
+          data.phrase = item.phrase || item.משפט || item.text || item.טקסט || '';
+          applySharedFields();
+        } else if (contentType === 'notifications') {
+          collectionPath = `${WORKOUT_METADATA_COLLECTION}/notifications/notifications`;
+          data.triggerType = item.triggerType || item.סוג_טריגר || 'Inactivity';
+          data.persona = item.persona || item.פרסונה || '';
+          data.gender = item.gender || item.מגדר || 'both';
+          data.psychologicalTrigger = item.psychologicalTrigger || item.טריגר_פסיכולוגי || 'FOMO';
+          data.text = item.text || item.טקסט || item.notificationText || '';
+          data.calendarIntegration = false;
+          applySharedFields();
+          if (data.triggerType === 'Inactivity') {
+            data.daysInactive = parseInt(item.daysInactive || item.ימים_ללא_אימון || '1') || 1;
+          }
+          if (data.triggerType === 'Proximity') {
+            data.distanceMeters = parseInt(item.distanceMeters || item.מרחק_במטרים || '500') || 500;
+          }
+        } else if (contentType === 'descriptions') {
+          collectionPath = `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`;
+          data.location = item.location || item.מיקום || 'home';
+          data.persona = item.persona || item.פרסונה || '';
+          data.gender = item.gender || item.מגדר || 'both';
+          data.description = item.description || item.תיאור || item.text || item.טקסט || '';
+          applySharedFields();
+        } else if (contentType === 'coachTips') {
+          collectionPath = `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`;
+          data.variant = item.variant || item.וריאנט || 'all';
+          data.persona = item.persona || item.פרסונה || '';
+          data.location = item.location || item.מיקום || '';
+          data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
+          data.gender = item.gender || item.מגדר || 'both';
+          data.text = item.text || item.טקסט || item.cue || item.הערה || '';
+          applySharedFields();
+        }
+
+        // Deterministic ID: text + persona + bundleId + gender
+        const textForId = data.text || data.phrase || data.description || data.cue || '';
+        const docId = generateDocId(textForId, data.persona || '', data.bundleId || '', data.gender || '');
+        validDocs.push({ data, collectionPath, docId, rowNum, warningCount: validation.warnings.length });
+      }
+
+      // Write in batches of BATCH_SIZE using deterministic IDs (upsert)
+      for (let batchStart = 0; batchStart < validDocs.length; batchStart += BATCH_SIZE) {
+        const batchSlice = validDocs.slice(batchStart, batchStart + BATCH_SIZE);
+        const batch = writeBatch(db);
+
+        for (const { data, collectionPath, docId } of batchSlice) {
+          const docRef = doc(db, collectionPath, docId);
+          batch.set(docRef, data, { merge: true });
+        }
+
+        try {
+          await batch.commit();
+          for (const { rowNum, data, warningCount } of batchSlice) {
+            successCount++;
             allDiagnostics.push({
               row: rowNum,
-              status: 'error',
-              reason: validation.errors.join('; '),
-              parsedFields: item,
+              status: 'ok',
+              reason: `נשמר בהצלחה${warningCount > 0 ? ` (${warningCount} אזהרות)` : ''}`,
+              parsedFields: data,
             });
-            console.error(`[BulkUpload] Row ${rowNum} REJECTED:`, validation.errors, item);
-            continue;
           }
-          
-          let collectionPath = '';
-          const data: any = {
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
-
-          // Golden Content enrichment fields (shared across ALL content types)
-          const enrichSportType = item.sportType || item.סוג_ספורט || '';
-          const enrichMotivation = item.motivationStyle || item.סגנון_מוטיבציה || '';
-          const enrichExperience = item.experienceLevel || item.רמת_ניסיון || '';
-          const enrichProgress = item.progressRange || item.טווח_התקדמות || '';
-          const enrichDayPeriod = item.dayPeriod || item.תקופה_בשבוע || '';
-          const enrichProgramId = item.programId || item.תוכנית || item.id_תוכנית || '';
-          const enrichMinLevel = item.minLevel ?? item.רמה_מינימלית ?? item.min_level ?? '';
-          const enrichMaxLevel = item.maxLevel ?? item.רמה_מקסימלית ?? item.max_level ?? '';
-
-          // Shared enrichment — applied identically to ALL content types
-          const applySharedFields = () => {
-            if (enrichSportType) data.sportType = enrichSportType;
-            if (enrichMotivation) data.motivationStyle = enrichMotivation;
-            if (enrichExperience) data.experienceLevel = enrichExperience;
-            if (enrichProgress) data.progressRange = enrichProgress;
-            if (enrichDayPeriod) data.dayPeriod = enrichDayPeriod;
-            if (enrichProgramId) data.programId = enrichProgramId;
-            if (enrichMinLevel !== '' && enrichMinLevel !== undefined) data.minLevel = parseInt(String(enrichMinLevel)) || undefined;
-            if (enrichMaxLevel !== '' && enrichMaxLevel !== undefined) data.maxLevel = parseInt(String(enrichMaxLevel)) || undefined;
-          };
-
-          if (contentType === 'titles') {
-            collectionPath = `${WORKOUT_METADATA_COLLECTION}/workoutTitles/titles`;
-            data.category = item.category || item.קטגוריה || 'general';
-            data.location = item.location || item.מיקום || '';
-            data.persona = item.persona || item.פרסונה || '';
-            data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
-            data.gender = item.gender || item.מגדר || 'both';
-            data.text = item.text || item.טקסט || item.title || item.כותרת || '';
-            applySharedFields();
-          } else if (contentType === 'phrases') {
-            collectionPath = `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases`;
-            data.location = item.location || item.מיקום || 'home';
-            data.persona = item.persona || item.פרסונה || '';
-            data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
-            data.gender = item.gender || item.מגדר || 'both';
-            data.phrase = item.phrase || item.משפט || item.text || item.טקסט || '';
-            applySharedFields();
-          } else if (contentType === 'notifications') {
-            collectionPath = `${WORKOUT_METADATA_COLLECTION}/notifications/notifications`;
-            data.triggerType = item.triggerType || item.סוג_טריגר || 'Inactivity';
-            data.persona = item.persona || item.פרסונה || '';
-            data.gender = item.gender || item.מגדר || 'both';
-            data.psychologicalTrigger = item.psychologicalTrigger || item.טריגר_פסיכולוגי || 'FOMO';
-            data.text = item.text || item.טקסט || item.notificationText || '';
-            data.calendarIntegration = false;
-            applySharedFields();
-            
-            // Notification-specific fields
-            if (data.triggerType === 'Inactivity') {
-              const rawDays = item.daysInactive || item.ימים_ללא_אימון || '1';
-              data.daysInactive = parseInt(rawDays) || 1;
-            }
-            if (data.triggerType === 'Proximity') {
-              const rawDist = item.distanceMeters || item.מרחק_במטרים || '500';
-              data.distanceMeters = parseInt(rawDist) || 500;
-            }
-          } else if (contentType === 'descriptions') {
-            collectionPath = `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`;
-            data.location = item.location || item.מיקום || 'home';
-            data.persona = item.persona || item.פרסונה || '';
-            data.gender = item.gender || item.מגדר || 'both';
-            data.description = item.description || item.תיאור || item.text || item.טקסט || '';
-            applySharedFields();
-          }
-
-          // Add warnings to error list (non-blocking but visible)
-          if (validation.warnings.length > 0) {
-            errors.push(`שורה ${rowNum} (אזהרה): ${validation.warnings.join(', ')}`);
-          }
-
-          const docRef = collection(db, collectionPath);
-          await addDoc(docRef, data);
-          successCount++;
-          
-          allDiagnostics.push({
-            row: rowNum,
-            status: 'ok',
-            reason: `נשמר בהצלחה${validation.warnings.length > 0 ? ` (${validation.warnings.length} אזהרות)` : ''}`,
-            parsedFields: data,
-          });
+          console.log(`[BulkUpload] Batch committed: ${batchSlice.length} docs (${batchStart + 1}–${batchStart + batchSlice.length})`);
         } catch (error: any) {
-          const errMsg = `שורה ${rowNum}: ${error.message || 'שגיאה בשמירה ל-Firestore'}`;
-          errors.push(errMsg);
-          allDiagnostics.push({
-            row: rowNum,
-            status: 'error',
-            reason: error.message || 'Firestore write error',
-            parsedFields: item,
-          });
-          console.error(`[BulkUpload] Row ${rowNum} FAILED:`, error, item);
+          for (const { rowNum, data } of batchSlice) {
+            errors.push(`שורה ${rowNum}: ${error.message || 'Firestore batch write error'}`);
+            allDiagnostics.push({ row: rowNum, status: 'error', reason: error.message || 'Batch write error', parsedFields: data });
+          }
+          console.error(`[BulkUpload] Batch FAILED (rows ${batchStart + 1}–${batchStart + batchSlice.length}):`, error);
         }
       }
 
       console.log(`[BulkUpload] Complete: ${successCount} success, ${errors.length} errors/warnings`);
-
-      setResult({
-        success: successCount,
-        errors: errors.length,
-        errorsList: errors,
-        diagnostics: allDiagnostics,
-      });
+      setResult({ success: successCount, errors: errors.length, errorsList: errors, diagnostics: allDiagnostics });
     } catch (error: any) {
       alert(`שגיאה בהעלאה: ${error.message}`);
     } finally {
@@ -394,27 +457,89 @@ export default function BulkUploadPage() {
     }
   };
 
+  // ============================================================================
+  // CLEAR COLLECTION
+  // ============================================================================
+
+  const handleClearCollection = async () => {
+    const label = CONTENT_TYPE_BUTTONS.find(b => b.key === contentType)?.label || contentType;
+    const confirmed = window.confirm(
+      `האם אתה בטוח שברצונך למחוק את כל התוכן מסוג "${label}"?\n\nפעולה זו בלתי הפיכה!`
+    );
+    if (!confirmed) return;
+
+    const doubleConfirm = window.confirm(
+      `אישור סופי: כל המסמכים באוסף "${label}" יימחקו לצמיתות.\n\nלחץ OK להמשך.`
+    );
+    if (!doubleConfirm) return;
+
+    setClearing(true);
+    try {
+      const colPath = COLLECTION_PATHS[contentType];
+      const snap = await getDocs(collection(db, colPath));
+      if (snap.empty) {
+        alert('האוסף כבר ריק.');
+        setClearing(false);
+        return;
+      }
+
+      const batchOps: ReturnType<typeof writeBatch>[] = [];
+      let current = writeBatch(db);
+      let count = 0;
+
+      for (const d of snap.docs) {
+        current.delete(d.ref);
+        count++;
+        if (count % BATCH_SIZE === 0) {
+          batchOps.push(current);
+          current = writeBatch(db);
+        }
+      }
+      batchOps.push(current);
+
+      for (const b of batchOps) {
+        await b.commit();
+      }
+
+      alert(`נמחקו ${snap.size} מסמכים מ-"${label}" בהצלחה.`);
+      console.log(`[BulkUpload] Cleared ${snap.size} docs from ${colPath}`);
+    } catch (error: any) {
+      alert(`שגיאה במחיקה: ${error.message}`);
+      console.error('[BulkUpload] Clear failed:', error);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  // ============================================================================
+  // CSV TEMPLATES
+  // ============================================================================
+
   const getCSVTemplate = () => {
     if (contentType === 'titles') {
-      return `category,location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,text
-strength,home,parent,morning,both,calisthenics,encouraging,beginner,0-20,start_of_week,,,,"אימון כוח בוקר ל@פרסונה"
-general,park,,any,both,,,,90-100,all,push,5,10,"אימון בפארק — @זמן_יום טוב! @את/ה כמעט ב-@רמה_הבאה!"
-mobility,library,student,any,both,flexibility,zen,beginner,,weekend,,,,"הפסקת @קטגוריה של @זמן_אימון דקות — @עצימות"
-skills,home,student,evening,female,,tough,advanced,,,upper_body,8,15,"אימון סקילס ערב — @בוא/י נתחיל"`;
+      return `category,location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
+strength,home,parent,morning,both,calisthenics,encouraging,beginner,0-20,start_of_week,,,,morning_parent,"אימון כוח בוקר ל@פרסונה"
+general,park,,any,both,,,,90-100,all,push,5,10,levelup_push,"אימון בפארק — @זמן_יום טוב! @את/ה כמעט ב-@רמה_הבאה!"
+mobility,library,student,any,both,flexibility,zen,beginner,,weekend,,,,,"הפסקת @קטגוריה של @זמן_אימון דקות — @עצימות"`;
     } else if (contentType === 'phrases') {
-      return `location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,phrase
-home,parent,morning,both,,encouraging,beginner,0-20,start_of_week,,,,גם ביום עמוס, 5 דקות זה כל מה שצריך
-library,student,any,both,,zen,beginner,,weekend,,,,הפסקת תנועה ב@מיקום — @זמן_אימון דקות ומיקוד ב@מיקוד
-park,student,any,male,running,tough,intermediate,90-100,,pull,3,8,@את/ה ב-@אחוז_התקדמות! עוד קצת ל-@רמה_הבאה`;
+      return `location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,phrase
+home,parent,morning,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,גם ביום עמוס, 5 דקות זה כל מה שצריך
+park,student,any,male,running,tough,intermediate,90-100,,pull,3,8,levelup_push,@את/ה ב-@אחוז_התקדמות! עוד קצת ל-@רמה_הבאה`;
     } else if (contentType === 'notifications') {
-      return `triggerType,persona,daysInactive,distanceMeters,gender,psychologicalTrigger,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,text
-Inactivity,parent,2,,both,FOMO,,,beginner,0-20,start_of_week,,,,כבר @ימי_אי_פעילות ימים שלא ראינו אותך. @בוא/י נחזור לשגרה!
-Proximity,student,,500,female,Challenge,running,tough,advanced,90-100,,push,5,15,@את/ה במרחק @מרחק מהפארק. זמן ל-@שם_תוכנית! (@אחוז_התקדמות)`;
+      return `triggerType,persona,daysInactive,distanceMeters,gender,psychologicalTrigger,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
+Inactivity,parent,2,,both,FOMO,,,beginner,0-20,start_of_week,,,,,כבר @ימי_אי_פעילות ימים שלא ראינו אותך. @בוא/י נחזור לשגרה!
+Proximity,student,,500,female,Challenge,running,tough,advanced,90-100,,push,5,15,,@את/ה במרחק @מרחק מהפארק. זמן ל-@שם_תוכנית!`;
+    } else if (contentType === 'descriptions') {
+      return `location,persona,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,description
+home,parent,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,אימון מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר
+park,student,male,running,tough,advanced,90-100,,legs,5,12,,אימון @קטגוריה שמתאים ל-@מטרה שלך. @את/ה ב-@אחוז_התקדמות!`;
     } else {
-      return `location,persona,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,description
-home,parent,both,,encouraging,beginner,0-20,start_of_week,,,,אימון מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר
-library,student,both,flexibility,zen,beginner,,weekend,,,,אימון @קטגוריה @עצימות — מיקוד ב@מיקוד, @זמן_אימון דקות
-park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגוריה שמתאים ל-@מטרה שלך. @את/ה ב-@אחוז_התקדמות!`;
+      // coachTips
+      return `variant,persona,location,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
+balanced,,,any,both,,,,,all,,,,,היום אנחנו עובדים על @סקייל_נוכחי. מיקוד: @מיקוד_פיזיולוגי. @סטטוס_נפח
+intense,,,any,both,,,,,all,push,5,15,,רמה גבוהה — @מיקוד_פיזיולוגי. @סיבת_רצף. שים לב לפער: @פער_שבועי
+easy,,,any,both,,,,,all,,,,,יום טכני — @סקייל_נוכחי ברמה מופחתת. @סיבת_רצף
+all,parent,,morning,both,,encouraging,beginner,,start_of_week,,,,morning_parent,@סיבת_רצף. נפח שבועי: @סטטוס_נפח`;
     }
   };
 
@@ -427,7 +552,7 @@ park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגו�
             <Upload size={32} className="text-cyan-500" />
             העלאה מרוכזת
           </h1>
-          <p className="text-gray-500 mt-2">העלה כותרות, משפטים, התראות ותיאורים בקובץ CSV או JSON</p>
+          <p className="text-gray-500 mt-2">העלה כותרות, משפטים, התראות, תיאורים והערות מאמן בקובץ CSV או JSON</p>
         </div>
         <Link
           href="/admin/workout-settings"
@@ -441,46 +566,19 @@ park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגו�
       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
         <label className="block text-sm font-bold text-gray-700 mb-2">סוג תוכן</label>
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setContentType('titles')}
-            className={`px-4 py-2 rounded-xl font-bold transition-all ${
-              contentType === 'titles'
-                ? 'bg-cyan-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            כותרות אימון
-          </button>
-          <button
-            onClick={() => setContentType('phrases')}
-            className={`px-4 py-2 rounded-xl font-bold transition-all ${
-              contentType === 'phrases'
-                ? 'bg-cyan-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            משפטים מוטיבציוניים
-          </button>
-          <button
-            onClick={() => setContentType('notifications')}
-            className={`px-4 py-2 rounded-xl font-bold transition-all ${
-              contentType === 'notifications'
-                ? 'bg-cyan-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            התראות
-          </button>
-          <button
-            onClick={() => setContentType('descriptions')}
-            className={`px-4 py-2 rounded-xl font-bold transition-all ${
-              contentType === 'descriptions'
-                ? 'bg-cyan-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            תיאורים חכמים
-          </button>
+          {CONTENT_TYPE_BUTTONS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setContentType(key)}
+              className={`px-4 py-2 rounded-xl font-bold transition-all ${
+                contentType === key
+                  ? key === 'coachTips' ? 'bg-emerald-500 text-white' : 'bg-cyan-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -525,6 +623,25 @@ park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגו�
               </>
             )}
           </button>
+          <span className="text-xs text-gray-400">כתיבה באצוות של {BATCH_SIZE} מסמכים · העלאה חוזרת דורסת כפילויות</span>
+          <div className="flex-1" />
+          <button
+            onClick={handleClearCollection}
+            disabled={clearing || uploading}
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {clearing ? (
+              <>
+                <Loader size={14} className="animate-spin" />
+                מוחק...
+              </>
+            ) : (
+              <>
+                <Trash2 size={14} />
+                נקה אוסף
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -562,7 +679,7 @@ park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגו�
             )}
           </div>
 
-          {/* Per-Row Diagnostics (collapsible) */}
+          {/* Per-Row Diagnostics */}
           {result.diagnostics && result.diagnostics.length > 0 && (
             <div className="mt-4">
               <button
@@ -673,7 +790,19 @@ park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגו�
                   <li>gender / מגדר (male, female, both)</li>
                 </>
               )}
-              <li className="font-bold mt-2">שדות Golden Content (אופציונלי, כל הסוגים):</li>
+              {contentType === 'coachTips' && (
+                <>
+                  <li className="text-emerald-700 font-bold">variant / וריאנט (חובה: balanced, intense, naked, easy, all)</li>
+                  <li>text / טקסט / cue / הערה</li>
+                  <li>persona / פרסונה (אופציונלי)</li>
+                  <li>location / מיקום (אופציונלי)</li>
+                  <li>timeOfDay / שעת_יום (אופציונלי)</li>
+                  <li>gender / מגדר (male, female, both)</li>
+                </>
+              )}
+
+              <li className="font-bold mt-2">שדות משותפים (אופציונלי, כל הסוגים):</li>
+              <li className="text-indigo-700 font-bold">bundleId / באנדל / id_באנדל — מזהה באנדל לסנכרון תוכן (כותרת + תיאור + משפט + הערה באותו סיפור). הכותרת היא ה-Anchor — התיאורים והמשפטים שחולקים את אותו bundleId מקבלים +50 בניקוד</li>
               <li>sportType / סוג_ספורט (basketball, soccer, tennis, padel, running, walking, cycling, swimming, calisthenics, crossfit, functional, movement, yoga, pilates, flexibility, climbing, skate_roller, martial_arts)</li>
               <li>motivationStyle / סגנון_מוטיבציה (tough, encouraging, scientific, funny, military, zen)</li>
               <li>experienceLevel / רמת_ניסיון (beginner, intermediate, advanced, pro)</li>
@@ -681,17 +810,96 @@ park,student,male,running,tough,advanced,90-100,,legs,5,12,אימון @קטגו�
               <li className="font-bold mt-2">שדה קרבה (רק להתראות Proximity):</li>
               <li>distanceMeters / מרחק_במטרים (למשל: 500 = 500 מטר)</li>
               <li className="font-bold mt-2">מיקומים תקפים:</li>
-              <li>home, park, office, street, gym, school, airport, library</li>
+              <li>home, park, office, street, gym, school, airport, library, any (תוכן שלא תלוי במיקום)</li>
               <li className="font-bold mt-2">תקופה בשבוע (dayPeriod / תקופה_בשבוע):</li>
               <li>start_of_week (א-ב), mid_week (ג-ה), weekend (ו-ש), all (כל הימים)</li>
               <li className="font-bold mt-2">סינון לפי תוכנית ורמה (אופציונלי):</li>
-              <li>programId / תוכנית / id_תוכנית — מזהה תוכנית (push, pull, upper_body, all, או ריק לכללי). סינון קשיח — לא מתאים = ניקוד 0</li>
-              <li>minLevel / רמה_מינימלית / min_level — רמה מינימלית בתוכנית (מספר)</li>
-              <li>maxLevel / רמה_מקסימלית / max_level — רמה מקסימלית בתוכנית (מספר)</li>
+              <li>programId / תוכנית / id_תוכנית — מזהה תוכנית (push, pull, upper_body, all, או ריק לכללי)</li>
+              <li>minLevel / רמה_מינימלית — רמה מינימלית בתוכנית (מספר)</li>
+              <li>maxLevel / רמה_מקסימלית — רמה מקסימלית בתוכנית (מספר)</li>
               <li className="text-amber-600">תוכן לתוכנית ראשית (Master) יוצג גם למשתמשים בתת-תוכניות שלה</li>
-              <li className="font-bold mt-2">תגיות דינמיות חדשות:</li>
-              <li>@זמן_אימון (משך בדקות), @עצימות (קליל/מאתגר/שורף), @מיקוד (שריר דומיננטי), @קטגוריה (שם קטגוריה)</li>
             </ul>
+          </div>
+
+          {/* Dynamic Tags Reference */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="font-bold mb-2 text-gray-900">תגיות דינמיות (@ Tags):</p>
+            <p className="text-xs text-gray-500 mb-3">ניתן לשלב את התגיות הבאות בטקסט — המערכת תחליף אותן בערכים דינמיים לפי המשתמש. תגיות לא מוכרות יזוהו כאזהרה בעת ההעלאה.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              <div>
+                <p className="font-bold text-gray-800 mb-1">זיהוי ומשתמש:</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-gray-100 px-1 rounded">@שם</code> שם המשתמש</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@פרסונה</code> פרסונת המשתמש</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מיקום</code> מיקום האימון</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מטרה</code> מטרת המשתמש</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@ספורט</code> סוג הספורט</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@רמה</code> רמת ניסיון</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מגדר</code> מגדר</li>
+                </ul>
+                <p className="font-bold text-gray-800 mb-1">אימון וניתוח:</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-gray-100 px-1 rounded">@זמן_אימון</code> משך בדקות</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@עצימות</code> קליל / מאתגר / שורף</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מיקוד</code> שריר דומיננטי</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@קטגוריה</code> קטגוריית אימון</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@שריר</code> שריר עיקרי</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@ציוד</code> ציוד נדרש</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@שם_תרגיל</code> שם התרגיל</li>
+                </ul>
+                <p className="font-bold text-gray-800 mb-1">התקדמות ורמות:</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-gray-100 px-1 rounded">@שם_תוכנית</code> שם תוכנית</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@אחוז_התקדמות</code> אחוז התקדמות</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@רמה_הבאה</code> רמה הבאה</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@תרגיל_יעד</code> תרגיל יעד</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@ערך_יעד</code> ערך יעד</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@אחוז_התקדמות_רמה</code> התקדמות רמה</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-bold text-gray-800 mb-1">מגדר (פניות):</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-gray-100 px-1 rounded">@את/ה</code> את / אתה</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מוכן/ה</code> מוכנה / מוכן</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@בוא/י</code> בואי / בוא</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@תוכל/י</code> תוכלי / תוכל</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@תרצה/י</code> תרצי / תרצה</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@עשית/ה</code> עשית</li>
+                </ul>
+                <p className="font-bold text-gray-800 mb-1">זמן ומיקום:</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-gray-100 px-1 rounded">@שעה</code> שעה נוכחית</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@זמן_יום</code> בוקר / צהריים / ערב</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מרחק</code> מרחק לפארק</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@זמן_הגעה</code> זמן הגעה</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@ימי_אי_פעילות</code> ימים ללא אימון</li>
+                </ul>
+                <p className="font-bold text-emerald-700 mb-1">הערות מאמן (חדש):</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-emerald-50 px-1 rounded text-emerald-800">@פער_שבועי</code> דומיין עם אחוז ההשלמה הנמוך ביותר</li>
+                  <li><code className="bg-emerald-50 px-1 rounded text-emerald-800">@סיבת_רצף</code> חזרה הדרגתית / בונוס עקביות</li>
+                  <li><code className="bg-emerald-50 px-1 rounded text-emerald-800">@סקייל_נוכחי</code> שלב ההתקדמות הנוכחי</li>
+                  <li><code className="bg-emerald-50 px-1 rounded text-emerald-800">@מיקוד_פיזיולוגי</code> כוח / היפרטרופיה / סיבולת</li>
+                  <li><code className="bg-emerald-50 px-1 rounded text-emerald-800">@סטטוס_נפח</code> סטטוס נפח שבועי מול מכסה</li>
+                </ul>
+                <p className="font-bold text-gray-800 mb-1">ריצה:</p>
+                <ul className="space-y-0.5 text-gray-600 mb-2">
+                  <li><code className="bg-gray-100 px-1 rounded">@קצב_בסיס</code> קצב בסיס (דק&apos;/ק&quot;מ, למשל 5:30)</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@מרחק_יעד</code> מרחק מטרה (2/3/5/10 ק&quot;מ)</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@שלב_תוכנית</code> שלב בתוכנית (בניית בסיס / בנייה / שיא / הורדת עומסים)</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@סוג_ריצה</code> קטגוריית ריצה (אינטרוולים / טמפו / ריצה ארוכה / התאוששות)</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@שבוע</code> מספר השבוע הנוכחי בתוכנית (למשל 4)</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@שבוע_מתוך</code> שבוע מתוך סה&quot;כ (למשל &quot;שבוע 4 מתוך 12&quot;)</li>
+                </ul>
+                <p className="font-bold text-gray-800 mb-1">Logic Cue:</p>
+                <ul className="space-y-0.5 text-gray-600">
+                  <li><code className="bg-gray-100 px-1 rounded">@סיבת_עצימות</code> סיבת עצימות</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@סוג_אתגר</code> סוג אתגר</li>
+                  <li><code className="bg-gray-100 px-1 rounded">@התאמת_ציוד</code> התאמת ציוד</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>

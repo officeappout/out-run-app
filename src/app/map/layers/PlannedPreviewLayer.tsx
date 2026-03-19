@@ -7,6 +7,7 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useUserStore } from '@/features/user';
 import { getRunWorkoutTemplate, getPaceMapConfig, getRunProgramTemplate } from '@/features/workout-engine/core/services/running-admin.service';
 import { materializeWorkout } from '@/features/workout-engine/core/services/running-engine.service';
+import { resolveRunningWorkoutMetadata } from '@/features/workout-engine/services/running-metadata.service';
 import { useMapLogic } from '@/features/parks';
 import { Play, Zap, ChevronDown } from 'lucide-react';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
@@ -67,6 +68,23 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         if (!template) { setIsLoading(false); return; }
         const rules = fullProgram?.progressionRules ?? [];
         const workout = materializeWorkout(template, weekNumber, rules, paceProfile, paceMapConfig);
+
+        await resolveRunningWorkoutMetadata({
+          workout,
+          paceProfile,
+          persona: (profile?.core as any)?.personaId ?? null,
+          gender: profile?.core?.gender as 'male' | 'female' | undefined,
+          targetDistance: profile?.running?.generatedProgramTemplate?.targetDistance,
+          weekNumber,
+          totalWeeks: profile?.running?.generatedProgramTemplate?.canonicalWeeks,
+          userAge: (() => {
+            const bd = profile?.core?.birthDate;
+            if (!bd) return undefined;
+            const d = bd instanceof Date ? bd : new Date(bd as any);
+            return isNaN(d.getTime()) ? undefined : Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+          })(),
+        });
+
         useRunningPlayer.getState().setCurrentWorkout(workout);
         setIsLoading(false);
       } catch { setIsLoading(false); }

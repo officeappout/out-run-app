@@ -22,8 +22,9 @@ import {
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
   Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
-  FileText, ExternalLink
+  FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft
 } from 'lucide-react';
+import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import dynamicImport from 'next/dynamic';
 
 // Dynamic import for map to avoid SSR issues
@@ -57,6 +58,13 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   const [authority, setAuthority] = useState<{ name: string; type?: string; id?: string } | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingDomains, setEditingDomains] = useState(false);
+  const [editingTracks, setEditingTracks] = useState(false);
+  const [editLevels, setEditLevels] = useState<Record<string, number>>({});
+  const [editTrackLevels, setEditTrackLevels] = useState<Record<string, number>>({});
+  const [savingLevels, setSavingLevels] = useState(false);
+  const [showProgramPicker, setShowProgramPicker] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -100,10 +108,231 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
           console.error('Error loading authority:', error);
         }
       }
+
+      // Auto-Sync: if tracks have higher levels than domains, sync domains up
+      await autoSyncDomainsFromTracks(profile);
     } catch (error) {
       console.error('Error loading user details:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Auto-Sync: treat tracks as source of truth, push to domains ────────
+  // Also recalculates master program levels using Avg(push,pull,legs), core excluded, cap 15.
+  const autoSyncDomainsFromTracks = async (profile: UserFullProfile | null) => {
+    if (!profile || !user) return;
+    const tracks = (profile.progression as any)?.tracks as Record<string, { currentLevel?: number; maxLevel?: number }> | undefined;
+    const domains = (profile.progression as any)?.domains as Record<string, { currentLevel?: number; maxLevel?: number }> | undefined;
+    if (!tracks || Object.keys(tracks).length === 0) return;
+
+    const MASTER_EXCLUDED_SYNC: Record<string, string[]> = { full_body: ['core'] };
+    const MASTER_CAP_SYNC: Record<string, number> = { full_body: 15 };
+
+    const updates: Record<string, number> = {};
+
+    // 1. Sync child track levels → domains
+    for (const [trackId, trackData] of Object.entries(tracks)) {
+      const trackLevel = trackData?.currentLevel ?? 0;
+      if (trackLevel <= 0) continue;
+      const domainLevel = domains?.[trackId]?.currentLevel ?? 0;
+      if (domainLevel < trackLevel) {
+        updates[trackId] = trackLevel;
+      }
+    }
+
+    // 2. Recalculate master program levels with new formula
+    for (const masterProg of programs.filter(p => p.isMaster && p.subPrograms?.length)) {
+      const excluded = MASTER_EXCLUDED_SYNC[masterProg.id] ?? [];
+      const childLevels = (masterProg.subPrograms ?? [])
+        .filter(s => !excluded.includes(s))
+        .map(s => tracks[s]?.currentLevel ?? 0)
+        .filter(l => l > 0);
+      if (childLevels.length > 0) {
+        const cap = MASTER_CAP_SYNC[masterProg.id] ?? Infinity;
+        const derivedLevel = Math.min(cap, Math.round(childLevels.reduce((a, b) => a + b, 0) / childLevels.length));
+        const currentMasterTrack = tracks[masterProg.id]?.currentLevel ?? 0;
+        const currentMasterDomain = domains?.[masterProg.id]?.currentLevel ?? 0;
+        if (currentMasterTrack !== derivedLevel || currentMasterDomain !== derivedLevel) {
+          updates[masterProg.id] = derivedLevel;
+        }
+      }
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      const firestoreUpdates: Record<string, any> = {};
+      for (const [domain, level] of Object.entries(updates)) {
+        firestoreUpdates[`progression.domains.${domain}.currentLevel`] = level;
+        firestoreUpdates[`progression.tracks.${domain}.currentLevel`] = level;
+      }
+      await updateDoc(doc(db, 'users', user.id), firestoreUpdates);
+
+      // Update local state
+      const updatedProfile = { ...profile };
+      const updatedDomains = { ...(updatedProfile.progression as any)?.domains } || {};
+      const updatedTracks = { ...(updatedProfile.progression as any)?.tracks } || {};
+      for (const [domain, level] of Object.entries(updates)) {
+        if (!updatedDomains[domain]) updatedDomains[domain] = {};
+        updatedDomains[domain].currentLevel = level;
+        if (!updatedTracks[domain]) updatedTracks[domain] = {};
+        updatedTracks[domain].currentLevel = level;
+      }
+      (updatedProfile.progression as any).domains = updatedDomains;
+      (updatedProfile.progression as any).tracks = updatedTracks;
+      setFullProfile(updatedProfile);
+
+      const syncedDomains = Object.entries(updates).map(([d, l]) => `${d}→${l}`).join(', ');
+      setSyncMessage(`סנכרון אוטומטי: ${syncedDomains}`);
+      setTimeout(() => setSyncMessage(null), 4000);
+      console.log(`[AdminSync] Auto-synced domains for user ${user.id}:`, updates);
+    } catch (err) {
+      console.error('[AdminSync] Failed to auto-sync domains:', err);
+    }
+  };
+
+  // ── Save manual level overrides (dual-write to tracks + domains) ────────
+  const saveManualLevelOverrides = async (
+    levelMap: Record<string, number>,
+    target: 'domains' | 'tracks' | 'both',
+  ) => {
+    if (!user || !fullProfile) return;
+    setSavingLevels(true);
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+
+      const firestoreUpdates: Record<string, any> = {};
+      for (const [key, level] of Object.entries(levelMap)) {
+        if (target === 'domains' || target === 'both') {
+          firestoreUpdates[`progression.domains.${key}.currentLevel`] = level;
+        }
+        if (target === 'tracks' || target === 'both') {
+          firestoreUpdates[`progression.tracks.${key}.currentLevel`] = level;
+        }
+      }
+
+      // Auto-derive master program levels from their child tracks.
+      // full_body: Avg(push, pull, legs) — core excluded, capped at 15.
+      if (target === 'tracks' || target === 'both') {
+        const MASTER_EXCLUDED: Record<string, string[]> = { full_body: ['core'] };
+        const MASTER_CAP: Record<string, number> = { full_body: 15 };
+        const existingTracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+        for (const masterProg of programs.filter(p => p.isMaster && p.subPrograms?.length)) {
+          const excluded = MASTER_EXCLUDED[masterProg.id] ?? [];
+          const childLevels = (masterProg.subPrograms ?? [])
+            .filter(s => !excluded.includes(s))
+            .map(s => levelMap[s] ?? existingTracks?.[s]?.currentLevel ?? 0)
+            .filter(l => l > 0);
+          if (childLevels.length > 0) {
+            const cap = MASTER_CAP[masterProg.id] ?? Infinity;
+            const derivedLevel = Math.min(cap, Math.round(childLevels.reduce((a, b) => a + b, 0) / childLevels.length));
+            firestoreUpdates[`progression.tracks.${masterProg.id}.currentLevel`] = derivedLevel;
+            firestoreUpdates[`progression.domains.${masterProg.id}.currentLevel`] = derivedLevel;
+          }
+        }
+      }
+
+      await updateDoc(doc(db, 'users', user.id), firestoreUpdates);
+
+      // Update local state
+      const updatedProfile = { ...fullProfile };
+      const prog = updatedProfile.progression as any;
+      for (const [key, level] of Object.entries(levelMap)) {
+        if ((target === 'domains' || target === 'both') && prog?.domains?.[key]) {
+          prog.domains[key].currentLevel = level;
+        }
+        if ((target === 'tracks' || target === 'both') && prog?.tracks?.[key]) {
+          prog.tracks[key].currentLevel = level;
+        }
+      }
+      setFullProfile(updatedProfile);
+      setEditingDomains(false);
+      setEditingTracks(false);
+      setSyncMessage('רמות עודכנו בהצלחה ✓');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } catch (err) {
+      console.error('[AdminEdit] Failed to save levels:', err);
+      setSyncMessage('שגיאה בשמירה');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } finally {
+      setSavingLevels(false);
+    }
+  };
+
+  // ── Assign new program to user ──────────────────────────────────────────
+  const assignProgramToUser = async (program: Program) => {
+    if (!user || !fullProfile) return;
+    setSavingLevels(true);
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+
+      // Compute smart initial level from existing tracks
+      const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+      const domains = (fullProfile.progression as any)?.domains as Record<string, { currentLevel?: number }> | undefined;
+      let globalLevel = 1;
+      if (tracks) {
+        const lvls = Object.values(tracks).map(t => t?.currentLevel ?? 0);
+        globalLevel = Math.max(globalLevel, ...lvls);
+      }
+      if (domains) {
+        const lvls = Object.values(domains).map(d => d?.currentLevel ?? 0);
+        globalLevel = Math.max(globalLevel, ...lvls);
+      }
+      globalLevel = Math.max(globalLevel, (fullProfile.progression as any)?.globalLevel ?? 1);
+
+      const maxLevel = (program as any).maxLevels ?? 25;
+      const initialLevel = Math.min(globalLevel, maxLevel);
+
+      const firestoreUpdates: Record<string, any> = {
+        'progression.activePrograms': [{
+          id: program.id,
+          templateId: program.id,
+          name: typeof program.name === 'string' ? program.name : (program.name as any)?.he ?? program.id,
+          startDate: new Date(),
+          durationWeeks: 52,
+          currentWeek: 1,
+          focusDomains: (program as any).subPrograms ?? [],
+        }],
+        [`progression.tracks.${program.id}.currentLevel`]: initialLevel,
+        [`progression.tracks.${program.id}.maxLevel`]: maxLevel,
+        [`progression.tracks.${program.id}.percent`]: 0,
+        [`progression.tracks.${program.id}.totalWorkoutsCompleted`]: 0,
+        [`progression.domains.${program.id}.currentLevel`]: initialLevel,
+        [`progression.domains.${program.id}.maxLevel`]: maxLevel,
+      };
+
+      // If program has subPrograms (e.g. push, pull, legs, core), init each
+      if ((program as any).subPrograms?.length) {
+        for (const sub of (program as any).subPrograms) {
+          firestoreUpdates[`progression.tracks.${sub}.currentLevel`] = initialLevel;
+          firestoreUpdates[`progression.tracks.${sub}.maxLevel`] = maxLevel;
+          firestoreUpdates[`progression.tracks.${sub}.percent`] = 0;
+          firestoreUpdates[`progression.domains.${sub}.currentLevel`] = initialLevel;
+          firestoreUpdates[`progression.domains.${sub}.maxLevel`] = maxLevel;
+        }
+      }
+
+      await updateDoc(doc(db, 'users', user.id), firestoreUpdates);
+
+      // Refresh profile
+      const updatedProfile = await getUserDetails(user.id);
+      setFullProfile(updatedProfile);
+      setShowProgramPicker(false);
+
+      const pName = typeof program.name === 'string' ? program.name : (program.name as any)?.he ?? program.id;
+      setSyncMessage(`תוכנית "${pName}" הוקצתה ברמה ${initialLevel} ✓`);
+      setTimeout(() => setSyncMessage(null), 4000);
+    } catch (err) {
+      console.error('[AdminProgram] Failed to assign program:', err);
+      setSyncMessage('שגיאה בהקצאת תוכנית');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } finally {
+      setSavingLevels(false);
     }
   };
 
@@ -142,38 +371,48 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
     return historyTypes.map(type => labels[type] || type);
   };
 
-  // Helper to get active program details
+  // Helper to get active program details — tracks are source of truth
   const getActiveProgramInfo = () => {
     const activeProgram = fullProfile?.progression?.activePrograms?.[0];
     if (!activeProgram) return null;
 
-    // Try to find program in programs list by templateId or id
     const program = programs.find(p => 
       p.id === activeProgram.templateId || p.id === activeProgram.id
     );
 
     const programName = program?.name || activeProgram.name || 'תוכנית פעילה';
 
-    // Get level - check progression.tracks first (for Master Programs), then domains
+    // Source of truth: take the MAX level across all tracks
     let level = 1;
     let maxLevel = 25;
 
-    if (fullProfile?.progression?.tracks?.[activeProgram.templateId || activeProgram.id]) {
-      const track = fullProfile.progression.tracks[activeProgram.templateId || activeProgram.id];
-      level = track.currentLevel || 1;
-      maxLevel = track.maxLevel || 25;
-    } else {
-      // Fallback to domain levels
-      const primaryDomain = fullProfile?.progression?.domains?.upper_body || 
-                           fullProfile?.progression?.domains?.lower_body ||
-                           fullProfile?.progression?.domains?.full_body ||
-                           fullProfile?.progression?.domains?.core;
-      if (primaryDomain) {
-        level = primaryDomain.currentLevel || 1;
-        maxLevel = primaryDomain.maxLevel || 25;
-      } else {
-        level = fullProfile?.core?.initialFitnessTier || 1;
-      }
+    const tracks = (fullProfile?.progression as any)?.tracks as Record<string, { currentLevel?: number; maxLevel?: number }> | undefined;
+    const domains = (fullProfile?.progression as any)?.domains as Record<string, { currentLevel?: number; maxLevel?: number }> | undefined;
+
+    // Check the active program's own track first
+    const programTrack = tracks?.[activeProgram.templateId || activeProgram.id];
+    if (programTrack?.currentLevel) {
+      level = programTrack.currentLevel;
+      maxLevel = programTrack.maxLevel || 25;
+    }
+
+    // Then check all tracks to find the true max (for effective level display)
+    if (tracks) {
+      const allTrackLevels = Object.values(tracks).map(t => t?.currentLevel ?? 0);
+      const maxTrackLevel = Math.max(0, ...allTrackLevels);
+      if (maxTrackLevel > level) level = maxTrackLevel;
+    }
+
+    // Fallback to domains if tracks are empty
+    if (level <= 1 && domains) {
+      const allDomainLevels = Object.values(domains).map(d => d?.currentLevel ?? 0);
+      const maxDomainLevel = Math.max(0, ...allDomainLevels);
+      if (maxDomainLevel > level) level = maxDomainLevel;
+    }
+
+    // Final fallback to initialFitnessTier
+    if (level <= 1) {
+      level = fullProfile?.core?.initialFitnessTier || 1;
     }
 
     return { programName, level, maxLevel };
@@ -512,20 +751,44 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           </div>
 
+                        {/* Sync Message */}
+                        {syncMessage && (
+                          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 font-bold flex items-center gap-2">
+                            <CheckCircle2 size={16} />
+                            {syncMessage}
+                          </div>
+                        )}
+
                         {/* Active Program */}
                         {(() => {
                           const programInfo = getActiveProgramInfo();
                           if (!programInfo) {
                             return (
-                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                                 <div className="text-sm text-gray-600 mb-1">תוכנית פעילה</div>
-                                <div className="text-sm text-gray-500 italic">טרם סופק</div>
+                                <div className="text-sm text-gray-500 italic mb-3">טרם סופק</div>
+                                <button
+                                  onClick={() => setShowProgramPicker(true)}
+                                  className="flex items-center gap-2 px-3 py-2 bg-cyan-500 text-white rounded-lg text-sm font-bold hover:bg-cyan-600 transition-colors"
+                                >
+                                  <Plus size={14} />
+                                  הקצה תוכנית
+                                </button>
                               </div>
                             );
                           }
                           return (
                             <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-200 rounded-xl p-5">
-                              <div className="text-sm text-gray-600 mb-2">תוכנית פעילה</div>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-sm text-gray-600">תוכנית פעילה</div>
+                                <button
+                                  onClick={() => setShowProgramPicker(true)}
+                                  className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-cyan-700 bg-cyan-100 hover:bg-cyan-200 rounded-lg transition-colors"
+                                >
+                                  <ArrowRightLeft size={12} />
+                                  שנה / הוסף תוכנית
+                                </button>
+                              </div>
                               <div className="font-black text-xl text-cyan-700 mb-3">{programInfo.programName}</div>
                               <div className="flex items-baseline gap-2">
                                 <span className="font-black text-3xl text-cyan-600">רמה {programInfo.level}</span>
@@ -534,6 +797,59 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             </div>
                           );
                         })()}
+
+                        {/* Program Picker Modal */}
+                        {showProgramPicker && (
+                          <div className="bg-white border-2 border-cyan-300 rounded-xl p-5 shadow-lg">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="font-black text-gray-900">בחר תוכנית חדשה</h4>
+                              <button onClick={() => setShowProgramPicker(false)} className="p-1 hover:bg-gray-100 rounded-full">
+                                <X size={16} />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                              {programs.filter(p => (p as any).isMaster).length > 0
+                                ? programs.filter(p => (p as any).isMaster).map(prog => {
+                                    const pName = typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? prog.id;
+                                    return (
+                                      <button
+                                        key={prog.id}
+                                        onClick={() => assignProgramToUser(prog)}
+                                        disabled={savingLevels}
+                                        className="flex items-center justify-between p-3 bg-gray-50 hover:bg-cyan-50 border border-gray-200 hover:border-cyan-300 rounded-lg transition-colors text-right disabled:opacity-50"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-cyan-600">{getProgramIcon(resolveIconKey(prog.id), 'w-5 h-5')}</span>
+                                          <div>
+                                            <div className="font-bold text-gray-900">{pName}</div>
+                                            <div className="text-xs text-gray-500">{prog.id}</div>
+                                          </div>
+                                        </div>
+                                        <Plus size={16} className="text-cyan-600" />
+                                      </button>
+                                    );
+                                  })
+                                : programs.map(prog => {
+                                    const pName = typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? prog.id;
+                                    return (
+                                      <button
+                                        key={prog.id}
+                                        onClick={() => assignProgramToUser(prog)}
+                                        disabled={savingLevels}
+                                        className="flex items-center justify-between p-3 bg-gray-50 hover:bg-cyan-50 border border-gray-200 hover:border-cyan-300 rounded-lg transition-colors text-right disabled:opacity-50"
+                                      >
+                                        <div>
+                                          <div className="font-bold text-gray-900">{pName}</div>
+                                          <div className="text-xs text-gray-500">{prog.id}</div>
+                                        </div>
+                                        <Plus size={16} className="text-cyan-600" />
+                                      </button>
+                                    );
+                                  })
+                              }
+                            </div>
+                          </div>
+                        )}
 
                         {/* Schedule Days */}
                         {fullProfile.lifestyle?.scheduleDays && fullProfile.lifestyle.scheduleDays.length > 0 ? (
@@ -1074,25 +1390,133 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                 {/* Stats Tab */}
                 {activeTab === 'stats' && fullProfile && (
                   <div className="space-y-6">
+                    {syncMessage && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 font-bold flex items-center gap-2">
+                        <CheckCircle2 size={16} />
+                        {syncMessage}
+                      </div>
+                    )}
                     <div>
-                      <h3 className="text-lg font-black text-gray-900 mb-4">רמות נוכחיות</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        {fullProfile?.progression?.domains && 
-                         Object.entries(fullProfile.progression.domains).map(([domain, progress]) => (
-                          <div key={domain} className="bg-gray-50 rounded-xl p-4">
-                            <div className="text-sm text-gray-500 mb-1">{domain}</div>
-                            <div className="font-black text-2xl text-[#5BC2F2]">
-                              רמה {progress.currentLevel}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              מתוך {progress.maxLevel}
-                            </div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-black text-gray-900">רמות נוכחיות (Domains)</h3>
+                        {!editingDomains ? (
+                          <button
+                            onClick={() => {
+                              const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+                              const domains = (fullProfile.progression as any)?.domains as Record<string, { currentLevel?: number }> | undefined;
+                              const merged: Record<string, number> = {};
+                              if (domains) {
+                                for (const [k, v] of Object.entries(domains)) {
+                                  const trackLevel = tracks?.[k]?.currentLevel ?? 0;
+                                  merged[k] = Math.max(v?.currentLevel ?? 0, trackLevel);
+                                }
+                              }
+                              if (tracks) {
+                                for (const [k, v] of Object.entries(tracks)) {
+                                  if (!merged[k]) merged[k] = v?.currentLevel ?? 0;
+                                }
+                              }
+                              setEditLevels(merged);
+                              setEditingDomains(true);
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                          >
+                            <Edit3 size={14} />
+                            ערוך
+                          </button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingDomains(false)}
+                              className="px-3 py-1.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                            >
+                              ביטול
+                            </button>
+                            <button
+                              disabled={savingLevels}
+                              onClick={() => saveManualLevelOverrides(editLevels, 'both')}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg disabled:opacity-50"
+                            >
+                              <Save size={14} />
+                              {savingLevels ? 'שומר...' : 'שמור'}
+                            </button>
                           </div>
-                        ))}
-                        {(!fullProfile?.progression?.domains || 
-                          Object.keys(fullProfile.progression.domains).length === 0) && (
-                          <div className="col-span-2 text-gray-500 text-sm">אין רמות רשומות</div>
                         )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(() => {
+                          const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number; maxLevel?: number }> | undefined;
+                          const domains = (fullProfile.progression as any)?.domains as Record<string, { currentLevel?: number; maxLevel?: number }> | undefined;
+
+                          // Build set of IDs that belong to the user's active programs
+                          const activeProgramIds = new Set<string>();
+                          for (const ap of fullProfile.progression?.activePrograms ?? []) {
+                            const tid = ap.templateId || ap.id;
+                            if (tid) activeProgramIds.add(tid);
+                            const prog = programs.find(p => p.id === tid);
+                            if (prog?.subPrograms) prog.subPrograms.forEach(s => activeProgramIds.add(s));
+                          }
+
+                          const allKeys = new Set([
+                            ...Object.keys(domains ?? {}),
+                            ...Object.keys(tracks ?? {}),
+                          ]);
+
+                          // Filter: only show domains where level > 1 OR belonging to active programs
+                          const relevantKeys = Array.from(allKeys).filter(key => {
+                            const domainLevel = domains?.[key]?.currentLevel ?? 0;
+                            const trackLevel = tracks?.[key]?.currentLevel ?? 0;
+                            const effectiveLevel = Math.max(domainLevel, trackLevel);
+                            return effectiveLevel > 1 || activeProgramIds.has(key);
+                          });
+
+                          if (relevantKeys.length === 0) {
+                            return <div className="col-span-2 text-gray-500 text-sm">אין רמות רשומות</div>;
+                          }
+                          return relevantKeys.map(domain => {
+                            const domainLevel = domains?.[domain]?.currentLevel ?? 0;
+                            const trackLevel = tracks?.[domain]?.currentLevel ?? 0;
+                            const effectiveLevel = Math.max(domainLevel, trackLevel);
+                            const maxLevel = domains?.[domain]?.maxLevel ?? tracks?.[domain]?.maxLevel ?? 25;
+                            const isDesynced = domainLevel > 0 && trackLevel > 0 && domainLevel !== trackLevel;
+                            const prog = programs.find(p => p.id === domain);
+                            const isMaster = prog?.isMaster === true;
+                            const displayName = prog?.name
+                              ? (typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? domain)
+                              : domain;
+                            return (
+                              <div key={domain} className={`rounded-xl p-4 ${isDesynced ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
+                                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                                  <span className="text-[#5BC2F2]">{getProgramIcon(resolveIconKey(domain), 'w-4 h-4')}</span>
+                                  {displayName}
+                                </div>
+                                {editingDomains && !isMaster ? (
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={maxLevel}
+                                    value={editLevels[domain] ?? effectiveLevel}
+                                    onChange={e => setEditLevels(prev => ({ ...prev, [domain]: parseInt(e.target.value) || 1 }))}
+                                    className="w-20 px-2 py-1 text-xl font-black text-[#5BC2F2] border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-500"
+                                  />
+                                ) : (
+                                  <div className="font-black text-2xl text-[#5BC2F2]">
+                                    רמה {effectiveLevel}
+                                    {isMaster && editingDomains && (
+                                      <span className="text-xs font-medium text-gray-400 mr-2">(נגזר)</span>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="text-xs text-gray-500 mt-1">מתוך {maxLevel}</div>
+                                {isDesynced && !editingDomains && (
+                                  <div className="text-xs text-amber-600 mt-1 font-medium">
+                                    ⚠ domain={domainLevel} track={trackLevel}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
 
@@ -1139,21 +1563,106 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
 
                     {/* Program Tracks */}
                     <div>
-                      <h3 className="text-lg font-black text-gray-900 mb-4">מסלולי תוכנית (Tracks)</h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-black text-gray-900">מסלולי תוכנית (Tracks)</h3>
+                        {!editingTracks ? (
+                          <button
+                            onClick={() => {
+                              const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+                              const levels: Record<string, number> = {};
+                              if (tracks) {
+                                for (const [k, v] of Object.entries(tracks)) {
+                                  levels[k] = v?.currentLevel ?? 1;
+                                }
+                              }
+                              setEditTrackLevels(levels);
+                              setEditingTracks(true);
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                          >
+                            <Edit3 size={14} />
+                            ערוך
+                          </button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingTracks(false)}
+                              className="px-3 py-1.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                            >
+                              ביטול
+                            </button>
+                            <button
+                              disabled={savingLevels}
+                              onClick={() => saveManualLevelOverrides(editTrackLevels, 'both')}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg disabled:opacity-50"
+                            >
+                              <Save size={14} />
+                              {savingLevels ? 'שומר...' : 'שמור'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {syncMessage && activeTab === 'progression' && (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700 font-bold flex items-center gap-2 mb-3">
+                          <CheckCircle2 size={16} />
+                          {syncMessage}
+                        </div>
+                      )}
                       {(fullProfile.progression as any)?.tracks && Object.keys((fullProfile.progression as any).tracks).length > 0 ? (
                         <div className="space-y-2">
                           {Object.entries((fullProfile.progression as any).tracks).map(([programId, track]: [string, any]) => {
                             const prog = programs.find(p => p.id === programId);
+                            const isMaster = prog?.isMaster === true;
+                            const pName = prog?.name
+                              ? (typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? programId)
+                              : programId;
+
+                            // For master programs, derive level from child tracks.
+                            // full_body: Avg(push, pull, legs) — core excluded, capped at 15.
+                            const MASTER_EXCLUDED_DISPLAY: Record<string, string[]> = { full_body: ['core'] };
+                            const MASTER_CAP_DISPLAY: Record<string, number> = { full_body: 15 };
+                            let displayLevel = track?.currentLevel ?? 0;
+                            if (isMaster && prog?.subPrograms?.length) {
+                              const allTracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+                              const excludedSubs = MASTER_EXCLUDED_DISPLAY[programId] ?? [];
+                              const childLevels = prog.subPrograms
+                                .filter(s => !excludedSubs.includes(s))
+                                .map(s => allTracks?.[s]?.currentLevel ?? 0)
+                                .filter(l => l > 0);
+                              if (childLevels.length > 0) {
+                                const cap = MASTER_CAP_DISPLAY[programId] ?? Infinity;
+                                displayLevel = Math.min(cap, Math.round(childLevels.reduce((a, b) => a + b, 0) / childLevels.length));
+                              }
+                            }
+
                             return (
-                              <div key={programId} className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                              <div key={programId} className={`rounded-xl p-4 flex items-center justify-between ${isMaster ? 'bg-cyan-50 border border-cyan-200' : 'bg-gray-50'}`}>
                                 <div>
-                                  <p className="font-bold text-gray-900">{prog?.name || programId}</p>
+                                  <p className="font-bold text-gray-900 flex items-center gap-2">
+                                    <span className="text-[#5BC2F2]">{getProgramIcon(resolveIconKey(programId), 'w-5 h-5')}</span>
+                                    {pName}
+                                    {isMaster && <span className="text-xs font-medium text-cyan-600 mr-2">(תוכנית ראשית)</span>}
+                                  </p>
                                   <p className="text-xs text-gray-500">ID: {programId}</p>
+                                  {isMaster && editingTracks && (
+                                    <p className="text-xs text-cyan-600 mt-1">ממוצע מסלולים — לא ניתן לעריכה ישירה</p>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-4 text-sm">
-                                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">
-                                    רמה {track?.currentLevel ?? '?'}
-                                  </span>
+                                  {editingTracks && !isMaster ? (
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={track?.maxLevel ?? 25}
+                                      value={editTrackLevels[programId] ?? track?.currentLevel ?? 1}
+                                      onChange={e => setEditTrackLevels(prev => ({ ...prev, [programId]: parseInt(e.target.value) || 1 }))}
+                                      className="w-16 px-2 py-1 text-sm font-bold border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-500"
+                                    />
+                                  ) : (
+                                    <span className={`px-3 py-1 rounded-full font-bold ${isMaster ? 'bg-cyan-100 text-cyan-800' : 'bg-blue-100 text-blue-800'}`}>
+                                      רמה {displayLevel}
+                                    </span>
+                                  )}
                                   <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-bold">
                                     {typeof track?.percent === 'number' ? `${track.percent.toFixed(1)}%` : '0%'}
                                   </span>

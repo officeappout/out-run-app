@@ -660,6 +660,7 @@ export function materializeWorkout(
     description: (template as any).description as string | undefined,
     isQualityWorkout: template.isQualityWorkout,
     blocks: finalBlocks,
+    category: template.category,
   };
 }
 

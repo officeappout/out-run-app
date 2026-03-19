@@ -56,6 +56,8 @@ export function selectActivePersona(context: PersonaSelectionContext): PersonaTy
       'remote_worker': 'remote_worker',
       'athlete': 'athlete',
       'senior': 'senior',
+      'high-tech': 'high-tech',
+      'high_tech': 'high-tech',
     };
     return personaMap[userProfile.personaId] || 'parent';
   }

@@ -109,11 +109,15 @@ export interface WorkoutCompletionData {
 export interface WorkoutExerciseResult {
   exerciseId: string;
   exerciseName: string;
-  programLevels: Record<string, number>; // Per-program level mapping from exercise targetPrograms
+  programLevels: Record<string, number>;
   setsCompleted: number;
   repsPerSet: number[];
   targetReps: number;
   isCompound: boolean;
+  /** Per-side reps for unilateral exercises (right side / ימין) */
+  repsPerSetRight?: number[];
+  /** Per-side reps for unilateral exercises (left side / שמאל) */
+  repsPerSetLeft?: number[];
 }
 
 /**

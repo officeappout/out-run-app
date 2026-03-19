@@ -20,6 +20,10 @@ export interface ExerciseResultLog {
   segmentId: string;
   confirmedReps: number[];
   targetReps: number;
+  /** Per-side reps for unilateral exercises (right side / ימין) */
+  confirmedRepsRight?: number[];
+  /** Per-side reps for unilateral exercises (left side / שמאל) */
+  confirmedRepsLeft?: number[];
 }
 
 export interface NextExerciseInfo {
@@ -791,7 +795,7 @@ export function useWorkoutStateMachine(
    * Fix #2: restTimeLeft is NOT modified here.
    */
   const handleRepetitionSave = useCallback(
-    (reps: number) => {
+    (reps: number, sideData?: { left: number; right: number }) => {
       setCompletedReps(reps);
 
       if (activeExercise) {
@@ -802,6 +806,12 @@ export function useWorkoutStateMachine(
         );
         if (existing) {
           existing.confirmedReps.push(reps);
+          if (sideData) {
+            if (!existing.confirmedRepsRight) existing.confirmedRepsRight = [];
+            if (!existing.confirmedRepsLeft) existing.confirmedRepsLeft = [];
+            existing.confirmedRepsRight.push(sideData.right);
+            existing.confirmedRepsLeft.push(sideData.left);
+          }
         } else {
           exerciseLogRef.current.push({
             exerciseId: activeExercise.id,
@@ -809,12 +819,22 @@ export function useWorkoutStateMachine(
             segmentId: segId,
             confirmedReps: [reps],
             targetReps: targetReps ?? reps,
+            ...(sideData && {
+              confirmedRepsRight: [sideData.right],
+              confirmedRepsLeft: [sideData.left],
+            }),
           });
         }
         bumpLog();
-        console.log(
-          `[Engine] Saved reps: ${activeExercise.name} → ${reps} (target: ${targetReps ?? 'N/A'})`,
-        );
+        if (sideData) {
+          console.log(
+            `[Engine] Saved reps (unilateral): ${activeExercise.name} → R:${sideData.right} L:${sideData.left} (effective: ${reps}, target: ${targetReps ?? 'N/A'})`,
+          );
+        } else {
+          console.log(
+            `[Engine] Saved reps: ${activeExercise.name} → ${reps} (target: ${targetReps ?? 'N/A'})`,
+          );
+        }
       }
 
       // Close drawer — rest timer continues

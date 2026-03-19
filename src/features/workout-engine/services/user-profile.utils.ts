@@ -27,6 +27,7 @@ const PERSONA_ID_MAP: Record<string, LifestylePersona> = {
   school_student: 'school_student',
   office_worker: 'office_worker',
   home_worker: 'home_worker',
+  high_tech: 'high_tech',
   senior: 'senior',
   athlete: 'athlete',
   reservist: 'reservist',
@@ -35,10 +36,11 @@ const PERSONA_ID_MAP: Record<string, LifestylePersona> = {
   busy_parent: 'parent',
   work_from_home: 'home_worker',
   soldier: 'active_soldier',
+  'high-tech': 'high_tech',
 };
 
 const VALID_PERSONAS: Set<string> = new Set([
-  'parent', 'student', 'school_student', 'office_worker', 'home_worker', 'senior', 'athlete', 'reservist', 'active_soldier',
+  'parent', 'student', 'school_student', 'office_worker', 'home_worker', 'high_tech', 'senior', 'athlete', 'reservist', 'active_soldier',
 ]);
 
 function isLifestylePersona(value: string): boolean {
@@ -189,27 +191,9 @@ export function collectLifestyles(
 
 /**
  * Derive the base user level (used for WorkoutGenerator volume calc).
- * Takes the highest level from domains OR tracks (Path B/C assessment levels live in tracks).
+ * Re-exported from level-resolution.utils.ts (Single Source of Truth).
  */
-export function getBaseUserLevel(userProfile: UserFullProfile): number {
-  const domains = userProfile.progression?.domains ?? {};
-  const tracks = userProfile.progression?.tracks ?? {};
-  let maxLevel = 1;
-
-  for (const domainId of Object.keys(domains)) {
-    const trackLevel = tracks[domainId]?.currentLevel;
-    const domainLevel = domains[domainId as keyof typeof domains]?.currentLevel;
-    const level = trackLevel ?? domainLevel ?? 1;
-    if (level > maxLevel) maxLevel = level;
-  }
-  for (const [trackId, trackData] of Object.entries(tracks)) {
-    if (!domains[trackId] && trackData?.currentLevel && trackData.currentLevel > maxLevel) {
-      maxLevel = trackData.currentLevel;
-    }
-  }
-
-  return maxLevel;
-}
+export { getBaseUserLevel } from './level-resolution.utils';
 
 /**
  * Ensure the core track has a level even when the user didn't assess core.

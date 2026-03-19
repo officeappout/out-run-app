@@ -9,8 +9,9 @@
  */
 
 import { Exercise, MechanicalType, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
-import { ScoredExercise } from './ContextualEngine';
+import type { ScoredExercise } from './contextual-engine.types';
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
+import { resolveToSlug } from '../services/program-hierarchy.utils';
 import type {
   DifficultyLevel,
   ExercisePriority,
@@ -34,6 +35,60 @@ for (const [parent, children] of Object.entries(DOMAIN_ALIAS_MAP)) {
 }
 
 export { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP };
+
+// ============================================================================
+// DOMAIN-AWARE EXERCISE LEVEL RESOLUTION
+// ============================================================================
+
+/**
+ * Resolve an exercise's level from its targetPrograms, prioritising the entry
+ * that matches one of the currently active domains.
+ *
+ * Priority:
+ *  1. Direct match: targetPrograms entry whose programId is in activeDomains
+ *  2. Parent match:  targetPrograms entry whose programId is a parent of an active domain
+ *  3. Fallback:      first targetPrograms entry → recommendedLevel → 1
+ *
+ * @returns `{ level, resolvedDomain }` where resolvedDomain is the matched domain or null
+ */
+export function resolveExerciseLevelForDomains(
+  exercise: Exercise,
+  activeDomains?: string[],
+): { level: number; resolvedDomain: string | null } {
+  const tps = exercise.targetPrograms;
+  if (!tps || tps.length === 0) {
+    return { level: exercise.recommendedLevel || 1, resolvedDomain: null };
+  }
+
+  if (activeDomains && activeDomains.length > 0) {
+    // 1. Direct match (slug or Firestore ID → slug)
+    for (const domain of activeDomains) {
+      const tp = tps.find(t => t.programId === domain || resolveToSlug(t.programId) === domain);
+      if (tp) return { level: tp.level, resolvedDomain: domain };
+    }
+    // 2. Parent match (e.g., exercise tagged 'upper_body', active domain is 'push')
+    for (const domain of activeDomains) {
+      const parents = DOMAIN_PARENT_MAP[domain];
+      if (parents) {
+        for (const parent of parents) {
+          const tp = tps.find(t => t.programId === parent || resolveToSlug(t.programId) === parent);
+          if (tp) return { level: tp.level, resolvedDomain: parent };
+        }
+      }
+    }
+    // 3. Reverse: exercise's resolved domain is a child of an active domain
+    for (const tp of tps) {
+      const slug = resolveToSlug(tp.programId);
+      const children = DOMAIN_ALIAS_MAP[slug] ?? DOMAIN_ALIAS_MAP[tp.programId];
+      if (children && children.some(c => activeDomains.includes(c))) {
+        return { level: tp.level, resolvedDomain: slug };
+      }
+    }
+  }
+
+  // Fallback: first targetPrograms entry
+  return { level: tps[0].level, resolvedDomain: null };
+}
 
 // ============================================================================
 // SHUFFLE UTILITIES
@@ -91,49 +146,118 @@ export function applyDifficultyFilter(
   context: WorkoutGenerationContext,
   _difficulty: DifficultyLevel,
 ): (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[] {
-  const userLevel = context.userLevel;
+  const globalLevel = context.userLevel;
+
+  const domainLevelMap = new Map<string, number>();
+  if (context.domainBudgets?.length) {
+    for (const db of context.domainBudgets) {
+      domainLevelMap.set(db.domain, db.level);
+    }
+  }
+  if (context.userProgramLevels) {
+    for (const [k, v] of Array.from(context.userProgramLevels.entries())) {
+      if (!domainLevelMap.has(k)) domainLevelMap.set(k, v);
+    }
+  }
+
+  console.log(
+    `[LevelSync] DifficultyFilter: globalLevel=L${globalLevel}, domainLevels={${
+      Array.from(domainLevelMap.entries()).map(([k, v]) => `${k}:L${v}`).join(', ')
+    }}`
+  );
+
+  // Collect active domain IDs for domain-aware exercise level resolution
+  const activeDomainIds = context.domainBudgets?.map(db => db.domain)
+    ?? (context.requiredDomains as string[] | undefined)
+    ?? [];
 
   return exercises.map((ex) => {
-    const exerciseLevel = ex.programLevel || ex.exercise.recommendedLevel || userLevel;
-    const levelDiff = exerciseLevel - userLevel;
+    // Domain-aware: resolve exercise level from the targetPrograms entry
+    // matching the active workout domains, not blindly from [0].
+    const exerciseLevel = (ex.programLevel ?? resolveExerciseLevelForDomains(ex.exercise, activeDomainIds).level) || globalLevel;
+
+    let rawDomainLevel = globalLevel;
+    const tps = ex.exercise.targetPrograms;
+    if (tps && tps.length > 0) {
+      for (const tp of tps) {
+        // Try direct programId, then slug-resolved version
+        const directLevel = domainLevelMap.get(tp.programId)
+          ?? domainLevelMap.get(resolveToSlug(tp.programId));
+        if (directLevel != null) { rawDomainLevel = directLevel; break; }
+        const slug = resolveToSlug(tp.programId);
+        const parents = DOMAIN_PARENT_MAP[tp.programId] ?? DOMAIN_PARENT_MAP[slug];
+        if (parents) {
+          for (const p of parents) {
+            const parentLevel = domainLevelMap.get(p);
+            if (parentLevel != null) { rawDomainLevel = parentLevel; break; }
+          }
+          if (rawDomainLevel !== globalLevel) break;
+        }
+      }
+    }
+
+    // Safety fallback: if domain level is 1 (Firestore default) but global is
+    // higher, use global to prevent "Tier Paradox" (everything resolving to elite).
+    const domainUserLevel = (rawDomainLevel <= 1 && globalLevel > 1) ? globalLevel : rawDomainLevel;
+
+    if (rawDomainLevel <= 1 && globalLevel > 1) {
+      console.log(`[LevelSync] DifficultyFilter fallback: exercise domain rawL${rawDomainLevel} → using globalL${globalLevel}`);
+    }
+
+    const levelDiff = exerciseLevel - domainUserLevel;
     return { ...ex, isOverLevel: levelDiff > 0, levelDiff };
   });
 }
 
 /**
- * David Rule: difficulty NEVER changes which program-level exercises are
- * selected. A Level-7 user always trains with Level-7 exercises regardless
- * of whether they chose 1, 2, or 3 bolts.
+ * Bolt-Aware Selection: difficulty (bolts) determines which level-delta
+ * band the engine targets. This controls exercise difficulty, not just volume.
  *
- * All three bolt settings pick exercises at |levelDiff| <= 1 (the user's
- * own program level ±1). Volume (sets / reps / rest) is what changes between
- * bolt settings — that is handled downstream by DIFFICULTY_VOLUME and
- * assignVolume in workout-budgeting.utils.ts.
+ *   Bolt 3 (Intense):  prefer levelDiff +1 or +2 (harder exercises)
+ *   Bolt 2 (Normal):   prefer levelDiff 0 (match user level)
+ *   Bolt 1 (Easy):     prefer levelDiff -1 or -2 (easier, volume-oriented)
  *
- * The ContextualEngine already applies levelTolerance:3 hard exclusion and
- * level-proximity scoring (+3 exact, -1 per level away), so the scored pool
- * arriving here is already biased toward the user's own level.
+ * If the targeted band has fewer exercises than 2× count, the filter
+ * automatically relaxes by ±1 to expand the pool.
  */
 export function selectExercisesForDifficulty(
   exercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   count: number,
   _context: WorkoutGenerationContext,
-  _difficulty: DifficultyLevel,
+  difficulty: DifficultyLevel,
 ): ScoredExercise[] {
-  const atLevel = exercises
-    .filter((ex) => Math.abs(ex.levelDiff || 0) <= 1)
-    .sort((a, b) => b.score - a.score);
+  const targetFilter = (ex: { levelDiff?: number }): boolean => {
+    const d = ex.levelDiff ?? 0;
+    switch (difficulty) {
+      case 3: return d >= 1 && d <= 2;
+      case 1: return d >= -2 && d <= -1;
+      default: return d === 0;
+    }
+  };
 
-  if (atLevel.length >= count) return atLevel.slice(0, count);
+  const relaxedFilter = (ex: { levelDiff?: number }): boolean => {
+    const d = ex.levelDiff ?? 0;
+    switch (difficulty) {
+      case 3: return d >= 0 && d <= 3;
+      case 1: return d >= -3 && d <= 0;
+      default: return Math.abs(d) <= 1;
+    }
+  };
 
-  // Fallback: if the at-level pool is smaller than requested, fill from the
-  // rest of the (already ContextualEngine-filtered) pool.
-  const atLevelIds = new Set(atLevel.map((ex) => ex.exercise.id));
+  let pool = exercises.filter(targetFilter).sort((a, b) => b.score - a.score);
+
+  if (pool.length < count * 2) {
+    pool = exercises.filter(relaxedFilter).sort((a, b) => b.score - a.score);
+  }
+
+  if (pool.length >= count) return pool.slice(0, count);
+
+  const poolIds = new Set(pool.map((ex) => ex.exercise.id));
   const overflow = exercises
-    .filter((ex) => !atLevelIds.has(ex.exercise.id))
+    .filter((ex) => !poolIds.has(ex.exercise.id))
     .sort((a, b) => b.score - a.score);
 
-  return [...atLevel, ...overflow].slice(0, count);
+  return [...pool, ...overflow].slice(0, count);
 }
 
 // ============================================================================
@@ -201,9 +325,21 @@ export function selectExercisesWithDomainQuotas(
   const selectedIds = new Set<string>();
 
   for (const domain of context.requiredDomains!) {
-    const domainPool = shuffled.filter(
+    let domainPool = shuffled.filter(
       (s) => !selectedIds.has(s.exercise.id) && exerciseMatchesProgram(s.exercise, domain),
     );
+
+    if (domainPool.length === 0) {
+      domainPool = scoredExercises.filter(
+        (s) => !selectedIds.has(s.exercise.id)
+          && exerciseMatchesProgram(s.exercise, domain)
+          && Math.abs((s as any).levelDiff ?? 0) <= 3,
+      );
+      if (domainPool.length > 0) {
+        console.log(`[DomainRescue] ${domain}: bolt pool empty, relaxed to ±3 → found ${domainPool.length}`);
+      }
+    }
+
     if (domainPool.length > 0) {
       domainPool.sort((a, b) => b.score - a.score);
       const best = domainPool[0];
@@ -219,7 +355,7 @@ export function selectExercisesWithDomainQuotas(
       // Location-aware method resolution: try the user's actual location first,
       // then 'home', then any available method. This ensures park exercises (Dips
       // on parallel bars) are found when the user is at a park.
-      const loc = context.location ?? 'home';
+      const loc = context.location ?? 'park';
       const findMethod = (ex: Exercise) => {
         const methods = ex.execution_methods || ex.executionMethods || [];
         return methods.find((x) => x.location === loc)
@@ -228,30 +364,39 @@ export function selectExercisesWithDomainQuotas(
           || methods[0];
       };
       const hasMethod = (ex: Exercise) => !!findMethod(ex);
+      const ESSENTIAL_GEAR = new Set([
+        'pullup_bar', 'pull_up_bar', 'pullupbar',
+        'dip_bar', 'dip_station', 'dipstation',
+        'parallel_bars', 'bars',
+      ]);
       const isLocationCompatible = (ex: Exercise) => {
         const m = findMethod(ex);
         if (!m) return false;
-        // At a park, allow fixed equipment (bars, dip station) — they're built-in
         if (loc === 'park' || loc === 'outdoor_gym') return true;
         const gearIds = m.gearIds ?? (m.gearId ? [m.gearId] : []);
         const equipmentIds = m.equipmentIds ?? (m.equipmentId ? [m.equipmentId] : []);
         const all = [...gearIds, ...equipmentIds].filter(Boolean);
-        return all.length === 0 || all.every((id) => String(id).toLowerCase() === 'bodyweight' || String(id).toLowerCase() === 'none');
+        return all.length === 0 || all.every((id) => {
+          const lower = String(id).toLowerCase();
+          return lower === 'bodyweight' || lower === 'none' || ESSENTIAL_GEAR.has(lower);
+        });
       };
       const getLevelForDomain = (ex: Exercise): number => {
-        const directMatch = ex.targetPrograms?.find((tp) => tp.programId === domain);
-        if (directMatch) return directMatch.level;
-        for (const alias of parentAliases) {
-          const aliasMatch = ex.targetPrograms?.find((tp) => tp.programId === alias);
-          if (aliasMatch) return aliasMatch.level;
+        if (ex.targetPrograms) {
+          for (const tp of ex.targetPrograms) {
+            const slug = resolveToSlug(tp.programId);
+            if (slug === domain) return tp.level;
+            if (parentAliases.includes(slug)) return tp.level;
+            if (tp.programId === domain) return tp.level;
+          }
         }
         return ex.recommendedLevel ?? userLevel;
       };
       const belongsToDomain = (ex: Exercise): boolean => {
-        if (ex.targetPrograms?.some((tp) => tp.programId === domain)) return true;
-        for (const alias of parentAliases) {
-          if (ex.targetPrograms?.some((tp) => tp.programId === alias)) return true;
-        }
+        if (ex.targetPrograms?.some((tp) => {
+          const slug = resolveToSlug(tp.programId);
+          return slug === domain || tp.programId === domain || parentAliases.includes(slug);
+        })) return true;
         return false;
       };
 
@@ -277,29 +422,37 @@ export function selectExercisesWithDomainQuotas(
       });
       rescue = pickVerticalFirst(step1);
 
-      // Step 2: Relaxed level — step down 1 then 2
+      // Step 2: Progressive window — try ±1, ±2, ±3 (prefers closest match)
       if (!rescue) {
-        for (const delta of [1, 2]) {
-          const relaxedLevel = Math.max(1, userLevel - delta);
-          const step2 = pool.filter((ex) => {
-            if (selectedIds.has(ex.id)) return false;
-            if (!belongsToDomain(ex) || !exerciseMatchesProgram(ex, domain)) return false;
-            if (getLevelForDomain(ex) !== relaxedLevel) return false;
-            return hasMethod(ex) && isLocationCompatible(ex);
-          });
-          rescue = pickVerticalFirst(step2);
+        for (const delta of [1, 2, 3]) {
+          const candidates: Exercise[] = [];
+          for (const dir of [1, -1]) {
+            const targetLevel = userLevel + (delta * dir);
+            if (targetLevel < 1) continue;
+            const matched = pool.filter((ex) => {
+              if (selectedIds.has(ex.id)) return false;
+              if (!belongsToDomain(ex) || !exerciseMatchesProgram(ex, domain)) return false;
+              if (getLevelForDomain(ex) !== targetLevel) return false;
+              return hasMethod(ex) && isLocationCompatible(ex);
+            });
+            candidates.push(...matched);
+          }
+          rescue = pickVerticalFirst(candidates);
           if (rescue) break;
         }
       }
 
-      // Step 3: Broad muscle fallback — any matching exercise within level cap
+      // Step 3: Broad muscle fallback — closest match within ±5, floored
+      // For high-level users (L10+), never drop below L(user-5) to avoid
+      // regression to beginner exercises.
       if (!rescue) {
-        const levelCap = userLevel + 2;
+        const levelFloor = userLevel >= 10 ? Math.max(1, userLevel - 5) : 1;
+        const levelCap = userLevel + 3;
         const muscleFallback = pool.filter((ex) => {
           if (selectedIds.has(ex.id)) return false;
           if (!exerciseMatchesProgram(ex, domain)) return false;
           const lvl = getLevelForDomain(ex);
-          if (typeof lvl !== 'number' || lvl < 1 || lvl > levelCap) return false;
+          if (typeof lvl !== 'number' || lvl < levelFloor || lvl > levelCap) return false;
           return hasMethod(ex) && isLocationCompatible(ex);
         });
         if (muscleFallback.length > 0) {

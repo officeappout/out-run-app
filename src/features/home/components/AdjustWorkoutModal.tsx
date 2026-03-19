@@ -799,9 +799,10 @@ function StatBox({ label, value }: { label: string; value: string }) {
 /** Exercise row — card-based design matching HTML reference (no rest timer) */
 function ExerciseRow({ ex, index }: { ex: WorkoutExercise; index: number }) {
   const name = getLocalizedText(ex.exercise.name, 'he');
+  const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
   const volume = ex.isTimeBased
     ? `${ex.sets} × ${ex.reps} שניות`
-    : `${ex.sets} × ${ex.reps} חזרות`;
+    : `${ex.sets} × ${ex.reps} חזרות${perSide}`;
 
   // Resolve image
   const methodMedia = ex.exercise.execution_methods?.[0]?.media || ex.exercise.executionMethods?.[0]?.media;

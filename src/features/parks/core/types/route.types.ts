@@ -51,6 +51,8 @@ export interface Exercise {
   isTimeBased?: boolean;
   /** Number of sets (from WorkoutGenerator) */
   sets?: number;
+  /** Exercise symmetry — unilateral exercises require per-side logging */
+  symmetry?: 'bilateral' | 'unilateral';
 }
 
 export interface RouteSegment {

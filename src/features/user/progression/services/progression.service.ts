@@ -392,10 +392,19 @@ export async function getMasterProgramProgress(
       }
     }
 
-    // Calculate weighted average
-    const domainCount = subProgramIds.length;
-    const displayLevel = Math.floor(totalLevel / domainCount);
-    const displayPercent = totalPercent / domainCount;
+    // Master level = Avg of child tracks, with per-master exclusions and caps.
+    // full_body: Avg(push, pull, legs) — core excluded, capped at 15.
+    const EXCLUDED_FROM_AVG: Record<string, string[]> = { full_body: ['core'] };
+    const MASTER_CAP: Record<string, number> = { full_body: 15 };
+
+    const excluded = EXCLUDED_FROM_AVG[masterProgramId] ?? [];
+    const avgChildren = subPrograms.filter(sp => !excluded.includes(sp.programId));
+    const avgCount = avgChildren.length || 1;
+    const avgLevel = avgChildren.reduce((sum, sp) => sum + sp.level, 0) / avgCount;
+    const avgPercent = avgChildren.reduce((sum, sp) => sum + sp.percent, 0) / avgCount;
+    const cap = MASTER_CAP[masterProgramId] ?? Infinity;
+    const displayLevel = Math.min(cap, Math.round(avgLevel));
+    const displayPercent = avgPercent;
 
     return {
       displayLevel,

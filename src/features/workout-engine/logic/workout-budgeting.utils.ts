@@ -9,8 +9,8 @@
  */
 
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
-import { ScoredExercise } from './ContextualEngine';
-import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority } from './workout-selection.utils';
+import type { ScoredExercise } from './contextual-engine.types';
+import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains } from './workout-selection.utils';
 import {
   DifficultyLevel,
   ExercisePriority,
@@ -21,6 +21,8 @@ import {
   TierName,
   TierConfig,
   TIER_TABLE,
+  MATCH_HORIZONTAL_REPS,
+  HORIZONTAL_MOVEMENT_GROUPS,
   resolveTier,
   restSafetyFloor,
 } from './workout-generator.types';
@@ -380,14 +382,23 @@ export function assignVolume(
       sets = Math.max(2, Math.round(sets * (1 - volumeAdjustment.reductionPercent / 100)));
     }
 
+    // Absolute floor: no exercise should ever have fewer than 2 sets
+    sets = Math.max(2, sets);
+
     let reps: number;
+
+    const movementGroup = exercise.movementGroup;
+    const isHorizontalMatch = tierName === 'match'
+      && movementGroup != null
+      && HORIZONTAL_MOVEMENT_GROUPS.has(movementGroup);
 
     if (timeBased) {
       reps = calculateHoldTimeTier(exercise, tier, tierName);
     } else {
-      reps = tier.reps.min + Math.floor(Math.random() * (tier.reps.max - tier.reps.min + 1));
+      const repRange = isHorizontalMatch ? MATCH_HORIZONTAL_REPS : tier.reps;
+      reps = repRange.min + Math.floor(Math.random() * (repRange.max - repRange.min + 1));
       if (volumeAdjustment.reductionPercent > 0) {
-        reps = Math.max(tier.reps.min, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
+        reps = Math.max(repRange.min, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
       }
     }
 
@@ -399,9 +410,10 @@ export function assignVolume(
 
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
 
+    const effectiveRepRange = isHorizontalMatch ? MATCH_HORIZONTAL_REPS : tier.reps;
     const repsRange = timeBased
       ? { min: tier.hold.min, max: tier.hold.max }
-      : { min: tier.reps.min, max: tier.reps.max };
+      : { min: effectiveRepRange.min, max: effectiveRepRange.max };
 
     const exerciseId = scored.exercise.id;
     const isGoalExercise = context.goalExerciseIds?.has(exerciseId) ?? false;
@@ -424,20 +436,20 @@ export function assignVolume(
 
     const resolvedProgramLevel = (() => {
       if (scored.programLevel != null && scored.programLevel > 0) return scored.programLevel;
-      const ex = scored.exercise;
-      const domains = context.requiredDomains ?? [];
-      const userLevels = context.userProgramLevels;
-
-      for (const domain of domains) {
-        const parentAliases = DOMAIN_PARENT_MAP[domain] ?? [];
-        const tp = ex.targetPrograms?.find((t) => t.programId === domain)
-          ?? ex.targetPrograms?.find((t) => parentAliases.includes(t.programId));
-        if (tp?.level != null) {
-          return tp.level;
-        }
-      }
-      return userLevels?.get(domains[0]) ?? context.userLevel ?? 1;
+      // Domain-aware fallback: resolve from targetPrograms matching active domains
+      const activeDomains = context.requiredDomains as string[] | undefined;
+      return resolveExerciseLevelForDomains(scored.exercise, activeDomains).level;
     })();
+
+    const volumeReasoning = [
+      ...scored.reasoning,
+      `tier:${tierName}(delta=${delta >= 0 ? '+' : ''}${delta})`,
+      isHorizontalMatch
+        ? `reps:${reps}(horizontal ${effectiveRepRange.min}-${effectiveRepRange.max})`
+        : `reps:${reps}(${effectiveRepRange.min}-${effectiveRepRange.max})`,
+      `sets:${sets}`,
+      `rest:${restSeconds}s`,
+    ];
 
     return {
       exercise: scored.exercise,
@@ -450,7 +462,7 @@ export function assignVolume(
       restSeconds,
       priority,
       score: scored.score,
-      reasoning: scored.reasoning,
+      reasoning: volumeReasoning,
       programLevel: resolvedProgramLevel,
       isOverLevel,
       tier: tierName,
@@ -478,8 +490,8 @@ export function applySmartSetCap(
   const setsPerExerciseWhenTight = Math.max(1, Math.floor(cap / domainCount));
   const budgetTight = cap < exercises.length * 3;
 
-  const compoundMin = budgetTight ? Math.max(1, setsPerExerciseWhenTight) : 3;
-  const skillMin = budgetTight ? Math.max(1, setsPerExerciseWhenTight) : 2;
+  const compoundMin = budgetTight ? Math.max(2, setsPerExerciseWhenTight) : 3;
+  const skillMin = budgetTight ? Math.max(2, setsPerExerciseWhenTight) : 2;
 
   const reductionOrder: ExercisePriority[] = ['isolation', 'accessory', 'compound', 'skill'];
   const minSetsByPriority: Record<ExercisePriority, number> = {

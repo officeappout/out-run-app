@@ -25,6 +25,8 @@ import {
 import { calculateWeeklyBudget } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 
+import { getBaseUserLevel } from '../level-resolution.utils';
+
 const HABIT_BUILDER_SESSION_TYPES: SessionType[] = ['habit_builder', 'habit_builder_ultra'];
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
@@ -38,30 +40,6 @@ function getHebrewDayForDate(isoDate: string): string {
 function getScheduleDayIndex(selectedDate: string, scheduleDays: string[]): number {
   const letter = getHebrewDayForDate(selectedDate);
   return scheduleDays.indexOf(letter);
-}
-
-/**
- * Get the base user level from progression (highest domain level).
- */
-function getBaseUserLevel(profile: UserFullProfile): number {
-  const domains = profile.progression?.domains ?? {};
-  const tracks = profile.progression?.tracks ?? {};
-  let maxLevel = 1;
-
-  for (const [domainId, domainData] of Object.entries(domains)) {
-    const trackLevel = tracks[domainId]?.currentLevel;
-    const domainLevel = domainData?.currentLevel;
-    const level = trackLevel ?? domainLevel ?? 1;
-    if (level > maxLevel) maxLevel = level;
-  }
-
-  for (const [trackId, trackData] of Object.entries(tracks)) {
-    if (!domains[trackId] && trackData?.currentLevel && trackData.currentLevel > maxLevel) {
-      maxLevel = trackData.currentLevel;
-    }
-  }
-
-  return maxLevel;
 }
 
 /**

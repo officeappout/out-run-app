@@ -154,6 +154,22 @@ export default function StrengthRunner({
 
   const showHeader = sm.workoutState !== 'PREPARING';
   const isResting = sm.workoutState === 'RESTING';
+  const isUnilateral = sm.activeExercise?.symmetry === 'unilateral';
+
+  // ── Unilateral per-side state ─────────────────────────────────────────
+  const [repsRight, setRepsRight] = useState(pickerInitialValue);
+  const [repsLeft, setRepsLeft] = useState(pickerInitialValue);
+
+  // Reset per-side values when exercise changes
+  useEffect(() => {
+    setRepsRight(pickerInitialValue);
+    setRepsLeft(pickerInitialValue);
+  }, [sm.activeExercise?.id, pickerInitialValue]);
+
+  const handleUnilateralSave = useCallback(() => {
+    const effective = Math.min(repsRight, repsLeft);
+    sm.handleRepetitionSave(effective, { left: repsLeft, right: repsRight });
+  }, [repsRight, repsLeft, sm.handleRepetitionSave]);
 
   // ── Log Drawer content (slot into RestWithPreview) ───────────────────────
 
@@ -166,26 +182,56 @@ export default function StrengthRunner({
         className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        {pickerUnitType === 'time' ? 'כמה שניות החזקת?' : 'כמה חזרות עשית?'}
+        {pickerUnitType === 'time' ? 'כמה שניות החזקת?' : isUnilateral ? 'כמה חזרות לכל צד?' : 'כמה חזרות עשית?'}
       </h2>
       <p
         className="text-[11px] text-slate-500 dark:text-zinc-400 text-center mb-1"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
-        יעד: {pickerTargetValue} {pickerUnitType === 'reps' ? 'חזרות' : 'שניות'}
+        יעד: {pickerTargetValue} {pickerUnitType === 'reps' ? 'חזרות' : 'שניות'}{isUnilateral ? ' (לכל צד)' : ''}
       </p>
 
-      <HorizontalPicker
-        min={pickerUnitType === 'time' ? 0 : 1}
-        max={pickerMax}
-        targetValue={pickerTargetValue}
-        value={sm.completedReps ?? pickerInitialValue}
-        onChange={sm.setCompletedReps}
-        unitType={pickerUnitType}
-      />
+      {isUnilateral && pickerUnitType === 'reps' ? (
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <p className="text-xs text-center text-slate-500 dark:text-zinc-400 mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
+            <HorizontalPicker
+              min={1}
+              max={pickerMax}
+              targetValue={pickerTargetValue}
+              value={repsRight}
+              onChange={setRepsRight}
+              unitType="reps"
+            />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs text-center text-slate-500 dark:text-zinc-400 mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
+            <HorizontalPicker
+              min={1}
+              max={pickerMax}
+              targetValue={pickerTargetValue}
+              value={repsLeft}
+              onChange={setRepsLeft}
+              unitType="reps"
+            />
+          </div>
+        </div>
+      ) : (
+        <HorizontalPicker
+          min={pickerUnitType === 'time' ? 0 : 1}
+          max={pickerMax}
+          targetValue={pickerTargetValue}
+          value={sm.completedReps ?? pickerInitialValue}
+          onChange={sm.setCompletedReps}
+          unitType={pickerUnitType}
+        />
+      )}
 
       <button
-        onClick={() => sm.handleRepetitionSave(sm.completedReps ?? pickerInitialValue)}
+        onClick={isUnilateral && pickerUnitType === 'reps'
+          ? handleUnilateralSave
+          : () => sm.handleRepetitionSave(sm.completedReps ?? pickerInitialValue)
+        }
         className="w-full mt-2 h-10 bg-[#00B4FF] hover:bg-[#00A0E0] text-white rounded-lg font-bold text-sm shadow-lg active:scale-[0.98] transition-all"
         style={{ fontFamily: 'var(--font-simpler)' }}
       >

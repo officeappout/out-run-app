@@ -85,6 +85,12 @@ export interface TagResolverContext {
   targetDistanceLabel?: string;
   /** Current program phase (for @שלב_תוכנית tag, e.g. 'base' → 'בניית בסיס') */
   programPhase?: string;
+  /** Running workout category key (for @סוג_ריצה tag, e.g. 'short_intervals' → 'אינטרוולים קצרים') */
+  runningCategory?: string;
+  /** Current week number in the running plan (1-based, for @שבוע tag) */
+  weekNumber?: number;
+  /** Total weeks in the running plan (for @שבוע_מתוך tag, e.g. "שבוע 4 מתוך 12") */
+  totalWeeks?: number;
 
   // === Logic Cue Context (Coach's Note) ===
   /** Intensity reasoning, e.g. "מנוחה מקוצרת ל-45 שניות ללחץ מטבולי" */
@@ -93,6 +99,22 @@ export interface TagResolverContext {
   challengeType?: string;
   /** Equipment adaptation, e.g. "חלופות משקל גוף בלבד – ללא ציוד" */
   equipmentAdaptation?: string;
+
+  // === Strategic Coaching Context ===
+  /** Domain with the lowest weekly set-quota completion %, e.g. "דחיפה" */
+  weeklyGapDomain?: string;
+  /** Weekly gap percentage (0-100) for that domain */
+  weeklyGapPercent?: number;
+  /** User's current streak in consecutive training days */
+  streakDays?: number;
+  /** Display name of today's progression step, e.g. "Diamond Push-ups 3×8" */
+  currentProgressionStep?: string;
+  /** Average rep count for the workout (used to derive physiological focus) */
+  avgRepCount?: number;
+  /** Completed sets this week (across all domains) */
+  weeklyCompletedSets?: number;
+  /** Defined weekly set quota (target) */
+  weeklySetQuota?: number;
 }
 
 /**
@@ -152,6 +174,7 @@ export function resolveNotificationText(
     school_student: 'תלמיד',
     office_worker: 'עובד משרד',
     remote_worker: 'עובד מהבית',
+    high_tech: 'הייטקיסט',
     athlete: 'ספורטאי',
     senior: 'גיל הזהב',
     reservist: 'מילואימניק',
@@ -753,6 +776,125 @@ export function resolveDescription(
     return context.programPhase || '';
   });
 
+  const RUN_CATEGORY_LABELS_HE: Record<string, string> = {
+    short_intervals: 'אינטרוולים קצרים',
+    long_intervals: 'אינטרוולים ארוכים',
+    fartlek_easy: 'פארטלק קל',
+    fartlek_structured: 'פארטלק מובנה',
+    tempo: 'ריצת טמפו',
+    hill_long: 'עליות ארוכות',
+    hill_short: 'עליות קצרות',
+    hill_sprints: 'ספרינט עליות',
+    long_run: 'ריצה ארוכה',
+    easy_run: 'ריצה קלה',
+    strides: 'סטריידים',
+    recovery: 'התאוששות',
+  };
+
+  resolved = resolved.replace(/@סוג_ריצה/g, () => {
+    if (context.runningCategory) {
+      return RUN_CATEGORY_LABELS_HE[context.runningCategory] || context.runningCategory;
+    }
+    return '';
+  });
+
+  resolved = resolved.replace(/@שבוע_מתוך/g, () => {
+    if (context.weekNumber !== undefined && context.totalWeeks) {
+      return `שבוע ${context.weekNumber} מתוך ${context.totalWeeks}`;
+    }
+    if (context.weekNumber !== undefined) {
+      return `שבוע ${context.weekNumber}`;
+    }
+    return '';
+  });
+
+  resolved = resolved.replace(/@שבוע/g, () => {
+    return context.weekNumber !== undefined ? String(context.weekNumber) : '';
+  });
+
+  // ── English CamelCase Aliases (for JSON content bundles) ─────────
+  resolved = resolved.replace(/@basePace/g, () => {
+    if (context.runningBasePace && context.runningBasePace > 0) {
+      const mins = Math.floor(context.runningBasePace / 60);
+      const secs = Math.round(context.runningBasePace % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    return '';
+  });
+
+  resolved = resolved.replace(/@targetDistanceLabel/g, () => {
+    return context.targetDistanceLabel || '';
+  });
+
+  resolved = resolved.replace(/@programPhase/g, () => {
+    if (context.programPhase && PHASE_LABELS_HE[context.programPhase]) {
+      return PHASE_LABELS_HE[context.programPhase];
+    }
+    return context.programPhase || '';
+  });
+
+  resolved = resolved.replace(/@runningCategory/g, () => {
+    if (context.runningCategory) {
+      return RUN_CATEGORY_LABELS_HE[context.runningCategory] || context.runningCategory;
+    }
+    return '';
+  });
+
+  resolved = resolved.replace(/@weekNumber/g, () => {
+    return context.weekNumber !== undefined ? String(context.weekNumber) : '';
+  });
+
+  // ── Strategic Coaching Tags (הערות מאמן) ─────────────────────────
+
+  // @פער_שבועי — domain with lowest weekly quota completion
+  resolved = resolved.replace(/@פער_שבועי/g, () => {
+    if (context.weeklyGapDomain) {
+      const pct = context.weeklyGapPercent !== undefined ? ` (${Math.round(context.weeklyGapPercent)}%)` : '';
+      return `${context.weeklyGapDomain}${pct}`;
+    }
+    return 'מאוזן';
+  });
+
+  // @סיבת_רצף — streak/inactivity-based coaching cue
+  resolved = resolved.replace(/@סיבת_רצף/g, () => {
+    const inactive = context.daysInactive ?? 0;
+    const streak = context.streakDays ?? 0;
+
+    if (inactive > 3) return 'חזרה הדרגתית — הגוף צריך זמן להסתגל מחדש';
+    if (streak >= 14) return 'בונוס עקביות — רצף מרשים של אימונים!';
+    if (streak >= 7) return 'שבוע חזק — תנו לגוף את מה שהוא צריך';
+    if (streak >= 3) return 'מומנטום — שלושה ימים רצופים, תמשיך ככה';
+    return 'התחלה טובה';
+  });
+
+  // @סקייל_נוכחי — today's progression step name
+  resolved = resolved.replace(/@סקייל_נוכחי/g, () => {
+    return context.currentProgressionStep || 'השלב הנוכחי';
+  });
+
+  // @מיקוד_פיזיולוגי — map rep range to training goal
+  resolved = resolved.replace(/@מיקוד_פיזיולוגי/g, () => {
+    const reps = context.avgRepCount;
+    if (reps === undefined || reps === null || reps <= 0) return 'אימון כללי';
+    if (reps <= 5) return 'כוח מקסימלי';
+    if (reps <= 7) return 'כוח-היפרטרופיה';
+    if (reps <= 12) return 'היפרטרופיה';
+    if (reps <= 14) return 'סיבולת-היפרטרופיה';
+    return 'סיבולת שרירית';
+  });
+
+  // @סטטוס_נפח — weekly volume status vs quota
+  resolved = resolved.replace(/@סטטוס_נפח/g, () => {
+    const completed = context.weeklyCompletedSets;
+    const quota = context.weeklySetQuota;
+    if (completed === undefined || quota === undefined || quota <= 0) return '';
+    const pct = Math.round((completed / quota) * 100);
+    if (pct >= 100) return `הושלם (${completed}/${quota} סטים)`;
+    if (pct >= 80) return `כמעט שם — ${completed}/${quota} סטים (${pct}%)`;
+    if (pct >= 50) return `באמצע — ${completed}/${quota} סטים (${pct}%)`;
+    return `בתחילת הדרך — ${completed}/${quota} סטים (${pct}%)`;
+  });
+
   // ── Logic Cue Tags (Coach's Note) ─────────────────────────────────
 
   resolved = resolved.replace(/@סיבת_עצימות/g, () => {
@@ -999,6 +1141,47 @@ export function getAvailableDescriptionTags(): Array<{
       description: 'שלב נוכחי בתוכנית הריצה (בניית בסיס / בנייה / שיא / הורדת עומסים)',
       example: 'שלב @שלב_תוכנית — @את/ה בדרך הנכונה',
     },
+    {
+      tag: '@סוג_ריצה',
+      description: 'קטגוריית הריצה בעברית (אינטרוולים קצרים / ריצת טמפו / ריצה ארוכה / התאוששות וכו\')',
+      example: 'אימון @סוג_ריצה — @בוא/י נזיז!',
+    },
+    {
+      tag: '@שבוע',
+      description: 'מספר השבוע הנוכחי בתוכנית הריצה (מספר בלבד)',
+      example: 'שבוע @שבוע — @בוא/י נמשיך!',
+    },
+    {
+      tag: '@שבוע_מתוך',
+      description: 'שבוע נוכחי מתוך סה"כ (למשל "שבוע 4 מתוך 12")',
+      example: '@שבוע_מתוך — @את/ה בדרך הנכונה!',
+    },
+    // ── English CamelCase Aliases (for JSON bundles) ──
+    {
+      tag: '@basePace',
+      description: 'English alias for @קצב_בסיס — base pace (min:sec/km)',
+      example: 'Your pace: @basePace per km',
+    },
+    {
+      tag: '@targetDistanceLabel',
+      description: 'English alias for @מרחק_יעד — target distance label',
+      example: 'Training for @targetDistanceLabel',
+    },
+    {
+      tag: '@programPhase',
+      description: 'English alias for @שלב_תוכנית — current program phase',
+      example: '@programPhase phase — keep going!',
+    },
+    {
+      tag: '@runningCategory',
+      description: 'English alias for @סוג_ריצה — running category in Hebrew',
+      example: '@runningCategory workout today',
+    },
+    {
+      tag: '@weekNumber',
+      description: 'English alias for @שבוע — current week number',
+      example: 'Week @weekNumber — let\'s go!',
+    },
     // ── Level Goal Tags ──
     {
       tag: '@תרגיל_יעד',
@@ -1014,6 +1197,32 @@ export function getAvailableDescriptionTags(): Array<{
       tag: '@אחוז_התקדמות_רמה',
       description: 'אחוז ההתקדמות לקראת הרמה הבאה',
       example: '@את/ה ב-@אחוז_התקדמות_רמה עד לרמה הבאה',
+    },
+    // ── Strategic Coaching Tags (הערות מאמן) ──
+    {
+      tag: '@פער_שבועי',
+      description: 'הדומיין עם אחוז ההשלמה הנמוך ביותר השבוע (למשל "דחיפה (35%)")',
+      example: 'הפער הגדול השבוע: @פער_שבועי — שים דגש',
+    },
+    {
+      tag: '@סיבת_רצף',
+      description: 'הודעת אימון לפי רצף/אי-פעילות (חזרה הדרגתית / בונוס עקביות)',
+      example: '@סיבת_רצף',
+    },
+    {
+      tag: '@סקייל_נוכחי',
+      description: 'שם שלב ההתקדמות הנוכחי (למשל "Diamond Push-ups 3×8")',
+      example: 'היום @את/ה עובד/ת על @סקייל_נוכחי',
+    },
+    {
+      tag: '@מיקוד_פיזיולוגי',
+      description: 'מיפוי טווח חזרות ליעד (כוח / היפרטרופיה / סיבולת)',
+      example: 'מיקוד היום: @מיקוד_פיזיולוגי',
+    },
+    {
+      tag: '@סטטוס_נפח',
+      description: 'סטטוס נפח שבועי מול מכסה (למשל "כמעט שם — 18/24 סטים (75%)")',
+      example: 'נפח שבועי: @סטטוס_נפח',
     },
   ];
 }

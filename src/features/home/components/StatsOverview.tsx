@@ -83,7 +83,8 @@ function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
           const name = getLocalizedText(ex.exercise.name);
           const isGoal = ex.isGoalExercise;
           const range = ex.repsRange;
-          const unit = ex.isTimeBased ? 'שניות' : 'חזרות';
+          const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
+          const unit = (ex.isTimeBased ? 'שניות' : 'חזרות') + perSide;
 
           // Build the range string: "3×6-12 חזרות" or "3×10 חזרות"
           const rangeStr = range && range.min !== range.max

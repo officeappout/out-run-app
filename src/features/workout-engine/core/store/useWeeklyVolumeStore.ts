@@ -34,6 +34,8 @@ export interface StrengthVolumeMetrics {
   intenseSessionsCompleted: number;
   /** Per-domain completed sets this week (e.g. { push: 8, pull: 6, legs: 4, core: 3 }) */
   domainSetsCompleted: Record<string, number>;
+  /** Total straight-arm (static) sets completed this week */
+  saSetsCompleted: number;
 }
 
 /**
@@ -212,6 +214,7 @@ const initialStrength: StrengthVolumeMetrics = {
   weeklyBudget: 0,
   intenseSessionsCompleted: 0,
   domainSetsCompleted: {},
+  saSetsCompleted: 0,
 };
 
 const initialRunning: RunningVolumeMetrics = {
@@ -265,6 +268,7 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
     durationMinutes?: number,
     domainSets?: Record<string, number>,
     exerciseIds?: string[],
+    saSets?: number,
   ) => {
     set((state) => {
       const log: SessionLog = {
@@ -314,6 +318,7 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
               ? state.strength.intenseSessionsCompleted + 1
               : state.strength.intenseSessionsCompleted,
           domainSetsCompleted: updatedDomainSets,
+          saSetsCompleted: state.strength.saSetsCompleted + (saSets ?? 0),
         },
         activeMinutes: updatedActiveMinutes,
         sessionLogs: [...state.sessionLogs, log],
@@ -379,6 +384,10 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
 
   getDomainSetsCompleted: () => {
     return { ...get().strength.domainSetsCompleted };
+  },
+
+  getSASetsCompleted: () => {
+    return get().strength.saSetsCompleted;
   },
 
   getRecentExerciseIds: (lastN = 2) => {

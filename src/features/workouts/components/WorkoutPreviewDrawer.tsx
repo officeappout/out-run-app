@@ -1426,12 +1426,13 @@ function GeneratedWorkoutExerciseList({
 
                 // Range-based display (no sets prefix -- sets visible in section header)
                 const volume = (() => {
+                  const uniLabel = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
                   if (ex.repsRange && ex.repsRange.min !== ex.repsRange.max) {
                     const unit = ex.isTimeBased ? 'שניות' : 'חזרות';
                     const goalSuffix = ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : '';
-                    return `${ex.repsRange.min}-${ex.repsRange.max} ${unit}${goalSuffix}`;
+                    return `${ex.repsRange.min}-${ex.repsRange.max} ${unit}${uniLabel}${goalSuffix}`;
                   }
-                  return ex.isTimeBased ? `${ex.reps} שניות` : `${ex.reps} חזרות`;
+                  return ex.isTimeBased ? `${ex.reps} שניות` : `${ex.reps} חזרות${uniLabel}`;
                 })();
 
                 const imageUrl = resolveExerciseImage(ex);

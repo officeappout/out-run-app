@@ -27,7 +27,7 @@ export interface HomeWorkoutOptions {
   /** User's full Firestore profile */
   userProfile: UserFullProfile;
 
-  /** Current execution location (default: 'home') */
+  /** Current execution location (default: 'park' — has mapped videos) */
   location?: ExecutionLocation;
 
   /** Intent mode (default: 'normal') */
@@ -77,6 +77,8 @@ export interface HomeWorkoutOptions {
   preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset')[];
   /** straightArmRatio from ProgramLevelSettings (SA/BA tendonitis guard) */
   straightArmRatio?: number;
+  /** Straight-arm sets completed this week (from WeeklyVolumeStore) */
+  weeklySASets?: number;
   /** levelDefaultRestSeconds from ProgramLevelSettings */
   levelDefaultRestSeconds?: number;
   /** restMultiplier from ProgramLevelSettings */

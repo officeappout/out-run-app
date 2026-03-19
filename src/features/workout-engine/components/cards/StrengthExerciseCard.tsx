@@ -30,6 +30,8 @@ interface StrengthExerciseCardProps {
   rampedTarget?: number;
   /** Whether this card is inside a superset group (removes redundant left border) */
   isInSuperset?: boolean;
+  /** Exercise symmetry — unilateral exercises show '(לכל צד)' suffix */
+  symmetry?: 'bilateral' | 'unilateral';
 }
 
 /**
@@ -51,13 +53,15 @@ export default function StrengthExerciseCard({
   isTimeBased,
   rampedTarget,
   isInSuperset,
+  symmetry,
 }: StrengthExerciseCardProps) {
+  const perSide = symmetry === 'unilateral' ? ' (לכל צד)' : '';
   // Build range-based display string (no sets prefix -- sets shown in session structure)
   const rangeDisplay = (() => {
     if (repsRange && repsRange.min !== repsRange.max) {
       const unit = isTimeBased ? 'שניות' : 'חזרות';
       const targetSuffix = rampedTarget ? ` (יעד: ${rampedTarget})` : '';
-      return `${repsRange.min}-${repsRange.max} ${unit}${targetSuffix}`;
+      return `${repsRange.min}-${repsRange.max} ${unit}${perSide}${targetSuffix}`;
     }
     return null;
   })();
