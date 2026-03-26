@@ -217,22 +217,32 @@ export async function approveEditRequest(
 
     // Update the main document based on entity type
     if (request.entityType === 'park') {
-      // Update park using parks service
-      await updatePark(
-        request.entityId,
-        request.newData,
-        adminInfo
-      );
+      if (request.originalData === null) {
+        // New park creation approval: just publish it (no data merge needed)
+        const parkRef = doc(db, 'parks', request.entityId);
+        await updateDoc(parkRef, {
+          contentStatus: 'published',
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        // Existing park edit approval: apply changes via parks service (super admin path)
+        await updatePark(
+          request.entityId,
+          request.newData,
+          adminInfo
+        );
+        // Also mark as published in case it was pending
+        const parkRef = doc(db, 'parks', request.entityId);
+        await updateDoc(parkRef, { contentStatus: 'published', updatedAt: serverTimestamp() });
+      }
     } else if (request.entityType === 'route') {
-      // Update route (would need routes service)
-      // For now, we'll update directly
       const routeRef = doc(db, 'official_routes', request.entityId);
       await updateDoc(routeRef, {
-        ...request.newData,
+        ...(request.originalData === null ? {} : request.newData),
+        contentStatus: 'published',
         updatedAt: serverTimestamp(),
       });
 
-      // Log audit action
       await logAction({
         adminId: adminInfo.adminId,
         adminName: adminInfo.adminName,

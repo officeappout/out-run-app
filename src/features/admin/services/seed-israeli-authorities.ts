@@ -33,6 +33,7 @@ const COORDINATES_MAP: Record<string, { lat: number; lng: number }> = {
   'herzliya': { lat: 32.1636, lng: 34.8443 },
   'kfar-saba': { lat: 32.1715, lng: 34.9068 },
   'beit-shemesh': { lat: 31.7511, lng: 34.9881 },
+  'sderot': { lat: 31.5250, lng: 34.5955 },
   // Regional Councils
   'emek-hefer': { lat: 32.3667, lng: 34.9167 },
   'mateh-yehuda': { lat: 31.7500, lng: 35.0000 },

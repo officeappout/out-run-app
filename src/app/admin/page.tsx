@@ -6,10 +6,10 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Dumbbell, Users, Signal, ClipboardList, Building2, LayoutDashboard, TrendingUp, BarChart3, Lightbulb, Shield, FileText, Map } from 'lucide-react';
+import { Dumbbell, Users, Signal, ClipboardList, Building2, TrendingUp, BarChart3, Lightbulb, Shield, FileText, Map } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
+import { isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import {
   getExecutiveSummary,
   getAuthorityPerformance,
@@ -20,9 +20,7 @@ import {
 } from '@/features/admin/services/cpo-analytics.service';
 import ExecutiveSummary from '@/features/admin/components/cpo-dashboard/ExecutiveSummary';
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
-import ProductInsights from '@/features/admin/components/cpo-dashboard/ProductInsights';
 import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
-import PremiumConversion from '@/features/admin/components/cpo-dashboard/PremiumConversion';
 import OnboardingFunnel from '@/features/admin/components/cpo-dashboard/OnboardingFunnel';
 import PeakHours from '@/features/admin/components/cpo-dashboard/PeakHours';
 
@@ -193,11 +191,26 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
+            {/* Executive Summary */}
+            {executiveSummary && (
+                <ExecutiveSummary data={executiveSummary} loading={dataLoading} />
+            )}
+
+            {/* Authority Performance Table */}
+            {authorityPerformance.length > 0 && (
+                <AuthorityPerformanceTable data={authorityPerformance} loading={dataLoading} />
+            )}
+
             {/* Analytics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <OnboardingFunnel />
                 <PeakHours />
             </div>
+
+            {/* Maintenance Overview */}
+            {maintenanceReports.length > 0 && (
+                <MaintenanceOverview reports={maintenanceReports} loading={dataLoading} />
+            )}
 
             {/* Quick Access Cards */}
                 <div className="space-y-6">

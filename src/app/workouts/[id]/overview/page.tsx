@@ -11,6 +11,7 @@ import StrengthOverviewCard from '@/features/workout-engine/components/StrengthO
 import { WorkoutPlan } from '@/features/parks';
 import { useUserStore } from '@/features/user';
 import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
+import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 /**
  * Fetch workout from Firestore and convert to WorkoutPlan format
@@ -28,6 +29,27 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
     const warmupExercises = exercises.filter((ex) => ex.exerciseRole === 'warmup');
     const mainExercises = exercises.filter((ex) => ex.exerciseRole === 'main' || !ex.exerciseRole);
     const cooldownExercises = exercises.filter((ex) => ex.exerciseRole === 'cooldown');
+
+    const mergeEquipment = (ex: FirestoreExercise): string[] => {
+      const method = ex.execution_methods?.find((m: any) => m.location === 'home') || ex.execution_methods?.[0];
+      const raw = [
+        ...((ex as any).equipment || []),
+        ...((method as any)?.gearIds || []),
+        ...((method as any)?.equipmentIds || []),
+        ...((method as any)?.gearId ? [(method as any).gearId] : []),
+        ...((method as any)?.equipmentId ? [(method as any).equipmentId] : []),
+      ].filter(Boolean);
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const id of raw) {
+        const norm = normalizeGearId(id);
+        if (norm !== 'none' && norm !== 'bodyweight' && !seen.has(norm)) {
+          seen.add(norm);
+          result.push(norm);
+        }
+      }
+      return result;
+    };
 
     // Helper function to resolve image URL
     const resolveImageUrl = (ex: FirestoreExercise): string | undefined => {
@@ -58,6 +80,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
           duration: '60 שניות',
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
+          equipment: mergeEquipment(ex),
         })),
         isCompleted: false,
       });
@@ -78,6 +101,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
           duration: ex.type === 'time' ? '45 שניות' : undefined,
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
+          equipment: mergeEquipment(ex),
         })),
         isCompleted: false,
       });
@@ -97,6 +121,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
           duration: '60 שניות',
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
+          equipment: mergeEquipment(ex),
         })),
         isCompleted: false,
       });
@@ -116,6 +141,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
           reps: '12 חזרות',
           videoUrl: ex.execution_methods?.[0]?.media?.mainVideoUrl || ex.media?.videoUrl,
           imageUrl: resolveImageUrl(ex),
+          equipment: mergeEquipment(ex),
         })),
         isCompleted: false,
       });

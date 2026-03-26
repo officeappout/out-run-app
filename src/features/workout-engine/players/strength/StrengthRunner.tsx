@@ -20,9 +20,9 @@
  * State machine: PREPARING → ACTIVE → RESTING (with isLogDrawerOpen overlay)
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Pause, Play, List, Dumbbell, Replace, ChevronUp, Bell, Square,
+  Pause, Play, Dumbbell, ChevronUp, Square, Check,
 } from 'lucide-react';
 import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
@@ -31,17 +31,19 @@ import HorizontalPicker from './components/HorizontalPicker';
 import WorkoutStoryBars from './components/WorkoutStoryBars';
 import ExerciseVideoPlayer from './components/ExerciseVideoPlayer';
 import FillingButton from './components/FillingButton';
+import IsometricTimerCard from './components/IsometricTimerCard';
 import RestWithPreview from './components/RestWithPreview';
 import WorkoutPlaylist from './playlist/WorkoutPlaylist';
 
 import {
   useWorkoutStateMachine,
   ExerciseResultLog,
+  NextExerciseInfo,
 } from './hooks/useWorkoutStateMachine';
 import { useWorkoutPersistence } from './hooks/useWorkoutPersistence';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import { useMediaSession } from './hooks/useMediaSession';
-import { resolveEquipmentLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentLabel, resolveEquipmentSvgPath } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import ExerciseDetailContent from './components/ExerciseDetailContent';
 
 export type { ExerciseResultLog };
@@ -54,6 +56,8 @@ interface StrengthRunnerProps {
   onPause?: () => void;
   onResume?: () => void;
   onSwapExercise?: (exerciseId: string, segmentIndex: number, exerciseIndex: number) => void;
+  /** Pre-fetched map of exerciseId → last-session confirmed reps, for smart target selection */
+  exerciseHistoryMap?: Record<string, number[]>;
 }
 
 export default function StrengthRunner({
@@ -62,8 +66,9 @@ export default function StrengthRunner({
   onPause,
   onResume,
   onSwapExercise,
+  exerciseHistoryMap,
 }: StrengthRunnerProps) {
-  const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume);
+  const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap);
 
   useWorkoutPersistence({
     workoutId: workout.id,
@@ -117,7 +122,6 @@ export default function StrengthRunner({
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Force expand during PREPARING
   useEffect(() => {
     if (sm.workoutState === 'PREPARING') setIsMinimized(false);
   }, [sm.workoutState]);
@@ -147,98 +151,123 @@ export default function StrengthRunner({
   // ── Picker config ────────────────────────────────────────────────────────
 
   const isTimeExercise = sm.activeExercise?.exerciseType === 'time';
-  const pickerTargetValue = isTimeExercise ? sm.exerciseDuration : (sm.targetReps || 12);
+  // Use dynamicTarget (history-aware) as the picker's goal marker; fall back to targetReps
+  const pickerTargetValue = Math.max(
+    isTimeExercise
+      ? (sm.exerciseDuration > 0 ? sm.exerciseDuration : 30)
+      : (sm.dynamicTarget ?? sm.targetReps ?? 12),
+    1,
+  );
   const pickerUnitType: 'reps' | 'time' = isTimeExercise ? 'time' : 'reps';
-  const pickerMax = isTimeExercise ? 120 : (sm.targetReps ? sm.targetReps * 2 : 50);
+  const pickerMax = isTimeExercise ? 120 : (sm.repsRangeMax ?? (sm.targetReps ? sm.targetReps * 2 : 50));
   const pickerInitialValue = sm.lastSavedReps ?? pickerTargetValue;
+
+  // ── Drawer stability gate: don't render picker until drawer animation settles ──
+  const [isDrawerStable, setIsDrawerStable] = useState(false);
+  const drawerOpenTimeRef = useRef(0);
+
+  useEffect(() => {
+    if (sm.isLogDrawerOpen) {
+      drawerOpenTimeRef.current = Date.now();
+      setIsDrawerStable(false);
+      const timer = setTimeout(() => setIsDrawerStable(true), 280);
+      return () => clearTimeout(timer);
+    }
+    setIsDrawerStable(false);
+  }, [sm.isLogDrawerOpen]);
+
+  // ── Context-Persistence: snapshot current exercise while drawer is open ──
+  // When the log drawer opens, David should see the exercise he just finished
+  // (not the next one). We continuously refresh the snapshot from sm values
+  // while the drawer is open so it stays in sync with any late-arriving data
+  // (e.g. videoUrl resolving after mount). When the drawer closes, we clear
+  // the snapshot so RestWithPreview switches to the next exercise.
+  const currentExerciseSnapshotRef = useRef<NextExerciseInfo | null>(null);
+
+  if (sm.isLogDrawerOpen && sm.activeExercise) {
+    currentExerciseSnapshotRef.current = {
+      name: sm.exerciseName,
+      videoUrl: sm.exerciseVideoUrl,
+      imageUrl: sm.activeExercise.imageUrl ?? null,
+      equipment: sm.activeExercise.equipment
+        ? (Array.isArray(sm.activeExercise.equipment) ? sm.activeExercise.equipment : [sm.activeExercise.equipment])
+        : [],
+      reps: sm.activeExercise.reps,
+      duration: sm.activeExercise.duration,
+      exerciseType: sm.exerciseType,
+      executionSteps: sm.executionSteps,
+      muscleGroups: sm.muscleGroups,
+      exerciseGoal: sm.exerciseGoal,
+      notificationText: null,
+    };
+  } else if (!sm.isLogDrawerOpen) {
+    currentExerciseSnapshotRef.current = null;
+  }
+
+  const restPreviewExercise = sm.isLogDrawerOpen && currentExerciseSnapshotRef.current
+    ? currentExerciseSnapshotRef.current
+    : sm.nextExercise;
+
+  // ── Locked value snapshot: prevent picker initialization from overwriting timer result ──
+  const lockedAchievedRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (sm.isLogDrawerOpen && sm.completedReps != null && sm.completedReps > 0) {
+      if (lockedAchievedRef.current === null) {
+        lockedAchievedRef.current = sm.completedReps;
+      }
+    }
+    if (!sm.isLogDrawerOpen) {
+      lockedAchievedRef.current = null;
+    }
+  }, [sm.isLogDrawerOpen, sm.completedReps]);
+
+  const handlePickerChange = useCallback((newVal: number) => {
+    console.log(`[Runner Link] Received from picker: ${newVal} at ${Date.now() - drawerOpenTimeRef.current}ms since drawer open`);
+    if (newVal <= 0) return;
+    sm.setCompletedReps(newVal);
+  }, [sm.setCompletedReps]);
+
+  // ── Coach Hint (Live Failure / Overachieve Detection) ────────────────────
+
+  const [coachHint, setCoachHint] = useState<'fail' | 'overachieve' | null>(null);
+
+  // Clear hint when exercise changes
+  useEffect(() => {
+    setCoachHint(null);
+  }, [sm.activeExercise?.id]);
 
   const showHeader = sm.workoutState !== 'PREPARING';
   const isResting = sm.workoutState === 'RESTING';
   const isUnilateral = sm.activeExercise?.symmetry === 'unilateral';
 
+  const segTitle = sm.currentSegment?.title || '';
+  const isWarmupSegment = segTitle.includes('חימום') || segTitle.toLowerCase().includes('warmup')
+    || sm.activeExercise?.exerciseRole === 'warmup';
+  const isCooldownSegment = segTitle.includes('שחרור') || segTitle.includes('קירור')
+    || segTitle.toLowerCase().includes('cooldown')
+    || sm.activeExercise?.exerciseRole === 'cooldown';
+
   // ── Unilateral per-side state ─────────────────────────────────────────
   const [repsRight, setRepsRight] = useState(pickerInitialValue);
   const [repsLeft, setRepsLeft] = useState(pickerInitialValue);
 
-  // Reset per-side values when exercise changes
+  // Reset per-side values when exercise or set changes;
+  // for unilateral timed, use the recorded side data from the state machine
   useEffect(() => {
-    setRepsRight(pickerInitialValue);
-    setRepsLeft(pickerInitialValue);
-  }, [sm.activeExercise?.id, pickerInitialValue]);
+    if (sm.pendingSideData) {
+      setRepsRight(sm.pendingSideData.right);
+      setRepsLeft(sm.pendingSideData.left);
+    } else {
+      setRepsRight(pickerInitialValue);
+      setRepsLeft(pickerInitialValue);
+    }
+  }, [sm.activeExercise?.id, sm.currentRound, sm.pendingSideData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUnilateralSave = useCallback(() => {
     const effective = Math.min(repsRight, repsLeft);
     sm.handleRepetitionSave(effective, { left: repsLeft, right: repsRight });
   }, [repsRight, repsLeft, sm.handleRepetitionSave]);
-
-  // ── Log Drawer content (slot into RestWithPreview) ───────────────────────
-
-  const logDrawerContent = (
-    <div
-      className="bg-white dark:bg-[#0F172A] rounded-t-[24px] px-4 pt-3 pb-5 shadow-2xl max-h-[25vh]"
-      dir="rtl"
-    >
-      <h2
-        className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
-        style={{ fontFamily: 'var(--font-simpler)' }}
-      >
-        {pickerUnitType === 'time' ? 'כמה שניות החזקת?' : isUnilateral ? 'כמה חזרות לכל צד?' : 'כמה חזרות עשית?'}
-      </h2>
-      <p
-        className="text-[11px] text-slate-500 dark:text-zinc-400 text-center mb-1"
-        style={{ fontFamily: 'var(--font-simpler)' }}
-      >
-        יעד: {pickerTargetValue} {pickerUnitType === 'reps' ? 'חזרות' : 'שניות'}{isUnilateral ? ' (לכל צד)' : ''}
-      </p>
-
-      {isUnilateral && pickerUnitType === 'reps' ? (
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <p className="text-xs text-center text-slate-500 dark:text-zinc-400 mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
-            <HorizontalPicker
-              min={1}
-              max={pickerMax}
-              targetValue={pickerTargetValue}
-              value={repsRight}
-              onChange={setRepsRight}
-              unitType="reps"
-            />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs text-center text-slate-500 dark:text-zinc-400 mb-1" style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
-            <HorizontalPicker
-              min={1}
-              max={pickerMax}
-              targetValue={pickerTargetValue}
-              value={repsLeft}
-              onChange={setRepsLeft}
-              unitType="reps"
-            />
-          </div>
-        </div>
-      ) : (
-        <HorizontalPicker
-          min={pickerUnitType === 'time' ? 0 : 1}
-          max={pickerMax}
-          targetValue={pickerTargetValue}
-          value={sm.completedReps ?? pickerInitialValue}
-          onChange={sm.setCompletedReps}
-          unitType={pickerUnitType}
-        />
-      )}
-
-      <button
-        onClick={isUnilateral && pickerUnitType === 'reps'
-          ? handleUnilateralSave
-          : () => sm.handleRepetitionSave(sm.completedReps ?? pickerInitialValue)
-        }
-        className="w-full mt-2 h-10 bg-[#00B4FF] hover:bg-[#00A0E0] text-white rounded-lg font-bold text-sm shadow-lg active:scale-[0.98] transition-all"
-        style={{ fontFamily: 'var(--font-simpler)' }}
-      >
-        שמירה והמשך
-      </button>
-    </div>
-  );
 
   // ── Swap handler ─────────────────────────────────────────────────────────
 
@@ -248,6 +277,140 @@ export default function StrengthRunner({
         if (exId) onSwapExercise(exId, sm.currentSegmentIndex, sm.currentExerciseIndex);
       }
     : undefined;
+
+  // ── Log Drawer content (slot into RestWithPreview) ───────────────────────
+
+  const logDrawerContent = (
+    <div
+      className="bg-white dark:bg-[#0F172A] rounded-t-[24px] px-4 pt-2.5 shadow-2xl"
+      dir="rtl"
+      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
+    >
+      <h2
+        className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
+        style={{ fontFamily: 'var(--font-simpler)' }}
+      >
+        {pickerUnitType === 'time'
+          ? isUnilateral ? 'כמה שניות לכל צד?' : 'כמה שניות החזקת?'
+          : isUnilateral ? 'כמה חזרות לכל צד?' : 'כמה חזרות הצלחת מהתרגיל הקודם?'}
+      </h2>
+
+      {!isDrawerStable ? (
+        <div className="w-full h-[72px] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#00B4FF] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : isUnilateral && (pickerUnitType === 'reps' || pickerUnitType === 'time') ? (
+        <div className="space-y-1">
+          {/* Right side picker */}
+          <div>
+            <div className="flex items-center gap-1.5 justify-center mb-0.5">
+              <span className="text-sm">✋</span>
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
+              <span className="text-xs font-semibold text-[#00B4FF]">{repsRight}{pickerUnitType === 'time' ? '"' : ''}</span>
+            </div>
+            <HorizontalPicker
+              min={pickerUnitType === 'time' ? 0 : 1}
+              max={pickerMax}
+              targetValue={pickerTargetValue}
+              value={repsRight}
+              onChange={setRepsRight}
+              unitType={pickerUnitType}
+            />
+          </div>
+
+          {/* Separator */}
+          <div className="h-px bg-slate-200 dark:bg-zinc-700 mx-6" />
+
+          {/* Left side picker */}
+          <div>
+            <div className="flex items-center gap-1.5 justify-center mb-0.5">
+              <span className="text-sm" style={{ transform: 'scaleX(-1)' }}>✋</span>
+              <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
+              <span className="text-xs font-semibold text-[#00B4FF]">{repsLeft}{pickerUnitType === 'time' ? '"' : ''}</span>
+            </div>
+            <HorizontalPicker
+              min={pickerUnitType === 'time' ? 0 : 1}
+              max={pickerMax}
+              targetValue={pickerTargetValue}
+              value={repsLeft}
+              onChange={setRepsLeft}
+              unitType={pickerUnitType}
+            />
+          </div>
+        </div>
+      ) : (() => {
+        const achieved = lockedAchievedRef.current;
+        const pickerValue = (achieved != null && achieved > 0)
+          ? achieved
+          : (sm.completedReps != null && sm.completedReps > 0)
+            ? sm.completedReps
+            : pickerTargetValue;
+        console.log('[Picker Debug] locked:', achieved, 'completedReps:', sm.completedReps, 'target:', pickerTargetValue, '→ value:', pickerValue);
+        return (
+          <HorizontalPicker
+            min={pickerUnitType === 'time' ? 0 : 1}
+            max={pickerMax}
+            targetValue={pickerTargetValue}
+            value={pickerValue}
+            onChange={handlePickerChange}
+            unitType={pickerUnitType}
+          />
+        );
+      })()}
+
+      <button
+        onClick={isUnilateral
+          ? () => {
+              const effective = Math.min(repsRight, repsLeft);
+              const min = sm.repsRangeMin;
+              const max = sm.repsRangeMax;
+              if (pickerUnitType === 'reps') {
+                if (min !== null && effective < min) setCoachHint('fail');
+                else if (max !== null && effective > max) setCoachHint('overachieve');
+                else setCoachHint(null);
+              }
+              handleUnilateralSave();
+            }
+          : () => {
+              const repsToSave = sm.completedReps ?? lockedAchievedRef.current ?? pickerInitialValue ?? pickerTargetValue;
+              if (!repsToSave || repsToSave <= 0) {
+                sm.handleRepetitionSave(pickerTargetValue);
+                return;
+              }
+              const min = sm.repsRangeMin;
+              const max = sm.repsRangeMax;
+              if (min !== null && repsToSave < min) setCoachHint('fail');
+              else if (max !== null && repsToSave > max) setCoachHint('overachieve');
+              else setCoachHint(null);
+              sm.handleRepetitionSave(repsToSave);
+            }
+        }
+        className="w-full mt-3 h-12 rounded-full font-bold text-base text-white shadow-lg active:scale-[0.97] transition-transform"
+        style={{
+          background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
+          fontFamily: 'var(--font-simpler)',
+        }}
+      >
+        שמירה ומעבר למנוחה
+      </button>
+
+      {/* Swap button — consistent with Active screen */}
+      {handleSwap && (
+        <button
+          onClick={handleSwap}
+          className="w-full mt-2 h-10 inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 active:scale-[0.97] transition-transform"
+        >
+          <img src="/assets/icons/ui/swap.svg" className="w-4 h-4 dark:invert" alt="Swap" />
+          <span
+            className="text-sm font-bold text-slate-600 dark:text-slate-300"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            החלפת תרגיל
+          </span>
+        </button>
+      )}
+    </div>
+  );
 
   // ── Phase 4.6: Pause Overlay & Early Exit ───────────────────────────────
 
@@ -259,70 +422,100 @@ export default function StrengthRunner({
   }, [sm.getExerciseLog, onComplete]);
 
   // ========================================================================
+  // REACTIVE SET PROGRESS — same source-of-truth as the Playlist pills
+  // ========================================================================
+
+  const currentExLoggedReps = useMemo(() => {
+    if (!sm.activeExercise) return [];
+    const segId = workout.segments[sm.currentSegmentIndex]?.id || String(sm.currentSegmentIndex);
+    const entry = sm.exerciseLogSnapshot.find(
+      e => e.exerciseId === sm.activeExercise!.id && e.segmentId === segId,
+    );
+    const reps = entry?.confirmedReps ?? [];
+    return Array.from({ length: sm.totalRounds }, (_, i) => reps[i] ?? null);
+  }, [sm.activeExercise, sm.currentSegmentIndex, sm.exerciseLogSnapshot, sm.totalRounds, workout.segments]);
+
+  const firstIncompleteSetIdx = useMemo(() => {
+    const setIdx = sm.currentRound - 1;
+    for (let j = 0; j < currentExLoggedReps.length; j++) {
+      if (currentExLoggedReps[j] === null && j >= setIdx) return j;
+    }
+    return -1;
+  }, [currentExLoggedReps, sm.currentRound]);
+
+  useEffect(() => {
+    console.log(
+      `🖥️ [Big Screen] Snapshot received update. currentExercise reps: [${currentExLoggedReps.join(', ')}] | exercise: ${sm.exerciseName} | t=${performance.now().toFixed(1)}ms`,
+    );
+  }, [sm.exerciseLogSnapshot]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ========================================================================
   // RENDER HELPERS
   // ========================================================================
 
   // ── Mini-player bar (visible when minimized) ─────────────────────────────
 
-  const renderMiniPlayer = () => (
-    <div
-      className="flex items-center h-[72px] px-4 gap-3 cursor-pointer"
-      onClick={() => setIsMinimized(false)}
-      onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest('button')) return;
-        dragControls.start(e);
-      }}
-      style={{ touchAction: 'none' }}
-    >
-      <div className="w-11 h-11 rounded-lg bg-slate-700 overflow-hidden flex-shrink-0">
-        {sm.exerciseVideoUrl ? (
-          <video src={sm.exerciseVideoUrl} className="w-full h-full object-cover" muted playsInline />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Dumbbell size={18} className="text-slate-400" />
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0" dir="rtl">
-        <p className="text-white font-bold text-sm truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
-          {sm.exerciseName}
-        </p>
-        <p className="text-white/50 text-xs tabular-nums" style={{ fontFamily: 'var(--font-simpler)' }}>
-          {sm.formatTime(sm.elapsedTime)}
-        </p>
-      </div>
-
-      <button
-        onClick={(e) => { e.stopPropagation(); sm.togglePause(); }}
-        className="w-10 h-10 flex items-center justify-center"
+  const renderMiniPlayer = () => {
+    return (
+      <div
+        className="flex items-center h-[72px] px-4 gap-3 cursor-pointer"
+        onClick={() => setIsMinimized(false)}
+        onPointerDown={(e) => {
+          if ((e.target as HTMLElement).closest('button')) return;
+          dragControls.start(e);
+        }}
+        style={{ touchAction: 'none' }}
       >
-        {sm.isPaused ? (
-          <Play size={20} className="text-white" fill="white" />
-        ) : (
-          <Pause size={20} className="text-white" />
-        )}
-      </button>
+        <div className="w-11 h-11 rounded-lg bg-slate-700 overflow-hidden flex-shrink-0">
+          {sm.exerciseVideoUrl ? (
+            <video src={sm.exerciseVideoUrl} className="w-full h-full object-cover" muted playsInline />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Dumbbell size={18} className="text-slate-400" />
+            </div>
+          )}
+        </div>
 
-      <ChevronUp size={18} className="text-white/40" />
-    </div>
-  );
+        <div className="flex-1 min-w-0" dir="rtl">
+          <p className="text-white font-bold text-sm truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+            {sm.exerciseName}
+          </p>
+          <p className="text-white/50 text-xs tabular-nums" style={{ fontFamily: 'var(--font-simpler)' }}>
+            {sm.formatTime(sm.elapsedTime)}
+          </p>
+        </div>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); sm.togglePause(); }}
+          className="w-10 h-10 flex items-center justify-center"
+        >
+          {sm.isPaused ? (
+            <Play size={20} className="text-white" fill="white" />
+          ) : (
+            <Pause size={20} className="text-white" />
+          )}
+        </button>
+
+        <ChevronUp size={18} className="text-white/40" />
+      </div>
+    );
+  };
 
   // ── Header overlay (gradient + 3 rows) ──────────────────────────────────
 
   const renderHeader = () => (
     <div
       className={`absolute top-0 left-0 right-0 z-[45] transition-all duration-300 ${
-        isResting ? 'pb-6' : 'pb-4'
+        isResting ? 'pb-20' : 'pb-16'
       }`}
       style={{
         background:
-          'linear-gradient(to bottom, white 0%, rgba(255,255,255,0.95) 40%, rgba(255,255,255,0.7) 65%, rgba(255,255,255,0) 100%)',
+          'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 35%, rgba(255,255,255,0.85) 55%, rgba(255,255,255,0.5) 75%, rgba(255,255,255,0.15) 90%, rgba(255,255,255,0) 100%)',
         touchAction: 'none',
       }}
       onPointerDown={handleHeaderPointerDown}
     >
-      <div className="pt-12 px-4">
+      <div className="px-4" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top, 48px))' }}>
         {/* Row 1: Story Bars */}
         <div className="mb-3">
           <WorkoutStoryBars
@@ -333,84 +526,152 @@ export default function StrengthRunner({
           />
         </div>
 
-        {/* Row 2: Pause | Timer | List */}
-        <div className="flex justify-between items-center mb-3">
+        {/* Row 2: List | Timer/Title (centered) | Pause */}
+        <div className="flex items-center mb-2">
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+          >
+            <img src="/assets/icons/ui/list.svg" className="w-5 h-5 dark:invert" alt="List" />
+          </button>
+
+          <div
+            className="flex-1 text-center text-slate-900 dark:text-white font-bold text-xl tracking-wider tabular-nums"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            {sm.isPaused
+              ? 'הפסקה'
+              : sm.isLogDrawerOpen
+                ? 'התרגיל שביצעת'
+                : isResting
+                  ? 'התרגיל הבא'
+                  : sm.formatTime(sm.elapsedTime)}
+          </div>
+
           <button
             onClick={sm.togglePause}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/10 backdrop-blur-sm"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
           >
             {sm.isPaused ? (
               <Play size={18} className="text-slate-800" fill="currentColor" />
             ) : (
-              <Pause size={18} className="text-slate-800" />
+              <img src="/assets/icons/ui/pause.svg" className="w-5 h-5 dark:invert" alt="Pause" />
             )}
-          </button>
-
-          <div
-            className="text-slate-900 font-bold text-xl tracking-wider tabular-nums"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            {sm.isPaused ? 'הפסקה' : sm.formatTime(sm.elapsedTime)}
-          </div>
-
-          <button
-            onClick={() => setIsMinimized(true)}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/10 backdrop-blur-sm"
-          >
-            <List size={18} className="text-slate-800" />
           </button>
         </div>
 
-        {/* Row 3: Contextual info */}
-        {isResting ? (
-          <div className="text-center" dir="rtl">
-            <p
-              className="text-xs text-slate-500 uppercase tracking-wider mb-0.5"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              התרגיל הבא
-            </p>
-            <h2
-              className="text-xl font-bold text-slate-900 mb-2"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              {sm.nextExercise.name}
-            </h2>
-            {sm.nextExercise.equipment.length > 0 && (
-              <div className="flex justify-center mb-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#00B4FF]/10 border border-[#00B4FF]/30 rounded-full">
-                  <Dumbbell size={14} className="text-[#00B4FF]" />
-                  <span
-                    className="text-xs text-[#00B4FF] font-bold"
-                    style={{ fontFamily: 'var(--font-simpler)' }}
-                  >
-                    {resolveEquipmentLabel(sm.nextExercise.equipment[0])}
-                  </span>
+        {/* Set Pills — reactive to exerciseLogSnapshot */}
+        {!isResting && sm.totalRounds > 1 && !isWarmupSegment && !isCooldownSegment && (
+          <div className="flex justify-end gap-1.5 mb-2">
+            {currentExLoggedReps.map((reps, i) => {
+              const isLogged = reps !== null;
+              const isCurrentActive = i === (firstIncompleteSetIdx >= 0 ? firstIncompleteSetIdx : sm.currentRound - 1);
+              return (
+                <div
+                  key={i}
+                  className={[
+                    'w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all duration-300',
+                    isLogged
+                      ? 'text-white shadow-sm'
+                      : isCurrentActive
+                        ? 'bg-white dark:bg-slate-800 text-[#00BAF7]'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
+                  ].join(' ')}
+                  style={
+                    isLogged
+                      ? { background: 'linear-gradient(to left, #00BAF7, #0CF2E3)' }
+                      : isCurrentActive
+                        ? { border: '2px solid #00BAF7' }
+                        : { border: '1px solid #E0E9FF' }
+                  }
+                >
+                  {isLogged ? <Check size={12} strokeWidth={3} /> : i + 1}
                 </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Row 3: Equipment Pills (right/RTL) | Name+Reps (left/RTL) */}
+        {isResting && !sm.isLogDrawerOpen ? (
+          <div className="flex flex-row-reverse items-center justify-between w-full py-1" dir="rtl">
+            {restPreviewExercise.equipment.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {restPreviewExercise.equipment.map((eqId: string) => {
+                  const svgPath = resolveEquipmentSvgPath(eqId);
+                  return (
+                    <div
+                      key={eqId}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    >
+                      {svgPath && svgPath.startsWith('/') ? (
+                        <img
+                          src={svgPath}
+                          alt=""
+                          width={14}
+                          height={14}
+                          className="brightness-0 dark:brightness-100"
+                          onError={(e) => {
+                            const img = e.currentTarget as HTMLImageElement;
+                            img.removeAttribute('src');
+                            img.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <Dumbbell size={14} className="text-black dark:text-white" />
+                      )}
+                      <span
+                        className="text-xs font-normal text-slate-700 dark:text-slate-200"
+                        style={{ fontFamily: 'var(--font-simpler)' }}
+                      >
+                        {resolveEquipmentLabel(eqId)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
-            {sm.nextExercise.reps && (
-              <p className="text-xs text-slate-400" style={{ fontFamily: 'var(--font-simpler)' }}>
-                {sm.nextExercise.reps}
+            <div className="flex flex-col items-start min-w-0">
+              <p
+                className="font-semibold text-slate-900 dark:text-white truncate max-w-full"
+                style={{ fontFamily: 'var(--font-simpler)', fontSize: '14px', lineHeight: '20px' }}
+              >
+                {sm.isSupersetActive && sm.supersetPartnerName
+                  ? `⟳ ${restPreviewExercise.name}`
+                  : restPreviewExercise.name}
               </p>
-            )}
-            {sm.totalRounds > 1 && (
-              <p className="text-[11px] text-[#00B4FF] font-bold mt-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-                סט {sm.currentRound} מתוך {sm.totalRounds}
-              </p>
-            )}
-            {sm.nextExercise.notificationText && (
-              <div className="flex justify-center mt-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full max-w-[90%]">
-                  <Bell size={12} className="text-amber-500 flex-shrink-0" />
-                  <span className="text-[11px] text-amber-700 font-medium leading-tight" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    {sm.nextExercise.notificationText}
-                  </span>
-                </div>
-              </div>
-            )}
+              {restPreviewExercise.reps && (
+                <p
+                  className="font-normal text-slate-900 dark:text-white"
+                  style={{ fontFamily: 'var(--font-simpler)', fontSize: '14px', lineHeight: '20px' }}
+                >
+                  {restPreviewExercise.reps}
+                </p>
+              )}
+            </div>
           </div>
         ) : null}
+
+        {/* Preparation cue banner — below Row 3, only during rest */}
+        {isResting && !sm.isLogDrawerOpen && restPreviewExercise.notificationText && (
+          <div className="mt-3 mx-1" dir="rtl">
+            <div
+              className="flex items-start gap-2.5 px-3.5 py-3 rounded-2xl border"
+              style={{
+                background: 'rgba(219, 234, 254, 0.6)',
+                borderColor: 'rgba(191, 219, 254, 0.8)',
+              }}
+            >
+              <span className="text-base flex-shrink-0 mt-px">💡</span>
+              <p
+                className="text-xs font-semibold text-slate-700 leading-relaxed"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                {restPreviewExercise.notificationText}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -459,13 +720,67 @@ export default function StrengthRunner({
           <RestWithPreview
             restTimeLeft={sm.restTimeLeft}
             formatTime={sm.formatTime}
-            nextExercise={sm.nextExercise}
+            nextExercise={restPreviewExercise}
             logDrawerNode={logDrawerContent}
             isLogDrawerOpen={sm.isLogDrawerOpen}
             onSkip={sm.skipRest}
             isPaused={sm.isPaused}
-            videoKey={`${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
+            videoKey={sm.isLogDrawerOpen
+              ? `current-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`
+              : `next-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
           />
+          {/* Coach hint — compact floating notification above rest drawer (hidden on last set) */}
+          <AnimatePresence>
+            {coachHint && !sm.isLogDrawerOpen && sm.currentRound < sm.totalRounds && (
+              <motion.div
+                key="coach-hint"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+                className="absolute left-4 right-4 z-[60]"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom, 16px) + 160px)' }}
+                dir="rtl"
+              >
+                <div className={`rounded-2xl px-3.5 py-2.5 shadow-lg backdrop-blur-sm flex items-center gap-2.5 ${
+                  coachHint === 'fail'
+                    ? 'bg-orange-50/90 border border-orange-200/60 dark:bg-orange-950/80 dark:border-orange-700/50'
+                    : 'bg-emerald-50/90 border border-emerald-200/60 dark:bg-emerald-950/80 dark:border-emerald-700/50'
+                }`}>
+                  <span className="text-base flex-shrink-0">{coachHint === 'fail' ? '💪' : '🔥'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-bold leading-tight ${coachHint === 'fail' ? 'text-orange-700 dark:text-orange-300' : 'text-emerald-700 dark:text-emerald-300'}`} style={{ fontFamily: 'var(--font-simpler)' }}>
+                      {coachHint === 'fail' ? 'קשה מדי?' : 'קל מדי?'}
+                    </p>
+                    <p className={`text-[11px] leading-tight mt-0.5 ${coachHint === 'fail' ? 'text-orange-600/80 dark:text-orange-400/80' : 'text-emerald-600/80 dark:text-emerald-400/80'}`} style={{ fontFamily: 'var(--font-simpler)' }}>
+                      {coachHint === 'fail'
+                        ? 'תוכל/י להחליף לגרסה קלה יותר'
+                        : 'כל הכבוד! הקושי יעלה אוטומטית'}
+                    </p>
+                  </div>
+                  {handleSwap && coachHint === 'fail' && (
+                    <button
+                      onClick={() => { setCoachHint(null); handleSwap(); }}
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/60 active:scale-[0.96] transition-transform"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/assets/icons/ui/swap.svg" className="w-3.5 h-3.5 dark:invert" alt="" />
+                      <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300 whitespace-nowrap" style={{ fontFamily: 'var(--font-simpler)' }}>
+                        החלפה
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setCoachHint(null)}
+                    className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-slate-400/70 hover:text-slate-600 dark:hover:text-slate-300"
+                    aria-label="סגור"
+                  >
+                    <span className="text-sm leading-none">×</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       );
     }
@@ -473,8 +788,11 @@ export default function StrengthRunner({
     // ACTIVE — video + scrollable lyrics card
     // Key includes currentRound so React fully remounts when straight sets advance
     const activeKey = `active-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}-set-${sm.currentRound}`;
+
+    const isTimeExercise = sm.exerciseType === 'time' && !sm.isFollowAlongMode;
+
     return (
-      <div key={activeKey} className={`absolute inset-0 transition-opacity duration-300 ${sm.fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+      <div key={activeKey} className={`absolute inset-0 bg-black transition-opacity duration-300 ${sm.fadeIn ? 'opacity-100' : 'opacity-0'}`}>
         {/* Video background layer */}
         <ExerciseVideoPlayer
           key={`player-${activeKey}`}
@@ -485,7 +803,7 @@ export default function StrengthRunner({
           isPaused={sm.isPaused}
           hasAudio={false}
           onVideoProgress={sm.setVideoProgress}
-          onVideoEnded={sm.handleExerciseComplete}
+          onVideoEnded={isTimeExercise ? undefined : sm.handleExerciseComplete}
         />
 
         {/* Pre-fetch next exercise video */}
@@ -493,57 +811,82 @@ export default function StrengthRunner({
           <video src={sm.nextExercise.videoUrl} preload="auto" className="hidden" muted playsInline />
         )}
 
+        {/* Isometric timer drawer — bottom sheet for time-based exercises */}
+        {isTimeExercise && (
+          <IsometricTimerCard
+            key={`timer-${sm.currentSide || 'bilateral'}`}
+            duration={sm.exerciseDuration > 0 ? sm.exerciseDuration : 30}
+            exerciseName={sm.exerciseName}
+            repsOrDurationText={sm.repsOrDurationText}
+            onComplete={(elapsed) => sm.handleExerciseComplete(elapsed)}
+            side={sm.currentSide}
+          />
+        )}
+
         {/* Scrollable overlay — spacer lets video show, then the white card peeks up */}
+        {!isTimeExercise && (
         <div
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto overscroll-contain z-10"
         >
-          {/* Spacer — exercise name + reps + CTA peek above viewport bottom */}
-          <div className="pointer-events-none" style={{ height: 'calc(100vh - 200px)' }} />
+          {/* Spacer — pushes card to bottom; maximises visible video */}
+          <div className="pointer-events-none" style={{ height: 'calc(100dvh - 180px)' }} />
 
-          {/* Card — collapsed by default; user scrolls to reveal lyrics */}
+          {/* Card — compact, content-hugging */}
           <div
-            className="relative bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-3 pb-32"
+            className="relative bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-2"
             dir="rtl"
+            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
           >
             {/* Scroll hint — drag handle */}
-            <div className="flex justify-center mb-2">
+            <div className="flex justify-center mb-1.5">
               <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
             </div>
 
-            {/* Reps (prominent) + exercise name (secondary) + set badge */}
-            <div className="flex items-center justify-center gap-2 mb-1">
-              {sm.repsOrDurationText && (
-                <p className="text-3xl font-bold text-slate-900 dark:text-white" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  {sm.repsOrDurationText}
-                </p>
-              )}
-              {sm.totalRounds > 1 && (
-                <span className="text-[11px] text-white bg-[#00B4FF] px-2 py-0.5 rounded-full font-bold" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  סט {sm.currentRound}/{sm.totalRounds}
+            {/* ── Central Metrics: Range (XL Black) + Target (Blue) ────── */}
+            {sm.repsOrDurationText && (
+              <div className="flex items-baseline justify-center gap-2 mb-0.5">
+                <span
+                  className="text-4xl font-black"
+                  style={{ fontFamily: 'var(--font-simpler)', color: '#000000' }}
+                >
+                  {sm.repsOrDurationText}{isUnilateral ? ' (לכל צד)' : ''}
                 </span>
-              )}
-            </div>
+                {pickerTargetValue > 0 && (
+                  <span
+                    className="text-sm font-bold"
+                    style={{ fontFamily: 'var(--font-simpler)', color: '#00B4FF' }}
+                  >
+                    (יעד: {pickerTargetValue})
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Exercise name — secondary, below the metrics */}
             <p
-              className="text-base text-slate-500 dark:text-slate-400 text-center mb-2"
+              className="text-base font-semibold text-slate-900 dark:text-white text-center mb-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               {sm.exerciseName}
             </p>
 
-            {/* AI Cue — contextual coaching tip */}
-            {workout.aiCue && (
-              <p
-                className="text-xs text-center text-[#00C9F2] bg-[#00C9F2]/8 rounded-lg px-3 py-1.5 mb-4 mx-auto max-w-[280px]"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-                dir="rtl"
-              >
-                💡 {workout.aiCue}
-              </p>
+            {/* Superset badge */}
+            {sm.isSupersetActive && sm.supersetPartnerName && (
+              <div className="flex items-center justify-center mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 dark:bg-violet-950/60 dark:border-violet-700 rounded-full">
+                  <span className="text-[10px] font-bold text-violet-600 dark:text-violet-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    סופרסט
+                  </span>
+                  <span className="text-[10px] text-violet-400" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    × {sm.supersetPartnerName}
+                  </span>
+                </div>
+              </div>
             )}
 
-            {/* FillingButton — primary CTA */}
-            <div className="mb-6">
+            {/* Primary CTA */}
+            <div className="mb-2">
               <FillingButton
                 key={`fill-${activeKey}`}
                 autoCompleteTime={sm.autoCompleteTime}
@@ -553,8 +896,26 @@ export default function StrengthRunner({
               />
             </div>
 
+            {/* Swap button — tight below CTA */}
+            {handleSwap && (
+              <div className="flex justify-center mb-1">
+                <button
+                  onClick={handleSwap}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 active:scale-[0.97] transition-transform"
+                >
+                  <img src="/assets/icons/ui/swap.svg" className="w-4 h-4 dark:invert" alt="Swap" />
+                  <span
+                    className="text-sm font-bold text-slate-600 dark:text-slate-300"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    החלפת תרגיל
+                  </span>
+                </button>
+              </div>
+            )}
+
             {/* ── Below the fold — unified ExerciseDetailContent ────────── */}
-            <div className="-mx-5">
+            <div className="-mx-5 mt-4">
               <ExerciseDetailContent
                 exerciseName={sm.exerciseName}
                 videoUrl={null}
@@ -567,22 +928,9 @@ export default function StrengthRunner({
                 equipment={sm.activeExercise?.equipment}
               />
             </div>
-
-            {/* Swap Button — always at the very bottom */}
-            {handleSwap && (
-              <div className="mt-2 mb-4">
-                <button
-                  onClick={handleSwap}
-                  className="w-full flex items-center justify-center gap-2 py-4 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-[0.98]"
-                  style={{ fontFamily: 'var(--font-simpler)' }}
-                >
-                  <Replace size={20} />
-                  החלפת תרגיל
-                </button>
-              </div>
-            )}
           </div>
         </div>
+        )}
       </div>
     );
   };
@@ -592,9 +940,12 @@ export default function StrengthRunner({
   // ========================================================================
 
   return (
-    <div className="relative w-full h-screen bg-slate-100 dark:bg-slate-950">
+    <div
+      className="relative w-full bg-slate-100 dark:bg-slate-950 overflow-hidden"
+      style={{ height: '100dvh', overscrollBehavior: 'none' }}
+    >
       {/* ─── BASE LAYER: Workout Playlist ─────────────────────────────── */}
-      <div className="absolute inset-0 bg-white dark:bg-slate-900">
+      <div className="absolute inset-0 z-0 bg-white dark:bg-slate-900">
         <WorkoutPlaylist
           workout={workout}
           currentSegmentIndex={sm.currentSegmentIndex}
@@ -606,12 +957,13 @@ export default function StrengthRunner({
           formatTime={sm.formatTime}
           exerciseLog={sm.exerciseLogSnapshot}
           handleRepetitionSave={sm.handleRepetitionSave}
+          onSkipRest={sm.skipRest}
         />
       </div>
 
       {/* ─── TOP LAYER: Active Workout ───────────────────────────────────── */}
       <motion.div
-        className={`absolute inset-0 bg-black shadow-2xl overflow-hidden ${
+        className={`absolute inset-0 z-10 bg-black shadow-2xl overflow-hidden ${
           isMinimized ? 'rounded-t-2xl' : ''
         }`}
         animate={{ y: isMinimized ? minimizedY : 0 }}
@@ -626,7 +978,7 @@ export default function StrengthRunner({
         {isMinimized ? (
           renderMiniPlayer()
         ) : (
-          <div className="relative w-full h-screen overflow-hidden">
+          <div className="relative w-full h-full overflow-hidden">
             {/* State content */}
             {renderStateContent()}
 

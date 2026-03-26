@@ -34,6 +34,8 @@ import {
     Filter,
     Dumbbell,
     Sparkles,
+    Clock,
+    ShieldCheck,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
@@ -187,6 +189,9 @@ export default function AdminRouteManager() {
     const [selectedAuthorityId, setSelectedAuthorityId] = useState('');
     const [authoritySearch, setAuthoritySearch] = useState('');
     const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
+
+    // Approval workflow state
+    const [approvingRouteId, setApprovingRouteId] = useState<string | null>(null);
 
     // Import batch management state
     const [importBatches, setImportBatches] = useState<ImportBatchSummary[]>([]);
@@ -1545,9 +1550,19 @@ export default function AdminRouteManager() {
                                 </h3>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
+                            {/* Pending routes banner */}
+                            {existingRoutes.some(r => r.status === 'pending' || r.published === false) && (
+                                <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
+                                    <Clock size={14} />
+                                    {existingRoutes.filter(r => r.status === 'pending' || r.published === false).length} מסלולים ממתינים לאישור
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
                                 {existingRoutes.map(route => {
-                                    // Derive data source label for admin transparency
+                                    const isPending = route.status === 'pending' || route.published === false;
+                                    const isApproving = approvingRouteId === route.id;
+
                                     const infraMode = route.infrastructureMode || (
                                         route.activityType === 'cycling' ? 'cycling' :
                                         route.activityType === 'running' || route.activityType === 'walking' ? 'pedestrian' :
@@ -1555,36 +1570,89 @@ export default function AdminRouteManager() {
                                     );
                                     const dataSourceLabel =
                                         infraMode === 'cycling' ? 'Cycling Infra' :
-                                        infraMode === 'pedestrian' ? 'Pedestrian Infra' :
-                                        'Mixed';
+                                        infraMode === 'pedestrian' ? 'Pedestrian Infra' : 'Mixed';
                                     const dataSourceColor =
                                         infraMode === 'cycling' ? 'bg-purple-50 text-purple-600' :
                                         infraMode === 'pedestrian' ? 'bg-green-50 text-green-600' :
                                         'bg-amber-50 text-amber-600';
 
+                                    const handleApprove = async () => {
+                                        setApprovingRouteId(route.id);
+                                        try {
+                                            await InventoryService.approveRoute(route.id);
+                                            // Optimistically update local state
+                                            setExistingRoutes(prev => prev.map(r =>
+                                                r.id === route.id ? { ...r, status: 'published', published: true } : r
+                                            ));
+                                        } catch {
+                                            alert('שגיאה באישור המסלול');
+                                        } finally {
+                                            setApprovingRouteId(null);
+                                        }
+                                    };
+
                                     return (
-                                    <div key={route.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600">
-                                                <Bike size={20} />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-black text-gray-800">{route.name}</p>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                <p className="text-xs font-bold text-gray-400">
-                                                    {Math.round(route.distance)} ק&quot;מ | {route.type}
-                                                    {route.city && ` | ${route.city}`}
-                                                </p>
-                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${dataSourceColor}`}>
-                                                        {dataSourceLabel}
-                                                    </span>
+                                        <div key={route.id}
+                                            className={`p-4 rounded-2xl border flex flex-col gap-3 group transition-all ${
+                                                isPending
+                                                    ? 'bg-amber-50 border-amber-200'
+                                                    : 'bg-gray-50 border-gray-100'
+                                            }`}>
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                    isPending ? 'bg-amber-100 text-amber-600' : 'bg-cyan-100 text-cyan-600'
+                                                }`}>
+                                                    {isPending ? <Clock size={20} /> : <Bike size={20} />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <p className="text-sm font-black text-gray-800 truncate">{route.name}</p>
+                                                        {isPending && (
+                                                            <span className="flex items-center gap-0.5 text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
+                                                                <Clock size={8} />
+                                                                ממתין לאישור
+                                                            </span>
+                                                        )}
+                                                        {!isPending && route.published === true && (
+                                                            <span className="flex items-center gap-0.5 text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
+                                                                <CheckCircle2 size={8} />
+                                                                פורסם
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                        <p className="text-xs font-bold text-gray-400">
+                                                            {route.distance > 0 ? `${Math.round(route.distance * 10) / 10} ק״מ` : '—'}
+                                                            {route.type && ` | ${route.type}`}
+                                                            {route.city && ` | ${route.city}`}
+                                                        </p>
+                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${dataSourceColor}`}>
+                                                            {dataSourceLabel}
+                                                        </span>
+                                                    </div>
+                                                    {route.importSourceName && (
+                                                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                                                            📦 {route.importSourceName}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
+
+                                            {/* Approve & Publish button — only shown for pending routes */}
+                                            {isPending && (
+                                                <button
+                                                    onClick={handleApprove}
+                                                    disabled={isApproving}
+                                                    className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl transition-all disabled:opacity-60 shadow-sm shadow-green-200"
+                                                >
+                                                    {isApproving
+                                                        ? <Loader2 className="animate-spin" size={13} />
+                                                        : <ShieldCheck size={13} />
+                                                    }
+                                                    {isApproving ? 'מאשר...' : 'אשר ופרסם'}
+                                                </button>
+                                            )}
                                         </div>
-                                        <button className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
                                     );
                                 })}
                             </div>

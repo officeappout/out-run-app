@@ -5,20 +5,23 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { Authority } from '@/types/admin-types';
-import { BarChart3, MapPin, Users, Calendar, Building2, ChevronDown } from 'lucide-react';
+import { BarChart3, MapPin, Users, Calendar, Building2, ChevronDown, Route, ExternalLink } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
-import ParksManagement from '@/features/admin/components/authority-manager/ParksManagement';
 import AnalyticsDashboard from '@/features/admin/components/authority-manager/AnalyticsDashboard';
 import CommunityGroups from '@/features/admin/components/authority-manager/CommunityGroups';
 import CommunityEvents from '@/features/admin/components/authority-manager/CommunityEvents';
 
-type Tab = 'analytics' | 'parks' | 'groups' | 'events';
+type Tab = 'analytics' | 'groups' | 'events';
+
+const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
 
 export default function AuthorityManagerDashboard() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [authorities, setAuthorities] = useState<Authority[]>([]);
   const [allAuthorities, setAllAuthorities] = useState<Authority[]>([]); // For Super Admins
@@ -27,6 +30,14 @@ export default function AuthorityManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
+
+  /** Persist the chosen authority so a page refresh restores it. */
+  const persistAndSelect = (auth: Authority) => {
+    setSelectedAuthority(auth);
+    try {
+      localStorage.setItem(AUTHORITY_STORAGE_KEY, auth.id);
+    } catch { /* private-browsing / storage full — graceful no-op */ }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -57,30 +68,36 @@ export default function AuthorityManagerDashboard() {
         const allTopLevel = await getAllAuthorities(undefined, true);
         setAllAuthorities(allTopLevel);
         setAuthorities(allTopLevel);
-        
-        // Auto-select first authority if available and none selected
-        if (allTopLevel.length > 0 && !selectedAuthority) {
-          setSelectedAuthority(allTopLevel[0]);
-          // CRITICAL: Use safeRenderText for logging (name is already sanitized, but safety check)
-          const authName = typeof allTopLevel[0].name === 'string' ? allTopLevel[0].name : (allTopLevel[0].name?.he || allTopLevel[0].name?.en || '');
-          console.log('[Authority Manager] Super Admin - Auto-selected authority:', authName);
+
+        if (allTopLevel.length > 0) {
+          // Restore previously selected authority from localStorage, fall back to first
+          const savedId = typeof window !== 'undefined'
+            ? localStorage.getItem(AUTHORITY_STORAGE_KEY)
+            : null;
+          const restored = savedId ? allTopLevel.find(a => a.id === savedId) : null;
+          const target = restored ?? allTopLevel[0];
+          setSelectedAuthority(target);
+          const authName = typeof target.name === 'string' ? target.name : (target.name?.he || target.name?.en || '');
+          console.log('[Authority Manager] Super Admin - Selected authority:', authName, restored ? '(restored from localStorage)' : '(default first)');
         }
       } else {
         // For Authority Managers: Use getAuthoritiesByManager
-      const data = await getAuthoritiesByManager(userId);
-      // CRITICAL: Sanitize authority names (should already be sanitized, but safety check)
-      if (data.length > 0) {
-        console.log('[AuthorityManager] DEBUG: Authority name type:', typeof data[0].name, data[0].name);
-      }
+        const data = await getAuthoritiesByManager(userId);
+        if (data.length > 0) {
+          console.log('[AuthorityManager] DEBUG: Authority name type:', typeof data[0].name, data[0].name);
+        }
         console.log('[Authority Manager] Loaded', data.length, 'authorities');
-      setAuthorities(data);
-        
-        // Auto-select first authority if available
-      if (data.length > 0 && !selectedAuthority) {
-        setSelectedAuthority(data[0]);
-          // CRITICAL: Use safeRenderText for logging (name is already sanitized, but safety check)
-          const authName = typeof data[0].name === 'string' ? data[0].name : (data[0].name?.he || data[0].name?.en || '');
-          console.log('[Authority Manager] Auto-selected authority:', authName);
+        setAuthorities(data);
+
+        if (data.length > 0) {
+          const savedId = typeof window !== 'undefined'
+            ? localStorage.getItem(AUTHORITY_STORAGE_KEY)
+            : null;
+          const restored = savedId ? data.find(a => a.id === savedId) : null;
+          const target = restored ?? data[0];
+          setSelectedAuthority(target);
+          const authName = typeof target.name === 'string' ? target.name : (target.name?.he || target.name?.en || '');
+          console.log('[Authority Manager] Selected authority:', authName, restored ? '(restored from localStorage)' : '(default first)');
         }
       }
     } catch (error) {
@@ -114,11 +131,16 @@ export default function AuthorityManagerDashboard() {
     );
   }
 
-  const tabs = [
-    { id: 'analytics' as Tab, label: 'אנליטיקה', icon: BarChart3 },
-    { id: 'parks' as Tab, label: 'ניהול פארקים', icon: MapPin },
-    { id: 'groups' as Tab, label: 'קבוצות קהילה', icon: Users },
-    { id: 'events' as Tab, label: 'אירועים', icon: Calendar },
+  // Inline tabs render content in-page. Nav tabs navigate to a dedicated page.
+  const inlineTabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'analytics', label: 'אנליטיקה', icon: BarChart3 },
+    { id: 'groups',    label: 'קבוצות קהילה', icon: Users },
+    { id: 'events',    label: 'אירועים', icon: Calendar },
+  ];
+
+  const navTabs: { label: string; icon: React.ElementType; href: string }[] = [
+    { label: 'ניהול מיקומים', icon: MapPin,  href: '/admin/authority/locations' },
+    { label: 'ניהול מסלולים', icon: Route,   href: '/admin/authority/routes' },
   ];
 
   return (
@@ -159,7 +181,7 @@ export default function AuthorityManagerDashboard() {
                       <button
                         key={auth.id}
                         onClick={() => {
-                          setSelectedAuthority(auth);
+                          persistAndSelect(auth);
                           setShowAuthorityDropdown(false);
                         }}
                         className={`w-full text-right px-4 py-3 text-sm hover:bg-gray-50 transition-colors ${
@@ -180,7 +202,7 @@ export default function AuthorityManagerDashboard() {
               value={selectedAuthority?.id || ''}
               onChange={(e) => {
                 const authority = authorities.find((a) => a.id === e.target.value);
-                setSelectedAuthority(authority || null);
+                if (authority) persistAndSelect(authority);
               }}
               className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-black bg-white"
             >
@@ -219,7 +241,8 @@ export default function AuthorityManagerDashboard() {
       {/* Tabs */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {tabs.map((tab) => {
+          {/* Inline tabs */}
+          {inlineTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -236,6 +259,25 @@ export default function AuthorityManagerDashboard() {
               </button>
             );
           })}
+
+          {/* Divider */}
+          <div className="w-px h-8 bg-gray-200 mx-1 flex-shrink-0" />
+
+          {/* Navigation tabs — open dedicated management pages */}
+          {navTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.href}
+                onClick={() => router.push(tab.href)}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition-all bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+              >
+                <Icon size={18} />
+                <span>{tab.label}</span>
+                <ExternalLink size={13} className="opacity-60" />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -244,9 +286,6 @@ export default function AuthorityManagerDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           {activeTab === 'analytics' && (
             <AnalyticsDashboard authorityId={selectedAuthority.id} />
-          )}
-          {activeTab === 'parks' && (
-            <ParksManagement authorityId={selectedAuthority.id} />
           )}
           {activeTab === 'groups' && (
             <CommunityGroups authorityId={selectedAuthority.id} />

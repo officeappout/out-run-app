@@ -33,6 +33,8 @@ import { auth, db } from '@/lib/firebase';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
@@ -421,7 +423,204 @@ export default function HomePage() {
     }
   }, [_hasHydrated, profile?.id, refreshProfile]);
 
-  // Hero Card Press Handler
+  // ── Inner "open preview" logic extracted so it can be called with OR without JIT ──
+  const openWorkoutPreview = useCallback(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
+    const gw = generatedWorkoutRef.current;
+
+    if (gw?.exercises && typeof window !== 'undefined') {
+      const { getLocalizedText: glt } = require('@/features/content/exercises');
+      const exercises = gw.exercises.map((ex) => {
+        const resolveHighlights = (): string[] => {
+          const methodHighlights = ex.method?.highlights;
+          if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
+            return methodHighlights.map((h: any) =>
+              typeof h === 'string' ? h : (h?.male || h?.female || ''),
+            ).filter(Boolean);
+          }
+          const contentHighlights = ex.exercise.content?.highlights;
+          if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
+            return contentHighlights;
+          }
+          const instr = ex.exercise.content?.instructions;
+          if (instr) {
+            const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
+            if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
+          }
+          return [];
+        };
+
+        const resolveGoal = (): string => {
+          if (ex.exercise.content?.goal) return ex.exercise.content.goal;
+          const desc = ex.exercise.content?.description;
+          if (desc) {
+            return typeof desc === 'string' ? desc : (desc as any)?.he || (desc as any)?.en || '';
+          }
+          return '';
+        };
+
+        const primaryMuscle = ex.exercise.primaryMuscle;
+        const secondaryMuscles = ex.exercise.secondaryMuscles;
+        const legacyMuscleGroups = ex.exercise.muscleGroups || [];
+        const muscleGroups = legacyMuscleGroups.length > 0
+          ? legacyMuscleGroups
+          : [primaryMuscle, ...(secondaryMuscles || [])].filter(Boolean);
+
+        // Unit priority: respect the admin's explicit type field first, then generator's isTimeBased
+        const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
+
+        const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl } =
+          resolveExerciseMedia(ex.exercise as any, ex.method as any);
+
+        if (!resolvedImageUrl && !resolvedVideoUrl) {
+          const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];
+          console.error(`[Media FAIL] No media found for exercise: ${glt(ex.exercise.name)} (${ex.exercise.id}), method: ${ex.method?.methodName || 'none'}, allMethods: ${allMethods.length}`);
+        }
+
+        // Hebrew grammar: '1 חזרה' not '1 חזרות'
+        const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`);
+        const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`);
+
+        return {
+          id: ex.exercise.id,
+          name: glt(ex.exercise.name),
+          reps: actuallyTimeBased ? undefined : (
+            ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+              ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות`
+              : fmtReps(ex.reps)
+          ),
+          duration: actuallyTimeBased ? (
+            ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+              ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
+              : fmtSecs(ex.reps)
+          ) : undefined,
+          videoUrl: resolvedVideoUrl,
+          imageUrl: resolvedImageUrl,
+          exerciseType: actuallyTimeBased ? 'time' as const : 'reps' as const,
+          exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown') || 'main' as const,
+          isFollowAlong: false,
+          hasAudio: false,
+          highlights: resolveHighlights(),
+          muscleGroups,
+          goal: resolveGoal(),
+          description: resolveGoal(),
+          equipment: (() => {
+            const raw = [
+              ...(ex.exercise.equipment || []),
+              ...(ex.method?.equipmentIds || []),
+              ...(ex.method?.gearIds || []),
+              ...(ex.method?.gearId ? [ex.method.gearId] : []),
+              ...(ex.method?.equipmentId ? [ex.method.equipmentId] : []),
+            ].filter(Boolean);
+            const seen = new Set<string>();
+            const finalEquipment: string[] = [];
+            for (const id of raw) {
+              const norm = normalizeGearId(id);
+              if (norm !== 'none' && norm !== 'bodyweight' && !seen.has(norm)) {
+                seen.add(norm);
+                finalEquipment.push(norm);
+              }
+            }
+            console.log('[Final Equipment Flow]', glt(ex.exercise.name), finalEquipment);
+            return finalEquipment;
+          })(),
+          restSeconds: ex.restSeconds,
+          repsRange: ex.repsRange,
+          isGoalExercise: ex.isGoalExercise,
+          rampedTarget: ex.rampedTarget,
+          isTimeBased: actuallyTimeBased,
+          sets: ex.sets,
+          execution_methods: ex.exercise.execution_methods || ex.exercise.executionMethods || [],
+          reasoning: ex.reasoning,
+          pairedWith: ex.pairedWith ?? null,
+          symmetry: ex.exercise.symmetry ?? null,
+        };
+      });
+
+      const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
+      const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
+      const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
+
+      const segments: any[] = [];
+      if (warmupExercises.length > 0) {
+        segments.push({
+          id: 'seg-warmup',
+          type: 'station' as const,
+          title: 'חימום',
+          icon: '🔥',
+          target: { type: 'reps' as const, value: 12 },
+          exercises: warmupExercises,
+          isCompleted: false,
+          restBetweenExercises: 5,
+        });
+      }
+      if (mainExercises.length > 0) {
+        segments.push({
+          id: 'seg-main',
+          type: 'station' as const,
+          title: gw.title || 'אימון כוח',
+          icon: '💪',
+          target: { type: 'reps' as const, value: 12 },
+          exercises: mainExercises,
+          isCompleted: false,
+          restBetweenExercises: 10,
+        });
+      }
+      if (cooldownExercises.length > 0) {
+        segments.push({
+          id: 'seg-cooldown',
+          type: 'station' as const,
+          title: 'מתיחות',
+          icon: '🧘',
+          target: { type: 'reps' as const, value: 12 },
+          exercises: cooldownExercises,
+          isCompleted: false,
+          restBetweenExercises: 5,
+        });
+      }
+      if (segments.length === 0) {
+        segments.push({
+          id: 'seg-all',
+          type: 'station' as const,
+          title: gw.title || 'אימון כוח',
+          icon: '💪',
+          target: { type: 'reps' as const, value: 12 },
+          exercises,
+          isCompleted: false,
+          restBetweenExercises: 10,
+        });
+      }
+
+      const workoutPlan = {
+        id: uniqueWorkoutId,
+        name: gw.title || 'אימון כוח',
+        description: gw.description || '',
+        logicCue: gw.logicCue || '',
+        segments,
+        totalDuration: gw.estimatedDuration || 30,
+        difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
+        trainingType: 'strength' as const,
+        pipelineLog: gw.pipelineLog,
+      };
+
+      sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
+      sessionStorage.setItem('currentWorkoutPlanId', uniqueWorkoutId);
+    }
+
+    setSelectedWorkout({
+      id: uniqueWorkoutId,
+      title: gw?.title || scheduleState.currentWorkout?.title || 'אימון כוח',
+      description: gw?.description || scheduleState.currentWorkout?.description || 'אימון מותאם אישית',
+      level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
+      difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
+      duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
+      coverImage: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+      segments: [],
+    });
+  }, [profile, scheduleState]);
+
+  // Hero Card Press Handler — goes through JIT equipment/health check
   const handleHeroPress = useCallback(() => {
     if (!profile?.core?.name) {
       router.push('/onboarding-new/profile');
@@ -429,165 +628,7 @@ export default function HomePage() {
     }
 
     if (hasProgram) {
-      interceptWorkoutStart(() => {
-        const today = new Date().toISOString().split('T')[0];
-        const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
-        const gw = generatedWorkoutRef.current;
-
-        if (gw?.exercises && typeof window !== 'undefined') {
-          const { getLocalizedText: glt } = require('@/features/content/exercises');
-          const exercises = gw.exercises.map((ex) => {
-            const resolveHighlights = (): string[] => {
-              const methodHighlights = ex.method?.highlights;
-              if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
-                return methodHighlights.map((h: any) =>
-                  typeof h === 'string' ? h : (h?.male || h?.female || ''),
-                ).filter(Boolean);
-              }
-              const contentHighlights = ex.exercise.content?.highlights;
-              if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
-                return contentHighlights;
-              }
-              const instr = ex.exercise.content?.instructions;
-              if (instr) {
-                const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
-                if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
-              }
-              return [];
-            };
-
-            const resolveGoal = (): string => {
-              if (ex.exercise.content?.goal) return ex.exercise.content.goal;
-              const desc = ex.exercise.content?.description;
-              if (desc) {
-                return typeof desc === 'string' ? desc : (desc as any)?.he || (desc as any)?.en || '';
-              }
-              return '';
-            };
-
-            const primaryMuscle = ex.exercise.primaryMuscle;
-            const secondaryMuscles = ex.exercise.secondaryMuscles;
-            const legacyMuscleGroups = ex.exercise.muscleGroups || [];
-            const muscleGroups = legacyMuscleGroups.length > 0
-              ? legacyMuscleGroups
-              : [primaryMuscle, ...(secondaryMuscles || [])].filter(Boolean);
-
-            return {
-              id: ex.exercise.id,
-              name: glt(ex.exercise.name),
-              reps: ex.isTimeBased ? undefined : (
-                ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-                  ? `${ex.sets}×${ex.repsRange.min}-${ex.repsRange.max} חזרות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
-                  : `${ex.sets}×${ex.reps} חזרות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
-              ),
-              duration: ex.isTimeBased ? (
-                ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-                  ? `${ex.sets}×${ex.repsRange.min}-${ex.repsRange.max} שניות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
-                  : `${ex.sets}×${ex.reps} שניות${ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : ''}`
-              ) : undefined,
-              videoUrl: ex.method?.media?.mainVideoUrl || ex.exercise.media?.videoUrl || undefined,
-              imageUrl: ex.method?.media?.imageUrl || ex.exercise.media?.imageUrl || undefined,
-              exerciseType: ex.isTimeBased ? 'time' as const : 'reps' as const,
-              exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown') || 'main' as const,
-              isFollowAlong: false,
-              hasAudio: false,
-              highlights: resolveHighlights(),
-              muscleGroups,
-              goal: resolveGoal(),
-              description: resolveGoal(),
-              equipment: ex.method?.equipmentIds || ex.method?.gearIds || [],
-              restSeconds: ex.restSeconds,
-              repsRange: ex.repsRange,
-              isGoalExercise: ex.isGoalExercise,
-              rampedTarget: ex.rampedTarget,
-              isTimeBased: ex.isTimeBased,
-              sets: ex.sets,
-              execution_methods: ex.exercise.execution_methods || ex.exercise.executionMethods || [],
-              reasoning: ex.reasoning,
-            };
-          });
-
-          const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
-          const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
-          const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
-
-          const segments: any[] = [];
-          if (warmupExercises.length > 0) {
-            segments.push({
-              id: 'seg-warmup',
-              type: 'station' as const,
-              title: 'חימום',
-              icon: '🔥',
-              target: { type: 'reps' as const, value: 12 },
-              exercises: warmupExercises,
-              isCompleted: false,
-              restBetweenExercises: 5,
-            });
-          }
-          if (mainExercises.length > 0) {
-            segments.push({
-              id: 'seg-main',
-              type: 'station' as const,
-              title: gw.title || 'אימון כוח',
-              icon: '💪',
-              target: { type: 'reps' as const, value: 12 },
-              exercises: mainExercises,
-              isCompleted: false,
-              restBetweenExercises: 10,
-            });
-          }
-          if (cooldownExercises.length > 0) {
-            segments.push({
-              id: 'seg-cooldown',
-              type: 'station' as const,
-              title: 'מתיחות',
-              icon: '🧘',
-              target: { type: 'reps' as const, value: 12 },
-              exercises: cooldownExercises,
-              isCompleted: false,
-              restBetweenExercises: 5,
-            });
-          }
-          if (segments.length === 0) {
-            segments.push({
-              id: 'seg-all',
-              type: 'station' as const,
-              title: gw.title || 'אימון כוח',
-              icon: '💪',
-              target: { type: 'reps' as const, value: 12 },
-              exercises,
-              isCompleted: false,
-              restBetweenExercises: 10,
-            });
-          }
-
-          const workoutPlan = {
-            id: uniqueWorkoutId,
-            name: gw.title || 'אימון כוח',
-            description: gw.description || '',
-            logicCue: gw.logicCue || '',
-            segments,
-            totalDuration: gw.estimatedDuration || 30,
-            difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
-            trainingType: 'strength' as const,
-            pipelineLog: gw.pipelineLog,
-          };
-
-          sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
-          sessionStorage.setItem('currentWorkoutPlanId', uniqueWorkoutId);
-        }
-
-        setSelectedWorkout({
-          id: uniqueWorkoutId,
-          title: gw?.title || scheduleState.currentWorkout?.title || 'אימון כוח',
-          description: gw?.description || scheduleState.currentWorkout?.description || 'אימון מותאם אישית',
-          level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
-          difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
-          duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
-          coverImage: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-          segments: [],
-        });
-      });
+      interceptWorkoutStart(openWorkoutPreview);
     } else {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('onboarding_path', isMapOnlyUser ? 'UPGRADE_FROM_MAP' : 'FULL_PROGRAM');
@@ -605,7 +646,13 @@ export default function HomePage() {
       }
       router.push('/onboarding-new/assessment-visual');
     }
-  }, [hasProgram, isMapOnlyUser, interceptWorkoutStart, profile, scheduleState, router]);
+  }, [hasProgram, isMapOnlyUser, interceptWorkoutStart, openWorkoutPreview, profile, router]);
+
+  // Direct start — from UserWorkoutAdjuster, bypasses equipment JIT popup
+  const handleDirectStart = useCallback(() => {
+    if (!profile?.core?.name) { router.push('/onboarding-new/profile'); return; }
+    if (hasProgram) openWorkoutPreview();
+  }, [hasProgram, openWorkoutPreview, profile, router]);
 
   const handleLogout = async () => { await signOutUser(); resetProfile(); };
 
@@ -808,6 +855,7 @@ export default function HomePage() {
           <StatsOverview
             stats={MOCK_STATS}
             onStartWorkout={handleHeroPress}
+            onDirectStart={handleDirectStart}
             onWorkoutGenerated={handleWorkoutGenerated}
             selectedDate={selectedDate}
             hasCompletedAssessment={hasCompletedAssessment}

@@ -60,6 +60,20 @@ export async function fetchTrioLabels(): Promise<{ labels: TrioLabelsConfig; sou
       },
     };
 
+    // Sanitize: reject labels containing persona-specific keywords
+    const LABEL_BLOCKLIST = ['אמא', 'אבא', 'סבא', 'סבתא', 'הורים', 'ללא ציוד'];
+    const sanitizeLabel = (label: string, defaultLabel: string): string => {
+      if (LABEL_BLOCKLIST.some(kw => label.includes(kw))) {
+        console.warn(`[WorkoutTrio] Label "${label}" contains blocked keyword → reverting to "${defaultLabel}"`);
+        return defaultLabel;
+      }
+      return label;
+    };
+
+    merged.trainingLabels.option1Label = sanitizeLabel(merged.trainingLabels.option1Label, DEFAULT_TRIO_LABELS.trainingLabels.option1Label);
+    merged.trainingLabels.option2Label = sanitizeLabel(merged.trainingLabels.option2Label, DEFAULT_TRIO_LABELS.trainingLabels.option2Label);
+    merged.trainingLabels.option3Label = sanitizeLabel(merged.trainingLabels.option3Label, DEFAULT_TRIO_LABELS.trainingLabels.option3Label);
+
     _cachedTrioLabels = merged;
     console.log(`[WorkoutTrio] Labels loaded from Firestore:`, merged);
     return { labels: merged, source: 'firestore' };

@@ -104,6 +104,8 @@ export interface WorkoutMetadataContext {
   // === Sub-Persona Context ===
   /** User's age in years (derived from birthDate) for sub-persona scoring */
   userAge?: number;
+  /** User's global engine level (for Level Guard — excludes snr_/mom_ content at L>15) */
+  userLevel?: number;
 
   // === Travel & Environment Context ===
   /** True when user is outside their home country (timezone !== Asia/Jerusalem or explicit flag) */
@@ -257,22 +259,103 @@ const DEMOGRAPHIC_PERSONA_TAGS = new Set([
   'parent', 'mom', 'senior', 'high_tech', 'army', 'reservist', 'student',
 ]);
 
+/**
+ * Bundle ID prefixes that are demographic-specific.
+ * If the user has no persona, any row whose bundleId starts with one
+ * of these prefixes is hard-excluded regardless of the persona field.
+ */
+const PERSONA_ID_PREFIXES = [
+  'mom_', 'snr_', 'pup_', 'tech_', 'high_tech_', 'dad_',
+  'parent_', 'senior_', 'student_',
+];
+
 function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   let score = 0;
 
   // ── PERSONA-NEUTRAL GUARD ("David Clause") ──
-  // If the user has NO persona defined, hard-exclude any content row that
-  // targets a specific demographic persona. Only general, weather-based,
-  // time-of-day, and difficulty-based content should survive.
+  // Two layers of protection for persona-free users:
+  //   1. Persona field check (existing)
+  //   2. Bundle ID prefix check (catches mom_*, snr_*, etc.)
+  const userHasNoPersona = !ctx.persona || ctx.persona === '';
+
   const rowPersona = row.persona;
   if (
-    (!ctx.persona || ctx.persona === '') &&
+    userHasNoPersona &&
     rowPersona &&
     rowPersona !== '' &&
     rowPersona !== 'any' &&
     DEMOGRAPHIC_PERSONA_TAGS.has(rowPersona)
   ) {
-    return -1; // Hard exclude — no persona user must not see persona-specific content
+    return -1;
+  }
+
+  // Layer 2: ID prefix exclusion — catches bundles like mom_morning_energy
+  if (userHasNoPersona) {
+    const bid = (row.bundleId || row.id || '').toLowerCase();
+    if (bid && PERSONA_ID_PREFIXES.some(prefix => bid.startsWith(prefix))) {
+      return -1;
+    }
+  }
+
+  // Layer 3: Text content exclusion — catches persona-leaking titles/phrases
+  // where the persona field is empty but the text itself says "אמא" or "סבא"
+  if (userHasNoPersona) {
+    const PERSONA_TEXT_KEYWORDS = ['אמא', 'אבא', 'סבא', 'סבתא', 'נכדים', 'הורים עסוקים'];
+    const rowText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '')).toLowerCase();
+    if (PERSONA_TEXT_KEYWORDS.some(kw => rowText.includes(kw))) {
+      return -1;
+    }
+  }
+
+  // ── LEVEL GUARD ──
+  // Hard-exclude demographic bundles (snr_, mom_) for advanced users (L>15).
+  // This prevents mature-user content from surfacing to experienced/pro athletes.
+  if (ctx.userLevel != null && ctx.userLevel > 15) {
+    const bid = (row.bundleId || row.id || '').toLowerCase();
+    if (bid && (bid.startsWith('snr_') || bid.startsWith('mom_'))) {
+      return -1;
+    }
+  }
+
+  // ── SPORT-TYPE SAFETY GUARD ──
+  // Hard-exclude any bundle tagged as 'running' when the session is a
+  // Strength workout.  A Strength session has no runningCategory set.
+  // Without this guard, running-specific LogicCues (e.g. "@targetDistanceLabel")
+  // can bleed into Strength workout descriptions.
+  const isStrengthSession = !ctx.runningCategory && !ctx.runningBasePace;
+  if (isStrengthSession && row.sportType === 'running') {
+    if (DEBUG_METADATA_RESOLUTION) {
+      console.log(
+        `[Metadata] ❌ sport-type mismatch: row.sportType="running" excluded ` +
+        `from Strength session (bundleId=${row.bundleId ?? row.id ?? '?'})`,
+      );
+    }
+    return -1;
+  }
+
+  // ── LOCATION CONTEXT GUARD ──
+  // Prevent content that references a specific location (e.g., living room,
+  // home) from appearing in a session with a different location (e.g., park).
+  // This prevents "Work out in your living room" titles during park sessions.
+  if (ctx.location === 'park' || ctx.location === 'street') {
+    const HOME_CONTENT_KEYWORDS = [
+      'living room', 'bedroom', 'ביתי', 'בבית', 'סלון', 'חדר שינה', 'בחדר',
+    ];
+    const rowTextForLocation = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '')
+    ).toLowerCase();
+    if (HOME_CONTENT_KEYWORDS.some(kw => rowTextForLocation.includes(kw))) {
+      return -1;
+    }
+  }
+  if (ctx.location === 'home') {
+    const PARK_CONTENT_KEYWORDS = ['בפארק', 'park', 'מגרש'];
+    const rowTextForLocation = (
+      (row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '')
+    ).toLowerCase();
+    if (PARK_CONTENT_KEYWORDS.some(kw => rowTextForLocation.includes(kw))) {
+      return -1;
+    }
   }
 
   for (const field of SCORABLE_FIELDS) {
@@ -303,6 +386,14 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
     if (rowVal === ctxVal) {
       score += 1;
     }
+  }
+
+  // ── GENERIC PERSONA BONUS ──
+  // When the user has no persona, give a strong boost (+50) to explicitly
+  // generic content (persona:'any' | 'none') so editors can reliably surface
+  // pro/general phrases without persona-tagged content bleeding through.
+  if (userHasNoPersona && (row.persona === 'any' || row.persona === 'none')) {
+    score += 50;
   }
 
   // ============================================================================
@@ -732,10 +823,14 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   const reasons: string[] = [];
 
-  // Persona-neutral guard debug
+  const userHasNoPersona = !ctx.persona || ctx.persona === '';
   const rp = row.persona;
-  if ((!ctx.persona || ctx.persona === '') && rp && rp !== '' && rp !== 'any' && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
+  if (userHasNoPersona && rp && rp !== '' && rp !== 'any' && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
     reasons.push(`persona_neutral_EXCLUDED(row=${rp})`);
+  }
+  const bid = (row.bundleId || row.id || '').toLowerCase();
+  if (userHasNoPersona && bid && PERSONA_ID_PREFIXES.some(p => bid.startsWith(p))) {
+    reasons.push(`prefix_EXCLUDED(id=${bid})`);
   }
 
   for (const field of SCORABLE_FIELDS) {
@@ -1142,11 +1237,29 @@ export async function resolveWorkoutMetadata(
       ...logicTagOverrides,
     };
 
+    // Resolve all content tags (variable substitution)
+    const resolvedTitle       = title       ? resolveContentTags(title,       tagCtx) : null;
+    const resolvedDescription = description ? resolveContentTags(description, tagCtx) : null;
+    const resolvedAiCue       = aiCue       ? resolveContentTags(aiCue,       tagCtx) : null;
+    const resolvedLogicCue    = logicCue    ? resolveContentTags(logicCue,    tagCtx) : null;
+
+    // ── Running-Variable Strip for Strength Workouts ──
+    // If this is a strength session (no running context), strip any @variable
+    // placeholders that were not resolved (e.g., @targetDistanceLabel,
+    // @runningCategory, @קצב_בסיס) so they don't leak into the UI as raw tokens.
+    const isStrengthSession = !ctx.runningCategory && !ctx.runningBasePace && !ctx.targetDistanceLabel;
+    const stripUnresolved = (text: string | null): string | null => {
+      if (!text) return text;
+      // Match @word patterns and any surrounding punctuation that would look odd
+      const cleaned = text.replace(/@[\w_]+/g, '').replace(/\s{2,}/g, ' ').trim();
+      return cleaned || text;
+    };
+
     return {
-      title: title ? resolveContentTags(title, tagCtx) : null,
-      description: description ? resolveContentTags(description, tagCtx) : null,
-      aiCue: aiCue ? resolveContentTags(aiCue, tagCtx) : null,
-      logicCue: logicCue ? resolveContentTags(logicCue, tagCtx) : null,
+      title:       isStrengthSession ? stripUnresolved(resolvedTitle)       : resolvedTitle,
+      description: isStrengthSession ? stripUnresolved(resolvedDescription) : resolvedDescription,
+      aiCue:       isStrengthSession ? stripUnresolved(resolvedAiCue)       : resolvedAiCue,
+      logicCue:    isStrengthSession ? stripUnresolved(resolvedLogicCue)    : resolvedLogicCue,
       source: hasAnyFirestoreData ? 'firestore' : 'fallback',
       bundleId: activeBundleId,
     };

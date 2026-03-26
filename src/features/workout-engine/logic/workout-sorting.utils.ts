@@ -28,52 +28,46 @@ export function getEquipmentKey(ex: WorkoutExercise): string {
 // ============================================================================
 
 /**
- * CNS Priority Map for movement groups within the upper-body block.
- * Vertical patterns recruit more CNS resources (lats, overhead stabilizers)
- * and must precede horizontal patterns to avoid pre-fatigue.
+ * 5-tier physiological priority (lower = earlier in workout):
  *
- *   0 = vertical (pull-ups, overhead press, handstand work)
- *   1 = everything else / untagged
- *   2 = horizontal (rows, bench-style push)
+ *   0 = Vertical Compounds   (vertical_pull / vertical_push)
+ *   1 = Horizontal Compounds (horizontal_pull / horizontal_push)
+ *   2 = Legs                 (squat / hinge / lunge — uses exerciseMatchesProgram('legs'))
+ *   3 = Isolation / Accessory (priority === 'isolation' | 'accessory', not legs/core)
+ *   4 = Core / Abs           (must be last to preserve stabilizer availability)
+ *
+ * Stable within each tier: preserves original score ordering.
  */
-const MOVEMENT_GROUP_CNS_PRIORITY: Record<string, number> = {
-  vertical_pull: 0,
-  vertical_push: 0,
-  horizontal_pull: 2,
-  horizontal_push: 2,
-};
+const VERTICAL_MOVEMENT_GROUPS = new Set(['vertical_pull', 'vertical_push']);
+const HORIZONTAL_MOVEMENT_GROUPS = new Set(['horizontal_pull', 'horizontal_push']);
 
-/**
- * Sort exercises: [Upper Body (Push/Pull)] -> [Legs] -> [Core].
- *
- * Priority map (lower = earlier):
- *   0 = push / pull / skill / unmatched (upper body block)
- *   1 = legs
- *   2 = core (must be last to avoid stabilizer fatigue during compounds)
- *
- * Within Priority 0, a CNS sub-sort applies:
- *   vertical_pull / vertical_push  ->  untagged  ->  horizontal_pull / horizontal_push
- *
- * Stable within each sub-tier: preserves original score ordering.
- */
 export function applyPhysiologicalSort(exercises: WorkoutExercise[]): WorkoutExercise[] {
   const getDomainPriority = (ex: WorkoutExercise): number => {
-    if (exerciseMatchesProgram(ex.exercise, 'core')) return 2;
-    if (exerciseMatchesProgram(ex.exercise, 'legs')) return 1;
-    return 0;
-  };
+    // Tier 4: Core — must come last
+    if (exerciseMatchesProgram(ex.exercise, 'core')) return 4;
 
-  const getCnsPriority = (ex: WorkoutExercise): number => {
-    const mg = ex.exercise.movementGroup;
-    if (!mg) return 1;
-    return MOVEMENT_GROUP_CNS_PRIORITY[mg] ?? 1;
+    // Tier 2: Legs
+    if (exerciseMatchesProgram(ex.exercise, 'legs')) return 2;
+
+    const mg = ex.exercise.movementGroup ?? '';
+
+    // Tier 0: Vertical compounds (pull-ups, overhead press, handstand)
+    if (VERTICAL_MOVEMENT_GROUPS.has(mg)) return 0;
+
+    // Tier 1: Horizontal compounds (rows, bench-style push)
+    if (HORIZONTAL_MOVEMENT_GROUPS.has(mg)) return 1;
+
+    // Tier 3: Isolation / Accessory (arms, shoulders, single-joint)
+    if (ex.priority === 'isolation' || ex.priority === 'accessory') return 3;
+
+    // Default: treat untagged as vertical compound (placed first)
+    return 0;
   };
 
   const indexed = exercises.map((ex, i) => ({
     ex,
     i,
     domainPri: getDomainPriority(ex),
-    cnsPri: getCnsPriority(ex),
   }));
 
   indexed.sort((a, b) => {
@@ -83,8 +77,6 @@ export function applyPhysiologicalSort(exercises: WorkoutExercise[]): WorkoutExe
     if (roleA !== roleB) return roleA - roleB;
 
     if (a.domainPri !== b.domainPri) return a.domainPri - b.domainPri;
-
-    if (a.domainPri === 0 && a.cnsPri !== b.cnsPri) return a.cnsPri - b.cnsPri;
 
     return a.i - b.i;
   });

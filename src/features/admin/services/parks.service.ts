@@ -49,6 +49,10 @@ function normalizePark(docId: string, data: any): Park {
     amenities: data?.amenities ?? undefined,
     authorityId: data?.authorityId ?? undefined,
     status: (data?.status as ParkStatus) ?? 'open',
+    contentStatus: data?.contentStatus ?? undefined,
+    published: data?.published ?? (data?.contentStatus === 'published'),
+    createdByUser: data?.createdByUser ?? undefined,
+    origin: data?.origin ?? undefined,
     createdAt: toDate(data?.createdAt),
     updatedAt: toDate(data?.updatedAt),
   };
@@ -118,7 +122,10 @@ export async function getPark(parkId: string): Promise<Park | null> {
 /**
  * Sanitize park data before saving to Firestore
  */
-function sanitizeParkData(data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>): any {
+function sanitizeParkData(
+  data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>,
+  contentStatus: 'pending_review' | 'published' = 'published'
+): any {
   return {
     name: data.name ?? '',
     city: (data as any).city ?? '',
@@ -141,16 +148,69 @@ function sanitizeParkData(data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>): a
     amenities: data.amenities ?? null,
     authorityId: data.authorityId ?? null,
     status: data.status ?? 'open',
+    contentStatus,
+    // Unified approval fields — mirrors the Route approval workflow
+    published: contentStatus === 'published',
+    publishedAt: contentStatus === 'published' ? serverTimestamp() : null,
+    // Attribution & tracking
+    createdByUser: (data as any).createdByUser ?? null,
+    origin: (data as any).origin ?? (contentStatus === 'published' ? 'super_admin' : 'authority_admin'),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 }
 
-export async function createPark(data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+/**
+ * Create a new park.
+ * If adminInfo is provided and the creator is an authority_manager (not super/system admin),
+ * the park is saved as 'pending_review' and an EditRequest is created for Super Admin approval.
+ * Super/system admins always publish immediately.
+ */
+export async function createPark(
+  data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>,
+  adminInfo?: { adminId: string; adminName: string }
+): Promise<string> {
   try {
-    const sanitized = sanitizeParkData(data);
+    let contentStatus: 'pending_review' | 'published' = 'published';
+
+    if (adminInfo) {
+      const roleInfo = await checkUserRole(adminInfo.adminId);
+      if (roleInfo.isAuthorityManager && !roleInfo.isSuperAdmin && !roleInfo.isSystemAdmin) {
+        contentStatus = 'pending_review';
+      }
+    }
+
+    const sanitized = sanitizeParkData(data, contentStatus);
     const docRef = await addDoc(collection(db, PARKS_COLLECTION), sanitized);
-    return docRef.id;
+    const parkId = docRef.id;
+
+    // For authority managers: create an edit request so the park appears in Approval Center
+    if (contentStatus === 'pending_review' && adminInfo) {
+      let userName = adminInfo.adminName;
+      let userEmail: string | undefined;
+      try {
+        const { getUserFromFirestore } = await import('@/lib/firestore.service');
+        const profile = await getUserFromFirestore(adminInfo.adminId);
+        userName = profile?.core?.name || adminInfo.adminName;
+        userEmail = profile?.core?.email;
+      } catch {
+        // non-fatal
+      }
+
+      await createEditRequest({
+        entityType: 'park',
+        entityId: parkId,
+        entityName: data.name ?? 'פארק חדש',
+        originalData: null,
+        newData: sanitized,
+        requestedBy: adminInfo.adminId,
+        requestedByName: userName,
+        requestedByEmail: userEmail,
+        authorityId: data.authorityId,
+      });
+    }
+
+    return parkId;
   } catch (error) {
     console.error('Error creating park:', error);
     throw error;
@@ -271,6 +331,25 @@ export async function deletePark(parkId: string): Promise<void> {
     await deleteDoc(docRef);
   } catch (error) {
     console.error('Error deleting park:', error);
+    throw error;
+  }
+}
+
+/**
+ * Approve a pending park — sets published:true, contentStatus:'published',
+ * and records the publishedAt timestamp.
+ */
+export async function approvePark(parkId: string): Promise<void> {
+  try {
+    const docRef = doc(db, PARKS_COLLECTION, parkId);
+    await updateDoc(docRef, {
+      published: true,
+      contentStatus: 'published',
+      publishedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error approving park:', error);
     throw error;
   }
 }

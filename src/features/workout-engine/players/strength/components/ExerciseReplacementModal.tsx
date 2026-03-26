@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Exercise, ExecutionMethod, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { getExerciseVariations, getAlternativeExercises, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
 import { getGearBadgeProps, getMuscleGroupLabel } from '../../../shared/utils/gear-mapping.utils';
 import { selectExecutionMethodWithBrand } from '../../../generator/services/execution-method-selector.service';
@@ -190,13 +191,8 @@ export default function ExerciseReplacementModal({
   // ── Helpers ──
   const getImage = (ex: Exercise): string => {
     const method = findMethodForLocation(ex, location);
-    const url =
-      method?.media?.imageUrl ||
-      method?.media?.mainVideoUrl ||
-      ex.media?.imageUrl ||
-      (ex.media as any)?.videoUrl ||
-      '/images/park-placeholder.svg';
-    return url;
+    const { imageUrl } = resolveExerciseMedia(ex as any, method as any);
+    return imageUrl || '/images/park-placeholder.svg';
   };
 
   const getLevelIcon = (c: 'lower' | 'same' | 'higher') =>

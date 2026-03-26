@@ -50,14 +50,16 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/authority-manager', request.url));
     }
     
-    // Block other admin routes except authority-manager, parks, routes, and users
+    // Block all admin routes except those explicitly allowed for Authority Managers
     if (pathname.startsWith('/admin')) {
       const allowedPaths = [
         '/admin/authority-manager',
-        '/admin/parks',
-        '/admin/routes',
+        '/admin/authority/locations',
+        '/admin/authority/routes',
         '/admin/users',
-        '/admin/auth/callback', // Allow callback for magic link
+        '/admin/auth/callback',
+        '/admin/authority-login',
+        '/admin/pending-approval',
       ];
       
       const isAllowed = allowedPaths.some(path => pathname.startsWith(path));

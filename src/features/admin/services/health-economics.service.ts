@@ -1,6 +1,11 @@
 /**
  * Health Economics Service
- * Calculates WHO 150-minute tracker and estimated health savings
+ * Calculates WHO 150-minute tracker and estimated health savings.
+ *
+ * Performance: All per-user queries replaced with batched Firestore 'in' queries
+ * running in parallel. getSavingsOverTime parallelises all 12 months at once.
+ * Old approach: n_users × n_months sequential reads (1,800+ for 150 users / 12 months).
+ * New approach: ceil(n/30) parallel reads per month, all months concurrent (~72 reads).
  */
 import {
   collection,
@@ -10,28 +15,26 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getUserFromFirestore } from '@/lib/firestore.service';
+import { getAuthorityWithChildrenIds } from './analytics.service';
 
 const WORKOUTS_COLLECTION = 'workouts';
-const WHO_WEEKLY_TARGET_MINUTES = 150; // WHO recommendation: 150 minutes per week
-const AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON = 500; // ₪500 per active person per month (estimated)
+export const AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON = 500; // ₪500/active person/month
+const WHO_WEEKLY_TARGET_MINUTES = 150;
 
-/**
- * Convert Firestore timestamp to Date
- */
+// ── Date helpers ──────────────────────────────────────────────────────────────
+
 function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
   if (!timestamp) return undefined;
   if (timestamp instanceof Date) return timestamp;
   return timestamp.toDate();
 }
+// suppress unused warning — kept for potential future callers
+void toDate;
 
-/**
- * Get start and end of week (Monday to Sunday)
- */
 function getWeekRange(date: Date): { start: Date; end: Date } {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
   monday.setHours(0, 0, 0, 0);
   const sunday = new Date(monday);
@@ -40,9 +43,6 @@ function getWeekRange(date: Date): { start: Date; end: Date } {
   return { start: monday, end: sunday };
 }
 
-/**
- * Get start and end of month
- */
 function getMonthRange(year: number, month: number): { start: Date; end: Date } {
   const start = new Date(year, month, 1);
   start.setHours(0, 0, 0, 0);
@@ -51,64 +51,75 @@ function getMonthRange(year: number, month: number): { start: Date; end: Date } 
   return { start, end };
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// ── Core: bulk workout minutes ────────────────────────────────────────────────
+
 /**
- * Get all users for an authority
+ * Fetches workout durations for all userIds in a date range using parallel
+ * batched Firestore 'in' queries.  Returns a Map<userId, totalMinutes>.
+ *
+ * Replaces the old per-user sequential getUserWorkoutDuration calls.
  */
+async function getBulkWorkoutMinutes(
+  userIds: string[],
+  start: Date,
+  end: Date
+): Promise<Map<string, number>> {
+  const userMinutes = new Map<string, number>();
+  if (userIds.length === 0) return userMinutes;
+
+  const startTs = Timestamp.fromDate(start);
+  const endTs   = Timestamp.fromDate(end);
+
+  await Promise.all(chunk(userIds, 30).map(async (batch) => {
+    const q = query(
+      collection(db, WORKOUTS_COLLECTION),
+      where('userId', 'in', batch),
+      where('date', '>=', startTs),
+      where('date', '<=', endTs)
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => {
+      const { userId, duration } = d.data() as { userId?: string; duration?: number };
+      if (userId) {
+        userMinutes.set(userId, (userMinutes.get(userId) ?? 0) + (duration ?? 0) / 60);
+      }
+    });
+  }));
+
+  return userMinutes;
+}
+
+// ── Authority user IDs ────────────────────────────────────────────────────────
+
 async function getAuthorityUsers(authorityId: string): Promise<string[]> {
   try {
-    const { collection, query, where, getDocs } = await import('firebase/firestore');
-    const { db } = await import('@/lib/firebase');
-    const q = query(
-      collection(db, 'users'),
-      where('core.authorityId', '==', authorityId)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => doc.id);
+    const authorityIds = await getAuthorityWithChildrenIds(authorityId);
+    const userIds: string[] = [];
+
+    await Promise.all(chunk(authorityIds, 30).map(async (batch) => {
+      const q = query(
+        collection(db, 'users'),
+        where('core.authorityId', 'in', batch)
+      );
+      const snap = await getDocs(q);
+      snap.docs.forEach(doc => userIds.push(doc.id));
+    }));
+
+    return userIds;
   } catch (error) {
     console.error('Error fetching authority users:', error);
     return [];
   }
 }
 
-/**
- * Get workout duration for a user in a time range (in minutes)
- */
-async function getUserWorkoutDuration(
-  userId: string,
-  startDate: Date,
-  endDate: Date
-): Promise<number> {
-  try {
-    const startTimestamp = Timestamp.fromDate(startDate);
-    const endTimestamp = Timestamp.fromDate(endDate);
+// ── WHO 150-Minute Tracker ────────────────────────────────────────────────────
 
-    const q = query(
-      collection(db, WORKOUTS_COLLECTION),
-      where('userId', '==', userId),
-      where('date', '>=', startTimestamp),
-      where('date', '<=', endTimestamp)
-    );
-
-    const snapshot = await getDocs(q);
-    let totalMinutes = 0;
-
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      const durationSeconds = data.duration || 0;
-      totalMinutes += durationSeconds / 60; // Convert seconds to minutes
-    });
-
-    return totalMinutes;
-  } catch (error) {
-    console.error(`Error fetching workout duration for user ${userId}:`, error);
-    return 0;
-  }
-}
-
-/**
- * WHO 150-Minute Tracker
- * Calculates the percentage of users reaching the 150-minute weekly goal
- */
 export interface WHO150TrackerResult {
   totalUsers: number;
   usersReachingGoal: number;
@@ -118,190 +129,139 @@ export interface WHO150TrackerResult {
 }
 
 export async function getWHO150Tracker(authorityId: string): Promise<WHO150TrackerResult> {
+  const now = new Date();
+  const weekRange = getWeekRange(now);
+
   try {
     const userIds = await getAuthorityUsers(authorityId);
     if (userIds.length === 0) {
-      const now = new Date();
-      const weekRange = getWeekRange(now);
-      return {
-        totalUsers: 0,
-        usersReachingGoal: 0,
-        percentageReachingGoal: 0,
-        averageMinutesPerUser: 0,
-        currentWeek: weekRange,
-      };
+      return { totalUsers: 0, usersReachingGoal: 0, percentageReachingGoal: 0, averageMinutesPerUser: 0, currentWeek: weekRange };
     }
 
-    const now = new Date();
-    const weekRange = getWeekRange(now);
-    let usersReachingGoal = 0;
+    // ONE bulk batch query instead of n sequential per-user queries
+    const minutesMap = await getBulkWorkoutMinutes(userIds, weekRange.start, weekRange.end);
+
     let totalMinutes = 0;
+    let usersReachingGoal = 0;
 
-    // Check each user's weekly activity
     for (const userId of userIds) {
-      const weeklyMinutes = await getUserWorkoutDuration(userId, weekRange.start, weekRange.end);
-      totalMinutes += weeklyMinutes;
-      if (weeklyMinutes >= WHO_WEEKLY_TARGET_MINUTES) {
-        usersReachingGoal++;
-      }
+      const mins = minutesMap.get(userId) ?? 0;
+      totalMinutes += mins;
+      if (mins >= WHO_WEEKLY_TARGET_MINUTES) usersReachingGoal++;
     }
 
-    const averageMinutesPerUser = userIds.length > 0 ? totalMinutes / userIds.length : 0;
-    const percentageReachingGoal =
-      userIds.length > 0 ? (usersReachingGoal / userIds.length) * 100 : 0;
+    const averageMinutesPerUser = totalMinutes / userIds.length;
+    const percentageReachingGoal = (usersReachingGoal / userIds.length) * 100;
 
     return {
       totalUsers: userIds.length,
       usersReachingGoal,
-      percentageReachingGoal: Math.round(percentageReachingGoal * 10) / 10, // Round to 1 decimal
+      percentageReachingGoal: Math.round(percentageReachingGoal * 10) / 10,
       averageMinutesPerUser: Math.round(averageMinutesPerUser * 10) / 10,
       currentWeek: weekRange,
     };
   } catch (error) {
     console.error('Error calculating WHO 150 tracker:', error);
-    const now = new Date();
-    const weekRange = getWeekRange(now);
-    return {
-      totalUsers: 0,
-      usersReachingGoal: 0,
-      percentageReachingGoal: 0,
-      averageMinutesPerUser: 0,
-      currentWeek: weekRange,
-    };
+    return { totalUsers: 0, usersReachingGoal: 0, percentageReachingGoal: 0, averageMinutesPerUser: 0, currentWeek: weekRange };
   }
 }
 
-/**
- * Estimated Health Savings
- * Calculates estimated health cost savings based on active users
- */
+// ── Health Savings ────────────────────────────────────────────────────────────
+
 export interface HealthSavingsResult {
   totalUsers: number;
-  activeUsers: number; // Users with at least 150 minutes/week
-  estimatedMonthlySavings: number; // In ₪
-  estimatedYearlySavings: number; // In ₪
-  savingsPerActiveUser: number; // In ₪
+  activeUsers: number;
+  estimatedMonthlySavings: number;
+  estimatedYearlySavings: number;
+  savingsPerActiveUser: number;
   currentMonth: { year: number; month: number };
 }
 
 export async function getHealthSavings(authorityId: string): Promise<HealthSavingsResult> {
+  const now = new Date();
+
   try {
     const userIds = await getAuthorityUsers(authorityId);
     if (userIds.length === 0) {
-      const now = new Date();
       return {
-        totalUsers: 0,
-        activeUsers: 0,
-        estimatedMonthlySavings: 0,
-        estimatedYearlySavings: 0,
+        totalUsers: 0, activeUsers: 0,
+        estimatedMonthlySavings: 0, estimatedYearlySavings: 0,
         savingsPerActiveUser: AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON,
         currentMonth: { year: now.getFullYear(), month: now.getMonth() },
       };
     }
 
-    const now = new Date();
+    // Reuse current-week bulk query (same data as WHO tracker)
     const weekRange = getWeekRange(now);
-    let activeUsers = 0;
+    const minutesMap = await getBulkWorkoutMinutes(userIds, weekRange.start, weekRange.end);
 
-    // Count active users (reaching 150 minutes/week)
-    for (const userId of userIds) {
-      const weeklyMinutes = await getUserWorkoutDuration(userId, weekRange.start, weekRange.end);
-      if (weeklyMinutes >= WHO_WEEKLY_TARGET_MINUTES) {
-        activeUsers++;
-      }
-    }
-
+    const activeUsers = Array.from(minutesMap.values()).filter(m => m >= WHO_WEEKLY_TARGET_MINUTES).length;
     const estimatedMonthlySavings = activeUsers * AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON;
-    const estimatedYearlySavings = estimatedMonthlySavings * 12;
 
     return {
       totalUsers: userIds.length,
       activeUsers,
       estimatedMonthlySavings: Math.round(estimatedMonthlySavings),
-      estimatedYearlySavings: Math.round(estimatedYearlySavings),
+      estimatedYearlySavings: Math.round(estimatedMonthlySavings * 12),
       savingsPerActiveUser: AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON,
       currentMonth: { year: now.getFullYear(), month: now.getMonth() },
     };
   } catch (error) {
     console.error('Error calculating health savings:', error);
-    const now = new Date();
     return {
-      totalUsers: 0,
-      activeUsers: 0,
-      estimatedMonthlySavings: 0,
-      estimatedYearlySavings: 0,
+      totalUsers: 0, activeUsers: 0,
+      estimatedMonthlySavings: 0, estimatedYearlySavings: 0,
       savingsPerActiveUser: AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON,
       currentMonth: { year: now.getFullYear(), month: now.getMonth() },
     };
   }
 }
 
-/**
- * Savings Over Time
- * Returns monthly savings data for the last 12 months
- */
+// ── Savings Over Time ─────────────────────────────────────────────────────────
+
 export interface SavingsOverTimeData {
-  month: string; // "YYYY-MM" format
-  monthLabel: string; // Hebrew month label
-  savings: number; // In ₪
+  month: string;      // "YYYY-MM"
+  monthLabel: string; // Hebrew label
+  savings: number;    // ₪
   activeUsers: number;
 }
 
+const MONTH_NAMES_HE = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+];
+
+/**
+ * Returns monthly savings for the last `months` months.
+ * All months run in parallel; each month uses a single bulk batch query.
+ * Old: 12 × n_users sequential reads ≈ 1,800 for 150 users.
+ * New: 12 parallel groups × ceil(n/30) parallel batches ≈ 72 reads total.
+ */
 export async function getSavingsOverTime(
   authorityId: string,
   months: number = 12
 ): Promise<SavingsOverTimeData[]> {
   try {
     const userIds = await getAuthorityUsers(authorityId);
-    if (userIds.length === 0) {
-      return [];
-    }
+    if (userIds.length === 0) return [];
 
     const now = new Date();
-    const results: SavingsOverTimeData[] = [];
-    const monthNames = [
-      'ינואר',
-      'פברואר',
-      'מרץ',
-      'אפריל',
-      'מאי',
-      'יוני',
-      'יולי',
-      'אוגוסט',
-      'ספטמבר',
-      'אוקטובר',
-      'נובמבר',
-      'דצמבר',
-    ];
 
-    // Calculate for each month going back
-    for (let i = months - 1; i >= 0; i--) {
-      const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthRange = getMonthRange(targetDate.getFullYear(), targetDate.getMonth());
-      
-      // For each month, check weekly activity (use first week as proxy for simplicity)
-      // In production, you'd want to aggregate all weeks in the month
-      const weekRange = getWeekRange(monthRange.start);
-      let activeUsers = 0;
+    // All months run concurrently
+    const results = await Promise.all(
+      Array.from({ length: months }, (_, i) => {
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1);
+        const monthRange = getMonthRange(targetDate.getFullYear(), targetDate.getMonth());
 
-      for (const userId of userIds) {
-        const weeklyMinutes = await getUserWorkoutDuration(userId, weekRange.start, weekRange.end);
-        if (weeklyMinutes >= WHO_WEEKLY_TARGET_MINUTES) {
-          activeUsers++;
-        }
-      }
-
-      const savings = activeUsers * AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON;
-      const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
-      const monthLabel = `${monthNames[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
-
-      results.push({
-        month: monthKey,
-        monthLabel,
-        savings: Math.round(savings),
-        activeUsers,
-      });
-    }
+        return getBulkWorkoutMinutes(userIds, monthRange.start, monthRange.end).then(minutesMap => {
+          const activeUsers = Array.from(minutesMap.values()).filter(m => m >= WHO_WEEKLY_TARGET_MINUTES).length;
+          const savings     = activeUsers * AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON;
+          const monthKey    = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+          const monthLabel  = `${MONTH_NAMES_HE[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+          return { month: monthKey, monthLabel, savings: Math.round(savings), activeUsers };
+        });
+      })
+    );
 
     return results;
   } catch (error) {
@@ -310,9 +270,8 @@ export async function getSavingsOverTime(
   }
 }
 
-/**
- * Get park-specific health savings
- */
+// ── Park-specific Health Savings ──────────────────────────────────────────────
+
 export interface ParkHealthSavings {
   parkId: string;
   parkName: string;
@@ -326,39 +285,20 @@ export async function getParkHealthSavings(
   parkName: string
 ): Promise<ParkHealthSavings> {
   try {
-    // This is a simplified version - in production, you'd track which users
-    // checked into which parks and calculate their activity
     const userIds = await getAuthorityUsers(authorityId);
+    if (userIds.length === 0) return { parkId, parkName, activeUsers: 0, estimatedMonthlySavings: 0 };
+
     const now = new Date();
     const weekRange = getWeekRange(now);
-    
-    // For now, estimate based on authority-wide data
-    // In production, filter by park check-ins
-    let activeUsers = 0;
-    for (const userId of userIds) {
-      const weeklyMinutes = await getUserWorkoutDuration(userId, weekRange.start, weekRange.end);
-      if (weeklyMinutes >= WHO_WEEKLY_TARGET_MINUTES) {
-        activeUsers++;
-      }
-    }
+    const minutesMap = await getBulkWorkoutMinutes(userIds, weekRange.start, weekRange.end);
 
-    // Estimate park-specific savings (assume 10% of active users use this park)
+    const activeUsers = Array.from(minutesMap.values()).filter(m => m >= WHO_WEEKLY_TARGET_MINUTES).length;
     const parkActiveUsers = Math.round(activeUsers * 0.1);
     const estimatedMonthlySavings = parkActiveUsers * AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON;
 
-    return {
-      parkId,
-      parkName,
-      activeUsers: parkActiveUsers,
-      estimatedMonthlySavings: Math.round(estimatedMonthlySavings),
-    };
+    return { parkId, parkName, activeUsers: parkActiveUsers, estimatedMonthlySavings: Math.round(estimatedMonthlySavings) };
   } catch (error) {
     console.error('Error calculating park health savings:', error);
-    return {
-      parkId,
-      parkName,
-      activeUsers: 0,
-      estimatedMonthlySavings: 0,
-    };
+    return { parkId, parkName, activeUsers: 0, estimatedMonthlySavings: 0 };
   }
 }

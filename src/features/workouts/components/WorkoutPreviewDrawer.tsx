@@ -16,15 +16,37 @@ import { useUserStore } from '@/features/user';
 import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
 import { GeneratedWorkout, WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { calculateDistance } from '@/lib/services/location.service';
-import { resolveEquipmentLabel, resolveEquipmentIconKey, getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentLabel, resolveEquipmentIconKey, resolveEquipmentSvgPath, normalizeGearId, getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import ExerciseDetailContent, { type ProgramRef } from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 
 /**
  * Convert Firestore exercises to WorkoutPlan format
  * Organizes exercises into segments: Warm-up, Strength, Cool-down
  */
 async function convertExercisesToWorkoutPlan(exercises: FirestoreExercise[]): Promise<WorkoutPlan> {
+  const mergeEquipment = (ex: FirestoreExercise): string[] => {
+    const method = ex.execution_methods?.find((m: any) => m.location === 'home') || ex.execution_methods?.[0];
+    const raw = [
+      ...((ex as any).equipment || []),
+      ...((method as any)?.gearIds || []),
+      ...((method as any)?.equipmentIds || []),
+      ...((method as any)?.gearId ? [(method as any).gearId] : []),
+      ...((method as any)?.equipmentId ? [(method as any).equipmentId] : []),
+    ].filter(Boolean);
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const id of raw) {
+      const norm = normalizeGearId(id);
+      if (norm !== 'none' && norm !== 'bodyweight' && !seen.has(norm)) {
+        seen.add(norm);
+        result.push(norm);
+      }
+    }
+    return result;
+  };
+
   // Separate exercises by role
   const warmupExercises = exercises.filter((ex) => ex.exerciseRole === 'warmup');
   const mainExercises = exercises.filter((ex) => ex.exerciseRole === 'main' || !ex.exerciseRole);
@@ -32,21 +54,10 @@ async function convertExercisesToWorkoutPlan(exercises: FirestoreExercise[]): Pr
 
   const segments: ParkWorkoutSegment[] = [];
 
-  // Smart image resolution: loop through ALL execution_methods until a non-null media URL is found
   const resolveImageUrl = (ex: FirestoreExercise): string | undefined => {
-    const methods = ex.execution_methods || [];
-    for (const m of methods) {
-      if (m?.media?.imageUrl && typeof m.media.imageUrl === 'string' && m.media.imageUrl.trim()) {
-        return m.media.imageUrl;
-      }
-      if (m?.media?.mainVideoUrl && typeof m.media.mainVideoUrl === 'string' && m.media.mainVideoUrl.trim()) {
-        return m.media.mainVideoUrl;
-      }
-    }
-    // Fallback to legacy media
-    if (ex.media?.imageUrl) return ex.media.imageUrl;
-    if (ex.media?.videoUrl) return ex.media.videoUrl;
-    return undefined;
+    const method = ex.execution_methods?.find((m) => m.location === 'home') || ex.execution_methods?.[0];
+    const { imageUrl } = resolveExerciseMedia(ex as any, method as any);
+    return imageUrl;
   };
 
   // Warm-up segment
@@ -85,6 +96,7 @@ async function convertExercisesToWorkoutPlan(exercises: FirestoreExercise[]): Pr
         imageUrl,
         instructions: ex.content?.highlights || [],
         icon: '🔥',
+        equipment: mergeEquipment(ex),
       };
     });
 
@@ -140,6 +152,7 @@ async function convertExercisesToWorkoutPlan(exercises: FirestoreExercise[]): Pr
         imageUrl,
         instructions: ex.content?.highlights || [],
         icon: '💪',
+        equipment: mergeEquipment(ex),
       };
     });
 
@@ -173,6 +186,7 @@ async function convertExercisesToWorkoutPlan(exercises: FirestoreExercise[]): Pr
         imageUrl,
         instructions: ex.content?.highlights || [],
         icon: '🧘',
+        equipment: mergeEquipment(ex),
       };
     });
 
@@ -910,7 +924,7 @@ export default function WorkoutPreviewDrawer({
 
         const methodMedia = method?.media || exercise.execution_methods?.[0]?.media;
         const heroVideoUrl = methodMedia?.mainVideoUrl || exercise.media?.videoUrl || null;
-        const heroPosterUrl = methodMedia?.imageUrl || exercise.media?.imageUrl || null;
+        const { imageUrl: heroPosterUrl } = resolveExerciseMedia(exercise as any, method as any);
 
         const ytUrl =
           methodMedia?.instructionalVideos?.[0]?.url ||
@@ -1110,18 +1124,10 @@ function groupExercisesIntoSections(exercises: EngineWorkoutExercise[]): Exercis
   return sections;
 }
 
-/** Resolve exercise thumbnail image URL */
+/** Resolve exercise thumbnail image URL via shared 5-level deep search */
 function resolveExerciseImage(ex: EngineWorkoutExercise): string {
-  const exercise = ex.exercise;
-  // Priority 1: execution method media
-  const methodMedia = exercise.execution_methods?.[0]?.media || exercise.executionMethods?.[0]?.media;
-  if (methodMedia?.imageUrl) return methodMedia.imageUrl;
-  if (methodMedia?.mainVideoUrl) return methodMedia.mainVideoUrl;
-  // Priority 2: legacy media
-  if (exercise.media?.imageUrl) return exercise.media.imageUrl;
-  if (exercise.media?.videoUrl) return exercise.media.videoUrl;
-  // Fallback — local placeholder (no external hosts)
-  return '/images/park-placeholder.svg';
+  const { imageUrl } = resolveExerciseMedia(ex.exercise as any, ex.method as any);
+  return imageUrl || '/images/park-placeholder.svg';
 }
 
 interface EquipmentEntry { id: string; label: string }
@@ -1216,9 +1222,7 @@ const MUSCLE_ICON_FALLBACK: Record<string, string> = {
 // DrawerEquipmentBadge — icon + Hebrew label in a frosted pill
 // ============================================================================
 function DrawerEquipmentBadge({ id, label }: { id: string; label: string }) {
-  const [imgError, setImgError] = React.useState(false);
-  const iconKey = resolveEquipmentIconKey(id);
-  const iconSrc = iconKey ? `/assets/icons/equipment/${iconKey}.svg` : null;
+  const iconSrc = resolveEquipmentSvgPath(id);
 
   return (
     <div
@@ -1226,17 +1230,22 @@ function DrawerEquipmentBadge({ id, label }: { id: string; label: string }) {
       style={{ border: '0.5px solid #E0E9FF' }}
       dir="rtl"
     >
-      {!iconSrc || imgError ? (
-        <Dumbbell size={18} className="text-[#00C9F2] flex-shrink-0" />
-      ) : (
+      {iconSrc && iconSrc.startsWith('/') ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={iconSrc}
           alt={label}
           width={18}
           height={18}
-          onError={() => setImgError(true)}
+          className="brightness-0 dark:brightness-100"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.removeAttribute('src');
+            img.style.display = 'none';
+          }}
         />
+      ) : (
+        <Dumbbell size={18} className="text-black dark:text-white flex-shrink-0" />
       )}
       <span className="text-sm font-normal text-gray-800 dark:text-gray-100">{label}</span>
     </div>
@@ -1425,12 +1434,12 @@ function GeneratedWorkoutExerciseList({
                   : getLocalizedText(ex.exercise.name, 'he');
 
                 // Range-based display (no sets prefix -- sets visible in section header)
+                // Format: "12 (8-15) חזרות" — final resolved target + original range for transparency
                 const volume = (() => {
                   const uniLabel = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
                   if (ex.repsRange && ex.repsRange.min !== ex.repsRange.max) {
                     const unit = ex.isTimeBased ? 'שניות' : 'חזרות';
-                    const goalSuffix = ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : '';
-                    return `${ex.repsRange.min}-${ex.repsRange.max} ${unit}${uniLabel}${goalSuffix}`;
+                    return `${ex.repsRange.min}-${ex.repsRange.max} ${unit}${uniLabel}`;
                   }
                   return ex.isTimeBased ? `${ex.reps} שניות` : `${ex.reps} חזרות${uniLabel}`;
                 })();

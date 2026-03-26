@@ -12,6 +12,7 @@ import { Exercise, MechanicalType, ExerciseTag } from '@/features/content/exerci
 import type { ScoredExercise } from './contextual-engine.types';
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
+import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
 import type {
   DifficultyLevel,
   ExercisePriority,
@@ -127,10 +128,63 @@ export function getShuffleSeed(context: { userId?: string; selectedDate?: string
 // PRIORITY CLASSIFICATION
 // ============================================================================
 
-export function classifyPriority(exercise: Exercise): ExercisePriority {
+const FOUNDATION_NAME_PATTERNS = [
+  /pull[\s-]?up/i, /פולאפ/i, /מתח/i,
+  /dip/i, /מקבילים/i, /דיפס/i,
+  /push[\s-]?up/i, /שכיבות/i, /פושאפ/i,
+  /row/i, /חתירה/i,
+];
+
+const SKILL_NAME_PATTERNS = [
+  /back[\s_-]?lever/i, /באק\s?לבר/i, /מנוף\s?אחורי/i,
+  /front[\s_-]?lever/i, /פרונט\s?לבר/i, /מנוף\s?קדמי/i,
+  /human[\s_-]?flag/i, /דגל\s?אנושי/i, /דגל/i,
+  /muscle[\s_-]?up/i, /מאסל\s?אפ/i, /מאסלאפ/i,
+  /planche/i, /פלאנש/i,
+];
+
+function isSkillExercise(exercise: Exercise): boolean {
+  const tags = exercise.tags || [];
+  if (tags.includes('skill')) return true;
+
+  const nameHe = (exercise.name as any)?.he ?? '';
+  const nameEn = (exercise.name as any)?.en ?? exercise.name ?? '';
+
+  for (const pat of SKILL_NAME_PATTERNS) {
+    if (pat.test(nameHe) || pat.test(nameEn)) return true;
+  }
+  return false;
+}
+
+function isFoundationExercise(exercise: Exercise): boolean {
+  // Skill keywords take absolute precedence: "Tuck Planche Push-up"
+  // contains "Push-up" but the "Planche" keyword makes it a skill, not
+  // a foundation.  Check skill patterns first and bail if any match.
+  if (isSkillExercise(exercise)) return false;
+
+  const nameHe = (exercise.name as any)?.he ?? '';
+  const nameEn = (exercise.name as any)?.en ?? exercise.name ?? '';
   const tags = exercise.tags || [];
 
-  if (tags.includes('skill')) return 'skill';
+  if (tags.includes('foundation')) return true;
+
+  for (const pat of FOUNDATION_NAME_PATTERNS) {
+    if (pat.test(nameHe) || pat.test(nameEn)) return true;
+  }
+
+  const isMultiJointCompound =
+    (tags.includes('compound') || exercise.movementType === 'compound') &&
+    exercise.mechanicalType === 'bent_arm';
+  if (isMultiJointCompound) return true;
+
+  return false;
+}
+
+export function classifyPriority(exercise: Exercise): ExercisePriority {
+  if (isFoundationExercise(exercise)) return 'foundation';
+  if (isSkillExercise(exercise)) return 'skill';
+
+  const tags = exercise.tags || [];
   if (tags.includes('compound') || exercise.movementType === 'compound') return 'compound';
   if (tags.includes('isolation')) return 'isolation';
   if (exercise.primaryMuscle === 'full_body') return 'compound';
@@ -140,6 +194,16 @@ export function classifyPriority(exercise: Exercise): ExercisePriority {
 // ============================================================================
 // DIFFICULTY FILTER
 // ============================================================================
+
+// Movement-group → domain mapping for domain-gated level resolution.
+// When an exercise's targetPrograms don't directly match domainLevelMap keys,
+// we use its movementGroup to infer which domain level should apply.
+const MG_TO_DOMAIN_GATE: Record<string, string> = {
+  vertical_pull:    'pull',  horizontal_pull:  'pull',
+  vertical_push:    'push',  horizontal_push:  'push',
+  squat:            'legs',  hinge:            'legs', lunge: 'legs',
+  core:             'core',  anti_extension:   'core', anti_rotation: 'core',
+};
 
 export function applyDifficultyFilter(
   exercises: ScoredExercise[],
@@ -176,11 +240,10 @@ export function applyDifficultyFilter(
     // matching the active workout domains, not blindly from [0].
     const exerciseLevel = (ex.programLevel ?? resolveExerciseLevelForDomains(ex.exercise, activeDomainIds).level) || globalLevel;
 
-    let rawDomainLevel = globalLevel;
+    let rawDomainLevel: number | null = null;
     const tps = ex.exercise.targetPrograms;
     if (tps && tps.length > 0) {
       for (const tp of tps) {
-        // Try direct programId, then slug-resolved version
         const directLevel = domainLevelMap.get(tp.programId)
           ?? domainLevelMap.get(resolveToSlug(tp.programId));
         if (directLevel != null) { rawDomainLevel = directLevel; break; }
@@ -191,10 +254,34 @@ export function applyDifficultyFilter(
             const parentLevel = domainLevelMap.get(p);
             if (parentLevel != null) { rawDomainLevel = parentLevel; break; }
           }
-          if (rawDomainLevel !== globalLevel) break;
+          if (rawDomainLevel !== null) break;
         }
       }
     }
+
+    // STRICT DOMAIN GATING: if targetPrograms lookup didn't match,
+    // derive the domain from the exercise's movementGroup and use that
+    // domain's specific level. This prevents a Push exercise (L12) from
+    // inheriting the global Pull level (L19).
+    if (rawDomainLevel === null) {
+      const mg = ex.exercise.movementGroup;
+      if (mg) {
+        const inferredDomain = MG_TO_DOMAIN_GATE[mg];
+        if (inferredDomain) {
+          const inferredLevel = domainLevelMap.get(inferredDomain);
+          if (inferredLevel != null) {
+            rawDomainLevel = inferredLevel;
+            console.log(
+              `[LevelSync] DomainGate: "${(ex.exercise.name as any)?.he || ex.exercise.id}" ` +
+              `mg=${mg} → domain=${inferredDomain} → L${inferredLevel} (NOT globalL${globalLevel})`,
+            );
+          }
+        }
+      }
+    }
+
+    // Final fallback to globalLevel only if no domain-specific level was found
+    if (rawDomainLevel === null) rawDomainLevel = globalLevel;
 
     // Safety fallback: if domain level is 1 (Firestore default) but global is
     // higher, use global to prevent "Tier Paradox" (everything resolving to elite).
@@ -213,9 +300,9 @@ export function applyDifficultyFilter(
  * Bolt-Aware Selection: difficulty (bolts) determines which level-delta
  * band the engine targets. This controls exercise difficulty, not just volume.
  *
- *   Bolt 3 (Intense):  prefer levelDiff +1 or +2 (harder exercises)
- *   Bolt 2 (Normal):   prefer levelDiff 0 (match user level)
- *   Bolt 1 (Easy):     prefer levelDiff -1 or -2 (easier, volume-oriented)
+ *   Bolt 3 (Intense):  prefer levelDiff 0 to +1 (challenge / PR territory)
+ *   Bolt 2 (Normal):   prefer levelDiff -1 (solid foundation work)
+ *   Bolt 1 (Easy):     prefer levelDiff -2 (volume / reps focus)
  *
  * If the targeted band has fewer exercises than 2× count, the filter
  * automatically relaxes by ±1 to expand the pool.
@@ -229,18 +316,18 @@ export function selectExercisesForDifficulty(
   const targetFilter = (ex: { levelDiff?: number }): boolean => {
     const d = ex.levelDiff ?? 0;
     switch (difficulty) {
-      case 3: return d >= 1 && d <= 2;
-      case 1: return d >= -2 && d <= -1;
-      default: return d === 0;
+      case 3: return d >= 0 && d <= 1;    // Intense: at-level to +1
+      case 1: return d >= -2 && d <= -2;  // Easy: -2 (volume / reps)
+      default: return d >= -1 && d <= -1; // Normal: -1 (solid foundation)
     }
   };
 
   const relaxedFilter = (ex: { levelDiff?: number }): boolean => {
     const d = ex.levelDiff ?? 0;
     switch (difficulty) {
-      case 3: return d >= 0 && d <= 3;
-      case 1: return d >= -3 && d <= 0;
-      default: return Math.abs(d) <= 1;
+      case 3: return d >= -1 && d <= 2;  // Intense relaxed: -1 to +2
+      case 1: return d >= -3 && d <= -1; // Easy relaxed: -3 to -1
+      default: return d >= -2 && d <= 0; // Normal relaxed: -2 to 0
     }
   };
 
@@ -252,9 +339,17 @@ export function selectExercisesForDifficulty(
 
   if (pool.length >= count) return pool.slice(0, count);
 
+  // Overflow: fill remaining slots from exercises outside the bolt window,
+  // but enforce a hard levelDiff cap to prevent wildly over-levelled exercises
+  // from leaking in (e.g., L18 Tuck Planche Push-up for an L12 Push user).
+  const HARD_LEVEL_CAP = 3;
   const poolIds = new Set(pool.map((ex) => ex.exercise.id));
   const overflow = exercises
-    .filter((ex) => !poolIds.has(ex.exercise.id))
+    .filter((ex) => {
+      if (poolIds.has(ex.exercise.id)) return false;
+      const d = ex.levelDiff ?? 0;
+      return d <= HARD_LEVEL_CAP;
+    })
     .sort((a, b) => b.score - a.score);
 
   return [...pool, ...overflow].slice(0, count);
@@ -364,11 +459,6 @@ export function selectExercisesWithDomainQuotas(
           || methods[0];
       };
       const hasMethod = (ex: Exercise) => !!findMethod(ex);
-      const ESSENTIAL_GEAR = new Set([
-        'pullup_bar', 'pull_up_bar', 'pullupbar',
-        'dip_bar', 'dip_station', 'dipstation',
-        'parallel_bars', 'bars',
-      ]);
       const isLocationCompatible = (ex: Exercise) => {
         const m = findMethod(ex);
         if (!m) return false;
@@ -377,8 +467,8 @@ export function selectExercisesWithDomainQuotas(
         const equipmentIds = m.equipmentIds ?? (m.equipmentId ? [m.equipmentId] : []);
         const all = [...gearIds, ...equipmentIds].filter(Boolean);
         return all.length === 0 || all.every((id) => {
-          const lower = String(id).toLowerCase();
-          return lower === 'bodyweight' || lower === 'none' || ESSENTIAL_GEAR.has(lower);
+          const norm = normalizeGearId(id);
+          return norm === 'bodyweight' || norm === 'none' || ESSENTIAL_PARK_GEAR.has(norm);
         });
       };
       const getLevelForDomain = (ex: Exercise): number => {
@@ -522,6 +612,7 @@ export function selectExercisesWithDomainQuotas(
 
   const byPriority: Record<ExercisePriority, typeof shuffled> = {
     skill: [],
+    foundation: [],
     compound: [],
     accessory: [],
     isolation: [],
@@ -530,7 +621,7 @@ export function selectExercisesWithDomainQuotas(
     if (selectedIds.has(s.exercise.id)) continue;
     byPriority[classifyPriority(s.exercise)].push(s);
   }
-  const primaryPool = [...byPriority.skill, ...byPriority.compound].sort((a, b) => b.score - a.score);
+  const primaryPool = [...byPriority.foundation, ...byPriority.compound, ...byPriority.skill].sort((a, b) => b.score - a.score);
   const secondaryPool = [...byPriority.accessory, ...byPriority.isolation].sort((a, b) => b.score - a.score);
 
   const takeFromPool = (pool: typeof primaryPool, n: number) => {

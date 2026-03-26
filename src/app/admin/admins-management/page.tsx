@@ -158,11 +158,13 @@ export default function AdminsManagementPage() {
       return {
         adminId: user.uid,
         adminName: profile?.core?.name || user.displayName || 'Unknown Admin',
+        adminEmail: user.email || profile?.core?.email || '',
       };
     } catch (error) {
       return {
         adminId: user.uid,
         adminName: user.displayName || 'Unknown Admin',
+        adminEmail: user.email || '',
       };
     }
   };

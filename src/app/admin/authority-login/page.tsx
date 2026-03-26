@@ -21,14 +21,12 @@ function AuthorityLoginContent() {
   useEffect(() => {
     // Check if there's an invitation token (maintain backward compatibility)
     const token = searchParams?.get('token');
-    
-    if (token) {
-      // If there's a token, redirect to authority portal with token
-      router.replace(`/authority-portal/login?token=${token}`);
-    } else {
-      // Default: redirect to authority portal
-      router.replace('/authority-portal/login');
-    }
+    const authority = searchParams?.get('authority');
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (authority) params.set('authority', authority);
+    const qs = params.toString();
+    router.replace(`/authority-portal/login${qs ? `?${qs}` : ''}`);
   }, [router, searchParams]);
 
   return (

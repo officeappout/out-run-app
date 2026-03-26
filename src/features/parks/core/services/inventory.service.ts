@@ -7,6 +7,7 @@ import {
     query,
     where,
     orderBy,
+    updateDoc,
     serverTimestamp,
 } from 'firebase/firestore';
 import { Route } from '../types/route.types';
@@ -41,9 +42,11 @@ function stripUndefined<T extends Record<string, any>>(obj: T): T {
 
 export const InventoryService = {
     /**
-     * Save multiple facilities to Firestore
+     * Save multiple facilities to Firestore.
+     * Each facility object may carry an `authorityId` for multi-tenancy.
+     * An optional `defaultAuthorityId` is merged into any facility that omits its own.
      */
-    saveFacilities: async (facilities: MapFacility[]) => {
+    saveFacilities: async (facilities: MapFacility[], defaultAuthorityId?: string) => {
         try {
             const facilitiesRef = collection(db, 'facilities');
 
@@ -53,6 +56,7 @@ export const InventoryService = {
                 const newDocRef = doc(facilitiesRef);
                     batch.set(newDocRef, stripUndefined({
                     ...f,
+                    authorityId: f.authorityId ?? defaultAuthorityId ?? null,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp()
                     }));
@@ -69,14 +73,20 @@ export const InventoryService = {
     },
 
     /**
-     * Fetch all facilities from Firestore
+     * Fetch facilities from Firestore.
+     * When `authorityId` is provided, results are scoped to that authority.
+     * Without it, all facilities are returned (super-admin view).
      */
-    fetchFacilities: async (): Promise<MapFacility[]> => {
+    fetchFacilities: async (authorityId?: string): Promise<MapFacility[]> => {
         try {
-            const querySnapshot = await getDocs(collection(db, 'facilities'));
-            return querySnapshot.docs.map(doc => ({
-                ...doc.data(),
-                id: doc.id
+            const facilitiesRef = collection(db, 'facilities');
+            const q = authorityId
+                ? query(facilitiesRef, where('authorityId', '==', authorityId))
+                : facilitiesRef;
+            const querySnapshot = await getDocs(q);
+            return querySnapshot.docs.map(d => ({
+                ...d.data(),
+                id: d.id
             } as MapFacility));
         } catch (error) {
             console.error('❌ Error fetching facilities:', error);
@@ -135,10 +145,13 @@ export const InventoryService = {
     },
 
     /**
-     * Fetch all official routes from Firestore
-     * If authorityIds are provided, only returns routes associated with parks in those authorities
+     * Fetch all official routes from Firestore.
+     * If authorityIds are provided, only returns routes associated with parks in those authorities.
+     *
+     * @param publishedOnly  When true (default for app), filters out unpublished/pending routes.
+     *                       Admin inventory passes false to see all routes including pending.
      */
-    fetchOfficialRoutes: async (authorityIds?: string[]): Promise<Route[]> => {
+    fetchOfficialRoutes: async (authorityIds?: string[], publishedOnly = false): Promise<Route[]> => {
         try {
             let querySnapshot;
             
@@ -165,31 +178,30 @@ export const InventoryService = {
                     return visitingParkId && parkIds.includes(visitingParkId);
                 });
                 
-                return filteredDocs.map(doc => {
-                    const data = doc.data();
-                    // Map back from {lng, lat}[] to [number, number][]
-                    const path = (data.path as { lng: number, lat: number }[]).map(p => [p.lng, p.lat] as [number, number]);
+                const normalise = (docSnap: any): Route | null => {
+                    const data = docSnap.data();
+                    if (publishedOnly && data.published === false) return null;
+                    const rawPath = data.path;
+                    if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
+                    const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+                    return { ...data, id: docSnap.id, path } as Route;
+                };
 
-                    return {
-                        ...data,
-                        id: doc.id,
-                        path
-                    } as Route;
-                });
+                return filteredDocs.map(normalise).filter((r): r is Route => r !== null);
             } else {
                 // For super_admin/system_admin: fetch all routes
                 querySnapshot = await getDocs(collection(db, 'official_routes'));
-                return querySnapshot.docs.map(doc => {
-                    const data = doc.data();
-                    // Map back from {lng, lat}[] to [number, number][]
-                    const path = (data.path as { lng: number, lat: number }[]).map(p => [p.lng, p.lat] as [number, number]);
 
-                    return {
-                        ...data,
-                        id: doc.id,
-                        path
-                    } as Route;
-                });
+                const normalise = (docSnap: any): Route | null => {
+                    const data = docSnap.data();
+                    if (publishedOnly && data.published === false) return null;
+                    const rawPath = data.path;
+                    if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
+                    const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+                    return { ...data, id: docSnap.id, path } as Route;
+                };
+
+                return querySnapshot.docs.map(normalise).filter((r): r is Route => r !== null);
             }
         } catch (error) {
             console.error('❌ Error fetching official routes:', error);
@@ -404,8 +416,15 @@ export const InventoryService = {
     /**
      * Fetch curated routes for a specific authority — ultra-fast (<1s).
      * Used by onboarding to instantly show 3 stitched experience routes.
+     *
+     * @param publishedOnly  When true (default), only returns routes where
+     *                       published !== false. Set to false for admin views
+     *                       that need to show pending routes too.
      */
-    fetchCuratedRoutesByAuthority: async (authorityId: string): Promise<Route[]> => {
+    fetchCuratedRoutesByAuthority: async (
+        authorityId: string,
+        publishedOnly = true,
+    ): Promise<Route[]> => {
         try {
             const q = query(
                 collection(db, 'curated_routes'),
@@ -416,6 +435,8 @@ export const InventoryService = {
             return snapshot.docs
                 .map(docSnap => {
                     const data = docSnap.data();
+                    // Filter out unpublished routes for app-side requests
+                    if (publishedOnly && data.published === false) return null;
                     // Null-safe path handling
                     const rawPath = data.path;
                     if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
@@ -521,6 +542,82 @@ export const InventoryService = {
         } catch (error) {
             console.error('❌ Error fetching infrastructure stats:', error);
             return { totalKm: 0, segmentCount: 0 };
+        }
+    },
+
+    /**
+     * Fetch ALL routes (official + curated) for a specific authority by
+     * directly querying the `authorityId` field.
+     * Unlike fetchOfficialRoutes(), this works for manually-drawn routes
+     * and seeded routes that have no `visitingParkId`.
+     *
+     * Used by the Authority Manager routes list page.
+     * Returns both pending and published routes so the admin can see all their tracks.
+     */
+    fetchRoutesByAuthorityId: async (authorityId: string): Promise<Route[]> => {
+        try {
+            const q = query(
+                collection(db, 'official_routes'),
+                where('authorityId', '==', authorityId)
+            );
+            const snapshot = await getDocs(q);
+
+            return snapshot.docs
+                .map(docSnap => {
+                    const data = docSnap.data();
+                    const rawPath = data.path;
+                    if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
+                    const path = rawPath.map(
+                        (p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]
+                    );
+                    return {
+                        ...data,
+                        id: docSnap.id,
+                        path,
+                        distance: typeof data.distance === 'number' && !isNaN(data.distance) ? data.distance : 0,
+                        rating:   typeof data.rating   === 'number' && !isNaN(data.rating)   ? data.rating   : 0,
+                        duration: typeof data.duration === 'number' && !isNaN(data.duration) ? data.duration : 0,
+                    } as Route;
+                })
+                .filter((r): r is Route => r !== null);
+        } catch (error) {
+            console.error('❌ Error fetching routes by authorityId:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Approve a pending route — sets published:true + status:'published'.
+     * Also mirrors the update to curated_routes if the doc exists there too.
+     */
+    approveRoute: async (routeId: string): Promise<void> => {
+        try {
+            const payload = {
+                published: true,
+                status: 'published',
+                publishedAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+            await updateDoc(doc(db, 'official_routes', routeId), payload);
+        } catch (error) {
+            console.error('❌ Error approving route:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Reject / un-publish a route — sets published:false + status:'pending'.
+     */
+    rejectRoute: async (routeId: string): Promise<void> => {
+        try {
+            await updateDoc(doc(db, 'official_routes', routeId), {
+                published: false,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+            });
+        } catch (error) {
+            console.error('❌ Error rejecting route:', error);
+            throw error;
         }
     },
 

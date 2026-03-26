@@ -5,7 +5,7 @@ import { MockWorkout } from '../data/mock-schedule-data';
 import { Play, Dumbbell, Check, TrendingUp, Clock, Flag } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveVideoForLocation, resolveImageForLocation } from '@/features/content/exercises/core/exercise.types';
-import { resolveEquipmentLabel, resolveEquipmentIconKey } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentLabel, resolveEquipmentSvgPath, normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
 
 // ============================================================================
@@ -227,8 +227,7 @@ interface EquipmentBadgeProps {
 
 export function EquipmentBadge({ iconSrc, label, size = 36 }: EquipmentBadgeProps) {
   const iconSize = Math.round(size * 0.55);
-  const [imgError, setImgError] = useState(false);
-  const showFallback = !iconSrc || imgError;
+  const validSrc = iconSrc && iconSrc.startsWith('/') ? iconSrc : null;
 
   return (
     <div
@@ -236,17 +235,22 @@ export function EquipmentBadge({ iconSrc, label, size = 36 }: EquipmentBadgeProp
       style={{ ...EQUIPMENT_BADGE_STYLE, width: size, height: size }}
       title={label}
     >
-      {showFallback ? (
-        <Dumbbell className="text-gray-500 dark:text-gray-400" style={{ width: iconSize, height: iconSize }} />
-      ) : (
+      {validSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={iconSrc}
+          src={validSrc}
           alt={label || 'equipment'}
           width={iconSize}
           height={iconSize}
-          onError={() => setImgError(true)}
+          className="brightness-0 dark:brightness-100"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.removeAttribute('src');
+            img.style.display = 'none';
+          }}
         />
+      ) : (
+        <Dumbbell className="text-gray-500 dark:text-gray-400" style={{ width: iconSize, height: iconSize }} />
       )}
     </div>
   );
@@ -370,26 +374,24 @@ export default function HeroWorkoutCard({
 
   const equipmentIcons = useMemo(() => {
     if (!exercises?.length) return [];
-    const seenIds = new Set<string>();
-    const seenLabels = new Set<string>();
+    const seen = new Set<string>();
     const icons: { src?: string; label?: string }[] = [];
     for (const ex of exercises) {
       const method = ex.method;
-      const gearIds: string[] = (method as any)?.gearIds ?? [];
-      const equipIds: string[] = (method as any)?.equipmentIds ?? [];
-      const legacyEquip: string[] = ex.exercise.equipment ?? [];
-      for (const id of [...gearIds, ...equipIds, ...legacyEquip]) {
-        if (!id || seenIds.has(id)) continue;
-        seenIds.add(id);
-        const label = resolveEquipmentLabel(id);
-        if (seenLabels.has(label)) continue;
-        seenLabels.add(label);
-        const iconKey = resolveEquipmentIconKey(id);
-        if (!iconKey) continue;
-        icons.push({
-          src: `/assets/icons/equipment/${iconKey}.svg`,
-          label,
-        });
+      const rawIds: string[] = [
+        ...((method as any)?.gearIds ?? []),
+        ...((method as any)?.equipmentIds ?? []),
+        ...((method as any)?.gearId ? [(method as any).gearId] : []),
+        ...((method as any)?.equipmentId ? [(method as any).equipmentId] : []),
+        ...(ex.exercise?.equipment ?? []),
+      ].filter(Boolean);
+      for (const raw of rawIds) {
+        const norm = normalizeGearId(raw);
+        if (norm === 'bodyweight' || norm === 'none' || seen.has(norm)) continue;
+        seen.add(norm);
+        const svgPath = resolveEquipmentSvgPath(norm);
+        const label = resolveEquipmentLabel(norm);
+        icons.push({ src: svgPath ?? undefined, label });
       }
     }
     return icons.slice(0, 4);

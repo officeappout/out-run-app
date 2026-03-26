@@ -146,6 +146,24 @@ export function buildUserProgramLevels(
     }
   }
 
+  // Pro Athlete Core Floor: if globalLevel > 15, core and isolation
+  // domains should never sit below L7.  A Level 19 athlete doing
+  // knee planks is a UX failure.
+  const globalMax = Math.max(...Array.from(levels.values()), 1);
+  if (globalMax > 15) {
+    const PRO_CORE_FLOOR = 7;
+    const FLOOR_DOMAINS = ['core', 'isolation'];
+    for (const fd of FLOOR_DOMAINS) {
+      const current = levels.get(fd);
+      if (current !== undefined && current < PRO_CORE_FLOOR) {
+        levels.set(fd, PRO_CORE_FLOOR);
+        console.log(
+          `${logPrefix} [CoreFloor] '${fd}' elevated L${current} → L${PRO_CORE_FLOOR} (globalMax=L${globalMax}, pro floor)`,
+        );
+      }
+    }
+  }
+
   // Safety net: remove any master keys that may have leaked in
   Array.from(masterProgramIds).forEach(masterId => {
     if (levels.has(masterId)) {
@@ -154,15 +172,13 @@ export function buildUserProgramLevels(
     }
   });
 
-  // Per-domain level integrity: each domain keeps its actual resolved level.
-  // A user who is L19 in Pull and L1 in Core should get L19 Pull exercises
-  // and L1 Core exercises — no forced elevation.
+  // Per-domain level integrity logging
   if (process.env.NODE_ENV !== 'production') {
     const maxLevel = Math.max(...Array.from(levels.values()), 1);
     for (const [domainId, level] of Array.from(levels.entries())) {
       if (level <= 1 && maxLevel > 3) {
         console.log(
-          `${logPrefix} Domain '${domainId}' is L${level} (max across tracks: L${maxLevel}) — kept as-is (no elevation)`,
+          `${logPrefix} Domain '${domainId}' is L${level} (max across tracks: L${maxLevel})`,
         );
       }
     }

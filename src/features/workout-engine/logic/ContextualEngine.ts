@@ -11,6 +11,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
+import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
 import {
   Exercise,
   ExecutionLocation,
@@ -430,39 +431,36 @@ export class ContextualEngine {
       return withMedia[0] || list[0] || null;
     };
 
-    // Helper: park equipment gating
+    // Unified gear collector — merges equipmentIds + gearIds, normalises all
+    const collectMethodGear = (m: ExecutionMethod): string[] => {
+      const raw: string[] = [];
+      if (m.equipmentIds?.length) raw.push(...m.equipmentIds);
+      else if ((m as any).equipmentId) raw.push((m as any).equipmentId);
+      if (m.gearIds?.length) raw.push(...m.gearIds);
+      else if ((m as any).gearId) raw.push((m as any).gearId);
+      return raw.filter(Boolean).map(normalizeGearId);
+    };
+
+    const normalizedAvailable = context.availableEquipment.map(normalizeGearId);
+
     const applyParkGating = (list: ExecutionMethod[]): ExecutionMethod[] => {
       if (!constraints.bypassLimits || context.location !== 'park') return list;
       return list.filter(m => {
-        if (m.equipmentIds?.length) {
-          return m.equipmentIds.some(eid => context.availableEquipment.includes(eid));
-        }
-        if (m.equipmentId && !context.availableEquipment.includes(m.equipmentId)) {
-          return false;
-        }
-        return true;
+        const allIds = collectMethodGear(m);
+        if (allIds.length === 0) return true;
+        if (allIds.every(id => ESSENTIAL_PARK_GEAR.has(id) || id === 'bodyweight' || id === 'none')) return true;
+        return allIds.some(id => normalizedAvailable.includes(id));
       });
     };
 
-    // Helper: check if a method is bodyweight-only (no equipment needed)
     const isBodyweight = (m: ExecutionMethod): boolean => {
-      const noIds = !m.equipmentIds?.length;
-      const noId = !m.equipmentId;
-      return noIds && noId;
+      return collectMethodGear(m).length === 0;
     };
 
-    const ESSENTIAL_GEAR_SET = new Set([
-      'pullup_bar', 'pull_up_bar', 'pullupbar',
-      'dip_bar', 'dip_station', 'dipstation',
-      'parallel_bars', 'bars',
-    ]);
     const requiresOnlyEssentialGear = (m: ExecutionMethod): boolean => {
-      const eqIds = m.equipmentIds ?? (m.equipmentId ? [m.equipmentId] : []);
-      if (eqIds.length === 0) return false;
-      return eqIds.every(id => {
-        const lower = String(id).toLowerCase();
-        return lower === 'bodyweight' || lower === 'none' || ESSENTIAL_GEAR_SET.has(lower);
-      });
+      const allIds = collectMethodGear(m);
+      if (allIds.length === 0) return false;
+      return allIds.every(id => ESSENTIAL_PARK_GEAR.has(id) || id === 'bodyweight' || id === 'none');
     };
 
     // ── Priority 1: Exact primary location match ──────────────────────
@@ -476,6 +474,15 @@ export class ContextualEngine {
     if (candidates.length > 0) {
       const gated = applyParkGating(candidates);
       if (gated.length > 0) return preferMedia(gated);
+      if (context.location === 'park' && candidates.length > gated.length) {
+        const filtered = candidates.filter(c => !gated.includes(c));
+        const filteredGear = filtered.map(f => ({
+          name: f.methodName,
+          gear: collectMethodGear(f),
+        }));
+        const exName = typeof exercise.name === 'string' ? exercise.name : (exercise.name?.he || exercise.name?.en || exercise.id);
+        console.warn(`[ParkGating] "${exName}" — ${candidates.length} candidates filtered to ${gated.length}. Lost:`, filteredGear, 'Available:', context.availableEquipment.slice(0, 20));
+      }
     }
 
     // ── Priority 2: Home fallback (with improvised equipment) ─────────

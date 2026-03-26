@@ -34,6 +34,9 @@ import {
     GitMerge,
     GitBranch,
     BarChart3,
+    FlaskConical,
+    Route,
+    ShieldCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -42,20 +45,20 @@ import { checkUserRole, isOnlyAuthorityManager, isSystemAdmin as checkIsSystemAd
 import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
 import { signOutUser } from '@/lib/auth.service';
 
-// Section IDs for collapsible state
-type SectionId = 'overview' | 'municipalities' | 'appCore' | 'running' | 'production' | 'brandComm' | 'system';
+// Section IDs for collapsible state — 3 primary Super Admin groups + sub-groups
+type SectionId = 'strategy' | 'municipalities' | 'appCore' | 'running' | 'production' | 'brandComm' | 'system';
 
 // Helper to check if a section contains the active path
 const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boolean => {
     if (!pathname) return false;
     
     const sectionPaths: Record<SectionId, string[]> = {
-        overview: ['/admin', '/admin/roadmap'],
-        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages'],
+        strategy: ['/admin', '/admin/roadmap'],
+        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/'],
         appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds'],
         running: ['/admin/running'],
         production: ['/admin/content-matrix', '/admin/content-status'],
-        brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator'],
+        brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator'],
         system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs'],
     };
     
@@ -82,7 +85,7 @@ export default function AdminLayout({
     const [authorityName, setAuthorityName] = useState<string | null>(null);
     
     // Collapsible sections state
-    const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['overview']));
+    const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(new Set(['strategy']));
 
     // Load expanded sections from localStorage on mount
     useEffect(() => {
@@ -102,7 +105,7 @@ export default function AdminLayout({
     // Auto-expand section containing active path
     useEffect(() => {
         if (pathname) {
-            const sections: SectionId[] = ['overview', 'municipalities', 'appCore', 'running', 'production', 'brandComm', 'system'];
+            const sections: SectionId[] = ['strategy', 'municipalities', 'appCore', 'running', 'production', 'brandComm', 'system'];
             for (const section of sections) {
                 if (sectionContainsPath(section, pathname)) {
                     setExpandedSections(prev => {
@@ -234,36 +237,29 @@ export default function AdminLayout({
     const showSimplifiedSidebar = onlyAuthorityManager;
     const showAuthorityManagerLink = isAuthorityManager;
     
-    // Route protection
+    // Route protection — strict allowlist for Authority Managers
     useEffect(() => {
         if (!loading && roleInfo) {
             if (onlyAuthorityManager) {
-                const unauthorizedPaths = [
-                    '/admin/exercises',
-                    '/admin/gym-equipment',
-                    '/admin/gear-definitions',
-                    '/admin/progression-manager',
-                    '/admin/programs',
-                    '/admin/questionnaire',
-                    '/admin/authorities',
-                    '/admin/admins-management',
-                    '/admin/system-settings',
-                    '/admin/login',
-                    '/admin/approval-center',
+                const allowedPaths = [
+                    '/admin/authority-manager',
+                    '/admin/authority/locations',
+                    '/admin/authority/routes',
+                    '/admin/users',
+                    '/admin/auth/callback',
+                    '/admin/authority-login',
+                    '/admin/pending-approval',
                 ];
                 
-                if (unauthorizedPaths.some(path => pathname?.startsWith(path))) {
+                const isAllowed = allowedPaths.some(p => pathname?.startsWith(p));
+                
+                if (!isAllowed) {
                     if (pathname?.startsWith('/admin/login') || pathname?.startsWith('/admin/system-settings')) {
                         if (typeof window !== 'undefined') {
                             window.location.href = '/authority-portal/login';
                         }
                         return;
                     }
-                    router.replace('/admin/authority-manager');
-                    return;
-                }
-                
-                if (pathname === '/admin' || pathname === '/admin/') {
                     router.replace('/admin/authority-manager');
                     return;
                 }
@@ -388,34 +384,46 @@ export default function AdminLayout({
                     {showSimplifiedSidebar ? (
                         /* Simplified sidebar for Authority Managers */
                         <div className="space-y-1">
-                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד" />
-                            <SidebarLink href="/admin/locations" icon={Map} label="ניהול מיקומים" />
+                            {/* Authority Manager header badge */}
+                            {authorityName && (
+                                <div className="px-4 py-2 mb-2 rounded-xl bg-cyan-900/30 border border-cyan-700/30">
+                                    <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">פורטל רשות</p>
+                                    <p className="text-sm font-black text-white truncate">{authorityName}</p>
+                                </div>
+                            )}
+
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 pt-1 pb-0.5">ניהול</p>
+                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד אנליטיקה" />
+                            <SidebarLink href="/admin/authority/locations" icon={Map} label="ניהול מיקומים" />
+                            <SidebarLink href="/admin/authority/routes" icon={Route} label="ניהול מסלולים" />
+
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 pt-3 pb-0.5">קהילה</p>
                             <SidebarLink href="/admin/users/all" icon={Users} label="משתמשים" />
                         </div>
                     ) : showFullSidebar ? (
-                        /* Full sidebar for Super Admins */
+                        /* Full sidebar for Super Admins — 3 clean groups */
                         <div className="space-y-1">
-                            {/* Section 1: אסטרטגיה ומבט על (Overview) */}
-                            <SectionHeader sectionId="overview" icon={TrendingUp} label="אסטרטגיה ומבט על" />
-                            {expandedSections.has('overview') && (
+                            {/* ═══ Group 1: אסטרטגיה ומבט על ═══ */}
+                            <SectionHeader sectionId="strategy" icon={TrendingUp} label="אסטרטגיה ומבט על" />
+                            {expandedSections.has('strategy') && (
                                 <div className="pr-2 space-y-0.5 pb-2">
-                                    <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד" />
+                                    <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד ראשי" />
+                                    {showAuthorityManagerLink && (
+                                        <SidebarLink href="/admin/authority-manager" icon={BarChart3} label="דשבורד אנליטיקה (רשות)" />
+                                    )}
                                     <SidebarLink href="/admin/roadmap" icon={ListTodo} label="מפת דרכים ופידבקים" />
                                 </div>
                             )}
 
-                            {/* Section 2: מערך רשויות (Municipalities Hub) */}
+                            {/* ═══ Group 2: מערך רשויות ═══ */}
                             {!isSystemAdminOnly && (
                                 <>
                                     <SectionHeader sectionId="municipalities" icon={Building2} label="מערך רשויות" />
                                     {expandedSections.has('municipalities') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות - CRM" />
+                                            <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות — CRM" />
                                             {(isSuperAdmin || isSystemAdmin) && (
-                                                <SidebarLink href="/admin/approval-center" icon={Shield} label="מרכז אישורים" />
-                                            )}
-                                            {showAuthorityManagerLink && (
-                                                <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="לוח בקרה למנהל רשות" />
+                                                <SidebarLink href="/admin/approval-center" icon={ShieldCheck} label="מרכז אישורים" />
                                             )}
                                             <SidebarLink href="/admin/pressure-messages" icon={Megaphone} label="ניהול מסרי לחץ" />
                                         </div>
@@ -490,6 +498,7 @@ export default function AdminLayout({
                                             <SidebarLink href="/admin/messages" icon={MessageCircle} label="תקשורת חכמה" />
                                             <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
                                             <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראות" />
+                                            <SidebarLink href="/admin/workout-simulator" icon={FlaskConical} label="סימולטור אימונים" />
                                         </div>
                                     )}
                                 </>
@@ -513,7 +522,10 @@ export default function AdminLayout({
                     ) : (
                         /* Fallback simplified sidebar */
                         <div className="space-y-1">
-                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="לוח בקרה למנהל רשות" />
+                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד אנליטיקה" />
+                            <SidebarLink href="/admin/authority/locations" icon={Map} label="ניהול מיקומים" />
+                            <SidebarLink href="/admin/authority/routes" icon={Route} label="ניהול מסלולים" />
+                            <SidebarLink href="/admin/users/all" icon={Users} label="משתמשים" />
                         </div>
                     )}
 

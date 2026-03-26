@@ -10,5 +10,8 @@ export interface MapFacility {
   name: string;
   type: FacilityType;
   location: { lat: number; lng: number };
+  /** Authority this facility belongs to — required for multi-tenancy */
+  authorityId?: string;
+  city?: string;
   properties?: any;
 }

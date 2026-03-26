@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
+import { serverTimestamp } from 'firebase/firestore';
+import { createPark } from '@/features/admin/services/parks.service';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { Park, ParkSportType, ParkFeatureTag, Authority } from '@/types/admin-types';
 import { getAutoSportTypes } from '@/features/parks';
@@ -290,7 +291,11 @@ function AddParkPageContent() {
             };
 
             setUploadProgress('שומר נתונים בבסיס הנתונים...');
-            await addDoc(collection(db, 'parks'), newPark);
+            const currentUser = auth.currentUser;
+            const adminInfo = currentUser
+              ? { adminId: currentUser.uid, adminName: currentUser.displayName || currentUser.email || 'Admin' }
+              : undefined;
+            await createPark(newPark as any, adminInfo);
 
             setUploadProgress('הצלחה!');
             setTimeout(() => router.push('/admin/parks'), 1000);

@@ -11,10 +11,12 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { motion, LayoutGroup } from 'framer-motion';
 import type { WorkoutPlan, WorkoutSegment, Exercise as WorkoutExercise } from '@/features/parks';
 import type { ExerciseResultLog } from '../hooks/useWorkoutStateMachine';
-import WorkoutBlockCard, { BlockStatus } from './WorkoutBlockCard';
+import WorkoutBlockCard, { BlockStatus, ExerciseEntry } from './WorkoutBlockCard';
 import DataEntryModal from './DataEntryModal';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,21 @@ function getExercises(segment: WorkoutSegment | undefined): WorkoutExercise[] | 
   if (Array.isArray(seg.workout_exercises)) return seg.workout_exercises;
   if (Array.isArray(seg.workoutExercises)) return seg.workoutExercises;
   return null;
+}
+
+function resolveExImage(ex: WorkoutExercise): string | undefined {
+  // Pre-resolved image from home/page.tsx flattening takes priority
+  if (ex.imageUrl) return ex.imageUrl;
+  if (ex.videoUrl) return ex.videoUrl;
+
+  // Fall through to shared 5-level deep search
+  const raw = ex as any;
+  const { imageUrl } = resolveExerciseMedia(raw, raw.method ?? null);
+  if (imageUrl) return imageUrl;
+
+  const name = typeof ex.name === 'string' ? ex.name : (raw.name?.he || ex.id);
+  console.error(`[Media FAIL] No media found for playlist exercise: ${name}`);
+  return undefined;
 }
 
 function getSetsForExercise(ex: WorkoutExercise | null | undefined): number {
@@ -60,6 +77,7 @@ interface FlatExercise {
   repsText: string;
   exerciseType: 'reps' | 'time';
   restDuration: number;
+  segmentTitle: string;
 }
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -74,7 +92,8 @@ interface WorkoutPlaylistProps {
   restTimeLeft: number;
   formatTime: (s: number) => string;
   exerciseLog: ExerciseResultLog[];
-  handleRepetitionSave: (reps: number, sideData?: { left: number; right: number }) => void;
+  handleRepetitionSave: (reps: number, sideData?: { left: number; right: number }, forceSkipRest?: boolean, editSetIndex?: number) => void;
+  onSkipRest?: () => void;
 }
 
 export default function WorkoutPlaylist({
@@ -88,6 +107,7 @@ export default function WorkoutPlaylist({
   formatTime,
   exerciseLog,
   handleRepetitionSave,
+  onSkipRest,
 }: WorkoutPlaylistProps) {
   // ── Flatten workout segments into exercise list ─────────────────────────
   const flatExercises: FlatExercise[] = useMemo(() => {
@@ -109,6 +129,7 @@ export default function WorkoutPlaylist({
           repsText: ex.reps || ex.duration || '',
           exerciseType: isTime ? 'time' : 'reps',
           restDuration: typeof rest === 'number' ? rest : 30,
+          segmentTitle: seg.title || '',
         });
       });
     });
@@ -126,15 +147,40 @@ export default function WorkoutPlaylist({
     setModalOpen(true);
   }, []);
 
-  // ── Build logged-reps lookup ────────────────────────────────────────────
+  // ── Build logged-reps lookup (stores full entry for side-data access) ───
   const logLookup = useMemo(() => {
-    const map = new Map<string, number[]>();
+    const map = new Map<string, ExerciseResultLog>();
     exerciseLog.forEach(entry => {
       const key = `${entry.exerciseId}::${entry.segmentId}`;
-      map.set(key, entry.confirmedReps);
+      map.set(key, entry);
     });
     return map;
   }, [exerciseLog]);
+
+  // ── Group flat exercises by segment ────────────────────────────────────
+  const groupedSegments = useMemo(() => {
+    const groups: Array<{
+      segmentIndex: number;
+      segmentTitle: string;
+      segmentIcon: string;
+      exercises: FlatExercise[];
+    }> = [];
+
+    workout.segments.forEach((seg, si) => {
+      const exercises = flatExercises.filter(fe => fe.segmentIndex === si);
+      if (exercises.length > 0) {
+        const rawSeg = seg as any;
+        groups.push({
+          segmentIndex: si,
+          segmentTitle: seg.title || '',
+          segmentIcon: rawSeg.icon || '💪',
+          exercises,
+        });
+      }
+    });
+
+    return groups;
+  }, [workout.segments, flatExercises]);
 
   // ── Smart scroll to active card ─────────────────────────────────────────
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -144,9 +190,10 @@ export default function WorkoutPlaylist({
     const key = `${currentSegmentIndex}-${currentExerciseIndex}`;
     if (key !== prevActiveKey.current) {
       prevActiveKey.current = key;
-      requestAnimationFrame(() => {
+      const t = setTimeout(() => {
         activeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
+      }, 520);
+      return () => clearTimeout(t);
     }
   }, [currentSegmentIndex, currentExerciseIndex]);
 
@@ -167,21 +214,33 @@ export default function WorkoutPlaylist({
     return 'upcoming';
   }
 
-  // ── Get logged reps array for an exercise ───────────────────────────────
-  function getLoggedReps(fe: FlatExercise): (number | null)[] {
+  // ── Get logged reps arrays for an exercise ──────────────────────────────
+  function getLogEntry(fe: FlatExercise): ExerciseResultLog | undefined {
     const segId = workout.segments[fe.segmentIndex]?.id || String(fe.segmentIndex);
     const key = `${fe.exercise.id}::${segId}`;
-    const reps = logLookup.get(key);
-    if (!reps) return new Array(fe.sets).fill(null);
-    return Array.from({ length: fe.sets }, (_, i) => reps[i] ?? null);
+    return logLookup.get(key);
+  }
+
+  function getLoggedReps(fe: FlatExercise): (number | null)[] {
+    const entry = getLogEntry(fe);
+    if (!entry) return new Array(fe.sets).fill(null);
+    return Array.from({ length: fe.sets }, (_, i) => entry.confirmedReps[i] ?? null);
+  }
+
+  function getLoggedRepsSide(fe: FlatExercise, side: 'right' | 'left'): (number | null)[] {
+    const entry = getLogEntry(fe);
+    if (!entry) return new Array(fe.sets).fill(null);
+    const arr = side === 'right' ? entry.confirmedRepsRight : entry.confirmedRepsLeft;
+    if (!arr) return new Array(fe.sets).fill(null);
+    return Array.from({ length: fe.sets }, (_, i) => arr[i] ?? null);
   }
 
   // ── Modal save handler ─────────────────────────────────────────────────
   const handleModalSave = useCallback(
     (value: number, sideData?: { left: number; right: number }) => {
-      handleRepetitionSave(value, sideData);
+      handleRepetitionSave(value, sideData, undefined, modalSetIndex);
     },
-    [handleRepetitionSave],
+    [handleRepetitionSave, modalSetIndex],
   );
 
   return (
@@ -201,40 +260,157 @@ export default function WorkoutPlaylist({
           {flatExercises.length} תרגילים · {workout.name}
         </p>
 
-        {/* Exercise cards */}
-        <div className="space-y-3">
-          {flatExercises.map((fe) => {
-            const status = getBlockStatus(fe);
-            const isActive = status === 'active';
-            const isResting = isActive && workoutState === 'RESTING';
-            const loggedReps = getLoggedReps(fe);
+        {/* Exercises grouped by segment */}
+        <LayoutGroup>
+        <div className="space-y-5">
+          {groupedSegments.map(({ segmentIndex, segmentTitle, segmentIcon, exercises }) => {
+            const isWarmupGroup = segmentTitle.includes('חימום') || segmentTitle.toLowerCase().includes('warmup');
+            const isCooldownGroup = segmentTitle.includes('שחרור') || segmentTitle.includes('קירור') || segmentTitle.toLowerCase().includes('cooldown');
 
             return (
-              <div
-                key={fe.key}
-                ref={isActive ? activeCardRef : undefined}
-              >
-                <WorkoutBlockCard
-                  exerciseId={fe.exercise.id}
-                  exerciseName={fe.exercise.name}
-                  imageUrl={fe.exercise.imageUrl}
-                  sets={fe.sets}
-                  repsText={fe.repsText}
-                  exerciseType={fe.exerciseType}
-                  targetReps={fe.targetReps}
-                  status={status}
-                  currentSetIndex={isActive ? currentSetIndex : 0}
-                  loggedReps={loggedReps}
-                  restTimeLeft={isResting ? restTimeLeft : undefined}
-                  isResting={isResting}
-                  formatTime={formatTime}
-                  restDuration={fe.restDuration}
-                  onPillTap={(setIdx) => openModal(fe, setIdx)}
-                />
+              <div key={segmentIndex}>
+                {/* Segment header */}
+                <div className="flex items-center gap-2 mb-2.5 px-1">
+                  <span className="text-base leading-none">{segmentIcon}</span>
+                  <span
+                    className={[
+                      'text-sm font-bold',
+                      isWarmupGroup
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : isCooldownGroup
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-slate-700 dark:text-slate-300',
+                    ].join(' ')}
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {segmentTitle}
+                  </span>
+                  <span
+                    className="text-xs text-slate-400 dark:text-slate-500"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    · {exercises.length} {exercises.length === 1 ? 'תרגיל' : 'תרגילים'}
+                  </span>
+                </div>
+
+                {/* Render cards — grouped for warmup/cooldown/superset, individual otherwise */}
+                {(() => {
+                  const hasSuperSet = exercises.some(fe => !!(fe.exercise as any).pairedWith);
+                  const shouldGroup = isWarmupGroup || isCooldownGroup || hasSuperSet;
+
+                  if (shouldGroup) {
+                    const statuses = exercises.map(fe => getBlockStatus(fe));
+                    const cardStatus: BlockStatus = statuses.includes('active')
+                      ? 'active'
+                      : statuses.every(s => s === 'completed')
+                        ? 'completed'
+                        : 'upcoming';
+                    const isCardActive = cardStatus === 'active';
+                    const activeIdx = exercises.findIndex(fe => getBlockStatus(fe) === 'active');
+                    const isCardResting = isCardActive && workoutState === 'RESTING';
+
+                    const entries: ExerciseEntry[] = exercises.map((fe) => ({
+                      exerciseId: fe.exercise.id,
+                      exerciseName: fe.exercise.name,
+                      imageUrl: resolveExImage(fe.exercise),
+                      sets: fe.sets,
+                      repsText: fe.repsText,
+                      exerciseType: fe.exerciseType,
+                      targetReps: fe.targetReps,
+                      status: getBlockStatus(fe),
+                      currentSetIndex: getBlockStatus(fe) === 'active' ? currentSetIndex : 0,
+                      loggedReps: getLoggedReps(fe),
+                      loggedRepsRight: getLoggedRepsSide(fe, 'right'),
+                      loggedRepsLeft: getLoggedRepsSide(fe, 'left'),
+                      restDuration: fe.restDuration,
+                      onPillTap: (setIdx: number) => openModal(fe, setIdx),
+                      ...((isWarmupGroup || isCooldownGroup) && {
+                        onDirectComplete: () => handleRepetitionSave(fe.targetReps, undefined, true),
+                      }),
+                    }));
+
+                    return (
+                      <motion.div
+                        layout="position"
+                        layoutId={`seg-${segmentIndex}`}
+                        ref={isCardActive ? activeCardRef : undefined}
+                      >
+                        <WorkoutBlockCard
+                          exercises={entries}
+                          segmentTitle={segmentTitle}
+                          cardStatus={cardStatus}
+                          activeExerciseIndex={activeIdx}
+                          isResting={isCardResting}
+                          restTimeLeft={isCardResting ? restTimeLeft : undefined}
+                          formatTime={formatTime}
+                          exerciseRole={(exercises[0]?.exercise as any)?.exerciseRole}
+                          isSuperSet={hasSuperSet}
+                          onSkipRest={onSkipRest}
+                        />
+                      </motion.div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      {exercises.map((fe) => {
+                        const status = getBlockStatus(fe);
+                        const isExActive = status === 'active';
+                        const isExResting = isExActive && workoutState === 'RESTING';
+
+                        const exRole = (fe.exercise as any)?.exerciseRole;
+                        const isWarmupOrCooldown = exRole === 'warmup' || exRole === 'cooldown';
+
+                        const entry: ExerciseEntry = {
+                          exerciseId: fe.exercise.id,
+                          exerciseName: fe.exercise.name,
+                          imageUrl: resolveExImage(fe.exercise),
+                          sets: fe.sets,
+                          repsText: fe.repsText,
+                          exerciseType: fe.exerciseType,
+                          targetReps: fe.targetReps,
+                          status,
+                          currentSetIndex: isExActive ? currentSetIndex : 0,
+                          loggedReps: getLoggedReps(fe),
+                          loggedRepsRight: getLoggedRepsSide(fe, 'right'),
+                          loggedRepsLeft: getLoggedRepsSide(fe, 'left'),
+                          restDuration: fe.restDuration,
+                          onPillTap: (setIdx: number) => openModal(fe, setIdx),
+                          ...(isWarmupOrCooldown && {
+                            onDirectComplete: () => handleRepetitionSave(fe.targetReps, undefined, true),
+                          }),
+                        };
+
+                        return (
+                          <motion.div
+                            key={fe.key}
+                            layout="position"
+                            layoutId={`ex-${fe.key}`}
+                            ref={isExActive ? activeCardRef : undefined}
+                          >
+                            <WorkoutBlockCard
+                              exercises={[entry]}
+                              segmentTitle={segmentTitle}
+                              cardStatus={status}
+                              activeExerciseIndex={isExActive ? 0 : -1}
+                              isResting={isExResting}
+                              restTimeLeft={isExResting ? restTimeLeft : undefined}
+                              formatTime={formatTime}
+                              exerciseRole={(fe.exercise as any)?.exerciseRole}
+                              isSuperSet={false}
+                              onSkipRest={onSkipRest}
+                            />
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
         </div>
+        </LayoutGroup>
       </div>
 
       {/* ── DataEntryModal ─────────────────────────────────────────────────── */}

@@ -10,7 +10,7 @@ import {
   EquipmentBadgeRow,
   HeroMediaBackground,
 } from './HeroWorkoutCard';
-import { resolveEquipmentLabel, resolveEquipmentIconKey } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentLabel, resolveEquipmentSvgPath, normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
 const CARD_MAX_W = 260;
@@ -230,24 +230,25 @@ function TrioCard({
   const equipmentIcons = useMemo(() => {
     if (isNakedOption) return [];
     if (!exercises?.length) return [];
-    const seenIds = new Set<string>();
-    const seenLabels = new Set<string>();
+    const seen = new Set<string>();
     const icons: { src?: string; label?: string }[] = [];
     for (const ex of exercises) {
       if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown') continue;
       const method = ex.method;
-      const gearIds: string[] = (method as any)?.gearIds ?? [];
-      const equipIds: string[] = (method as any)?.equipmentIds ?? [];
-      for (const id of [...gearIds, ...equipIds]) {
-        if (!id || id.toLowerCase() === 'bodyweight' || id.toLowerCase() === 'none') continue;
-        if (seenIds.has(id)) continue;
-        seenIds.add(id);
-        const label = resolveEquipmentLabel(id);
-        if (seenLabels.has(label)) continue;
-        seenLabels.add(label);
-        const iconKey = resolveEquipmentIconKey(id);
-        if (!iconKey) continue;
-        icons.push({ src: `/assets/icons/equipment/${iconKey}.svg`, label });
+      const rawIds: string[] = [
+        ...((method as any)?.gearIds ?? []),
+        ...((method as any)?.equipmentIds ?? []),
+        ...((method as any)?.gearId ? [(method as any).gearId] : []),
+        ...((method as any)?.equipmentId ? [(method as any).equipmentId] : []),
+        ...(ex.exercise?.equipment ?? []),
+      ].filter(Boolean);
+      for (const raw of rawIds) {
+        const norm = normalizeGearId(raw);
+        if (norm === 'bodyweight' || norm === 'none' || seen.has(norm)) continue;
+        seen.add(norm);
+        const svgPath = resolveEquipmentSvgPath(norm);
+        const label = resolveEquipmentLabel(norm);
+        icons.push({ src: svgPath ?? undefined, label });
       }
     }
     return icons.slice(0, 4);

@@ -35,7 +35,7 @@ import {
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
 import { getScheduleEntry, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import { toISODate, isLateNightPivot } from '@/features/user/scheduling/utils/dateUtils';
-import AdjustWorkoutModal from './AdjustWorkoutModal';
+import UserWorkoutAdjuster from './UserWorkoutAdjuster';
 import ProcessingOverlay from './ProcessingOverlay';
 import { getProgram } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
@@ -49,10 +49,60 @@ import { Target, ChevronDown } from 'lucide-react';
 // EXERCISE PREVIEW LIST — Compact list showing exercises with range UI
 // ============================================================================
 
+function ExerciseRow({ ex, index }: { ex: WorkoutExercise; index: number }) {
+  const name = getLocalizedText(ex.exercise.name);
+  const isGoal = ex.isGoalExercise;
+  const range = ex.repsRange;
+  const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
+  const unit = (ex.isTimeBased ? 'שניות' : 'חזרות') + perSide;
+  const rangeStr = range && range.min !== range.max
+    ? `${range.min}-${range.max}`
+    : `${ex.reps}`;
+
+  return (
+    <div
+      className={`flex items-center gap-3 px-4 py-2.5 ${
+        isGoal ? 'bg-cyan-50/40 dark:bg-cyan-900/10' : ''
+      }`}
+    >
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+        isGoal
+          ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-800 dark:text-cyan-300'
+          : 'bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-gray-400'
+      }`}>
+        {isGoal ? <Target className="w-3.5 h-3.5" /> : index + 1}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold truncate ${
+          isGoal ? 'text-cyan-700 dark:text-cyan-300' : 'text-gray-800 dark:text-gray-200'
+        }`}>
+          {name}
+        </p>
+        {isGoal && ex.rampedTarget && (
+          <p className="text-[11px] text-cyan-500 dark:text-cyan-400 font-medium mt-0.5">
+            יעד: {ex.rampedTarget} {unit}
+          </p>
+        )}
+      </div>
+      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 tabular-nums ${
+        isGoal
+          ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-800/60 dark:text-cyan-300'
+          : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300'
+      }`}>
+        {ex.sets}×{rangeStr} {unit}
+      </span>
+    </div>
+  );
+}
+
 function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
   const [expanded, setExpanded] = useState(false);
-  const visibleCount = expanded ? exercises.length : Math.min(3, exercises.length);
   const hasMore = exercises.length > 3;
+
+  const warmupExercises = exercises.filter(ex => ex.exerciseRole === 'warmup');
+  const mainExercises = exercises.filter(ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown');
+  const cooldownExercises = exercises.filter(ex => ex.exerciseRole === 'cooldown');
+  const visibleMain = expanded ? mainExercises.length : Math.min(3, mainExercises.length);
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
@@ -77,63 +127,46 @@ function ExercisePreviewList({ exercises }: { exercises: WorkoutExercise[] }) {
         )}
       </div>
 
-      {/* Exercise rows */}
+      {/* Warmup group */}
+      {warmupExercises.length > 0 && (
+        <div className="bg-amber-50/50 dark:bg-amber-900/10">
+          <div className="px-4 py-1.5 flex items-center gap-1.5">
+            <span className="text-sm">🔥</span>
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              חימום · {warmupExercises.length} תרגילים
+            </span>
+          </div>
+          <div className="divide-y divide-amber-100/60 dark:divide-amber-800/20">
+            {warmupExercises.map((ex, i) => (
+              <ExerciseRow key={ex.exercise.id + '-w-' + i} ex={ex} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main exercises */}
       <div className="divide-y divide-gray-50 dark:divide-slate-700">
-        {exercises.slice(0, visibleCount).map((ex, i) => {
-          const name = getLocalizedText(ex.exercise.name);
-          const isGoal = ex.isGoalExercise;
-          const range = ex.repsRange;
-          const perSide = ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
-          const unit = (ex.isTimeBased ? 'שניות' : 'חזרות') + perSide;
-
-          // Build the range string: "3×6-12 חזרות" or "3×10 חזרות"
-          const rangeStr = range && range.min !== range.max
-            ? `${range.min}-${range.max}`
-            : `${ex.reps}`;
-
-          return (
-            <div
-              key={ex.exercise.id + '-' + i}
-              className={`flex items-center gap-3 px-4 py-2.5 ${
-                isGoal ? 'bg-cyan-50/40 dark:bg-cyan-900/10' : ''
-              }`}
-            >
-              {/* Index / Goal badge */}
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
-                isGoal
-                  ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-800 dark:text-cyan-300'
-                  : 'bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-gray-400'
-              }`}>
-                {isGoal ? <Target className="w-3.5 h-3.5" /> : i + 1}
-              </div>
-
-              {/* Name */}
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold truncate ${
-                  isGoal ? 'text-cyan-700 dark:text-cyan-300' : 'text-gray-800 dark:text-gray-200'
-                }`}>
-                  {name}
-                </p>
-                {/* Goal target line */}
-                {isGoal && ex.rampedTarget && (
-                  <p className="text-[11px] text-cyan-500 dark:text-cyan-400 font-medium mt-0.5">
-                    יעד: {ex.rampedTarget} {unit}
-                  </p>
-                )}
-              </div>
-
-              {/* Range pill — always visible, right-aligned */}
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 tabular-nums ${
-                isGoal
-                  ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-800/60 dark:text-cyan-300'
-                  : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300'
-              }`}>
-                {ex.sets}×{rangeStr} {unit}
-              </span>
-            </div>
-          );
-        })}
+        {mainExercises.slice(0, visibleMain).map((ex, i) => (
+          <ExerciseRow key={ex.exercise.id + '-' + i} ex={ex} index={warmupExercises.length + i} />
+        ))}
       </div>
+
+      {/* Cooldown group */}
+      {cooldownExercises.length > 0 && expanded && (
+        <div className="bg-emerald-50/50 dark:bg-emerald-900/10">
+          <div className="px-4 py-1.5 flex items-center gap-1.5">
+            <span className="text-sm">🧘</span>
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              שחרור · {cooldownExercises.length} תרגילים
+            </span>
+          </div>
+          <div className="divide-y divide-emerald-100/60 dark:divide-emerald-800/20">
+            {cooldownExercises.map((ex, i) => (
+              <ExerciseRow key={ex.exercise.id + '-c-' + i} ex={ex} index={warmupExercises.length + mainExercises.length + i} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -189,6 +222,11 @@ interface StatsOverviewProps {
   currentTrack?: string;
   isGuest?: boolean;
   onStartWorkout?: () => void;
+  /**
+   * Direct-start callback from UserWorkoutAdjuster — bypasses the JIT
+   * equipment popup so the user goes straight from "Update" to "Preview".
+   */
+  onDirectStart?: () => void;
   /** Show the weekly goals carousel */
   showGoalsCarousel?: boolean;
   /** Fires whenever the dynamic workout is generated or updated (lifted to parent) */
@@ -206,6 +244,7 @@ export default function StatsOverview({
   currentTrack, 
   isGuest, 
   onStartWorkout,
+  onDirectStart,
   showGoalsCarousel = true,
   onWorkoutGenerated,
   selectedDate: selectedDateProp,
@@ -563,7 +602,7 @@ export default function StatsOverview({
   const [trioResult, setTrioResult] = useState<HomeWorkoutTrioResult | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [isUserAdjusterOpen, setIsUserAdjusterOpen] = useState(false);
   const [showProcessing, setShowProcessing] = useState(false);
   const [currentWorkoutLocation, setCurrentWorkoutLocation] = useState<string | null>(null);
   const didGenerate = useRef(false);
@@ -705,15 +744,11 @@ export default function StatsOverview({
 
   const isGenerated = !!dynamicWorkout;
 
-  // Handle save from AdjustWorkoutModal
-  const handleSaveAdjustedWorkout = useCallback((workout: GeneratedWorkout) => {
-    // Close modal first, then show processing animation
-    setIsAdjustModalOpen(false);
-    setTimeout(() => setShowProcessing(true), 300);
-  // Save the workout after processing completes — stored via handleProcessingComplete
-  // We stash it in a ref so handleProcessingComplete can read it.
-    pendingWorkoutRef.current = workout;
-  }, []);
+  // Handle apply from UserWorkoutAdjuster — single workout → open PreviewDrawer directly, bypassing JIT
+  const handleAdjusterApplyAndStart = useCallback((workout: GeneratedWorkout) => {
+    onWorkoutGenerated?.(workout);  // synchronously updates generatedWorkoutRef in HomePage
+    onDirectStart?.();              // opens preview without the equipment JIT popup
+  }, [onWorkoutGenerated, onDirectStart]);
 
   const pendingWorkoutRef = useRef<GeneratedWorkout | null>(null);
 
@@ -851,7 +886,7 @@ export default function StatsOverview({
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
           {isGenerated && (
             <button
-              onClick={() => setIsAdjustModalOpen(true)}
+              onClick={() => setIsUserAdjusterOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 transition-all hover:bg-gray-200 dark:hover:bg-slate-700 active:scale-95"
             >
               <SlidersHorizontal size={14} className="text-cyan-600" />
@@ -889,12 +924,12 @@ export default function StatsOverview({
   const renderModals = () => (
     <>
       {profile && (
-        <AdjustWorkoutModal
-          isOpen={isAdjustModalOpen}
-          onClose={() => setIsAdjustModalOpen(false)}
+        <UserWorkoutAdjuster
+          isOpen={isUserAdjusterOpen}
+          onClose={() => setIsUserAdjusterOpen(false)}
           userProfile={profile}
-          currentWorkout={dynamicWorkout}
-          onSave={handleSaveAdjustedWorkout}
+          initialLocation={currentWorkoutLocation as any}
+          onApplyAndStart={handleAdjusterApplyAndStart}
         />
       )}
       <ProcessingOverlay isVisible={showProcessing} onComplete={handleProcessingComplete} />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   getDailyActiveUsers,
   getMonthlyActiveUsers,
@@ -8,10 +8,29 @@ import {
   getAgeDistribution,
   getPopularParks,
   getActivityTrend,
+  getNeighborhoodBreakdown,
+  getNeighborhoodList,
+  getFilteredUserIds,
+  getDateRangeForFilter,
+  getActivityByHour,
+  getPersonaDistribution,
+  getEntryRouteDistribution,
+  getRunningStats,
+  isWorkoutsIndexBuilding,
+  DEFAULT_FILTERS,
   GenderDistribution,
   AgeDistribution,
   ActivityTrend,
+  NeighborhoodBreakdownRow,
+  HourlyBucket,
+  DashboardFilters,
+  PersonaCount,
+  EntryRouteDistribution,
+  RunningStats,
 } from '@/features/admin/services/analytics.service';
+import NeighborhoodBreakdown from './NeighborhoodBreakdown';
+import FilterBar from './FilterBar';
+import ActivityByHourChart from './ActivityByHourChart';
 import {
   BarChart,
   Bar,
@@ -27,7 +46,7 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Send, AlertCircle } from 'lucide-react';
+import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Send, AlertCircle, Route, Footprints, Heart } from 'lucide-react';
 import { getParksByAuthority } from '@/features/parks';
 import { Park } from '@/types/admin-types';
 import {
@@ -41,7 +60,6 @@ import {
 import {
   getManagerNotifications,
   sendEncouragementPush,
-  checkHealthMilestones,
   ManagerNotification,
 } from '@/features/admin/services/engagement.service';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -61,8 +79,23 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
   const [activityTrend, setActivityTrend] = useState<ActivityTrend[]>([]);
   const [popularParks, setPopularParks] = useState<any[]>([]);
   const [parks, setParks] = useState<Park[]>([]);
+  const [neighborhoodBreakdown, setNeighborhoodBreakdown] = useState<NeighborhoodBreakdownRow[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [indexBuilding, setIndexBuilding] = useState(false);
+
+  // Cross-Reference Filter State
+  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [neighborhoods, setNeighborhoods] = useState<{ id: string; name: string }[]>([]);
+  const [hourlyData, setHourlyData] = useState<HourlyBucket[]>([]);
+  const [hourlyCompareData, setHourlyCompareData] = useState<HourlyBucket[] | null>(null);
+  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Persona / Entry Route / Running State
+  const [personaData, setPersonaData] = useState<PersonaCount[]>([]);
+  const [entryRouteData, setEntryRouteData] = useState<EntryRouteDistribution | null>(null);
+  const [runningStats, setRunningStats] = useState<RunningStats | null>(null);
+
   // Health Economics State
   const [whoTracker, setWhoTracker] = useState<WHO150TrackerResult | null>(null);
   const [healthSavings, setHealthSavings] = useState<HealthSavingsResult | null>(null);
@@ -85,24 +118,41 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
   }, []);
 
   useEffect(() => {
-    loadAnalytics();
+    setFilters(DEFAULT_FILTERS);
+    loadAll();
     loadNotifications();
   }, [authorityId]);
 
+  // Debounced filter re-query (300ms) — does NOT re-run the full loadAll
   useEffect(() => {
-    if (parks.length > 0) {
-      loadHealthEconomics();
-    }
-  }, [authorityId, parks.length]);
+    if (loading) return; // skip during initial load
+    if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
+    filterTimerRef.current = setTimeout(() => loadFiltered(filters), 300);
+    return () => { if (filterTimerRef.current) clearTimeout(filterTimerRef.current); };
+  }, [filters]);
 
-  const loadAnalytics = async () => {
+  /**
+   * Single parallel load — all KPIs, charts, health economics, and initial
+   * hourly data fire at once. Also fetches neighborhood list for FilterBar.
+   */
+  const loadAll = async () => {
+    console.time('DashboardLoad');
+    setLoading(true);
     try {
-      setLoading(true);
       const today = new Date();
-      const currentMonth = today.getMonth();
-      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      const currentYear  = today.getFullYear();
 
-      const [dailyActive, monthlyActive, gender, age, popularParksData, trend, parksData] = await Promise.all([
+      const defaultDateRange = getDateRangeForFilter('month');
+      const initialUserIds  = await getFilteredUserIds(authorityId, DEFAULT_FILTERS);
+
+      const [
+        dailyActive, monthlyActive, gender, age,
+        popularParksData, trend, parksData, breakdown,
+        whoData, savingsData, savingsHistory,
+        neighborhoodsList, hourly,
+        personas, entryRoutes, running,
+      ] = await Promise.all([
         getDailyActiveUsers(authorityId, today),
         getMonthlyActiveUsers(authorityId, currentYear, currentMonth),
         getGenderDistribution(authorityId),
@@ -110,6 +160,15 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
         getPopularParks(authorityId, 5),
         getActivityTrend(authorityId, 30),
         getParksByAuthority(authorityId),
+        getNeighborhoodBreakdown(authorityId),
+        getWHO150Tracker(authorityId),
+        getHealthSavings(authorityId),
+        getSavingsOverTime(authorityId, 12),
+        getNeighborhoodList(authorityId),
+        getActivityByHour(initialUserIds, defaultDateRange),
+        getPersonaDistribution(authorityId),
+        getEntryRouteDistribution(authorityId),
+        getRunningStats(authorityId, initialUserIds, defaultDateRange),
       ]);
 
       setDau(dailyActive);
@@ -119,47 +178,59 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
       setPopularParks(popularParksData);
       setActivityTrend(trend);
       setParks(parksData);
-    } catch (error) {
-      console.error('Error loading analytics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setNeighborhoodBreakdown(breakdown);
+      setIndexBuilding(isWorkoutsIndexBuilding());
 
-  const loadHealthEconomics = async () => {
-    try {
-      const [whoData, savingsData, savingsHistory] = await Promise.all([
-        getWHO150Tracker(authorityId),
-        getHealthSavings(authorityId),
-        getSavingsOverTime(authorityId, 12),
-      ]);
       setWhoTracker(whoData);
       setHealthSavings(savingsData);
       setSavingsOverTime(savingsHistory);
 
-      // Check for health milestones for each park
-      for (const park of parks) {
-        try {
-          const { getParkHealthSavings } = await import('@/features/admin/services/health-economics.service');
-          const parkSavings = await getParkHealthSavings(authorityId, park.id, park.name);
-          if (parkSavings.estimatedMonthlySavings > 0) {
-            await checkHealthMilestones(
-              authorityId,
-              park.id,
-              park.name,
-              parkSavings.estimatedMonthlySavings
-            );
-          }
-        } catch (error) {
-          // Ignore individual park errors
-        }
-      }
-      // Reload notifications after checking milestones
-      await loadNotifications();
+      setNeighborhoods(neighborhoodsList);
+      setHourlyData(hourly);
+      setHourlyCompareData(null);
+
+      setPersonaData(personas);
+      setEntryRouteData(entryRoutes);
+      setRunningStats(running);
     } catch (error) {
-      console.error('Error loading health economics:', error);
+      console.error('Error loading dashboard:', error);
+    } finally {
+      setLoading(false);
+      console.timeEnd('DashboardLoad');
     }
   };
+
+  /**
+   * Lightweight filter re-query — only re-fetches the hourly chart data.
+   * KPI cards remain fixed to global authority-wide numbers.
+   */
+  const loadFiltered = useCallback(async (f: DashboardFilters) => {
+    console.time('FilteredLoad');
+    setFilterLoading(true);
+    try {
+      const dateRange = getDateRangeForFilter(f.timeRange);
+
+      const primaryIds = await getFilteredUserIds(authorityId, f);
+      const compareIds = f.compareNeighborhoodId
+        ? await getFilteredUserIds(authorityId, { ...f, neighborhoodId: f.compareNeighborhoodId })
+        : null;
+
+      const [hourly, hourlyCompare, filteredRunning] = await Promise.all([
+        getActivityByHour(primaryIds, dateRange),
+        compareIds ? getActivityByHour(compareIds, dateRange) : Promise.resolve(null),
+        getRunningStats(authorityId, primaryIds, dateRange),
+      ]);
+
+      setHourlyData(hourly);
+      setHourlyCompareData(hourlyCompare);
+      setRunningStats(filteredRunning);
+    } catch (error) {
+      console.error('Error loading filtered data:', error);
+    } finally {
+      setFilterLoading(false);
+      console.timeEnd('FilteredLoad');
+    }
+  }, [authorityId]);
 
   const loadNotifications = async () => {
     try {
@@ -229,8 +300,81 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
       ]
     : [];
 
+  // Total users from any available source
+  const totalUsers = genderData?.total ?? ageData?.total ?? 0;
+
+  // Dynamic title reflecting active filters
+  function buildHourlyTitle(
+    f: DashboardFilters,
+    hoods: { id: string; name: string }[]
+  ): string {
+    const parts: string[] = ['פעילות לפי שעה ביום'];
+    const tags: string[] = [];
+    if (f.gender === 'female') tags.push('נשים');
+    else if (f.gender === 'male') tags.push('גברים');
+    if (f.neighborhoodId !== 'all') {
+      const n = hoods.find(h => h.id === f.neighborhoodId);
+      if (n) tags.push(n.name);
+    }
+    const timeLabels: Record<string, string> = { day: 'היום', week: 'השבוע', month: 'החודש', year: 'השנה' };
+    tags.push(timeLabels[f.timeRange]);
+    if (tags.length > 0) parts.push(`— ${tags.join(', ')}`);
+    return parts.join(' ');
+  }
+
   return (
     <div className="space-y-6">
+
+      {/* ── Health ROI Hero Banner — the "Money Shot" ────────────────── */}
+      {healthSavings ? (
+        <div className="relative overflow-hidden bg-gradient-to-br from-green-700 via-emerald-600 to-teal-500 rounded-2xl p-8 text-white shadow-xl" dir="rtl">
+          {/* Decorative glow */}
+          <div className="absolute -top-20 -left-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative flex items-start justify-between flex-wrap gap-6">
+            <div className="flex-1 min-w-[240px]">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Heart size={20} className="text-white" />
+                </div>
+                <span className="text-sm font-black text-white/90 uppercase tracking-wider">החזר השקעה בריאותי — שדרות</span>
+              </div>
+              <div className="text-6xl font-black tabular-nums leading-none">
+                ₪{healthSavings.estimatedMonthlySavings.toLocaleString()}
+              </div>
+              <div className="text-base text-white/70 mt-2 font-semibold">חיסכון חודשי מוערך בהוצאות בריאות</div>
+            </div>
+            <div className="flex flex-col gap-3 text-right min-w-[200px]">
+              <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-4 border border-white/10">
+                <div className="text-3xl font-black tabular-nums">₪{healthSavings.estimatedYearlySavings.toLocaleString()}</div>
+                <div className="text-xs text-white/70 font-semibold">חיסכון שנתי מוערך</div>
+              </div>
+              <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-4 border border-white/10">
+                <div className="flex items-baseline gap-1.5">
+                  <div className="text-3xl font-black tabular-nums">{healthSavings.activeUsers}</div>
+                  <div className="text-sm font-bold text-white/60">/ {healthSavings.totalUsers}</div>
+                </div>
+                <div className="text-xs text-white/70 font-semibold">עומדים ביעד 150 דק׳ WHO בשבוע</div>
+              </div>
+            </div>
+          </div>
+          <p className="relative text-[11px] text-white/50 mt-5 leading-relaxed">
+            * מבוסס על מודל ה-WHO: ₪500 חיסכון חודשי לאדם המבצע 150+ דקות פעילות גופנית בשבוע. מודל אקדמי לצורכי הצגה בלבד.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-br from-green-700 via-emerald-600 to-teal-500 rounded-2xl p-8 text-white shadow-xl animate-pulse">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <Heart size={20} className="text-white" />
+            </div>
+            <span className="text-sm font-black text-white/80">מחשב החזר השקעה בריאותי...</span>
+          </div>
+          <div className="h-14 bg-white/20 rounded-lg w-56" />
+        </div>
+      )}
+
       {/* Manager Notifications */}
       {notifications.length > 0 && (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 border-2 border-yellow-300">
@@ -281,72 +425,270 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {/* DAU */}
         <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-6 border border-cyan-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-gray-600">משתמשים פעילים יומיים</span>
             <TrendingUp size={20} className="text-cyan-600" />
           </div>
           <div className="text-3xl font-black text-gray-900">{dau}</div>
+          {indexBuilding && dau === 0 && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 font-semibold bg-amber-50 rounded-lg px-2 py-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              אינדקס Firestore בבנייה — נתונים זמניים
+            </div>
+          )}
         </div>
 
+        {/* MAU */}
         <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-gray-600">משתמשים פעילים חודשיים</span>
             <Users size={20} className="text-purple-600" />
           </div>
           <div className="text-3xl font-black text-gray-900">{mau}</div>
+          {indexBuilding && mau === 0 && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 font-semibold bg-amber-50 rounded-lg px-2 py-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              אינדקס בבנייה
+            </div>
+          )}
         </div>
 
+        {/* Total Users */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-gray-600">סה"כ משתמשים</span>
+            <span className="text-sm font-bold text-gray-600">סה"כ משתמשים רשומים</span>
             <Calendar size={20} className="text-emerald-600" />
           </div>
-          <div className="text-3xl font-black text-gray-900">
-            {genderData?.total || ageData?.total || 0}
-          </div>
+          <div className="text-3xl font-black text-gray-900">{totalUsers}</div>
         </div>
 
         {/* WHO 150-Min Tracker */}
-        {whoTracker && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-gray-600">יעד WHO 150 דק'</span>
-              <Target size={20} className="text-blue-600" />
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-gray-600">יעד WHO 150 דק'/שבוע</span>
+            <Target size={20} className="text-blue-600" />
+          </div>
+          {whoTracker ? (
+            <>
+              <div className="text-3xl font-black text-gray-900">
+                {whoTracker.percentageReachingGoal.toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {whoTracker.usersReachingGoal} מתוך {whoTracker.totalUsers} משתמשים
+              </div>
+            </>
+          ) : (
+            <div className="text-3xl font-black text-gray-300 animate-pulse">—</div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Cross-Reference Filter Bar ─────────────────────────────────── */}
+      <FilterBar
+        filters={filters}
+        neighborhoods={neighborhoods}
+        onChange={setFilters}
+      />
+
+      {/* Activity by Hour Chart (responds to filters) */}
+      <div className="relative">
+        {filterLoading && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-2xl">
+            <span className="text-sm font-bold text-gray-400 animate-pulse">מעדכן...</span>
+          </div>
+        )}
+        <ActivityByHourChart
+          data={hourlyData}
+          compareData={hourlyCompareData}
+          title={buildHourlyTitle(filters, neighborhoods)}
+          primaryLabel={
+            filters.neighborhoodId !== 'all'
+              ? neighborhoods.find(n => n.id === filters.neighborhoodId)?.name ?? 'שכונה ראשית'
+              : 'כל העיר'
+          }
+          compareLabel={
+            filters.compareNeighborhoodId
+              ? neighborhoods.find(n => n.id === filters.compareNeighborhoodId)?.name ?? 'השוואה'
+              : 'השוואה'
+          }
+        />
+      </div>
+
+      {/* ── Section: Personas & Entry Routes ─────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Entry Route Donut */}
+        {entryRouteData && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+            <div className="flex items-center gap-2 mb-4">
+              <Route size={20} className="text-cyan-600" />
+              <h3 className="text-lg font-black text-gray-900">נתיב כניסה לאפליקציה</h3>
             </div>
-            <div className="text-3xl font-black text-gray-900">
-              {whoTracker.percentageReachingGoal.toFixed(1)}%
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {whoTracker.usersReachingGoal} מתוך {whoTracker.totalUsers} משתמשים
-            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'תוכנית מלאה', value: entryRouteData.FULL_PROGRAM },
+                    { name: 'ריצה', value: entryRouteData.RUNNING },
+                    { name: 'מפה בלבד', value: entryRouteData.MAP_ONLY },
+                    ...(entryRouteData.unknown > 0 ? [{ name: 'לא ידוע', value: entryRouteData.unknown }] : []),
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={95}
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  dataKey="value"
+                >
+                  <Cell fill="#00AEEF" />
+                  <Cell fill="#10B981" />
+                  <Cell fill="#F59E0B" />
+                  {entryRouteData.unknown > 0 && <Cell fill="#94A3B8" />}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         )}
 
-        {/* Health Savings KPI */}
-        {healthSavings && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-300">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-gray-600">חיסכון מוערך בעלויות בריאות</span>
-              <DollarSign size={20} className="text-green-600" />
+        {/* Persona Horizontal Bar */}
+        {personaData.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+            <div className="flex items-center gap-2 mb-4">
+              <Users size={20} className="text-purple-600" />
+              <h3 className="text-lg font-black text-gray-900">התפלגות פרסונות</h3>
             </div>
-            <div className="text-2xl font-black text-green-700">
-              ₪{healthSavings.estimatedMonthlySavings.toLocaleString()}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              לחודש | ₪{healthSavings.estimatedYearlySavings.toLocaleString()} לשנה
-            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={personaData} layout="vertical" margin={{ left: 80 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" allowDecimals={false} />
+                <YAxis dataKey="label" type="category" tick={{ fontSize: 12, fontWeight: 700 }} width={75} />
+                <Tooltip formatter={(v: number) => [v, 'משתמשים']} />
+                <Bar dataKey="count" fill="#A855F7" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">
+              * משתמש יכול להשתייך ליותר מפרסונה אחת
+            </p>
           </div>
         )}
       </div>
 
-      {/* Savings Over Time Chart */}
+      {/* Gender + Age Demographics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {genderChartData.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+            <h3 className="text-lg font-black text-gray-900 mb-4">התפלגות מגדרית</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={genderChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={95}
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  dataKey="value"
+                >
+                  {genderChartData.map((_, index) => (
+                    <Cell key={`g-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {ageChartData.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+            <h3 className="text-lg font-black text-gray-900 mb-4">התפלגות גילאים</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={ageChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#00AEEF" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section: Activity & Running Stats ─────────────────────────── */}
+
+      {/* Activity Trend */}
+      {activityTrend.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+          <h3 className="text-lg font-black text-gray-900 mb-4">מגמת פעילות (30 יום אחרונים)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={activityTrend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="dau" stroke="#00AEEF" strokeWidth={2} name="משתמשים פעילים יומיים" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Running KPI + Target Distance */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Total City Mileage KPI */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200 flex flex-col justify-center" dir="rtl">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2.5 bg-green-100 rounded-xl">
+              <Footprints size={24} className="text-green-600" />
+            </div>
+            <div>
+              <span className="text-sm font-bold text-gray-500">ק"מ עירוניים (ריצה + הליכה)</span>
+              {filters.gender !== 'all' || filters.neighborhoodId !== 'all' ? (
+                <div className="text-[10px] text-green-600 font-semibold">מסונן לפי הפילטרים הפעילים</div>
+              ) : null}
+            </div>
+          </div>
+          <div className="text-5xl font-black text-gray-900 tabular-nums">
+            {runningStats ? runningStats.totalCityKm.toLocaleString() : '—'}
+          </div>
+          <div className="text-sm text-gray-500 mt-1">ק"מ סה"כ</div>
+        </div>
+
+        {/* Target Distance Distribution */}
+        {runningStats && runningStats.targetDistribution.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+            <div className="flex items-center gap-2 mb-4">
+              <Target size={20} className="text-green-600" />
+              <h3 className="text-lg font-black text-gray-900">התפלגות מרחק יעד</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={runningStats.targetDistribution}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis allowDecimals={false} />
+                <Tooltip formatter={(v: number) => [v, 'רצים']} />
+                <Bar dataKey="count" fill="#10B981" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section: Neighborhood & Maintenance ─────────────────────── */}
+
+      <NeighborhoodBreakdown data={neighborhoodBreakdown} loading={loading} />
+
+      {/* Savings Over Time */}
       {savingsOverTime.length > 0 && (
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
           <div className="flex items-center gap-2 mb-4">
             <DollarSign size={20} className="text-green-600" />
-            <h3 className="text-lg font-bold text-gray-900">חיסכון בעלויות בריאות לאורך זמן</h3>
+            <h3 className="text-lg font-black text-gray-900">חיסכון בעלויות בריאות לאורך זמן</h3>
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={savingsOverTime}>
@@ -370,68 +712,6 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
           </ResponsiveContainer>
         </div>
       )}
-
-      {/* Activity Trend Chart */}
-      {activityTrend.length > 0 && (
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">מגמת פעילות (30 יום אחרונים)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={activityTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="dau" stroke="#00AEEF" strokeWidth={2} name="משתמשים פעילים יומיים" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Gender and Age Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Gender Distribution */}
-        {genderChartData.length > 0 && (
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">התפלגות מגדרית</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={genderChartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {genderChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Age Distribution */}
-        {ageChartData.length > 0 && (
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">התפלגות גילאים</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={ageChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#00AEEF" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
 
       {/* Popular Parks */}
       {popularParks.length > 0 && (

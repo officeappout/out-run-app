@@ -115,6 +115,29 @@ export interface HomeWorkoutOptions {
   remainingScheduleDays?: number;
   /** Exercise IDs from last 2 sessions (for Variety Guard anti-boredom). */
   recentExerciseIds?: string[];
+
+  /**
+   * Restrict generated exercises to these movement domains.
+   * e.g. ['push', 'pull'] for upper-body focus, ['core'] for core day.
+   * When undefined, the engine selects domains automatically from the
+   * scheduled programs. Set by UserWorkoutAdjuster via muscle-chip selection.
+   */
+  requiredDomains?: string[];
+
+  // === Simulator / QA ===
+  /**
+   * When set, bypasses the "Ultimate Park Force" override and uses this
+   * location for the entire pipeline.  Only used by the Master Simulator
+   * and internal tests — production callers should never set this.
+   */
+  testLocation?: ExecutionLocation;
+
+  /**
+   * Equipment IDs from the selected park's gymEquipment inventory.
+   * Merged into availableEquipment so methods tagged with specific
+   * Firestore equipment IDs (e.g. dip station brand IDs) pass gating.
+   */
+  parkEquipmentIds?: string[];
 }
 
 // ============================================================================

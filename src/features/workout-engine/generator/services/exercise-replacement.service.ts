@@ -162,8 +162,9 @@ export async function getExerciseVariations(
 
     console.log(`  [RAW DB]   "${nameOf(ex)}" (${ex.id}) — methods: ${debugMethodLocations(ex)}`);
 
-    if (Math.abs(exLevel - currentLevel) > 1) {
-      console.log(`  [FILTERED] "${nameOf(ex)}" — Level Δ ${Math.abs(exLevel - currentLevel)} > 1`);
+    // ±3 level radius — gives Pro-level users (e.g. L19) access to L16–L22
+    if (Math.abs(exLevel - currentLevel) > 3) {
+      console.log(`  [FILTERED] "${nameOf(ex)}" — Level Δ ${Math.abs(exLevel - currentLevel)} > 3`);
       continue;
     }
 
@@ -236,8 +237,9 @@ export async function getAlternativeExercises(
 
     console.log(`  [RAW DB]   "${nameOf(ex)}" (${ex.id}) — methods: ${debugMethodLocations(ex)}`);
 
-    if (Math.abs(exLevel - currentLevel) > 1) {
-      console.log(`  [FILTERED] "${nameOf(ex)}" — Level Δ ${Math.abs(exLevel - currentLevel)} > 1`);
+    // ±3 level radius — gives Pro-level users (e.g. L19) access to L16–L22
+    if (Math.abs(exLevel - currentLevel) > 3) {
+      console.log(`  [FILTERED] "${nameOf(ex)}" — Level Δ ${Math.abs(exLevel - currentLevel)} > 3`);
       continue;
     }
 

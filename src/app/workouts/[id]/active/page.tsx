@@ -8,7 +8,11 @@ import { useParams, useRouter } from 'next/navigation';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/StrengthRunner';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
-import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
+import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import type { ExecutionMethod } from '@/features/content/exercises';
 import { 
   StrengthDopamineScreen, 
   StrengthSummaryPage,
@@ -100,6 +104,8 @@ function enrichExercise(
   segmentTarget?: { type: 'reps' | 'time'; value: number },
   workoutLocation?: string,
 ): WorkoutExercise {
+  const allMethods = (ex as any).execution_methods || (ex as any).executionMethods || [];
+
   // Location-aware media resolution: select the execution_method matching the workout's location
   const method = findMethodForLocation(ex, workoutLocation);
   const videoUrl = method?.media?.mainVideoUrl || ex.media?.videoUrl || undefined;
@@ -191,10 +197,32 @@ function enrichExercise(
     }
   }
 
-  // Extract equipment from Firestore
-  const equipment = Array.isArray((ex as any).equipment) 
-    ? (ex as any).equipment 
-    : [];
+  // Merge equipment: matched method → all methods fallback → legacy exercise.equipment
+  const matchedGear = method?.gearIds ?? (method?.gearId ? [method.gearId] : []);
+  const matchedEquip = method?.equipmentIds ?? (method?.equipmentId ? [method.equipmentId] : []);
+  let methodIdsCollected = [...matchedGear, ...matchedEquip].filter(Boolean);
+
+  // Deep scan: if the matched method yielded nothing, scan ALL execution methods
+  if (methodIdsCollected.length === 0 && allMethods.length > 0) {
+    for (const m of allMethods) {
+      const g = m.gearIds ?? (m.gearId ? [m.gearId] : []);
+      const e = m.equipmentIds ?? (m.equipmentId ? [m.equipmentId] : []);
+      methodIdsCollected.push(...g, ...e);
+    }
+    methodIdsCollected = methodIdsCollected.filter(Boolean);
+  }
+
+  const legacyEquip = Array.isArray((ex as any).equipment) ? (ex as any).equipment : [];
+  const allRaw = [...methodIdsCollected, ...legacyEquip].filter(Boolean);
+  const seen = new Set<string>();
+  const equipment: string[] = [];
+  for (const id of allRaw) {
+    const norm = normalizeGearId(id);
+    if (norm !== 'none' && norm !== 'bodyweight' && !seen.has(norm)) {
+      seen.add(norm);
+      equipment.push(norm);
+    }
+  }
 
   return {
     id: ex.id,
@@ -203,7 +231,6 @@ function enrichExercise(
     duration,
     videoUrl,
     imageUrl,
-    // Enriched metadata
     exerciseType,
     exerciseRole: segmentRole,
     isFollowAlong,
@@ -421,6 +448,15 @@ export default function ActiveWorkoutPage() {
   // Workout location for location-aware media selection in player components
   const [workoutLocation, setWorkoutLocation] = useState<string>('home');
 
+  // === EXERCISE HISTORY (Progression Memory) ===
+  const [exerciseHistoryMap, setExerciseHistoryMap] = useState<Record<string, number[]>>({});
+
+  // === MID-WORKOUT SWAP STATE ===
+  const [swapTarget, setSwapTarget] = useState<{ segIdx: number; exIdx: number; exerciseId: string } | null>(null);
+  const [fullSwapExercise, setFullSwapExercise] = useState<FirestoreExercise | null>(null);
+  /** Incremented when an exercise is swapped mid-session to force stableWorkoutPlan to update */
+  const [workoutVersion, setWorkoutVersion] = useState(0);
+
   // === LIVE PRESENCE (Social Map heartbeat while workout is active) ===
   useWorkoutPresence({
     activityStatus: 'strength',
@@ -486,10 +522,20 @@ export default function ActiveWorkoutPage() {
         try {
           const parsed = JSON.parse(activeWorkoutRaw) as WorkoutPlan;
           if (parsed && parsed.segments && parsed.segments.length > 0) {
-            // Keep the data in sessionStorage for the duration of the workout
-            // (only clear when workout completes or user navigates away)
             console.log('[ActiveWorkoutPage] Loaded full workout from active_workout_data');
             setWorkoutPlan(parsed);
+
+            // Fetch per-exercise history in the background for smart target selection
+            const uid = auth.currentUser?.uid;
+            if (uid) {
+              const exerciseIds = parsed.segments.flatMap(
+                (seg) => (seg.exercises ?? []).map((ex) => ex.id),
+              );
+              getHistoryMapForExercises(uid, exerciseIds)
+                .then(setExerciseHistoryMap)
+                .catch(console.warn);
+            }
+
             setIsLoading(false);
             return;
           }
@@ -538,11 +584,13 @@ export default function ActiveWorkoutPage() {
     loadWorkout();
   }, [workoutId]);
 
-  // Stable workoutPlan reference using useMemo to prevent StrengthRunner resets
+  // Stable workoutPlan reference — recreates only when ID changes OR when an exercise is swapped.
+  // workoutVersion is bumped on swap so the new exercise propagates without resetting the state machine
+  // (the machine only resets on workout.id change, which we deliberately keep stable).
   const stableWorkoutPlan = useMemo(() => {
     if (!workoutPlan) return null;
     return workoutPlan;
-  }, [workoutPlan?.id]); // Only recreate if ID changes
+  }, [workoutPlan?.id, workoutVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // === FLOW HANDLERS ===
   
@@ -643,6 +691,11 @@ export default function ActiveWorkoutPage() {
         });
 
         setProgressionResult(result);
+
+        // Persist per-exercise reps to Firestore for future session smart targets
+        saveExerciseHistory(uid, exerciseResults).catch((e) =>
+          console.warn('[ActiveWorkoutPage] saveExerciseHistory failed (non-critical):', e),
+        );
 
         if (result.success) {
           const g = result.activeProgramGain;
@@ -823,6 +876,73 @@ export default function ActiveWorkoutPage() {
     console.log('Workout resumed');
   };
 
+  // === MID-WORKOUT SWAP HANDLERS ===
+
+  /**
+   * Called by StrengthRunner when the user taps "החלפת תרגיל".
+   * Fetches the full Firestore Exercise, then opens the replacement modal.
+   */
+  const handleSwapExercise = useCallback(
+    async (exerciseId: string, segIdx: number, exIdx: number) => {
+      setSwapTarget({ segIdx, exIdx, exerciseId });
+      try {
+        const full = await getFirestoreExercise(exerciseId);
+        if (full) {
+          setFullSwapExercise(full);
+        } else {
+          console.warn('[ActiveWorkoutPage] Could not fetch exercise for swap:', exerciseId);
+          setSwapTarget(null);
+        }
+      } catch (e) {
+        console.error('[ActiveWorkoutPage] handleSwapExercise fetch failed:', e);
+        setSwapTarget(null);
+      }
+    },
+    [],
+  );
+
+  /**
+   * Called by ExerciseReplacementModal when the user confirms a replacement.
+   * Converts the new Firestore Exercise to a WorkoutExercise and mutates the plan.
+   */
+  const handleReplaceExercise = useCallback(
+    (newExercise: FirestoreExercise, executionMethod: ExecutionMethod) => {
+      if (!swapTarget || !workoutPlan) return;
+
+      const { segIdx, exIdx } = swapTarget;
+      const segment = workoutPlan.segments[segIdx];
+      if (!segment) return;
+
+      // Re-use the enrichExercise helper already in this file
+      const newWorkoutExercise = enrichExercise(
+        newExercise,
+        (segment as any).segmentRole ?? 'main',
+        segment.target,
+        workoutLocation,
+      );
+
+      // Deep-clone segments array, replace the target exercise
+      const newSegments = workoutPlan.segments.map((seg, si) => {
+        if (si !== segIdx) return seg;
+        const exercises = [...(seg.exercises ?? [])];
+        exercises[exIdx] = newWorkoutExercise;
+        return { ...seg, exercises };
+      });
+
+      setWorkoutPlan({ ...workoutPlan, segments: newSegments });
+      setWorkoutVersion((v) => v + 1);
+
+      console.log(
+        `[ActiveWorkoutPage] Swapped exercise at [${segIdx}][${exIdx}]: ${newExercise.id}`,
+      );
+
+      // Clean up modal state
+      setSwapTarget(null);
+      setFullSwapExercise(null);
+    },
+    [swapTarget, workoutPlan, workoutLocation],
+  );
+
   // === LOADING STATE ===
   if (isLoading) {
     return (
@@ -862,14 +982,36 @@ export default function ActiveWorkoutPage() {
   // Step 1: Active Workout
   if (flowState === 'active') {
     return (
-      <div className="w-full h-screen overflow-hidden">
+      <div
+        className="w-full overflow-hidden"
+        style={{
+          height: '100dvh',
+          overscrollBehavior: 'none',
+        }}
+      >
         <StrengthRunner
           workout={stableWorkoutPlan}
           onComplete={handleComplete}
           onPause={handlePause}
           onResume={handleResume}
+          onSwapExercise={handleSwapExercise}
+          exerciseHistoryMap={exerciseHistoryMap}
         />
         <KudoToast kudo={currentKudo} onDismiss={dismissKudo} />
+
+        {/* Mid-workout exercise replacement modal */}
+        {swapTarget && fullSwapExercise && profile && (
+          <ExerciseReplacementModal
+            isOpen={true}
+            onClose={() => { setSwapTarget(null); setFullSwapExercise(null); }}
+            currentExercise={fullSwapExercise}
+            currentLevel={userProgression.currentLevel}
+            location={workoutLocation as any}
+            park={null}
+            userProfile={profile as any}
+            onReplace={handleReplaceExercise}
+          />
+        )}
       </div>
     );
   }

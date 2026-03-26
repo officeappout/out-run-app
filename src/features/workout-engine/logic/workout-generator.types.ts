@@ -18,7 +18,7 @@ export type DifficultyLevel = 1 | 2 | 3;
 
 export type WorkoutStructure = 'standard' | 'emom' | 'amrap' | 'circuit';
 
-export type ExercisePriority = 'skill' | 'compound' | 'accessory' | 'isolation';
+export type ExercisePriority = 'skill' | 'foundation' | 'compound' | 'accessory' | 'isolation';
 
 // ============================================================================
 // TIER ENGINE

@@ -23,6 +23,14 @@ export interface ParkAmenities {
 export type ParkStatus = 'open' | 'under_repair' | 'closed';
 
 /**
+ * Editorial lifecycle status for content approval workflow.
+ * Authority managers create content as 'pending_review'.
+ * Super admins approve → 'published'. End users only see 'published' parks.
+ * Super/system admins writing directly always set 'published'.
+ */
+export type ParkContentStatus = 'draft' | 'pending_review' | 'published';
+
+/**
  * Facility Type - determines what kind of location this is
  * Used by the Hybrid Onboarding Matrix for filtering & personalized copy
  */
@@ -103,7 +111,8 @@ export type ParkFeatureTag =
   | 'water_fountain'
   | 'has_toilets'
   | 'dog_friendly'
-  | 'wheelchair_accessible';
+  | 'wheelchair_accessible'
+  | 'safe_zone';
 
 /**
  * ============================================
@@ -262,6 +271,14 @@ export interface Park {
   // Admin metadata
   authorityId?: string; // Link to authority (for Authority Manager access)
   status?: ParkStatus;
+  contentStatus?: ParkContentStatus; // Editorial lifecycle: pending_review → published
+  /** Approval workflow — mirrors Route.published for consistency across all entities */
+  published?: boolean;
+  publishedAt?: Date | null;
+  /** UID of the user who created this park — used for attribution in admin inventory */
+  createdByUser?: string;
+  /** Origin of the park record — 'authority_admin' = pending review, 'super_admin' = published directly */
+  origin?: 'authority_admin' | 'super_admin';
   
   // Route classification fields
   terrainType?: RouteTerrainType;

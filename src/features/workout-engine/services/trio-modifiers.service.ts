@@ -13,9 +13,25 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs.
  */
 
-import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+import type { Exercise, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { GeneratedWorkout, WorkoutExercise } from '../logic/WorkoutGenerator';
 import type { WorkoutTrioOption } from './home-workout.types';
+import { resolveToSlug } from './program-hierarchy.utils';
+import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
+import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
+
+/**
+ * Check if userProgramLevels contains a key that matches `programId`
+ * either directly or via slug resolution.
+ */
+function levelsHasProgram(levels: Map<string, number>, programId: string): boolean {
+  if (levels.has(programId)) return true;
+  return levels.has(resolveToSlug(programId));
+}
+
+function getLevelForProgram(levels: Map<string, number>, programId: string): number | undefined {
+  return levels.get(programId) ?? levels.get(resolveToSlug(programId));
+}
 
 // ============================================================================
 // GEAR HELPERS (Essential Gear Exception)
@@ -33,14 +49,8 @@ export function collectAllGearIds(
   return ids.filter(Boolean);
 }
 
-const ESSENTIAL_GEAR_IDS = new Set([
-  'pull_up_bar', 'pullup_bar', 'pullupbar',
-  'dip_bar', 'dip_station', 'dipstation',
-  'parallel_bars', 'bars',
-]);
-
 export function isEssentialGear(gearId: string): boolean {
-  return ESSENTIAL_GEAR_IDS.has(gearId.toLowerCase());
+  return ESSENTIAL_PARK_GEAR.has(normalizeGearId(gearId));
 }
 
 export function isGearFree(allIds: string[], allowEssential = false): boolean {
@@ -69,7 +79,7 @@ export function hasGearKeywordInText(exercise: Exercise): boolean {
 // ============================================================================
 
 const INTENSE_REST_FLOOR = 90;
-const MAX_MAIN = 3;
+const MAX_MAIN = 5;   // raised from 3 — Option 3 must have substance
 const MAX_CORE = 1;
 const MAX_POTENTIATION = 1;
 
@@ -100,14 +110,105 @@ export function applyIntenseOption(
   const corePool = main.filter(isCore).sort((a, b) => b.score - a.score);
   const nonCorePool = main.filter(ex => !isCore(ex));
 
-  nonCorePool.sort((a, b) => {
+  // ── Domain-Aware Intense Selection ────────────────────────────────────────
+  // Guarantee at least one Push, one Pull, and one Legs exercise among the
+  // MAX_MAIN non-core slots.  This prevents "all-Pull" sessions even when Pull
+  // exercises score highest (e.g., David at L19 Pull).
+  const MG_TO_DOMAIN_INTENSE: Record<string, string> = {
+    vertical_pull: 'pull',  horizontal_pull: 'pull',
+    vertical_push: 'push',  horizontal_push: 'push',
+    squat: 'legs', hinge: 'legs', lunge: 'legs',
+  };
+  const REQUIRED_DOMAINS_INTENSE = ['push', 'pull', 'legs'] as const;
+
+  const intenseSelected: typeof nonCorePool = [];
+  const intenseUsed = new Set<string>();
+
+  // Sort non-core by vertical preference first, then score
+  const sortedNonCore = [...nonCorePool].sort((a, b) => {
     const aVert = a.exercise.movementGroup?.includes('vertical') ? 1 : 0;
     const bVert = b.exercise.movementGroup?.includes('vertical') ? 1 : 0;
     if (bVert !== aVert) return bVert - aVert;
     return b.score - a.score;
   });
 
-  const keptNonCore = nonCorePool.slice(0, MAX_MAIN);
+  // First pass: claim one slot per required domain (highest-scored for that domain)
+  for (const domain of REQUIRED_DOMAINS_INTENSE) {
+    const best = sortedNonCore.find(e =>
+      !intenseUsed.has(e.exercise.id) &&
+      MG_TO_DOMAIN_INTENSE[e.exercise.movementGroup ?? ''] === domain,
+    );
+    if (best) {
+      intenseSelected.push(best);
+      intenseUsed.add(best.exercise.id);
+    }
+  }
+
+  // Second pass: fill remaining slots with highest-scored non-duplicate exercises
+  for (const ex of sortedNonCore) {
+    if (intenseSelected.length >= MAX_MAIN) break;
+    if (!intenseUsed.has(ex.exercise.id)) {
+      intenseSelected.push(ex);
+      intenseUsed.add(ex.exercise.id);
+    }
+  }
+
+  // Third pass (global pool fallback): if the scored pool was too small,
+  // draw level-appropriate exercises from the full DB to always reach MAX_MAIN.
+  if (intenseSelected.length < MAX_MAIN) {
+    const maxUserLevel = Math.max(...Array.from(userProgramLevels.values()), 1);
+    const template = intenseSelected[intenseSelected.length - 1] ?? main[0];
+    const beforeFallback = intenseSelected.length;
+
+    if (template) {
+      const fallbackCandidates = allExercises.filter(ex =>
+        !intenseUsed.has(ex.id)
+        && ex.exerciseRole !== 'warmup'
+        && ex.exerciseRole !== 'cooldown'
+        && !(ex.movementGroup === 'core' || ex.primaryMuscle === 'core' || ex.primaryMuscle === 'abs')
+        && ex.targetPrograms?.some(tp => {
+          const userLvl = getLevelForProgram(userProgramLevels, tp.programId);
+          return userLvl !== undefined && Math.abs(tp.level - userLvl) <= 4;
+        }),
+      );
+
+      for (const candidate of fallbackCandidates) {
+        if (intenseSelected.length >= MAX_MAIN) break;
+        const newIsTimeBased = isTimeBasedExercise(candidate);
+        const typeChanged = newIsTimeBased !== template.isTimeBased;
+        intenseSelected.push({
+          ...template,
+          exercise: candidate,
+          method: (candidate.executionMethods?.[0] ?? template.method) as any,
+          mechanicalType: (candidate.mechanicalType || 'none') as any,
+          isTimeBased: newIsTimeBased,
+          reps: typeChanged ? (newIsTimeBased ? 30 : Math.min(template.reps, 12)) : template.reps,
+          repsRange: typeChanged
+            ? (newIsTimeBased ? { min: 20, max: 45 } : { min: 6, max: 12 })
+            : template.repsRange,
+          reasoning: [...(template.reasoning ?? []), 'intense_global_pool_fallback'],
+        });
+        intenseUsed.add(candidate.id);
+      }
+
+      if (intenseSelected.length > beforeFallback) {
+        console.log(
+          `[WorkoutTrio] Intense: global pool fallback added ${intenseSelected.length - beforeFallback} ` +
+          `exercise(s) (maxLevel=${maxUserLevel})`,
+        );
+      }
+    }
+  }
+
+  const domainsRepresented = [...new Set(
+    intenseSelected.map(e => MG_TO_DOMAIN_INTENSE[e.exercise.movementGroup ?? ''] ?? 'other'),
+  )];
+  console.log(
+    `[WorkoutTrio] Intense selection: ${intenseSelected.length}/${MAX_MAIN} slots filled, ` +
+    `domains: [${domainsRepresented.join(', ')}]`,
+  );
+
+  const keptNonCore = intenseSelected;
   const keptCore = corePool.slice(0, MAX_CORE);
   const keptMain = [...keptNonCore, ...keptCore];
 
@@ -119,7 +220,7 @@ export function applyIntenseOption(
   const hasHigherLevel = keptMain.some(ex => {
     if (!ex.exercise.targetPrograms?.length) return false;
     return ex.exercise.targetPrograms.some(tp => {
-      const userLvl = userProgramLevels.get(tp.programId);
+      const userLvl = getLevelForProgram(userProgramLevels, tp.programId);
       return userLvl !== undefined && tp.level > userLvl;
     });
   });
@@ -130,7 +231,7 @@ export function applyIntenseOption(
       const candidate = allExercises.find(ex =>
         !usedIds.has(ex.id)
         && ex.targetPrograms?.some(tp =>
-          userProgramLevels.has(tp.programId) && tp.level === targetLevel,
+          levelsHasProgram(userProgramLevels, tp.programId) && tp.level === targetLevel,
         )
         && ex.exerciseRole !== 'cooldown'
         && ex.exerciseRole !== 'warmup',
@@ -138,9 +239,18 @@ export function applyIntenseOption(
       if (candidate) {
         const lowestIdx = keptMain.length - 1;
         const replaced = keptMain[lowestIdx];
+        const newIsTimeBased = isTimeBasedExercise(candidate);
+        const typeChanged = newIsTimeBased !== replaced.isTimeBased;
         keptMain[lowestIdx] = {
           ...replaced,
           exercise: candidate,
+          method: (candidate.executionMethods?.[0] ?? replaced.method) as any,
+          mechanicalType: (candidate.mechanicalType || 'none') as any,
+          isTimeBased: newIsTimeBased,
+          reps: typeChanged ? (newIsTimeBased ? 30 : Math.min(replaced.reps, 12)) : replaced.reps,
+          repsRange: typeChanged
+            ? (newIsTimeBased ? { min: 20, max: 45 } : { min: 6, max: 12 })
+            : replaced.repsRange,
           reasoning: [...replaced.reasoning, `david_rule:level_${targetLevel}_inject`],
         };
         injectedLevel = targetLevel;
@@ -184,7 +294,7 @@ export function applyIntenseOption(
 
   console.log(
     `[WorkoutTrio] Intense: ${keptWarmups.length} potentiation, ` +
-    `${keptNonCore.length} main + ${keptCore.length} core, ` +
+    `${keptNonCore.length} main(domains:${domainsRepresented.join('/')}) + ${keptCore.length} core, ` +
     `dropped ${droppedWarmups} warmups, rest≥${INTENSE_REST_FLOOR}s, ` +
     `David Rule: ${hasHigherLevel ? 'natural' : injectedLevel ? `injected L${injectedLevel}` : 'volume_fallback'} → ~${workout.estimatedDuration} min`,
   );
@@ -196,11 +306,23 @@ export function applyIntenseOption(
 
 const FLOW_REP_MULTIPLIER = 1.2;
 
+/**
+ * Regression floor: advanced users should never regress into
+ * beginner territory.  Their "easy" day is still substantial.
+ */
+function regressionFloor(domainLevel: number): number {
+  if (domainLevel >= 18) return 12;
+  if (domainLevel >= 12) return 7;
+  if (domainLevel >= 6) return 3;
+  return 1;
+}
+
 export function applyFlowRegression(
   workout: GeneratedWorkout,
   userProgramLevels: Map<string, number>,
   allExercises: Exercise[],
   _blacklistedIds: Set<string>,
+  location?: ExecutionLocation,
 ): void {
   workout.difficulty = 1 as any;
 
@@ -210,6 +332,7 @@ export function applyFlowRegression(
   if (main.length === 0) return;
 
   const maxUserLevel = Math.max(...Array.from(userProgramLevels.values()), 1);
+  const levelFloor = regressionFloor(maxUserLevel);
   const usedIds = new Set(workout.exercises.map(ex => ex.exercise.id));
 
   let swapped = 0;
@@ -217,13 +340,12 @@ export function applyFlowRegression(
     const tp = ex.exercise.targetPrograms;
     if (!tp?.length) continue;
 
-    const relevantTp = tp.find(t => userProgramLevels.has(t.programId));
+    const relevantTp = tp.find(t => levelsHasProgram(userProgramLevels, t.programId));
     const exLevel = relevantTp?.level ?? maxUserLevel;
 
-    // Try -1, -2, -3 in order — first available same-muscle replacement wins
     let found = false;
     for (let delta = 1; delta <= 3; delta++) {
-      const targetLevel = Math.max(1, exLevel - delta);
+      const targetLevel = Math.max(levelFloor, exLevel - delta);
       if (targetLevel >= exLevel) continue;
 
       const replacement = allExercises.find(raw => {
@@ -231,9 +353,8 @@ export function applyFlowRegression(
         if (raw.exerciseRole === 'cooldown' || raw.exerciseRole === 'warmup') return false;
         if (raw.primaryMuscle !== ex.exercise.primaryMuscle) return false;
         if (!raw.targetPrograms?.some(t =>
-          userProgramLevels.has(t.programId) && t.level === targetLevel,
+          levelsHasProgram(userProgramLevels, t.programId) && t.level === targetLevel,
         )) return false;
-        // Replacement must be gear-free (essential gear OK)
         if (hasGearKeywordInText(raw)) return false;
         const methods = raw.execution_methods ?? raw.executionMethods ?? [];
         const hasNakedMethod = methods.length === 0
@@ -251,7 +372,7 @@ export function applyFlowRegression(
           .find(m => isGearFree(collectAllGearIds(m as any), true));
         ex.method = (nakedMethod ?? replacement.executionMethods?.[0] ?? ex.method) as any;
         ex.reps = Math.round(oldReps * FLOW_REP_MULTIPLIER);
-        ex.reasoning.push(`flow_regression:L${exLevel}→L${targetLevel}`);
+        ex.reasoning.push(`flow_regression:L${exLevel}→L${targetLevel}(floor=L${levelFloor})`);
         ex.reasoning.push(`flow_rep_compensation:${oldReps}→${ex.reps}`);
         swapped++;
         found = true;
@@ -259,7 +380,6 @@ export function applyFlowRegression(
       }
     }
 
-    // If no regression found, just compensate reps on the existing exercise
     if (!found && exLevel > 1) {
       const oldReps = ex.reps;
       ex.reps = Math.round(oldReps * FLOW_REP_MULTIPLIER);
@@ -268,11 +388,11 @@ export function applyFlowRegression(
   }
 
   console.log(
-    `[WorkoutTrio] Flow: swapped ${swapped}/${main.length} exercises (regression -1/-2/-3, rep×${FLOW_REP_MULTIPLIER})`,
+    `[WorkoutTrio] Flow: swapped ${swapped}/${main.length} exercises ` +
+    `(regression -1/-2/-3, floor=L${levelFloor}, rep×${FLOW_REP_MULTIPLIER})`,
   );
 
-  // Apply essential gear filter after regression
-  applyEssentialGearFilter(workout, _blacklistedIds, allExercises);
+  applyEssentialGearFilter(workout, _blacklistedIds, allExercises, location);
 }
 
 // ============================================================================
@@ -283,7 +403,18 @@ export function applyEssentialGearFilter(
   workout: GeneratedWorkout,
   _blacklistedIds: Set<string>,
   allExercises: Exercise[],
+  location?: ExecutionLocation,
 ): void {
+  // Park workouts always have essential calisthenics fixtures (pull-up bars,
+  // dip bars) available.  Applying the naked filter in a park would wrongly
+  // strip Pull-up and Dip exercises, so we skip the filter entirely.
+  if (location === 'park' || location === 'street') {
+    console.log(
+      `[WorkoutTrio] Naked filter SKIPPED for location="${location}" — ` +
+      'essential park fixtures (pull-up bar, dip bar) are always available.',
+    );
+    return;
+  }
   const isNaked = (ex: WorkoutExercise): boolean => {
     if (!isGearFree(collectAllGearIds(ex.method as any), true)) return false;
     if (hasGearKeywordInText(ex.exercise)) return false;

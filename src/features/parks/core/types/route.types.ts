@@ -173,6 +173,14 @@ export interface Route {
   // Administrative linkage
   authorityId?: string;
   city?: string;
+  /** Approval workflow */
+  status?: 'pending' | 'published' | 'archived';
+  published?: boolean;
+  publishedAt?: Date | null;
+  /** UID of the user who created this route */
+  createdByUser?: string;
+  /** Origin of the route record */
+  origin?: 'authority_admin' | 'super_admin';
 
   // Import tracking
   /** Unique batch ID for group management of imported routes */

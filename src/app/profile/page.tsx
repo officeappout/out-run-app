@@ -25,16 +25,16 @@ function formatBirthDate(raw: unknown): string | null {
 }
 
 const EQUIPMENT_SVG_MAP: Record<string, string> = {
-  rings: '/assets/icons/equipment/Rings.svg',
-  gymnastic_rings: '/assets/icons/equipment/Rings.svg',
-  bands: '/assets/icons/equipment/Bands.svg',
-  resistance_band: '/assets/icons/equipment/Bands.svg',
-  resistance_bands: '/assets/icons/equipment/Bands.svg',
-  pull_up_bar: '/assets/icons/equipment/PullupBar.svg',
-  pullup_bar: '/assets/icons/equipment/PullupBar.svg',
-  pullUpBar: '/assets/icons/equipment/PullupBar.svg',
-  dip_station: '/assets/icons/equipment/ParallelBars.svg',
-  parallettes: '/assets/icons/equipment/ParallelBars.svg',
+  rings: '/assets/icons/equipment/rings.svg',
+  gymnastic_rings: '/assets/icons/equipment/rings.svg',
+  bands: '/assets/icons/equipment/bands.svg',
+  resistance_band: '/assets/icons/equipment/bands.svg',
+  resistance_bands: '/assets/icons/equipment/bands.svg',
+  pull_up_bar: '/assets/icons/equipment/pullupbar.svg',
+  pullup_bar: '/assets/icons/equipment/pullupbar.svg',
+  pullUpBar: '/assets/icons/equipment/pullupbar.svg',
+  dip_station: '/assets/icons/equipment/parallelbars.svg',
+  parallettes: '/assets/icons/equipment/parallelbars.svg',
   trx: '/assets/icons/equipment/trx.svg',
 };
 

@@ -189,7 +189,21 @@ export function calculateVolumeAdjustment(
 // HOLD TIME CALCULATION
 // ============================================================================
 
+// Movement groups that are ALWAYS rep-based (dynamic movements — never timed).
+// One Arm Pull-up, Pike Push-up, Squat, etc. must never appear as "30 שניות".
+const DYNAMIC_MOVEMENT_GROUPS = new Set([
+  'vertical_pull', 'horizontal_pull',
+  'vertical_push', 'horizontal_push',
+  'squat', 'hinge', 'lunge',
+]);
+
+// Used by the Relative Skill Guard in assignVolume
+const PUSH_PULL_MG = new Set(['vertical_push', 'horizontal_push', 'vertical_pull', 'horizontal_pull']);
+const LEGS_MG      = new Set(['squat', 'hinge', 'lunge']);
+
 export function isTimeBasedExercise(exercise: Exercise): boolean {
+  // Dynamic movement groups are always rep-based, regardless of DB tags
+  if (DYNAMIC_MOVEMENT_GROUPS.has(exercise.movementGroup ?? '')) return false;
   if (exercise.type === 'time') return true;
   if (exercise.mechanicalType === 'straight_arm') return true;
   const name = getLocalizedText(exercise.name).toLowerCase();
@@ -392,13 +406,50 @@ export function assignVolume(
       && movementGroup != null
       && HORIZONTAL_MOVEMENT_GROUPS.has(movementGroup);
 
+    // uniRepsRange: set by the Relative Skill Guard for unilateral exercises
+    let uniRepsRange: { min: number; max: number } | undefined;
+
     if (timeBased) {
       reps = calculateHoldTimeTier(exercise, tier, tierName);
+      // Rule C — Static Skill Hard Cap: Planche, Front Lever, Human Flag ≤ 15 s
+      if (exercise.mechanicalType === 'straight_arm') {
+        reps = Math.min(reps, 15);
+      }
     } else {
       const repRange = isHorizontalMatch ? MATCH_HORIZONTAL_REPS : tier.reps;
-      reps = repRange.min + Math.floor(Math.random() * (repRange.max - repRange.min + 1));
-      if (volumeAdjustment.reductionPercent > 0) {
-        reps = Math.max(repRange.min, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
+      const mg = exercise.movementGroup ?? '';
+      const isPushPull = PUSH_PULL_MG.has(mg);
+      const isLegs     = LEGS_MG.has(mg);
+
+      if (exercise.symmetry === 'unilateral' && (isPushPull || isLegs)) {
+        // levelDiff = userLevel − exerciseLevel.  delta = exerciseLevel − userLevel → levelDiff = −delta.
+        const levelDiff = -(delta);
+
+        if (Math.abs(levelDiff) <= 1) {
+          // Rule A — High Intensity: exercise is at or ±1 user level
+          if (isPushPull) { reps = 1 + Math.floor(Math.random() * 3); uniRepsRange = { min: 1, max: 3 }; }
+          else            { reps = 3 + Math.floor(Math.random() * 4); uniRepsRange = { min: 3, max: 6 }; }
+        } else if (levelDiff >= 2) {
+          // Rule B — Moderate Intensity: exercise is ≥2 levels below user
+          if (isPushPull) { reps = 3 + Math.floor(Math.random() * 3); uniRepsRange = { min: 3, max: 5 }; }
+          else            { reps = 6 + Math.floor(Math.random() * 3); uniRepsRange = { min: 6, max: 8 }; }
+        } else {
+          // Exercise is above user level: use tier range with -30% reduction
+          reps = repRange.min + Math.floor(Math.random() * (repRange.max - repRange.min + 1));
+          reps = Math.max(1, Math.round(reps * 0.7));
+          uniRepsRange = {
+            min: Math.max(1, Math.round(repRange.min * 0.7)),
+            max: Math.max(1, Math.round(repRange.max * 0.7)),
+          };
+        }
+        if (volumeAdjustment.reductionPercent > 0) {
+          reps = Math.max(1, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
+        }
+      } else {
+        reps = repRange.min + Math.floor(Math.random() * (repRange.max - repRange.min + 1));
+        if (volumeAdjustment.reductionPercent > 0) {
+          reps = Math.max(repRange.min, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
+        }
       }
     }
 
@@ -411,9 +462,14 @@ export function assignVolume(
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
 
     const effectiveRepRange = isHorizontalMatch ? MATCH_HORIZONTAL_REPS : tier.reps;
-    const repsRange = timeBased
+    let repsRange: { min: number; max: number } = timeBased
       ? { min: tier.hold.min, max: tier.hold.max }
-      : { min: effectiveRepRange.min, max: effectiveRepRange.max };
+      : (uniRepsRange ?? { min: effectiveRepRange.min, max: effectiveRepRange.max });
+
+    // Apply static skill cap to the displayed range as well
+    if (timeBased && exercise.mechanicalType === 'straight_arm') {
+      repsRange = { min: Math.min(repsRange.min, 15), max: 15 };
+    }
 
     const exerciseId = scored.exercise.id;
     const isGoalExercise = context.goalExerciseIds?.has(exerciseId) ?? false;
@@ -493,11 +549,12 @@ export function applySmartSetCap(
   const compoundMin = budgetTight ? Math.max(2, setsPerExerciseWhenTight) : 3;
   const skillMin = budgetTight ? Math.max(2, setsPerExerciseWhenTight) : 2;
 
-  const reductionOrder: ExercisePriority[] = ['isolation', 'accessory', 'compound', 'skill'];
+  const reductionOrder: ExercisePriority[] = ['isolation', 'accessory', 'skill', 'compound', 'foundation'];
   const minSetsByPriority: Record<ExercisePriority, number> = {
     isolation: 2,
     accessory: 2,
     compound: compoundMin,
+    foundation: compoundMin,
     skill: skillMin,
   };
 

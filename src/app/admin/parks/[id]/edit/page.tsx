@@ -8,7 +8,9 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { Park, ParkSportType, ParkFeatureTag, Authority } from '@/types/admin-types';
-import { getAutoSportTypes, getPark, updatePark } from '@/features/parks';
+import { getAutoSportTypes, getPark } from '@/features/parks';
+import { updatePark } from '@/features/admin/services/parks.service';
+import { auth } from '@/lib/firebase';
 import { ParkGymEquipment } from '@/features/content/equipment/gym';
 import { getAllGymEquipment } from '@/features/content/equipment/gym';
 import { GymEquipment } from '@/features/content/equipment/gym';
@@ -339,7 +341,11 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
             };
 
             setUploadProgress('שומר שינויים...');
-            await updatePark(parkId, updatedData);
+            const currentUser = auth.currentUser;
+            const adminInfo = currentUser
+              ? { adminId: currentUser.uid, adminName: currentUser.displayName || currentUser.email || 'Admin' }
+              : undefined;
+            await updatePark(parkId, updatedData, adminInfo);
 
             setUploadProgress('הצלחה!');
             setTimeout(() => router.push('/admin/locations'), 1000);

@@ -1,434 +1,343 @@
 'use client';
 
-// Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { checkUserRole } from '@/features/admin/services/auth.service';
-import {
-  getAllEditRequests,
-  approveEditRequest,
-  rejectEditRequest,
-  type EditRequest,
-  type EditRequestStatus,
-} from '@/features/admin/services/edit-requests.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import { approvePark } from '@/features/admin/services/parks.service';
+import { InventoryService } from '@/features/parks/core/services/inventory.service';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import type { Park } from '@/features/parks/core/types/park.types';
+import type { Route } from '@/features/parks/core/types/route.types';
 import {
   CheckCircle2,
   XCircle,
   Clock,
   AlertCircle,
   Loader2,
-  Eye,
-  ChevronDown,
-  ChevronUp,
+  ShieldCheck,
+  MapPin,
+  Route as RouteIcon,
+  Dumbbell,
+  Building2,
+  RefreshCw,
 } from 'lucide-react';
+
+type ApprovalTab = 'locations' | 'routes';
+
+interface PendingPark extends Park {
+  _type: 'park';
+}
+
+interface PendingRoute extends Route {
+  _type: 'route';
+}
 
 export default function ApprovalCenterPage() {
   const router = useRouter();
-  const [requests, setRequests] = useState<EditRequest[]>([]);
+  const [adminName, setAdminName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<EditRequestStatus | 'all'>('pending');
-  const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ApprovalTab>('locations');
+
+  const [pendingParks, setPendingParks] = useState<PendingPark[]>([]);
+  const [pendingRoutes, setPendingRoutes] = useState<PendingRoute[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [adminName, setAdminName] = useState<string>('');
-  const [reviewNote, setReviewNote] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/admin/login');
-        return;
-      }
+      if (!user) { router.push('/admin/login'); return; }
 
       try {
         const roleInfo = await checkUserRole(user.uid);
-        
-        // Only super_admin and system_admin can access
         if (!roleInfo.isSuperAdmin && !roleInfo.isSystemAdmin) {
           router.push('/admin');
           return;
         }
 
-        // Get admin name
         const userProfile = await getUserFromFirestore(user.uid);
-        setAdminName(userProfile?.core?.name || user.email || 'Unknown');
+        setAdminName(userProfile?.core?.name || user.email || '');
 
-        loadRequests();
+        await loadPendingItems();
       } catch (error) {
         console.error('Error checking authorization:', error);
         router.push('/admin');
       }
     });
-
     return () => unsubscribe();
   }, [router]);
 
-  const loadRequests = async () => {
+  const loadPendingItems = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const data = statusFilter === 'all'
-        ? await getAllEditRequests()
-        : await getAllEditRequests(statusFilter as EditRequestStatus);
-      setRequests(data);
-    } catch (error) {
-      console.error('Error loading edit requests:', error);
-      alert('שגיאה בטעינת הבקשות');
+      const [parks, routes] = await Promise.all([
+        loadPendingParks(),
+        loadPendingRoutes(),
+      ]);
+      setPendingParks(parks);
+      setPendingRoutes(routes);
+    } catch (err) {
+      console.error('Error loading pending items:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (adminName) {
-      loadRequests();
-    }
-  }, [statusFilter, adminName]);
-
-  const handleApprove = async (requestId: string) => {
-    if (!confirm('האם אתה בטוח שברצונך לאשר את הבקשה?')) return;
-
+  const loadPendingParks = async (): Promise<PendingPark[]> => {
     try {
-      setProcessingId(requestId);
-      await approveEditRequest(
-        requestId,
-        {
-          adminId: auth.currentUser?.uid || '',
-          adminName,
-        },
-        reviewNote || undefined
+      const q = query(
+        collection(db, 'parks'),
+        where('published', '==', false)
       );
-      setReviewNote('');
-      await loadRequests();
-      alert('הבקשה אושרה בהצלחה');
-    } catch (error) {
-      console.error('Error approving request:', error);
-      alert('שגיאה באישור הבקשה');
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        _type: 'park' as const,
+      })) as PendingPark[];
+    } catch {
+      return [];
+    }
+  };
+
+  const loadPendingRoutes = async (): Promise<PendingRoute[]> => {
+    try {
+      const q = query(
+        collection(db, 'official_routes'),
+        where('published', '==', false)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        _type: 'route' as const,
+      })) as PendingRoute[];
+    } catch {
+      return [];
+    }
+  };
+
+  const handleApprovePark = async (parkId: string) => {
+    setProcessingId(parkId);
+    try {
+      await approvePark(parkId);
+      setPendingParks(prev => prev.filter(p => p.id !== parkId));
+    } catch {
+      alert('שגיאה באישור המיקום');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleReject = async (requestId: string) => {
-    const note = prompt('הזן הערה לדחייה (אופציונלי):');
-    if (note === null) return; // User cancelled
-
+  const handleApproveRoute = async (routeId: string) => {
+    setProcessingId(routeId);
     try {
-      setProcessingId(requestId);
-      await rejectEditRequest(
-        requestId,
-        {
-          adminId: auth.currentUser?.uid || '',
-          adminName,
-        },
-        note || undefined
-      );
-      setReviewNote('');
-      await loadRequests();
-      alert('הבקשה נדחתה');
-    } catch (error) {
-      console.error('Error rejecting request:', error);
-      alert('שגיאה בדחיית הבקשה');
+      await InventoryService.approveRoute(routeId);
+      setPendingRoutes(prev => prev.filter(r => r.id !== routeId));
+    } catch {
+      alert('שגיאה באישור המסלול');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const getStatusIcon = (status: EditRequestStatus) => {
-    switch (status) {
-      case 'approved':
-        return <CheckCircle2 className="w-5 h-5 text-green-600" />;
-      case 'rejected':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case 'pending':
-        return <Clock className="w-5 h-5 text-yellow-600" />;
-      default:
-        return <AlertCircle className="w-5 h-5 text-gray-600" />;
-    }
-  };
-
-  const getStatusLabel = (status: EditRequestStatus) => {
-    switch (status) {
-      case 'approved':
-        return 'אושר';
-      case 'rejected':
-        return 'נדחה';
-      case 'pending':
-        return 'ממתין';
-      default:
-        return 'לא ידוע';
-    }
-  };
-
-  const getStatusColor = (status: EditRequestStatus) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-100 text-green-700 border-green-300';
-      case 'rejected':
-        return 'bg-red-100 text-red-700 border-red-300';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-300';
-    }
-  };
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('he-IL', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getFieldLabel = (key: string): string => {
-    const labels: Record<string, string> = {
-      name: 'שם',
-      city: 'עיר',
-      description: 'תיאור',
-      location: 'מיקום',
-      image: 'תמונה',
-      facilities: 'מתקנים',
-      gymEquipment: 'ציוד כושר',
-      amenities: 'שירותים',
-      authorityId: 'רשות',
-      status: 'סטטוס',
-      distance: 'מרחק',
-      duration: 'משך',
-      path: 'מסלול',
-      type: 'סוג',
-      activityType: 'סוג פעילות',
-      difficulty: 'קושי',
-    };
-    return labels[key] || key;
-  };
+  const totalPending = pendingParks.length + pendingRoutes.length;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" dir="rtl">
         <Loader2 className="w-8 h-8 text-cyan-600 animate-spin" />
-        <span className="ml-3 text-gray-600">טוען בקשות...</span>
+        <span className="mr-3 text-gray-600">טוען פריטים ממתינים...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6" dir="rtl">
+    <div className="space-y-6 pb-12" dir="rtl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-black text-gray-900">מרכז אישורים</h1>
-          <p className="text-xs md:text-sm text-gray-500 mt-1">ניהול בקשות עריכה מנציגי רשויות</p>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 flex items-center gap-3">
+            <ShieldCheck className="text-cyan-500" size={30} />
+            מרכז אישורים
+          </h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            {totalPending > 0
+              ? `${totalPending} פריטים ממתינים לאישורך`
+              : 'אין פריטים ממתינים — הכל מאושר!'}
+          </p>
         </div>
-
-        {/* Status Filter */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <label className="text-xs md:text-sm font-bold text-gray-700 whitespace-nowrap">סטטוס:</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as EditRequestStatus | 'all')}
-            className="flex-1 sm:flex-none px-3 md:px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none font-bold text-xs md:text-sm"
-          >
-            <option value="all">הכל</option>
-            <option value="pending">ממתין</option>
-            <option value="approved">אושר</option>
-            <option value="rejected">נדחה</option>
-          </select>
-        </div>
+        <button
+          onClick={loadPendingItems}
+          className="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition-all text-sm"
+        >
+          <RefreshCw size={15} />
+          רענן
+        </button>
       </div>
 
-      {/* Requests List */}
-      {requests.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-12 text-center">
-          <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 mb-2">אין בקשות</h3>
-          <p className="text-gray-500">אין בקשות עריכה ממתינות לאישור</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {requests.map((request) => {
-            const isExpanded = expandedRequest === request.id;
-            const isProcessing = processingId === request.id;
+      {/* KPI Summary */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: 'סה״כ ממתינים', value: totalPending,          icon: Clock,       color: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-200' },
+          { label: 'מיקומים',       value: pendingParks.length,   icon: MapPin,      color: 'text-emerald-600',bg: 'bg-emerald-50',border: 'border-emerald-200' },
+          { label: 'מסלולים',       value: pendingRoutes.length,  icon: RouteIcon,   color: 'text-cyan-600',   bg: 'bg-cyan-50',   border: 'border-cyan-200' },
+        ].map(kpi => (
+          <div key={kpi.label} className={`${kpi.bg} rounded-2xl p-4 flex items-center gap-3 border ${kpi.border}`}>
+            <div className={`w-10 h-10 rounded-full bg-white flex items-center justify-center ${kpi.color} shadow-sm flex-shrink-0`}>
+              <kpi.icon size={20} />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-gray-900">{kpi.value}</p>
+              <p className="text-xs font-bold text-gray-500">{kpi.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-            return (
-              <div
-                key={request.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
-              >
-                {/* Request Header */}
-                <div className="p-4 md:p-6">
-                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-                    <div className="flex-1 w-full">
-                      <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
-                        <div className={`px-2 md:px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-2 ${getStatusColor(request.status)}`}>
-                          {getStatusIcon(request.status)}
-                          {getStatusLabel(request.status)}
-                        </div>
-                        <span className="px-2 md:px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
-                          {request.entityType === 'park' ? 'פארק' : 'מסלול'}
-                        </span>
-                        <h3 className="text-base md:text-lg font-bold text-gray-900 break-words">{request.entityName}</h3>
-                      </div>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-2xl p-1">
+        {([
+          { id: 'locations' as const, label: 'מיקומים', icon: MapPin,    count: pendingParks.length },
+          { id: 'routes' as const,    label: 'מסלולים', icon: RouteIcon, count: pendingRoutes.length },
+        ]).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === tab.id
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+            {tab.count > 0 && (
+              <span className="bg-amber-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs md:text-sm text-gray-600 mt-3">
-                        <span>
-                          <strong>נשלח על ידי:</strong> {request.requestedByName || request.requestedByEmail || 'לא ידוע'}
-                        </span>
-                        {request.authorityId && (
-                          <span>
-                            <strong>רשות:</strong> {request.authorityId}
-                          </span>
-                        )}
-                        <span>
-                          <strong>תאריך:</strong> {formatDate(request.createdAt)}
-                        </span>
-                      </div>
+      {/* Locations Tab */}
+      {activeTab === 'locations' && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          {pendingParks.length === 0 ? (
+            <div className="py-16 flex flex-col items-center gap-4 text-center">
+              <CheckCircle2 size={40} className="text-green-400" />
+              <p className="text-lg font-black text-gray-700">אין מיקומים ממתינים</p>
+              <p className="text-sm text-gray-400">כל המיקומים אושרו ופורסמו</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {pendingParks.map(park => (
+                <div key={park.id} className="px-6 py-4 flex items-center gap-4 hover:bg-amber-50/30 transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                    {park.facilityType === 'gym_park' ? <Dumbbell size={18} /> : <MapPin size={18} />}
+                  </div>
 
-                      {request.reviewedBy && (
-                        <div className="mt-3 text-sm text-gray-600">
-                          <strong>נבדק על ידי:</strong> {request.reviewedByName || request.reviewedBy}
-                          {request.reviewedAt && ` ב-${formatDate(request.reviewedAt)}`}
-                          {request.reviewNote && (
-                            <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                              <strong>הערה:</strong> {request.reviewNote}
-                            </div>
-                          )}
-                        </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">{park.name || '(ללא שם)'}</p>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                      {(park as any).origin === 'authority_admin' && (
+                        <span className="flex items-center gap-1 text-purple-600">
+                          <Building2 size={10} /> מקור: רשות
+                        </span>
+                      )}
+                      {park.facilityType && (
+                        <span>{park.facilityType === 'gym_park' ? 'פארק כושר' : park.facilityType}</span>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-3">
-                      {request.status === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => handleApprove(request.id)}
-                            disabled={isProcessing}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isProcessing ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="w-4 h-4" />
-                            )}
-                            אישור
-                          </button>
-                          <button
-                            onClick={() => handleReject(request.id)}
-                            disabled={isProcessing}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isProcessing ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <XCircle className="w-4 h-4" />
-                            )}
-                            דחייה
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => setExpandedRequest(isExpanded ? null : request.id)}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                      <Clock size={9} /> ממתין לאישורך
+                    </span>
+                    <button
+                      onClick={() => handleApprovePark(park.id)}
+                      disabled={processingId === park.id}
+                      className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 shadow-sm"
+                    >
+                      {processingId === park.id
+                        ? <Loader2 className="animate-spin" size={12} />
+                        : <ShieldCheck size={12} />}
+                      {processingId === park.id ? 'מאשר...' : 'אשר ופרסם'}
+                    </button>
                   </div>
                 </div>
-
-                {/* Expanded View - Before/After Comparison */}
-                {isExpanded && (
-                  <div className="border-t border-gray-200 p-6 bg-gray-50">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Before */}
-                      <div className="bg-white rounded-xl p-4 border-2 border-gray-200">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 pb-2 border-b border-gray-200">
-                          לפני
-                        </h4>
-                        <div className="space-y-3 text-sm max-h-96 overflow-y-auto">
-                          {Object.entries(request.originalData).map(([key, value]) => {
-                            const hasChange = JSON.stringify(value) !== JSON.stringify(request.newData[key]);
-                            if (key === 'id' || key === 'createdAt' || key === 'updatedAt') return null;
-                            
-                            // Only show changed fields for cleaner view
-                            if (!hasChange && request.status === 'pending') return null;
-                            
-                            return (
-                              <div key={key} className={hasChange ? 'bg-yellow-50 p-2 rounded border border-yellow-200' : 'p-2'}>
-                                <strong className="text-gray-700">{getFieldLabel(key)}:</strong>
-                                <div className="text-gray-600 mt-1">
-                                  {typeof value === 'object' && value !== null ? (
-                                    <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-32 border border-gray-200">
-                                      {JSON.stringify(value, null, 2)}
-                                    </pre>
-                                  ) : (
-                                    <span className={hasChange ? 'font-bold text-yellow-700' : ''}>
-                                      {String(value || 'לא מוגדר')}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* After */}
-                      <div className="bg-white rounded-xl p-4 border-2 border-green-300">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 pb-2 border-b border-gray-200">
-                          אחרי (הצעה)
-                        </h4>
-                        <div className="space-y-3 text-sm max-h-96 overflow-y-auto">
-                          {Object.entries(request.newData).map(([key, value]) => {
-                            const hasChange = JSON.stringify(request.originalData[key]) !== JSON.stringify(value);
-                            if (key === 'id' || key === 'createdAt' || key === 'updatedAt') return null;
-                            
-                            // Only show changed fields for cleaner view
-                            if (!hasChange && request.status === 'pending') return null;
-                            
-                            return (
-                              <div key={key} className={hasChange ? 'bg-green-50 p-2 rounded border border-green-300' : 'p-2'}>
-                                <strong className="text-gray-700">{getFieldLabel(key)}:</strong>
-                                <div className="text-gray-600 mt-1">
-                                  {typeof value === 'object' && value !== null ? (
-                                    <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-32 border border-gray-200">
-                                      {JSON.stringify(value, null, 2)}
-                                    </pre>
-                                  ) : (
-                                    <span className={hasChange ? 'font-bold text-green-700' : ''}>
-                                      {String(value || 'לא מוגדר')}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {request.status === 'pending' && (
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          <strong>הערה:</strong> רק השדות המסומנים בשינוי מוצגים. שאר השדות נשארים ללא שינוי.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Routes Tab */}
+      {activeTab === 'routes' && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          {pendingRoutes.length === 0 ? (
+            <div className="py-16 flex flex-col items-center gap-4 text-center">
+              <CheckCircle2 size={40} className="text-green-400" />
+              <p className="text-lg font-black text-gray-700">אין מסלולים ממתינים</p>
+              <p className="text-sm text-gray-400">כל המסלולים אושרו ופורסמו</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {pendingRoutes.map(route => (
+                <div key={route.id} className="px-6 py-4 flex items-center gap-4 hover:bg-amber-50/30 transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center text-cyan-600 flex-shrink-0">
+                    <RouteIcon size={18} />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">{route.name || '(ללא שם)'}</p>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                      {(route as any).origin === 'authority_admin' && (
+                        <span className="flex items-center gap-1 text-purple-600">
+                          <Building2 size={10} /> מקור: רשות
+                        </span>
+                      )}
+                      {route.distance > 0 && (
+                        <span>{route.distance < 1 ? `${Math.round(route.distance * 1000)}מ` : `${route.distance.toFixed(1)} ק״מ`}</span>
+                      )}
+                      {route.activityType && (
+                        <span>{route.activityType === 'running' ? 'ריצה' : route.activityType === 'walking' ? 'הליכה' : route.activityType}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                      <Clock size={9} /> ממתין לאישורך
+                    </span>
+                    <button
+                      onClick={() => handleApproveRoute(route.id)}
+                      disabled={processingId === route.id}
+                      className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 shadow-sm"
+                    >
+                      {processingId === route.id
+                        ? <Loader2 className="animate-spin" size={12} />
+                        : <ShieldCheck size={12} />}
+                      {processingId === route.id ? 'מאשר...' : 'אשר ופרסם'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      {totalPending > 0 && (
+        <p className="text-xs text-gray-400 text-center">
+          {pendingParks.length} מיקומים + {pendingRoutes.length} מסלולים = {totalPending} פריטים ממתינים לאישורך
+        </p>
       )}
     </div>
   );

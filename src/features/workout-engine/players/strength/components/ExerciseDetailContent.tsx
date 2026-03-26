@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Target, Dumbbell } from 'lucide-react';
-import { getMuscleGroupLabel, resolveEquipmentLabel, resolveEquipmentIconKey } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { getMuscleGroupLabel, resolveEquipmentLabel, resolveEquipmentSvgPath } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
@@ -249,19 +249,29 @@ export default function ExerciseDetailContent({
                   <div className="flex flex-wrap gap-2">
                     {equipment!.map((eqId) => {
                       const label = resolveEquipmentLabel(eqId);
-                      const iconKey = resolveEquipmentIconKey(eqId);
-                      const iconSrc = iconKey ? `/assets/icons/equipment/${iconKey}.svg` : null;
+                      const iconSrc = resolveEquipmentSvgPath(eqId);
                       return (
                         <div
                           key={eqId}
                           className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3"
                           style={{ border: PILL_BORDER, height: 30 }}
                         >
-                          {iconSrc ? (
+                          {iconSrc && iconSrc.startsWith('/') ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={iconSrc} alt="" width={16} height={16} />
+                            <img
+                              src={iconSrc}
+                              alt=""
+                              width={16}
+                              height={16}
+                              className="brightness-0 dark:brightness-100"
+                              onError={(e) => {
+                                const img = e.currentTarget as HTMLImageElement;
+                                img.removeAttribute('src');
+                                img.style.display = 'none';
+                              }}
+                            />
                           ) : (
-                            <Dumbbell size={16} className="text-[#00C9F2] flex-shrink-0" />
+                            <Dumbbell size={16} className="text-black dark:text-white flex-shrink-0" />
                           )}
                           <span className="text-xs font-normal text-gray-800 dark:text-gray-100 whitespace-nowrap">{label}</span>
                         </div>

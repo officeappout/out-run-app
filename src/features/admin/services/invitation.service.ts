@@ -105,8 +105,9 @@ export async function createInvitation(
 
     const docRef = await addDoc(collection(db, INVITATIONS_COLLECTION), invitationData);
     
-    // Generate invite link
-    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/authority-login?token=${token}`;
+    // Generate invite link — include authority param for branded login experience
+    const authorityParam = data.authorityId ? `&authority=${data.authorityId}` : '';
+    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/authority-login?token=${token}${authorityParam}`;
 
     // Log audit action
     await logAction({

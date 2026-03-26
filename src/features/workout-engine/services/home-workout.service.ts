@@ -79,6 +79,7 @@ import {
   resolveEquipment,
   collectLifestyles,
 } from './user-profile.utils';
+import { ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
 import { getBaseUserLevel, buildUserProgramLevels } from './level-resolution.utils';
 import {
   getCachedPrograms,
@@ -426,7 +427,7 @@ export async function generateHomeWorkoutTrio(
     if (cfg.postProcess === 'intense') {
       applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises);
     } else if (cfg.postProcess === 'flow_regression') {
-      applyFlowRegression(workout, pipeline.userProgramLevels, pipeline.allExercises, sessionBlacklist);
+      applyFlowRegression(workout, pipeline.userProgramLevels, pipeline.allExercises, sessionBlacklist, pipeline.effectiveFilterLocation);
     } else if (cfg.postProcess === 'mobility_tag') {
       applyTagPreference(workout, 'mobility', sessionBlacklist);
     } else if (cfg.postProcess === 'flexibility_tag') {
@@ -633,15 +634,20 @@ async function _buildSharedPipeline(
     domainSetsCompletedThisWeek,
     remainingScheduleDays,
     recentExerciseIds,
+    requiredDomains: requiredDomainsOverride,
+    parkEquipmentIds,
   } = options;
 
   const WEEKLY_SA_CAP = 6;
 
-  // ── ULTIMATE PARK FORCE: Always override to 'park' ──
-  // Until home-specific videos are available, every workout uses park
-  // methods (pull-up bar, parallel bars) which have mapped videos.
-  const location: ExecutionLocation = 'park';
-  if (_rawLocation && _rawLocation !== 'park') {
+  // ── ULTIMATE PARK FORCE (with testLocation bypass) ──
+  // testLocation lets the Master Simulator override Park Force for QA.
+  const location: ExecutionLocation = options.testLocation
+    ? options.testLocation
+    : 'park';
+  if (options.testLocation) {
+    console.log(`[HomeWorkout] 🧪 testLocation bypass: using "${options.testLocation}" (Park Force disabled)`);
+  } else if (_rawLocation && _rawLocation !== 'park') {
     console.log(`[HomeWorkout] 🏞️ PARK FORCE: overriding requested "${_rawLocation}" → "park" (video coverage)`);
   } else if (!_rawLocation) {
     console.log(`[HomeWorkout] 🏞️ No location specified → "park" (PARK FORCE active)`);
@@ -800,19 +806,24 @@ async function _buildSharedPipeline(
   const injuries = extractInjuryShield(userProfile, injuryOverride);
   const persona = mapPersonaIdToLifestylePersona(userProfile, personaOverride);
   const lifestyles = collectLifestyles(userProfile, persona);
-  const ESSENTIAL_CALISTHENICS_GEAR = [
-    'pullup_bar', 'pull_up_bar', 'dip_bar', 'dip_station', 'parallel_bars', 'bars',
-  ];
+  const ESSENTIAL_CALISTHENICS_GEAR = Array.from(ESSENTIAL_PARK_GEAR);
   let availableEquipment = [
     ...resolveEquipment(userProfile, location, equipmentOverride),
     ...gymEquipmentList.map(eq => eq.id),
+    // Essential calisthenics fixtures are ALWAYS available regardless of the
+    // user's personal gear profile (naked or otherwise).
     ...ESSENTIAL_CALISTHENICS_GEAR,
   ];
   if (location === 'park' || location === 'street') {
-    const parkGear = ['park_bench', 'park_step'];
-    availableEquipment = [...new Set([...availableEquipment, ...parkGear])];
+    const parkGear = ['park_bench', 'park_step', ...ESSENTIAL_CALISTHENICS_GEAR];
+    availableEquipment = Array.from(new Set([...availableEquipment, ...parkGear]));
+    if (parkEquipmentIds?.length) {
+      availableEquipment = Array.from(new Set([...availableEquipment, ...parkEquipmentIds]));
+      console.log(`[HomeWorkout] 🏞️ Park inventory merged: [${parkEquipmentIds.join(', ')}]`);
+    }
+    console.log(`[HomeWorkout] 🏞️ Park equipment guaranteed: [${ESSENTIAL_CALISTHENICS_GEAR.join(', ')}] — Pull/Dip exercises will not be filtered`);
   }
-  availableEquipment = [...new Set(availableEquipment)];
+  availableEquipment = Array.from(new Set(availableEquipment));
   const timeOfDay = timeOfDayOverride ?? detectTimeOfDay();
 
   // ── 2b. Lead Program Budget ──────────────────────────────────────────
@@ -942,6 +953,9 @@ async function _buildSharedPipeline(
   const primaryProgramId = Array.from(userProgramLevels.entries())[0]?.[0];
   const primaryProgramLevel = primaryProgramId ? userProgramLevels.get(primaryProgramId) ?? 1 : 1;
 
+  let adminPreferredProtocols: string[] | undefined;
+  let adminProtocolProbability: number | undefined;
+
   if (primaryProgramId) {
     try {
       const levelSettings = await getProgramLevelSetting(primaryProgramId, primaryProgramLevel);
@@ -950,6 +964,20 @@ async function _buildSharedPipeline(
         goalTargets = new Map(
           levelSettings.targetGoals.map(g => [g.exerciseId, { targetValue: g.targetValue, unit: g.unit }]),
         );
+      }
+      if (levelSettings?.preferredProtocols?.length) {
+        adminPreferredProtocols = levelSettings.preferredProtocols;
+        // Force-test: antagonist_pair must ALWAYS fire when enabled in Admin
+        // so pairing logic and sorting can be verified end-to-end.
+        const hasAntagonistPair = adminPreferredProtocols.includes('antagonist_pair');
+        adminProtocolProbability = hasAntagonistPair ? 1.0 : (levelSettings.protocolProbability ?? 1.0);
+        console.log(
+          `[WorkoutTrio] Admin protocols from Firestore: [${adminPreferredProtocols.join(', ')}] ` +
+          `probability=${adminProtocolProbability}${hasAntagonistPair ? ' (antagonist_pair FORCED 100%)' : ''}`,
+        );
+      } else if (levelSettings?.protocolProbability != null) {
+        adminProtocolProbability = levelSettings.protocolProbability;
+        console.log(`[WorkoutTrio] Admin protocol probability from Firestore: ${adminProtocolProbability}`);
       }
     } catch { /* non-critical */ }
     const track = userProfile.progression?.tracks?.[primaryProgramId];
@@ -977,8 +1005,8 @@ async function _buildSharedPipeline(
     isRecoveryDay: effectiveIsRecovery,
     detrainingLock,
     volumeReductionOverride,
-    protocolProbability,
-    preferredProtocols,
+    protocolProbability: adminProtocolProbability ?? protocolProbability,
+    preferredProtocols: (adminPreferredProtocols ?? preferredProtocols) as any,
     straightArmRatio,
     weeklySASets,
     weeklySACap: WEEKLY_SA_CAP,
@@ -991,7 +1019,7 @@ async function _buildSharedPipeline(
     priority2SkillIds: splitContext.priority2SkillIds,
     priority3SkillIds: splitContext.priority3SkillIds,
     dailySetBudget: splitContext.dailySetBudget,
-    requiredDomains: resolvedChildDomains.length > 0 ? resolvedChildDomains : undefined,
+    requiredDomains: requiredDomainsOverride ?? (resolvedChildDomains.length > 0 ? resolvedChildDomains : undefined),
     globalExercisePool: allExercises,
     userProgramLevels,
     userId: effectiveProfile.id,
@@ -1065,6 +1093,7 @@ async function _buildSharedPipeline(
     programLevel: childTrackLevel,
     ancestorProgramIds,
     userAge,
+    userLevel: baseUserLevel,
     isAbroad,
     recentBundleIds,
   };
