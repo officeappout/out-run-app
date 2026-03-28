@@ -21,6 +21,12 @@ import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot } from '@/features/content/programs/core/program-icon.util';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
+import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
+import {
+  generateCommunityICS,
+  downloadICS,
+} from '@/features/user/scheduling/services/communitySchedule.service';
+import { getSundayWeekStart } from '@/features/user/scheduling/utils/dateUtils';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -775,6 +781,45 @@ export default function SmartWeeklySchedule({
       setInternalCalendarMode(next);
     }
   }, [calendarMode, onCalendarModeChange]);
+
+  const [syncing, setSyncing] = useState(false);
+
+  const handleCalendarSync = useCallback(async () => {
+    if (!userId || syncing) return;
+    setSyncing(true);
+    try {
+      const sundayISO = getSundayWeekStart(new Date());
+      const entries = await getWeekEntries(userId, sundayISO);
+      const communityEvents: Parameters<typeof generateCommunityICS>[0] = [];
+      const seenSlots = new Set<string>();
+      for (const entry of entries) {
+        if (!entry.communitySessions?.length) continue;
+        for (const s of entry.communitySessions) {
+          const key = `${s.groupId}-${s.time}`;
+          if (seenSlots.has(key)) continue;
+          seenSlots.add(key);
+          const dayOfWeek = new Date(entry.date + 'T00:00:00').getDay();
+          communityEvents.push({
+            groupName: s.groupName,
+            category: s.category,
+            dayOfWeek,
+            time: s.time,
+          });
+        }
+      }
+      if (communityEvents.length === 0) {
+        alert('אין מפגשים קהילתיים בלוז כרגע');
+        return;
+      }
+      const ics = generateCommunityICS(communityEvents);
+      downloadICS(ics);
+    } catch (err) {
+      console.error('[SmartWeeklySchedule] calendar sync failed:', err);
+    } finally {
+      setSyncing(false);
+    }
+  }, [userId, syncing]);
+
   const [tooltip, setTooltip] = useState<TooltipData>({
     visible: false,
     x: 0,
@@ -1258,10 +1303,18 @@ export default function SmartWeeklySchedule({
       {/* ── Sub-header row — sync chip & edit link ──────────── */}
       <div className="flex items-center justify-between mb-3 px-1">
         <button
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          onClick={handleCalendarSync}
+          disabled={syncing}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
+            syncing
+              ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600'
+              : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}
         >
-          <img src="/icons/schedule/sync-calendar.svg" alt="" className="w-4 h-4" />
-          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">סנכרון ליומן</span>
+          <img src="/icons/schedule/sync-calendar.svg" alt="" className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+            {syncing ? 'מסנכרן...' : 'סנכרון ליומן'}
+          </span>
         </button>
         <button
           onClick={toggleCalendarMode}

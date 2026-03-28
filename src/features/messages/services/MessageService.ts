@@ -51,6 +51,7 @@ export type MessageType =
   | 'streak_milestone'
   | 'level_up'
   | 'first_workout'
+  | 'community_session'
   | 'default';
 
 export interface SmartMessage {
@@ -117,6 +118,7 @@ export const MESSAGE_TYPE_LABELS: Record<MessageType, string> = {
   streak_milestone: 'אבן דרך ברצף',
   level_up: 'עליית רמה',
   first_workout: 'אימון ראשון',
+  community_session: 'מפגשים',
   default: 'ברירת מחדל',
 };
 
@@ -156,6 +158,11 @@ export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
   first_workout: [
     { id: 'default-fw-1', type: 'first_workout', text: 'צעד ראשון!', subText: 'ברוכים הבאים למסע', priority: 10, isActive: true },
     { id: 'default-fw-2', type: 'first_workout', text: 'מתחילים!', subText: 'האימון הראשון הוא הכי חשוב', priority: 10, isActive: true },
+  ],
+  community_session: [
+    { id: 'default-cs-1', type: 'community_session', text: 'מפגש קהילתי היום!', subText: 'אשר הגעה ובוא להתאמן עם הקהילה', priority: 8, isActive: true },
+    { id: 'default-cs-2', type: 'community_session', text: 'מחכים לך!', subText: 'יש לך מפגש קהילתי בקרוב', priority: 7, isActive: true },
+    { id: 'default-cs-3', type: 'community_session', text: 'מפגש מחר!', subText: 'אל תשכח לאשר הגעה', priority: 6, isActive: true },
   ],
   default: [
     { id: 'default-def-1', type: 'default', text: 'היי!', subText: 'מוכן להתאמן?', priority: 5, isActive: true },

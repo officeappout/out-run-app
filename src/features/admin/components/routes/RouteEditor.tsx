@@ -42,6 +42,20 @@ const Marker = dynamicImport(() => import('react-map-gl').then(mod => mod.Marker
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
+function applyHebrewLabels(map: any) {
+    try {
+        const style = map.getStyle?.();
+        if (!style?.layers) return;
+        for (const layer of style.layers) {
+            if (layer.type === 'symbol' && layer.layout?.['text-field']) {
+                try {
+                    map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name_he'], ['get', 'name']]);
+                } catch { /* skip locked layers */ }
+            }
+        }
+    } catch { /* ignore */ }
+}
+
 // ── Types ───────────────────────────────────────────────────────────
 interface SnappedSegment {
     geometry: [number, number][];
@@ -620,6 +634,7 @@ export default function RouteEditor({
                         mapStyle="mapbox://styles/mapbox/streets-v12"
                         mapboxAccessToken={MAPBOX_TOKEN}
                         onClick={handleMapClick}
+                        onLoad={(e: any) => { applyHebrewLabels(e.target); e.target?.on?.('style.load', () => applyHebrewLabels(e.target)); }}
                         cursor={isDrawing && !isFetchingSegment ? 'crosshair' : 'grab'}
                         interactiveLayerIds={[]}
                     >

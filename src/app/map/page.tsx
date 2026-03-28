@@ -29,12 +29,19 @@ export default async function MapPage({ searchParams }: MapPageProps) {
   const params = await searchParams;
   const initialWorkoutId = (typeof params?.workoutId === 'string' ? params.workoutId : null);
   const initialContext = (typeof params?.context === 'string' ? params.context : null);
+  const initialLat = (typeof params?.lat === 'string' ? parseFloat(params.lat) : null);
+  const initialLng = (typeof params?.lng === 'string' ? parseFloat(params.lng) : null);
+  const spotFocus =
+    initialLat !== null && initialLng !== null && !isNaN(initialLat) && !isNaN(initialLng)
+      ? { lat: initialLat, lng: initialLng }
+      : null;
 
   return (
     <Suspense fallback={<div className="h-[100dvh] w-full flex items-center justify-center bg-[#f3f4f6]">טוען...</div>}>
       <FullMapView
         initialWorkoutId={initialWorkoutId}
         initialContext={initialContext}
+        spotFocus={spotFocus}
       />
     </Suspense>
   );

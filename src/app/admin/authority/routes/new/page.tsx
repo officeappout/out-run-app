@@ -110,9 +110,9 @@ export default function MunicipalityRouteBuilderPage() {
             <div className="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-2 z-30 shrink-0">
                 <Link
                     href="/admin/authority/routes"
-                    className="flex items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors text-sm font-bold"
+                    className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm px-4 py-2 rounded-xl transition-all active:scale-95"
                 >
-                    <ArrowRight size={16} />
+                    <ArrowRight size={15} />
                     חזור לניהול מסלולים
                 </Link>
             </div>

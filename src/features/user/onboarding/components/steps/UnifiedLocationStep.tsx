@@ -610,7 +610,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
         
         {typeof window !== 'undefined' && (
           <MapboxMap
-            ref={mapRef}
+            mapRef={mapRef}
             {...viewState}
             onMove={(evt) => setViewState(evt.viewState)}
             onMoveStart={handleDragStart}

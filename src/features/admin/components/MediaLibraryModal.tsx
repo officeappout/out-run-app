@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { X, Search, Upload, Image as ImageIcon, Video, Loader2, Check, Plus, Play, Trash2, MapPin, Home, Building2, Trees, ChevronDown, Tag, AlertTriangle } from 'lucide-react';
-import { MediaAsset, MediaAssetLocation, MEDIA_LOCATION_LABELS, uploadMediaAsset, getAllMediaAssets, getMediaAssetsByType, searchMediaAssets, parseLocationFromFilename, deleteMediaAsset, bulkDeleteMediaAssets } from '../services/media-assets.service';
+import { MediaAsset, MediaAssetLocation, MediaScope, MEDIA_LOCATION_LABELS, uploadMediaAsset, getAllMediaAssets, getMediaAssetsByType, searchMediaAssets, parseLocationFromFilename, deleteMediaAsset, bulkDeleteMediaAssets } from '../services/media-assets.service';
 import { motion, AnimatePresence } from 'framer-motion';
 import { List } from 'react-window';
 
@@ -382,8 +382,12 @@ interface MediaLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (asset: MediaAsset) => void;
-  assetType?: 'image' | 'video' | 'all'; // Filter by type
+  assetType?: 'image' | 'video' | 'all';
   title?: string;
+  /** Authority ID — when set, uploads and queries are scoped to this authority */
+  authorityId?: string;
+  /** Scope context — determines storage bucket and Firestore filter */
+  scope?: MediaScope;
 }
 
 export default function MediaLibraryModal({
@@ -392,6 +396,8 @@ export default function MediaLibraryModal({
   onSelect,
   assetType = 'all',
   title = 'ספריית מדיה',
+  authorityId,
+  scope,
 }: MediaLibraryModalProps) {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<MediaAsset[]>([]);
@@ -431,12 +437,13 @@ export default function MediaLibraryModal({
   // Generate unique ID for queue items
   const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  // Load assets on mount
+  // Load assets on mount (scoped by authorityId + scope when provided)
   useEffect(() => {
     if (isOpen) {
       loadAssets();
     }
-  }, [isOpen, assetType]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, assetType, authorityId, scope]);
 
   // Filter assets by search term (enhanced: searches name, tags, and location)
   useEffect(() => {
@@ -506,9 +513,9 @@ export default function MediaLibraryModal({
       let loadedAssets: MediaAsset[];
       
       if (assetType === 'all') {
-        loadedAssets = await getAllMediaAssets();
+        loadedAssets = await getAllMediaAssets(authorityId, scope);
       } else {
-        loadedAssets = await getMediaAssetsByType(assetType);
+        loadedAssets = await getMediaAssetsByType(assetType, authorityId, scope);
       }
       
       setAssets(loadedAssets);
@@ -675,6 +682,8 @@ export default function MediaLibraryModal({
           file: item.file,
           location: item.location,
           tags: item.tags,
+          authorityId,
+          scope,
         });
         
         clearInterval(progressInterval);
@@ -724,6 +733,8 @@ export default function MediaLibraryModal({
       const newAsset = await uploadMediaAsset({
         name: uploadFileName.trim(),
         file: uploadFile,
+        authorityId,
+        scope,
       });
 
       clearInterval(progressInterval);

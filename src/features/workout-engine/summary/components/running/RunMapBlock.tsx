@@ -110,22 +110,18 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
         const applyHebrewLabels = () => {
           try {
             const style = map.getStyle();
-            if (!style || !style.layers) return;
-
-            style.layers.forEach((layer: any) => {
+            if (!style?.layers) return;
+            for (const layer of style.layers) {
               try {
-                if (layer.layout && layer.layout['text-field']) {
+                if (layer.type === 'symbol' && (layer as any).layout?.['text-field']) {
                   map.setLayoutProperty(layer.id, 'text-field', [
                     'coalesce',
                     ['get', 'name_he'],
-                    ['get', 'name:he'],
-                    ['get', 'name']
+                    ['get', 'name'],
                   ]);
                 }
-              } catch (err) {
-                // Ignore per-layer errors
-              }
-            });
+              } catch { /* skip locked layers */ }
+            }
           } catch (err) {
             console.warn('[RunMapBlock] Could not apply Hebrew labels:', err);
           }
@@ -133,9 +129,6 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
 
         applyHebrewLabels();
         map.on('style.load', applyHebrewLabels);
-        map.on('data', () => {
-          setTimeout(applyHebrewLabels, 100);
-        });
       }
     } catch (err) {
       console.warn('[RunMapBlock] Map load handler error:', err);

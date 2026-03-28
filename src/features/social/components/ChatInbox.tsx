@@ -7,6 +7,7 @@ import { useUserStore } from '@/features/user';
 import { useChatInbox } from '../hooks/useChatInbox';
 import ChatThread from './ChatThread';
 import type { ChatThread as ChatThreadType } from '../types/chat.types';
+import { getGroupById } from '@/features/arena/services/group.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
   const { threads, isLoading } = useChatInbox(myUid);
 
   const [openThread, setOpenThread] = useState<ChatThreadType | null>(null);
+  const [groupCreatorUid, setGroupCreatorUid] = useState<string | undefined>(undefined);
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -43,6 +45,19 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
     if (searchOpen) setTimeout(() => searchRef.current?.focus(), 100);
     else setSearchTerm('');
   }, [searchOpen]);
+
+  // Lookup group creator when a group thread is opened
+  useEffect(() => {
+    if (!openThread || openThread.type !== 'group' || !openThread.groupId) {
+      setGroupCreatorUid(undefined);
+      return;
+    }
+    let cancelled = false;
+    getGroupById(openThread.groupId).then((group) => {
+      if (!cancelled && group) setGroupCreatorUid(group.createdBy);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [openThread?.id, openThread?.type, openThread?.groupId]);
 
   function getThreadDisplayName(thread: ChatThreadType): string {
     if (thread.type === 'group') {
@@ -110,7 +125,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
           />
 
           <motion.div
-            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl max-h-[90dvh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -226,7 +241,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
                     transition={{ duration: 0.2 }}
                     className="h-full"
                   >
-                    <ChatThread thread={openThread} myUid={myUid ?? ''} myName={myName} />
+                    <ChatThread thread={openThread} myUid={myUid ?? ''} myName={myName} createdByUid={groupCreatorUid} />
                   </motion.div>
                 ) : (
                   <motion.div

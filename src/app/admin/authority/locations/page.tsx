@@ -27,6 +27,7 @@ import {
   Pencil,
   ShieldCheck,
   Building,
+  ImageOff,
 } from 'lucide-react';
 
 // ── helpers ─────────────────────────────────────────────────────────
@@ -280,7 +281,23 @@ export default function AuthorityLocationsPage() {
 
               return (
                 <div key={park.id} className="px-6 py-4 flex items-start gap-4 hover:bg-slate-50 transition-colors">
-                  {/* Icon */}
+                  {/* Thumbnail */}
+                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 mt-0.5 overflow-hidden">
+                    {(park.images?.[0] || park.image || park.imageUrl) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={park.images?.[0] || park.image || park.imageUrl || ''}
+                        alt={park.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300">
+                        <ImageOff size={16} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Category icon */}
                   <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 mt-0.5 text-emerald-600">
                     {FACILITY_ICONS[facType] || <MapPin size={13} />}
                   </div>

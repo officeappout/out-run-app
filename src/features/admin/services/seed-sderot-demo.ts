@@ -8,7 +8,7 @@
  *  - 500+ workout logs (6 months of history)
  *  - 4 parks with neighborhood assignments
  *  - 3 routes (including "המסלול הירוק - נאות השקמה")
- *  - 2 community groups + 1 event
+ *  - 2 community groups + 2 official events (with registrations)
  *  - demo-sderot@outrun.co.il (city admin)
  *  - coordinator-shikma@outrun.co.il (neighborhood coordinator for נאות השקמה only)
  */
@@ -481,7 +481,8 @@ async function seedRoutes(
 
 async function seedCommunity(
   cityId: string,
-  neighborhoodIds: Record<string, string>
+  neighborhoodIds: Record<string, string>,
+  userIds: string[],
 ): Promise<void> {
   // Group 1: Walking group in Neot Shikma
   await addDoc(collection(db, 'community_groups'), {
@@ -490,8 +491,8 @@ async function seedCommunity(
     description: 'קבוצת הליכה שכונתית לנשים ובני משפחה. יוצאים ביחד פעמיים בשבוע למסלול הירוק.',
     category: 'walking',
     schedule: [
-      { dayOfWeek: 2, time: '18:00', frequency: 'weekly' },  // Tuesday
-      { dayOfWeek: 5, time: '07:30', frequency: 'weekly' },  // Friday
+      { dayOfWeek: 2, time: '18:00', frequency: 'weekly' },
+      { dayOfWeek: 5, time: '07:30', frequency: 'weekly' },
     ],
     meetingLocation: {
       address: 'כניסה לפארק הבריאות, נאות השקמה, שדרות',
@@ -517,8 +518,8 @@ async function seedCommunity(
     description: 'קבוצת ספורט בוקר עירונית עם מפגשים בפארקים שונים ברחבי שדרות.',
     category: 'other',
     schedule: [
-      { dayOfWeek: 0, time: '07:00', frequency: 'weekly' }, // Sunday
-      { dayOfWeek: 3, time: '07:00', frequency: 'weekly' }, // Wednesday
+      { dayOfWeek: 0, time: '07:00', frequency: 'weekly' },
+      { dayOfWeek: 3, time: '07:00', frequency: 'weekly' },
     ],
     meetingLocation: {
       address: 'פארק מרכז שדרות',
@@ -537,34 +538,112 @@ async function seedCommunity(
     updatedAt: serverTimestamp(),
   });
 
-  // Event: Sderot sport day
-  const eventDate = new Date();
-  eventDate.setDate(eventDate.getDate() + 14);
-  eventDate.setHours(9, 0, 0, 0);
+  // ── Official Events with registrations subcollection ────────────────────────
 
-  await addDoc(collection(db, 'community_events'), {
+  const fakeNames = [...FEMALE_NAMES, ...MALE_NAMES];
+
+  // Official Event 1: City Sports Day
+  const event1Date = new Date();
+  event1Date.setDate(event1Date.getDate() + 14);
+  event1Date.setHours(9, 0, 0, 0);
+
+  const event1Ref = await addDoc(collection(db, 'community_events'), {
     authorityId: cityId,
     name: 'יום ספורט לכל - שדרות 2026',
     description: 'אירוע ספורט קהילתי עירוני הפתוח לכל תושבי שדרות. פעילויות לכל הגילאים, מוזיקה ואוירה חגיגית.',
     category: 'fitness_day',
-    date: Timestamp.fromDate(eventDate),
+    date: Timestamp.fromDate(event1Date),
     startTime: '09:00',
     endTime: '14:00',
     location: {
       address: 'פארק מרכזי שדרות',
       location: SDEROT_COORDS,
     },
-    registrationRequired: false,
+    registrationRequired: true,
     maxParticipants: 500,
-    currentRegistrations: randInt(40, 120),
+    currentRegistrations: 0,
     isActive: true,
     ageRestriction: 'all',
+    isOfficial: true,
+    authorityLogoUrl: SDEROT_LOGO,
     createdBy: 'demo-sderot-uid',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
-  console.log('[SderotSeed] Seeded 2 groups + 1 event');
+  // Official Event 2: Night Run
+  const event2Date = new Date();
+  event2Date.setDate(event2Date.getDate() + 21);
+  event2Date.setHours(20, 0, 0, 0);
+
+  const event2Ref = await addDoc(collection(db, 'community_events'), {
+    authorityId: cityId,
+    name: 'ריצת ערב קהילתית - שדרות בלילה',
+    description: 'ריצת ערב מוארת לכל הרמות. מסלול של 5 ק"מ דרך רחובות שדרות עם תאורה מלאה ואבטחה.',
+    category: 'race',
+    date: Timestamp.fromDate(event2Date),
+    startTime: '20:00',
+    endTime: '22:00',
+    location: {
+      address: 'כיכר העיר, שדרות',
+      location: { lat: SDEROT_COORDS.lat + 0.002, lng: SDEROT_COORDS.lng - 0.001 },
+    },
+    registrationRequired: true,
+    maxParticipants: 200,
+    currentRegistrations: 0,
+    isActive: true,
+    ageRestriction: 'all',
+    isOfficial: true,
+    authorityLogoUrl: SDEROT_LOGO,
+    createdBy: 'demo-sderot-uid',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  // Seed fake registrations for both official events
+  const event1Attendees = userIds.slice(0, randInt(25, 45));
+  const event2Attendees = userIds.slice(10, 10 + randInt(15, 30));
+
+  const eventEntries: [typeof event1Ref, string[], string][] = [
+    [event1Ref, event1Attendees, 'יום ספורט לכל - שדרות 2026'],
+    [event2Ref, event2Attendees, 'ריצת ערב קהילתית - שדרות בלילה'],
+  ];
+
+  for (const [eventRef, attendees, eventName] of eventEntries) {
+    const participantNames: Record<string, string> = {};
+
+    for (const uid of attendees) {
+      const fakeName = randItem(fakeNames) + ' ' + randItem(['כהן', 'לוי', 'דהן', 'מזרחי', 'ביטון', 'אזולאי', 'פרץ', 'אברהם', 'חדד', 'עמר']);
+      participantNames[uid] = fakeName;
+      await setDoc(doc(db, 'community_events', eventRef.id, 'registrations', uid), {
+        uid,
+        name: fakeName,
+        photoURL: null,
+        joinedAt: Timestamp.fromDate(randDate(10, 1)),
+      });
+    }
+
+    await updateDoc(doc(db, 'community_events', eventRef.id), {
+      currentRegistrations: attendees.length,
+    });
+
+    // Pre-create the event's group chat thread with all attendees
+    const chatId = `group_${eventRef.id}`;
+    await setDoc(doc(db, 'chats', chatId), {
+      participants: attendees,
+      participantNames,
+      lastMessage: `${Object.values(participantNames)[0] ?? 'משתמש'} הצטרף/ה לאירוע`,
+      lastMessageAt: serverTimestamp(),
+      lastSenderId: attendees[0] ?? '',
+      unreadCount: {},
+      createdAt: serverTimestamp(),
+      type: 'group',
+      groupId: eventRef.id,
+      groupName: eventName,
+    });
+  }
+
+  console.log('[SderotSeed] Seeded 2 groups + 2 official events + registrations + chats');
 }
 
 // ── Phase 2f: Manager Accounts ───────────────────────────────────────────────
@@ -828,7 +907,7 @@ export async function seedSderotDemo(): Promise<{ success: boolean; message: str
     await seedWorkouts(userIds);
     await seedParks(cityId, neighborhoodIds);
     await seedRoutes(cityId, neighborhoodIds);
-    await seedCommunity(cityId, neighborhoodIds);
+    await seedCommunity(cityId, neighborhoodIds, userIds);
     await seedManagerAccounts(cityId, neighborhoodIds);
     await syncAllCounts(cityId, neighborhoodIds);
 

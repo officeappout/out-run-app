@@ -29,9 +29,11 @@ const UnifiedLocationStep = lazy(
 interface FullMapViewProps {
   initialWorkoutId?: string | null;
   initialContext?: string | null;
+  /** Community meeting-point coordinates to fly to on map load */
+  spotFocus?: { lat: number; lng: number } | null;
 }
 
-export default function FullMapView({ initialWorkoutId, initialContext }: FullMapViewProps) {
+export default function FullMapView({ initialWorkoutId, initialContext, spotFocus }: FullMapViewProps) {
   const searchParams = useSearchParams();
   const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
   const { profile, refreshProfile } = useUserStore();
@@ -81,7 +83,7 @@ export default function FullMapView({ initialWorkoutId, initialContext }: FullMa
 
   return (
     <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-      <MapShell />
+      <MapShell spotFocus={spotFocus ?? null} />
     </MapModeProvider>
   );
 }

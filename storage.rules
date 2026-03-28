@@ -90,6 +90,11 @@ service firebase.storage {
       allow write: if isAuthenticated() && isValidFileSize();
     }
 
+    match /communities/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidFileSize();
+    }
+
     // ── 2. User Private Folders (Owner-only Read/Write) ──────────────
     //
     // Health declarations and other user-private files.

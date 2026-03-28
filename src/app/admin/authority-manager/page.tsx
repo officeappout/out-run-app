@@ -5,9 +5,9 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
+import { getAuthoritiesByManager, getAllAuthorities, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { Authority } from '@/types/admin-types';
 import { BarChart3, MapPin, Users, Calendar, Building2, ChevronDown, Route, ExternalLink } from 'lucide-react';
@@ -22,6 +22,7 @@ const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
 
 export default function AuthorityManagerDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [authorities, setAuthorities] = useState<Authority[]>([]);
   const [allAuthorities, setAllAuthorities] = useState<Authority[]>([]); // For Super Admins
@@ -30,6 +31,7 @@ export default function AuthorityManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
+  const [neighborhoodList, setNeighborhoodList] = useState<{ id: string; name: string }[]>([]);
 
   /** Persist the chosen authority so a page refresh restores it. */
   const persistAndSelect = (auth: Authority) => {
@@ -107,6 +109,20 @@ export default function AuthorityManagerDashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const tabParam = searchParams?.get('tab') as Tab | null;
+    if (tabParam && ['analytics', 'groups', 'events'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!selectedAuthority) return;
+    getChildrenByParent(selectedAuthority.id)
+      .then((children) => setNeighborhoodList(children.map((c) => ({ id: c.id, name: typeof c.name === 'string' ? c.name : '' }))))
+      .catch(() => setNeighborhoodList([]));
+  }, [selectedAuthority?.id]);
 
   if (loading) {
     return (
@@ -285,13 +301,26 @@ export default function AuthorityManagerDashboard() {
       {selectedAuthority && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           {activeTab === 'analytics' && (
-            <AnalyticsDashboard authorityId={selectedAuthority.id} />
+            <AnalyticsDashboard
+              authorityId={selectedAuthority.id}
+              onNavigateToSessions={() => setActiveTab('groups')}
+            />
           )}
           {activeTab === 'groups' && (
-            <CommunityGroups authorityId={selectedAuthority.id} />
+            <CommunityGroups
+              authorityId={selectedAuthority.id}
+              authorityCoordinates={selectedAuthority.coordinates}
+              neighborhoods={neighborhoodList}
+              initialSubTab={searchParams?.get('subtab') === 'sessions' ? 'sessions' : undefined}
+              inspectGroupId={searchParams?.get('inspect') ?? undefined}
+            />
           )}
           {activeTab === 'events' && (
-            <CommunityEvents authorityId={selectedAuthority.id} />
+            <CommunityEvents
+              authorityId={selectedAuthority.id}
+              authorityCoordinates={selectedAuthority.coordinates}
+              neighborhoods={neighborhoodList}
+            />
           )}
         </div>
       )}

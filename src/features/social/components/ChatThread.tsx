@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Crown } from 'lucide-react';
 import { subscribeToMessages, sendMessage, markThreadAsRead } from '../services/chat.service';
 import type { ChatMessage, ChatThread as ChatThreadType } from '../types/chat.types';
 
@@ -9,9 +9,12 @@ interface ChatThreadProps {
   thread: ChatThreadType;
   myUid: string;
   myName: string;
+  /** UID of the group creator — when provided, their messages show a crown badge */
+  createdByUid?: string;
 }
 
-export default function ChatThread({ thread, myUid, myName }: ChatThreadProps) {
+export default function ChatThread({ thread, myUid, myName, createdByUid }: ChatThreadProps) {
+  const isGroupThread = thread.type === 'group';
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -64,11 +67,25 @@ export default function ChatThread({ thread, myUid, myName }: ChatThreadProps) {
             );
           }
 
+          const isAdmin = !!createdByUid && msg.senderUid === createdByUid;
+
           return (
             <div
               key={msg.id}
-              className={`flex ${isMine ? 'justify-start' : 'justify-end'}`}
+              className={`flex flex-col ${isMine ? 'items-start' : 'items-end'}`}
             >
+              {/* Sender name — shown for group chats on others' messages */}
+              {isGroupThread && !isMine && (
+                <div className="flex items-center gap-1 mb-0.5 mr-1">
+                  <span className="text-[10px] font-bold text-gray-500">{msg.senderName}</span>
+                  {isAdmin && (
+                    <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-500 bg-amber-50 rounded-full px-1.5 py-0.5">
+                      <Crown className="w-2.5 h-2.5" />
+                      מנהל/ת
+                    </span>
+                  )}
+                </div>
+              )}
               <div
                 className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 text-sm leading-snug shadow-sm ${
                   isMine

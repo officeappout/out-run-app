@@ -26,8 +26,9 @@ import {
     Bell,
     FileText,
     LayoutGrid,
-        Map,
+    Map,
     Signal,
+    Flag,
     GraduationCap,
     Footprints,
     Activity,
@@ -54,7 +55,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null): boo
     
     const sectionPaths: Record<SectionId, string[]> = {
         strategy: ['/admin', '/admin/roadmap'],
-        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/'],
+        municipalities: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/authority/'],
         appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds'],
         running: ['/admin/running'],
         production: ['/admin/content-matrix', '/admin/content-status'],
@@ -243,8 +244,11 @@ export default function AdminLayout({
             if (onlyAuthorityManager) {
                 const allowedPaths = [
                     '/admin/authority-manager',
+                    '/admin/dashboard',
                     '/admin/authority/locations',
                     '/admin/authority/routes',
+                    '/admin/authority/reports',
+                    '/admin/approval-center',
                     '/admin/users',
                     '/admin/auth/callback',
                     '/admin/authority-login',
@@ -393,9 +397,10 @@ export default function AdminLayout({
                             )}
 
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 pt-1 pb-0.5">ניהול</p>
-                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד אנליטיקה" />
+                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="מרכז ניהול רשות" />
                             <SidebarLink href="/admin/authority/locations" icon={Map} label="ניהול מיקומים" />
                             <SidebarLink href="/admin/authority/routes" icon={Route} label="ניהול מסלולים" />
+                            <SidebarLink href="/admin/authority/reports" icon={Flag} label="ניהול דיווחים" />
 
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 pt-3 pb-0.5">קהילה</p>
                             <SidebarLink href="/admin/users/all" icon={Users} label="משתמשים" />
@@ -422,10 +427,11 @@ export default function AdminLayout({
                                     {expandedSections.has('municipalities') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות — CRM" />
-                                            {(isSuperAdmin || isSystemAdmin) && (
+                                            {(isSuperAdmin || isSystemAdmin || isAuthorityManager) && (
                                                 <SidebarLink href="/admin/approval-center" icon={ShieldCheck} label="מרכז אישורים" />
                                             )}
                                             <SidebarLink href="/admin/pressure-messages" icon={Megaphone} label="ניהול מסרי לחץ" />
+                                            <SidebarLink href="/admin/authority/reports" icon={Flag} label="ניהול דיווחים" />
                                         </div>
                                     )}
                                 </>
@@ -522,9 +528,10 @@ export default function AdminLayout({
                     ) : (
                         /* Fallback simplified sidebar */
                         <div className="space-y-1">
-                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="דשבורד אנליטיקה" />
+                            <SidebarLink href="/admin/authority-manager" icon={LayoutDashboard} label="מרכז ניהול רשות" />
                             <SidebarLink href="/admin/authority/locations" icon={Map} label="ניהול מיקומים" />
                             <SidebarLink href="/admin/authority/routes" icon={Route} label="ניהול מסלולים" />
+                            <SidebarLink href="/admin/approval-center" icon={ShieldCheck} label="הבקשות שלי" />
                             <SidebarLink href="/admin/users/all" icon={Users} label="משתמשים" />
                         </div>
                     )}

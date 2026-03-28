@@ -21,6 +21,7 @@ import {
   where,
   onSnapshot,
   Timestamp,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
@@ -256,8 +257,14 @@ export function usePresenceLayer(
       return () => unsubscribers.forEach((u) => u());
     }
 
-    // Discover mode
-    const q = query(collection(db, 'presence'), where('mode', '==', 'verified_global'));
+    // Discover mode — city-scoped when authorityId is available
+    const discoverConstraints: QueryConstraint[] = [
+      where('mode', '==', 'verified_global'),
+    ];
+    if (stateRef.current.authorityId) {
+      discoverConstraints.push(where('authorityId', '==', stateRef.current.authorityId));
+    }
+    const q = query(collection(db, 'presence'), ...discoverConstraints);
     const unsub = onSnapshot(q, (snap) => {
       const markers: PresenceMarker[] = [];
       snap.forEach((d) => {

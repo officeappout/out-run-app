@@ -1,117 +1,200 @@
 'use client';
 
 import React from 'react';
-import { Users, Clock, MapPin, Lock } from 'lucide-react';
-import { useUserStore } from '@/features/user';
-import type { CommunityGroup, CommunityGroupCategory } from '@/types/community.types';
+import { Clock, MapPin, UserPlus, ImageOff, MessageCircle, Navigation, Users } from 'lucide-react';
+import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '@/types/community.types';
+import AttendeesPreview from './AttendeesPreview';
+import { distanceLabel } from '@/features/arena/utils/distance';
 
-const CATEGORY_LABELS: Record<CommunityGroupCategory, string> = {
-  walking: 'הליכה',
-  running: 'ריצה',
-  yoga: 'יוגה',
-  calisthenics: 'קליסתניקס',
-  cycling: 'רכיבה',
-  other: 'אחר',
-};
-
-const CATEGORY_EMOJI: Record<CommunityGroupCategory, string> = {
-  walking: '🚶',
-  running: '🏃',
-  yoga: '🧘',
-  calisthenics: '💪',
-  cycling: '🚴',
-  other: '⭐',
+const CATEGORY_CONFIG: Record<CommunityGroupCategory, { label: string; icon: string; gradient: string }> = {
+  walking:     { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
+  running:     { label: 'ריצה',       icon: '🏃', gradient: 'from-orange-500 to-red-500' },
+  yoga:        { label: 'יוגה',       icon: '🧘', gradient: 'from-violet-500 to-purple-600' },
+  calisthenics:{ label: 'קליסתניקס', icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
+  cycling:     { label: 'רכיבה',      icon: '🚴', gradient: 'from-lime-500 to-green-600' },
+  other:       { label: 'אחר',        icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
 const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 interface GroupCardProps {
   group: CommunityGroup;
+  members?: EventRegistration[];
+  isJoined?: boolean;
+  joining?: boolean;
+  distanceKm?: number;
+  /** When provided, shows an 'עדכן מיקום' link. Pass only for group creator. */
+  onUpdateLocation?: () => void;
   onJoin?: (groupId: string) => void;
   onLockedJoin?: () => void;
+  onCardClick?: () => void;
+  onOpenChat?: () => void;
 }
 
-export default function GroupCard({ group, onJoin, onLockedJoin }: GroupCardProps) {
-  const socialUnlocked = useUserStore((s) => s.getSocialUnlocked());
+export default function GroupCard({
+  group,
+  members,
+  isJoined,
+  joining,
+  distanceKm,
+  onUpdateLocation,
+  onJoin,
+  onLockedJoin,
+  onCardClick,
+  onOpenChat,
+}: GroupCardProps) {
+  const catConfig = CATEGORY_CONFIG[group.category];
+  const coverImage = group.images?.[0];
+
+  const scheduleLabel = (() => {
+    if (group.scheduleSlots?.length) {
+      return group.scheduleSlots.map(s => `יום ${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(' · ');
+    }
+    if (group.schedule) {
+      return `יום ${DAY_LABELS[group.schedule.dayOfWeek]} ${group.schedule.time}`;
+    }
+    return null;
+  })();
+
+  function handleJoinClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (isJoined) {
+      onOpenChat?.();
+      return;
+    }
+    onJoin?.(group.id);
+  }
 
   return (
     <div
-      className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 active:scale-[0.98] transition-transform"
+      className="bg-white dark:bg-slate-900 rounded-2xl shadow-md shadow-black/5 dark:shadow-black/20 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
       dir="rtl"
+      onClick={onCardClick}
     >
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center text-lg flex-shrink-0">
-          {CATEGORY_EMOJI[group.category]}
+      {/* ── Cover banner ──────────────────────────────────── */}
+      <div className="relative h-32 overflow-hidden">
+        {coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverImage}
+            alt={group.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
+            <span className="text-5xl drop-shadow-md select-none">{catConfig.icon}</span>
+          </div>
+        )}
+
+        {/* Dark gradient overlay — always present for contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+
+        {/* Category chip — top right */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+          <span>{catConfig.icon}</span>
+          <span>{catConfig.label}</span>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-            {group.name}
-          </h4>
-          <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
-            {CATEGORY_LABELS[group.category]}
-          </span>
+        {/* Schedule chip — bottom right over scrim */}
+        {scheduleLabel && (
+          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
+            <Clock className="w-3 h-3 opacity-80" />
+            <span>{scheduleLabel}</span>
+          </div>
+        )}
 
-          {group.description && (
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-              {group.description}
-            </p>
-          )}
+        {/* Community-created badge — top left of image */}
+        {group.source === 'user' && (
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+            <Users className="w-2.5 h-2.5" />
+            <span>קהילתי</span>
+          </div>
+        )}
 
-          <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-600 dark:text-gray-400">
-            {group.schedule && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                יום {DAY_LABELS[group.schedule.dayOfWeek]} {group.schedule.time}
-              </span>
+        {/* No-image indicator */}
+        {!coverImage && (
+          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-black/20 text-white/60 text-[9px] px-2 py-0.5 rounded-full">
+            <ImageOff className="w-2.5 h-2.5" />
+          </div>
+        )}
+      </div>
+
+      {/* ── Card body ─────────────────────────────────────── */}
+      <div className="relative p-4">
+        {/* Subtle top-fade blending image into card body */}
+        <div className="absolute -top-5 left-0 right-0 h-5 bg-gradient-to-b from-white dark:from-slate-900 to-transparent pointer-events-none" />
+
+        <h4 className="text-[15px] font-black text-gray-900 dark:text-gray-50 leading-snug mb-1 line-clamp-1">
+          {group.name}
+        </h4>
+
+        {group.description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2 mb-2.5">
+            {group.description}
+          </p>
+        )}
+
+        {/* Address + distance row */}
+        {(group.meetingLocation?.address || distanceKm != null) && (
+          <div className="flex items-center justify-between gap-2 mb-3">
+            {group.meetingLocation?.address ? (
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 min-w-0">
+                <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                <span className="truncate font-medium">{group.meetingLocation.address}</span>
+              </div>
+            ) : (
+              <span />
             )}
-            {group.meetingLocation?.address && (
-              <span className="flex items-center gap-1 truncate">
-                <MapPin className="w-3 h-3" />
-                {group.meetingLocation.address}
-              </span>
+            {distanceKm != null && (
+              <div className="flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold flex-shrink-0">
+                <Navigation className="w-3 h-3" />
+                <span>{distanceLabel(distanceKm)}</span>
+              </div>
             )}
           </div>
-        </div>
+        )}
 
-        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-            <Users className="w-3.5 h-3.5" />
-            <span className="font-bold tabular-nums">{group.currentParticipants}</span>
-          </div>
+        {/* Creator location fix — only shown when onUpdateLocation is provided */}
+        {onUpdateLocation && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onUpdateLocation(); }}
+            className="flex items-center gap-1 text-[10px] text-cyan-600 dark:text-cyan-400 font-semibold mb-2.5 hover:underline active:opacity-70 transition-opacity"
+          >
+            <Navigation className="w-2.5 h-2.5" />
+            עדכן מיקום למיקומי הנוכחי
+          </button>
+        )}
+
+        {/* Bottom bar */}
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800/60">
+          <AttendeesPreview
+            attendees={members ?? []}
+            total={group.currentParticipants}
+          />
 
           <button
-            disabled={!socialUnlocked}
-            onClick={() => {
-              if (!socialUnlocked) {
-                onLockedJoin?.();
-                return;
-              }
-              onJoin?.(group.id);
-            }}
-            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all active:scale-95 ${
-              socialUnlocked
-                ? 'bg-[#00BAF7] text-white shadow-sm hover:bg-[#00a8e0]'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            onClick={handleJoinClick}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${
+              isJoined
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md shadow-cyan-500/25'
+                : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md hover:shadow-lg'
             }`}
           >
-            {socialUnlocked ? (
-              'הצטרף'
+            {isJoined ? (
+              <>
+                <MessageCircle className="w-3.5 h-3.5" />
+                כנס לצ&apos;אט
+              </>
             ) : (
-              <span className="flex items-center gap-1">
-                <Lock size={10} />
+              <>
+                <UserPlus className="w-3.5 h-3.5" />
                 הצטרף
-              </span>
+              </>
             )}
           </button>
         </div>
-      </div>
 
-      {!socialUnlocked && (
-        <p className="text-[10px] text-gray-400 text-center mt-2">
-          הזמן שותף אחד כדי להצטרף לקבוצות ודירוגים
-        </p>
-      )}
+      </div>
     </div>
   );
 }

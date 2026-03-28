@@ -46,6 +46,7 @@ import {
     ArrowRight,
     Upload,
     Image as ImageIcon,
+    ImageOff,
     Footprints,
 } from 'lucide-react';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
@@ -2080,7 +2081,8 @@ function LocationTable({
             <table className="w-full text-right">
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold sticky top-0">
                     <tr>
-                        <th className="px-6 py-4 rounded-tr-2xl">שם</th>
+                        <th className="px-4 py-4 rounded-tr-2xl w-16">תמונה</th>
+                        <th className="px-6 py-4">שם</th>
                         <th className="px-6 py-4">עיר</th>
                         <th className="px-6 py-4">סיווג</th>
                         <th className="px-6 py-4">
@@ -2093,6 +2095,22 @@ function LocationTable({
                 <tbody className="divide-y divide-gray-100">
                     {parks.map(park => (
                         <tr key={park.id} className="hover:bg-blue-50/50 transition-colors group">
+                            <td className="px-4 py-4">
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden">
+                                    {(park.images?.[0] || park.image || park.imageUrl) ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={park.images?.[0] || park.image || park.imageUrl || ''}
+                                            alt={park.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                            <ImageOff size={16} />
+                                        </div>
+                                    )}
+                                </div>
+                            </td>
                             <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                     {(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   getEventsByAuthority,
   createEvent,
@@ -8,14 +8,37 @@ import {
   deleteEvent,
 } from '@/features/admin/services/community.service';
 import { getParksByAuthority } from '@/features/parks';
-import { CommunityEvent, EventCategory } from '@/types/community.types';
+import { CommunityEvent, EventCategory, TargetGender } from '@/types/community.types';
 import { Park } from '@/types/admin-types';
-import { Plus, Edit2, Trash2, Calendar, MapPin, Clock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Calendar, MapPin, Clock, ShieldCheck, Dumbbell, Target, DollarSign, AlertTriangle, UsersRound, Link2, Users, ImagePlus, X, ExternalLink, Building2, MapPinned, Search, ImageOff } from 'lucide-react';
+import { MediaAsset } from '@/features/admin/services/media-assets.service';
+
+const MUSCLE_OPTIONS = ['חזה', 'גב', 'כתפיים', 'זרועות', 'בטן', 'רגליים', 'ירכיים', 'גוף מלא'];
+const EQUIPMENT_OPTIONS = ['מתח', 'מקבילים', 'טבעות', 'TRX', 'גומיות', 'משקולות', 'ללא ציוד'];
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import dynamic from 'next/dynamic';
+
+const MiniLocationPicker = dynamic(
+  () => import('@/features/admin/components/MiniLocationPicker'),
+  { ssr: false, loading: () => <div className="h-40 bg-gray-100 animate-pulse rounded-xl" /> },
+);
+
+const MediaLibraryModal = dynamic(
+  () => import('@/features/admin/components/MediaLibraryModal'),
+  { ssr: false },
+);
 
 interface CommunityEventsProps {
   authorityId: string;
+  /** Pre-fill groupId when creating a session from a group */
+  prefillGroupId?: string;
+  /** Callback when the embedded form closes after create/cancel */
+  onSessionFormClose?: () => void;
+  /** Authority center coordinates for the map picker default */
+  authorityCoordinates?: { lat: number; lng: number };
+  /** Child neighborhood authorities for the dropdown */
+  neighborhoods?: { id: string; name: string }[];
 }
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
@@ -26,24 +49,47 @@ const CATEGORY_LABELS: Record<EventCategory, string> = {
   other: 'אחר',
 };
 
-export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
+export default function CommunityEvents({
+  authorityId,
+  prefillGroupId,
+  onSessionFormClose,
+  authorityCoordinates,
+  neighborhoods = [],
+}: CommunityEventsProps) {
   const [events, setEvents] = useState<CommunityEvent[]>([]);
   const [parks, setParks] = useState<Park[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CommunityEvent | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [locationMode, setLocationMode] = useState<'park' | 'manual'>('park');
   const [formData, setFormData] = useState<Partial<CommunityEvent>>({
     name: '',
     description: '',
     category: 'race',
     date: new Date(),
     startTime: '09:00',
+    endTime: '',
     location: { address: '', location: { lat: 0, lng: 0 } },
     registrationRequired: false,
     isActive: true,
     currentRegistrations: 0,
+    isOfficial: false,
+    targetMuscles: [],
+    equipment: [],
+    price: null,
+    maxParticipants: undefined,
+    specialNotice: '',
+    groupId: prefillGroupId ?? undefined,
+    targetGender: 'all',
+    targetAgeRange: undefined,
+    images: [],
+    externalLink: '',
+    isCityOnly: false,
+    restrictedNeighborhoodId: undefined,
   });
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [parkSearch, setParkSearch] = useState('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -99,6 +145,7 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
       setShowForm(false);
       setEditingEvent(null);
       resetForm();
+      onSessionFormClose?.();
     } catch (error) {
       console.error('Error saving event:', error);
       alert('שגיאה בשמירת האירוע');
@@ -118,18 +165,52 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
   };
 
   const resetForm = () => {
+    setLocationMode('park');
     setFormData({
       name: '',
       description: '',
       category: 'race',
       date: new Date(),
       startTime: '09:00',
+      endTime: '',
       location: { address: '', location: { lat: 0, lng: 0 } },
       registrationRequired: false,
       isActive: true,
       currentRegistrations: 0,
+      isOfficial: false,
+      targetMuscles: [],
+      equipment: [],
+      price: null,
+      maxParticipants: undefined,
+      specialNotice: '',
+      groupId: prefillGroupId ?? undefined,
+      targetGender: 'all',
+      targetAgeRange: undefined,
+      images: [],
+      externalLink: '',
+      isCityOnly: false,
+      restrictedNeighborhoodId: undefined,
     });
   };
+
+  const handleMediaSelect = (asset: MediaAsset) => {
+    setFormData((prev) => ({ ...prev, images: [...(prev.images ?? []), asset.url] }));
+    setMediaModalOpen(false);
+  };
+
+  const filteredParks = useMemo(() => {
+    if (!parkSearch.trim()) return parks;
+    const term = parkSearch.toLowerCase();
+    return parks.filter((p) => p.name.toLowerCase().includes(term) || p.city?.toLowerCase().includes(term));
+  }, [parks, parkSearch]);
+
+  // Auto-open form when prefillGroupId is provided
+  useEffect(() => {
+    if (prefillGroupId && !showForm) {
+      resetForm();
+      setShowForm(true);
+    }
+  }, [prefillGroupId]);
 
   if (loading) {
     return <div className="text-center py-12 text-gray-500">טוען אירועים...</div>;
@@ -221,54 +302,430 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">מיקום (פארק או כתובת)</label>
-                <select
-                  value={formData.location?.parkId || ''}
-                  onChange={(e) => {
-                    const selectedPark = parks.find((p) => p.id === e.target.value);
-                    setFormData({
-                      ...formData,
-                      location: {
-                        parkId: e.target.value || undefined,
-                        address: selectedPark ? `${selectedPark.name}, ${selectedPark.city}` : formData.location?.address || '',
-                        location: selectedPark?.location || formData.location?.location || { lat: 0, lng: 0 },
-                      },
-                    });
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 mb-2"
-                >
-                  <option value="">בחר פארק...</option>
-                  {parks.map((park) => (
-                    <option key={park.id} value={park.id}>
-                      {park.name} - {park.city}
-                    </option>
+                <label className="block text-sm font-bold text-gray-700 mb-1">מיקום</label>
+                <div className="flex items-center gap-3 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setLocationMode('park')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      locationMode === 'park' ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    פארק רשמי
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocationMode('manual')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      locationMode === 'manual' ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    מיקום ידני
+                  </button>
+                </div>
+                {locationMode === 'park' ? (
+                  <div className="relative">
+                    <div className="relative">
+                      <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={parkSearch}
+                        onChange={(e) => setParkSearch(e.target.value)}
+                        className="w-full pl-4 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 text-sm"
+                        placeholder="חפש פארק..."
+                      />
+                    </div>
+                    <div className="mt-1 max-h-36 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+                      {filteredParks.length === 0 ? (
+                        <div className="p-2 text-xs text-gray-400 text-center">לא נמצאו פארקים</div>
+                      ) : (
+                        filteredParks.map((park) => (
+                          <button
+                            key={park.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                location: {
+                                  parkId: park.id,
+                                  address: `${park.name}, ${park.city}`,
+                                  location: park.location || { lat: 0, lng: 0 },
+                                },
+                              });
+                              setParkSearch('');
+                            }}
+                            className={`w-full text-right px-3 py-2 text-sm hover:bg-cyan-50 transition-colors flex items-center justify-between ${
+                              formData.location?.parkId === park.id ? 'bg-cyan-50 font-bold text-cyan-700' : 'text-gray-700'
+                            }`}
+                          >
+                            <span>{park.name} - {park.city}</span>
+                            {formData.location?.parkId === park.id && <span className="text-cyan-500 text-xs">✓</span>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.location?.address || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          location: {
+                            ...formData.location,
+                            parkId: undefined,
+                            address: e.target.value,
+                            location: formData.location?.location || authorityCoordinates || { lat: 0, lng: 0 },
+                          },
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                      placeholder="שם המיקום (למשל: שער הכניסה הראשי)"
+                    />
+                    <MiniLocationPicker
+                      value={formData.location?.location || authorityCoordinates || { lat: 31.525, lng: 34.5955 }}
+                      onChange={(coords) =>
+                        setFormData({
+                          ...formData,
+                          location: {
+                            ...formData.location,
+                            parkId: undefined,
+                            address: formData.location?.address || '',
+                            location: coords,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── End Time ─────────────────────────────────── */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">שעת סיום (אופציונלי)</label>
+              <input
+                type="time"
+                value={formData.endTime || ''}
+                onChange={(e) => setFormData({ ...formData, endTime: e.target.value || undefined })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            {/* ── Group Link (read-only when prefilled) ────── */}
+            {formData.groupId && (
+              <div className="flex items-center gap-2 p-3 bg-cyan-50 rounded-lg border border-cyan-200">
+                <Link2 size={14} className="text-cyan-600" />
+                <span className="text-sm font-bold text-cyan-700">
+                  משויך לקבוצה: {formData.groupId}
+                </span>
+              </div>
+            )}
+
+            {/* ── Special Notice ──────────────────────────── */}
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                <AlertTriangle size={14} className="text-amber-500" />
+                הודעה מיוחדת (אופציונלי)
+              </label>
+              <input
+                type="text"
+                value={formData.specialNotice || ''}
+                onChange={(e) => setFormData({ ...formData, specialNotice: e.target.value || undefined })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400"
+                placeholder="למשל: היום נפגשים באולם הסגור בגלל גשם"
+              />
+            </div>
+
+            {/* ── Max Participants ─────────────────────────── */}
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                <UsersRound size={14} />
+                מקסימום משתתפים (אופציונלי)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={formData.maxParticipants ?? ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maxParticipants: e.target.value === '' ? undefined : Number(e.target.value),
+                  })
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                placeholder="ללא הגבלה (ריק)"
+              />
+            </div>
+
+            {/* ── Target Muscles (chips) ──────────────────── */}
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                <Target size={14} />
+                קבוצות שרירים (אופציונלי)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {MUSCLE_OPTIONS.map((muscle) => {
+                  const selected = (formData.targetMuscles ?? []).includes(muscle);
+                  return (
+                    <button
+                      key={muscle}
+                      type="button"
+                      onClick={() => {
+                        const current = formData.targetMuscles ?? [];
+                        setFormData({
+                          ...formData,
+                          targetMuscles: selected
+                            ? current.filter((m) => m !== muscle)
+                            : [...current, muscle],
+                        });
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        selected
+                          ? 'bg-cyan-500 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {muscle}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Equipment (chips) ───────────────────────── */}
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                <Dumbbell size={14} />
+                ציוד נדרש (אופציונלי)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {EQUIPMENT_OPTIONS.map((item) => {
+                  const selected = (formData.equipment ?? []).includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        const current = formData.equipment ?? [];
+                        setFormData({
+                          ...formData,
+                          equipment: selected
+                            ? current.filter((e) => e !== item)
+                            : [...current, item],
+                        });
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        selected
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Images (Media Library) ────────────────────── */}
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                <ImagePlus size={14} />
+                תמונות
+              </label>
+              {(formData.images ?? []).length > 0 && (
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {(formData.images ?? []).map((url, idx) => (
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                      <div className="aspect-square">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="px-1.5 py-1 text-[10px] text-gray-500 font-medium truncate text-center bg-white border-t border-gray-100">
+                        {idx === 0 ? 'שער ראשי' : `תמונה ${idx + 1}`}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const imgs = (formData.images ?? []).filter((_, i) => i !== idx);
+                          setFormData({ ...formData, images: imgs });
+                        }}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
                   ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setMediaModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300 hover:border-cyan-400 hover:bg-cyan-50/50 transition-colors w-full justify-center"
+              >
+                <ImagePlus size={16} className="text-gray-500" />
+                <span className="text-sm font-bold text-gray-600">בחר / העלה מדיה</span>
+              </button>
+            </div>
+
+            {/* ── External Link ─────────────────────────────── */}
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                <ExternalLink size={14} className="text-blue-500" />
+                קישור להרשמה חיצונית (אופציונלי)
+              </label>
+              <input
+                type="url"
+                value={formData.externalLink || ''}
+                onChange={(e) => setFormData({ ...formData, externalLink: e.target.value || undefined })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm"
+                placeholder="https://..."
+                dir="ltr"
+              />
+            </div>
+
+            {/* ── Target Audience (Gender & Age) ──────────── */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                  <Users size={14} />
+                  קהל יעד (מגדר)
+                </label>
+                <select
+                  value={formData.targetGender || 'all'}
+                  onChange={(e) => setFormData({ ...formData, targetGender: e.target.value as TargetGender })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="all">כולם</option>
+                  <option value="male">גברים בלבד</option>
+                  <option value="female">נשים בלבד</option>
                 </select>
+              </div>
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 block">גיל מינימלי</label>
                 <input
-                  type="text"
-                  value={formData.location?.address || ''}
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={formData.targetAgeRange?.min ?? ''}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      location: { ...formData.location, address: e.target.value, location: { lat: 0, lng: 0 } },
+                      targetAgeRange: {
+                        ...formData.targetAgeRange,
+                        min: e.target.value === '' ? undefined : Number(e.target.value),
+                      },
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
-                  placeholder="או הזן כתובת ידנית"
+                  placeholder="ללא"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 block">גיל מקסימלי</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={formData.targetAgeRange?.max ?? ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      targetAgeRange: {
+                        ...formData.targetAgeRange,
+                        max: e.target.value === '' ? undefined : Number(e.target.value),
+                      },
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                  placeholder="ללא"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2">
+            {/* ── Geo-Restrictions ─────────────────────────── */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-end pb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isCityOnly ?? false}
+                    onChange={(e) => setFormData({ ...formData, isCityOnly: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                    <Building2 size={14} className="text-purple-500" />
+                    תושבי העיר בלבד
+                  </span>
+                </label>
+              </div>
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                  <MapPinned size={14} className="text-purple-500" />
+                  הגבלת שכונה
+                </label>
+                <select
+                  value={formData.restrictedNeighborhoodId || ''}
+                  onChange={(e) => setFormData({ ...formData, restrictedNeighborhoodId: e.target.value || undefined })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm"
+                >
+                  <option value="">ללא הגבלה</option>
+                  {neighborhoods.map((n) => (
+                    <option key={n.id} value={n.id}>{n.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* ── Price, Official, Registration ───────────── */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-1.5">
+                  <DollarSign size={14} />
+                  מחיר
+                </label>
                 <input
-                  type="checkbox"
-                  checked={formData.registrationRequired || false}
-                  onChange={(e) => setFormData({ ...formData, registrationRequired: e.target.checked })}
-                  className="rounded"
+                  type="number"
+                  min={0}
+                  value={formData.price ?? ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price: e.target.value === '' ? null : Number(e.target.value),
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                  placeholder="חינם"
                 />
-                <span className="text-sm font-bold text-gray-700">נדרשת הרשמה מראש</span>
-              </label>
+              </div>
+              <div className="flex items-end pb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isOfficial ?? false}
+                    onChange={(e) => setFormData({ ...formData, isOfficial: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-cyan-500" />
+                    רשמי
+                  </span>
+                </label>
+              </div>
+              <div className="flex items-end pb-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.registrationRequired || false}
+                    onChange={(e) => setFormData({ ...formData, registrationRequired: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-bold text-gray-700">הרשמה מראש</span>
+                </label>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
@@ -284,6 +741,7 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
                   setShowForm(false);
                   setEditingEvent(null);
                   resetForm();
+                  onSessionFormClose?.();
                 }}
                 className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300"
               >
@@ -294,8 +752,12 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
         </div>
       )}
 
-      {/* Events List */}
-      {events.length === 0 ? (
+      {/* Events List — filter by groupId when embedded from CommunityGroups */}
+      {(() => {
+        const displayedEvents = prefillGroupId
+          ? events.filter((e) => e.groupId === prefillGroupId)
+          : events;
+        return displayedEvents.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
           <Calendar size={48} className="text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-2">אין אירועים</h3>
@@ -303,45 +765,99 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {events.map((event) => (
+          {displayedEvents.map((event) => (
             <div
               key={event.id}
-              className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
             >
-              <div className="flex items-start justify-between mb-4">
+              {/* Compact image preview */}
+              <div className="h-36 bg-gray-100 relative overflow-hidden">
+                {event.images && event.images.length > 0 ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={event.images[0]}
+                    alt={event.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-50 to-gray-100 text-gray-300">
+                    <ImageOff size={28} />
+                    <span className="text-[10px] font-bold mt-1">אין תמונה</span>
+                  </div>
+                )}
+                {/* Date chip overlaid */}
+                <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+                  {new Date(event.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {event.startTime}
+                </div>
+                <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${
+                  event.isActive ? 'bg-green-500/90 text-white' : 'bg-gray-600/80 text-white'
+                }`}>
+                  {event.isActive ? 'פעיל' : 'לא פעיל'}
+                </div>
+                {event.isOfficial && (
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-cyan-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    <ShieldCheck size={10} />
+                    רשמי
+                  </div>
+                )}
+              </div>
+
+              <div className="p-5">
+              <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">{event.name}</h3>
                   <span className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
                     {CATEGORY_LABELS[event.category]}
                   </span>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  event.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {event.isActive ? 'פעיל' : 'לא פעיל'}
-                </div>
               </div>
 
-              <p className="text-sm text-gray-600 mb-4">{event.description}</p>
+              <p className="text-sm text-gray-600 mb-3 line-clamp-2">{event.description}</p>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar size={16} />
-                  <span>{new Date(event.date).toLocaleDateString('he-IL')}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Clock size={16} />
-                  <span>{event.startTime}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin size={16} />
-                  <span className="truncate">{event.location.address}</span>
-                </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Calendar size={13} className="text-cyan-500" />
+                  {new Date(event.date).toLocaleDateString('he-IL')}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock size={13} className="text-blue-500" />
+                  {event.startTime}{event.endTime ? `–${event.endTime}` : ''}
+                </span>
+                {event.location?.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={13} className="text-emerald-500" />
+                    <span className="truncate max-w-[140px]">{event.location.address}</span>
+                  </span>
+                )}
+                {event.targetGender && event.targetGender !== 'all' && (
+                  <span className="flex items-center gap-1">
+                    <Users size={13} className="text-pink-500" />
+                    {event.targetGender === 'male' ? 'גברים' : 'נשים'}
+                  </span>
+                )}
+                {event.targetAgeRange && (event.targetAgeRange.min || event.targetAgeRange.max) && (
+                  <span className="flex items-center gap-1">
+                    <Calendar size={13} className="text-amber-500" />
+                    {event.targetAgeRange.min ?? '0'}–{event.targetAgeRange.max ?? '∞'}
+                  </span>
+                )}
+                {event.isCityOnly && (
+                  <span className="flex items-center gap-1">
+                    <Building2 size={13} className="text-purple-500" />
+                    עיר בלבד
+                  </span>
+                )}
+                {event.isOfficial && (
+                  <span className="flex items-center gap-1">
+                    <ShieldCheck size={13} className="text-cyan-500" />
+                    רשמי
+                  </span>
+                )}
                 {event.registrationRequired && (
-                  <div className="text-sm text-gray-600">
-                    {event.currentRegistrations}
-                    {event.maxParticipants ? ` / ${event.maxParticipants}` : ''} נרשמו
-                  </div>
+                  <span className="flex items-center gap-1">
+                    <UsersRound size={13} className="text-gray-500" />
+                    {event.currentRegistrations}{event.maxParticipants ? ` / ${event.maxParticipants}` : ''} נרשמו
+                  </span>
                 )}
               </div>
 
@@ -365,10 +881,23 @@ export default function CommunityEvents({ authorityId }: CommunityEventsProps) {
                   מחק
                 </button>
               </div>
+              </div>{/* end p-5 wrapper */}
             </div>
           ))}
         </div>
-      )}
+      );
+      })()}
+
+      {/* ── Media Library Modal ── */}
+      <MediaLibraryModal
+        isOpen={mediaModalOpen}
+        onClose={() => setMediaModalOpen(false)}
+        onSelect={handleMediaSelect}
+        assetType="image"
+        title="בחר תמונה לאירוע"
+        authorityId={authorityId}
+        scope="community"
+      />
     </div>
   );
 }

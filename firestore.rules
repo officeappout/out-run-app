@@ -30,15 +30,19 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // USERS — owner reads/writes own doc, admins read/write all
+    // USERS — owner reads/writes own doc, admins read/write all,
+    //         cross-user read gated by core.discoverable == true
     // ============================================================
     match /users/{userId} {
-      // Root admin evaluated first (no Firestore read), then DB admin, then owner
-      allow read, write: if isRootAdmin() || isAdmin() || isOwner(userId);
+      allow read, write: if isOwner(userId);
+      allow read, write: if isRootAdmin() || isAdmin();
+      // Cross-user read: only if the profile has opted in to discovery
+      allow read: if isAuthenticated() && resource.data.core.discoverable == true;
 
       // All sub-collections (progression, lifestyle, etc.)
       match /{subCol}/{docId} {
-        allow read, write: if isRootAdmin() || isAdmin() || isOwner(userId);
+        allow read, write: if isOwner(userId);
+        allow read, write: if isRootAdmin() || isAdmin();
       }
     }
 
@@ -356,11 +360,19 @@ service cloud.firestore {
     // ============================================================
     // SAFE-CITY PRESENCE — live location heartbeat
     // Users can only write their own presence doc (uid match).
-    // All authenticated users can read (segregation enforced client-side).
+    // Read access enforced by privacy mode:
+    //   verified_global → any authenticated user
+    //   squad           → only users in the broadcaster's followers list
+    //   ghost           → owner only (doc is typically deleted)
     // ============================================================
     match /presence/{userId} {
-      allow read: if isAuthenticated();
       allow write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow read: if isAuthenticated() && resource.data.mode == 'verified_global';
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'squad'
+                  && request.auth.uid in
+                     get(/databases/$(database)/documents/connections/$(userId)).data.followers;
     }
 
     // ============================================================
@@ -372,8 +384,16 @@ service cloud.firestore {
     }
 
     match /feed_posts/{docId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      // Public posts: any authenticated user
+      allow read: if isAuthenticated() && resource.data.audience == 'public';
+      // Partners posts: any authenticated user (client query limits by authorUid list)
+      allow read: if isAuthenticated() && resource.data.audience == 'partners';
+      // Private: author only
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.authorUid;
+      // Legacy posts without audience field — allow read for backward compat
+      allow read: if isAuthenticated() && !('audience' in resource.data);
+      // Create: only for own posts
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.authorUid;
       allow update: if isAuthenticated();
 
       match /reactions/{reactionId} {
@@ -387,26 +407,54 @@ service cloud.firestore {
     // ============================================================
     match /community_groups/{docId} {
       allow read: if isAuthenticated();
-      // Admin full write access (existing)
+      // Admins have full write access (authority-manager dashboard)
       allow write: if isAdmin();
-      // Users can create their own group (starts isActive=false, anti-ghost)
+
+      // Any authenticated user can create their own community group via the in-app wizard.
+      // Guards:
+      //   - request.auth.uid == createdBy  →  user can only create groups for themselves
+      //   - source == 'user'               →  cannot impersonate authority/professional groups
+      //   - isOfficial == false            →  cannot self-grant official status
       allow create: if isAuthenticated()
                     && request.auth.uid == request.resource.data.createdBy
-                    && request.resource.data.isActive == false;
-      // Creator can update (name, description, schedule, etc.) but not activate themselves
+                    && request.resource.data.source == 'user'
+                    && request.resource.data.isOfficial == false;
+
+      // Creator can update their group (name, description, schedule, rules, images, etc.)
       allow update: if isAuthenticated()
                     && request.auth.uid == resource.data.createdBy;
+
+      // Any authenticated user can update only the membership counters when joining/leaving.
+      // 'updatedAt' is included because group.service.ts writes it alongside the counters.
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['memberCount', 'currentParticipants', 'updatedAt']);
 
       // group_members sub-collection — any authenticated user can join/leave their own doc
       match /members/{uid} {
         allow read: if isAuthenticated();
         allow write: if isAuthenticated() && request.auth.uid == uid;
       }
+
+      // attendance sub-collection — session booking / RSVP
+      match /attendance/{sessionId} {
+        allow read, write: if request.auth != null;
+      }
     }
 
     match /community_events/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+      // Authenticated users can increment currentRegistrations (join/leave)
+      allow update: if isAuthenticated()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['currentRegistrations', 'updatedAt']);
+
+      // registrations sub-collection — users can write their own registration doc
+      match /registrations/{uid} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && request.auth.uid == uid;
+      }
     }
 
     // ============================================================
@@ -419,22 +467,49 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // ACTIVITY FEED — Pillar 5 (written by Cloud Functions only)
+    // ACTIVITY FEED — Pillar 5
+    // Users can read their own feed; users can write to their own
+    // feed (join events) and to city-wide feeds (city_xxx).
     // ============================================================
-    match /activity/{uid}/feed/{eventId} {
-      allow read: if isOwner(uid);
+    match /activity/{scopeId}/feed/{eventId} {
+      allow read: if isAuthenticated()
+                  && (isOwner(scopeId) || scopeId.matches('city_.*'));
       allow write: if isAdmin();
+      allow create: if isAuthenticated()
+                    && (request.auth.uid == scopeId
+                        || scopeId.matches('city_.*'));
     }
 
     // ============================================================
-    // DIRECT MESSAGES — Pillar 5
+    // DIRECT MESSAGES & GROUP CHATS — Pillar 5
     // ============================================================
     match /chats/{chatId} {
-      allow read, update: if isAuthenticated()
-                          && request.auth.uid in resource.data.participants;
+      // Existing participants can read their thread (DM + group)
+      allow read: if isAuthenticated()
+                  && request.auth.uid in resource.data.participants;
+      // Any authenticated user can read a group-type chat
+      // (needed to check existence before joining and for inbox listing)
+      allow read: if isAuthenticated()
+                  && resource.data.type == 'group';
+
+      // DM create: requesting user in participants, exactly 2 people
       allow create: if isAuthenticated()
                     && request.auth.uid in request.resource.data.participants
-                    && request.resource.data.participants.size() == 2;
+                    && request.resource.data.participants.size() == 2
+                    && request.resource.data.type == 'dm';
+      // Group chat create: requesting user in participants, type == 'group'
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.type == 'group';
+
+      // Existing participants can update (send message metadata, mark read, etc.)
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.participants;
+      // Group chat JOIN: any authenticated user can add themselves to a group chat.
+      // After arrayUnion(uid), request.resource.data.participants will contain uid.
+      allow update: if isAuthenticated()
+                    && resource.data.type == 'group'
+                    && request.auth.uid in request.resource.data.participants;
 
       match /messages/{messageId} {
         // Read: participant of the parent chat
@@ -451,6 +526,20 @@ service cloud.firestore {
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
       }
+    }
+
+    // ============================================================
+    // REPORTS — user-submitted content reports
+    // create: any signed-in user (no helper functions — avoids get()
+    //   evaluation side-effects from the catch-all isAdmin() rule)
+    // read/manage: root admins + users whose role is admin/authority/root
+    // ============================================================
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if request.auth != null && (
+        request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$') ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'authority', 'root']
+      );
     }
 
     // ============================================================

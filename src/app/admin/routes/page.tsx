@@ -75,6 +75,20 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
+function applyHebrewLabels(map: any) {
+    try {
+        const style = map.getStyle?.();
+        if (!style?.layers) return;
+        for (const layer of style.layers) {
+            if (layer.type === 'symbol' && layer.layout?.['text-field']) {
+                try {
+                    map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name_he'], ['get', 'name']]);
+                } catch { /* skip locked layers */ }
+            }
+        }
+    } catch { /* ignore */ }
+}
+
 type Tab = 'add' | 'inventory' | 'imports' | 'lab';
 
 // ── Lab Helper Functions ──────────────────────────────────────────────
@@ -1262,8 +1276,9 @@ export default function AdminRouteManager() {
                                     zoom: 12
                                 }}
                                 style={{ width: '100%', height: '100%' }}
-                                mapStyle="mapbox://styles/mapbox/dark-v11"
+                                mapStyle="mapbox://styles/mapbox/streets-v12"
                                 mapboxAccessToken={MAPBOX_TOKEN}
+                                onLoad={(e: any) => { applyHebrewLabels(e.target); e.target?.on?.('style.load', () => applyHebrewLabels(e.target)); }}
                             >
                                 {/* Preview Data */}
                                 {activeTab === 'add' && previewRoutes.map((route) => (

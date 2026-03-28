@@ -4,10 +4,21 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, X, ChevronLeft, Pencil, Check, Loader2 } from 'lucide-react';
+import { ArrowRight, X, ChevronLeft, Pencil, Check, Loader2, Crown, Users2, Settings2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import nextDynamic from 'next/dynamic';
 import { useUserStore } from '@/features/user';
+import { useMyGroups } from '@/features/arena/hooks/useMyGroups';
 import HistoryTab from '@/features/profile/components/HistoryTab';
+
+const CreatorManagementDrawer = nextDynamic(
+  () => import('@/features/arena/components/CreatorManagementDrawer'),
+  { ssr: false },
+);
+const CreateGroupWizard = nextDynamic(
+  () => import('@/features/arena/components/CreateGroupWizard'),
+  { ssr: false },
+);
 import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
@@ -57,10 +68,25 @@ function gearDisplayName(gearId: string, gearDefs: GearDefinition[]): string {
   return def?.name?.he || def?.name?.en || gearId;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  running: 'ריצה', walking: 'הליכה', yoga: 'יוגה',
+  calisthenics: 'קליסתניקס', cycling: 'רכיבה', other: 'אחר',
+};
+const CATEGORY_ICONS: Record<string, string> = {
+  running: '🏃', walking: '🚶', yoga: '🧘',
+  calisthenics: '💪', cycling: '🚴', other: '⭐',
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const { profile, _hasHydrated } = useUserStore();
+  const { groups: myGroups } = useMyGroups();
+  const managedGroups = myGroups.filter((g) => g.createdBy === profile?.id);
   const [activeTab, setActiveTab] = useState<'profile' | 'history'>('profile');
+
+  // ── Creator Hub drawers ──
+  const [managementGroupId, setManagementGroupId] = useState<string | null>(null);
+  const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistoryEntry | null>(null);
   const [gearDefs, setGearDefs] = useState<GearDefinition[]>([]);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
@@ -376,6 +402,47 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+
+            {/* ── Creator Hub ───────────────────────────────────────────── */}
+            {managedGroups.length > 0 && (
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-3" dir="rtl">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
+                    <Crown className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-gray-900">הקהילות בניהולי</h3>
+                    <p className="text-[10px] text-gray-400 font-medium">{managedGroups.length} {managedGroups.length === 1 ? 'קהילה' : 'קהילות'} שיצרת</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {managedGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-lg shadow-sm flex-shrink-0">
+                        {CATEGORY_ICONS[group.category] ?? '⭐'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 truncate">{group.name}</p>
+                        <p className="text-[10px] text-gray-500 font-medium">
+                          {CATEGORY_LABELS[group.category] ?? group.category}
+                          {group.memberCount != null && ` · ${group.memberCount} חברים`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setManagementGroupId(group.id)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-900 text-white text-[11px] font-black active:scale-95 transition-all flex-shrink-0"
+                      >
+                        <Settings2 className="w-3 h-3" />
+                        ניהול
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -506,6 +573,25 @@ export default function ProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Creator Hub: Management Drawer ───────────────────────────────────── */}
+      <CreatorManagementDrawer
+        isOpen={!!managementGroupId}
+        onClose={() => setManagementGroupId(null)}
+        groupId={managementGroupId}
+        onEditGroup={(id) => {
+          setManagementGroupId(null);
+          setEditGroupId(id);
+        }}
+      />
+
+      {/* ── Creator Hub: Edit Wizard ──────────────────────────────────────────── */}
+      <CreateGroupWizard
+        isOpen={!!editGroupId}
+        onClose={() => setEditGroupId(null)}
+        editGroupId={editGroupId ?? undefined}
+        onSuccess={() => setEditGroupId(null)}
+      />
 
       {/* Success toast after JIT profile update */}
       <AnimatePresence>

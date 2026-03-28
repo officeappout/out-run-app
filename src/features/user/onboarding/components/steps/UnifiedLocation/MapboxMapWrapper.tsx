@@ -1,22 +1,32 @@
 'use client';
 
-import { forwardRef } from 'react';
+import { useCallback } from 'react';
 import Map from 'react-map-gl';
 import type { MapRef } from 'react-map-gl';
 
 /**
- * Thin wrapper around react-map-gl's Map component that forwards refs.
- * next/dynamic does NOT forward refs, so loading Map directly via dynamic()
- * and passing ref={mapRef} triggers the React warning:
- *   "Function components cannot be given refs"
+ * Thin wrapper around react-map-gl's Map that accepts a ref via a regular
+ * prop instead of React.forwardRef.
  *
- * This wrapper solves the issue by accepting the ref via forwardRef
- * and passing it through to the underlying Map component.
+ * next/dynamic does NOT forward refs — it wraps the loaded component in
+ * its own function component, so passing ref={…} to a dynamic() result
+ * triggers "Function components cannot be given refs".
+ *
+ * By accepting `mapRef` as a normal prop and using a callback ref internally,
+ * we bypass the limitation while keeping the parent's ref object in sync.
  */
-const MapboxMapWrapper = forwardRef<MapRef, React.ComponentProps<typeof Map>>(
-  function MapboxMapWrapper(props, ref) {
-    return <Map ref={ref} {...props} />;
-  }
-);
 
-export default MapboxMapWrapper;
+interface MapboxMapWrapperProps extends Omit<React.ComponentProps<typeof Map>, 'ref'> {
+  mapRef?: React.MutableRefObject<MapRef | null>;
+}
+
+export default function MapboxMapWrapper({ mapRef, ...props }: MapboxMapWrapperProps) {
+  const handleRef = useCallback(
+    (node: MapRef | null) => {
+      if (mapRef) mapRef.current = node;
+    },
+    [mapRef],
+  );
+
+  return <Map ref={handleRef} {...props} />;
+}

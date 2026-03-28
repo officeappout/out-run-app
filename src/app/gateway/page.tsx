@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Dumbbell, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
-import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral } from '@/features/safecity/services/referral.service';
+import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
@@ -207,11 +207,19 @@ export default function GatewayPage() {
         }
       }).catch(() => {});
 
-      // Process referral if this user came via an invite link
+      // Process referral + auto-connect if user came via an invite link
       const referrerUid = getStoredReferrer();
       if (referrerUid && referrerUid !== user.uid) {
+        establishSocialConnection(referrerUid, user.uid).catch(() => {});
         processReferral(referrerUid, user.uid, '').catch(() => {});
         clearStoredReferrer();
+      }
+
+      // Auto-connect with group creator if user came via a group invite link
+      const groupInviterUid = localStorage.getItem('group_inviter_uid');
+      if (groupInviterUid && groupInviterUid !== user.uid) {
+        establishSocialConnection(groupInviterUid, user.uid).catch(() => {});
+        localStorage.removeItem('group_inviter_uid');
       }
 
       // Brief delay for the transition animation, then redirect
@@ -243,8 +251,15 @@ export default function GatewayPage() {
 
       const referrerUid = getStoredReferrer();
       if (referrerUid && referrerUid !== user.uid) {
+        establishSocialConnection(referrerUid, user.uid).catch(() => {});
         processReferral(referrerUid, user.uid, '').catch(() => {});
         clearStoredReferrer();
+      }
+
+      const groupInviterUid = localStorage.getItem('group_inviter_uid');
+      if (groupInviterUid && groupInviterUid !== user.uid) {
+        establishSocialConnection(groupInviterUid, user.uid).catch(() => {});
+        localStorage.removeItem('group_inviter_uid');
       }
 
       router.push('/onboarding-new/profile');

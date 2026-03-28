@@ -6,6 +6,13 @@
 // Scope of a community group (maps to affiliation types)
 export type CommunityGroupType = 'neighborhood' | 'work' | 'university' | 'park';
 
+export type TargetGender = 'male' | 'female' | 'all';
+
+export interface AgeRange {
+  min?: number;
+  max?: number;
+}
+
 // Member document stored in community_groups/{groupId}/members/{uid}
 export interface GroupMember {
   uid: string;
@@ -14,46 +21,110 @@ export interface GroupMember {
   role: 'member' | 'admin';
 }
 
+export interface ScheduleSlot {
+  dayOfWeek: number; // 0-6 (Sunday-Saturday)
+  time: string; // e.g., "18:00"
+  frequency: 'weekly' | 'biweekly' | 'monthly';
+  /** Per-slot overrides (Booking & RSVP engine) */
+  maxParticipants?: number;
+  price?: number | null;
+  requiredEquipment?: string[];
+  targetMuscles?: string[];
+  /** Optional label for this specific slot, e.g. "יוגה" vs "ריצה" */
+  label?: string;
+  /** Sport-type tags for categorisation (כדורגל, יוגה, ריצה, etc.) */
+  tags?: string[];
+  /** Per-slot images — falls back to group.images when absent */
+  images?: string[];
+  /** Per-slot location override — falls back to group.meetingLocation when absent */
+  location?: {
+    address?: string;
+    lat?: number;
+    lng?: number;
+  };
+}
+
+/** Attendance doc stored at community_groups/{groupId}/attendance/{YYYY-MM-DD_HH-mm} */
+export interface SessionAttendance {
+  groupId: string;
+  date: string;
+  time: string;
+  attendees: string[];
+  currentCount: number;
+  maxParticipants?: number;
+  /** UID → basic profile for avatar display */
+  attendeeProfiles?: Record<string, { name: string; photoURL?: string }>;
+  /** Users waiting for a spot when session is full */
+  waitlist?: string[];
+  waitlistProfiles?: Record<string, { name: string; photoURL?: string }>;
+}
+
 export interface CommunityGroup {
   id: string;
-  authorityId: string; // Which authority manages this group
-  name: string; // e.g., "קבוצת הליכה הרצליה"
+  authorityId: string;
+  name: string;
   description: string;
   category: CommunityGroupCategory;
   meetingLocation?: {
-    parkId?: string; // Link to park
+    parkId?: string;
     address?: string;
     location?: { lat: number; lng: number };
   };
-  schedule?: {
-    dayOfWeek: number; // 0-6 (Sunday-Saturday)
-    time: string; // e.g., "18:00"
-    frequency: 'weekly' | 'biweekly' | 'monthly';
-  };
+  /** @deprecated Use `scheduleSlots` for multi-slot support */
+  schedule?: ScheduleSlot;
+  /** Multiple recurring sessions per group */
+  scheduleSlots?: ScheduleSlot[];
   maxParticipants?: number;
   currentParticipants: number;
   isActive: boolean;
-  createdBy: string; // Manager or user UID
+  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 
   // ── Pillar 1 additions ────────────────────────────────────────────────────
-  /** Scope type: neighborhood uses authorityId, others use their affiliation id */
   groupType?: CommunityGroupType;
-  /** scopeId mirrors groupType: authorityId | companyId | schoolId | parkId */
   scopeId?: string;
-  /** Age restriction for the group (default 'all') */
   ageRestriction?: 'minor' | 'adult' | 'all';
-  /** Denormalized count for fast list rendering without sub-collection reads */
   memberCount?: number;
-  /** Group is hidden in discovery until memberCount >= minimumMembers (anti-ghost) */
   minimumMembers?: number;
-  /** Discoverable in global listing when true; invite-only when false */
   isPublic?: boolean;
-  /** 6-char alphanumeric code for private group invites */
   inviteCode?: string;
-  /** Snapshot of creator's referralCount at creation time (audit field) */
   creatorReferralCount?: number;
+
+  // ── Content & enrichment ──────────────────────────────────────────────────
+  targetMuscles?: string[];
+  equipment?: string[];
+  /** null = free, number = cost in credits or currency */
+  price?: number | null;
+  isOfficial?: boolean;
+
+  // ── Target audience ────────────────────────────────────────────────────
+  targetGender?: TargetGender;
+  targetAgeRange?: AgeRange;
+
+  // ── Visuals ────────────────────────────────────────────────────────────
+  images?: string[];
+
+  // ── Origin / Tier ─────────────────────────────────────────────────────────────
+  /**
+   * Who created this group:
+   *  'authority'    — created by an authority manager in the admin panel
+   *  'professional' — created by a verified coach / paid instructor
+   *  'user'         — created by a regular user via the in-app wizard
+   *
+   * Undefined means legacy data; treat as 'authority' when isOfficial is true.
+   */
+  source?: 'authority' | 'professional' | 'user';
+
+    // ── Community Rules ────────────────────────────────────────────────────
+  /** Free-text community rules shown in the group drawer (Hebrew) */
+  rules?: string;
+
+  // ── Geo-restrictions ──────────────────────────────────────────────────
+  /** Restrict visibility to the group's authority city only */
+  isCityOnly?: boolean;
+  /** Restrict visibility to users of a specific neighborhood authority */
+  restrictedNeighborhoodId?: string;
 }
 
 export type CommunityGroupCategory = 
@@ -93,11 +164,47 @@ export interface CommunityEvent {
   groupId?: string;
   /** Age restriction (default 'all') */
   ageRestriction?: 'minor' | 'adult' | 'all';
+
+  // ── Social & Community Layer ──────────────────────────────────────────────
+  isOfficial?: boolean;
+  authorityLogoUrl?: string;
+
+  // ── Content & enrichment ──────────────────────────────────────────────────
+  targetMuscles?: string[];
+  equipment?: string[];
+  /** null = free, number = cost in credits or currency */
+  price?: number | null;
+  /** Prominent one-time notice, e.g. "Today we meet at the indoor hall due to rain" */
+  specialNotice?: string;
+
+  // ── Target audience ────────────────────────────────────────────────────
+  targetGender?: TargetGender;
+  targetAgeRange?: AgeRange;
+
+  // ── Visuals ────────────────────────────────────────────────────────────
+  images?: string[];
+  /** External registration / info URL */
+  externalLink?: string;
+
+  // ── Geo-restrictions ──────────────────────────────────────────────────
+  isCityOnly?: boolean;
+  restrictedNeighborhoodId?: string;
+}
+
+/**
+ * Registration document stored in community_events/{eventId}/registrations/{uid}.
+ * Mirrors the GroupMember pattern from community_groups/{groupId}/members/{uid}.
+ */
+export interface EventRegistration {
+  uid: string;
+  name: string;
+  photoURL?: string;
+  joinedAt: Date;
 }
 
 // ─── Pillar 5 — Activity Feed ─────────────────────────────────────────────────
 
-export type ActivityEventType = 'high_five' | 'group_join' | 'leaderboard_badge';
+export type ActivityEventType = 'high_five' | 'group_join' | 'official_event_join' | 'leaderboard_badge';
 
 /**
  * Stored in activity/{uid}/feed/{eventId}.

@@ -53,7 +53,7 @@ export function useNearbyParks(isOpen: boolean): NearbyParkCard[] {
             return {
               id: p.id,
               name: p.name,
-              imageUrl: p.image || p.imageUrl || undefined,
+              imageUrl: p.images?.[0] || p.image || p.imageUrl || undefined,
               walkingMinutes: Math.round(dist / WALKING_SPEED_MPM),
               distanceMeters: dist,
             } satisfies NearbyParkCard;

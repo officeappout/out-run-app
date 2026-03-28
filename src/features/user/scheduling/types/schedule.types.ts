@@ -31,11 +31,21 @@ export type ScheduleEntryType = 'training' | 'rest' | 'assessment';
 // 'manual'         → user explicitly placed/moved this workout
 // 'auto'           → system placed this (e.g., first-workout flow)
 // 'google_calendar'→ synced from external calendar (Phase 4)
+// 'community'      → auto-populated from a joined community group's scheduleSlots
 export type ScheduleEntrySource =
   | 'recurring'
   | 'manual'
   | 'auto'
-  | 'google_calendar';
+  | 'google_calendar'
+  | 'community';
+
+// ── Community Session Reference ─────────────────────────────────────────────
+export interface CommunitySessionRef {
+  groupId: string;
+  groupName: string;
+  time: string;
+  category: string;
+}
 
 // ── Activity category (mirrors activity.types but avoids circular import) ──
 export type ScheduleActivityCategory = 'strength' | 'cardio' | 'maintenance';
@@ -55,6 +65,8 @@ export interface UserScheduleEntry {
   startTime?: string;
   /** Reserved for Google Calendar Phase 4 */
   externalId?: string;
+  /** Community group sessions attached to this day */
+  communitySessions?: CommunitySessionRef[];
   createdAt?: any;             // Firebase serverTimestamp()
   updatedAt?: any;
 }

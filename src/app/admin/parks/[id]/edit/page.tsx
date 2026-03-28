@@ -3,9 +3,9 @@
 // Force dynamic rendering to prevent SSR issues with window/localStorage
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef, useMemo, Suspense, use } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { Park, ParkSportType, ParkFeatureTag, Authority } from '@/types/admin-types';
 import { getAutoSportTypes, getPark } from '@/features/parks';
@@ -18,8 +18,14 @@ import { getAllAuthorities, getAuthority } from '@/features/admin/services/autho
 import { getAllOutdoorBrands } from '@/features/content/equipment/brands';
 import type { OutdoorBrand } from '@/features/content/equipment/brands';
 import dynamicImport from 'next/dynamic';
-import { Plus, Trash2, Save, Loader2, Building2, Tag, ArrowRight, Search, ChevronDown, Dumbbell, ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Building2, Tag, ArrowRight, Search, ChevronDown, Dumbbell, ImageIcon, ImagePlus, X as XIcon } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
+import type { MediaAsset } from '@/features/admin/services/media-assets.service';
+
+const MediaLibraryModal = dynamicImport(
+  () => import('@/features/admin/components/MediaLibraryModal'),
+  { ssr: false },
+);
 
 // ============================================
 // FEATURE TAGS & CONFIGURATION
@@ -49,6 +55,7 @@ interface ParkFormData extends Omit<Park, 'id' | 'facilities' | 'gymEquipment'> 
         equipmentName?: string;
     })[];
     parkImageFile?: FileList;
+    images?: string[];
 }
 
 const storage = getStorage();
@@ -80,6 +87,9 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
     // Searchable manufacturer/brand state (per-row)
     const [brandSearchTerms, setBrandSearchTerms] = useState<Record<number, string>>({});
     const [showBrandDropdown, setShowBrandDropdown] = useState<Record<number, boolean>>({});
+
+    // Media Library modal state
+    const [mediaModalOpen, setMediaModalOpen] = useState(false);
 
     const { register, control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<ParkFormData & { authorityId?: string }>({
         defaultValues: {
@@ -179,6 +189,7 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
                 })) || [],
                 authorityId: park.authorityId || undefined,
                 image: park.image || undefined,
+                images: park.images || (park.image ? [park.image] : []),
             });
 
             // Set authority search text
@@ -282,12 +293,14 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
             setIsSubmitting(true);
             setUploadProgress('מתחיל עדכון...');
 
-            // 1. Upload new image if selected
-            let parkImageUrl = existingPark?.image || '';
+            // 1. Resolve images (from media library or legacy file upload)
+            let parkImages = data.images ?? [];
             if (data.parkImageFile && data.parkImageFile.length > 0) {
                 setUploadProgress('מעלה תמונה ראשית...');
-                parkImageUrl = await uploadImage(data.parkImageFile[0], `parks/${Date.now()}_main`);
+                const uploadedUrl = await uploadImage(data.parkImageFile[0], `parks/${Date.now()}_main`);
+                parkImages = [uploadedUrl, ...parkImages];
             }
+            const parkImageUrl = parkImages[0] || existingPark?.image || '';
 
             // 2. Process gym equipment
             const processedGymEquipment: ParkGymEquipment[] = data.gymEquipment.map((equipment) => ({
@@ -332,6 +345,7 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
                     lng: Number(data.location.lng)
                 },
                 image: parkImageUrl || null,
+                images: parkImages.length > 0 ? parkImages : null,
                 facilityType: 'gym_park',
                 sportTypes: mergedSports.length > 0 ? mergedSports : [],
                 featureTags: tags.length > 0 ? tags : [],
@@ -524,32 +538,44 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700">תמונה ראשית</label>
-                        {existingPark.image && (
-                            <div className="mb-2">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={existingPark.image}
-                                    alt={existingPark.name}
-                                    className="w-32 h-24 rounded-xl object-cover border border-gray-200"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">תמונה נוכחית — העלאה חדשה תחליף אותה</p>
+                        <label className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                            <ImagePlus size={14} />
+                            תמונות
+                        </label>
+                        {(watch('images') ?? []).length > 0 && (
+                            <div className="grid grid-cols-4 gap-2 mb-3">
+                                {(watch('images') ?? []).map((url: string, idx: number) => (
+                                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                                        <div className="aspect-square">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={url} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="px-1.5 py-1 text-[10px] text-gray-500 font-medium truncate text-center bg-white border-t border-gray-100">
+                                            {idx === 0 ? 'שער ראשי' : `תמונה ${idx + 1}`}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const imgs = (watch('images') ?? []).filter((_: string, i: number) => i !== idx);
+                                                setValue('images', imgs);
+                                            }}
+                                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                        >
+                                            <XIcon size={10} />
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         )}
-                        <div className="relative">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                {...register('parkImageFile')}
-                                className="block w-full text-sm text-slate-500
-                                  file:mr-4 file:py-2 file:px-4
-                                  file:rounded-full file:border-0
-                                  file:text-sm file:font-semibold
-                                  file:bg-blue-50 file:text-blue-700
-                                  hover:file:bg-blue-100
-                                "
-                            />
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setMediaModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 transition-colors w-full justify-center"
+                        >
+                            <ImagePlus size={16} className="text-gray-500" />
+                            <span className="text-sm font-bold text-gray-600">בחר / העלה תמונות</span>
+                        </button>
+                        <input type="file" accept="image/*" {...register('parkImageFile')} className="hidden" />
                     </div>
                 </div>
 
@@ -886,19 +912,26 @@ function EditParkPageContent({ parkId }: { parkId: string }) {
                     <span className="font-bold">{uploadProgress}</span>
                 </div>
             )}
+
+            {/* Media Library Modal — scoped to authority's locations bucket */}
+            <MediaLibraryModal
+                isOpen={mediaModalOpen}
+                onClose={() => setMediaModalOpen(false)}
+                onSelect={(asset: MediaAsset) => {
+                    const current = watch('images') ?? [];
+                    setValue('images', [...current, asset.url]);
+                    setMediaModalOpen(false);
+                }}
+                assetType="image"
+                title="בחר תמונה לפארק/מתקן"
+                authorityId={existingPark?.authorityId}
+                scope="locations"
+            />
         </div>
     );
 }
 
-export default function EditParkPage({ params }: { params: Promise<{ id: string }> }) {
-    const resolvedParams = use(params);
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Loader2 className="w-12 h-12 text-cyan-600 animate-spin" />
-            </div>
-        }>
-            <EditParkPageContent parkId={resolvedParams.id} />
-        </Suspense>
-    );
+export default function EditParkPage() {
+    const { id } = useParams<{ id: string }>();
+    return <EditParkPageContent parkId={id} />;
 }

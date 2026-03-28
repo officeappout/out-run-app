@@ -263,7 +263,8 @@ export interface Park {
   courtType?: string;                    // Sub-type for Courts (basketball, football, tennis, padel, multi)
   
   // Equipment & Facilities
-  image?: string;     // Main park image
+  image?: string;     // Main park image (legacy single)
+  images?: string[];  // Multi-image support (first = cover photo)
   facilities?: ParkFacility[]; // Optional for MapPark compatibility
   gymEquipment?: ParkGymEquipment[];
   amenities?: ParkAmenities;

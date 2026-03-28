@@ -315,12 +315,18 @@ export async function getAgeDistribution(
     const currentYear = new Date().getFullYear();
 
     docs.forEach(({ data }) => {
-      const birthDate = (data as { core?: { birthDate?: Timestamp | Date } })?.core?.birthDate;
+      const birthDate = (data as { core?: { birthDate?: Timestamp | Date | string } })?.core?.birthDate;
       if (birthDate) {
-        const birthYear =
-          birthDate instanceof Date
-            ? birthDate.getFullYear()
-            : (birthDate as Timestamp).toDate().getFullYear();
+        let birthYear: number | null = null;
+        if (birthDate instanceof Date) {
+          birthYear = birthDate.getFullYear();
+        } else if (typeof birthDate === 'string') {
+          const parsed = new Date(birthDate);
+          if (!isNaN(parsed.getTime())) birthYear = parsed.getFullYear();
+        } else if (typeof (birthDate as Timestamp).toDate === 'function') {
+          birthYear = (birthDate as Timestamp).toDate().getFullYear();
+        }
+        if (birthYear == null) { distribution.total++; return; }
         const age = currentYear - birthYear;
         if (age >= 18 && age <= 25) distribution['18-25']++;
         else if (age >= 26 && age <= 35) distribution['26-35']++;

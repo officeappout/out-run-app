@@ -24,6 +24,8 @@ import {
     AlertCircle,
     RefreshCw,
     ArrowLeft,
+    Pencil,
+    ImageOff,
 } from 'lucide-react';
 
 // ── helpers ────────────────────────────────────────────────────────
@@ -249,12 +251,14 @@ export default function AuthorityRoutesPage() {
                 ) : (
                     <>
                         {/* Table header */}
-                        <div className="grid grid-cols-[1fr_120px_90px_100px_140px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        <div className="grid grid-cols-[48px_1fr_120px_90px_100px_140px_60px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                            <span>תמונה</span>
                             <span>שם המסלול</span>
                             <span className="text-center">פעילות</span>
                             <span className="text-center">מרחק</span>
                             <span className="text-center">קושי</span>
                             <span className="text-center">סטטוס</span>
+                            <span className="text-center">פעולות</span>
                         </div>
 
                         {/* Route rows */}
@@ -267,9 +271,21 @@ export default function AuthorityRoutesPage() {
 
                                 return (
                                     <div key={route.id}
-                                        className={`grid grid-cols-[1fr_120px_90px_100px_140px] gap-4 px-6 py-4 items-center transition-colors ${
+                                        className={`grid grid-cols-[48px_1fr_120px_90px_100px_140px_60px] gap-4 px-6 py-4 items-center transition-colors ${
                                             isPending ? 'bg-amber-50/40 hover:bg-amber-50' : 'hover:bg-gray-50'
                                         }`}>
+
+                                        {/* Thumbnail */}
+                                        <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                                            {(route as any).images?.[0] ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={(route as any).images[0]} alt={route.name || ''} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                    <ImageOff size={14} />
+                                                </div>
+                                            )}
+                                        </div>
 
                                         {/* Name + description */}
                                         <div className="min-w-0">
@@ -323,19 +339,37 @@ export default function AuthorityRoutesPage() {
                                         {/* Status + action */}
                                         <div className="flex justify-center">
                                             {isPending ? (
-                                                <button onClick={() => handleApprove(route.id)} disabled={isApproving}
-                                                    className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 shadow-sm shadow-green-200 whitespace-nowrap">
-                                                    {isApproving
-                                                        ? <Loader2 className="animate-spin" size={12} />
-                                                        : <ShieldCheck size={12} />}
-                                                    {isApproving ? 'מאשר...' : 'אשר ופרסם'}
-                                                </button>
+                                                isSuperAdmin ? (
+                                                    <button onClick={() => handleApprove(route.id)} disabled={isApproving}
+                                                        className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 shadow-sm shadow-green-200 whitespace-nowrap">
+                                                        {isApproving
+                                                            ? <Loader2 className="animate-spin" size={12} />
+                                                            : <ShieldCheck size={12} />}
+                                                        {isApproving ? 'מאשר...' : 'אשר ופרסם'}
+                                                    </button>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200 whitespace-nowrap">
+                                                        <Clock size={10} />
+                                                        ממתין לאישור מנהל העל
+                                                    </span>
+                                                )
                                             ) : (
                                                 <span className="flex items-center gap-1 text-xs font-bold text-green-600">
                                                     <CheckCircle2 size={14} />
                                                     פעיל באפליקציה
                                                 </span>
                                             )}
+                                        </div>
+
+                                        {/* Edit action */}
+                                        <div className="flex justify-center">
+                                            <Link
+                                                href={`/admin/authority/routes/${route.id}/edit`}
+                                                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-blue-600 transition-colors"
+                                            >
+                                                <Pencil size={12} />
+                                                עריכה
+                                            </Link>
                                         </div>
                                     </div>
                                 );

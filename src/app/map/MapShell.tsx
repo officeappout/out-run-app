@@ -39,7 +39,12 @@ const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppM
   ssr: false,
 });
 
-export default function MapShell() {
+interface MapShellProps {
+  /** If set, flyTo this coordinate on map-ready (community navigation) */
+  spotFocus?: { lat: number; lng: number } | null;
+}
+
+export default function MapShell({ spotFocus }: MapShellProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
   const routeZones = useRunningPlayer((s) => s.routeZones);
@@ -140,8 +145,9 @@ export default function MapShell() {
           isNavigationMode={logic.isNavigationMode}
           onRouteSelect={logic.setSelectedRoute}
           selectedRoute={logic.selectedRoute}
+          destinationMarker={spotFocus ?? undefined}
           onMapRef={flyover.handleMapRef}
-          skipInitialZoom={flyover.flyoverActive}
+          skipInitialZoom={flyover.flyoverActive || !!spotFocus}
           isAutoFollowEnabled={isMapFollowEnabled}
           onUserPanDetected={() => setMapFollowEnabled(false)}
         />

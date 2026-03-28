@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Rss, Swords } from 'lucide-react';
+import { Home, Map, Users, Swords } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine';
 
 export default function BottomNavigation() {
@@ -24,10 +24,10 @@ export default function BottomNavigation() {
   }
 
   const navItems = [
-    { name: 'בית',  href: '/home',  icon: Home },
-    { name: 'מפה',  href: '/map',   icon: Map },
-    { name: 'הליגה', href: '/arena', icon: Swords },
-    { name: 'פיד',  href: '/feed',  icon: Rss },
+    { name: 'בית',    href: '/home',  icon: Home },
+    { name: 'מפה',    href: '/map',   icon: Map },
+    { name: 'קהילה',  href: '/feed',  icon: Users },
+    { name: 'הליגה',  href: '/arena', icon: Swords },
   ];
 
   return (

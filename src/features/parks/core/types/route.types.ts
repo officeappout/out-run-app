@@ -182,6 +182,9 @@ export interface Route {
   /** Origin of the route record */
   origin?: 'authority_admin' | 'super_admin';
 
+  // Visuals
+  images?: string[];
+
   // Import tracking
   /** Unique batch ID for group management of imported routes */
   importBatchId?: string;

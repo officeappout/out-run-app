@@ -1,8 +1,9 @@
 /**
  * User Search Service
  *
- * Queries the Firestore `users` collection by name prefix.
- * Uses a range query on `core.name` for Hebrew-friendly prefix search.
+ * Queries the Firestore `users` collection by name prefix,
+ * scoped to discoverable users within the same authority (city).
+ * Requires composite index: core.discoverable + core.authorityId + core.name
  */
 
 import {
@@ -12,6 +13,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -25,10 +27,12 @@ export interface UserSearchResult {
 
 /**
  * Search users by name prefix (case-sensitive for Hebrew).
+ * Filters by discoverable == true and optionally by authorityId (city).
  * Returns up to `max` results.
  */
 export async function searchUsersByName(
   term: string,
+  authorityId?: string,
   max = 10,
 ): Promise<UserSearchResult[]> {
   const trimmed = term.trim();
@@ -36,13 +40,22 @@ export async function searchUsersByName(
 
   const end = trimmed + '\uf8ff';
 
-  const q = query(
-    collection(db, 'users'),
+  const constraints: QueryConstraint[] = [
+    where('core.discoverable', '==', true),
+  ];
+
+  if (authorityId) {
+    constraints.push(where('core.authorityId', '==', authorityId));
+  }
+
+  constraints.push(
     orderBy('core.name'),
     where('core.name', '>=', trimmed),
     where('core.name', '<=', end),
     limit(max),
   );
+
+  const q = query(collection(db, 'users'), ...constraints);
 
   const snap = await getDocs(q);
   const results: UserSearchResult[] = [];

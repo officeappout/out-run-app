@@ -14,7 +14,6 @@ import {
   where,
   orderBy,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Park, ParkStatus } from '@/types/admin-types';
@@ -25,12 +24,23 @@ import { checkUserRole } from './auth.service';
 const PARKS_COLLECTION = 'parks';
 
 /**
- * Convert Firestore timestamp to Date
+ * Safely convert any timestamp-like value to a JS Date.
+ * Handles: Firestore Timestamp, JS Date, serialised {seconds,nanoseconds},
+ * numeric epoch-ms, and ISO strings.
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
+function toDate(timestamp: any): Date | undefined {
   if (!timestamp) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp?.toDate === 'function') return timestamp.toDate();
+  if (typeof timestamp === 'number') return new Date(timestamp);
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp?.seconds === 'number') {
+    return new Date(timestamp.seconds * 1000);
+  }
+  return undefined;
 }
 
 /**
@@ -162,18 +172,21 @@ function sanitizeParkData(
 
 /**
  * Create a new park.
- * If adminInfo is provided and the creator is an authority_manager (not super/system admin),
- * the park is saved as 'pending_review' and an EditRequest is created for Super Admin approval.
- * Super/system admins always publish immediately.
+ * If the creator is an authority_manager (not super/system admin), the park
+ * is saved as 'pending_review'. Super/system admins publish immediately
+ * unless `options.forcePendingReview` is true (e.g. testing approval flow).
  */
 export async function createPark(
   data: Omit<Park, 'id' | 'createdAt' | 'updatedAt'>,
-  adminInfo?: { adminId: string; adminName: string }
+  adminInfo?: { adminId: string; adminName: string },
+  options?: { forcePendingReview?: boolean }
 ): Promise<string> {
   try {
     let contentStatus: 'pending_review' | 'published' = 'published';
 
-    if (adminInfo) {
+    if (options?.forcePendingReview) {
+      contentStatus = 'pending_review';
+    } else if (adminInfo) {
       const roleInfo = await checkUserRole(adminInfo.adminId);
       if (roleInfo.isAuthorityManager && !roleInfo.isSuperAdmin && !roleInfo.isSystemAdmin) {
         contentStatus = 'pending_review';

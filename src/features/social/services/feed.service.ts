@@ -25,6 +25,7 @@ import { db } from '@/lib/firebase';
 // ────────────────────────────────────────────────────────────────────────────
 
 export type FeedPostType = 'workout';
+export type FeedAudience = 'public' | 'partners' | 'private';
 
 export interface FeedPost {
   id: string;
@@ -38,6 +39,7 @@ export interface FeedPost {
   paceMinPerKm?: number;
   intensityLevel?: string;
   title?: string;
+  audience?: FeedAudience;
   reactionCount?: number;
   createdAt: Date;
   // Scope fields for leaderboard queries
@@ -71,6 +73,7 @@ export async function createWorkoutPost(params: {
   paceMinPerKm?: number;
   intensityLevel?: string;
   title?: string;
+  audience?: FeedAudience;
   // Scope fields for leaderboard
   authorityId?: string;
   schoolId?: string;
@@ -93,6 +96,7 @@ export async function createWorkoutPost(params: {
       paceMinPerKm: params.paceMinPerKm ?? null,
       intensityLevel: params.intensityLevel ?? null,
       title: params.title || null,
+      audience: params.audience ?? 'partners',
       authorityId: params.authorityId ?? null,
       schoolId: params.schoolId ?? null,
       parkId: params.parkId ?? null,
@@ -150,6 +154,7 @@ export async function getFeedPosts(
         paceMinPerKm: data.paceMinPerKm ?? undefined,
         intensityLevel: data.intensityLevel ?? undefined,
         title: data.title ?? undefined,
+        audience: data.audience ?? undefined,
         reactionCount: data.reactionCount ?? 0,
         authorityId: data.authorityId ?? undefined,
         schoolId: data.schoolId ?? undefined,

@@ -16,7 +16,7 @@
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Moon, Dumbbell, Footprints, Sparkles, Clock, Target, TrendingUp } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Moon, Dumbbell, Footprints, Sparkles, Clock, Target, TrendingUp, Users } from 'lucide-react';
 import { CompactRingsProgress } from '../rings/ConcentricRingsProgress';
 import { toISODate, HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 import { getScheduleEntry, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
@@ -181,11 +181,27 @@ function CellContent({
   const isCompleted = entry?.completed ?? false;
   const hasScheduled = entry?.type === 'training';
   const cats = entry?.scheduledCategories;
+  const hasCommunity = (entry?.communitySessions?.length ?? 0) > 0;
 
   const isIconMode = viewMode === 'icons';
   const activeCats = filterCategories(viewMode);
 
   if (!cell.isCurrentMonth) return null;
+
+  if (hasCommunity && !hasScheduled && !isTraining) {
+    return (
+      <div
+        className="rounded-full flex items-center justify-center"
+        style={{
+          width: ringSize,
+          height: ringSize,
+          background: 'linear-gradient(135deg, #14B8A6, #0891B2)',
+        }}
+      >
+        <Users className="w-3 h-3 text-white" />
+      </div>
+    );
+  }
 
   // Resolve which ring categories this day targets
   const dayCats: ActivityCategory[] = cats && cats.length > 0
@@ -453,7 +469,7 @@ export default function MonthlyCalendarGrid({
               )}
 
               {/* Ring / Icon */}
-              <div className="flex items-center justify-center shrink-0" style={{ width: effectiveRingSize, height: effectiveRingSize }}>
+              <div className="relative flex items-center justify-center shrink-0" style={{ width: effectiveRingSize, height: effectiveRingSize }}>
                 <CellContent
                   cell={cell}
                   entry={entry}
@@ -462,6 +478,13 @@ export default function MonthlyCalendarGrid({
                   ringSize={effectiveRingSize}
                   ringStroke={effectiveRingStroke}
                 />
+                {/* Community dot — tiny teal indicator when day has both personal + community */}
+                {(entry?.communitySessions?.length ?? 0) > 0 && (entry?.programIds?.length ?? 0) > 0 && (
+                  <div
+                    className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-slate-900"
+                    style={{ background: '#14B8A6' }}
+                  />
+                )}
               </div>
             </button>
           );

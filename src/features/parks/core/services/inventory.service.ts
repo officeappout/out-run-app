@@ -1,6 +1,7 @@
 import { db } from '@/lib/firebase';
 import {
     collection,
+    getDoc,
     getDocs,
     writeBatch,
     doc,
@@ -583,6 +584,45 @@ export const InventoryService = {
         } catch (error) {
             console.error('❌ Error fetching routes by authorityId:', error);
             return [];
+        }
+    },
+
+    /**
+     * Update metadata fields on an existing route.
+     * Does NOT touch path geometry — only name, description, difficulty, activityType, etc.
+     */
+    updateRoute: async (routeId: string, data: Partial<Route>): Promise<void> => {
+        try {
+            const { id, path, createdAt, ...rest } = data as any;
+            const payload = stripUndefined({
+                ...rest,
+                updatedAt: serverTimestamp(),
+            });
+            await updateDoc(doc(db, 'official_routes', routeId), payload);
+        } catch (error) {
+            console.error('❌ Error updating route:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Fetch a single route by its document ID.
+     */
+    getRouteById: async (routeId: string): Promise<Route | null> => {
+        try {
+            const docRef = doc(db, 'official_routes', routeId);
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) return null;
+            const data = docSnap.data();
+            const rawPath = data.path;
+            if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
+            const path = rawPath.map(
+                (p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]
+            );
+            return { ...data, id: docSnap.id, path } as Route;
+        } catch (error) {
+            console.error('❌ Error fetching route by ID:', error);
+            return null;
         }
     },
 

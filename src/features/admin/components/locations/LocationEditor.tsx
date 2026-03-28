@@ -50,6 +50,20 @@ const Marker = dynamicImport(() => import('react-map-gl').then(mod => mod.Marker
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
+function applyHebrewLabels(map: any) {
+  try {
+    const style = map.getStyle?.();
+    if (!style?.layers) return;
+    for (const layer of style.layers) {
+      if (layer.type === 'symbol' && layer.layout?.['text-field']) {
+        try {
+          map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name_he'], ['get', 'name']]);
+        } catch { /* skip locked layers */ }
+      }
+    }
+  } catch { /* ignore */ }
+}
+
 // ── Labels ─────────────────────────────────────────────────────────
 const FACILITY_TYPE_LABELS: Record<ParkFacilityCategory, string> = {
   gym_park:         'פארק כושר',
@@ -362,12 +376,15 @@ export default function LocationEditor({
 
     try {
       let parkId: string;
+      const adminInfo = currentUid !== 'unknown'
+        ? { adminId: currentUid, adminName: auth.currentUser?.displayName || currentUid }
+        : undefined;
 
       if (isEdit && initialData?.id) {
-        await updatePark(initialData.id, parkData as any);
+        await updatePark(initialData.id, parkData as any, adminInfo);
         parkId = initialData.id;
       } else {
-        parkId = await createPark(parkData);
+        parkId = await createPark(parkData, adminInfo, { forcePendingReview: isPending });
       }
 
       setSaved(true);
@@ -783,6 +800,7 @@ export default function LocationEditor({
           {...viewport}
           onMove={e => setViewport(e.viewState)}
           onClick={handleMapClick}
+          onLoad={(e: any) => { applyHebrewLabels(e.target); e.target?.on?.('style.load', () => applyHebrewLabels(e.target)); }}
           mapboxAccessToken={MAPBOX_TOKEN}
           mapStyle="mapbox://styles/mapbox/streets-v12"
           style={{ width: '100%', height: '100%' }}

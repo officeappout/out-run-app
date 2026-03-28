@@ -21,6 +21,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
+import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
+import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
+import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
+import type { CommunityGroup } from '@/types/community.types';
 
 import {
   LogOut, Settings, BadgeCheck, AlertCircle,
@@ -266,6 +270,19 @@ export default function HomePage() {
   const postWorkoutMsg = useSmartMessage('post_workout');
   const { celebrate } = useGoalCelebration();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
+  const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
+  const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
+
+  const handleOpenGroupFromBanner = useCallback(async (groupId: string) => {
+    try {
+      const snap = await getDoc(firestoreDoc(db, 'community_groups', groupId));
+      if (snap.exists()) {
+        setBannerGroup({ id: snap.id, ...snap.data() } as CommunityGroup);
+      }
+    } catch (err) {
+      console.error('[Home] failed to load group for drawer:', err);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -817,6 +834,22 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
+      {/* ── Community Session Banner (single closest session, dismiss persists across refreshes) ── */}
+      {communitySessions.length > 0 && (
+        <div className="max-w-md mx-auto px-4 pt-3">
+          <AnimatePresence>
+            {communitySessions.slice(0, 1).map((session) => (
+              <CommunitySessionBanner
+                key={`${session.groupId}_${session.date}_${session.time}`}
+                session={session}
+                onDismiss={() => dismissSession(session)}
+                onOpenGroup={handleOpenGroupFromBanner}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* ── Main Content: Clean Execution Zone ── */}
       <div className="max-w-md mx-auto px-4 pt-4 pb-4 space-y-4">
 
@@ -1031,6 +1064,13 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <GroupDetailsDrawer
+        isOpen={!!bannerGroup}
+        onClose={() => setBannerGroup(null)}
+        group={bannerGroup}
+        isJoined={true}
+      />
     </div>
   );
 }

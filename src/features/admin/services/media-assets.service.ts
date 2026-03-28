@@ -27,6 +27,8 @@ export const MEDIA_LOCATION_LABELS: Record<MediaAssetLocation, string> = {
   other: 'אחר',
 };
 
+export type MediaScope = 'community' | 'locations';
+
 export interface MediaAsset {
   id: string;
   name: string;
@@ -45,6 +47,10 @@ export interface MediaAsset {
   location?: MediaAssetLocation;
   /** Tags for categorization (e.g., exercise name, muscle group) */
   tags?: string[];
+  /** Authority ID for scoped assets */
+  authorityId?: string;
+  /** Scope context (community = groups/events, locations = parks/fields) */
+  scope?: MediaScope;
 }
 
 export interface MediaAssetFormData {
@@ -54,6 +60,10 @@ export interface MediaAssetFormData {
   location?: MediaAssetLocation;
   /** Tags for categorization */
   tags?: string[];
+  /** Authority ID for scoped uploads */
+  authorityId?: string;
+  /** Scope context for storage path and filtering */
+  scope?: MediaScope;
 }
 
 /**
@@ -91,7 +101,7 @@ export function parseLocationFromFilename(filename: string): MediaAssetLocation 
  */
 export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaAsset> {
   try {
-    const { name, file, location, tags } = data;
+    const { name, file, location, tags, authorityId, scope } = data;
     
     // Validate file type - support all video formats and images
     const isImage = file.type.startsWith('image/');
@@ -107,11 +117,16 @@ export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaA
       throw new Error('גודל הקובץ חורג מ-100MB. נא להקטין את הקובץ או להמיר אותו.');
     }
 
-    // Create storage path
+    // Build storage path based on scope
     const timestamp = Date.now();
     const safeName = name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     const fileExtension = file.name.split('.').pop();
-    const storagePath = `media-assets/${timestamp}-${safeName}.${fileExtension}`;
+    let storagePath: string;
+    if (authorityId && scope) {
+      storagePath = `authorities/${authorityId}/${scope}/${timestamp}-${safeName}.${fileExtension}`;
+    } else {
+      storagePath = `media-assets/${timestamp}-${safeName}.${fileExtension}`;
+    }
     
     // Upload to Firebase Storage with correct contentType metadata
     const storageRef = ref(storage, storagePath);
@@ -134,12 +149,10 @@ export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaA
     };
     
     // Add optional fields only if they have values
-    if (location) {
-      assetData.location = location;
-    }
-    if (tags && tags.length > 0) {
-      assetData.tags = tags;
-    }
+    if (location) assetData.location = location;
+    if (tags && tags.length > 0) assetData.tags = tags;
+    if (authorityId) assetData.authorityId = authorityId;
+    if (scope) assetData.scope = scope;
     
     const docRef = await addDoc(collection(db, 'mediaAssets'), assetData);
     
@@ -155,15 +168,20 @@ export async function uploadMediaAsset(data: MediaAssetFormData): Promise<MediaA
 }
 
 /**
- * Get all media assets from Firestore
+ * Get all media assets from Firestore.
+ * When authorityId + scope are provided, returns only that authority's scoped assets.
  */
-export async function getAllMediaAssets(): Promise<MediaAsset[]> {
+export async function getAllMediaAssets(
+  authorityId?: string,
+  scope?: MediaScope,
+): Promise<MediaAsset[]> {
   try {
-    const q = query(
-      collection(db, 'mediaAssets'),
-      orderBy('createdAt', 'desc')
-    );
-    
+    const constraints: any[] = [];
+    if (authorityId) constraints.push(where('authorityId', '==', authorityId));
+    if (scope) constraints.push(where('scope', '==', scope));
+    constraints.push(orderBy('createdAt', 'desc'));
+
+    const q = query(collection(db, 'mediaAssets'), ...constraints);
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map((doc) => ({
@@ -172,29 +190,30 @@ export async function getAllMediaAssets(): Promise<MediaAsset[]> {
       createdAt: doc.data().createdAt?.toDate() || new Date(),
     })) as MediaAsset[];
   } catch (error: any) {
-    // Handle missing index error gracefully
     if (error.code === 'failed-precondition' || error.message?.includes('index')) {
       console.warn('Media assets index missing. Please create the index in Firebase Console:', error);
-      // Return empty array instead of crashing
       return [];
     }
     console.error('Error fetching media assets:', error);
-    // Return empty array instead of throwing to prevent app crash
     return [];
   }
 }
 
 /**
- * Get media assets filtered by type
+ * Get media assets filtered by type (and optionally by authority scope).
  */
-export async function getMediaAssetsByType(type: 'image' | 'video'): Promise<MediaAsset[]> {
+export async function getMediaAssetsByType(
+  type: 'image' | 'video',
+  authorityId?: string,
+  scope?: MediaScope,
+): Promise<MediaAsset[]> {
   try {
-    const q = query(
-      collection(db, 'mediaAssets'),
-      where('type', '==', type),
-      orderBy('createdAt', 'desc')
-    );
-    
+    const constraints: any[] = [where('type', '==', type)];
+    if (authorityId) constraints.push(where('authorityId', '==', authorityId));
+    if (scope) constraints.push(where('scope', '==', scope));
+    constraints.push(orderBy('createdAt', 'desc'));
+
+    const q = query(collection(db, 'mediaAssets'), ...constraints);
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map((doc) => ({
@@ -203,14 +222,11 @@ export async function getMediaAssetsByType(type: 'image' | 'video'): Promise<Med
       createdAt: doc.data().createdAt?.toDate() || new Date(),
     })) as MediaAsset[];
   } catch (error: any) {
-    // Handle missing index error gracefully
     if (error.code === 'failed-precondition' || error.message?.includes('index')) {
       console.warn('Media assets index missing. Please create the index in Firebase Console:', error);
-      // Return empty array instead of crashing
       return [];
     }
     console.error('Error fetching media assets by type:', error);
-    // Return empty array instead of throwing to prevent app crash
     return [];
   }
 }
@@ -218,9 +234,13 @@ export async function getMediaAssetsByType(type: 'image' | 'video'): Promise<Med
 /**
  * Search media assets by name
  */
-export async function searchMediaAssets(searchTerm: string): Promise<MediaAsset[]> {
+export async function searchMediaAssets(
+  searchTerm: string,
+  authorityId?: string,
+  scope?: MediaScope,
+): Promise<MediaAsset[]> {
   try {
-    const allAssets = await getAllMediaAssets();
+    const allAssets = await getAllMediaAssets(authorityId, scope);
     const lowerSearchTerm = searchTerm.toLowerCase();
     
     return allAssets.filter((asset) =>
@@ -228,7 +248,6 @@ export async function searchMediaAssets(searchTerm: string): Promise<MediaAsset[
     );
   } catch (error: any) {
     console.error('Error searching media assets:', error);
-    // Return empty array instead of throwing to prevent app crash
     return [];
   }
 }

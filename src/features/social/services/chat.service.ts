@@ -199,7 +199,11 @@ export async function createGroupChat(
 }
 
 /**
- * Adds a member to a group's chat thread.
+ * Adds a member to an existing group chat thread.
+ * If the chat document is missing this throws — the caller (joinGroup /
+ * joinEvent) catches and falls back to createGroupChat().
+ * The update is intentionally simple so it matches the Firestore rule:
+ *   "group chat update: user in request.resource.data.participants"
  */
 export async function addMemberToGroupChat(
   groupId: string,
@@ -208,7 +212,6 @@ export async function addMemberToGroupChat(
 ): Promise<void> {
   const chatId = makeGroupChatId(groupId);
   const chatRef = doc(db, 'chats', chatId);
-
   await updateDoc(chatRef, {
     participants: arrayUnion(uid),
     [`participantNames.${uid}`]: name,

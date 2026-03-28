@@ -40,6 +40,8 @@ interface SocialState {
   followUser: (myUid: string, targetUid: string) => Promise<void>;
   unfollowUser: (myUid: string, targetUid: string) => Promise<void>;
   isFollowing: (targetUid: string) => boolean;
+  /** A "Partner" is a mutual follow — both users follow each other. */
+  isPartner: (targetUid: string) => boolean;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -131,5 +133,10 @@ export const useSocialStore = create<SocialState>((set, get) => ({
 
   isFollowing: (targetUid: string) => {
     return get().following.includes(targetUid);
+  },
+
+  isPartner: (targetUid: string) => {
+    const { following, followers } = get();
+    return following.includes(targetUid) && followers.includes(targetUid);
   },
 }));

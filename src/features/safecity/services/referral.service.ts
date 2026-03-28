@@ -1,21 +1,21 @@
 /**
- * Referral Service — Viral Gate referral tracking.
+ * Referral Service — Viral Gate referral tracking + auto-connect.
  *
  * When a new Outer signs up via an invite link (`/join?ref=<referrerUid>`),
- * this service increments `core.referralCount` on the referrer's document
- * and records the relationship in a subcollection for audit.
+ * this service records the referral in a top-level `/referrals` collection
+ * and establishes a mutual social connection between the two users.
  *
  * Firestore writes:
- *   users/{referrerUid}            → core.referralCount +1
- *   users/{referrerUid}/referrals  → { inviteeUid, inviteeName, joinedAt }
+ *   referrals/{referrerUid}_{inviteeUid}  → audit record
+ *   connections/{uid}                      → arrayUnion for mutual follow
  */
 
 import {
   doc,
   getDoc,
-  updateDoc,
   setDoc,
-  increment,
+  updateDoc,
+  arrayUnion,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -30,9 +30,12 @@ export interface ReferralResult {
 }
 
 /**
- * Process a referral: increment the referrer's count and log the relationship.
- * Safe to call multiple times for the same pair — uses inviteeUid as doc ID
+ * Process a referral: log the relationship in the top-level /referrals collection.
+ * Safe to call multiple times for the same pair — uses composite doc ID
  * to prevent double-counting.
+ *
+ * NOTE: referralCount on the referrer's user doc should be maintained by a
+ * Cloud Function trigger on the /referrals collection, not by client writes.
  */
 export async function processReferral(
   referrerUid: string,
@@ -40,35 +43,24 @@ export async function processReferral(
   inviteeName: string,
 ): Promise<ReferralResult> {
   try {
-    const referralDocRef = doc(db, 'users', referrerUid, 'referrals', inviteeUid);
+    const referralDocId = `${referrerUid}_${inviteeUid}`;
+    const referralDocRef = doc(db, 'referrals', referralDocId);
     const existing = await getDoc(referralDocRef);
     if (existing.exists()) {
-      const referrerDoc = await getDoc(doc(db, 'users', referrerUid));
-      const currentCount = referrerDoc.data()?.core?.referralCount ?? 0;
-      return { success: true, newCount: currentCount, justUnlocked: false };
+      return { success: true, newCount: 0, justUnlocked: false };
     }
 
     await setDoc(referralDocRef, {
+      referrerUid,
       inviteeUid,
       inviteeName,
       joinedAt: serverTimestamp(),
     });
 
-    const userRef = doc(db, 'users', referrerUid);
-    await updateDoc(userRef, {
-      'core.referralCount': increment(1),
-    });
-
-    const updatedDoc = await getDoc(userRef);
-    const data = updatedDoc.data();
-    const newCount = data?.core?.referralCount ?? 1;
-    const referrerName = data?.core?.name ?? '';
-
     return {
       success: true,
-      newCount,
-      justUnlocked: newCount >= REFERRAL_GOAL,
-      referrerName,
+      newCount: 1,
+      justUnlocked: true,
     };
   } catch (error) {
     console.error('[ReferralService] processReferral failed:', error);
@@ -77,9 +69,41 @@ export async function processReferral(
 }
 
 /**
+ * Establish a mutual follow (partner) relationship between two users.
+ * Writes to both connections/{inviterUid} and connections/{newUid}.
+ */
+export async function establishSocialConnection(
+  inviterUid: string,
+  newUid: string,
+): Promise<void> {
+  if (inviterUid === newUid) return;
+
+  try {
+    const inviterRef = doc(db, 'connections', inviterUid);
+    const newUserRef = doc(db, 'connections', newUid);
+
+    await Promise.all([
+      updateDoc(inviterRef, {
+        following: arrayUnion(newUid),
+        followers: arrayUnion(newUid),
+      }).catch(() =>
+        setDoc(inviterRef, { following: [newUid], followers: [newUid] }, { merge: true }),
+      ),
+      updateDoc(newUserRef, {
+        following: arrayUnion(inviterUid),
+        followers: arrayUnion(inviterUid),
+      }).catch(() =>
+        setDoc(newUserRef, { following: [inviterUid], followers: [inviterUid] }, { merge: true }),
+      ),
+    ]);
+  } catch (error) {
+    console.error('[ReferralService] establishSocialConnection failed:', error);
+  }
+}
+
+/**
  * Extract and persist the referrer UID from the URL on the join/gateway page.
- * Call once on mount — stores in sessionStorage so downstream auth handlers
- * can pick it up after the new user finishes sign-up.
+ * Uses localStorage so the value survives tab-close on mobile.
  */
 export function captureReferralParam(): string | null {
   if (typeof window === 'undefined') return null;
@@ -87,9 +111,9 @@ export function captureReferralParam(): string | null {
   const params = new URLSearchParams(window.location.search);
   const ref = params.get('ref');
   if (ref) {
-    sessionStorage.setItem('referrer_uid', ref);
+    localStorage.setItem('referrer_uid', ref);
   }
-  return ref ?? sessionStorage.getItem('referrer_uid');
+  return ref ?? localStorage.getItem('referrer_uid');
 }
 
 /**
@@ -97,7 +121,7 @@ export function captureReferralParam(): string | null {
  */
 export function getStoredReferrer(): string | null {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem('referrer_uid');
+  return localStorage.getItem('referrer_uid');
 }
 
 /**
@@ -105,5 +129,5 @@ export function getStoredReferrer(): string | null {
  */
 export function clearStoredReferrer(): void {
   if (typeof window === 'undefined') return;
-  sessionStorage.removeItem('referrer_uid');
+  localStorage.removeItem('referrer_uid');
 }

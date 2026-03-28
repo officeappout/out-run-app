@@ -46,7 +46,7 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Send, AlertCircle, Route, Footprints, Heart } from 'lucide-react';
+import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Send, AlertCircle, Route, Footprints, Heart, CalendarCheck, ArrowLeft } from 'lucide-react';
 import { getParksByAuthority } from '@/features/parks';
 import { Park } from '@/types/admin-types';
 import {
@@ -63,15 +63,18 @@ import {
   ManagerNotification,
 } from '@/features/admin/services/engagement.service';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { CommunityGroup, SessionAttendance } from '@/types/community.types';
 
 interface AnalyticsDashboardProps {
   authorityId: string;
+  onNavigateToSessions?: () => void;
 }
 
 const COLORS = ['#00AEEF', '#06B6D4', '#0891B2', '#0E7490', '#155E75'];
 
-export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }: AnalyticsDashboardProps) {
   const [dau, setDau] = useState<number>(0);
   const [mau, setMau] = useState<number>(0);
   const [genderData, setGenderData] = useState<GenderDistribution | null>(null);
@@ -109,6 +112,8 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [sendingPush, setSendingPush] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [todaySessionCount, setTodaySessionCount] = useState(0);
+  const [todayRsvpCount, setTodayRsvpCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -121,6 +126,7 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
     setFilters(DEFAULT_FILTERS);
     loadAll();
     loadNotifications();
+    loadSessionSummary();
   }, [authorityId]);
 
   // Debounced filter re-query (300ms) — does NOT re-run the full loadAll
@@ -241,6 +247,45 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
     }
   };
 
+  const loadSessionSummary = async () => {
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'community_groups'), where('authorityId', '==', authorityId)),
+      );
+      const groups = snap.docs.map((d) => ({ id: d.id, ...d.data() } as CommunityGroup));
+      const dow = new Date().getDay();
+      let sessionCount = 0;
+      let rsvpCount = 0;
+
+      const todayISO = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      })();
+
+      for (const g of groups) {
+        const slots = g.scheduleSlots?.length ? g.scheduleSlots : g.schedule ? [g.schedule] : [];
+        for (const slot of slots) {
+          if (slot.dayOfWeek === dow) {
+            sessionCount++;
+            const docId = `${todayISO}_${slot.time.replace(':', '-')}`;
+            try {
+              const attSnap = await getDocs(collection(db, 'community_groups', g.id, 'attendance'));
+              for (const adoc of attSnap.docs) {
+                if (adoc.id === docId) {
+                  rsvpCount += (adoc.data() as SessionAttendance).currentCount ?? 0;
+                }
+              }
+            } catch { /* no attendance */ }
+          }
+        }
+      }
+      setTodaySessionCount(sessionCount);
+      setTodayRsvpCount(rsvpCount);
+    } catch (err) {
+      console.error('[AnalyticsDashboard] session summary failed:', err);
+    }
+  };
+
   const handleSendEncouragement = async () => {
     if (!selectedNotification || !currentUserId || !encouragementTitle || !encouragementMessage) {
       return;
@@ -325,53 +370,40 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
   return (
     <div className="space-y-6">
 
-      {/* ── Health ROI Hero Banner — the "Money Shot" ────────────────── */}
+      {/* ── Health ROI Strip ────────────────────────────────────────── */}
       {healthSavings ? (
-        <div className="relative overflow-hidden bg-gradient-to-br from-green-700 via-emerald-600 to-teal-500 rounded-2xl p-8 text-white shadow-xl" dir="rtl">
-          {/* Decorative glow */}
-          <div className="absolute -top-20 -left-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="relative flex items-start justify-between flex-wrap gap-6">
-            <div className="flex-1 min-w-[240px]">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Heart size={20} className="text-white" />
-                </div>
-                <span className="text-sm font-black text-white/90 uppercase tracking-wider">החזר השקעה בריאותי — שדרות</span>
-              </div>
-              <div className="text-6xl font-black tabular-nums leading-none">
-                ₪{healthSavings.estimatedMonthlySavings.toLocaleString()}
-              </div>
-              <div className="text-base text-white/70 mt-2 font-semibold">חיסכון חודשי מוערך בהוצאות בריאות</div>
+        <div className="relative overflow-hidden bg-gradient-to-r from-green-700 via-emerald-600 to-teal-500 rounded-xl px-5 py-3 text-white shadow-md" dir="rtl">
+          <div className="absolute -top-12 -left-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Heart size={18} className="text-white/80 flex-shrink-0" />
+              <span className="text-xs font-bold text-white/70 uppercase tracking-wider hidden sm:inline">ROI בריאותי</span>
             </div>
-            <div className="flex flex-col gap-3 text-right min-w-[200px]">
-              <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-4 border border-white/10">
-                <div className="text-3xl font-black tabular-nums">₪{healthSavings.estimatedYearlySavings.toLocaleString()}</div>
-                <div className="text-xs text-white/70 font-semibold">חיסכון שנתי מוערך</div>
+            <div className="flex items-center gap-6 flex-wrap">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black tabular-nums">₪{healthSavings.estimatedMonthlySavings.toLocaleString()}</span>
+                <span className="text-[11px] text-white/60 font-semibold">/חודש</span>
               </div>
-              <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-4 border border-white/10">
-                <div className="flex items-baseline gap-1.5">
-                  <div className="text-3xl font-black tabular-nums">{healthSavings.activeUsers}</div>
-                  <div className="text-sm font-bold text-white/60">/ {healthSavings.totalUsers}</div>
-                </div>
-                <div className="text-xs text-white/70 font-semibold">עומדים ביעד 150 דק׳ WHO בשבוע</div>
+              <div className="w-px h-5 bg-white/20 hidden sm:block" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black tabular-nums">₪{healthSavings.estimatedYearlySavings.toLocaleString()}</span>
+                <span className="text-[11px] text-white/60 font-semibold">/שנה</span>
+              </div>
+              <div className="w-px h-5 bg-white/20 hidden sm:block" />
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-black tabular-nums">{healthSavings.activeUsers}</span>
+                <span className="text-[11px] text-white/50 font-semibold">/{healthSavings.totalUsers} עומדים ביעד WHO</span>
               </div>
             </div>
           </div>
-          <p className="relative text-[11px] text-white/50 mt-5 leading-relaxed">
-            * מבוסס על מודל ה-WHO: ₪500 חיסכון חודשי לאדם המבצע 150+ דקות פעילות גופנית בשבוע. מודל אקדמי לצורכי הצגה בלבד.
-          </p>
         </div>
       ) : (
-        <div className="bg-gradient-to-br from-green-700 via-emerald-600 to-teal-500 rounded-2xl p-8 text-white shadow-xl animate-pulse">
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Heart size={20} className="text-white" />
-            </div>
-            <span className="text-sm font-black text-white/80">מחשב החזר השקעה בריאותי...</span>
+        <div className="bg-gradient-to-r from-green-700 via-emerald-600 to-teal-500 rounded-xl px-5 py-3 text-white shadow-md animate-pulse">
+          <div className="flex items-center gap-3">
+            <Heart size={18} className="text-white/80" />
+            <span className="text-xs font-bold text-white/70">מחשב ROI בריאותי...</span>
+            <div className="h-5 bg-white/20 rounded w-32" />
           </div>
-          <div className="h-14 bg-white/20 rounded-lg w-56" />
         </div>
       )}
 
@@ -484,6 +516,32 @@ export default function AnalyticsDashboard({ authorityId }: AnalyticsDashboardPr
             <div className="text-3xl font-black text-gray-300 animate-pulse">—</div>
           )}
         </div>
+      </div>
+
+      {/* ── Sessions Summary Card ────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-violet-50 rounded-2xl p-6 border border-purple-200 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-500 flex items-center justify-center shadow-md">
+            <CalendarCheck size={24} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-gray-900">מפגשים היום</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              <span className="font-bold text-purple-600">{todaySessionCount}</span> מפגשים
+              <span className="mx-1.5">·</span>
+              <span className="font-bold text-cyan-600">{todayRsvpCount}</span> רישומים
+            </p>
+          </div>
+        </div>
+        {onNavigateToSessions && (
+          <button
+            onClick={onNavigateToSessions}
+            className="flex items-center gap-1.5 px-5 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold hover:bg-purple-600 transition-colors shadow-sm"
+          >
+            <ArrowLeft size={16} />
+            לניהול המפגשים
+          </button>
+        )}
       </div>
 
       {/* ── Cross-Reference Filter Bar ─────────────────────────────────── */}

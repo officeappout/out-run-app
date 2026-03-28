@@ -55,7 +55,6 @@ export function setMapLanguageToHebrew(map: MapboxGLMap) {
           map.setLayoutProperty(layer.id, 'text-field', [
             'coalesce',
             ['get', 'name_he'],
-            ['get', 'name:he'],
             ['get', 'name'],
           ]);
         } catch {

@@ -277,53 +277,44 @@ export default function AppMap({
   }, [livePath, livePathZones, hasZones]);
 
   const handleMapLoad = (e: any) => {
-    // Mark map as loaded only when style is ready
-    const map = mapRef.current || e?.target;
-    if (!map || typeof map.getStyle !== 'function') return;
+    // Get the raw mapboxgl.Map — prefer e.target (guaranteed raw), fall back to ref
+    const rawMap = e?.target || mapRef.current?.getMap?.() || mapRef.current;
+    if (!rawMap || typeof rawMap.getStyle !== 'function') return;
+
+    let hebrewDebounce: ReturnType<typeof setTimeout> | null = null;
 
     const applyHebrewLabels = () => {
       try {
-        const style = map.getStyle();
-        if (!style || !style.layers) {
-          return;
-        }
+        const style = rawMap.getStyle();
+        if (!style?.layers) return;
 
-        // Force Hebrew labels for all symbol layers
-        style.layers.forEach((layer: any) => {
+        for (const layer of style.layers) {
           try {
-            if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
-              // Set Hebrew-first text field with fallbacks
-              map.setLayoutProperty(layer.id, 'text-field', [
+            if (layer.type === 'symbol' && (layer as any).layout?.['text-field']) {
+              rawMap.setLayoutProperty(layer.id, 'text-field', [
                 'coalesce',
                 ['get', 'name_he'],
-                ['get', 'name:he'],
-                ['get', 'name_en'],
-                ['get', 'name']
+                ['get', 'name'],
               ]);
             }
-          } catch {
-            // Ignore per-layer errors to avoid crashing map
-          }
-        });
+          } catch { /* skip locked/internal layers */ }
+        }
       } catch (err) {
         console.warn('Could not set Hebrew labels:', err);
       }
     };
 
-    // Apply Hebrew labels immediately
-    applyHebrewLabels();
+    const debouncedHebrew = () => {
+      if (hebrewDebounce) clearTimeout(hebrewDebounce);
+      hebrewDebounce = setTimeout(applyHebrewLabels, 50);
+    };
 
-    // Also listen for style changes to reapply Hebrew labels
-    map.on('style.load', applyHebrewLabels);
-    
-    // Also reapply when data loads (for dynamic label updates)
-    map.on('data', () => {
-      // Debounce to avoid excessive calls
-      setTimeout(applyHebrewLabels, 100);
-    });
+    applyHebrewLabels();
+    rawMap.on('style.load', applyHebrewLabels);
+    rawMap.on('sourcedata', debouncedHebrew);
 
     // Detect user-initiated pan to disable auto-follow
-    map.on('movestart', (evt: any) => {
+    rawMap.on('movestart', (evt: any) => {
       if (evt.originalEvent && isActiveWorkout) {
         onUserPanDetected?.();
       }
@@ -349,7 +340,7 @@ export default function AppMap({
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
-        locale="he"
+        locale={{ 'NavigationControl.ZoomIn': 'הגדל', 'NavigationControl.ZoomOut': 'הקטן' }}
         onClick={() => onRouteSelect && focusedRoute && onRouteSelect(null as any)}
       >
         {isMapLoaded && (
