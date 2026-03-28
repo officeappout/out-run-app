@@ -3,10 +3,10 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { MapPin, Users, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { getGroupByInviteCode } from '@/features/arena/services/group.service';
+import { onAuthStateChange } from '@/lib/auth.service';
 import type { CommunityGroup } from '@/types/community.types';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
@@ -22,6 +22,7 @@ const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמי�
 
 export default function JoinPage() {
   const params = useParams();
+  const router = useRouter();
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
   const [group, setGroup] = useState<CommunityGroup | null>(null);
@@ -35,6 +36,8 @@ export default function JoinPage() {
         if (g) {
           setGroup(g);
           if (g.createdBy) localStorage.setItem('group_inviter_uid', g.createdBy);
+          localStorage.setItem('pending_invite_code', inviteCode);
+          localStorage.setItem('pending_group_id', g.id);
         } else {
           setNotFound(true);
         }
@@ -42,6 +45,19 @@ export default function JoinPage() {
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [inviteCode]);
+
+  const handleJoinClick = () => {
+    if (!group) return;
+
+    const unsub = onAuthStateChange((user) => {
+      unsub();
+      if (user) {
+        router.push(`/feed?groupId=${group.id}`);
+      } else {
+        router.push('/gateway');
+      }
+    });
+  };
 
   if (loading) {
     return (
@@ -59,12 +75,12 @@ export default function JoinPage() {
         <p className="text-sm text-gray-500 mb-6 max-w-xs">
           ייתכן שהקבוצה הוסרה או שהקישור פג תוקפו.
         </p>
-        <Link
-          href="/feed"
+        <button
+          onClick={() => router.push('/feed')}
           className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black shadow-lg shadow-cyan-500/30"
         >
           גלה קבוצות אחרות
-        </Link>
+        </button>
       </div>
     );
   }
@@ -157,13 +173,13 @@ export default function JoinPage() {
         className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-5 py-4 max-w-md mx-auto w-full"
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
       >
-        <Link
-          href={`/feed?groupId=${group.id}`}
+        <button
+          onClick={handleJoinClick}
           className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-base font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-xl shadow-cyan-500/30 active:scale-[0.97] transition-transform"
         >
           <Users className="w-5 h-5" />
           הצטרף לקבוצה
-        </Link>
+        </button>
         <p className="text-center text-[11px] text-gray-400 mt-2.5">
           תועבר לאפליקציית OutRun כדי להשלים את ההצטרפות
         </p>

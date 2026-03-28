@@ -672,13 +672,14 @@ export default function GroupDetailsDrawer({
 
                 {/* ── Share button ────────────────────────────────── */}
                 {group.inviteCode && (() => {
-                  const deepLink = `https://outrun.co.il/join/${group.inviteCode}`;
-                  const shareText = `היי, מצאתי קבוצת ${catConfig.label} מעולה בשדרות: \'${group.name}\'! בואו להצטרף אלינו. לינק להצטרפות: ${deepLink}`;
+                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+                  const deepLink = `${origin}/join/${group.inviteCode}`;
+                  const shareText = `היי, מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
                   const handleShare = () => {
                     if (typeof navigator !== 'undefined' && navigator.share) {
                       navigator.share({ title: group.name, text: shareText, url: deepLink }).catch(() => {});
                     } else {
-                      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+                      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${deepLink}`)}`, '_blank');
                     }
                   };
                   return (

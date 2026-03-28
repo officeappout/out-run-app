@@ -13,7 +13,8 @@ interface ViralUnlockSheetProps {
 const REFERRAL_GOAL = 1;
 
 function generateInviteLink(userId: string): string {
-  return `https://out-app.co.il/join?ref=${userId}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+  return `${origin}/join?ref=${userId}`;
 }
 
 function resolveLocationName(profile: ReturnType<typeof useUserStore>['profile']): string {

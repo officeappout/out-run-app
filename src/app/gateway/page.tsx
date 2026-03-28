@@ -222,6 +222,17 @@ export default function GatewayPage() {
         localStorage.removeItem('group_inviter_uid');
       }
 
+      // If user came from a group invite deep link, redirect to that group
+      const pendingGroupId = localStorage.getItem('pending_group_id');
+      if (pendingGroupId) {
+        localStorage.removeItem('pending_group_id');
+        localStorage.removeItem('pending_invite_code');
+        setTimeout(() => {
+          router.push(`/feed?groupId=${pendingGroupId}`);
+        }, 1200);
+        return;
+      }
+
       // Brief delay for the transition animation, then redirect
       setTimeout(() => {
         router.push('/explorer');
@@ -260,6 +271,15 @@ export default function GatewayPage() {
       if (groupInviterUid && groupInviterUid !== user.uid) {
         establishSocialConnection(groupInviterUid, user.uid).catch(() => {});
         localStorage.removeItem('group_inviter_uid');
+      }
+
+      // If user came from a group invite deep link, redirect to that group
+      const pendingGroupId = localStorage.getItem('pending_group_id');
+      if (pendingGroupId) {
+        localStorage.removeItem('pending_group_id');
+        localStorage.removeItem('pending_invite_code');
+        router.push(`/feed?groupId=${pendingGroupId}`);
+        return;
       }
 
       router.push('/onboarding-new/profile');
