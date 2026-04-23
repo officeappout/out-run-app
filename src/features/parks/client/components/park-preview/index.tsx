@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { Pencil, Star, Loader2, ChevronUp } from 'lucide-react';
 import { useMapStore } from '../../../core/store/useMapStore';

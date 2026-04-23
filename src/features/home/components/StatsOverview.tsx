@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useUserStore } from '@/features/user';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
