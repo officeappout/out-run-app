@@ -6,8 +6,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { useArenaAccess, ArenaTabKey } from '@/features/arena/hooks/useArenaAccess';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
 import LockedArenaCard from '@/features/arena/components/LockedArenaCard';
 import CityArenaView from '@/features/arena/components/CityArenaView';
@@ -18,11 +20,21 @@ import GroupCard from '@/features/arena/components/GroupCard';
 
 export default function ArenaPage() {
   const { _hasHydrated, profile } = useUserStore();
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  const router = useRouter();
   const access = useArenaAccess();
   const cityData = useArenaData(access.cityAuthorityId);
 
   const [segment, setSegment] = useState<ArenaTabKey>('global');
   const defaultApplied = useRef(false);
+
+  // Route guard
+  useEffect(() => {
+    if (!flagsLoading && !featureFlags.enableCommunityFeed) {
+      router.replace('/home');
+    }
+  }, [flagsLoading, featureFlags.enableCommunityFeed, router]);
 
   useEffect(() => {
     if (access.activeTabs.length === 0) return;
@@ -35,6 +47,8 @@ export default function ArenaPage() {
       setSegment(access.activeTabs[0].key);
     }
   }, [access.activeTabs, segment]);
+
+  if (flagsLoading || !featureFlags.enableCommunityFeed) return null;
 
   if (!_hasHydrated || access.isLoading) {
     return (

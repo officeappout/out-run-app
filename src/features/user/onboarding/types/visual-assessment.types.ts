@@ -59,6 +59,10 @@ export interface VisualAssessmentContent {
   showInOnboarding?: boolean;
   /** Short instructional text shown in the slider bubble during onboarding. */
   onboardingBubbleText?: string;
+  /** Target amount displayed to the user during assessment (e.g. "8-12", "5-8", "מקסימום"). */
+  targetReps?: string;
+  /** Whether targetReps is measured in repetitions or seconds. Defaults to 'reps'. */
+  unitType?: 'reps' | 'seconds';
   createdAt?: Date;
   updatedAt?: Date;
 }

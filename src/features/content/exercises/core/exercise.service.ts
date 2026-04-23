@@ -86,6 +86,30 @@ export async function getAllExercises(): Promise<Exercise[]> {
 }
 
 /**
+ * Fetch every exercise document WITHOUT an orderBy clause.
+ *
+ * The original getAllExercises() calls orderBy('name', 'asc') where `name`
+ * is a map field ({he, en}). Firestore cannot order by a map without a
+ * composite index, and when that index is missing the SDK silently opens a
+ * /Listen/ channel to watch for index-build completion — that channel
+ * returns 404, the SDK retries indefinitely, and getDocs() never resolves.
+ *
+ * This variant skips orderBy entirely (the library sorts client-side anyway)
+ * so it works against the default collection read rules with zero config.
+ * Use this for the Exercise Library client UI. The admin panel can keep
+ * getAllExercises() until the index is manually created in Firebase console.
+ */
+export async function getAllExercisesNoOrder(): Promise<Exercise[]> {
+  try {
+    const snapshot = await getDocs(collection(db, EXERCISES_COLLECTION));
+    return snapshot.docs.map((docSnap) => normalizeExercise(docSnap.id, docSnap.data()));
+  } catch (error) {
+    console.error('[Exercise Service] getAllExercisesNoOrder failed:', error);
+    throw error;
+  }
+}
+
+/**
  * Get exercises by search term (strict name-only matching).
  */
 export async function searchExercises(searchTerm: string): Promise<Exercise[]> {
@@ -199,7 +223,7 @@ export async function createExercise(
 
     const cleanedExerciseData = convertUndefinedToNull(exerciseData);
     const docRef = await addDoc(collection(db, EXERCISES_COLLECTION), cleanedExerciseData);
-    
+
     // Log audit action
     if (adminInfo) {
       const exerciseName = getLocalizedText(data.name);

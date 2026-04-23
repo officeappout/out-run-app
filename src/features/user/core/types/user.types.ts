@@ -233,6 +233,9 @@ export interface UserFullProfile {
     birthDate?: Date;
     photoURL?: string;
     authorityId?: string; // Link to authority (city/region) for manager access control
+    /** Neighborhood-level anchor coordinates saved when the user first confirms their location */
+    anchorLat?: number;
+    anchorLng?: number;
     isSuperAdmin?: boolean; // Super admin flag for platform administrators
     isApproved?: boolean; // Approval status for admin access (defaults to false for new sign-ups)
 

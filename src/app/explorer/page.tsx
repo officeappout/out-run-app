@@ -44,7 +44,7 @@ export default function ExplorerPage() {
         mode="explorer"
         onNext={() => {}}
         onExplorerDismiss={() => {
-          router.push('/map');
+          router.push('/map?fromExplorer=true');
         }}
       />
     </Suspense>

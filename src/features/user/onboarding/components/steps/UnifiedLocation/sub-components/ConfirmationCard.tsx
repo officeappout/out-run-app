@@ -29,6 +29,7 @@ export function ConfirmationCard({
   mode = 'onboarding',
 }: ConfirmationCardProps) {
   const isExplorer = mode === 'explorer';
+  const isBridge = mode === 'bridge';
   // Get user data from sessionStorage
   const userName = typeof window !== 'undefined' 
     ? sessionStorage.getItem('onboarding_personal_name') || ''
@@ -146,13 +147,13 @@ export function ConfirmationCard({
                 className="text-xl font-bold leading-tight text-slate-900 mb-2"
                 style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
               >
-                הגינה הכי קרובה ל{detectedNeighborhood || detectedCity || locationText}
+                מצאנו את הסביבה הקרובה ביותר ל{detectedNeighborhood || detectedCity || locationText}
               </h2>
               <p 
                 className="text-slate-500 text-sm mb-3 leading-relaxed"
                 style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
               >
-                גינות כושר, מתקנים ומגרשים בסביבה שלך — הכל חינם ובלי ציוד.
+                מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. הכל בחינם וללא ציוד.
               </p>
             </>
           )}
@@ -163,7 +164,7 @@ export function ConfirmationCard({
               className="text-xl font-bold leading-tight text-slate-900 mb-2"
               style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
             >
-              זיהינו שאתה ב-{locationText}.
+              הגינה הכי קרובה ל{locationText}
             </h2>
           )}
           
@@ -172,7 +173,7 @@ export function ConfirmationCard({
               className="text-slate-500 text-sm mb-3 leading-relaxed"
               style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
             >
-              כאן אפשר להתאמן בחינם, בלי ציוד, להכיר שותפים חדשים ופשוט להתחיל לזרום עם האנרגיה של השכונה.
+              מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. ניתן לגרור את המפה לדיוק המיקום.
             </p>
           )}
           
@@ -436,16 +437,16 @@ export function ConfirmationCard({
             className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {isExplorer ? 'יאללה, נגלה את הסביבה!' : 'כן, זה הבית שלי'}
+            כן, זה הבית שלי!
           </motion.button>
 
           {/* Secondary Action */}
           <button
             onClick={onSearchOther}
-            className="w-full mt-3 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
+            className="w-full mt-3 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-bold"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {isExplorer ? 'חפש מיקום אחר' : 'לא, אני רוצה לחפש עיר אחרת'}
+            זה לא אזור המגורים שלי, חפשו אזור אחר
           </button>
         </div>
       </div>

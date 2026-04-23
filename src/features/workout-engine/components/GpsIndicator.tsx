@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export type GpsStatus = 'searching' | 'poor' | 'good' | 'perfect';
+export type GpsStatus = 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
 
 interface GpsIndicatorProps {
   accuracy: number | null;
@@ -18,38 +18,51 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
   // Determine color and text based on status
   const getStatusConfig = () => {
     switch (status) {
+      case 'simulated':
+        return {
+          dotColor: 'bg-[#00E5FF]',
+          textColor: 'text-[#00E5FF]',
+          bgColor: 'bg-[#00E5FF]/10',
+          borderColor: 'border-[#00E5FF]/30',
+          text: 'מצב סימולציה',
+          pulse: false,
+        };
       case 'perfect':
         return {
           dotColor: 'bg-green-500',
-          textColor: 'text-green-700',
-          bgColor: 'bg-green-500/20',
+          textColor: 'text-green-400',
+          bgColor: 'bg-green-500/15',
           borderColor: 'border-green-500/30',
           text: 'קליטה מעולה',
+          pulse: true,
         };
       case 'good':
         return {
-          dotColor: 'bg-yellow-500',
-          textColor: 'text-yellow-700',
-          bgColor: 'bg-yellow-500/20',
-          borderColor: 'border-yellow-500/30',
+          dotColor: 'bg-yellow-400',
+          textColor: 'text-yellow-300',
+          bgColor: 'bg-yellow-400/15',
+          borderColor: 'border-yellow-400/30',
           text: 'קליטה טובה',
+          pulse: true,
         };
       case 'poor':
         return {
           dotColor: 'bg-red-500',
-          textColor: 'text-red-700',
-          bgColor: 'bg-red-500/20',
+          textColor: 'text-red-400',
+          bgColor: 'bg-red-500/15',
           borderColor: 'border-red-500/30',
           text: 'קליטה חלשה',
+          pulse: true,
         };
       case 'searching':
       default:
         return {
           dotColor: 'bg-red-500',
-          textColor: 'text-red-700',
-          bgColor: 'bg-red-500/20',
+          textColor: 'text-red-400',
+          bgColor: 'bg-red-500/15',
           borderColor: 'border-red-500/30',
           text: 'מחפש GPS...',
+          pulse: true,
         };
     }
   };
@@ -69,33 +82,20 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
       `}
       dir="rtl"
     >
-      {/* Pulsing Dot */}
+      {/* Status dot — pulses for real GPS states, static for simulation */}
       <div className="relative flex-shrink-0">
         <motion.div
           className={`w-2 h-2 ${config.dotColor} rounded-full`}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [1, 0.7, 1],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
+          animate={config.pulse ? { scale: [1, 1.2, 1], opacity: [1, 0.7, 1] } : {}}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
         />
-        {/* Outer pulse ring */}
-        <motion.div
-          className={`absolute inset-0 ${config.dotColor} rounded-full`}
-          animate={{
-            scale: [1, 2, 1],
-            opacity: [0.5, 0, 0.5],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
+        {config.pulse && (
+          <motion.div
+            className={`absolute inset-0 ${config.dotColor} rounded-full`}
+            animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        )}
       </div>
 
       {/* Status Text */}

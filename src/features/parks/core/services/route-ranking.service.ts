@@ -3,7 +3,8 @@
 // משתמש בנתוני המשתמש כדי לדרג מסלולים
 // ==========================================
 
-import { Route, MapPark } from '../types/map-objects.type';
+import { Route } from '../types/route.types';
+import { MapPark } from '../types/park.types';
 import { UserFullProfile } from '@/types/user-profile';
 
 export interface RankedRoute extends Route {

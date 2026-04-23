@@ -23,12 +23,25 @@ import { Park, ParkStatus } from '../types/park.types';
 const PARKS_COLLECTION = 'parks';
 
 /**
- * Convert Firestore timestamp to Date
+ * Convert Firestore timestamp, Unix epoch, or date string to Date.
+ * Handles legacy CSV data where timestamps are stored as numbers.
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return undefined;
 }
 
 /**
@@ -42,6 +55,8 @@ function normalizePark(docId: string, data: any): Park {
     description: data?.description ?? '',
     location: data?.location ?? { lat: 0, lng: 0 },
     image: data?.image ?? undefined,
+    imageUrl: data?.imageUrl ?? undefined,
+    images: Array.isArray(data?.images) ? data.images : undefined,
     facilityType: data?.facilityType ?? undefined,
     sportTypes: Array.isArray(data?.sportTypes) ? data.sportTypes : undefined,
     featureTags: Array.isArray(data?.featureTags) ? data.featureTags : undefined,
@@ -61,7 +76,14 @@ function normalizePark(docId: string, data: any): Park {
     gymEquipment: Array.isArray(data?.gymEquipment) ? data.gymEquipment : undefined,
     amenities: data?.amenities ?? undefined,
     authorityId: data?.authorityId ?? undefined,
+    isFunctional: data?.isFunctional ?? undefined,
+    rating: typeof data?.rating === 'number' ? data.rating : undefined,
     status: (data?.status as ParkStatus) ?? 'open',
+    contentStatus: data?.contentStatus ?? undefined,
+    published: data?.published ?? (data?.contentStatus === 'published'),
+    createdByUser: data?.createdByUser ?? undefined,
+    origin: data?.origin ?? undefined,
+    publishedAt: toDate(data?.publishedAt),
     createdAt: toDate(data?.createdAt),
     updatedAt: toDate(data?.updatedAt),
   };
@@ -82,20 +104,22 @@ export async function getAllParks(): Promise<Park[]> {
 }
 
 /**
- * Get parks by authority ID (for Authority Managers)
- * Gracefully handles missing Firebase index errors
+ * Get parks by authority ID or tenant ID (for Authority Managers).
+ * Prefers tenantId when provided; falls back to authorityId for legacy support.
+ * Gracefully handles missing Firebase index errors.
  */
-export async function getParksByAuthority(authorityId: string): Promise<Park[]> {
+export async function getParksByAuthority(authorityId: string, tenantId?: string): Promise<Park[]> {
   try {
+    const scopeField = tenantId ? 'tenantId' : 'authorityId';
+    const scopeValue = tenantId ?? authorityId;
     const q = query(
       collection(db, PARKS_COLLECTION),
-      where('authorityId', '==', authorityId),
+      where(scopeField, '==', scopeValue),
       orderBy('name', 'asc')
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => normalizePark(doc.id, doc.data()));
   } catch (error: any) {
-    // Handle missing index error gracefully
     if (error?.code === 'failed-precondition' || error?.code === 'unavailable') {
       console.warn('[Parks Service] Firebase index not ready yet. Returning empty array.');
       return [];
@@ -112,21 +136,7 @@ export async function getParksByAuthority(authorityId: string): Promise<Park[]> 
 export async function fetchRealParks(): Promise<Park[]> {
   try {
     const querySnapshot = await getDocs(collection(db, PARKS_COLLECTION));
-    
-    const parks = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name,
-        location: data.location,
-        city: data.city,
-        facilities: data.facilities || [],
-        type: 'park',
-        rating: 5
-      } as Park;
-    });
-    
-    return parks;
+    return querySnapshot.docs.map(doc => normalizePark(doc.id, doc.data()));
   } catch (error) {
     console.error('[Parks Service] Error fetching parks:', error);
     return [];
@@ -253,6 +263,24 @@ export async function deletePark(parkId: string): Promise<void> {
     await deleteDoc(docRef);
   } catch (error) {
     console.error('Error deleting park:', error);
+    throw error;
+  }
+}
+
+/**
+ * Approve a pending park — sets published:true, contentStatus:'published'.
+ */
+export async function approvePark(parkId: string): Promise<void> {
+  try {
+    const docRef = doc(db, PARKS_COLLECTION, parkId);
+    await updateDoc(docRef, {
+      published: true,
+      contentStatus: 'published',
+      publishedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error approving park:', error);
     throw error;
   }
 }

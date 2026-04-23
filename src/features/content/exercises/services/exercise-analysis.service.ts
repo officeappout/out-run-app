@@ -50,8 +50,10 @@ export function getExerciseProductionReadiness(exercise: Exercise): ProductionRe
   };
 
   // Check main media
-  result.hasMainImage = !!(exercise.media?.imageUrl && exercise.media.imageUrl.trim() !== '');
-  result.hasMainVideo = !!(exercise.media?.videoUrl && exercise.media.videoUrl.trim() !== '');
+  const mainImg = typeof exercise.media?.imageUrl === 'string' ? exercise.media.imageUrl.trim() : '';
+  const mainVid = typeof exercise.media?.videoUrl === 'string' ? exercise.media.videoUrl.trim() : '';
+  result.hasMainImage = mainImg.length > 0;
+  result.hasMainVideo = mainVid.length > 0;
 
   if (!result.hasMainImage) result.missingCount++;
   if (!result.hasMainVideo) result.missingCount++;
@@ -59,10 +61,12 @@ export function getExerciseProductionReadiness(exercise: Exercise): ProductionRe
   // Check execution methods media
   const methods = exercise.execution_methods || exercise.executionMethods || [];
   for (const method of methods) {
+    const mImg = typeof method.media?.imageUrl === 'string' ? method.media.imageUrl.trim() : '';
+    const mVid = typeof method.media?.mainVideoUrl === 'string' ? method.media.mainVideoUrl.trim() : '';
     const methodStatus = {
       methodName: typeof method.methodName === 'string' ? method.methodName : '',
-      hasImage: !!(method.media?.imageUrl && method.media.imageUrl.trim() !== ''),
-      hasVideo: !!(method.media?.mainVideoUrl && method.media.mainVideoUrl.trim() !== ''),
+      hasImage: mImg.length > 0,
+      hasVideo: mVid.length > 0,
     };
     result.executionMethodsStatus.push(methodStatus);
     result.totalMediaSlots += 2; // Each method has image + video slots
@@ -260,14 +264,18 @@ export function analyzeExerciseForMatrix(exercise: Exercise): ContentMatrixRow {
     school: [],
     gym: [],
     airport: [],
+    library: [],
+    desk: [],
   };
   
   methods.forEach((method, index) => {
     const locs = method.locationMapping || [method.location];
     locs.forEach((loc) => {
-      if (loc) {
-        const hasVideo = !!(method.media?.mainVideoUrl && method.media.mainVideoUrl.trim() !== '');
-        const hasImage = !!(method.media?.imageUrl && method.media.imageUrl.trim() !== '');
+      if (loc && locations[loc]) {
+        const videoUrl = typeof method.media?.mainVideoUrl === 'string' ? method.media.mainVideoUrl.trim() : '';
+        const imageUrl = typeof method.media?.imageUrl === 'string' ? method.media.imageUrl.trim() : '';
+        const hasVideo = videoUrl.length > 0;
+        const hasImage = imageUrl.length > 0;
         const workflow = {
           filmed: method.workflow?.filmed || false,
           audio: method.workflow?.audio || false,
@@ -275,7 +283,6 @@ export function analyzeExerciseForMatrix(exercise: Exercise): ContentMatrixRow {
           uploaded: method.workflow?.uploaded || false,
         };
         
-        // Push ALL methods for this location (supports multiple methods per location)
         locations[loc].push({
           methodIndex: index,
           methodName: method.methodName || `Method ${index + 1}`,
@@ -298,7 +305,7 @@ export function analyzeExerciseForMatrix(exercise: Exercise): ContentMatrixRow {
   
   // Check each location
   CONTENT_LOCATIONS.forEach((loc) => {
-    const locMethods = locations[loc];
+    const locMethods = locations[loc] ?? [];
     const isRequired = requiredLocations.includes(loc);
     
     if (locMethods.length > 0) {
@@ -384,8 +391,7 @@ export function generateTaskList(rows: ContentMatrixRow[]): TaskListSummary {
   
   for (const row of rows) {
     for (const loc of CONTENT_LOCATIONS) {
-      const locMethods = row.locations[loc];
-      // Now iterates over ALL methods at this location
+      const locMethods = row.locations[loc] ?? [];
       for (const locData of locMethods) {
         const base = {
           exerciseId: row.exerciseId,

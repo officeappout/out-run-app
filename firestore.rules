@@ -29,38 +29,286 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
 
+    // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
+    // Set via Admin SDK when assigning a user to a tenant.
+    // Root/DB admins bypass tenant checks.
+    function hasTenant(tenantId) {
+      return isRootAdmin() || isAdmin() ||
+        (isAuthenticated() && request.auth.token.tenantId == tenantId);
+    }
+
+    // ============================================================
+    // USER-DOC PROTECTED-FIELD HELPERS
+    //
+    // The application reads admin/role flags from `users/{uid}.core.*`
+    // (see src/features/admin/services/auth.service.ts → checkUserRole).
+    // Because `affectedKeys()` is shallow, any owner could previously
+    // self-promote by writing `{'core.isSuperAdmin': true}`. These helpers
+    // close that hole by comparing each protected field byte-for-byte
+    // before/after the update. Only writes that leave EVERY protected
+    // field unchanged are allowed for non-admin owners.
+    //
+    // Admins (Admin SDK in Cloud Functions, or root/DB admin via console)
+    // bypass these helpers via the separate `allow write` line below.
+    // ============================================================
+
+    // Group A — admin/role flags. These can ONLY be flipped by:
+    //   • A Cloud Function using the Admin SDK (bypasses rules), or
+    //   • A root/DB admin in the Firebase console.
+    function noAdminFieldsChanged() {
+      return request.resource.data.get('role', '')
+             == resource.data.get('role', '')
+          && request.resource.data.get('core', {}).get('role', '')
+             == resource.data.get('core', {}).get('role', '')
+          && request.resource.data.get('core', {}).get('isSuperAdmin', false)
+             == resource.data.get('core', {}).get('isSuperAdmin', false)
+          && request.resource.data.get('core', {}).get('isSystemAdmin', false)
+             == resource.data.get('core', {}).get('isSystemAdmin', false)
+          && request.resource.data.get('core', {}).get('isVerticalAdmin', false)
+             == resource.data.get('core', {}).get('isVerticalAdmin', false)
+          && request.resource.data.get('core', {}).get('isTenantOwner', false)
+             == resource.data.get('core', {}).get('isTenantOwner', false)
+          && request.resource.data.get('core', {}).get('isApproved', false)
+             == resource.data.get('core', {}).get('isApproved', false)
+          && request.resource.data.get('core', {}).get('managedVertical', '')
+             == resource.data.get('core', {}).get('managedVertical', '');
+    }
+
+    // Group B — tenant/unit assignment. Owned by `validateAccessCode`
+    // Cloud Function and admin tooling. Owners cannot self-assign.
+    function noTenantFieldsChanged() {
+      return request.resource.data.get('core', {}).get('tenantId', '')
+             == resource.data.get('core', {}).get('tenantId', '')
+          && request.resource.data.get('core', {}).get('tenantType', '')
+             == resource.data.get('core', {}).get('tenantType', '')
+          && request.resource.data.get('core', {}).get('unitId', '')
+             == resource.data.get('core', {}).get('unitId', '')
+          && request.resource.data.get('core', {}).get('unitPath', [])
+             == resource.data.get('core', {}).get('unitPath', [])
+          && request.resource.data.get('core', {}).get('authorityId', '')
+             == resource.data.get('core', {}).get('authorityId', '');
+    }
+
+    // Group C — game-integrity / progression. Locking these prevents a
+    // user from awarding themselves coins/levels via direct Firestore
+    // writes from the browser console.
+    //
+    // The ONLY authorized writer for these fields is the
+    // `awardWorkoutXP` Callable Cloud Function ("the Guardian"), which
+    // uses the Admin SDK and therefore bypasses these rules. See
+    // functions/src/awardWorkoutXP.ts for the server-side validation
+    // (auth required, per-call delta caps, server-recomputed level).
+    //
+    // All client code paths that previously wrote these fields directly
+    // were migrated as part of the Fortress Phase (Apr 2026). If a new
+    // call site appears, route it through src/lib/awardWorkoutXP.ts —
+    // do NOT relax this rule.
+    function noGameIntegrityFieldsChanged() {
+      return request.resource.data.get('progression', {}).get('coins', 0)
+             == resource.data.get('progression', {}).get('coins', 0)
+          && request.resource.data.get('progression', {}).get('globalLevel', 0)
+             == resource.data.get('progression', {}).get('globalLevel', 0)
+          && request.resource.data.get('progression', {}).get('globalXP', 0)
+             == resource.data.get('progression', {}).get('globalXP', 0);
+    }
+
+    // Group D — passive sensor fields on `dailyActivity`. Native Phase
+    // (Apr 2026): HealthKit / Health Connect samples are written ONLY
+    // by the `ingestHealthSamples` Cloud Function (Admin SDK bypasses
+    // these rules). Owners may still freely mutate manual-workout fields
+    // on the same doc (categories.strength.minutes, etc.), but the
+    // server-managed counters below are read-only from the client.
+    //
+    // We compare against the previous resource value when the doc exists,
+    // and against 0 / serverTimestamp() when it does not — so a brand new
+    // doc created by manual-workout client code can leave these fields
+    // unset (== default) without tripping the guard.
+    function noPassiveActivityFieldsChanged() {
+      return request.resource.data.get('passiveSteps', 0)
+             == resource.data.get('passiveSteps', 0)
+          && request.resource.data.get('passiveCalories', 0)
+             == resource.data.get('passiveCalories', 0)
+          && request.resource.data.get('passiveActiveMinutes', 0)
+             == resource.data.get('passiveActiveMinutes', 0)
+          && request.resource.data.get('passiveXpAwardedToday', 0)
+             == resource.data.get('passiveXpAwardedToday', 0);
+    }
+
     // ============================================================
     // USERS — owner reads/writes own doc, admins read/write all,
     //         cross-user read gated by core.discoverable == true
+    //
+    // SECURITY (Fortress Phase — Deep Privilege Lockdown):
+    //   The owner can NEVER mutate role/admin/tenant/progression flags.
+    //   See helpers above for the exact field list and the Cloud-Function
+    //   migration note for game-integrity fields.
+    //   Admin role assignment must be done exclusively via:
+    //     - Cloud Functions (Admin SDK bypasses these rules), or
+    //     - Manual writes by a root/DB admin.
     // ============================================================
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
-      allow read, write: if isRootAdmin() || isAdmin();
-      // Cross-user read: only if the profile has opted in to discovery
-      allow read: if isAuthenticated() && resource.data.core.discoverable == true;
+      // READ — owner, admins, or any auth user when the profile opted into discovery.
+      allow read: if isOwner(userId)
+                  || isRootAdmin() || isAdmin()
+                  || (isAuthenticated() && resource.data.core.discoverable == true);
 
-      // All sub-collections (progression, lifestyle, etc.)
-      match /{subCol}/{docId} {
-        allow read, write: if isOwner(userId);
+      // CREATE — owner can create their own doc, but cannot self-assign
+      // any role/admin flag at creation time. Tenant/progression fields
+      // are allowed at create (validateAccessCode + initial seed need them).
+      allow create: if isOwner(userId)
+                    && !('role' in request.resource.data)
+                    && request.resource.data.get('core', {}).get('isSuperAdmin', false) == false
+                    && request.resource.data.get('core', {}).get('isSystemAdmin', false) == false
+                    && request.resource.data.get('core', {}).get('isVerticalAdmin', false) == false
+                    && request.resource.data.get('core', {}).get('isTenantOwner', false) == false
+                    && request.resource.data.get('core', {}).get('isApproved', false) == false
+                    && request.resource.data.get('core', {}).get('role', '') == ''
+                    && request.resource.data.get('core', {}).get('managedVertical', '') == '';
+
+      // UPDATE — owner may write everything EXCEPT the three protected
+      // groups (admin/role, tenant, game-integrity). The Guardian
+      // Cloud Function uses the Admin SDK to award XP/coins/calories
+      // and bypasses Group C; see noGameIntegrityFieldsChanged() above.
+      allow update: if isOwner(userId)
+                    && noAdminFieldsChanged()
+                    && noTenantFieldsChanged()
+                    && noGameIntegrityFieldsChanged();
+
+      // DELETE — owner can delete their own doc.
+      allow delete: if isOwner(userId);
+
+      // Admins (root or DB-backed) keep full read/write on the user doc,
+      // including all protected groups — this is how admins are
+      // promoted/demoted and how tenants are assigned in tooling.
+      allow write: if isRootAdmin() || isAdmin();
+
+      // Recursive wildcard — covers ALL sub-collections at ANY depth under users/{userId}.
+      // This is required for nested paths like:
+      //   exerciseHistory/{exerciseId}/sessions/{sessionId}   (getExerciseTrend)
+      //   dailyStats/steps/sessions/{date}                     (future)
+      // Without this rule, queries on 3+ level sub-collections fail with
+      // "Missing or insufficient permissions".
+      // Note: protected-field helpers only inspect the top-level user doc,
+      // so granting owners full subtree write here does NOT enable
+      // privilege escalation — none of those flags live in sub-collections.
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
         allow read, write: if isRootAdmin() || isAdmin();
       }
     }
 
     // ============================================================
     // ACTIVITY — daily activity logs, streaks (owned by user)
+    // docId format: {userId}_{date}
+    //
+    // Two rule paths to cover both single-doc and collection-query access:
+    //
+    //   read  → resource.data.userId == uid
+    //           Allows collection queries (WHERE userId == uid) because
+    //           Firestore can tie this field check to the query's WHERE clause.
+    //           Also covers single-doc reads when the doc exists.
+    //
+    //   write → request.resource.data.userId == uid
+    //           Validates the incoming payload for creates and updates.
+    //
+    //   Both paths fall back to the docId prefix check (uid + '_') so that
+    //   reads on non-existent docs and legacy paths still work.
     // ============================================================
     match /dailyActivity/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      // Read: field check (enables collection queries) OR docId prefix
+      allow read: if isAuthenticated() && (
+        (resource != null && resource.data.userId == request.auth.uid) ||
+        (docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+      );
+
+      // CREATE — owner check + passive fields must start at zero (or
+      // be omitted). The ingestHealthSamples Cloud Function bypasses
+      // this rule via Admin SDK, so server-side creation can still
+      // populate passive counters directly.
+      allow create: if isAuthenticated()
+        && (
+          request.resource.data.userId == request.auth.uid ||
+          (docId.size() > request.auth.uid.size() &&
+           docId[0:request.auth.uid.size()] == request.auth.uid &&
+           docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+        )
+        && request.resource.data.get('passiveSteps', 0) == 0
+        && request.resource.data.get('passiveCalories', 0) == 0
+        && request.resource.data.get('passiveActiveMinutes', 0) == 0
+        && request.resource.data.get('passiveXpAwardedToday', 0) == 0;
+
+      // UPDATE — owner check + passive sensor fields must not change.
+      // Manual-workout client code can still freely update
+      // categories.*.minutes, steps, calories, etc.
+      allow update: if isAuthenticated()
+        && (
+          request.resource.data.userId == request.auth.uid ||
+          (docId.size() > request.auth.uid.size() &&
+           docId[0:request.auth.uid.size()] == request.auth.uid &&
+           docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+        )
+        && noPassiveActivityFieldsChanged();
+
+      // DELETE — owner only.
+      allow delete: if isAuthenticated()
+        && (
+          (resource != null && resource.data.userId == request.auth.uid) ||
+          (docId.size() > request.auth.uid.size() &&
+           docId[0:request.auth.uid.size()] == request.auth.uid &&
+           docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+        );
     }
 
-    // dailyProgress — docId format: {userId}_{date} (e.g. abc123_2025-02-21)
-    // Authenticated users can read/write; docId prefix should match uid (enforced client-side)
+    // dailyProgress — same docId format: {userId}_{date}
+    // Same dual-path pattern as dailyActivity above.
     match /dailyProgress/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      allow read: if isAuthenticated() && (
+        (resource != null && resource.data.userId == request.auth.uid) ||
+        (docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+      );
+
+      allow write: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        (docId.size() > request.auth.uid.size() &&
+         docId[0:request.auth.uid.size()] == request.auth.uid &&
+         docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
+      );
     }
 
+    // streaks — docId == uid
     match /streaks/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isOwner(docId) || isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // HEALTH SAMPLES — raw HealthKit / Health Connect samples
+    // (Native Phase, Apr 2026).
+    //
+    // Path: healthSamples/{userId}/{YYYY-MM-DD}/{sampleUUID}
+    //
+    // Writes are SERVER-ONLY: only the `ingestHealthSamples` Cloud
+    // Function (Admin SDK bypasses these rules) may write here. This
+    // protects the dedupe ledger from client tampering and ensures
+    // every sample is validated + clamped before storage.
+    //
+    // Reads are owner-only (for debugging / future history views).
+    // ============================================================
+    match /healthSamples/{userId}/{date}/{sampleUUID} {
+      allow read: if isOwner(userId) || isRootAdmin() || isAdmin();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+    // Parent doc holding the per-date subcollections — no client writes.
+    match /healthSamples/{userId} {
+      allow read: if isOwner(userId) || isRootAdmin() || isAdmin();
+      allow write: if isRootAdmin() || isAdmin();
     }
 
     // ============================================================
@@ -79,10 +327,23 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // WORKOUTS — משתמש מחובר יכול ליצור/לקרוא אימונים
+    // WORKOUTS — owner access via userId field on document
     // ============================================================
     match /workouts/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isRootAdmin() || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // ============================================================
+    // SHARED WORKOUTS — public read for deep links,
+    // authenticated create for sharing
+    // ============================================================
+    match /sharedWorkouts/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.creatorId;
+      allow write: if isRootAdmin() || isAdmin();
     }
 
     // ============================================================
@@ -171,15 +432,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // TEMPORARY: Allow write for Master Evolution Sync (API runs server-side without auth).
-    // TODO: Revert to "allow write: if isAdmin();" after sync completes.
+    // SECURITY (C2 — Public Write defense):
+    //   These collections were previously world-writable to support a
+    //   "Master Evolution Sync" job. That assumption was wrong — Cloud
+    //   Functions and Admin SDK calls bypass Firestore rules entirely, so
+    //   server-side syncs do NOT require client-facing write permissions.
+    //   Any anonymous or authenticated client could overwrite the workout
+    //   engine's level/progression configuration → app-wide content corruption.
+    //
+    //   New policy:
+    //     - read:  any authenticated user (the workout engine reads these client-side)
+    //     - write: admins only (root or DB-backed)
+    //   Server-side migration scripts continue to work via the Admin SDK.
     match /program_level_settings/{docId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
     }
 
-    // TEMPORARY: Same as above — used by programLevelSettings.service.ts
     match /programLevelSettings/{docId} {
-      allow read, write: if true;
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
     }
 
     match /level_equivalence_rules/{docId} {
@@ -336,7 +608,11 @@ service cloud.firestore {
     // ADMIN — הזמנות, מדיה, עריכות, תחזוקה, ביקורת
     // ============================================================
     match /admin_invitations/{docId} {
-      allow read, write: if isAdmin();
+      // Authenticated users can read invitations (needed for token validation
+      // during the sign-up flow, before the user has the 'admin' role).
+      // Tokens are 64-char random hex — knowledge of the token IS authorization.
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     match /mediaAssets/{docId} {
@@ -348,13 +624,40 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ============================================================
+    // AUDIT LOGS — write-only via Cloud Function `logAuditAction`.
+    //
+    // Why direct client writes are blocked:
+    //   • The Ashkelon Security Appendix (Req. 4.0) requires every
+    //     audit row to record source IP. The client SDK cannot supply
+    //     a trustworthy IP — anything it sends could be forged.
+    //   • The `logAuditAction` Callable Cloud Function captures the
+    //     real edge IP from `rawRequest.headers['x-forwarded-for']`
+    //     and writes via the Admin SDK, bypassing these rules.
+    //   • Read access stays admin-only per legacy.
+    //
+    // Net effect: NO client (regular user OR admin) can `addDoc` here
+    // directly — they must call the function. Admin reads still work.
+    // ============================================================
     match /audit_logs/{docId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create, update, delete: if false;
     }
 
     match /maintenance_reports/{docId} {
       allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // ACTIVE WORKOUTS — live heatmap heartbeat (45s ephemeral docs)
+    // Users write/delete their own doc (uid match). Admins read all
+    // docs for their authority via the heatmap aggregation service.
+    // ============================================================
+    match /active_workouts/{userId} {
+      allow write: if isOwner(userId);
+      allow delete: if isOwner(userId);
+      allow read: if isAdmin();
+      allow read: if isOwner(userId);
     }
 
     // ============================================================
@@ -380,7 +683,10 @@ service cloud.firestore {
     // ============================================================
     match /connections/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isOwner(userId);
+      allow update: if isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['followers', 'following', 'followerCount', 'followingCount', 'updatedAt']);
     }
 
     match /feed_posts/{docId} {
@@ -394,7 +700,20 @@ service cloud.firestore {
       allow read: if isAuthenticated() && !('audience' in resource.data);
       // Create: only for own posts
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.authorUid;
-      allow update: if isAuthenticated();
+
+      // SECURITY (H1 — Feed Integrity):
+      //   Update is restricted to the original author. The previous rule
+      //   (`allow update: if isAuthenticated()`) let any logged-in user
+      //   rewrite or deface any other user's post, including the authorUid
+      //   field itself. The author check uses `resource.data.authorUid`
+      //   (the EXISTING doc, not the incoming payload) so an attacker cannot
+      //   spoof authorship by sending a forged `authorUid` in the request.
+      //
+      //   We additionally lock the `authorUid` field — even the rightful
+      //   author cannot change post ownership after creation.
+      allow update: if isAuthenticated()
+                    && request.auth.uid == resource.data.authorUid
+                    && request.resource.data.authorUid == resource.data.authorUid;
 
       match /reactions/{reactionId} {
         allow read: if isAuthenticated();
@@ -590,6 +909,70 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ACCESS CODES — validated exclusively by Cloud Function.
+    // Clients may read to check existence; only the CF increments
+    // usageCount via Admin SDK (bypasses rules).
+    // ============================================================
+    match /access_codes/{codeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // PE GRADES — teacher grading (docId: {uid}_{term})
+    // Teachers (admin) write; students read their own grades.
+    // ============================================================
+    match /pe_grades/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+      allow read: if isAuthenticated() &&
+        docId.size() > request.auth.uid.size() &&
+        docId[0:request.auth.uid.size()] == request.auth.uid &&
+        docId[request.auth.uid.size():request.auth.uid.size()+1] == '_';
+    }
+
+    // ============================================================
+    // READINESS CONFIGS — military fitness thresholds per unit
+    // Tenant-isolated: only users in the same tenant can read.
+    // ============================================================
+    match /readiness_configs/{unitId} {
+      allow read: if isAuthenticated() &&
+        hasTenant(resource.data.tenantId);
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // LEADERBOARD SHARDS — distributed counters (written by CF)
+    // Clients should not write directly; reads are tenant-scoped.
+    // ============================================================
+    match /leaderboard_shards/{shardId} {
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // LEADERBOARD SNAPSHOTS — rolled-up rankings (written by CF)
+    // Read-only for authenticated users; tenant-scoped.
+    // ============================================================
+    match /leaderboard_snapshots/{snapshotId} {
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // TENANTS & UNITS — multi-tenant hierarchy
+    // Tenant reads gated by Custom Claim. Admins can write.
+    // ============================================================
+    match /tenants/{tenantId} {
+      allow read: if hasTenant(tenantId);
+      allow write: if isAdmin();
+
+      match /units/{unitId} {
+        allow read: if hasTenant(tenantId);
+        allow write: if isAdmin();
+      }
+    }
+
+    // ============================================================
     // VISUAL ASSESSMENT SYSTEM — תוכן, חוקים, סף תוכניות
     // ============================================================
     match /visual_assessment_content/{docId} {
@@ -605,6 +988,37 @@ service cloud.firestore {
     match /program_thresholds/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // USER CONTRIBUTIONS — Community Intelligence reports & edits
+    // ============================================================
+    match /user_contributions/{docId} {
+      // Create: only for own contributions
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Owner reads their own contributions (reports, edits, reviews)
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.userId;
+
+      // Reviews are public park content — any authenticated user can read
+      allow read: if isAuthenticated()
+        && resource.data.type == 'review';
+
+      // Admin full access
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
+    // SYSTEM CONFIG — feature flags (real-time app toggles)
+    // Public read: feature flags are not sensitive data and must load
+    // immediately for anonymous / pre-auth users without permission errors.
+    // Only Root Admins / Super Admins may write.
+    // ============================================================
+    match /system_config/{docId} {
+      allow read: if true;
+      allow write: if isRootAdmin() || isAdmin();
     }
 
     // ============================================================

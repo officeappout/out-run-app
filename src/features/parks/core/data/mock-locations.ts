@@ -1,4 +1,4 @@
-import { MapPark } from '../types/map-objects.type';
+import { MapPark } from '../types/park.types';
 
 export const MOCK_PARKS: MapPark[] = [
   {

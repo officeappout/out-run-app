@@ -1,8 +1,12 @@
 'use client';
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Target, Dumbbell } from 'lucide-react';
-import { getMuscleGroupLabel, resolveEquipmentLabel, resolveEquipmentSvgPath } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { Target, Dumbbell, PersonStanding } from 'lucide-react';
+import { getMuscleGroupLabel, resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+
+const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
@@ -52,6 +56,8 @@ export interface ExerciseDetailContentProps {
   /** Multi-program support: list of resolved programs with levels */
   programs?: ProgramRef[];
   equipment?: string[];
+  /** Workout location for location-aware equipment icons (park/home/gym) */
+  workoutLocation?: string | null;
   /** Primary muscle (rendered with full cyan icon) */
   primaryMuscle?: string | null;
   /** Secondary muscles (rendered with desaturated grey icons) */
@@ -60,6 +66,12 @@ export interface ExerciseDetailContentProps {
   muscleGroups?: string[];
   cues?: string[];
   goal?: string | null;
+  /** Free-text description of the exercise */
+  description?: string | null;
+  /** Step-by-step instructions for performing the exercise */
+  instructions?: string | null;
+  /** Additional notes / tips */
+  notes?: string[];
   hideHeroVideo?: boolean;
   hideTitle?: boolean;
 }
@@ -73,17 +85,32 @@ export default function ExerciseDetailContent({
   programLevel,
   programs,
   equipment,
+  workoutLocation,
   primaryMuscle,
   secondaryMuscles,
   muscleGroups,
   cues,
   goal,
+  description,
+  instructions,
+  notes,
   hideHeroVideo = false,
   hideTitle = false,
 }: ExerciseDetailContentProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ytLoaded, setYtLoaded] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+
+  const isOnline = useOnlineStatus();
+
+  // Offline-cached media resolution
+  const rawCachedVideoUrl = useCachedMediaUrl(videoUrl);
+  const rawCachedPosterUrl = useCachedMediaUrl(posterUrl);
+
+  const cachedVideoUrl = rawCachedVideoUrl?.startsWith('blob:') ? rawCachedVideoUrl
+    : isOnline ? rawCachedVideoUrl : null;
+  const cachedPosterUrl = rawCachedPosterUrl?.startsWith('blob:') ? rawCachedPosterUrl
+    : isOnline ? rawCachedPosterUrl : OFFLINE_PLACEHOLDER;
 
   const handleVideoLoaded = useCallback(() => {
     setVideoReady(true);
@@ -94,11 +121,12 @@ export default function ExerciseDetailContent({
     if (videoRef.current) {
       videoRef.current.play().catch(() => {});
     }
-  }, [videoUrl]);
+  }, [cachedVideoUrl]);
 
   const ytId = youtubeUrl ? extractYouTubeId(youtubeUrl) : null;
   const hasEquipment = equipment && equipment.length > 0;
   const hasCues = cues && cues.length > 0;
+  const hasNotes = notes && notes.length > 0;
 
   const resolvedPrograms: ProgramRef[] = programs && programs.length > 0
     ? programs
@@ -120,24 +148,25 @@ export default function ExerciseDetailContent({
       {!hideHeroVideo && (
         <div className="relative w-full aspect-video bg-slate-900 overflow-hidden m-0 p-0">
           {/* Poster thumbnail — always rendered as base layer */}
-          {posterUrl ? (
+          {cachedPosterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={posterUrl}
+              src={cachedPosterUrl}
               alt={exerciseName}
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${videoReady ? 'opacity-0' : 'opacity-100'}`}
+              onError={(e) => { (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER; }}
             />
-          ) : !videoUrl ? (
+          ) : !cachedVideoUrl ? (
             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
               <Dumbbell size={48} className="text-slate-600" />
             </div>
           ) : null}
 
           {/* Video — fades in once loaded */}
-          {videoUrl && (
+          {cachedVideoUrl && (
             <video
               ref={videoRef}
-              src={videoUrl}
+              src={cachedVideoUrl}
               autoPlay
               loop
               muted
@@ -249,21 +278,22 @@ export default function ExerciseDetailContent({
                   <div className="flex flex-wrap gap-2">
                     {equipment!.map((eqId) => {
                       const label = resolveEquipmentLabel(eqId);
-                      const iconSrc = resolveEquipmentSvgPath(eqId);
+                      const svgPaths = resolveEquipmentSvgPathList(eqId, workoutLocation);
+                      const iconSrc = svgPaths[0] ?? null;
                       return (
                         <div
                           key={eqId}
                           className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3"
                           style={{ border: PILL_BORDER, height: 30 }}
                         >
-                          {iconSrc && iconSrc.startsWith('/') ? (
+                          {iconSrc ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={iconSrc}
                               alt=""
                               width={16}
                               height={16}
-                              className="brightness-0 dark:brightness-100"
+                              className="object-contain"
                               onError={(e) => {
                                 const img = e.currentTarget as HTMLImageElement;
                                 img.removeAttribute('src');
@@ -271,7 +301,7 @@ export default function ExerciseDetailContent({
                               }}
                             />
                           ) : (
-                            <Dumbbell size={16} className="text-black dark:text-white flex-shrink-0" />
+                            <PersonStanding size={16} className="text-slate-400 flex-shrink-0" />
                           )}
                           <span className="text-xs font-normal text-gray-800 dark:text-gray-100 whitespace-nowrap">{label}</span>
                         </div>
@@ -333,6 +363,18 @@ export default function ExerciseDetailContent({
           </section>
         )}
 
+        {/* ── Description (תיאור) ── */}
+        {description && (
+          <section className="mb-6">
+            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+              תיאור
+            </h3>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed" style={SECTION_FONT}>
+              {description}
+            </p>
+          </section>
+        )}
+
         {/* ── Goal (מטרות) ── */}
         {goal && (
           <section className="mb-6">
@@ -345,6 +387,18 @@ export default function ExerciseDetailContent({
                 {goal}
               </p>
             </div>
+          </section>
+        )}
+
+        {/* ── Instructions (הוראות ביצוע) ── */}
+        {instructions && (
+          <section className="mb-6">
+            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+              הוראות ביצוע
+            </h3>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line" style={SECTION_FONT}>
+              {instructions}
+            </p>
           </section>
         )}
 
@@ -366,6 +420,25 @@ export default function ExerciseDetailContent({
                 </li>
               ))}
             </ol>
+          </section>
+        )}
+
+        {/* ── Notes (טיפים) ── */}
+        {hasNotes && (
+          <section className="mb-6">
+            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+              טיפים
+            </h3>
+            <ul className="space-y-2">
+              {notes!.map((note, i) => (
+                <li key={i} className="flex gap-2 items-start">
+                  <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span className="text-sm text-slate-600 dark:text-slate-400 flex-1 leading-relaxed" style={SECTION_FONT}>
+                    {note}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </div>

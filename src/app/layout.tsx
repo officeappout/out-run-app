@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
+import NativeBootstrap from "@/components/system/NativeBootstrap";
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -10,6 +11,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://out-run-app.vercel.app'),
   title: "Out Run App",
   description: "Your personal running companion",
 };
@@ -28,6 +30,11 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className="light" suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#00BAF7" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Out" />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
         {/* Hebrew Font */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -41,6 +48,7 @@ export default function RootLayout({
       </head>
       
       <body className="antialiased bg-[#F8FAFC]">
+        <NativeBootstrap />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

@@ -9,13 +9,25 @@
 
 import React, { useState, useCallback } from 'react';
 import { Copy, Users, User, ChevronDown, ChevronUp, X } from 'lucide-react';
-import { GenderedText, isGenderedText } from '../../../../core/exercise.types';
+import { GenderedText, isGenderedText, LocalizedText } from '../../../../core/exercise.types';
+
+/** Type guard for the LocalizedText { he, en } shape produced by the bulk translator. */
+function isLocalizedText(value: unknown): value is LocalizedText {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.he === 'string' || typeof v.en === 'string';
+}
 
 interface GenderedTextInputProps {
-  /** Current value - can be string or GenderedText */
-  value: string | GenderedText | undefined;
-  /** Callback when value changes */
-  onChange: (value: string | GenderedText) => void;
+  /**
+   * Current value — accepts:
+   *   • string                         (legacy unified)
+   *   • GenderedText { male, female }  (legacy gendered)
+   *   • LocalizedText { he, en }       (post bulk-translation)
+   */
+  value: string | GenderedText | LocalizedText | undefined;
+  /** Callback when value changes (returns same shape as input when possible). */
+  onChange: (value: string | GenderedText | LocalizedText) => void;
   /** Placeholder text */
   placeholder?: string;
   /** Label for the field */
@@ -45,11 +57,23 @@ export default function GenderedTextInput({
 }: GenderedTextInputProps) {
   // Determine if we're in split mode (showing male/female fields)
   const [isSplit, setIsSplit] = useState(() => isGenderedText(value));
-  
+
+  // Pull out the EN translation (if present) so we can preserve it across edits.
+  // When the value is LocalizedText, we surface the HE text to the editor but
+  // keep the EN slot intact when writing back. Without this, an admin editing
+  // a translated exercise would silently wipe the English copy on save.
+  const preservedEn: string | undefined = isLocalizedText(value)
+    ? (value as LocalizedText).en
+    : undefined;
+
   // Get current values
   const getCurrentValues = useCallback((): { male: string; female: string } => {
     if (isGenderedText(value)) {
       return { male: value.male || '', female: value.female || '' };
+    }
+    if (isLocalizedText(value)) {
+      const he = (value as LocalizedText).he || '';
+      return { male: he, female: he };
     }
     const textValue = typeof value === 'string' ? value : '';
     return { male: textValue, female: textValue };
@@ -57,15 +81,31 @@ export default function GenderedTextInput({
 
   const { male, female } = getCurrentValues();
 
+  /**
+   * Wrap a unified string write so we don't silently destroy a previously
+   * stored EN translation. If this field already had a LocalizedText shape,
+   * we keep that shape and only update the HE slot.
+   */
+  const writeUnified = (text: string) => {
+    if (preservedEn !== undefined) {
+      onChange({ he: text, en: preservedEn });
+    } else {
+      onChange(text);
+    }
+  };
+
   // Handle toggling split mode
   const handleToggleSplit = () => {
     if (isSplit) {
       // Collapsing: use male text as the unified text
-      onChange(male);
+      writeUnified(male);
       setIsSplit(false);
     } else {
-      // Expanding: convert to gendered text
-      const currentText = typeof value === 'string' ? value : '';
+      // Expanding: convert to gendered text (EN translation, if any, drops here
+      // — splitting by gender semantically replaces the localized shape)
+      const currentText = isLocalizedText(value)
+        ? (value as LocalizedText).he || ''
+        : typeof value === 'string' ? value : '';
       onChange({ male: currentText, female: currentText });
       setIsSplit(true);
     }
@@ -74,7 +114,7 @@ export default function GenderedTextInput({
   // Handle text changes
   const handleChange = (gender: 'male' | 'female' | 'unified', text: string) => {
     if (gender === 'unified') {
-      onChange(text);
+      writeUnified(text);
     } else {
       const current = getCurrentValues();
       onChange({

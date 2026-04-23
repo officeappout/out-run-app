@@ -22,7 +22,7 @@ export default function NewGymEquipmentPage() {
       router.push('/admin/gym-equipment');
     } catch (error) {
       console.error('Error creating gym equipment:', error);
-      alert('שגיאה ביצירת הציוד');
+      alert('שגיאה ביצירת המתקן');
     } finally {
       setIsSubmitting(false);
     }
@@ -37,7 +37,7 @@ export default function NewGymEquipmentPage() {
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowRight size={18} />
-            חזור לרשימת הציוד
+            חזור לרשימת המתקנים
           </Link>
           <h1 className="text-3xl font-black text-gray-900">מתקן חדש</h1>
           <p className="text-gray-500 mt-2">צור מתקן כושר חדש</p>

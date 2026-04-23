@@ -12,15 +12,18 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 export default function ProfileCompletionWidget() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags } = useFeatureFlags(isSuperAdmin);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const completion = useMemo(
-    () => calculateProfileCompletion(profile),
-    [profile],
+    () => calculateProfileCompletion(profile, flags.enableRunningPrograms),
+    [profile, flags.enableRunningPrograms],
   );
 
   // Hide if fully complete

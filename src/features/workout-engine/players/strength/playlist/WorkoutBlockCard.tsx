@@ -17,6 +17,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronUp, Info, Dumbbell, RotateCcw, SkipForward } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import SetPillsGrid, { SetPillData } from './SetPillsGrid';
+import { useCachedMediaMap } from '@/features/favorites/hooks/useCachedMedia';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+
+const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 export type BlockStatus = 'completed' | 'active' | 'upcoming';
 
@@ -292,6 +296,15 @@ export default function WorkoutBlockCard({
     return ex && ex.sets > 1 ? `${ex.sets}x סבבים` : 'סבב 1';
   }, [isGrouped, exercises]);
 
+  const isOnline = useOnlineStatus();
+
+  // Offline-cached exercise thumbnails
+  const exerciseImageUrls = useMemo(
+    () => exercises.map((e) => e.imageUrl ?? null),
+    [exercises],
+  );
+  const cachedImageMap = useCachedMediaMap(exerciseImageUrls);
+
   const activeEntry = activeExerciseIndex >= 0 ? exercises[activeExerciseIndex] : null;
   const restDuration = activeEntry?.restDuration || 30;
 
@@ -429,7 +442,16 @@ export default function WorkoutBlockCard({
                     ].join(' ')}>
                       {entry.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={entry.imageUrl} alt="" className="w-full h-full object-cover" />
+                        <img
+                          src={(() => {
+                            const resolved = entry.imageUrl ? cachedImageMap.get(entry.imageUrl) : null;
+                            if (resolved?.startsWith('blob:')) return resolved;
+                            return isOnline ? (resolved || entry.imageUrl) : OFFLINE_PLACEHOLDER;
+                          })()}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER; }}
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <Dumbbell size={22} className="text-slate-400" />

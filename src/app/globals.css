@@ -319,3 +319,12 @@ html[dir="ltr"] body {
     transform: translateY(0);
   }
 }
+
+@keyframes swapSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

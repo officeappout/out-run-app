@@ -8,7 +8,8 @@
 
 import React, { useEffect, useRef } from 'react';
 import { motion, useMotionValue, useAnimationControls } from 'framer-motion';
-import { Volume2, Activity, Target, Replace } from 'lucide-react';
+import { Volume2, Activity, Target } from 'lucide-react';
+import SwapIcon from '@/features/workout-engine/components/SwapIcon';
 import CircularTimer from './CircularTimer';
 import FillingButton from './FillingButton';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -30,6 +31,7 @@ interface ExerciseDetailsSheetProps {
   onComplete: (reps?: number) => void;
   onSwap?: () => void;
   isUnilateral?: boolean;
+  isSwapped?: boolean;
 }
 
 export default function ExerciseDetailsSheet({
@@ -46,6 +48,7 @@ export default function ExerciseDetailsSheet({
   onComplete,
   onSwap,
   isUnilateral = false,
+  isSwapped,
 }: ExerciseDetailsSheetProps) {
   // Card starts at 80% of screen height (showing only top 20% initially)
   const initialCardY = typeof window !== 'undefined' ? window.innerHeight * 0.8 : 640;
@@ -297,15 +300,7 @@ export default function ExerciseDetailsSheet({
           <button className="w-14 h-14 flex items-center justify-center rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300">
             <Volume2 size={24} />
           </button>
-          {onSwap && (
-            <button
-              onClick={onSwap}
-              className="w-14 h-14 flex items-center justify-center rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-[#00E5FF] hover:border-[#00E5FF]/50 transition-colors"
-              aria-label="החלפת תרגיל"
-            >
-              <Replace size={22} />
-            </button>
-          )}
+          {onSwap && <SwapIcon size={26} onClick={() => onSwap()} isSwapped={isSwapped} />}
           {exerciseType === 'reps' && (
             <div
               className="flex-1 text-center text-sm text-gray-500 dark:text-gray-400"

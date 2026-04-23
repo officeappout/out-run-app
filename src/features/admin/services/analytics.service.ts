@@ -87,46 +87,62 @@ export async function getAuthorityWithChildrenIds(authorityId: string): Promise<
  * Get all user IDs for an authority (city or neighborhood).
  * Cached for 5 minutes. Batches run in parallel.
  */
-async function getUserIdsForAuthority(authorityId: string): Promise<string[]> {
-  const key = `userIds:${authorityId}`;
-  const cached = cacheGet<string[]>(key);
+async function getUserIdsForAuthority(authorityId: string, tenantId?: string): Promise<string[]> {
+  const cacheKey = tenantId ? `userIds:tenant:${tenantId}` : `userIds:${authorityId}`;
+  const cached = cacheGet<string[]>(cacheKey);
   if (cached) return cached;
 
-  const ids = await getAuthorityWithChildrenIds(authorityId);
   const userIds: string[] = [];
 
-  await Promise.all(chunk(ids, 30).map(async (batch) => {
+  if (tenantId) {
     const snap = await getDocs(query(
       collection(db, USERS_COLLECTION),
-      where('core.authorityId', 'in', batch)
+      where('core.tenantId', '==', tenantId)
     ));
     snap.docs.forEach(d => userIds.push(d.id));
-  }));
+  } else {
+    const ids = await getAuthorityWithChildrenIds(authorityId);
+    await Promise.all(chunk(ids, 30).map(async (batch) => {
+      const snap = await getDocs(query(
+        collection(db, USERS_COLLECTION),
+        where('core.authorityId', 'in', batch)
+      ));
+      snap.docs.forEach(d => userIds.push(d.id));
+    }));
+  }
 
-  cacheSet(key, userIds);
+  cacheSet(cacheKey, userIds);
   return userIds;
 }
 
 /**
  * Get user docs (with data) for an authority. Cached for 5 minutes.
  */
-async function getUserDocsForAuthority(authorityId: string): Promise<{ id: string; data: Record<string, unknown> }[]> {
-  const key = `userDocs:${authorityId}`;
-  const cached = cacheGet<{ id: string; data: Record<string, unknown> }[]>(key);
+async function getUserDocsForAuthority(authorityId: string, tenantId?: string): Promise<{ id: string; data: Record<string, unknown> }[]> {
+  const cacheKey = tenantId ? `userDocs:tenant:${tenantId}` : `userDocs:${authorityId}`;
+  const cached = cacheGet<{ id: string; data: Record<string, unknown> }[]>(cacheKey);
   if (cached) return cached;
 
-  const ids = await getAuthorityWithChildrenIds(authorityId);
   const docs: { id: string; data: Record<string, unknown> }[] = [];
 
-  await Promise.all(chunk(ids, 30).map(async (batch) => {
+  if (tenantId) {
     const snap = await getDocs(query(
       collection(db, USERS_COLLECTION),
-      where('core.authorityId', 'in', batch)
+      where('core.tenantId', '==', tenantId)
     ));
     snap.docs.forEach(d => docs.push({ id: d.id, data: d.data() as Record<string, unknown> }));
-  }));
+  } else {
+    const ids = await getAuthorityWithChildrenIds(authorityId);
+    await Promise.all(chunk(ids, 30).map(async (batch) => {
+      const snap = await getDocs(query(
+        collection(db, USERS_COLLECTION),
+        where('core.authorityId', 'in', batch)
+      ));
+      snap.docs.forEach(d => docs.push({ id: d.id, data: d.data() as Record<string, unknown> }));
+    }));
+  }
 
-  cacheSet(key, docs);
+  cacheSet(cacheKey, docs);
   return docs;
 }
 
@@ -478,8 +494,11 @@ export interface NeighborhoodBreakdownRow {
   neighborhoodId: string;
   neighborhoodName: string;
   totalUsers: number;
-  activeUsers: number; // MAU for current month
-  workouts: number;    // total workout documents for those users
+  activeUsers: number;
+  workouts: number;
+  totalActiveMinutes: number;
+  targetAudienceCount: number;
+  targetAudiencePercent: number;
 }
 
 /**
@@ -488,38 +507,59 @@ export interface NeighborhoodBreakdownRow {
  * New approach: 1 users query + 2 parallel workout queries (all batched) ≈ 13 reads.
  */
 export async function getNeighborhoodBreakdown(
-  cityId: string
+  cityId: string,
+  ageRange?: { min: number; max: number }
 ): Promise<NeighborhoodBreakdownRow[]> {
   try {
     const children = await getChildrenByParent(cityId);
     if (children.length === 0) return [];
 
     const now = new Date();
+    const currentYear = now.getFullYear();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const startTs = Timestamp.fromDate(startOfMonth);
     const endTs   = Timestamp.fromDate(now);
 
+    const ageMin = ageRange?.min ?? 35;
+    const ageMax = ageRange?.max ?? 55;
+
     const childIds = children.map(c => c.id);
 
     // 1. Fetch ALL users across all neighborhoods in parallel batches
-    const allUserDocs: { id: string; authorityId: string }[] = [];
+    const allUserDocs: { id: string; authorityId: string; birthYear: number | null }[] = [];
     await Promise.all(chunk(childIds, 30).map(async (batch) => {
       const snap = await getDocs(query(
         collection(db, USERS_COLLECTION),
         where('core.authorityId', 'in', batch)
       ));
-      snap.docs.forEach(d => allUserDocs.push({
-        id: d.id,
-        authorityId: (d.data() as { core?: { authorityId?: string } })?.core?.authorityId ?? '',
-      }));
+      snap.docs.forEach(d => {
+        const data = d.data() as Record<string, unknown>;
+        const core = data.core as Record<string, unknown> | undefined;
+        const birthDate = core?.birthDate;
+        let birthYear: number | null = null;
+        if (birthDate) {
+          if (birthDate instanceof Date) birthYear = birthDate.getFullYear();
+          else if (typeof birthDate === 'string') {
+            const parsed = new Date(birthDate);
+            if (!isNaN(parsed.getTime())) birthYear = parsed.getFullYear();
+          } else if (typeof (birthDate as Timestamp).toDate === 'function') {
+            birthYear = (birthDate as Timestamp).toDate().getFullYear();
+          }
+        }
+        allUserDocs.push({
+          id: d.id,
+          authorityId: (core?.authorityId as string) ?? '',
+          birthYear,
+        });
+      });
     }));
 
     console.log(`[Neighborhood] ${children.length} neighborhoods | ${allUserDocs.length} total users`);
 
     // 2. Group users by neighborhood in memory
-    const usersByNeighborhood = new Map<string, string[]>();
+    const usersByNeighborhood = new Map<string, typeof allUserDocs>();
     children.forEach(c => usersByNeighborhood.set(c.id, []));
-    allUserDocs.forEach(({ id, authorityId }) => usersByNeighborhood.get(authorityId)?.push(id));
+    allUserDocs.forEach(u => usersByNeighborhood.get(u.authorityId)?.push(u));
 
     const allUserIds = allUserDocs.map(d => d.id);
     if (allUserIds.length === 0) {
@@ -527,15 +567,16 @@ export async function getNeighborhoodBreakdown(
         neighborhoodId: c.id,
         neighborhoodName: typeof c.name === 'string' ? c.name : String(c.name),
         totalUsers: 0, activeUsers: 0, workouts: 0,
+        totalActiveMinutes: 0, targetAudienceCount: 0, targetAudiencePercent: 0,
       }));
     }
 
     // 3. Fetch monthly + all-time workouts in FULLY PARALLEL batch queries
     const monthlyActiveByUser = new Map<string, boolean>();
     const totalWorkoutsByUser = new Map<string, number>();
+    const totalMinutesByUser = new Map<string, number>();
 
     await Promise.all([
-      // Monthly active users this month
       Promise.all(chunk(allUserIds, 30).map(async (batch) => {
         const snap = await getDocs(query(
           collection(db, WORKOUTS_COLLECTION),
@@ -544,13 +585,17 @@ export async function getNeighborhoodBreakdown(
           where('date', '<=', endTs)
         ));
         snap.docs.forEach(d => {
-          const uid = d.data().userId as string | undefined;
-          if (uid) monthlyActiveByUser.set(uid, true);
+          const raw = d.data();
+          const uid = raw.userId as string | undefined;
+          if (uid) {
+            monthlyActiveByUser.set(uid, true);
+            const dur = (raw.duration as number) ?? 0;
+            totalMinutesByUser.set(uid, (totalMinutesByUser.get(uid) ?? 0) + dur / 60);
+          }
         });
         console.log(`[Neighborhood] monthly batch(${batch.length}) → ${snap.size} docs`);
       })),
 
-      // All-time workout counts
       Promise.all(chunk(allUserIds, 30).map(async (batch) => {
         const snap = await getDocs(query(
           collection(db, WORKOUTS_COLLECTION),
@@ -563,16 +608,37 @@ export async function getNeighborhoodBreakdown(
       })),
     ]);
 
-    // 4. Aggregate per neighbourhood in memory — zero Firestore reads
+    // 4. Aggregate per neighbourhood in memory
     return children
       .map(child => {
-        const userIds = usersByNeighborhood.get(child.id) ?? [];
+        const users = usersByNeighborhood.get(child.id) ?? [];
+        const userIds = users.map(u => u.id);
+        const totalUsers = userIds.length;
+        const activeUsers = userIds.filter(uid => monthlyActiveByUser.get(uid) === true).length;
+        const workouts = userIds.reduce((sum, uid) => sum + (totalWorkoutsByUser.get(uid) ?? 0), 0);
+        const totalActiveMinutes = Math.round(
+          userIds.reduce((sum, uid) => sum + (totalMinutesByUser.get(uid) ?? 0), 0)
+        );
+
+        const targetAudienceCount = users.filter(u => {
+          if (u.birthYear == null) return false;
+          const age = currentYear - u.birthYear;
+          return age >= ageMin && age <= ageMax;
+        }).length;
+
+        const targetAudiencePercent = totalUsers > 0
+          ? Math.round((targetAudienceCount / totalUsers) * 1000) / 10
+          : 0;
+
         return {
           neighborhoodId: child.id,
           neighborhoodName: typeof child.name === 'string' ? child.name : String(child.name),
-          totalUsers: userIds.length,
-          activeUsers: userIds.filter(uid => monthlyActiveByUser.get(uid) === true).length,
-          workouts: userIds.reduce((sum, uid) => sum + (totalWorkoutsByUser.get(uid) ?? 0), 0),
+          totalUsers,
+          activeUsers,
+          workouts,
+          totalActiveMinutes,
+          targetAudienceCount,
+          targetAudiencePercent,
         };
       })
       .sort((a, b) => b.activeUsers - a.activeUsers);

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
@@ -68,12 +69,21 @@ const EVENT_VERB: Record<string, string> = {
 
 export default function FeedPage() {
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
   const access = useArenaAccess();
   const { events, groups, isLoading: arenaLoading } = useArenaData(access.cityAuthorityId);
   const { userCoords } = useUserLocation();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Route guard — redirect when community feed is disabled
+  useEffect(() => {
+    if (!flagsLoading && !featureFlags.enableCommunityFeed) {
+      router.replace('/home');
+    }
+  }, [flagsLoading, featureFlags.enableCommunityFeed, router]);
 
   const userId = profile?.id;
   const photoURL = profile?.core?.photoURL;
@@ -365,6 +375,9 @@ export default function FeedPage() {
       community: byDist(withDist.filter(({ group: g }) => g.source === 'user')),
     };
   }, [groups, userCoords, matchesAudience]);
+
+  // While flag is loading or disabled, render nothing (redirect fires from useEffect above)
+  if (flagsLoading || !featureFlags.enableCommunityFeed) return null;
 
   if (!_hasHydrated) {
     return (

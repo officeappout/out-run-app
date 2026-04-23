@@ -15,6 +15,9 @@ export interface LevelGoal {
   /** Admin-defined progress percentage awarded when this goal is fully met.
    *  If undefined, the engine defaults to 5%. */
   progressBonus?: number;
+  /** One-time Global XP bonus awarded the first time this goal is met.
+   *  Awarded via awardBonusXP in useProgressionStore. If undefined, no XP bonus is given. */
+  xpBonus?: number;
 }
 
 export interface Level {

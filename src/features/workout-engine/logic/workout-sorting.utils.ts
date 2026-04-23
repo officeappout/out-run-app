@@ -8,19 +8,25 @@
  */
 
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
+import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
 import type { WorkoutExercise } from './workout-generator.types';
 
 // ============================================================================
 // EQUIPMENT KEY
 // ============================================================================
 
+/**
+ * Returns a canonical equipment key for antagonist pairing / sorting.
+ * Normalized so that "Wide Pull-up Bar" and "Standard Pull-up Bar"
+ * both return 'pullup_bar' and get grouped together.
+ */
 export function getEquipmentKey(ex: WorkoutExercise): string {
   const ids = [
     ...(ex.method?.gearIds ?? []),
     ...(ex.method?.equipmentIds ?? []),
-    ...(ex.exercise.equipment ?? []),
   ].filter((id) => id && id !== 'bodyweight' && String(id).toLowerCase() !== 'bodyweight');
-  return ids[0] ?? 'bodyweight';
+  if (ids.length === 0) return 'bodyweight';
+  return normalizeGearId(ids[0]);
 }
 
 // ============================================================================

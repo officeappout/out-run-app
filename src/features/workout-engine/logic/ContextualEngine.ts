@@ -11,7 +11,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
+import { normalizeGearId, ESSENTIAL_PARK_GEAR, isGearOptional } from '../shared/utils/gear-mapping.utils';
 import {
   Exercise,
   ExecutionLocation,
@@ -390,12 +390,21 @@ export class ContextualEngine {
       return exercise.fieldReady;
     }
     
-    // Fallback: Field mode requires no equipment
+    // Fallback: field mode requires no equipment.
+    // Prefer executionMethods if available; legacy exercise.equipment is unreliable
+    // because duplicated exercises often carry stale data.
+    const methods = (exercise as any).execution_methods ?? [];
+    if (methods.length > 0) {
+      const allIds = methods.flatMap((m: any) => [
+        ...((m.gearIds as string[]) ?? []),
+        ...((m.equipmentIds as string[]) ?? []),
+      ]).filter(Boolean);
+      return allIds.length === 0 || allIds.every((id: string) => id === 'none' || id === 'bodyweight');
+    }
     const hasNoEquipment = 
       exercise.equipment.length === 0 ||
       exercise.equipment.includes('none') ||
       (exercise.equipment.length === 1 && exercise.equipment[0] === 'none');
-    
     return hasNoEquipment;
   }
   
@@ -449,7 +458,9 @@ export class ContextualEngine {
         const allIds = collectMethodGear(m);
         if (allIds.length === 0) return true;
         if (allIds.every(id => ESSENTIAL_PARK_GEAR.has(id) || id === 'bodyweight' || id === 'none')) return true;
-        return allIds.some(id => normalizedAvailable.includes(id));
+        const requiredIds = allIds.filter(id => !isGearOptional(id));
+        if (requiredIds.length === 0) return true;
+        return requiredIds.some(id => normalizedAvailable.includes(id));
       });
     };
 

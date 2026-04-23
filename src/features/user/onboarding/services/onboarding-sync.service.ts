@@ -28,9 +28,11 @@ import {
   deriveActiveProgramFromSkillFocus,
   getFocusDomainsForMuscleFocus,
 } from './assessment-path-config.service';
+import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
 
 // Step order mapping for analytics
 const STEP_ORDER: Record<OnboardingStepId, number> = {
+  'ACCESS_CODE': 0,
   'PERSONA': 1,
   'PERSONAL_STATS': 2,
   'LOCATION': 3,
@@ -619,26 +621,46 @@ export async function syncOnboardingToFirestore(
       // Map fitness tier to initial level: 1→1, 2→3, 3→5
       const domainLevelMap: Record<number, number> = { 1: 1, 2: 3, 3: 5 };
       const initialLevel = domainLevelMap[fitnessLevel] || 1;
-      const DOMAIN_MAX_LEVELS_FALLBACK: Record<string, number> = {
+
+      // ─────────────────────────────────────────────────────────────────────
+      // maxLevel resolution: CMS (`programs/{id}.maxLevels`) is the SOLE source
+      // of truth. We attempt a live fetch and use ONLY those values when it
+      // succeeds. The hardcoded EMERGENCY_FALLBACK is only used when the
+      // Firestore fetch throws (network down, permission error, etc.) so we
+      // can still seed a usable progression instead of leaving the user empty.
+      // ─────────────────────────────────────────────────────────────────────
+      const EMERGENCY_FALLBACK_DOMAIN_MAX_LEVELS: Record<string, number> = {
         upper_body: 22, lower_body: 20, full_body: 25,
         core: 18, flexibility: 12, running: 20,
         handstand: 25, pull_up_pro: 20,
       };
 
-      let dynamicMaxLevels: Record<string, number> = {};
+      let cmsMaxLevels: Record<string, number> = {};
+      let cmsFetchSucceeded = false;
       try {
         const { getAllPrograms } = await import('@/features/content/programs/core/program.service');
         const programs = await getAllPrograms();
+        cmsFetchSucceeded = true;
         for (const prog of programs) {
           if (prog.maxLevels != null && prog.maxLevels > 0) {
-            dynamicMaxLevels[prog.id] = prog.maxLevels;
+            cmsMaxLevels[prog.id] = prog.maxLevels;
           }
         }
       } catch (e) {
-        console.warn('[onboarding-sync] Failed to fetch dynamic maxLevels, using fallback', e);
+        console.warn('[onboarding-sync] CMS programs fetch failed — using emergency fallback', e);
       }
 
-      const DOMAIN_MAX_LEVELS = { ...DOMAIN_MAX_LEVELS_FALLBACK, ...dynamicMaxLevels };
+      const DOMAIN_MAX_LEVELS: Record<string, number> = cmsFetchSucceeded
+        ? cmsMaxLevels
+        : EMERGENCY_FALLBACK_DOMAIN_MAX_LEVELS;
+
+      console.log(
+        '[onboarding-sync] maxLevels source:',
+        cmsFetchSucceeded
+          ? `CMS (${Object.keys(cmsMaxLevels).length} programs)`
+          : 'EMERGENCY_FALLBACK (CMS unreachable)',
+        DOMAIN_MAX_LEVELS,
+      );
 
       const initialDomains: Record<string, { currentLevel: number; maxLevel: number; isUnlocked: boolean }> = {};
       for (const [domainId, maxLevel] of Object.entries(DOMAIN_MAX_LEVELS)) {
@@ -669,13 +691,29 @@ export async function syncOnboardingToFirestore(
       }
 
       // Filter out invalid entries (undefined programId/levelId)
+      // Guard against silent regression to L1: if the user reached COMPLETED with
+      // some assignedResults but ALL of them are malformed, log loudly so we don't
+      // silently fall through to GOAL_TO_PROGRAM with initialLevel (1/3/5).
       if (effectiveResults) {
+        const beforeCount = effectiveResults.length;
         effectiveResults = effectiveResults.filter(
           r => r && typeof r.programId === 'string' && r.programId.trim() !== '' &&
                typeof r.levelId === 'string' && r.levelId.trim() !== ''
         );
         if (effectiveResults.length === 0) {
+          if (beforeCount > 0) {
+            console.error(
+              `🚨 [OnboardingSync] All ${beforeCount} assignedResults entries were invalid ` +
+              `(missing programId or levelId). User would silently fall back to Level ${initialLevel}. ` +
+              `Check the visual-assessment payload — this is a regression.`,
+            );
+          }
           effectiveResults = undefined;
+        } else if (effectiveResults.length < beforeCount) {
+          console.warn(
+            `[OnboardingSync] Dropped ${beforeCount - effectiveResults.length}/${beforeCount} ` +
+            `malformed assignedResults entries. Continuing with ${effectiveResults.length} valid entries.`,
+          );
         }
       }
 
@@ -716,7 +754,7 @@ export async function syncOnboardingToFirestore(
                 masterProgramSubLevels: Object.fromEntries(
                   skillResults.map((r) => {
                     const m = r.levelId.match(/(\d+)/);
-                    return [r.programId, m ? parseInt(m[1], 10) : 1];
+                    return [r.programId, m ? Math.max(1, parseInt(m[1], 10)) : 1];
                   })
                 ),
               },
@@ -758,9 +796,13 @@ export async function syncOnboardingToFirestore(
         const primaryResult = effectiveResults[0];
         const primaryProgramId = primaryResult.programId;
         
-        // Extract numeric level from levelId (e.g., "level_3" → 3)
+        // Extract numeric level from levelId (e.g., "level_3" → 3).
+        // Math.max(1, …) guards against pathological inputs like "level_0" that
+        // would otherwise dump the user back to a non-existent Level 0.
         const levelMatch = primaryResult.levelId.match(/(\d+)/);
-        const primaryLevel = levelMatch ? parseInt(levelMatch[1], 10) : initialLevel;
+        const primaryLevel = levelMatch
+          ? Math.max(1, parseInt(levelMatch[1], 10))
+          : initialLevel;
 
         updateData.currentProgramId = primaryProgramId;
         updateData.fitnessLevel = fitnessLevel;
@@ -775,7 +817,9 @@ export async function syncOnboardingToFirestore(
 
         for (const result of effectiveResults) {
           const rLevelMatch = result.levelId.match(/(\d+)/);
-          const rLevel = rLevelMatch ? parseInt(rLevelMatch[1], 10) : initialLevel;
+          const rLevel = rLevelMatch
+            ? Math.max(1, parseInt(rLevelMatch[1], 10))
+            : initialLevel;
           
           // Set track for the program itself
           quizTracks[result.programId] = { currentLevel: rLevel, percent: 0 };
@@ -836,6 +880,28 @@ export async function syncOnboardingToFirestore(
           mergedTracks
         );
 
+        // Mirror quiz currentLevels into the seeded `initialDomains` so the two
+        // paths agree from day 1. Without this, `domains.{id}.currentLevel` would
+        // hold the stale tier-derived initialLevel (1/3/5) while `tracks.{id}.currentLevel`
+        // holds the real assessed level (e.g. 10) — causing any consumer that reads
+        // `domains.{id}.currentLevel` directly to display the wrong number.
+        const seededDomains: Record<string, { currentLevel: number; maxLevel: number; isUnlocked: boolean }> = { ...initialDomains };
+        for (const [programId, track] of Object.entries(quizTracks)) {
+          const existing = seededDomains[programId];
+          if (existing) {
+            seededDomains[programId] = { ...existing, currentLevel: track.currentLevel };
+          } else {
+            // Quiz produced a track for a program that wasn't in DOMAIN_MAX_LEVELS
+            // (e.g. a CMS program with no maxLevels set, or a child like `push`/`pull`).
+            // Seed it with the quiz level; maxLevel will be resolved live by useProgramProgress.
+            seededDomains[programId] = {
+              currentLevel: track.currentLevel,
+              maxLevel: cmsMaxLevels[programId] ?? 0,
+              isUnlocked: true,
+            };
+          }
+        }
+
         // Merge activePrograms (keep existing + add new from quiz)
         const mergedActivePrograms = [
           ...existingActivePrograms,
@@ -844,7 +910,7 @@ export async function syncOnboardingToFirestore(
 
         updateData.progression = {
           ...updateData.progression,
-          domains: initialDomains,
+          domains: seededDomains,
           tracks: mergedTracks,
           activePrograms: mergedActivePrograms.length > 0 ? mergedActivePrograms : [{
             id: primaryProgramId,
@@ -1148,6 +1214,31 @@ export async function syncOnboardingToFirestore(
       return obj;
     };
     
+    // ── Multi-Tenant: merge tenant fields from access code validation ──
+    const accessCodeResult = getAccessCodeResult();
+    if (accessCodeResult) {
+      updateData.core = {
+        ...updateData.core,
+        tenantId: accessCodeResult.tenantId,
+        unitId: accessCodeResult.unitId,
+        unitPath: accessCodeResult.unitPath,
+        tenantType: accessCodeResult.tenantType,
+      };
+      if (step === 'COMPLETED') {
+        clearAccessCodeResult();
+      }
+    }
+    // Also merge from onboarding data (set by AccessCodeStep via updateData)
+    if (data.tenantId && !updateData.core?.tenantId) {
+      updateData.core = {
+        ...updateData.core,
+        tenantId: data.tenantId,
+        unitId: data.unitId,
+        unitPath: data.unitPath,
+        tenantType: data.tenantType,
+      };
+    }
+
     const sanitizedUpdateData = sanitizeObject(updateData);
 
     // Save to Firestore (merge with existing data)

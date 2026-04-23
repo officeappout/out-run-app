@@ -103,10 +103,22 @@ async function buildProgramSlugMap(): Promise<ProgramSlugMap> {
 /**
  * Convert Firestore timestamp to Date
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return undefined;
 }
 
 /**
@@ -1387,7 +1399,10 @@ async function processBottomUpMasterCompletion(
   );
 
   // ── 4. Save all tracks to Firestore ─────────────────────────────────────
-  await updateProgressionTracks(userId, updatedTracks);
+  const trackWriteSucceededBottomUp = await updateProgressionTracks(userId, updatedTracks);
+  if (!trackWriteSucceededBottomUp) {
+    console.error('[Progression] Bottom-Up: updateProgressionTracks failed — gains are local-only');
+  }
 
   // ── 5. Recalculate master level from children for DB consistency ─────────
   try {
@@ -1479,6 +1494,7 @@ async function processBottomUpMasterCompletion(
     goalProgress: [],
     muscleGroupProgress: buildMuscleGroupProgress(exercises),
     childDomainGains: childGains,
+    trackWriteSucceeded: trackWriteSucceededBottomUp,
   };
 }
 
@@ -1856,7 +1872,10 @@ export async function processWorkoutCompletion(
     }
 
     // Save updated tracks to Firestore
-    await updateProgressionTracks(userId, updatedTracks);
+    const trackWriteSucceeded = await updateProgressionTracks(userId, updatedTracks);
+    if (!trackWriteSucceeded) {
+      console.error('[Progression] Leaf: updateProgressionTracks failed — gains are local-only');
+    }
 
     // ✅ LEVEL GOAL PROGRESS: Persist detailed goal performance so the Home
     //    dashboard can render real checkmarks (not just track-level IDs).
@@ -2027,6 +2046,7 @@ export async function processWorkoutCompletion(
       sessionCompletionPercent,
       goalProgress,
       muscleGroupProgress,
+      trackWriteSucceeded,
     };
     
   } catch (error) {
@@ -2052,6 +2072,7 @@ export async function processWorkoutCompletion(
       sessionCompletionPercent: 0,
       goalProgress: [],
       muscleGroupProgress: [],
+      trackWriteSucceeded: false,
     };
   }
 }

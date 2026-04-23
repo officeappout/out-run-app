@@ -20,6 +20,7 @@
 
 import { MovementPattern, TrackingMatrix, getMovementLevel } from '../core/types/tracking-matrix.types';
 import { ExerciseInstance, FilledSlot, GenerationContext } from '../core/types/blueprint.types';
+import { normalizeGearId, isEquipmentFamilyMatch, isGearOptional } from '../shared/utils/gear-mapping.utils';
 
 // ============================================================================
 // TYPES
@@ -270,17 +271,21 @@ export class SwapEngine {
         score += 20;
       }
       
-      // Bonus for matching equipment
-      const matchingEquipment = candidate.equipment.filter(eq => 
-        request.context.availableEquipment.includes(eq)
-      );
-      score += matchingEquipment.length * 10;
-      
-      // Penalty for needing equipment not available
-      const missingEquipment = candidate.equipment.filter(eq => 
-        !request.context.availableEquipment.includes(eq)
-      );
-      score -= missingEquipment.length * 25;
+      // Canonical-first equipment matching with family awareness:
+      // a "Wide Pull-up Bar" satisfies "Standard Pull-up Bar" (both → pullup_bar),
+      // and monkey_bars can substitute for pullup_bar (same family).
+      const normalizedAvailable = request.context.availableEquipment.map(normalizeGearId);
+      const normalizedCandidateGear = candidate.equipment.map(normalizeGearId);
+
+      for (const eq of normalizedCandidateGear) {
+        if (normalizedAvailable.includes(eq)) {
+          score += 10; // exact canonical match
+        } else if (normalizedAvailable.some((avail) => isEquipmentFamilyMatch(eq, avail))) {
+          score += 5;  // same family — usable but not ideal
+        } else {
+          score -= isGearOptional(eq) ? 5 : 25;
+        }
+      }
       
       // Bonus if exercise has video
       if (candidate.videoUrl) {

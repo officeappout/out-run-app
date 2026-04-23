@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   ExecutionMethod,
   ExecutionLocation,
@@ -33,18 +33,27 @@ import {
   Copy,
   Trees,
   Dumbbell,
+  Search,
+  Languages,
 } from 'lucide-react';
+import type { AppLanguage, ExerciseLang, LocalizedText, ExternalVideo } from '../../../core/exercise.types';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { safeRenderText } from '@/utils/render-helpers';
 import VideoPreview from './helpers/VideoPreview';
 import ImagePreview from './helpers/ImagePreview';
 import InstructionalVideosEditor from './helpers/InstructionalVideosEditor';
+import BunnyVideoUploader from './BunnyVideoUploader';
 import MediaLibraryModal from '@/features/admin/components/MediaLibraryModal';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 import GenderedTextInput, { GenderedTextListInput } from './shared/GenderedTextInput';
 import { GenderedText, isGenderedText, getGenderedText } from '../../../core/exercise.types';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import {
+  resolveEquipmentSvgPath,
+  ALIAS_TO_CANONICAL,
+  normalizeGearId,
+} from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 interface ExecutionMethodCardProps {
   method: ExecutionMethod;
@@ -75,6 +84,9 @@ export default function ExecutionMethodCard({
   onDuplicate,
   hideHeaderActions = false,
 }: ExecutionMethodCardProps) {
+  // Phase 5.5 — i18n: language tab for text fields in this method card
+  const [activeLang, setActiveLang] = useState<ExerciseLang>('he');
+
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
   const [isCuesExpanded, setIsCuesExpanded] = useState(true); // Start expanded
   const [uploading, setUploading] = useState(false);
@@ -84,6 +96,12 @@ export default function ExecutionMethodCard({
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [mediaLibraryType, setMediaLibraryType] = useState<'image' | 'video' | 'all'>('all');
   const [mediaLibraryField, setMediaLibraryField] = useState<'mainVideoUrl' | 'imageUrl' | null>(null);
+  /** Which equipment dropdown is currently open (null = all closed). */
+  const [openDropdown, setOpenDropdown] = useState<'fixed' | 'personal' | 'improvised' | null>(null);
+  const [equipmentSearch, setEquipmentSearch] = useState('');
+  const [isEquipmentPanelOpen, setIsEquipmentPanelOpen] = useState(false);
+  const equipmentSearchRef = useRef<HTMLInputElement>(null);
+  const equipmentPanelRef = useRef<HTMLDivElement>(null);
   
   // Auto-expand when focused from Content Status deep-link
   useEffect(() => {
@@ -115,11 +133,87 @@ export default function ExecutionMethodCard({
     }
   };
 
-  // CRITICAL: Defensive wrapper to ensure no objects are accidentally saved back to DB
+  // Phase 5.5 — i18n: helpers for LocalizedText fields
+  const getMethodName = (): LocalizedText =>
+    (method.methodName && typeof method.methodName === 'object' && 'he' in method.methodName)
+      ? (method.methodName as LocalizedText)
+      : { he: typeof method.methodName === 'string' ? method.methodName as string : '', en: '' };
+
+  const setMethodName = (lang: ExerciseLang, value: string) => {
+    const current = getMethodName();
+    safeUpdate({ ...method, methodName: { ...current, [lang]: value } as LocalizedText });
+  };
+
+  const getCues = (): LocalizedText[] =>
+    (method.specificCues ?? []).map((c) =>
+      (c && typeof c === 'object' && 'he' in c)
+        ? (c as LocalizedText)
+        : { he: typeof c === 'string' ? c : '', en: '' }
+    );
+
+  const setCue = (index: number, lang: ExerciseLang, value: string) => {
+    const cues = getCues();
+    const next = [...cues];
+    next[index] = { ...next[index], [lang]: value };
+    safeUpdate({ ...method, specificCues: next });
+  };
+
+  const addCue = () => {
+    const cues = getCues();
+    if (cues.length >= 8) return;
+    safeUpdate({ ...method, specificCues: [...cues, { he: '', en: '' }] });
+  };
+
+  const removeCue = (index: number) => {
+    const cues = getCues();
+    safeUpdate({ ...method, specificCues: cues.filter((_, i) => i !== index) });
+  };
+
+  const getHighlights = (): LocalizedText[] =>
+    (method.highlights ?? []).map((h) =>
+      (h && typeof h === 'object' && 'he' in h)
+        ? (h as LocalizedText)
+        : { he: typeof h === 'string' ? h : '', en: '' }
+    );
+
+  const setHighlight = (index: number, lang: ExerciseLang, value: string) => {
+    const hl = getHighlights();
+    const next = [...hl];
+    next[index] = { ...next[index], [lang]: value };
+    safeUpdate({ ...method, highlights: next });
+  };
+
+  const addHighlight = () => {
+    const hl = getHighlights();
+    if (hl.length >= 6) return;
+    safeUpdate({ ...method, highlights: [...hl, { he: '', en: '' }] });
+  };
+
+  const removeHighlight = (index: number) => {
+    const hl = getHighlights();
+    safeUpdate({ ...method, highlights: hl.filter((_, i) => i !== index) });
+  };
+
+  const getPerMethodVideo = (field: 'previewVideo' | 'fullTutorial', lang: ExerciseLang): ExternalVideo | undefined => {
+    const map = method.media?.[field] as Partial<Record<ExerciseLang, ExternalVideo>> | undefined;
+    return map?.[lang];
+  };
+
+  const setPerMethodVideo = (field: 'previewVideo' | 'fullTutorial', lang: ExerciseLang, next: ExternalVideo | undefined) => {
+    const prevMap = (method.media?.[field] ?? {}) as Partial<Record<ExerciseLang, ExternalVideo>>;
+    const nextMap: Partial<Record<ExerciseLang, ExternalVideo>> = { ...prevMap };
+    if (next) { nextMap[lang] = next; } else { delete nextMap[lang]; }
+    safeUpdate({ ...method, media: { ...method.media, [field]: Object.keys(nextMap).length > 0 ? nextMap : undefined } });
+  };
+
+  // Defensive wrapper — keeps equipment IDs as plain string arrays
   const safeUpdate = (updated: ExecutionMethod) => {
     const sanitized: ExecutionMethod = {
       ...updated,
-      methodName: typeof updated.methodName === 'string' ? updated.methodName : String(updated.methodName || ''),
+      // methodName is now LocalizedText — pass through as-is (normalizer handles it on save)
+      methodName: (updated.methodName && typeof updated.methodName === 'object' && 'he' in updated.methodName)
+        ? updated.methodName as LocalizedText
+        : { he: typeof updated.methodName === 'string' ? updated.methodName as string : '', en: '' } as LocalizedText,
       // Ensure gearIds is always an array of strings
       gearIds: Array.isArray(updated.gearIds) 
         ? updated.gearIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')
@@ -153,44 +247,169 @@ export default function ExecutionMethodCard({
   };
 
   // Get fixed equipment list (gym installations)
-  const fixedEquipmentList = gymEquipmentList.map((eq) => ({ 
-    id: eq.id, 
-    name: eq.name, 
-    type: 'fixed' as const 
+  const fixedEquipmentList = gymEquipmentList.map((eq) => ({
+    id: eq.id,
+    name: eq.name,
+    type: 'fixed' as const,
+    iconKey: eq.iconKey,
   }));
-  
+
   // Get personal gear list (user_gear - excludes improvised)
   const personalGearList = gearDefinitionsList
     .filter((gear) => gear.category !== 'improvised')
-    .map((gear) => ({ 
-      id: gear.id, 
-      name: gear.name.he || gear.name.en || '', 
-      type: 'personal' as const 
+    .map((gear) => ({
+      id: gear.id,
+      name: gear.name.he || gear.name.en || '',
+      type: 'personal' as const,
+      iconKey: gear.iconKey,
     }));
-  
+
   // Get improvised items list
   const improvisedList = gearDefinitionsList
     .filter((gear) => gear.category === 'improvised')
-    .map((gear) => ({ 
-      id: gear.id, 
-      name: gear.name.he || gear.name.en || '', 
-      type: 'improvised' as const 
+    .map((gear) => ({
+      id: gear.id,
+      name: gear.name.he || gear.name.en || '',
+      type: 'improvised' as const,
+      iconKey: gear.iconKey,
     }));
-  
-  // Helper to get item name by ID from any list
-  const getItemNameById = (id: string): { name: string; type: 'fixed' | 'personal' | 'improvised' } | null => {
-    const fixed = fixedEquipmentList.find(e => e.id === id);
-    if (fixed) return { name: fixed.name, type: 'fixed' };
-    
-    const personal = personalGearList.find(g => g.id === id);
-    if (personal) return { name: personal.name, type: 'personal' };
-    
-    const improvised = improvisedList.find(g => g.id === id);
-    if (improvised) return { name: improvised.name, type: 'improvised' };
-    
+
+  // ── Unified equipment list for search ──────────────────────────────────
+  type UnifiedItem = { id: string; name: string; type: 'fixed' | 'personal' | 'improvised'; iconKey?: string };
+
+  const allEquipmentItems = useMemo<UnifiedItem[]>(() => [
+    ...fixedEquipmentList,
+    ...personalGearList,
+    ...improvisedList,
+  ], [fixedEquipmentList, personalGearList, improvisedList]);
+
+  const selectedIds = useMemo(() => new Set([
+    ...(method.equipmentIds || []),
+    ...(method.gearIds || []),
+  ]), [method.equipmentIds, method.gearIds]);
+
+  const filteredEquipmentItems = useMemo(() => {
+    const available = allEquipmentItems.filter((item) => !selectedIds.has(item.id));
+    if (!equipmentSearch.trim()) return available;
+    const q = equipmentSearch.trim().toLowerCase();
+    return available.filter((item) => {
+      if (item.name.toLowerCase().includes(q)) return true;
+      if (item.iconKey && item.iconKey.toLowerCase().includes(q)) return true;
+      const normalizedIconKey = item.iconKey?.replace(/_/g, ' ') ?? '';
+      if (normalizedIconKey.includes(q)) return true;
+      return false;
+    });
+  }, [allEquipmentItems, selectedIds, equipmentSearch]);
+
+  const groupedResults = useMemo(() => ({
+    fixed: filteredEquipmentItems.filter((i) => i.type === 'fixed'),
+    personal: filteredEquipmentItems.filter((i) => i.type === 'personal'),
+    improvised: filteredEquipmentItems.filter((i) => i.type === 'improvised'),
+  }), [filteredEquipmentItems]);
+
+  const handleEquipmentSelect = useCallback((item: UnifiedItem) => {
+    if (item.type === 'fixed') {
+      const currentIds = method.equipmentIds || [];
+      if (!currentIds.includes(item.id)) {
+        safeUpdate({ ...method, equipmentIds: [...currentIds, item.id], requiredGearType: method.requiredGearType || 'fixed_equipment' });
+      }
+    } else {
+      const currentIds = method.gearIds || [];
+      if (!currentIds.includes(item.id)) {
+        const gearType = item.type === 'improvised' ? 'improvised' : 'user_gear';
+        safeUpdate({ ...method, gearIds: [...currentIds, item.id], requiredGearType: method.requiredGearType || gearType });
+      }
+    }
+    setEquipmentSearch('');
+    equipmentSearchRef.current?.focus();
+  }, [method, safeUpdate]);
+
+  useEffect(() => {
+    if (!isEquipmentPanelOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (equipmentPanelRef.current && !equipmentPanelRef.current.contains(e.target as Node)) {
+        setIsEquipmentPanelOpen(false);
+        setEquipmentSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isEquipmentPanelOpen]);
+
+  // Helper to get item info by ID from any list
+  const getItemNameById = (
+    id: string,
+  ): { name: string; type: 'fixed' | 'personal' | 'improvised'; iconKey?: string } | null => {
+    const fixed = fixedEquipmentList.find((e) => e.id === id);
+    if (fixed) return { name: fixed.name, type: 'fixed', iconKey: fixed.iconKey };
+
+    const personal = personalGearList.find((g) => g.id === id);
+    if (personal) return { name: personal.name, type: 'personal', iconKey: personal.iconKey };
+
+    const improvised = improvisedList.find((g) => g.id === id);
+    if (improvised) return { name: improvised.name, type: 'improvised', iconKey: improvised.iconKey };
+
     return null;
   };
+
+  /**
+   * For a broken equipment ID (not found in any loaded list), try to find a
+   * replacement whose canonical key EXACTLY matches.
+   *
+   * Category guard: a replacement is only accepted when its canonical key
+   * equals the broken ID's canonical key. This prevents cross-category
+   * mismatches (e.g. suggesting "Rings" for a "Pull-up bar" ID).
+   */
+  const findReplacement = (brokenId: string): (GearDefinition | GymEquipment) | null => {
+    if (typeof ALIAS_TO_CANONICAL === 'undefined' || !brokenId) return null;
+    const canonical = ALIAS_TO_CANONICAL[brokenId];
+    if (!canonical || canonical === 'unknown_gear') return null;
+
+    // Strict match: the replacement item's own canonical key must be identical.
+    const gearMatch = gearDefinitionsList.find((g) => {
+      const itemCanonical = g.iconKey ? normalizeGearId(g.iconKey) : normalizeGearId(g.id);
+      return itemCanonical === canonical;
+    });
+    if (gearMatch) return gearMatch;
+
+    const gymMatch = gymEquipmentList.find((g) => {
+      const itemCanonical = g.iconKey ? normalizeGearId(g.iconKey) : normalizeGearId(g.id);
+      return itemCanonical === canonical;
+    });
+    return gymMatch || null;
+  };
   
+  type ReplacementItem = GearDefinition | GymEquipment;
+
+  /**
+   * Pre-computed broken-link maps — keyed by broken equipment ID, value is the
+   * suggested replacement item (or null when none is found).
+   *
+   * Using useMemo keeps the expensive look-up out of the JSX render path and
+   * prevents any accidental side-effect-in-render warnings from React strict mode.
+   */
+  const brokenFixedLinks = useMemo<Map<string, ReplacementItem | null>>(() => {
+    const map = new Map<string, ReplacementItem | null>();
+    for (const id of method.equipmentIds ?? []) {
+      if (!getItemNameById(id)) {
+        map.set(id, findReplacement(id));
+      }
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method.equipmentIds, gymEquipmentList, gearDefinitionsList]);
+
+  const brokenGearLinks = useMemo<Map<string, ReplacementItem | null>>(() => {
+    const map = new Map<string, ReplacementItem | null>();
+    for (const id of method.gearIds ?? []) {
+      if (!getItemNameById(id)) {
+        map.set(id, findReplacement(id));
+      }
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method.gearIds, gymEquipmentList, gearDefinitionsList]);
+
   // Backward compatibility: Get available gear list based on gear type (legacy)
   const getAvailableGearList = () => {
     const gearType = method.requiredGearType;
@@ -257,7 +476,7 @@ export default function ExecutionMethodCard({
           </div>
           <div>
             <div className="text-sm font-bold text-gray-700">
-              {method.methodName || 'שיטת ביצוע חדשה'}
+              {getMethodName().he || getMethodName().en || 'שיטת ביצוע חדשה'}
             </div>
             <div className="text-xs text-gray-500">
               {safeRenderText(
@@ -294,15 +513,49 @@ export default function ExecutionMethodCard({
         )}
       </div>
 
+      {/* ── Language Tabs ────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-gray-600">
+          <Languages size={13} className="text-cyan-500" />
+          שפת עריכה
+        </span>
+        <div className="flex gap-1 text-xs font-bold bg-gray-100 rounded-full p-0.5">
+          {([
+            { id: 'he' as ExerciseLang, label: 'HE' },
+            { id: 'en' as ExerciseLang, label: 'EN' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setActiveLang(opt.id)}
+              className={`px-3 py-1 rounded-full transition-all ${
+                activeLang === opt.id
+                  ? 'bg-cyan-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Method Name */}
       <div>
-        <label className="block text-xs font-bold text-gray-500 mb-1.5">שם שיטת הביצוע (עברית)</label>
+        <label className="block text-xs font-bold text-gray-500 mb-1.5">
+          שם שיטת הביצוע {activeLang === 'he' ? '(עברית)' : '(English)'}
+        </label>
         <input
           type="text"
-          value={method.methodName || ''}
-          onChange={(e) => safeUpdate({ ...method, methodName: e.target.value })}
+          dir={activeLang === 'he' ? 'rtl' : 'ltr'}
+          value={getMethodName()[activeLang] || ''}
+          onChange={(e) => setMethodName(activeLang, e.target.value)}
           className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-          placeholder="לדוגמה: מתח עם גומיות, שכיבות סמיכה על ספסל"
+          placeholder={
+            activeLang === 'he'
+              ? 'לדוגמה: מתח עם גומיות, שכיבות סמיכה על ספסל'
+              : 'e.g. Resistance Band Pull-up, Bench Push-up'
+          }
         />
       </div>
 
@@ -357,22 +610,63 @@ export default function ExecutionMethodCard({
           <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
             <p className="text-[10px] font-bold text-gray-500 mb-1.5">ציוד שנבחר:</p>
             <div className="flex flex-wrap gap-1.5">
-              {/* Fixed Equipment Tags */}
+
+              {/* ── Fixed Equipment Tags ─────────────────────────────── */}
               {(method.equipmentIds || []).map((itemId: string) => {
                 const item = getItemNameById(itemId);
+
+                // Broken link — ID no longer exists in gym_equipment
+                if (!item) {
+                  const replacement = brokenFixedLinks.get(itemId) ?? null;
+                  return (
+                    <span
+                      key={`fixed-${itemId}`}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 border border-red-300 rounded-lg text-xs font-semibold"
+                    >
+                      <AlertCircle size={11} className="text-red-500 flex-shrink-0" />
+                      <span className="text-[9px] bg-red-200 px-1 rounded">פגוע</span>
+                      <span className="font-mono text-[9px] opacity-60">{itemId.slice(0, 8)}…</span>
+                      {replacement && (
+                        <button
+                          type="button"
+                          title={`תקן → ${typeof replacement.name === 'string' ? replacement.name : (replacement.name.he || replacement.name.en)}`}
+                          onClick={() => {
+                            const newIds = (method.equipmentIds || []).map((id) => (id === itemId ? replacement.id : id));
+                            safeUpdate({ ...method, equipmentIds: newIds });
+                          }}
+                          className="text-[9px] underline text-green-700 hover:text-green-900 ms-0.5"
+                        >
+                          תקן ↻
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => safeUpdate({ ...method, equipmentIds: (method.equipmentIds || []).filter((id) => id !== itemId) })}
+                        className="text-red-500 hover:text-red-800"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  );
+                }
+
+                // Valid chip — show SVG icon when available
+                const svgPath = item.iconKey ? resolveEquipmentSvgPath(item.iconKey) : null;
                 return (
                   <span
                     key={`fixed-${itemId}`}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold"
                   >
-                    <span className="text-[9px] bg-purple-200 px-1 rounded">מתקן</span>
-                    {item?.name || itemId}
+                    {svgPath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={svgPath} alt="" width={12} height={12} className="object-contain flex-shrink-0" />
+                    ) : (
+                      <span className="text-[9px] bg-purple-200 px-1 rounded">מתקן</span>
+                    )}
+                    {item.name}
                     <button
                       type="button"
-                      onClick={() => {
-                        const newIds = (method.equipmentIds || []).filter(id => id !== itemId);
-                        safeUpdate({ ...method, equipmentIds: newIds });
-                      }}
+                      onClick={() => safeUpdate({ ...method, equipmentIds: (method.equipmentIds || []).filter((id) => id !== itemId) })}
                       className="text-purple-600 hover:text-purple-900"
                     >
                       <X size={12} />
@@ -380,31 +674,68 @@ export default function ExecutionMethodCard({
                   </span>
                 );
               })}
-              {/* Personal Gear Tags */}
+
+              {/* ── Personal / Improvised Gear Tags ─────────────────── */}
               {(method.gearIds || []).map((itemId: string) => {
                 const item = getItemNameById(itemId);
-                const isImprovised = item?.type === 'improvised';
+
+                // Broken link — ID no longer exists in gear_definitions
+                if (!item) {
+                  const replacement = brokenGearLinks.get(itemId) ?? null;
+                  return (
+                    <span
+                      key={`gear-${itemId}`}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 border border-red-300 rounded-lg text-xs font-semibold"
+                    >
+                      <AlertCircle size={11} className="text-red-500 flex-shrink-0" />
+                      <span className="text-[9px] bg-red-200 px-1 rounded">פגוע</span>
+                      <span className="font-mono text-[9px] opacity-60">{itemId.slice(0, 8)}…</span>
+                      {replacement && (
+                        <button
+                          type="button"
+                          title={`תקן → ${typeof replacement.name === 'string' ? replacement.name : (replacement.name.he || replacement.name.en)}`}
+                          onClick={() => {
+                            const newIds = (method.gearIds || []).map((id) => (id === itemId ? replacement.id : id));
+                            safeUpdate({ ...method, gearIds: newIds });
+                          }}
+                          className="text-[9px] underline text-green-700 hover:text-green-900 ms-0.5"
+                        >
+                          תקן ↻
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => safeUpdate({ ...method, gearIds: (method.gearIds || []).filter((id) => id !== itemId) })}
+                        className="text-red-500 hover:text-red-800"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  );
+                }
+
+                // Valid chip — show SVG icon when available
+                const isImprovised = item.type === 'improvised';
+                const svgPath = item.iconKey ? resolveEquipmentSvgPath(item.iconKey) : null;
                 return (
                   <span
                     key={`gear-${itemId}`}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${
-                      isImprovised 
-                        ? 'bg-amber-100 text-amber-800' 
-                        : 'bg-cyan-100 text-cyan-800'
+                      isImprovised ? 'bg-amber-100 text-amber-800' : 'bg-cyan-100 text-cyan-800'
                     }`}
                   >
-                    <span className={`text-[9px] px-1 rounded ${
-                      isImprovised ? 'bg-amber-200' : 'bg-cyan-200'
-                    }`}>
-                      {isImprovised ? 'מאולתר' : 'אישי'}
-                    </span>
-                    {item?.name || itemId}
+                    {svgPath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={svgPath} alt="" width={12} height={12} className="object-contain flex-shrink-0" />
+                    ) : (
+                      <span className={`text-[9px] px-1 rounded ${isImprovised ? 'bg-amber-200' : 'bg-cyan-200'}`}>
+                        {isImprovised ? 'מאולתר' : 'אישי'}
+                      </span>
+                    )}
+                    {item.name}
                     <button
                       type="button"
-                      onClick={() => {
-                        const newIds = (method.gearIds || []).filter(id => id !== itemId);
-                        safeUpdate({ ...method, gearIds: newIds });
-                      }}
+                      onClick={() => safeUpdate({ ...method, gearIds: (method.gearIds || []).filter((id) => id !== itemId) })}
                       className={isImprovised ? 'text-amber-600 hover:text-amber-900' : 'text-cyan-600 hover:text-cyan-900'}
                     >
                       <X size={12} />
@@ -416,105 +747,152 @@ export default function ExecutionMethodCard({
           </div>
         )}
 
-        {/* Equipment Selection Dropdowns - All visible simultaneously */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Fixed Equipment Dropdown */}
-          <div>
-            <label className="block text-[10px] font-bold text-purple-600 mb-1.5 flex items-center gap-1">
-              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-              מתקן קבוע
-            </label>
-            <select
-              value=""
+        {/* ── Unified Searchable Equipment Selector ──────────────────────── */}
+        <div ref={equipmentPanelRef} className="relative">
+          <div className="relative">
+            <Search size={14} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              ref={equipmentSearchRef}
+              type="text"
+              dir="auto"
+              value={equipmentSearch}
+              disabled={loadingRequirements || allEquipmentItems.length === 0}
               onChange={(e) => {
-                if (!e.target.value) return;
-                const currentIds = method.equipmentIds || [];
-                if (currentIds.includes(e.target.value)) return;
-                safeUpdate({ 
-                  ...method, 
-                  equipmentIds: [...currentIds, e.target.value],
-                  // Set requiredGearType to fixed_equipment if nothing selected yet
-                  requiredGearType: method.requiredGearType || 'fixed_equipment'
-                });
+                setEquipmentSearch(e.target.value);
+                if (!isEquipmentPanelOpen) setIsEquipmentPanelOpen(true);
               }}
-              disabled={loadingRequirements || fixedEquipmentList.length === 0}
-              className="w-full px-2 py-1.5 text-xs border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 bg-white"
-            >
-              <option value="">+ הוסף מתקן...</option>
-              {fixedEquipmentList
-                .filter(item => !(method.equipmentIds || []).includes(item.id))
-                .map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-            </select>
-          </div>
-
-          {/* Personal Gear Dropdown */}
-          <div>
-            <label className="block text-[10px] font-bold text-cyan-600 mb-1.5 flex items-center gap-1">
-              <span className="w-2 h-2 bg-cyan-500 rounded-full"></span>
-              ציוד אישי
-            </label>
-            <select
-              value=""
-              onChange={(e) => {
-                if (!e.target.value) return;
-                const currentIds = method.gearIds || [];
-                if (currentIds.includes(e.target.value)) return;
-                safeUpdate({ 
-                  ...method, 
-                  gearIds: [...currentIds, e.target.value],
-                  // Set requiredGearType to user_gear if nothing selected yet
-                  requiredGearType: method.requiredGearType || 'user_gear'
-                });
-              }}
-              disabled={loadingRequirements || personalGearList.length === 0}
-              className="w-full px-2 py-1.5 text-xs border border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 bg-white"
-            >
-              <option value="">+ הוסף ציוד...</option>
-              {personalGearList
-                .filter(item => !(method.gearIds || []).includes(item.id))
-                .map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-            </select>
-          </div>
-
-          {/* Improvised Items Dropdown */}
-          <div>
-            <label className="block text-[10px] font-bold text-amber-600 mb-1.5 flex items-center gap-1">
-              <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-              פריט מאולתר
-            </label>
-            <select
-              value=""
-              onChange={(e) => {
-                if (!e.target.value) return;
-                const currentIds = method.gearIds || [];
-                if (currentIds.includes(e.target.value)) return;
-                safeUpdate({ 
-                  ...method, 
-                  gearIds: [...currentIds, e.target.value],
-                  // Set requiredGearType to improvised if nothing selected yet
-                  requiredGearType: method.requiredGearType || 'improvised'
-                });
-              }}
-              disabled={loadingRequirements || improvisedList.length === 0}
-              className="w-full px-2 py-1.5 text-xs border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50 bg-white"
-            >
-              <option value="">+ הוסף פריט...</option>
-              {improvisedList
-                .filter(item => !(method.gearIds || []).includes(item.id))
-                .map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-            </select>
-            {improvisedList.length === 0 && (
-              <p className="text-[9px] text-amber-600 mt-1">
-                אין פריטים מאולתרים
-              </p>
+              onFocus={() => setIsEquipmentPanelOpen(true)}
+              placeholder="חפש ציוד... (עברית או English)"
+              className="w-full ps-8 pe-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 placeholder:text-gray-400"
+            />
+            {equipmentSearch && (
+              <button
+                type="button"
+                onClick={() => { setEquipmentSearch(''); equipmentSearchRef.current?.focus(); }}
+                className="absolute end-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={14} />
+              </button>
             )}
           </div>
+
+          {isEquipmentPanelOpen && (
+            <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
+              {filteredEquipmentItems.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                  {equipmentSearch ? `לא נמצא ציוד עבור "${equipmentSearch}"` : 'כל הציוד נבחר'}
+                </div>
+              ) : (
+                <>
+                  {/* ── Fixed (Park) Equipment ── */}
+                  {groupedResults.fixed.length > 0 && (
+                    <div>
+                      <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border-b border-purple-100">
+                        <span className="w-2 h-2 bg-purple-500 rounded-full" />
+                        <span className="text-[10px] font-bold text-purple-700">מתקן קבוע</span>
+                        <span className="text-[9px] text-purple-400 ms-auto">{groupedResults.fixed.length}</span>
+                      </div>
+                      {groupedResults.fixed.map((item) => {
+                        const svgPath = item.iconKey ? resolveEquipmentSvgPath(item.iconKey) : null;
+                        return (
+                          <button
+                            key={`eq-${item.id}`}
+                            type="button"
+                            onClick={() => handleEquipmentSelect(item)}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-purple-50 text-xs text-gray-700 text-right transition-colors"
+                          >
+                            {svgPath ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={svgPath} alt="" width={16} height={16} className="object-contain flex-shrink-0" />
+                            ) : (
+                              <Package size={16} className="text-purple-300 flex-shrink-0" />
+                            )}
+                            <span className="flex-1">{item.name}</span>
+                            <Plus size={12} className="text-gray-300 flex-shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ── Personal Gear ── */}
+                  {groupedResults.personal.length > 0 && (
+                    <div>
+                      <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 border-b border-cyan-100">
+                        <span className="w-2 h-2 bg-cyan-500 rounded-full" />
+                        <span className="text-[10px] font-bold text-cyan-700">ציוד אישי</span>
+                        <span className="text-[9px] text-cyan-400 ms-auto">{groupedResults.personal.length}</span>
+                      </div>
+                      {groupedResults.personal.map((item) => {
+                        const svgPath = item.iconKey ? resolveEquipmentSvgPath(item.iconKey) : null;
+                        return (
+                          <button
+                            key={`eq-${item.id}`}
+                            type="button"
+                            onClick={() => handleEquipmentSelect(item)}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-cyan-50 text-xs text-gray-700 text-right transition-colors"
+                          >
+                            {svgPath ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={svgPath} alt="" width={16} height={16} className="object-contain flex-shrink-0" />
+                            ) : (
+                              <Package size={16} className="text-cyan-300 flex-shrink-0" />
+                            )}
+                            <span className="flex-1">{item.name}</span>
+                            <Plus size={12} className="text-gray-300 flex-shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ── Improvised Items ── */}
+                  {groupedResults.improvised.length > 0 && (
+                    <div>
+                      <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-b border-amber-100">
+                        <span className="w-2 h-2 bg-amber-500 rounded-full" />
+                        <span className="text-[10px] font-bold text-amber-700">פריט מאולתר</span>
+                        <span className="text-[9px] text-amber-400 ms-auto">{groupedResults.improvised.length}</span>
+                      </div>
+                      {groupedResults.improvised.map((item) => {
+                        const svgPath = item.iconKey ? resolveEquipmentSvgPath(item.iconKey) : null;
+                        return (
+                          <button
+                            key={`eq-${item.id}`}
+                            type="button"
+                            onClick={() => handleEquipmentSelect(item)}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-amber-50 text-xs text-gray-700 text-right transition-colors"
+                          >
+                            {svgPath ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={svgPath} alt="" width={16} height={16} className="object-contain flex-shrink-0" />
+                            ) : (
+                              <Package size={16} className="text-amber-300 flex-shrink-0" />
+                            )}
+                            <span className="flex-1">{item.name}</span>
+                            <Plus size={12} className="text-gray-300 flex-shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Category legend */}
+        <div className="flex items-center gap-4 mt-2">
+          <span className="flex items-center gap-1 text-[9px] text-gray-400">
+            <span className="w-1.5 h-1.5 bg-purple-500 rounded-full" />מתקן קבוע
+          </span>
+          <span className="flex items-center gap-1 text-[9px] text-gray-400">
+            <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full" />ציוד אישי
+          </span>
+          <span className="flex items-center gap-1 text-[9px] text-gray-400">
+            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />מאולתר
+          </span>
         </div>
 
         {/* Brand Selection (show when fixed equipment is selected) */}
@@ -787,6 +1165,34 @@ export default function ExecutionMethodCard({
               />
             </div>
 
+            {/* Phase 5.5: Per-Method Bunny.net Slots — per language */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-2">
+                Bunny.net לשיטה זו (אופציונלי — דורס את הגלובלי)
+              </label>
+              {(['he', 'en'] as ExerciseLang[]).map((lang) => (
+                <div key={lang} className="mb-3">
+                  <div className="text-[10px] font-bold text-gray-400 mb-1.5">
+                    {lang === 'he' ? '🇮🇱 עברית' : '🇺🇸 English'}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <BunnyVideoUploader
+                      label={`Preview (לולאה)`}
+                      value={getPerMethodVideo('previewVideo', lang)}
+                      onChange={(next) => setPerMethodVideo('previewVideo', lang, next)}
+                      uploadTitle={`${getMethodName().he || method.location} — preview — ${lang}`}
+                    />
+                    <BunnyVideoUploader
+                      label={`Tutorial (מלא)`}
+                      value={getPerMethodVideo('fullTutorial', lang)}
+                      onChange={(next) => setPerMethodVideo('fullTutorial', lang, next)}
+                      uploadTitle={`${getMethodName().he || method.location} — tutorial — ${lang}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Image URL */}
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1.5">
@@ -863,18 +1269,43 @@ export default function ExecutionMethodCard({
               <div className="flex items-center gap-2 mb-2">
                 <AlertCircle size={12} className="text-amber-500" />
                 <label className="text-xs font-bold text-gray-500">
-                  דגשי ביצוע (Specific Cues)
+                  דגשי ביצוע (Specific Cues) — {activeLang === 'he' ? 'עברית' : 'English'}
                 </label>
               </div>
               <p className="text-[10px] text-gray-500 mb-2">
-                נקודות קצרות לביצוע נכון בשיטה זו. ניתן לפצל כל דגש לפי מגדר.
+                {activeLang === 'he'
+                  ? 'נקודות קצרות לביצוע נכון בשיטה זו.'
+                  : 'Short coaching cues in English.'}
               </p>
-              <GenderedTextListInput
-                value={method.specificCues}
-                onChange={(newCues) => safeUpdate({ ...method, specificCues: newCues })}
-                placeholder="הוסף דגש ביצוע..."
-                maxItems={8}
-              />
+              <div className="space-y-2">
+                {getCues().map((cue, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="shrink-0 w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center">
+                      {idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      dir={activeLang === 'he' ? 'rtl' : 'ltr'}
+                      value={cue[activeLang] || ''}
+                      onChange={(e) => setCue(idx, activeLang, e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                      placeholder={activeLang === 'he' ? 'הוסף דגש ביצוע...' : 'Add coaching cue...'}
+                    />
+                    <button type="button" onClick={() => removeCue(idx)} className="text-gray-300 hover:text-red-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                {getCues().length < 8 && (
+                  <button
+                    type="button"
+                    onClick={addCue}
+                    className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700"
+                  >
+                    <Plus size={13} /> הוסף דגש
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Highlights */}
@@ -882,18 +1313,41 @@ export default function ExecutionMethodCard({
               <div className="flex items-center gap-2 mb-2">
                 <Star size={12} className="text-green-500" />
                 <label className="text-xs font-bold text-gray-500">
-                  נקודות מרכזיות (Highlights)
+                  נקודות מרכזיות (Highlights) — {activeLang === 'he' ? 'עברית' : 'English'}
                 </label>
               </div>
               <p className="text-[10px] text-gray-500 mb-2">
-                יתרונות וטיפים לשיטת ביצוע זו. ניתן לפצל כל נקודה לפי מגדר.
+                {activeLang === 'he'
+                  ? 'יתרונות וטיפים לשיטת ביצוע זו.'
+                  : 'Benefits and tips for this method.'}
               </p>
-              <GenderedTextListInput
-                value={method.highlights}
-                onChange={(newHighlights) => safeUpdate({ ...method, highlights: newHighlights })}
-                placeholder="הוסף נקודה מרכזית..."
-                maxItems={6}
-              />
+              <div className="space-y-2">
+                {getHighlights().map((hl, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Star size={12} className="shrink-0 text-green-400" />
+                    <input
+                      type="text"
+                      dir={activeLang === 'he' ? 'rtl' : 'ltr'}
+                      value={hl[activeLang] || ''}
+                      onChange={(e) => setHighlight(idx, activeLang, e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
+                      placeholder={activeLang === 'he' ? 'הוסף נקודה מרכזית...' : 'Add highlight...'}
+                    />
+                    <button type="button" onClick={() => removeHighlight(idx)} className="text-gray-300 hover:text-red-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                {getHighlights().length < 6 && (
+                  <button
+                    type="button"
+                    onClick={addHighlight}
+                    className="flex items-center gap-1 text-xs font-bold text-green-600 hover:text-green-700"
+                  >
+                    <Plus size={13} /> הוסף נקודה
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -45,8 +45,7 @@ export default function AdminDashboardPage() {
                     // Check if user is ONLY an authority manager (not super admin)
                     const isOnly = await isOnlyAuthorityManager(user.uid);
                     if (isOnly) {
-                        // Redirect to authority manager dashboard
-                        router.replace('/admin/authority-manager');
+                        router.replace('/admin/dashboard');
                         return;
                     }
                 } catch (error) {

@@ -14,6 +14,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useToast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, 
@@ -43,14 +44,14 @@ import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWe
 import { trackMuscleUsage } from '@/features/workout-engine/services/split-decision';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
-import { calculateBaseWorkoutXP, calculateLevelFromXP, getProgressToNextLevel } from '@/features/user/progression/services/xp.service';
+// calculateStrengthWorkoutXP is now called internally by useProgressionStore.awardStrengthXP
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
-import { getAllLevels } from '@/features/content/programs/core/level.service';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import CircularProgress from '@/components/CircularProgress';
 
 // ============================================================================
 // TYPES
@@ -230,13 +231,6 @@ function groupExercisesByCategory(exercises: CompletedExercise[]): Record<string
   }, {} as Record<string, CompletedExercise[]>);
 }
 
-/**
- * Calculate stroke-dashoffset for circular progress
- */
-function calculateDashOffset(percentage: number, circumference: number): number {
-  return circumference - (percentage / 100) * circumference;
-}
-
 // ============================================================================
 // SUB-COMPONENTS
 // ============================================================================
@@ -267,46 +261,6 @@ function StatBox({
         {showTrend && <TrendingUp className="w-4 h-4" />}
         {!showTrend && icon}
       </div>
-    </div>
-  );
-}
-
-/**
- * Circular Progress Component
- */
-function CircularProgress({ percentage }: { percentage: number }) {
-  const radius = 34;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = calculateDashOffset(percentage, circumference);
-  
-  return (
-    <div className="relative w-20 h-20 flex items-center justify-center">
-      <svg className="w-full h-full transform -rotate-90">
-        <circle
-          className="text-slate-100 dark:text-slate-700"
-          cx="40"
-          cy="40"
-          r={radius}
-          fill="transparent"
-          stroke="currentColor"
-          strokeWidth="6"
-        />
-        <circle
-          className="text-primary"
-          cx="40"
-          cy="40"
-          r={radius}
-          fill="transparent"
-          stroke="currentColor"
-          strokeWidth="6"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="absolute text-lg font-extrabold text-slate-800 dark:text-white">
-        {percentage}<span className="text-xs font-normal">%</span>
-      </span>
     </div>
   );
 }
@@ -550,6 +504,8 @@ export default function StrengthSummaryPage({
     ? Math.round(progressionResult.activeProgramGain.newPercent)
     : progressToNextLevel;
   
+  const { showToast } = useToast();
+
   // Get progression store for coins
   const { addCoins } = useProgressionStore();
 
@@ -682,38 +638,27 @@ export default function StrengthSummaryPage({
     };
     trackMusclesForShield();
 
-    // Award XP (hidden — user only sees %)
-    const awardStrengthXP = async () => {
+    // Award global XP via centralized store action (uses overhauled formula)
+    const awardXP = async () => {
       try {
-        const uid = auth.currentUser?.uid;
-        if (!uid) return;
+        const bolts: 1 | 2 | 3 = difficultyBolts ?? (difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3);
+        const totalSetsCount = completedExercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+        const currentStreak = useProgressionStore.getState().currentStreak;
 
-        const difficultyNum = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
-        const baseXP = calculateBaseWorkoutXP(durationMinutes, difficultyNum, 'strength');
-
-        const userDocRef = doc(db, 'users', uid);
-        const userSnap = await getDoc(userDocRef);
-        if (!userSnap.exists()) return;
-
-        const userData = userSnap.data();
-        const currentXP = userData.progression?.globalXP || 0;
-        const newXP = currentXP + baseXP;
-
-        const levels = await getAllLevels();
-        const newLevel = calculateLevelFromXP(newXP, levels);
-        const pct = getProgressToNextLevel(newXP, newLevel, levels);
-
-        await updateDoc(userDocRef, {
-          'progression.globalXP': newXP,
-          'progression.globalLevel': newLevel,
+        const result = await useProgressionStore.getState().awardStrengthXP({
+          durationMinutes,
+          difficultyBolts: bolts,
+          totalSets: totalSetsCount,
+          totalReps,
+          streak: currentStreak,
         });
 
-        console.log(`[XP] +${baseXP} XP (hidden). Progress: ${Math.round(pct)}% → Level ${newLevel + 1}`);
+        console.log(`[XP] +${result.xpEarned} XP → Level ${result.newLevel}${result.leveledUp ? ' (LEVEL UP!)' : ''}`);
       } catch (e) {
         console.error('[XP] Failed to award XP:', e);
       }
     };
-    awardStrengthXP();
+    awardXP();
 
     // ✅ WORKOUT BRIDGE: Trigger domain-specific progression + master-level recalculation
     // Skip if the result was already computed by ActiveWorkoutPage (prevents double-writes)
@@ -790,17 +735,41 @@ export default function StrengthSummaryPage({
             if (gain.leveledUp) {
               setTimeout(() => setShowLevelUpModal(true), 1200);
             }
-            
+
+            // ── Unified Rewards: award one-time Global XP bonus for newly completed goals ──
+            if (gain.newlyCompletedGoalIds && gain.newlyCompletedGoalIds.length > 0) {
+              try {
+                const levelSettings = await getProgramLevelSetting(activeProgramId, currentLevel);
+                const allGoals = levelSettings?.targetGoals ?? [];
+                const bonusXP = gain.newlyCompletedGoalIds.reduce((sum, id) => {
+                  const goal = allGoals.find((g: any) => g.exerciseId === id);
+                  return sum + (goal?.xpBonus ?? 0);
+                }, 0);
+                if (bonusXP > 0) {
+                  useProgressionStore.getState().awardBonusXP(bonusXP, 'goal-completion').then(({ xpEarned }) => {
+                    console.log(`[Progression] Goal XP bonus: +${xpEarned} Global XP for ${gain.newlyCompletedGoalIds!.length} completed goal(s)`);
+                  }).catch(() => {});
+                }
+              } catch (e) {
+                console.warn('[Progression] Could not award goal XP bonus (non-critical):', e);
+              }
+            }
+
             if (result.linkedProgramGains.length > 0) {
-              console.log(`[Progression] Linked programs updated:`, 
+              console.log(`[Progression] Linked programs updated:`,
                 result.linkedProgramGains.map(lp => `${lp.programId} +${lp.gain.toFixed(1)}%`).join(', '));
             }
-            
+
             if (result.readyForSplit?.isReady) {
               console.log(`[Progression] Ready for split! Suggested: ${result.readyForSplit.suggestedPrograms?.join(', ')}`);
             }
+            // Warn if the Firestore write did not persist
+            if (!result.trackWriteSucceeded) {
+              showToast('error', 'ההתקדמות חושבה אך לא נשמרה. בדוק חיבור לאינטרנט.');
+            }
           } else {
             console.warn('[Progression] processWorkoutCompletion returned failure');
+            showToast('error', 'שגיאה בחישוב ההתקדמות. נסה שוב.');
           }
         } catch (e) {
           console.error('[Progression] Failed to process domain progression:', e);

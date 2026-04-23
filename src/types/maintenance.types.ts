@@ -6,11 +6,13 @@
 export interface MaintenanceReport {
   id: string;
   parkId: string;
+  parkName?: string; // Denormalized park display name
   authorityId: string;
   equipmentId?: string; // Gym equipment ID if specific
   equipmentName?: string; // Human-readable name
   issueType: MaintenanceIssueType;
   description: string;
+  photoUrl?: string; // Damage photo uploaded by reporter
   reportedBy: string; // User ID (anonymized - no PII)
   status: MaintenanceStatus;
   priority: 'low' | 'medium' | 'high' | 'urgent';

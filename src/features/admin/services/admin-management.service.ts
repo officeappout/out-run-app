@@ -167,21 +167,22 @@ export async function approveUser(
 
     const data = userDoc.data();
     const userName = data?.core?.name || userId;
-    
+    const prevApproved = data?.core?.isApproved === true;
+
     await updateDoc(userDocRef, {
       'core.isApproved': true,
       updatedAt: new Date(),
     });
-    
-    // Log audit action
+
     if (adminInfo) {
       await logAction({
-        adminId: adminInfo.adminId,
         adminName: adminInfo.adminName,
-        actionType: 'UPDATE',
+        actionType: 'APPROVE',
         targetEntity: 'User',
         targetId: userId,
         details: `Approved user "${userName}" for admin access`,
+        oldValue: { isApproved: prevApproved },
+        newValue: { isApproved: true },
       });
     }
   } catch (error) {
@@ -207,23 +208,24 @@ export async function rejectAdminRequest(
 
     const data = userDoc.data();
     const userName = data?.core?.name || userId;
-    
-    // Update user to regular USER role and remove approval requirement
+    const prevRole = data?.core?.role || 'PENDING_ADMIN';
+    const prevRequiresApproval = data?.core?.requiresApproval === true;
+
     await updateDoc(userDocRef, {
       'core.role': 'USER',
       'core.requiresApproval': false,
       updatedAt: new Date(),
     });
-    
-    // Log audit action
+
     if (adminInfo) {
       await logAction({
-        adminId: adminInfo.adminId,
         adminName: adminInfo.adminName,
-        actionType: 'UPDATE',
+        actionType: 'REJECT',
         targetEntity: 'User',
         targetId: userId,
         details: `Rejected admin request for user "${userName}" - demoted to regular user`,
+        oldValue: { role: prevRole, requiresApproval: prevRequiresApproval },
+        newValue: { role: 'USER', requiresApproval: false },
       });
     }
   } catch (error) {
@@ -249,22 +251,24 @@ export async function promoteToSuperAdmin(
 
     const data = userDoc.data();
     const userName = data?.core?.name || userId;
-    
+    const prevIsSuperAdmin = data?.core?.isSuperAdmin === true;
+    const prevIsApproved = data?.core?.isApproved === true;
+
     await updateDoc(userDocRef, {
       'core.isSuperAdmin': true,
-      'core.isApproved': true, // Also approve when promoting to super admin
+      'core.isApproved': true,
       updatedAt: new Date(),
     });
-    
-    // Log audit action
+
     if (adminInfo) {
       await logAction({
-        adminId: adminInfo.adminId,
         adminName: adminInfo.adminName,
         actionType: 'UPDATE',
         targetEntity: 'Admin',
         targetId: userId,
         details: `Promoted user "${userName}" to Super Admin`,
+        oldValue: { isSuperAdmin: prevIsSuperAdmin, isApproved: prevIsApproved },
+        newValue: { isSuperAdmin: true, isApproved: true },
       });
     }
   } catch (error) {
@@ -290,21 +294,22 @@ export async function revokeSuperAdmin(
 
     const data = userDoc.data();
     const userName = data?.core?.name || userId;
-    
+    const prevIsSuperAdmin = data?.core?.isSuperAdmin === true;
+
     await updateDoc(userDocRef, {
       'core.isSuperAdmin': false,
       updatedAt: new Date(),
     });
-    
-    // Log audit action
+
     if (adminInfo) {
       await logAction({
-        adminId: adminInfo.adminId,
         adminName: adminInfo.adminName,
         actionType: 'UPDATE',
         targetEntity: 'Admin',
         targetId: userId,
         details: `Revoked Super Admin privileges from "${userName}"`,
+        oldValue: { isSuperAdmin: prevIsSuperAdmin },
+        newValue: { isSuperAdmin: false },
       });
     }
   } catch (error) {

@@ -7,6 +7,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithMagicLink, isMagicLinkCallback } from '@/lib/auth.service';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
+import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 function AuthCallbackContent() {
@@ -60,11 +61,80 @@ function AuthCallbackContent() {
           return;
         }
 
-        // Check user role and redirect accordingly
+        // Check for invitation token — redeem it before role check
+        const invitationToken = searchParams?.get('token') || 
+          (typeof window !== 'undefined' ? window.localStorage.getItem('pendingInvitationToken') : null);
+
+        let invitationApplied = false;
+        let invitationRole: string | null = null;
+        let invitationOrgId: string | null = null;
+
+        if (invitationToken) {
+          try {
+            const { validateInvitation, applyInvitationToUser } = await import(
+              '@/features/admin/services/invitation.service'
+            );
+            const invitation = await validateInvitation(invitationToken);
+            if (invitation) {
+              await applyInvitationToUser(result.user.uid, invitation);
+              invitationApplied = true;
+              invitationRole = invitation.role;
+              invitationOrgId = invitation.authorityId || invitation.tenantId || null;
+              console.log('[AuthCallback] Invitation applied successfully for', invitation.role);
+            } else {
+              console.warn('[AuthCallback] Invitation token invalid or expired');
+            }
+          } catch (invErr) {
+            console.error('[AuthCallback] Error applying invitation:', invErr);
+          } finally {
+            if (typeof window !== 'undefined') {
+              window.localStorage.removeItem('pendingInvitationToken');
+            }
+          }
+        }
+
+        // If invitation was just applied, redirect based on the invitation role
+        // without re-querying Firestore (avoids cache/timing issues).
+        if (invitationApplied) {
+          if (typeof window !== 'undefined' && invitationOrgId) {
+            localStorage.setItem('admin_selected_org_id', invitationOrgId);
+          }
+          if (invitationRole === 'super_admin') {
+            router.replace('/admin');
+          } else if (invitationRole === 'vertical_admin') {
+            router.replace('/admin/organizations');
+          } else {
+            router.replace('/admin/authority-manager');
+          }
+          return;
+        }
+
+        // No invitation — check existing role
         const roleInfo = await checkUserRole(result.user.uid);
         const isOnly = await isOnlyAuthorityManager(result.user.uid);
 
+        // Auto-set selectedOrgId so sidebar/context picks up the correct org
+        if (typeof window !== 'undefined') {
+          if (roleInfo.authorityIds.length > 0) {
+            localStorage.setItem('admin_selected_org_id', roleInfo.authorityIds[0]);
+          } else if (roleInfo.tenantId) {
+            localStorage.setItem('admin_selected_org_id', roleInfo.tenantId);
+          }
+        }
+
         if (roleInfo.isAuthorityManager || isOnly) {
+          // Check if this is a neighborhood admin — redirect to their profile
+          try {
+            const authorities = await getAuthoritiesByManager(result.user.uid);
+            if (authorities.length > 0 && authorities[0].type === 'neighborhood') {
+              router.replace(`/admin/authority/neighborhoods/${authorities[0].id}`);
+              return;
+            }
+          } catch { /* fall through to default */ }
+          router.replace('/admin/authority-manager');
+        } else if (roleInfo.isVerticalAdmin) {
+          router.replace('/admin/organizations');
+        } else if (roleInfo.isTenantOwner) {
           router.replace('/admin/authority-manager');
         } else if (roleInfo.isSuperAdmin || roleInfo.isSystemAdmin) {
           router.replace('/admin');

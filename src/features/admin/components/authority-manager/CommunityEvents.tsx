@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   getEventsByAuthority,
+  getStandaloneEventsByAuthority,
+  getEventRegistrations,
   createEvent,
   updateEvent,
   deleteEvent,
 } from '@/features/admin/services/community.service';
 import { getParksByAuthority } from '@/features/parks';
-import { CommunityEvent, EventCategory, TargetGender } from '@/types/community.types';
+import { CommunityEvent, EventCategory, EventRegistration, TargetGender } from '@/types/community.types';
 import { Park } from '@/types/admin-types';
-import { Plus, Edit2, Trash2, Calendar, MapPin, Clock, ShieldCheck, Dumbbell, Target, DollarSign, AlertTriangle, UsersRound, Link2, Users, ImagePlus, X, ExternalLink, Building2, MapPinned, Search, ImageOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, Calendar, MapPin, Clock, ShieldCheck, Dumbbell, Target, DollarSign, AlertTriangle, UsersRound, Link2, Users, ImagePlus, X, ExternalLink, Building2, MapPinned, Search, ImageOff, Route as RouteIcon } from 'lucide-react';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 
 const MUSCLE_OPTIONS = ['חזה', 'גב', 'כתפיים', 'זרועות', 'בטן', 'רגליים', 'ירכיים', 'גוף מלא'];
@@ -22,6 +24,11 @@ import dynamic from 'next/dynamic';
 const MiniLocationPicker = dynamic(
   () => import('@/features/admin/components/MiniLocationPicker'),
   { ssr: false, loading: () => <div className="h-40 bg-gray-100 animate-pulse rounded-xl" /> },
+);
+
+const RoutePicker = dynamic(
+  () => import('@/features/admin/components/RoutePicker'),
+  { ssr: false, loading: () => <div className="h-10 bg-gray-100 animate-pulse rounded-lg" /> },
 );
 
 const MediaLibraryModal = dynamic(
@@ -62,7 +69,7 @@ export default function CommunityEvents({
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CommunityEvent | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [locationMode, setLocationMode] = useState<'park' | 'manual'>('park');
+  const [locationMode, setLocationMode] = useState<'park' | 'route' | 'manual'>('park');
   const [formData, setFormData] = useState<Partial<CommunityEvent>>({
     name: '',
     description: '',
@@ -90,6 +97,7 @@ export default function CommunityEvents({
   });
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [parkSearch, setParkSearch] = useState('');
+  const [eventParticipants, setEventParticipants] = useState<Record<string, EventRegistration[]>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -106,7 +114,9 @@ export default function CommunityEvents({
   const loadEvents = async () => {
     try {
       setLoading(true);
-      const data = await getEventsByAuthority(authorityId);
+      const data = prefillGroupId
+        ? await getEventsByAuthority(authorityId)
+        : await getStandaloneEventsByAuthority(authorityId);
       setEvents(data);
     } catch (error) {
       console.error('Error loading events:', error);
@@ -203,6 +213,19 @@ export default function CommunityEvents({
     const term = parkSearch.toLowerCase();
     return parks.filter((p) => p.name.toLowerCase().includes(term) || p.city?.toLowerCase().includes(term));
   }, [parks, parkSearch]);
+
+  // Eagerly load participant avatars for visible events
+  const eventIds = useMemo(() => events.map((e) => e.id).join(','), [events]);
+  useEffect(() => {
+    if (!eventIds) return;
+    const ids = eventIds.split(',');
+    Promise.all(
+      ids.map(async (id) => {
+        const regs = await getEventRegistrations(id, 6);
+        return [id, regs] as const;
+      }),
+    ).then((entries) => setEventParticipants(Object.fromEntries(entries)));
+  }, [eventIds]);
 
   // Auto-open form when prefillGroupId is provided
   useEffect(() => {
@@ -315,6 +338,16 @@ export default function CommunityEvents({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setLocationMode('route')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${
+                      locationMode === 'route' ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <RouteIcon size={12} />
+                    מסלול
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setLocationMode('manual')}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                       locationMode === 'manual' ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -323,47 +356,97 @@ export default function CommunityEvents({
                     מיקום ידני
                   </button>
                 </div>
-                {locationMode === 'park' ? (
+                {locationMode === 'route' ? (
+                  <RoutePicker
+                    authorityId={authorityId}
+                    value={formData.location?.routeId ?? null}
+                    onChange={(routeId, route) => {
+                      const [lng, lat] = route.path[0];
+                      setFormData({
+                        ...formData,
+                        location: {
+                          routeId,
+                          parkId: undefined,
+                          address: route.name,
+                          location: { lat, lng },
+                        },
+                      });
+                    }}
+                    onClear={() => {
+                      setFormData({
+                        ...formData,
+                        location: {
+                          ...formData.location,
+                          routeId: undefined,
+                          address: formData.location?.address || '',
+                          location: formData.location?.location || { lat: 0, lng: 0 },
+                        },
+                      });
+                    }}
+                  />
+                ) : locationMode === 'park' ? (
                   <div className="relative">
-                    <div className="relative">
-                      <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={parkSearch}
-                        onChange={(e) => setParkSearch(e.target.value)}
-                        className="w-full pl-4 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 text-sm"
-                        placeholder="חפש פארק..."
-                      />
-                    </div>
-                    <div className="mt-1 max-h-36 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-                      {filteredParks.length === 0 ? (
-                        <div className="p-2 text-xs text-gray-400 text-center">לא נמצאו פארקים</div>
-                      ) : (
-                        filteredParks.map((park) => (
-                          <button
-                            key={park.id}
-                            type="button"
-                            onClick={() => {
-                              setFormData({
-                                ...formData,
-                                location: {
-                                  parkId: park.id,
-                                  address: `${park.name}, ${park.city}`,
-                                  location: park.location || { lat: 0, lng: 0 },
-                                },
-                              });
-                              setParkSearch('');
-                            }}
-                            className={`w-full text-right px-3 py-2 text-sm hover:bg-cyan-50 transition-colors flex items-center justify-between ${
-                              formData.location?.parkId === park.id ? 'bg-cyan-50 font-bold text-cyan-700' : 'text-gray-700'
-                            }`}
-                          >
-                            <span>{park.name} - {park.city}</span>
-                            {formData.location?.parkId === park.id && <span className="text-cyan-500 text-xs">✓</span>}
+                    {/* Selected park card */}
+                    {formData.location?.parkId ? (
+                      <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl" dir="rtl">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                          <MapPin size={18} className="text-emerald-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-emerald-800 truncate">{formData.location.address}</p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button type="button" onClick={() => setParkSearch('')}
+                            className="px-2 py-1 text-[10px] font-bold text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
+                            >שנה</button>
+                          <button type="button" onClick={() => {
+                            setFormData({ ...formData, location: { ...formData.location, parkId: undefined, address: '', location: formData.location?.location || { lat: 0, lng: 0 } } });
+                          }} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <X size={14} />
                           </button>
-                        ))
-                      )}
-                    </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={parkSearch}
+                            onChange={(e) => setParkSearch(e.target.value)}
+                            className="w-full pl-4 pr-9 py-2.5 border-2 border-dashed border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 text-sm bg-emerald-50/50"
+                            placeholder="חפש ובחר פארק..."
+                          />
+                        </div>
+                        <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                          {filteredParks.length === 0 ? (
+                            <div className="p-3 text-xs text-gray-400 text-center">לא נמצאו פארקים</div>
+                          ) : (
+                            filteredParks.map((park) => (
+                              <button
+                                key={park.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    location: {
+                                      parkId: park.id,
+                                      address: `${park.name}, ${park.city}`,
+                                      location: park.location || { lat: 0, lng: 0 },
+                                    },
+                                  });
+                                  setParkSearch('');
+                                }}
+                                className="w-full text-right px-3 py-2.5 text-sm hover:bg-emerald-50 transition-colors flex items-center gap-2 border-b border-gray-50 last:border-0"
+                              >
+                                <MapPin size={14} className="text-emerald-400 flex-shrink-0" />
+                                <span className="truncate">{park.name} - {park.city}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -764,126 +847,96 @@ export default function CommunityEvents({
           <p className="text-gray-500">צור את האירוע הראשון</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {displayedEvents.map((event) => (
-            <div
-              key={event.id}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              {/* Compact image preview */}
-              <div className="h-36 bg-gray-100 relative overflow-hidden">
-                {event.images && event.images.length > 0 ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={event.images[0]}
-                    alt={event.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-50 to-gray-100 text-gray-300">
-                    <ImageOff size={28} />
-                    <span className="text-[10px] font-bold mt-1">אין תמונה</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {displayedEvents.map((event) => {
+            const regs = eventParticipants[event.id] ?? [];
+            return (
+              <div
+                key={event.id}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              >
+                {/* Compact header: thumbnail + info */}
+                <div className="flex gap-3 p-3">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                    {event.images && event.images.length > 0 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={event.images[0]} alt={event.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-gray-100 text-gray-300">
+                        <ImageOff size={18} />
+                      </div>
+                    )}
                   </div>
-                )}
-                {/* Date chip overlaid */}
-                <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">
-                  {new Date(event.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {event.startTime}
-                </div>
-                <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${
-                  event.isActive ? 'bg-green-500/90 text-white' : 'bg-gray-600/80 text-white'
-                }`}>
-                  {event.isActive ? 'פעיל' : 'לא פעיל'}
-                </div>
-                {event.isOfficial && (
-                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-cyan-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    <ShieldCheck size={10} />
-                    רשמי
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-black text-gray-900 truncate">{event.name}</h3>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+                        event.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {event.isActive ? 'פעיל' : 'לא פעיל'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[10px] font-bold">
+                        {CATEGORY_LABELS[event.category]}
+                      </span>
+                      {event.isOfficial && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-cyan-600 font-bold">
+                          <ShieldCheck size={10} /> רשמי
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-gray-400">
+                      <span className="flex items-center gap-0.5 font-semibold text-gray-500" dir="ltr">
+                        <Calendar size={11} className="text-cyan-400" />
+                        {new Date(event.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}
+                      </span>
+                      <span className="flex items-center gap-0.5">
+                        <Clock size={11} className="text-blue-400" />
+                        {event.startTime}{event.endTime ? `–${event.endTime}` : ''}
+                      </span>
+                      {event.location?.address && (
+                        <span className="flex items-center gap-0.5 truncate max-w-[160px]">
+                          <MapPin size={11} className="text-emerald-400" />
+                          {event.location.address}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{event.name}</h3>
-                  <span className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
-                    {CATEGORY_LABELS[event.category]}
+                {/* Inline avatar stack + registration count */}
+                <div className="px-3 pb-2 flex items-center justify-between">
+                  <EventAvatarStack people={regs} total={event.currentRegistrations} />
+                  <span className="text-[11px] text-gray-400 font-semibold">
+                    {event.currentRegistrations ?? 0}{event.maxParticipants ? ` / ${event.maxParticipants}` : ''} נרשמו
                   </span>
                 </div>
-              </div>
 
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">{event.description}</p>
-
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Calendar size={13} className="text-cyan-500" />
-                  {new Date(event.date).toLocaleDateString('he-IL')}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock size={13} className="text-blue-500" />
-                  {event.startTime}{event.endTime ? `–${event.endTime}` : ''}
-                </span>
-                {event.location?.address && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={13} className="text-emerald-500" />
-                    <span className="truncate max-w-[140px]">{event.location.address}</span>
-                  </span>
-                )}
-                {event.targetGender && event.targetGender !== 'all' && (
-                  <span className="flex items-center gap-1">
-                    <Users size={13} className="text-pink-500" />
-                    {event.targetGender === 'male' ? 'גברים' : 'נשים'}
-                  </span>
-                )}
-                {event.targetAgeRange && (event.targetAgeRange.min || event.targetAgeRange.max) && (
-                  <span className="flex items-center gap-1">
-                    <Calendar size={13} className="text-amber-500" />
-                    {event.targetAgeRange.min ?? '0'}–{event.targetAgeRange.max ?? '∞'}
-                  </span>
-                )}
-                {event.isCityOnly && (
-                  <span className="flex items-center gap-1">
-                    <Building2 size={13} className="text-purple-500" />
-                    עיר בלבד
-                  </span>
-                )}
-                {event.isOfficial && (
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck size={13} className="text-cyan-500" />
-                    רשמי
-                  </span>
-                )}
-                {event.registrationRequired && (
-                  <span className="flex items-center gap-1">
-                    <UsersRound size={13} className="text-gray-500" />
-                    {event.currentRegistrations}{event.maxParticipants ? ` / ${event.maxParticipants}` : ''} נרשמו
-                  </span>
-                )}
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-1 px-3 py-2 border-t border-gray-100">
+                  <button
+                    onClick={() => {
+                      setEditingEvent(event);
+                      setFormData(event);
+                      setShowForm(true);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <Edit2 size={13} />
+                    ערוך
+                  </button>
+                  <button
+                    onClick={() => handleDelete(event.id, event.name)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={13} />
+                    מחק
+                  </button>
+                </div>
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
-                <button
-                  onClick={() => {
-                    setEditingEvent(event);
-                    setFormData(event);
-                    setShowForm(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200"
-                >
-                  <Edit2 size={16} />
-                  ערוך
-                </button>
-                <button
-                  onClick={() => handleDelete(event.id, event.name)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100"
-                >
-                  <Trash2 size={16} />
-                  מחק
-                </button>
-              </div>
-              </div>{/* end p-5 wrapper */}
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
       })()}
@@ -898,6 +951,35 @@ export default function CommunityEvents({
         authorityId={authorityId}
         scope="community"
       />
+    </div>
+  );
+}
+
+function EventAvatarStack({ people, total }: { people: { name: string; photoURL?: string }[]; total?: number }) {
+  if (!people || people.length === 0) {
+    return <span className="text-[10px] text-gray-300">אין נרשמים</span>;
+  }
+  const display = people.slice(0, 5);
+  const remaining = Math.max(0, (total ?? people.length) - display.length);
+  return (
+    <div className="flex items-center">
+      <div className="flex -space-x-2 rtl:space-x-reverse">
+        {display.map((p, i) => (
+          <div key={i} className="w-6 h-6 rounded-full border-2 border-white overflow-hidden bg-gray-200 flex-shrink-0" title={p.name}>
+            {p.photoURL ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.photoURL} alt={p.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-gray-500 bg-gradient-to-br from-gray-100 to-gray-200">
+                {p.name.charAt(0)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {remaining > 0 && (
+        <span className="text-[10px] text-gray-400 font-bold ms-1">+{remaining}</span>
+      )}
     </div>
   );
 }

@@ -18,6 +18,9 @@ import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import StarRatingWidget from '@/features/parks/client/components/contribution-wizard/StarRatingWidget';
+import { createContribution } from '@/features/parks/core/services/contribution.service';
+import { XP_REWARDS } from '@/types/contribution.types';
 
 interface Props {
   onFinish: () => void;
@@ -30,6 +33,9 @@ export default function RunSummary({ onFinish }: Props) {
   const { profile, updateProfile } = useUserStore();
   const [drawerPosition, setDrawerPosition] = useState('half');
   const [dateLabel, setDateLabel] = useState('');
+  const [routeQuality, setRouteQuality] = useState(0);
+  const [routeDifficulty, setRouteDifficulty] = useState<'easy' | 'medium' | 'hard' | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
   useEffect(() => {
     setDateLabel(new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }));
   }, []);
@@ -123,6 +129,23 @@ export default function RunSummary({ onFinish }: Props) {
             earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
           });
           console.log('✅ Workout saved to history');
+
+          // ✅ Award global XP for this run/walk session
+          const streak = useProgressionStore.getState().currentStreak;
+          const durationMinutes = Math.max(Math.round(totalDuration / 60), 1);
+          useProgressionStore.getState().awardRunningXP({
+            durationMinutes,
+            distanceKm: totalDistance,
+            streak,
+            activityType: (activityType as 'running' | 'walking') ?? 'running',
+          }).then(({ xpEarned, newLevel, leveledUp }) => {
+            console.log(
+              `[RunSummary] +${xpEarned} XP → Level ${newLevel}` +
+              (leveledUp ? ' (LEVEL UP!)' : ''),
+            );
+          }).catch((e) =>
+            console.warn('[RunSummary] awardRunningXP failed (non-critical):', e),
+          );
 
           // ✅ Publish to social feed (with scope fields for leaderboard)
           if (profile?.core?.name) {
@@ -252,6 +275,62 @@ export default function RunSummary({ onFinish }: Props) {
                 צרו חשבון כדי לשמור את {earnedCoins} המטבעות שהרווחתם כעת ולעקוב אחר ההתקדמות שלכם לאורך זמן.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Route Rating */}
+        {!isGuest && (
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 mb-4" dir="rtl">
+            {ratingSubmitted ? (
+              <div className="flex items-center justify-center gap-2 py-2">
+                <span className="text-emerald-400 text-sm font-bold">תודה על הדירוג! +{XP_REWARDS.review} XP</span>
+              </div>
+            ) : (
+              <>
+                <h4 className="text-white/80 text-sm font-bold mb-3">דרגו את המסלול</h4>
+                <div className="flex gap-2 mb-3">
+                  {([['easy', 'קל'] as const, ['medium', 'בינוני'] as const, ['hard', 'קשה'] as const]).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setRouteDifficulty(val)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                        routeDifficulty === val
+                          ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40'
+                          : 'bg-white/5 text-white/40 border border-white/10'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <StarRatingWidget value={routeQuality} onChange={setRouteQuality} size={24} label="איכות המסלול" />
+                {routeQuality > 0 && (
+                  <button
+                    onClick={async () => {
+                      if (!profile?.id) return;
+                      try {
+                        await createContribution({
+                          userId: profile.id,
+                          type: 'review',
+                          status: 'pending',
+                          location: routeCoords.length > 0
+                            ? { lat: routeCoords[0][0], lng: routeCoords[0][1] }
+                            : { lat: 0, lng: 0 },
+                          routeQuality,
+                          routeDifficulty: routeDifficulty ?? undefined,
+                        });
+                        setRatingSubmitted(true);
+                      } catch (err) {
+                        console.error('[RunSummary] Rating failed:', err);
+                      }
+                    }}
+                    className="w-full mt-3 py-2.5 rounded-xl bg-[#00E5FF]/20 text-[#00E5FF] text-xs font-bold active:scale-[0.98] transition-transform"
+                  >
+                    שלח דירוג ⭐
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

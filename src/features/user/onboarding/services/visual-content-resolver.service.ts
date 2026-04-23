@@ -105,6 +105,10 @@ export interface ResolvedContent {
   detailedDescription: string;
   exerciseName: string | null;
   onboardingBubbleText: string | null;
+  /** Target amount for this exercise level, e.g. "8-12". Null if not set by admin. */
+  targetReps: string | null;
+  /** Whether targetReps is in repetitions or seconds. Always defined when targetReps is set. */
+  unitType: 'reps' | 'seconds';
   raw: unknown;
 }
 
@@ -234,6 +238,8 @@ export async function resolveContent(
       detailedDescription: '',
       exerciseName: null,
       onboardingBubbleText: null,
+      targetReps: null,
+      unitType: 'reps',
       raw: null,
     };
     setCache(cacheKey, empty);
@@ -296,6 +302,8 @@ export async function resolveContent(
     detailedDescription,
     exerciseName,
     onboardingBubbleText: content.onboardingBubbleText?.trim() || null,
+    targetReps: content.targetReps?.trim() || null,
+    unitType: content.unitType ?? 'reps',
     raw: content,
   };
 

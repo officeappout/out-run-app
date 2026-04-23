@@ -7,25 +7,28 @@ import {
   updateGroup,
   deleteGroup,
   migrateLegacyGroupsToAuthority,
+  getEventsByGroup,
+  getGroupMembers,
+  cleanupStaleMaterializedEvents,
 } from '@/features/admin/services/community.service';
 import { getParksByAuthority } from '@/features/parks';
-import { CommunityGroup, CommunityGroupCategory, ScheduleSlot, TargetGender } from '@/types/community.types';
+import { CommunityGroup, CommunityGroupCategory, CommunityEvent, ScheduleSlot, TargetGender } from '@/types/community.types';
 import { Park } from '@/types/admin-types';
-import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
 import CommunityEvents from './CommunityEvents';
 import dynamic from 'next/dynamic';
 
-const SessionsDashboard = dynamic(
-  () => import('@/features/admin/components/authority-manager/SessionsDashboard'),
-  { ssr: false, loading: () => <div className="flex items-center justify-center h-48"><div className="w-7 h-7 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div> },
-);
-
 const MiniLocationPicker = dynamic(
   () => import('@/features/admin/components/MiniLocationPicker'),
   { ssr: false, loading: () => <div className="h-40 bg-gray-100 animate-pulse rounded-xl" /> },
+);
+
+const RoutePicker = dynamic(
+  () => import('@/features/admin/components/RoutePicker'),
+  { ssr: false, loading: () => <div className="h-10 bg-gray-100 animate-pulse rounded-lg" /> },
 );
 
 const MediaLibraryModal = dynamic(
@@ -38,8 +41,6 @@ interface CommunityGroupsProps {
   authorityCoordinates?: { lat: number; lng: number };
   /** Child neighborhood authorities for the dropdown */
   neighborhoods?: { id: string; name: string }[];
-  /** Auto-select sub-tab on mount (from URL query) */
-  initialSubTab?: 'sessions';
   /** Auto-open the edit form for this groupId (from reports inspector) */
   inspectGroupId?: string;
 }
@@ -61,7 +62,7 @@ const TAG_OPTIONS = ['ריצה', 'הליכה', 'יוגה', 'קליסטניקס',
 
 const EMPTY_SLOT: ScheduleSlot = { dayOfWeek: 0, time: '18:00', frequency: 'weekly', price: null, requiredEquipment: [], targetMuscles: [], label: '', tags: [], images: [] };
 
-export default function CommunityGroups({ authorityId, authorityCoordinates, neighborhoods = [], initialSubTab, inspectGroupId }: CommunityGroupsProps) {
+export default function CommunityGroups({ authorityId, authorityCoordinates, neighborhoods = [], inspectGroupId }: CommunityGroupsProps) {
   const [groups, setGroups] = useState<CommunityGroup[]>([]);
   const [parks, setParks] = useState<Park[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +71,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [sessionGroupId, setSessionGroupId] = useState<string | null>(null);
   const sessionFormRef = useRef<HTMLDivElement>(null);
-  const [locationMode, setLocationMode] = useState<'park' | 'manual'>('park');
+  const [locationMode, setLocationMode] = useState<'park' | 'route' | 'manual'>('park');
   const [formData, setFormData] = useState<Partial<CommunityGroup>>({
     name: '',
     description: '',
@@ -93,9 +94,14 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
   const [slotMediaIdx, setSlotMediaIdx] = useState<number | null>(null);
   const [parkSearch, setParkSearch] = useState('');
   const [defaultsOpen, setDefaultsOpen] = useState(false);
-  const [activePicker, setActivePicker] = useState<'general' | number | null>(null);
+  const [activePicker, setActivePicker] = useState<'general' | number | string | null>(null);
   const [expandedSlot, setExpandedSlot] = useState<number | null>(null);
-  const [subTab, setSubTab] = useState<'groups' | 'sessions'>(initialSubTab ?? 'groups');
+
+  // Master-Card: sessions accordion + inline participants
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [groupSessions, setGroupSessions] = useState<Record<string, CommunityEvent[]>>({});
+  const [groupMembersMap, setGroupMembersMap] = useState<Record<string, { uid: string; name: string; photoURL?: string }[]>>({});
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -113,7 +119,6 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
     if (inspectGroupId && groups.length > 0 && !editingGroup) {
       const target = groups.find((g) => g.id === inspectGroupId);
       if (target) {
-        setSubTab('groups');
         setEditingGroup(target);
         setFormData(target);
         setShowForm(true);
@@ -148,6 +153,47 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
       setParks(data);
     } catch (error) {
       console.error('Error loading parks:', error);
+    }
+  };
+
+  /**
+   * Admin list shows ONLY official / authority-managed groups.
+   * User-created (source === 'user') and professional groups are hidden here.
+   */
+  const officialGroups = useMemo(
+    () => groups.filter((g) => g.source !== 'user' && g.source !== 'professional'),
+    [groups],
+  );
+
+  // Eagerly load member avatars for every visible group
+  const groupIds = useMemo(() => officialGroups.map((g) => g.id).join(','), [officialGroups]);
+  useEffect(() => {
+    if (!groupIds) return;
+    const ids = groupIds.split(',');
+    Promise.all(
+      ids.map(async (id) => {
+        const members = await getGroupMembers(id, 6);
+        return [id, members] as const;
+      }),
+    ).then((entries) => setGroupMembersMap(Object.fromEntries(entries)));
+  }, [groupIds]);
+
+  const handleToggleSessions = async (groupId: string) => {
+    if (expandedGroupId === groupId) {
+      setExpandedGroupId(null);
+      return;
+    }
+    setExpandedGroupId(groupId);
+    if (!groupSessions[groupId]) {
+      setSessionsLoading(true);
+      try {
+        const sessions = await getEventsByGroup(groupId);
+        setGroupSessions((prev) => ({ ...prev, [groupId]: sessions }));
+      } catch (err) {
+        console.error('Error loading group sessions:', err);
+      } finally {
+        setSessionsLoading(false);
+      }
     }
   };
 
@@ -239,49 +285,34 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
     return parks.filter((p) => p.name.toLowerCase().includes(term) || p.city?.toLowerCase().includes(term));
   }, [parks, parkSearch]);
 
-  /**
-   * Admin list shows ONLY official / authority-managed groups.
-   * User-created (source === 'user') and professional groups are hidden here.
-   * They surface only through the Reports/Moderation inspector (inspectGroupId prop).
-   */
-  const officialGroups = useMemo(
-    () => groups.filter((g) => g.source !== 'user' && g.source !== 'professional'),
-    [groups],
-  );
-
   if (loading) {
     return <div className="text-center py-12 text-gray-500">טוען קבוצות...</div>;
   }
 
   return (
     <div className="space-y-6">
-      {/* Sub-tabs: ניהול קבוצות | לו"ז ובקרה */}
-      <div className="flex items-center gap-2 border-b border-gray-200 pb-3">
-        <button
-          onClick={() => setSubTab('groups')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            subTab === 'groups' ? 'bg-cyan-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          ניהול קבוצות
-        </button>
-        <button
-          onClick={() => setSubTab('sessions')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            subTab === 'sessions' ? 'bg-cyan-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          לו&quot;ז ובקרה
-        </button>
-      </div>
-
-      {subTab === 'sessions' ? (
-        <SessionsDashboard authorityId={authorityId} compact />
-      ) : (
       <>
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">קבוצות קהילה</h2>
         <div className="flex items-center gap-2">
+          {/* Database Health: delete stale materialized events */}
+          <button
+            onClick={async () => {
+              if (!confirm('פעולה זו תמחק אירועי "צטרפות אוטומטית" ישנים מ-48 שעות ומעלה ללא נרשמים. להמשיך?')) return;
+              try {
+                const count = await cleanupStaleMaterializedEvents(authorityId);
+                alert(`✅ נמחקו ${count} אירועים אוטומטיים ישנים.`);
+              } catch (err) {
+                console.error('Cleanup failed:', err);
+                alert('שגיאה בניקוי. בדוק את הקונסול.');
+              }
+            }}
+            className="flex items-center gap-2 px-3 py-2 bg-rose-50 text-rose-600 rounded-xl text-sm font-semibold hover:bg-rose-100 transition-colors border border-rose-200"
+            title="ניקוי אירועים אוטומטיים ישנים"
+          >
+            <HeartPulse size={14} />
+            בריאות DB
+          </button>
           {/* One-time data migration: stamps source:'authority' on legacy docs */}
           <button
             onClick={async () => {
@@ -406,6 +437,16 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                   </button>
                   <button
                     type="button"
+                    onClick={() => setLocationMode('route')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${
+                      locationMode === 'route' ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <RouteIcon size={12} />
+                    מסלול
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setLocationMode('manual')}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                       locationMode === 'manual' ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -414,64 +455,111 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     מיקום ידני
                   </button>
                 </div>
-                {locationMode === 'park' ? (
+                {locationMode === 'route' ? (
+                  <RoutePicker
+                    authorityId={authorityId}
+                    value={formData.meetingLocation?.routeId ?? null}
+                    onChange={(routeId, route) => {
+                      const [lng, lat] = route.path[0];
+                      setFormData({
+                        ...formData,
+                        meetingLocation: {
+                          routeId,
+                          parkId: undefined,
+                          address: route.name,
+                          location: { lat, lng },
+                        },
+                      });
+                    }}
+                    onClear={() => {
+                      setFormData({
+                        ...formData,
+                        meetingLocation: {
+                          ...formData.meetingLocation,
+                          routeId: undefined,
+                        },
+                      });
+                    }}
+                  />
+                ) : locationMode === 'park' ? (
                   <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => { setActivePicker(activePicker === 'general' ? null : 'general'); setParkSearch(''); }}
-                      className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-cyan-400 transition-colors"
-                    >
-                      <span className={formData.meetingLocation?.parkId ? 'text-gray-800 font-medium' : 'text-gray-400'}>
-                        {formData.meetingLocation?.parkId
-                          ? formData.meetingLocation.address || 'פארק נבחר'
-                          : 'בחר פארק...'}
-                      </span>
-                      <ChevronDown size={14} className={`text-gray-400 transition-transform ${activePicker === 'general' ? 'rotate-180' : ''}`} />
-                    </button>
-                    {activePicker === 'general' && (
-                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
-                        <div className="relative p-2 border-b border-gray-100">
-                          <Search size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={parkSearch}
-                            onChange={(e) => setParkSearch(e.target.value)}
-                            className="w-full pl-3 pr-8 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500"
-                            placeholder="חפש פארק..."
-                            autoFocus
-                          />
+                    {formData.meetingLocation?.parkId ? (
+                      <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl" dir="rtl">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                          <MapPin size={18} className="text-emerald-600" />
                         </div>
-                        <div className="max-h-44 overflow-y-auto">
-                          {filteredParks.length === 0 ? (
-                            <div className="p-3 text-xs text-gray-400 text-center">לא נמצאו פארקים</div>
-                          ) : (
-                            filteredParks.map((park) => (
-                              <button
-                                key={park.id}
-                                type="button"
-                                onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    meetingLocation: {
-                                      parkId: park.id,
-                                      address: `${park.name}, ${park.city}`,
-                                      location: park.location,
-                                    },
-                                  });
-                                  setParkSearch('');
-                                  setActivePicker(null);
-                                }}
-                                className={`w-full text-right px-3 py-2 text-sm hover:bg-cyan-50 transition-colors flex items-center justify-between ${
-                                  formData.meetingLocation?.parkId === park.id ? 'bg-cyan-50 font-bold text-cyan-700' : 'text-gray-700'
-                                }`}
-                              >
-                                <span>{park.name} - {park.city}</span>
-                                {formData.meetingLocation?.parkId === park.id && <span className="text-cyan-500 text-xs">✓</span>}
-                              </button>
-                            ))
-                          )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-emerald-800 truncate">{formData.meetingLocation.address || 'פארק נבחר'}</p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button type="button" onClick={() => { setActivePicker('general'); setParkSearch(''); }}
+                            className="px-2 py-1 text-[10px] font-bold text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
+                          >שנה</button>
+                          <button type="button" onClick={() => {
+                            setFormData({ ...formData, meetingLocation: { ...formData.meetingLocation, parkId: undefined, address: '', location: formData.meetingLocation?.location } });
+                            setActivePicker(null);
+                          }} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <X size={14} />
+                          </button>
                         </div>
                       </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => { setActivePicker(activePicker === 'general' ? null : 'general'); setParkSearch(''); }}
+                          className="w-full flex items-center justify-between px-4 py-3 border-2 border-dashed border-emerald-300 rounded-xl text-sm bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-400 transition-colors"
+                        >
+                          <span className="flex items-center gap-2 text-emerald-600 font-bold">
+                            <MapPin size={16} />
+                            בחר פארק
+                          </span>
+                          <ChevronDown size={14} className={`text-emerald-400 transition-transform ${activePicker === 'general' ? 'rotate-180' : ''}`} />
+                        </button>
+                        {activePicker === 'general' && (
+                          <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                            <div className="relative p-2.5 border-b border-gray-100">
+                              <Search size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                              <input
+                                type="text"
+                                value={parkSearch}
+                                onChange={(e) => setParkSearch(e.target.value)}
+                                className="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500"
+                                placeholder="חפש פארק..."
+                                autoFocus
+                              />
+                            </div>
+                            <div className="max-h-44 overflow-y-auto">
+                              {filteredParks.length === 0 ? (
+                                <div className="p-3 text-xs text-gray-400 text-center">לא נמצאו פארקים</div>
+                              ) : (
+                                filteredParks.map((park) => (
+                                  <button
+                                    key={park.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData({
+                                        ...formData,
+                                        meetingLocation: {
+                                          parkId: park.id,
+                                          address: `${park.name}, ${park.city}`,
+                                          location: park.location,
+                                        },
+                                      });
+                                      setParkSearch('');
+                                      setActivePicker(null);
+                                    }}
+                                    className="w-full text-right px-3 py-2.5 text-sm hover:bg-emerald-50 transition-colors flex items-center gap-2 border-b border-gray-50 last:border-0"
+                                  >
+                                    <MapPin size={14} className="text-emerald-400 flex-shrink-0" />
+                                    <span className="truncate">{park.name} - {park.city}</span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ) : (
@@ -594,7 +682,11 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                       {(slot.tags ?? []).length > 0 && slot.tags!.map(t => <span key={t} className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full">{t}</span>)}
                       {slot.price != null && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full">₪{slot.price}</span>}
                       {slot.maxParticipants && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">{slot.maxParticipants} מקומות</span>}
-                      {slot.location?.address && <span className="bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full">📍 {slot.location.address}</span>}
+                      {slot.location?.address && (
+                        <span className={`px-1.5 py-0.5 rounded-full ${slot.location.routeId ? 'bg-cyan-50 text-cyan-700' : 'bg-orange-50 text-orange-600'}`}>
+                          {slot.location.routeId ? '🛤️' : '📍'} {slot.location.address}
+                        </span>
+                      )}
                       {(slot.images ?? []).length > 0 && <span className="bg-pink-50 text-pink-600 px-1.5 py-0.5 rounded-full">🖼 {slot.images!.length} תמונות</span>}
                       {!slot.label && !(slot.tags ?? []).length && slot.price == null && !slot.maxParticipants && !slot.location?.address && !(slot.images ?? []).length && (
                         <span className="text-gray-300 italic">הגדרות ברירת מחדל ישמשו</span>
@@ -750,34 +842,73 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                           </button>
                         </div>
 
-                        {/* Per-slot location override (same searchable dropdown as general picker) */}
+                        {/* Per-slot location override — park / route / manual */}
                         <div>
-                          <label className="text-[10px] font-bold text-gray-500 mb-0.5 flex items-center gap-1">
+                          <label className="text-[10px] font-bold text-gray-500 mb-1 flex items-center gap-1">
                             <MapPin size={10} className="text-orange-500" />
                             מיקום מפגש <span className="text-gray-300 font-normal">(ריק = ברירת מחדל)</span>
                           </label>
-                          <div className="relative mt-0.5">
+
+                          {/* Mini mode tabs */}
+                          <div className="flex items-center gap-1 mb-1.5">
                             <button
                               type="button"
                               onClick={() => { setActivePicker(activePicker === idx ? null : idx); setParkSearch(''); }}
-                              className="w-full flex items-center justify-between px-2 py-1 border border-gray-200 rounded-lg text-xs bg-white hover:border-cyan-300 transition-colors"
+                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${
+                                activePicker === idx && !slot.location?.routeId ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              }`}
                             >
-                              <span className={slot.location?.address ? 'text-gray-700 font-medium' : 'text-gray-400'}>
-                                {slot.location?.address || 'בחר מיקום ספציפי (או השאר ריק)'}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                {slot.location?.address && (
-                                  <span
-                                    onClick={(e) => { e.stopPropagation(); updateSlot({ location: undefined }); }}
-                                    className="text-red-400 hover:text-red-600 text-[10px] cursor-pointer"
-                                  >
-                                    ✕
-                                  </span>
-                                )}
-                                <ChevronDown size={12} className={`text-gray-400 transition-transform ${activePicker === idx ? 'rotate-180' : ''}`} />
-                              </div>
+                              פארק
                             </button>
-                            {activePicker === idx && (
+                            <button
+                              type="button"
+                              onClick={() => setActivePicker(activePicker === `route-${idx}` ? null : `route-${idx}` as any)}
+                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold transition-all flex items-center gap-0.5 ${
+                                activePicker === `route-${idx}` || slot.location?.routeId ? 'bg-cyan-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              }`}
+                            >
+                              <RouteIcon size={8} />
+                              מסלול
+                            </button>
+                            {slot.location?.address && (
+                              <button
+                                type="button"
+                                onClick={() => updateSlot({ location: undefined })}
+                                className="px-2 py-0.5 rounded-full text-[9px] font-bold text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 transition-all"
+                              >
+                                נקה
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Route picker for slot */}
+                          {activePicker === `route-${idx}` && (
+                            <div className="mt-1">
+                              <RoutePicker
+                                authorityId={authorityId}
+                                value={slot.location?.routeId ?? null}
+                                onChange={(routeId, route) => {
+                                  const [lng, lat] = route.path[0];
+                                  updateSlot({
+                                    location: {
+                                      routeId,
+                                      address: route.name,
+                                      lat,
+                                      lng,
+                                    },
+                                  });
+                                  setActivePicker(null);
+                                }}
+                                onClear={() => {
+                                  updateSlot({ location: undefined });
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Park picker for slot (existing dropdown) */}
+                          {activePicker === idx && (
+                            <div className="relative mt-0.5">
                               <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
                                 <div className="relative p-1.5 border-b border-gray-100">
                                   <Search size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -832,8 +963,16 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                                   />
                                 </div>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
+
+                          {/* Selected location display (when not editing) */}
+                          {slot.location?.routeId && activePicker !== `route-${idx}` && (
+                            <div className="mt-1 flex items-center gap-1.5 px-2 py-1 bg-cyan-50 rounded-lg text-[10px] text-cyan-700 font-bold border border-cyan-200">
+                              <RouteIcon size={10} />
+                              <span className="truncate">{slot.location.address}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1128,7 +1267,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
         </div>
       )}
 
-      {/* Groups List — official / authority-managed only */}
+      {/* Groups List — Master-Card Architecture */}
       {officialGroups.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
           <Users size={48} className="text-gray-400 mx-auto mb-4" />
@@ -1137,110 +1276,126 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {officialGroups.map((group) => (
-            <div
-              key={group.id}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              {/* Compact image preview */}
-              <div className="h-36 bg-gray-100 relative overflow-hidden">
-                {group.images && group.images.length > 0 ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={group.images[0]}
-                    alt={group.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-300">
-                    <ImageOff size={28} />
-                    <span className="text-[10px] font-bold mt-1">אין תמונה</span>
+          {officialGroups.map((group) => {
+            const members = groupMembersMap[group.id] ?? [];
+            const isExpanded = expandedGroupId === group.id;
+            const sessions = groupSessions[group.id] ?? [];
+            return (
+              <div
+                key={group.id}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              >
+                {/* Compact header: thumbnail + info */}
+                <div className="flex gap-3 p-3">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                    {group.images && group.images.length > 0 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={group.images[0]} alt={group.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-300">
+                        <ImageOff size={18} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-black text-gray-900 truncate">{group.name}</h3>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+                        group.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {group.isActive ? 'פעיל' : 'לא פעיל'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded-full text-[10px] font-bold">
+                        {CATEGORY_LABELS[group.category]}
+                      </span>
+                      {group.isOfficial && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-cyan-600 font-bold">
+                          <ShieldCheck size={10} /> רשמי
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-gray-400">
+                      {group.meetingLocation?.address && (
+                        <span className="flex items-center gap-0.5 truncate max-w-[160px]">
+                          <MapPin size={11} className="text-emerald-400" />
+                          {group.meetingLocation.address}
+                        </span>
+                      )}
+                      {group.scheduleSlots && group.scheduleSlots.length > 0 && (
+                        <span className="flex items-center gap-0.5">
+                          <Clock size={11} className="text-blue-400" />
+                          {group.scheduleSlots.map((s) => `${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inline avatar stack + participant count */}
+                <div className="px-3 pb-2 flex items-center justify-between">
+                  <AdminAvatarStack people={members} total={group.currentParticipants} />
+                  <span className="text-[11px] text-gray-400 font-semibold">
+                    {group.currentParticipants}{group.maxParticipants ? ` / ${group.maxParticipants}` : ''} חברים
+                  </span>
+                </div>
+
+                {/* Sessions accordion toggle */}
+                <button
+                  onClick={() => handleToggleSessions(group.id)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 border-t border-gray-100 hover:bg-gray-100 transition-colors"
+                >
+                  <span className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
+                    <Calendar size={12} className="text-purple-500" />
+                    מפגשים קרובים
+                    {groupSessions[group.id] && (
+                      <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full text-[10px]">
+                        {sessions.length}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown size={14} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Expanded sessions list */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 max-h-56 overflow-y-auto">
+                    {sessionsLoading && !groupSessions[group.id] ? (
+                      <div className="p-3 text-center text-xs text-gray-400 animate-pulse">טוען מפגשים...</div>
+                    ) : sessions.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-gray-400">אין מפגשים קרובים</div>
+                    ) : (
+                      <div className="divide-y divide-gray-50">
+                        {sessions.map((session) => (
+                          <div key={session.id} className="flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                              <span className="text-gray-600 font-semibold" dir="ltr">
+                                {new Date(session.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}
+                              </span>
+                              <span className="text-gray-400">{session.startTime}</span>
+                              {session.source === 'virtual_materialized' && (
+                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded-full text-[9px] font-bold">אוטומטי</span>
+                              )}
+                            </div>
+                            <span className="text-gray-500 font-semibold">
+                              {session.currentRegistrations ?? 0} נרשמו
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-                {group.images && group.images.length > 1 && (
-                  <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    +{group.images.length - 1}
-                  </span>
-                )}
-                <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${
-                  group.isActive ? 'bg-green-500/90 text-white' : 'bg-gray-600/80 text-white'
-                }`}>
-                  {group.isActive ? 'פעיל' : 'לא פעיל'}
-                </div>
-              </div>
 
-              <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{group.name}</h3>
-                  <span className="inline-block px-3 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold">
-                    {CATEGORY_LABELS[group.category]}
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-600 mb-3 line-clamp-2">{group.description}</p>
-
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-gray-500">
-                {group.meetingLocation?.address && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={13} className="text-cyan-500" />
-                    <span className="truncate max-w-[140px]">{group.meetingLocation.address}</span>
-                  </span>
-                )}
-                {group.scheduleSlots && group.scheduleSlots.length > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Clock size={13} className="text-blue-500" />
-                    {group.scheduleSlots.map((s) => `${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(', ')}
-                  </span>
-                )}
-                {group.targetGender && group.targetGender !== 'all' && (
-                  <span className="flex items-center gap-1">
-                    <Users size={13} className="text-pink-500" />
-                    {group.targetGender === 'male' ? 'גברים' : 'נשים'}
-                  </span>
-                )}
-                {group.targetAgeRange && (group.targetAgeRange.min || group.targetAgeRange.max) && (
-                  <span className="flex items-center gap-1">
-                    <Calendar size={13} className="text-amber-500" />
-                    {group.targetAgeRange.min ?? '0'}–{group.targetAgeRange.max ?? '∞'}
-                  </span>
-                )}
-                {group.isCityOnly && (
-                  <span className="flex items-center gap-1">
-                    <Building2 size={13} className="text-purple-500" />
-                    עיר בלבד
-                  </span>
-                )}
-                {group.restrictedNeighborhoodId && (
-                  <span className="flex items-center gap-1">
-                    <MapPinned size={13} className="text-purple-500" />
-                    שכונה
-                  </span>
-                )}
-                {group.isOfficial && (
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck size={13} className="text-cyan-500" />
-                    רשמי
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Users size={16} />
-                  <span>
-                    {group.currentParticipants}
-                    {group.maxParticipants ? ` / ${group.maxParticipants}` : ''} משתתפים
-                  </span>
-                </div>
-                <div className="flex gap-2">
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-1 px-3 py-2 border-t border-gray-100">
                   <button
                     onClick={() => setSessionGroupId(group.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
                     title="הוסף מפגש בודד"
                   >
-                    <CalendarPlus size={15} />
+                    <CalendarPlus size={13} />
                     <span className="hidden md:inline">מפגש בודד</span>
                   </button>
                   <button
@@ -1249,21 +1404,20 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                       setFormData(group);
                       setShowForm(true);
                     }}
-                    className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg"
+                    className="p-1.5 text-cyan-600 hover:bg-cyan-50 rounded-lg"
                   >
-                    <Edit2 size={18} />
+                    <Edit2 size={15} />
                   </button>
                   <button
                     onClick={() => handleDelete(group.id, group.name)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </div>
-              </div>{/* end p-6 wrapper */}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1303,6 +1457,34 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
         scope="community"
       />
       </>
+    </div>
+  );
+}
+
+function AdminAvatarStack({ people, total }: { people: { name: string; photoURL?: string }[]; total?: number }) {
+  if (!people || people.length === 0) {
+    return <span className="text-[10px] text-gray-300">אין חברים עדיין</span>;
+  }
+  const display = people.slice(0, 5);
+  const remaining = Math.max(0, (total ?? people.length) - display.length);
+  return (
+    <div className="flex items-center">
+      <div className="flex -space-x-2 rtl:space-x-reverse">
+        {display.map((p, i) => (
+          <div key={i} className="w-6 h-6 rounded-full border-2 border-white overflow-hidden bg-gray-200 flex-shrink-0" title={p.name}>
+            {p.photoURL ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.photoURL} alt={p.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-gray-500 bg-gradient-to-br from-gray-100 to-gray-200">
+                {p.name.charAt(0)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {remaining > 0 && (
+        <span className="text-[10px] text-gray-400 font-bold ms-1">+{remaining}</span>
       )}
     </div>
   );

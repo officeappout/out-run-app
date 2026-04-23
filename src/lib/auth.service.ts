@@ -252,6 +252,20 @@ export async function linkPhoneNumber(phoneNumber: string) {
  */
 export async function signOutUser() {
   try {
+    // Best-effort clear of the server-side admin session cookie BEFORE
+    // signing out the Firebase client. If this fails (e.g. offline) we
+    // still proceed — the cookie has a 1-hour TTL and the middleware
+    // will reject it on next /admin/* access anyway.
+    if (typeof window !== 'undefined') {
+      try {
+        await fetch('/api/auth/session', {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        });
+      } catch {
+        /* non-fatal */
+      }
+    }
     await signOut(auth);
     return { error: null };
   } catch (error: any) {

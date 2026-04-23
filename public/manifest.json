@@ -1,0 +1,21 @@
+{
+  "name": "Out — אימון כושר אישי",
+  "short_name": "Out",
+  "description": "אימוני כושר מותאמים אישית — בפארק, בבית, או בשטח",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#F8FAFC",
+  "theme_color": "#00BAF7",
+  "categories": ["fitness", "health"],
+  "icons": [
+    {
+      "src": "/assets/logo/Kind=logotype.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

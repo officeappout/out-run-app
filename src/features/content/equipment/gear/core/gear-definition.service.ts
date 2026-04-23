@@ -16,16 +16,29 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { GearDefinition, GearDefinitionFormData } from './gear-definition.types';
+import { registerGearAlias } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 const GEAR_DEFINITIONS_COLLECTION = 'gear_definitions';
 
 /**
- * Convert Firestore timestamp to Date
+ * Convert Firestore timestamp, Unix epoch, or date string to Date.
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return undefined;
 }
 
 /**
@@ -53,6 +66,7 @@ function sanitizeGearData(data: GearDefinitionFormData | Partial<GearDefinitionF
   // Simple string fields - use null if undefined
   if (data.icon !== undefined) sanitized.icon = data.icon;
   if (data.customIconUrl !== undefined) sanitized.customIconUrl = data.customIconUrl || null;
+  if (data.iconKey !== undefined) sanitized.iconKey = data.iconKey || null;
   if (data.category !== undefined) sanitized.category = data.category || null;
   if (data.shopLink !== undefined) sanitized.shopLink = data.shopLink || null;
   if (data.tutorialVideo !== undefined) sanitized.tutorialVideo = data.tutorialVideo || null;
@@ -66,6 +80,9 @@ function sanitizeGearData(data: GearDefinitionFormData | Partial<GearDefinitionF
   }
   if (data.lifestyleTags !== undefined) {
     sanitized.lifestyleTags = Array.isArray(data.lifestyleTags) ? data.lifestyleTags : [];
+  }
+  if (data.isOptional !== undefined) {
+    sanitized.isOptional = data.isOptional === true;
   }
   
   return sanitized;
@@ -87,12 +104,14 @@ function sanitizeGearDataForCreate(data: GearDefinitionFormData): Record<string,
     } : null,
     icon: data.icon || 'Package',
     customIconUrl: data.customIconUrl || null,
+    iconKey: data.iconKey || null,
     category: data.category || 'accessories',
     shopLink: data.shopLink || null,
     tutorialVideo: data.tutorialVideo || null,
     defaultLocation: data.defaultLocation || 'home',
     allowedLocations: Array.isArray(data.allowedLocations) ? data.allowedLocations : [],
     lifestyleTags: Array.isArray(data.lifestyleTags) ? data.lifestyleTags : [],
+    isOptional: data.isOptional === true,
   };
 }
 
@@ -104,12 +123,20 @@ export async function getAllGearDefinitions(): Promise<GearDefinition[]> {
     const q = query(collection(db, GEAR_DEFINITIONS_COLLECTION), orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
+    const defs: GearDefinition[] = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
     } as GearDefinition));
+
+    // Register ALL items — items with iconKey get a direct canonical mapping;
+    // items without iconKey use their Hebrew name to resolve via LABEL_TO_ICON_KEY.
+    for (const def of defs) {
+      registerGearAlias(def.id, def.iconKey, def.category, def.name?.he);
+    }
+
+    return defs;
   } catch (error) {
     console.error('Error fetching gear definitions:', error);
     throw error;
@@ -262,42 +289,49 @@ export async function initializeDefaultGearDefinitions(): Promise<void> {
       description: { he: 'גומיות התנגדות', en: 'Resistance bands' },
       icon: 'Dumbbell',
       category: 'resistance',
+      isOptional: false,
     },
     {
       name: { he: 'משקולות', en: 'Dumbbells' },
       description: { he: 'משקולות יד', en: 'Hand dumbbells' },
       icon: 'Dumbbell',
       category: 'weights',
+      isOptional: false,
     },
     {
       name: { he: 'קיטלבל', en: 'Kettlebell' },
       description: { he: 'קיטלבל', en: 'Kettlebell' },
       icon: 'Circle',
       category: 'weights',
+      isOptional: false,
     },
     {
       name: { he: 'חבל קפיצה', en: 'Jump Rope' },
       description: { he: 'חבל קפיצה לאימון', en: 'Jump rope for training' },
       icon: 'Activity',
       category: 'accessories',
+      isOptional: true,
     },
     {
       name: { he: 'מזרן', en: 'Mat' },
       description: { he: 'מזרן יוגה/אימון', en: 'Yoga/training mat' },
       icon: 'Square',
       category: 'accessories',
+      isOptional: true,
     },
     {
       name: { he: 'טבעות', en: 'Rings' },
       description: { he: 'טבעות התעמלות', en: 'Gymnastic rings' },
       icon: 'Circle',
       category: 'suspension',
+      isOptional: false,
     },
     {
       name: { he: 'TRX', en: 'TRX' },
       description: { he: 'רצועות TRX', en: 'TRX Suspension Trainer' },
       icon: 'Anchor',
       category: 'suspension',
+      isOptional: false,
     },
   ];
 

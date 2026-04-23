@@ -12,11 +12,11 @@ import { getAllGymEquipment } from '../../equipment/gym/core/gym-equipment.servi
 import { getAllGearDefinitions } from '../../equipment/gear/core/gear-definition.service';
 import { GymEquipment } from '../../equipment/gym/core/gym-equipment.types';
 import { GearDefinition } from '../../equipment/gear/core/gear-definition.types';
-import { BasicsSection, MethodsSection, ContentSection, GeneralMetricsSection, TechnicalClassificationSection, MuscleSelectionSection, ExecutionDetailsSection, MobilePreview, CollapsibleSection } from './components/exercise-editor';
+import { BasicsSection, MethodsSection, ContentSection, GeneralMetricsSection, TechnicalClassificationSection, MuscleSelectionSection, ExecutionDetailsSection, MobilePreview, CollapsibleSection, VideoUploadSection } from './components/exercise-editor';
 import { useAutoSaveDraft } from './hooks/useAutoSaveDraft';
 import { discardExerciseDraft } from '../core/exercise.service';
 import { safeRenderText } from '@/utils/render-helpers';
-import { Check, Dumbbell, Settings2, Send, Cloud } from 'lucide-react';
+import { Check, Dumbbell, Settings2, Send, Cloud, Video } from 'lucide-react';
 import { 
   MUSCLE_GROUP_LABELS, 
   NOISE_LEVEL_LABELS, 
@@ -135,6 +135,7 @@ export default function ExerciseEditorForm({
   const [formData, setFormDataInternal] = useState<ExerciseFormData>({
     // === BASIC FIELDS ===
     name: initialData?.name || { he: '', en: '', es: '' },
+    supportedLangs: initialData?.supportedLangs ?? [],
     type: initialData?.type || 'reps',
     loggingMode: initialData?.loggingMode || 'reps',
     equipment: initialData?.equipment ? [...initialData.equipment] : [],
@@ -711,6 +712,50 @@ export default function ExerciseEditorForm({
         gearDefinitionsList={gearDefinitionsList}
       />
 
+        {/* Phase 5: Global Bunny.net video slots (preview + tutorial) */}
+        {/*
+          defaultExpanded logic:
+          • Exercise already has a video → open so the admin can see / edit it.
+          • New / no video yet → collapsed, but the "העלה סרטון ↓" badge makes
+            the section clearly actionable so the admin knows to click it.
+        */}
+        <CollapsibleSection
+          title="סרטוני ספרייה (Bunny.net)"
+          subtitle="Preview + Tutorial עבור כרטיס התרגיל"
+          icon={Video}
+          iconBgColor="bg-cyan-100"
+          iconColor="text-cyan-600"
+          defaultExpanded={!!(formData.media?.previewVideo || formData.media?.fullTutorial)}
+          badge={
+            (formData.media?.previewVideo || formData.media?.fullTutorial) ? (
+              /* Videos exist — show which slots are filled */
+              <div className="flex items-center gap-1">
+                {formData.media?.previewVideo && (
+                  <span className="text-[10px] font-bold bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded">
+                    Preview
+                  </span>
+                )}
+                {formData.media?.fullTutorial && (
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                    Tutorial
+                  </span>
+                )}
+              </div>
+            ) : (
+              /* No videos yet — prompt the admin to act */
+              <span className="text-[10px] font-semibold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
+                העלה סרטון ↓
+              </span>
+            )
+          }
+        >
+          <VideoUploadSection
+            formData={formData}
+            setFormData={setFormData}
+            noContainer
+          />
+        </CollapsibleSection>
+
         {/* Muscle Selection - Primary + Secondary (Collapsible) */}
         <CollapsibleSection
           title="שרירי מטרה (Target Muscles)"
@@ -854,6 +899,8 @@ export default function ExerciseEditorForm({
         focusedMethodIndex={focusedMethodIndex}
         onMethodFocused={() => setFocusedMethodIndex(null)}
         exerciseId={exerciseId}
+        legacyEquipment={formData.equipment?.length ? formData.equipment : []}
+        onLegacyCleaned={() => setFormData(prev => ({ ...prev, equipment: [] }))}
       />
 
         {/* Execution Details - Specific Cues + Collapsible Instructions */}

@@ -136,7 +136,11 @@ export default function ExerciseDetailView({
   const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="w-full bg-white dark:bg-zinc-900 shadow-2xl min-h-screen flex flex-col relative overflow-hidden" dir="rtl">
+    // h-full instead of min-h-screen — this view is rendered inside a fixed
+    // 375×812 MobileFrame in the admin editor. min-h-screen forced 100vh
+    // (~900px) into an 812px frame, clipping the bottom of the preview
+    // ("can't see the player"). h-full makes it size to its container.
+    <div className="w-full h-full bg-white dark:bg-zinc-900 shadow-2xl flex flex-col relative overflow-hidden" dir="rtl">
       {/* Hero Section - Video/Image Background (Fixed) */}
       <div className="relative w-full aspect-[9/10] overflow-hidden flex-shrink-0">
         {mainVideoUrl && !videoError ? (

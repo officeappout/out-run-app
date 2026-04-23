@@ -6,7 +6,7 @@
  * Delegates to four focused hooks:
  *   useGPS             — location tracking, bearing, fallback
  *   useRouteGeneration — Mapbox route generation, filters, parks cache
- *   useSearchNavigation — geocoding, address search, AI coach
+ *   useSearchNavigation — geocoding, address search, 3-variant nav
  *   useWorkoutSession  — timer, GPS watch, workout lifecycle
  *
  * Returns the same flat API surface so all existing callers keep working.
@@ -18,11 +18,14 @@ import { NavHubState } from '../components/NavigationHub';
 import { ActivityType } from '../types/route.types';
 import { useGPS } from './useGPS';
 import { useRouteGeneration } from './useRouteGeneration';
-import { useSearchNavigation } from './useSearchNavigation';
+import { useSearchNavigation, type SearchSuggestion } from './useSearchNavigation';
 import { useWorkoutSession } from './useWorkoutSession';
+import { useMapStore } from '../store/useMapStore';
+import { getCachedOfficialRoutes } from '../services/inventory.service';
 
 export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) => {
   const { profile } = useUserStore();
+  const { setSelectedPark } = useMapStore();
 
   const [workoutMode, setWorkoutMode] = useState<'free' | 'discover'>('discover');
 
@@ -35,11 +38,9 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
   // 2. Route Generation (uses navState + mapMode gate)
   const routes = useRouteGeneration(gps.currentUserPos, workoutMode, navState, mapMode, contextActivity);
 
-  // 3. Search & Navigation (receives route setters so address selection works)
+  // 3. Search & Navigation (new signature — no longer needs setNavigationRoutes)
   const search = useSearchNavigation(
     gps.currentUserPos,
-    routes.selectedNavActivity,
-    routes.setNavigationRoutes,
     routes.setFocusedRoute,
     routes.setSelectedRoute,
   );
@@ -53,12 +54,66 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     profile,
   );
 
-  // Wire address select to also update navState (owned here)
-  const handleAddressSelect = async (addr: { text: string; coords: [number, number] }) => {
-    setNavState('navigating');
+  // Wire address/park/route select — handles all three suggestion sources
+  const handleAddressSelect = async (addr: SearchSuggestion) => {
+    routes.setSelectedRoute(null);
     search.setSearchQuery('');
     search.setSuggestions([]);
-    await search.fetchAllNavigationRoutes(addr);
+
+    if (addr._source === 'park' && addr._id) {
+      const { fetchRealParks } = await import('../services/parks.service');
+      const parks = await fetchRealParks();
+      const park = parks.find(p => p.id === addr._id);
+      if (park) setSelectedPark(park);
+      setNavState('idle');
+      return;
+    }
+
+    if (addr._source === 'route' && addr._id) {
+      const allRoutes = await getCachedOfficialRoutes();
+      const route = allRoutes.find(r => r.id === addr._id);
+      if (route) {
+        routes.setSelectedRoute(route);
+        routes.setFocusedRoute(route);
+      }
+      setNavState('idle');
+      return;
+    }
+
+    setNavState('navigating');
+    await search.fetchNavigationVariants(addr, search.navActivity);
+  };
+
+  // Wrap setNavState to clear navigation artifacts when returning to idle
+  const handleNavStateChange = (state: NavHubState) => {
+    if (state === 'idle') {
+      search.setNavigationVariants({ recommended: null, scenic: null, facilityRich: null });
+      routes.setSelectedRoute(null);
+      routes.setFocusedRoute(null);
+    }
+    setNavState(state);
+  };
+
+  // When user selects a variant (via NavigationHub card or map route tap)
+  const handleVariantSelect = (variantKey: string) => {
+    const variants = search.navigationVariants;
+    let matched: import('../types/route.types').Route | null = null;
+
+    if (variantKey === 'recommended' || variantKey.includes('recommended')) {
+      matched = variants.recommended;
+      search.setSelectedVariant('recommended');
+    } else if (variantKey === 'scenic' || variantKey.includes('scenic')) {
+      matched = variants.scenic;
+      search.setSelectedVariant('scenic');
+    } else if (variantKey === 'facilityRich' || variantKey.includes('facility')) {
+      matched = variants.facilityRich;
+      search.setSelectedVariant('facilityRich');
+    }
+
+    if (matched) {
+      routes.setFocusedRoute(matched);
+      routes.setSelectedRoute(matched);
+    }
   };
 
   return {
@@ -89,26 +144,32 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     navigationRoutes: routes.navigationRoutes,
     selectedNavActivity: routes.selectedNavActivity,
     setSelectedNavActivity: routes.setSelectedNavActivity,
+    setEffectiveUserPos: routes.setEffectiveUserPos,
+    setSimulationActive: gps.setSimulationActive,
 
-    // Search & Navigation
+    // Search & Navigation — new 3-variant API
     searchQuery: search.searchQuery,
     setSearchQuery: search.setSearchQuery,
     suggestions: search.suggestions,
     setSuggestions: search.setSuggestions,
     isSearching: search.isSearching,
     navState,
-    setNavState,
+    setNavState: handleNavStateChange,
     selectedAddress: search.selectedAddress,
-    isChatOpen: search.isChatOpen,
-    setIsChatOpen: search.setIsChatOpen,
-    chatMessages: search.chatMessages,
-    isAILoading: search.isAILoading,
     isFilterOpen: search.isFilterOpen,
     setIsFilterOpen: search.setIsFilterOpen,
     searchInputRef: search.searchInputRef,
     handleAddressSelect,
-    fetchAllNavigationRoutes: search.fetchAllNavigationRoutes,
-    handleAICoachRequest: search.handleAICoachRequest,
+    fetchNavigationVariants: search.fetchNavigationVariants,
+
+    // Navigation variants
+    navigationVariants: search.navigationVariants,
+    setNavigationVariants: search.setNavigationVariants,
+    selectedVariant: search.selectedVariant,
+    setSelectedVariant: search.setSelectedVariant,
+    navActivity: search.navActivity,
+    setNavActivity: search.setNavActivity,
+    handleVariantSelect,
 
     // Workout Session
     isWorkoutActive: session.isWorkoutActive,
@@ -138,6 +199,7 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     endSession: session.endSession,
     triggerLap: session.triggerLap,
     addCoord: session.addCoord,
+    injectSimPosition: session.injectSimPosition,
     jitState: session.jitState,
     dismissJIT: session.dismissJIT,
     cancelJIT: session.cancelJIT,

@@ -598,7 +598,7 @@ export const useActivityStore = create<ActivityStore>()(
       
       loadFromServer: async (userId: string, date?: string) => {
         const targetDate = date || getTodayString();
-        
+
         try {
           // 1. Load today's activity
           const docId = getDailyActivityDocId(userId, targetDate);
@@ -750,7 +750,25 @@ export const useActivityStore = create<ActivityStore>()(
           
           console.log('[ActivityStore] Loaded from Firestore - Streak:', currentStreak);
         } catch (error) {
-          console.error('[ActivityStore] Error loading from Firestore:', error);
+          const err = error as Error & { code?: string };
+          console.error('[ActivityStore] Error loading from Firestore:', err.message ?? error);
+          if (err.code) console.error('Firestore error code:', err.code);
+
+          // If code is 'failed-precondition', a composite index is missing.
+          // Open the link below to navigate directly to the Firestore Indexes page
+          // for this project — then click "Create index" on the auto-suggested prompt:
+          // eslint-disable-next-line no-console
+          console.log(
+            '%c🔥 CLICK TO FIX FIREBASE INDEX → %s',
+            'color: orange; font-weight: bold',
+            'https://console.firebase.google.com/project/appout-1/firestore/indexes',
+          );
+          // The missing composite index is on `dailyActivity`:
+          //   Field 1: userId   (Ascending)
+          //   Field 2: date     (Descending)
+          // Firestore should also print a clickable auto-create URL in the stack:
+          if (err.stack) console.error('Stack (may contain auto-create URL):', err.stack);
+
           // Fallback to local initialization
           get().initialize(userId);
         }
@@ -789,59 +807,67 @@ export const useActivityStore = create<ActivityStore>()(
         const todayStr = getTodayString();
         const docId = getDailyActivityDocId(userId, todayStr);
         const docRef = doc(db, COLLECTION_DAILY_ACTIVITY, docId);
-        
+
+        let unsubActivity: (() => void) | undefined;
+        let unsubStreak: (() => void) | undefined;
+
         // Subscribe to real-time updates for today's activity
-        const unsubscribeActivity = onSnapshot(
-          docRef,
-          (docSnap) => {
-            if (docSnap.exists()) {
-              const data = fromFirestoreFormat(docSnap.data());
-              const state = get();
-              
-              // Only update if the server data is newer
-              const serverTime = data.updatedAt instanceof Date ? data.updatedAt.getTime() : 0;
-              const localTime = state.today?.updatedAt instanceof Date ? state.today.updatedAt.getTime() : 0;
-              
-              if (serverTime > localTime) {
-                set({ today: data });
-                get().recalculate();
-                console.log('[ActivityStore] Updated from Firestore real-time');
+        try {
+          unsubActivity = onSnapshot(
+            docRef,
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const data = fromFirestoreFormat(docSnap.data());
+                const state = get();
+
+                const serverTime = data.updatedAt instanceof Date ? data.updatedAt.getTime() : 0;
+                const localTime = state.today?.updatedAt instanceof Date ? state.today.updatedAt.getTime() : 0;
+
+                if (serverTime > localTime) {
+                  set({ today: data });
+                  get().recalculate();
+                  console.log('[ActivityStore] Updated from Firestore real-time');
+                }
               }
-            }
-          },
-          (error) => {
-            console.error('[ActivityStore] Real-time listener error:', error);
-          }
-        );
-        
+            },
+            (error) => {
+              console.warn('[ActivityStore] Real-time listener error (non-fatal):', error?.code ?? error);
+            },
+          );
+        } catch (err) {
+          console.warn('[ActivityStore] Failed to create activity listener:', err);
+        }
+
         // Subscribe to streak updates
-        const streakRef = doc(db, COLLECTION_STREAK, userId);
-        const unsubscribeStreak = onSnapshot(
-          streakRef,
-          (docSnap) => {
-            if (docSnap.exists()) {
-              const data = docSnap.data();
-              const state = get();
-              
-              // Update streak if server has higher value (sync from other devices)
-              if (data.currentStreak > state.currentStreak) {
-                set({
-                  currentStreak: data.currentStreak,
-                  longestStreak: Math.max(state.longestStreak, data.longestStreak || 0),
-                });
-                console.log('[ActivityStore] Streak updated from Firestore:', data.currentStreak);
+        try {
+          const streakRef = doc(db, COLLECTION_STREAK, userId);
+          unsubStreak = onSnapshot(
+            streakRef,
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+                const state = get();
+
+                if (data.currentStreak > state.currentStreak) {
+                  set({
+                    currentStreak: data.currentStreak,
+                    longestStreak: Math.max(state.longestStreak, data.longestStreak || 0),
+                  });
+                  console.log('[ActivityStore] Streak updated from Firestore:', data.currentStreak);
+                }
               }
-            }
-          },
-          (error) => {
-            console.error('[ActivityStore] Streak listener error:', error);
-          }
-        );
-        
-        // Return unsubscribe function
+            },
+            (error) => {
+              console.warn('[ActivityStore] Streak listener error (non-fatal):', error?.code ?? error);
+            },
+          );
+        } catch (err) {
+          console.warn('[ActivityStore] Failed to create streak listener:', err);
+        }
+
         return () => {
-          unsubscribeActivity();
-          unsubscribeStreak();
+          unsubActivity?.();
+          unsubStreak?.();
         };
       },
     }),

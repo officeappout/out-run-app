@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
+import AccessCodeGate from '@/components/ui/AccessCodeGate';
+import type { AccessCodeResult } from '../../services/access-code.service';
+
+const ACCESS_CODE_PERSONA_IDS = new Set(['student', 'soldier', 'reservist', 'pupil']);
 
 interface PersonaStepProps {
   onNext: () => void;
@@ -175,6 +179,10 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     return stored === 'female' ? 'female' : 'male';
   }, []);
   
+  // Access Code Gate modal state
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [pendingPersona, setPendingPersona] = useState<LifestyleOption | null>(null);
+
   // Local state - multi-select for personas, multi-select (max 2) for goals
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(() => {
     const storedIds = (data as any).selectedPersonaIds;
@@ -232,30 +240,56 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     return Array.from(new Set(tags));
   };
 
-  // Handle persona toggle (multi-select)
-  const handlePersonaToggle = (option: LifestyleOption) => {
+  const applyPersonaToggle = useCallback((option: LifestyleOption) => {
     let newSelectedIds: string[];
-    
     if (selectedPersonaIds.includes(option.id)) {
       newSelectedIds = selectedPersonaIds.filter(id => id !== option.id);
     } else {
       newSelectedIds = [...selectedPersonaIds, option.id];
     }
-    
     setSelectedPersonaIds(newSelectedIds);
     const allTags = collectAllTags(newSelectedIds, selectedGoalIds);
-    
     updateData({
       selectedPersonaId: newSelectedIds[0] || null,
       selectedPersonaIds: newSelectedIds,
       lifestyleTags: allTags,
     } as any);
-    
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('onboarding_selected_persona_ids', JSON.stringify(newSelectedIds));
       sessionStorage.setItem('onboarding_selected_persona_tags', JSON.stringify(allTags));
     }
+  }, [selectedPersonaIds, selectedGoalIds, updateData]);
+
+  const handlePersonaToggle = (option: LifestyleOption) => {
+    const isDeselecting = selectedPersonaIds.includes(option.id);
+    if (!isDeselecting && ACCESS_CODE_PERSONA_IDS.has(option.id)) {
+      setPendingPersona(option);
+      setShowCodeModal(true);
+      return;
+    }
+    applyPersonaToggle(option);
   };
+
+  const handleCodeSuccess = useCallback((result: AccessCodeResult) => {
+    if (pendingPersona) applyPersonaToggle(pendingPersona);
+    updateData({
+      tenantId: result.tenantId,
+      unitId: result.unitId,
+      unitPath: result.unitPath,
+      tenantType: result.tenantType,
+    } as any);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('onboarding_path', result.onboardingPath);
+    }
+    setShowCodeModal(false);
+    setPendingPersona(null);
+  }, [pendingPersona, applyPersonaToggle, updateData]);
+
+  const handleCodeSkip = useCallback(() => {
+    if (pendingPersona) applyPersonaToggle(pendingPersona);
+    setShowCodeModal(false);
+    setPendingPersona(null);
+  }, [pendingPersona, applyPersonaToggle]);
 
   // Handle goal toggle (multi-select, max 2)
   const handleGoalToggle = (goal: GoalOption) => {
@@ -565,6 +599,43 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           {isHebrew ? 'המשך' : 'Continue'}
         </button>
       </div>
+
+      {/* Access Code Gate Modal — triggered for military/school personas */}
+      <AnimatePresence>
+        {showCodeModal && pendingPersona && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center p-5"
+            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.45)' }}
+            onClick={() => handleCodeSkip()}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm"
+            >
+              <div className="text-center mb-4">
+                <span className="text-4xl">{getPersonaEmoji(pendingPersona)}</span>
+                <h3 className="text-lg font-black text-white mt-2" dir="rtl">
+                  {isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
+                </h3>
+              </div>
+              <AccessCodeGate
+                orgName={isHebrew ? getPersonaLabel(pendingPersona) : pendingPersona.labelEn}
+                personaLabel={getPersonaLabel(pendingPersona)}
+                tenantType={pendingPersona.tags.includes('military') ? 'military' : 'school'}
+                onSuccess={handleCodeSuccess}
+                onSkip={handleCodeSkip}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

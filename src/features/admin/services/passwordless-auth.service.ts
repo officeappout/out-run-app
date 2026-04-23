@@ -47,8 +47,8 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
     // If the email is in the hardcoded allowlist, grant super_admin
     // even if there's no Firestore user doc yet (first-time login).
     if (isAdminEmailAllowed(normalizedEmail)) {
-      // Still try to find an existing user for their userId
-      const existingUser = await getUserByEmail(normalizedEmail);
+      let existingUser: Awaited<ReturnType<typeof getUserByEmail>> = null;
+      try { existingUser = await getUserByEmail(normalizedEmail); } catch {}
       return {
         exists: true,
         role: 'super_admin',
@@ -58,7 +58,12 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
     }
     
     // ── PRIORITY 1: Firestore users collection ────────────────────────
-    const userDoc = await getUserByEmail(normalizedEmail);
+    let userDoc: Awaited<ReturnType<typeof getUserByEmail>> = null;
+    try {
+      userDoc = await getUserByEmail(normalizedEmail);
+    } catch (userLookupError) {
+      console.warn('[checkAdminEmail] getUserByEmail failed (user may be unauthenticated):', userLookupError);
+    }
     
     // If user doesn't exist, check admin_invitations collection
     if (!userDoc) {
@@ -171,9 +176,25 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
 export async function sendAdminMagicLink(
   email: string,
   requiredRole: AdminRole,
-  continueUrl?: string
+  continueUrl?: string,
+  options?: { hasInvitationToken?: boolean }
 ): Promise<{ sent: boolean; error: string | null }> {
   try {
+    // If a valid invitation token is present, skip the full admin-email
+    // verification. The user may be brand new — the invitation will be
+    // redeemed after they click the magic link (in auth/callback).
+    if (options?.hasInvitationToken) {
+      console.log('[sendAdminMagicLink] Invitation token present — bypassing email check, sending magic link directly.');
+      const result = await sendMagicLink(email, continueUrl);
+      if (result.error) {
+        return {
+          sent: false,
+          error: 'שגיאה בשליחת הקישור. נסה שוב.',
+        };
+      }
+      return { sent: true, error: null };
+    }
+
     // First, verify the email exists and has the required role
     const adminCheck = await checkAdminEmail(email);
     

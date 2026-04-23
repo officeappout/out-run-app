@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Check, Lock, Footprints, Flame, Move, Bike, Activity, Dumbbell } from 'lucide-react';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { ActivityType } from '@/features/user';
 import { useDailyProgress } from '../hooks/useDailyProgress';
+import { resolveDayDisplayProps, DayIconCell } from '@/features/home/utils/day-display.utils';
+import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 
 interface ScheduleCalendarProps {
   schedule: DaySchedule[];
@@ -18,152 +18,70 @@ export default function ScheduleCalendar({ schedule, onDayClick }: ScheduleCalen
   const { goalHistory } = useProgressionStore();
   const todayProgress = useDailyProgress();
 
-  // Map goalHistory to calendar days for activity type icons
+  // Map goalHistory by ISO date for quick lookup of completion / step-goal flags.
   const activityMap = useMemo(() => {
-    const map = new Map<string, ActivityType>();
+    type ActivityRecord = {
+      type: ActivityType;
+      isSuper: boolean;
+      stepGoalMet: boolean;
+    };
+    const map = new Map<string, ActivityRecord>();
     if (goalHistory && Array.isArray(goalHistory)) {
-      goalHistory.forEach(entry => {
-        // Determine activity type based on goal achievement
+      goalHistory.forEach((entry) => {
         let activityType: ActivityType = 'none';
-        
-        // Priority 1: Check if it's a super workout (full workout completion)
         if (entry.isSuper) {
-          activityType = 'super'; // Blue Flame - full workout
+          activityType = 'super';
+        } else if (entry.stepGoalMet || entry.floorGoalMet) {
+          activityType = 'micro';
+        } else if (entry.stepsAchieved >= 1500 || entry.floorsAchieved >= 1) {
+          activityType = 'survival';
         }
-        // Priority 2: Check if adaptive goal was met
-        else if (entry.stepGoalMet || entry.floorGoalMet) {
-          activityType = 'micro'; // Orange Flame - hit adaptive goal
-        }
-        // Priority 3: Check if baseline was met
-        else if (entry.stepsAchieved >= 1500 || entry.floorsAchieved >= 1) {
-          activityType = 'survival'; // Checkmark - hit baseline only
-        }
-        
-        map.set(entry.date, activityType);
+        map.set(entry.date, {
+          type: activityType,
+          isSuper: !!entry.isSuper,
+          stepGoalMet: !!(entry.stepGoalMet || entry.floorGoalMet),
+        });
       });
     }
     return map;
   }, [goalHistory]);
 
-  // Get activity type icon based on goalHistory data
-  const getActivityIcon = (date: string, status: DaySchedule['status']) => {
-    // If we have activity data from goalHistory, use it
-    const activityType = activityMap.get(date);
-    
-    if (activityType === 'super') {
-      // Strong Blue Flame for super workouts
-      return (
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/40 relative">
-          <Flame className="w-6 h-6 text-white fill-white animate-pulse" />
-          <div className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping" />
-        </div>
-      );
-    }
-    
-    if (activityType === 'micro') {
-      // Orange Flame for micro wins
-      return (
-        <div className="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-md shadow-orange-400/30">
-          <Flame className="w-5 h-5 text-white fill-white" />
-        </div>
-      );
-    }
-    
-    if (activityType === 'survival') {
-      // Checkmark for survival (baseline only)
-      return (
-        <div className="w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center shadow-sm">
-          <Check className="w-5 h-5 text-white stroke-[3]" />
-        </div>
-      );
-    }
+  /**
+   * Map a DaySchedule.status + activity record → input for the centralized
+   * resolveDayDisplayProps() engine. This guarantees this legacy calendar
+   * uses the same visual language as SmartWeeklySchedule.
+   */
+  const buildDisplayProps = (date: string, status: DaySchedule['status'], isSelected: boolean) => {
+    const record = activityMap.get(date);
+    const programIconKey = resolveIconKey(
+      todayProgress?.workoutType ?? null,
+      profile?.primaryTrack ?? null,
+    );
 
-    // Fall back to original status-based icons
-    return getOriginalDayIcon(status);
-  };
+    const state: 'past' | 'today' | 'future' =
+      status === 'today' ? 'today' : status === 'scheduled' ? 'future' : 'past';
 
-  // Original icon logic for days without activity data
-  const getOriginalDayIcon = (status: DaySchedule['status']) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <div className="w-8 h-8 bg-[#4CAF50] rounded-full flex items-center justify-center shadow-sm shadow-green-100">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        );
-      case 'today':
-        // Show workout type icon if completed, otherwise show progress ring
-        // Debug log
-        console.log('[ScheduleCalendar] Rendering tile for today. Workout status:', {
-          workoutCompleted: todayProgress?.workoutCompleted,
-          workoutType: todayProgress?.workoutType,
-          todayProgress
-        });
-        
-        if (todayProgress?.workoutCompleted) {
-          const getWorkoutIcon = (workoutType?: string) => {
-            const iconProps = { className: "w-5 h-5 text-white", size: 20 };
-            if (workoutType) {
-              switch (workoutType) {
-                case 'running':
-                  return <Footprints {...iconProps} />;
-                case 'walking':
-                  return <Move {...iconProps} />;
-                case 'cycling':
-                  return <Bike {...iconProps} />;
-                case 'strength':
-                  return <Dumbbell {...iconProps} />;
-                case 'hybrid':
-                  return <Activity {...iconProps} />;
-                default:
-                  return <Check className="w-5 h-5 text-white stroke-[3]" />;
-              }
-            }
-            // Default to checkmark if no workoutType
-            return <Check className="w-5 h-5 text-white stroke-[3]" />;
-          };
-          
-          return (
-            <div className="w-9 h-9 rounded-full bg-[#00ADEF] flex items-center justify-center shadow-md border-2 border-blue-300 relative z-10">
-              {getWorkoutIcon(todayProgress.workoutType)}
-            </div>
-          );
-        }
-        return (
-          <div className="w-9 h-9 flex items-center justify-center relative">
-            {/* טבעת התקדמות עם חיתוך כמו בתמונה */}
-            <svg className="absolute w-full h-full -rotate-90">
-              <circle cx="18" cy="18" r="16" stroke="#E0F7FA" strokeWidth="3" fill="transparent" />
-              <circle
-                cx="18" cy="18"
-                r="16"
-                stroke="#00E5FF" strokeWidth="3"
-                fill="transparent"
-                strokeDasharray="100"
-                strokeDashoffset="30"
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="w-6 h-6 bg-white rounded-full border border-gray-100 shadow-sm"></div>
-          </div>
-        );
-      case 'rest':
-        return (
-          <div className="w-8 h-8 flex items-center justify-center">
-            <span className="text-gray-300 text-[10px] font-black italic tracking-tighter">zZ</span>
-          </div>
-        );
-      case 'scheduled':
-        return (
-          <div className="w-8 h-8 flex items-center justify-center">
-            <span className="text-xl">💪</span>
-          </div>
-        );
-      default:
-        return <div className="w-8 h-8" />;
-    }
+    const isCompleted =
+      status === 'completed' ||
+      record?.type === 'super' ||
+      (status === 'today' && !!todayProgress?.workoutCompleted);
+
+    const isMissed = status === 'missed';
+    const isRest = status === 'rest';
+    const stepGoalMet = !!record?.stepGoalMet;
+
+    return resolveDayDisplayProps({
+      state,
+      isSelected,
+      isRest,
+      isMissed,
+      isCompleted,
+      debtCleared: false,
+      isSuper: !!record?.isSuper,
+      stepGoalMet,
+      dominantCategory: null,
+      programIconKey,
+    });
   };
 
   return (
@@ -209,9 +127,11 @@ export default function ScheduleCalendar({ schedule, onDayClick }: ScheduleCalen
                 {day.day}
               </span>
 
-              <div className="flex items-center justify-center min-h-[40px]">
-                {/* Show activity icon based on goalHistory or fall back to status */}
-                {getActivityIcon(dateString, day.status)}
+              <div className="flex items-center justify-center min-h-[32px]">
+                {/* Centralized branded day-cell — see day-display.utils.tsx */}
+                <DayIconCell
+                  props={buildDisplayProps(dateString, day.status, isToday)}
+                />
               </div>
             </button>
           );

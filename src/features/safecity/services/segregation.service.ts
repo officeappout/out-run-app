@@ -56,6 +56,8 @@ export interface PresenceMarker {
   lemurStage?: number;
   level?: number;
   programId?: string;
+  personaId?: string;
+  photoURL?: string;
 }
 
 // Staleness threshold: ignore presence older than 5 minutes

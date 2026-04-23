@@ -8,6 +8,7 @@ import {
   Dumbbell,
   Plane,
   BookOpen,
+  Monitor,
 } from 'lucide-react';
 import { ExecutionLocation, MuscleGroup, MovementGroup, ExerciseRole } from '@/features/content/exercises';
 import { LOCATION_LABELS_HE } from '@/features/content/exercises/core/exercise-location.constants';
@@ -22,6 +23,7 @@ export const LOCATION_ICONS: Record<ExecutionLocation, React.ReactNode> = {
   gym: <Dumbbell size={16} />,
   airport: <Plane size={16} />,
   library: <BookOpen size={16} />,
+  desk: <Monitor size={16} />,
 };
 
 /**

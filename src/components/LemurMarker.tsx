@@ -2,20 +2,18 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
+import { resolvePersonaImage } from '@/features/parks/core/hooks/useGroupPresence';
 
 interface LemurMarkerProps {
-  size?: number; // Size in pixels (default: 40)
+  size?: number;
   className?: string;
+  /** Persona ID from user profile — resolves to the correct lemur character image */
+  personaId?: string | null;
 }
 
-/**
- * LemurMarker Component
- * Displays a lemur avatar with a gentle breathing animation for map markers
- * 
- * Uses the king-lemur.png image from /public/assets/lemur/
- */
-export default function LemurMarker({ size = 40, className = '' }: LemurMarkerProps) {
+export default function LemurMarker({ size = 40, className = '', personaId }: LemurMarkerProps) {
+  const imgSrc = resolvePersonaImage(personaId);
+
   return (
     <div 
       className={`relative flex items-center justify-center ${className}`}
@@ -29,20 +27,22 @@ export default function LemurMarker({ size = 40, className = '' }: LemurMarkerPr
           duration: 2,
           repeat: Infinity,
           ease: "easeInOut",
-          type: "tween" // Use tween instead of spring for 3-step animation
+          type: "tween"
         }}
         className="relative w-full h-full"
       >
-        <Image
-          src="/assets/lemur/king-lemur.png"
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imgSrc}
           alt="User Location"
           width={size}
           height={size}
           className="rounded-full object-cover border-2 border-white shadow-xl drop-shadow-lg"
           style={{ 
-            filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))'
+            width: size,
+            height: size,
+            filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))',
           }}
-          priority
         />
       </motion.div>
     </div>

@@ -3,16 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { CheckCircle, Trash2, Save, Share2, Coins } from 'lucide-react';
+import { CheckCircle, Save, Share2, Coins } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import RunLapsList from './RunLapsList';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import RunMapBlock from '@/features/workout-engine/summary/components/running/RunMapBlock';
-
-import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import StarRatingWidget from '@/features/parks/client/components/contribution-wizard/StarRatingWidget';
+import { createContribution } from '@/features/parks/core/services/contribution.service';
+import { XP_REWARDS } from '@/types/contribution.types';
+import { saveWorkout, WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { auth } from '@/lib/firebase';
+import { calculateCalories } from '@/lib/calories.utils';
+import { calculateRunningWorkoutXP } from '@/features/user/progression/services/xp.service';
 
 interface FreeRunSummaryProps {
   onDelete?: () => void;
@@ -32,8 +38,12 @@ export default function FreeRunSummary({
 }: FreeRunSummaryProps) {
   const router = useRouter();
   const { totalDistance: sessionDistance, totalDuration: sessionDuration } = useSessionStore();
-  const { laps: sessionLaps, routeCoords: sessionRouteCoords, currentPace: sessionPace, totalCalories: sessionCalories, clearRunningData } = useRunningPlayer();
+  const { laps: sessionLaps, routeCoords: sessionRouteCoords, currentPace: sessionPace, totalCalories: sessionCalories, activityType: sessionActivityType, clearRunningData } = useRunningPlayer();
   const [showConfetti, setShowConfetti] = useState(false);
+  const [routeQuality, setRouteQuality] = useState(0);
+  const [routeDifficulty, setRouteDifficulty] = useState<'easy' | 'medium' | 'hard' | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const { profile } = useUserStore();
 
   // Use workout data if in read-only mode, otherwise use session data
   const totalDistance = isReadOnly && workout ? workout.distance : sessionDistance;
@@ -132,12 +142,66 @@ export default function FreeRunSummary({
   };
 
   // Handle save and close
-  const handleSaveAndClose = () => {
+  const handleSaveAndClose = async () => {
     if (isReadOnly && onClose) {
       onClose();
       return;
     }
-    
+
+    // ── Persist workout + award XP (new sessions only) ──────────────────
+    if (!isReadOnly) {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const durationMinutes = Math.max(Math.round(totalDuration / 60), 1);
+        const distanceKm = totalDistance;
+        const userWeight = profile?.core?.weight || 70;
+        const earnedCalories = totalCalories || calculateCalories(
+          sessionActivityType || 'running',
+          durationMinutes,
+          userWeight,
+        );
+
+        // 1. Persist to workouts collection — compute XP first so it's stored on the doc
+        const streak = useProgressionStore.getState().currentStreak;
+        const sessionXP = calculateRunningWorkoutXP({
+          durationMinutes,
+          distanceKm,
+          streak,
+          activityType: (sessionActivityType as 'running' | 'walking') ?? 'running',
+        });
+        saveWorkout({
+          userId: currentUser.uid,
+          activityType: sessionActivityType || 'running',
+          distance: distanceKm,
+          duration: totalDuration,
+          calories: earnedCalories,
+          pace: avgPace,
+          routePath: sessionRouteCoords.length > 0
+            ? (sessionRouteCoords as [number, number][])
+            : undefined,
+          earnedCoins: IS_COIN_SYSTEM_ENABLED ? Math.floor(earnedCalories) : 0,
+          xpEarned: sessionXP,
+        }).catch((e) =>
+          console.warn('[FreeRunSummary] saveWorkout failed (non-critical):', e),
+        );
+
+        // 2. Award global XP via progression store (writes to Firestore)
+        useProgressionStore.getState().awardRunningXP({
+          durationMinutes,
+          distanceKm,
+          streak,
+          activityType: (sessionActivityType as 'running' | 'walking') ?? 'running',
+        }).then(({ xpEarned, newLevel, leveledUp }) => {
+          console.log(
+            `[FreeRunSummary] +${xpEarned} XP → Level ${newLevel}` +
+            (leveledUp ? ' (LEVEL UP!)' : ''),
+          );
+        }).catch((e) =>
+          console.warn('[FreeRunSummary] awardRunningXP failed (non-critical):', e),
+        );
+      }
+    }
+
     if (onSave) {
       onSave();
     } else {
@@ -303,6 +367,83 @@ export default function FreeRunSummary({
                 <div className="h-[calc(300px-4rem)] overflow-y-auto">
                   <RunLapsList />
                 </div>
+              </motion.div>
+            )}
+
+            {/* Route Rating */}
+            {!isReadOnly && (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 shadow-sm"
+                dir="rtl"
+              >
+                {ratingSubmitted ? (
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <span className="text-emerald-600 text-sm font-bold">תודה על הדירוג! +{XP_REWARDS.review} XP</span>
+                  </div>
+                ) : (
+                  <>
+                    <h4 className="text-gray-800 text-sm font-bold mb-3">דרגו את המסלול</h4>
+                    <div className="flex gap-2 mb-3">
+                      {([['easy', 'קל'] as const, ['medium', 'בינוני'] as const, ['hard', 'קשה'] as const]).map(([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => setRouteDifficulty(val)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                            routeDifficulty === val
+                              ? 'bg-blue-500 text-white shadow-sm'
+                              : 'bg-white text-gray-500 border border-gray-200'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-center mb-3">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setRouteQuality(star)}
+                            className="p-0.5 transition-transform active:scale-90"
+                          >
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill={star <= routeQuality ? '#FBBF24' : 'none'} stroke={star <= routeQuality ? '#FBBF24' : '#D1D5DB'} strokeWidth="2">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {routeQuality > 0 && (
+                      <button
+                        onClick={async () => {
+                          if (!profile?.id) return;
+                          try {
+                            const loc = routeCoords.length > 0
+                              ? { lat: routeCoords[0][0], lng: routeCoords[0][1] }
+                              : { lat: 0, lng: 0 };
+                            await createContribution({
+                              userId: profile.id,
+                              type: 'review',
+                              status: 'pending',
+                              location: loc,
+                              routeQuality,
+                              routeDifficulty: routeDifficulty ?? undefined,
+                            });
+                            setRatingSubmitted(true);
+                          } catch (err) {
+                            console.error('[FreeRunSummary] Rating failed:', err);
+                          }
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+                      >
+                        שלח דירוג ⭐
+                      </button>
+                    )}
+                  </>
+                )}
               </motion.div>
             )}
 

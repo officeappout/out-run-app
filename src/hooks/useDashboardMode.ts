@@ -22,19 +22,34 @@ const TRACK_TO_MODE: Record<PrimaryTrack, DashboardMode> = {
  * 2) Persona Engine: user.lifestyle.primaryTrack → deterministic mapping
  * 3) Legacy heuristics: onboarding answer keywords (for pre-Persona users)
  * 4) Fallback to DEFAULT
+ *
+ * @param user            The full user profile.
+ * @param enableRunningMode  When false (flag off), clamps RUNNING/HYBRID → DEFAULT.
+ *                          Super Admins pass true to bypass this clamp.
  */
-export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
+export function useDashboardMode(
+  user?: UserFullProfile | null,
+  enableRunningMode = true,
+): DashboardMode {
   return useMemo<DashboardMode>(() => {
     if (!user) return 'DEFAULT';
 
     // 1. Direct override from lifestyle (coach / admin can force a mode)
     if (user.lifestyle?.dashboardMode) {
-      return user.lifestyle.dashboardMode;
+      const resolved = user.lifestyle.dashboardMode;
+      if (!enableRunningMode && (resolved === 'RUNNING' || resolved === 'HYBRID')) {
+        return 'DEFAULT';
+      }
+      return resolved;
     }
 
     // 2. Persona Engine: primaryTrack → deterministic dashboard mode
     if (user.lifestyle?.primaryTrack) {
-      return TRACK_TO_MODE[user.lifestyle.primaryTrack];
+      const resolved = TRACK_TO_MODE[user.lifestyle.primaryTrack];
+      if (!enableRunningMode && (resolved === 'RUNNING' || resolved === 'HYBRID')) {
+        return 'DEFAULT';
+      }
+      return resolved;
     }
 
     // 3. Legacy: infer from onboarding answers for users who onboarded before Persona Engine
@@ -52,7 +67,7 @@ export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
             (answer) => (answer as OnboardingAnswer).widgetTrigger === 'RUNNING',
           );
           if (hasRunningTrigger) {
-            return 'RUNNING';
+            return enableRunningMode ? 'RUNNING' : 'DEFAULT';
           }
 
           const hasPerformanceTrigger = answersArray.some(
@@ -81,7 +96,7 @@ export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
         ];
 
         if (runningKeywords.some((k) => text.includes(k.toLowerCase()))) {
-          return 'RUNNING';
+          return enableRunningMode ? 'RUNNING' : 'DEFAULT';
         }
 
         // PERFORMANCE / strength-related keywords
@@ -110,5 +125,5 @@ export function useDashboardMode(user?: UserFullProfile | null): DashboardMode {
 
     // 4. Default mode
     return 'DEFAULT';
-  }, [user]);
+  }, [user, enableRunningMode]);
 }

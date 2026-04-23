@@ -4,10 +4,8 @@
  * Profile Completion Service
  *
  * Calculates the user's profile completion percentage (0-100).
- * 12 fields across 3 buckets. When progress = 100% the user
- * earns the "Verified" badge (blue check).
  *
- * Weight allocation (dual-track model):
+ * Weight allocation:
  *
  *   BASIC INFO (30%)                     — filled by both tracks
  *     A. Name           =  5%
@@ -18,19 +16,18 @@
  *     F. Account        =  0%  (delayed — post-first-workout)
  *     G. GPS Access     =  5%
  *
- *   STRENGTH TRACK (35%)                 — filled by strength onboarding
+ *   STRENGTH TRACK (35%)                 — always counted
  *     G. Goals          = 10%
  *     H. Persona        = 10%
  *     I. Schedule       = 10%
  *     J. Equipment      =  5%
  *
- *   RUNNING TRACK (35%)                  — filled by running onboarding
+ *   RUNNING TRACK (35%)                  — counted only when enableRunningPrograms = true
  *     K. Running Plan   = 20%
  *     L. Running Pace   = 15%
  *   ─────────────────────────────────────
- *   Total               = 100%
- *
- * Completing only one track yields ~65% (30 + 35).
+ *   When running is disabled: 100% = Basic (30) + Strength (35) × normalised to 100.
+ *   The weights are re-normalised so a strength-only user can always reach 100%.
  */
 
 import type { UserFullProfile } from '../../core/types/user.types';
@@ -53,7 +50,7 @@ export interface CompletionItem {
 export interface CompletionResult {
   /** 0-100 percentage */
   percentage: number;
-  /** All tracked items */
+  /** All tracked items (filtered by active flags) */
   items: CompletionItem[];
   /** Only the incomplete items */
   pending: CompletionItem[];
@@ -65,12 +62,21 @@ export interface CompletionResult {
 // CALCULATOR
 // ============================================================================
 
-export function calculateProfileCompletion(profile: UserFullProfile | null): CompletionResult {
+/**
+ * @param profile               The full user profile.
+ * @param enableRunningPrograms When false, running-track items are excluded from
+ *                              both numerator and denominator, so a strength-only
+ *                              user can reach 100%.
+ */
+export function calculateProfileCompletion(
+  profile: UserFullProfile | null,
+  enableRunningPrograms = true,
+): CompletionResult {
   if (!profile) {
     return { percentage: 0, items: [], pending: [], isVerified: false };
   }
 
-  const items: CompletionItem[] = [
+  const allItems: CompletionItem[] = [
     // ── BASIC INFO (30%) ──────────────────────────────────────────────
     {
       id: 'name',
@@ -99,8 +105,9 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     {
       id: 'location',
       label: 'מיקום ועיר',
-      completed: !!profile.core?.authorityId ||
-                 !!((profile as any).affiliations && Object.keys((profile as any).affiliations).length > 0),
+      completed:
+        !!profile.core?.authorityId ||
+        !!((profile as any).affiliations && Object.keys((profile as any).affiliations).length > 0),
       weight: 5,
       bucket: 'basic',
       step: 'LOCATION',
@@ -108,8 +115,9 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     {
       id: 'health',
       label: 'הצהרת בריאות',
-      completed: !!(profile as any)?.healthDeclarationAccepted ||
-                 !!(profile.health as any)?.healthDeclarationAccepted,
+      completed:
+        !!(profile as any)?.healthDeclarationAccepted ||
+        !!(profile.health as any)?.healthDeclarationAccepted,
       weight: 5,
       bucket: 'basic',
       step: 'HEALTH_DECLARATION',
@@ -135,7 +143,9 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     {
       id: 'goals',
       label: 'התאמת תוכנית כוח',
-      completed: !!(profile.progression?.domains && Object.keys(profile.progression.domains).length > 0),
+      completed: !!(
+        profile.progression?.domains && Object.keys(profile.progression.domains).length > 0
+      ),
       weight: 10,
       bucket: 'strength',
       step: 'PERSONA',
@@ -151,7 +161,9 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     {
       id: 'schedule',
       label: 'לוח אימונים',
-      completed: !!(profile.lifestyle?.scheduleDays && profile.lifestyle.scheduleDays.length > 0),
+      completed: !!(
+        profile.lifestyle?.scheduleDays && profile.lifestyle.scheduleDays.length > 0
+      ),
       weight: 10,
       bucket: 'strength',
       step: 'SCHEDULE',
@@ -159,8 +171,9 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     {
       id: 'equipment',
       label: 'ציוד אימון',
-      completed: (profile.equipment?.home?.length ?? 0) > 0 ||
-                 (profile.equipment?.outdoor?.length ?? 0) > 0,
+      completed:
+        (profile.equipment?.home?.length ?? 0) > 0 ||
+        (profile.equipment?.outdoor?.length ?? 0) > 0,
       weight: 5,
       bucket: 'strength',
       step: 'EQUIPMENT',
@@ -170,8 +183,9 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     {
       id: 'runningPlan',
       label: 'תוכנית ריצה',
-      completed: !!(profile.running?.activeProgram) ||
-                 !!(profile.running as any)?.generatedProgramTemplate,
+      completed:
+        !!(profile.running?.activeProgram) ||
+        !!(profile.running as any)?.generatedProgramTemplate,
       weight: 20,
       bucket: 'running',
     },
@@ -184,14 +198,25 @@ export function calculateProfileCompletion(profile: UserFullProfile | null): Com
     },
   ];
 
-  const percentage = items
+  // Filter items based on active flags
+  const items = enableRunningPrograms
+    ? allItems
+    : allItems.filter((i) => i.bucket !== 'running');
+
+  // When running is excluded, re-normalise so the max possible = 100
+  // Basic (30) + Strength (35) = 65 raw → scale factor = 100/65
+  const rawMax = items.reduce((sum, i) => sum + i.weight, 0);
+  const scaleFactor = rawMax > 0 ? 100 / rawMax : 1;
+
+  const rawScore = items
     .filter((i) => i.completed)
     .reduce((sum, i) => sum + i.weight, 0);
 
+  const percentage = Math.min(Math.round(rawScore * scaleFactor), 100);
   const pending = items.filter((i) => !i.completed);
 
   return {
-    percentage: Math.min(percentage, 100),
+    percentage,
     items,
     pending,
     isVerified: percentage >= 100,

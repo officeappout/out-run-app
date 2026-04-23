@@ -120,32 +120,33 @@ export default function TrainingPlannerOverlay({
             </div>
 
             {/* ── Body ── */}
+            {/*
+              Layout: the calendar is a sticky header (flex-shrink-0).
+              Only the agenda section scrolls (flex-1 overflow-y-auto).
+              This keeps the calendar visible at all times while the user
+              scrolls through past and future workout cards.
+            */}
             <div className="flex-1 flex flex-col overflow-hidden max-w-md w-full mx-auto">
-              {/* Top: Calendar Grid */}
-              <div
-                className="flex-shrink-0 bg-white px-4 pt-2 pb-3"
-                style={{ height: '46dvh' }}
-              >
-                <div className="overflow-hidden h-full">
-                  <MonthlyCalendarGrid
-                    selectedDate={selectedDate}
-                    onDaySelect={handleDaySelect}
-                    viewMode={viewMode}
-                    userId={userId}
-                    recurringTemplate={recurringTemplate}
-                    scheduleDays={scheduleDays}
-                    programIconKey={programIconKey}
-                    cellHeight={56}
-                    ringSize={38}
-                    ringStroke={6}
-                    refreshKey={refreshKey}
-                  />
-                </div>
+              {/* Sticky calendar — does NOT scroll with the agenda */}
+              <div className="flex-shrink-0 bg-white px-4 pt-2 pb-3">
+                <MonthlyCalendarGrid
+                  selectedDate={selectedDate}
+                  onDaySelect={handleDaySelect}
+                  viewMode={viewMode}
+                  userId={userId}
+                  recurringTemplate={recurringTemplate}
+                  scheduleDays={scheduleDays}
+                  programIconKey={programIconKey}
+                  cellHeight={56}
+                  ringSize={38}
+                  ringStroke={6}
+                  refreshKey={refreshKey}
+                />
               </div>
 
               <div className="flex-shrink-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
 
-              {/* Bottom: Compact agenda rows */}
+              {/* Scrollable agenda: 30 past days + today + 84 future days */}
               <div className="flex-1 overflow-y-auto pt-2 pb-6">
                 <RollingAgenda
                   selectedDate={selectedDate}
@@ -153,7 +154,7 @@ export default function TrainingPlannerOverlay({
                   userId={userId}
                   recurringTemplate={recurringTemplate}
                   onStartWorkout={onStartWorkout}
-                  filterMode="future_only"
+                  filterMode="planner"
                   onAddWorkout={handleInlineAdd}
                   refreshKey={refreshKey}
                   onScheduleChanged={handleSaved}

@@ -187,6 +187,52 @@ export function getProgramIconLabel(iconKey: string | undefined): string {
   return ICON_MAP[iconKey as ProgramIconKey]?.label ?? 'כושר';
 }
 
+/**
+ * Short Hebrew labels (≤ 6 chars) used under day-cells in the weekly schedule.
+ * Includes program iconKeys + canonical aliases so any value passed through
+ * resolveIconKey()/PROGRAM_ALIAS_TO_ICON resolves to a label.
+ */
+const PROGRAM_SHORT_LABEL_MAP: Record<string, string> = {
+  // Strength program iconKeys + aliases
+  muscle: 'עליון',
+  upper_body: 'עליון',
+  push: 'עליון',
+  pushing: 'עליון',
+  pullup: 'מתח',
+  pull: 'מתח',
+  pulling: 'מתח',
+  calisthenics: 'מתח',
+  pull_up_pro: 'מתח',
+  full_body: 'שלם',
+  fullbody: 'שלם',
+  fullbady: 'שלם',
+  leg: 'תחתון',
+  lower_body: 'תחתון',
+  legs: 'תחתון',
+  core: 'ליבה',
+  handstand: 'ליבה',
+  pilates: 'ליבה',
+  yoga: 'ליבה',
+  // Cardio / running aliases
+  shoe: 'ריצה',
+  running: 'ריצה',
+  cardio: 'ריצה',
+  walking: 'הליכה',
+  // Health aliases
+  heart: 'בריאות',
+  healthy_lifestyle: 'בריאות',
+  wellness: 'בריאות',
+};
+
+/**
+ * Returns a short Hebrew label for a program iconKey or alias.
+ * Falls back to '' when no mapping is available.
+ */
+export function getProgramShortLabel(iconKey: string | undefined | null): string {
+  if (!iconKey) return '';
+  return PROGRAM_SHORT_LABEL_MAP[iconKey.toLowerCase()] ?? '';
+}
+
 // ============================================================================
 // SMART DAY ICON — Unified state-aware wrapper
 // ============================================================================

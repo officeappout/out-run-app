@@ -11,6 +11,8 @@
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
+import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -74,13 +76,27 @@ export default function ExerciseVideoPlayer({
     return sessionStorage.getItem('isAudioEnabled') === 'true';
   }, [exerciseId]); // re-evaluate on exercise change so each mount picks up latest
 
-  // Use fallback if no video URL provided
-  const effectiveVideoUrl = videoUrl || FALLBACK_VIDEO_URL;
+  const isOnline = useOnlineStatus();
 
-  // Check if current video is YouTube
+  // If the parent already resolved to a blob: URL, use it directly.
+  // Only try cache lookup for non-blob remote URLs.
+  const isAlreadyBlob = videoUrl?.startsWith('blob:');
+  const urlToCache = isAlreadyBlob ? null : videoUrl;
+  const cachedVideoUrl = useCachedMediaUrl(urlToCache);
+
+  // Build effective URL: blob from parent > blob from cache > network (only if online) > null
+  const effectiveVideoUrl = isAlreadyBlob
+    ? videoUrl
+    : cachedVideoUrl?.startsWith('blob:')
+      ? cachedVideoUrl
+      : isOnline
+        ? (videoUrl || FALLBACK_VIDEO_URL)
+        : null;
+
+  // Check if current video is YouTube (never cache YouTube URLs)
   const isYouTubeVideo = useMemo(() => {
-    return isYouTubeUrl(effectiveVideoUrl);
-  }, [effectiveVideoUrl]);
+    return videoUrl ? isYouTubeUrl(videoUrl) : false;
+  }, [videoUrl]);
 
   // Extract YouTube video ID
   const youtubeVideoId = useMemo(() => {
@@ -114,6 +130,7 @@ export default function ExerciseVideoPlayer({
   const hasValidDirectVideoUrl = useMemo(() => {
     if (!effectiveVideoUrl) return false;
     if (isYouTubeVideo) return false;
+    if (effectiveVideoUrl.startsWith('blob:')) return true;
     const lowerUrl = effectiveVideoUrl.toLowerCase();
     return lowerUrl.includes('.mp4') || 
            lowerUrl.includes('.mov') || 

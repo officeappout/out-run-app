@@ -48,6 +48,11 @@ export interface GearDefinition {
    * Can be a YouTube/Vimeo link or any video URL
    */
   tutorialVideo?: string;
+  /**
+   * When true, this gear is "nice to have" — exercises won't be blocked
+   * if the user doesn't own it, and the SwapEngine penalty is reduced.
+   */
+  isOptional?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

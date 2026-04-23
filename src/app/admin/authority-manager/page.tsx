@@ -7,16 +7,12 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { getAuthoritiesByManager, getAllAuthorities, getChildrenByParent } from '@/features/admin/services/authority.service';
+import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { Authority } from '@/types/admin-types';
-import { BarChart3, MapPin, Users, Calendar, Building2, ChevronDown, Route, ExternalLink } from 'lucide-react';
+import { BarChart3, Building2, ChevronDown } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
 import AnalyticsDashboard from '@/features/admin/components/authority-manager/AnalyticsDashboard';
-import CommunityGroups from '@/features/admin/components/authority-manager/CommunityGroups';
-import CommunityEvents from '@/features/admin/components/authority-manager/CommunityEvents';
-
-type Tab = 'analytics' | 'groups' | 'events';
 
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';
 
@@ -27,11 +23,9 @@ export default function AuthorityManagerDashboard() {
   const [authorities, setAuthorities] = useState<Authority[]>([]);
   const [allAuthorities, setAllAuthorities] = useState<Authority[]>([]); // For Super Admins
   const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('analytics');
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
-  const [neighborhoodList, setNeighborhoodList] = useState<{ id: string; name: string }[]>([]);
 
   /** Persist the chosen authority so a page refresh restores it. */
   const persistAndSelect = (auth: Authority) => {
@@ -110,19 +104,13 @@ export default function AuthorityManagerDashboard() {
     }
   };
 
+  // searchParams used for legacy deep links — redirect groups/events to community hub
   useEffect(() => {
-    const tabParam = searchParams?.get('tab') as Tab | null;
-    if (tabParam && ['analytics', 'groups', 'events'].includes(tabParam)) {
-      setActiveTab(tabParam);
+    const tabParam = searchParams?.get('tab');
+    if (tabParam === 'groups' || tabParam === 'events') {
+      router.replace('/admin/authority/community?tab=manage');
     }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!selectedAuthority) return;
-    getChildrenByParent(selectedAuthority.id)
-      .then((children) => setNeighborhoodList(children.map((c) => ({ id: c.id, name: typeof c.name === 'string' ? c.name : '' }))))
-      .catch(() => setNeighborhoodList([]));
-  }, [selectedAuthority?.id]);
+  }, [searchParams, router]);
 
   if (loading) {
     return (
@@ -147,30 +135,23 @@ export default function AuthorityManagerDashboard() {
     );
   }
 
-  // Inline tabs render content in-page. Nav tabs navigate to a dedicated page.
-  const inlineTabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'analytics', label: 'אנליטיקה', icon: BarChart3 },
-    { id: 'groups',    label: 'קבוצות קהילה', icon: Users },
-    { id: 'events',    label: 'אירועים', icon: Calendar },
-  ];
-
-  const navTabs: { label: string; icon: React.ElementType; href: string }[] = [
-    { label: 'ניהול מיקומים', icon: MapPin,  href: '/admin/authority/locations' },
-    { label: 'ניהול מסלולים', icon: Route,   href: '/admin/authority/routes' },
-  ];
-
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-black text-gray-900">
-              {isSuperAdmin ? 'צפייה כפורטל רשות' : 'לוח בקרה למנהל רשות'}
-            </h1>
-            <p className="text-gray-500 mt-2">
-              {isSuperAdmin ? 'מנהל מערכת - צפייה בדשבורד של רשות' : 'ניהול פארקים, אנליטיקה וקהילה'}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-cyan-50 rounded-2xl flex items-center justify-center">
+              <BarChart3 size={24} className="text-cyan-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-gray-900">
+                {isSuperAdmin ? 'אנליטיקה — צפייה כרשות' : 'אנליטיקה ו-BI'}
+              </h1>
+              <p className="text-gray-500 text-sm mt-0.5">
+                {isSuperAdmin ? 'מנהל מערכת — צפייה בנתוני רשות' : 'נתונים, מגמות ותובנות'}
+              </p>
+            </div>
           </div>
           
           {/* Authority Selector - Enhanced for Super Admins */}
@@ -254,74 +235,13 @@ export default function AuthorityManagerDashboard() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {/* Inline tabs */}
-          {inlineTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-cyan-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <Icon size={18} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-
-          {/* Divider */}
-          <div className="w-px h-8 bg-gray-200 mx-1 flex-shrink-0" />
-
-          {/* Navigation tabs — open dedicated management pages */}
-          {navTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.href}
-                onClick={() => router.push(tab.href)}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition-all bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-              >
-                <Icon size={18} />
-                <span>{tab.label}</span>
-                <ExternalLink size={13} className="opacity-60" />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Tab Content */}
+      {/* Analytics Content */}
       {selectedAuthority && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          {activeTab === 'analytics' && (
-            <AnalyticsDashboard
-              authorityId={selectedAuthority.id}
-              onNavigateToSessions={() => setActiveTab('groups')}
-            />
-          )}
-          {activeTab === 'groups' && (
-            <CommunityGroups
-              authorityId={selectedAuthority.id}
-              authorityCoordinates={selectedAuthority.coordinates}
-              neighborhoods={neighborhoodList}
-              initialSubTab={searchParams?.get('subtab') === 'sessions' ? 'sessions' : undefined}
-              inspectGroupId={searchParams?.get('inspect') ?? undefined}
-            />
-          )}
-          {activeTab === 'events' && (
-            <CommunityEvents
-              authorityId={selectedAuthority.id}
-              authorityCoordinates={selectedAuthority.coordinates}
-              neighborhoods={neighborhoodList}
-            />
-          )}
+          <AnalyticsDashboard
+            authorityId={selectedAuthority.id}
+            onNavigateToSessions={() => router.push('/admin/authority/community?tab=schedule')}
+          />
         </div>
       )}
     </div>

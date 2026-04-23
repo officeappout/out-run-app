@@ -1,71 +1,62 @@
 /**
  * Coin Calculator Service
  * Converts calories burned to coins (1:1 ratio)
- * 
- * COIN_SYSTEM_PAUSED: This service is temporarily disabled.
- * Re-enable in April by setting IS_COIN_SYSTEM_ENABLED = true in feature-flags.ts
+ *
+ * Fortress Phase (Apr 2026): all writes to progression.coins / .totalCaloriesBurned
+ * are routed through the `awardWorkoutXP` Cloud Function. Direct client writes
+ * are blocked by Firestore Security Rules (noGameIntegrityFieldsChanged).
+ *
+ * COIN_SYSTEM_PAUSED: Coin awarding is temporarily disabled.
+ * Re-enable by setting IS_COIN_SYSTEM_ENABLED = true in feature-flags.ts.
+ * When paused, only calories are still credited.
  */
 
-import { doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
-
-const USERS_COLLECTION = 'users';
+import { awardWorkoutXP } from '@/lib/awardWorkoutXP';
 
 /**
  * Calculate coins from calories (1:1 ratio)
  */
 export function calculateCoinsFromCalories(calories: number): number {
-  // COIN_SYSTEM_PAUSED: Re-enable in April
   if (!IS_COIN_SYSTEM_ENABLED) {
     return 0;
   }
-  return Math.floor(calories); // 1 calorie = 1 coin, rounded down
+  return Math.floor(calories);
 }
 
 /**
- * Award coins to user after workout completion
- * Updates both coins and totalCaloriesBurned in Firestore using atomic increment
+ * Award coins to user after workout completion via the Guardian Cloud Function.
+ * Uses atomic server-side increment so concurrent calls cannot race.
+ *
+ * `userId` is accepted for backwards compatibility with the previous signature
+ * but is unused — the Guardian derives the uid from `request.auth`.
  */
 export async function awardCoins(
-  userId: string,
+  _userId: string,
   calories: number
 ): Promise<{ coins: number; success: boolean }> {
-  // COIN_SYSTEM_PAUSED: Re-enable in April
-  // Only update calories, not coins
-  if (!IS_COIN_SYSTEM_ENABLED) {
-    try {
-      const userDocRef = doc(db, USERS_COLLECTION, userId);
-      // Only update calories tracking, skip coin increment
-      await updateDoc(userDocRef, {
-        'progression.totalCaloriesBurned': increment(calories),
-        updatedAt: serverTimestamp(),
-      });
-      console.log(`[CoinCalculator] COIN_SYSTEM_PAUSED - Updated calories only (${calories}) for user ${userId}`);
-      return { coins: 0, success: true };
-    } catch (error) {
-      console.error('[CoinCalculator] Error updating calories:', error);
-      return { coins: 0, success: false };
-    }
+  const safeCalories = Math.max(0, Math.floor(calories));
+  if (safeCalories === 0) {
+    return { coins: 0, success: true };
   }
 
-  try {
-    const coins = calculateCoinsFromCalories(calories);
-    const userDocRef = doc(db, USERS_COLLECTION, userId);
+  const coins = calculateCoinsFromCalories(safeCalories);
 
-    // Use atomic increment to prevent race conditions and ensure proper accumulation
-    await updateDoc(userDocRef, {
-      'progression.coins': increment(coins),
-      'progression.totalCaloriesBurned': increment(calories),
-      updatedAt: serverTimestamp(),
-    });
+  const result = await awardWorkoutXP({
+    coinsDelta: coins,
+    caloriesDelta: safeCalories,
+    source: IS_COIN_SYSTEM_ENABLED ? 'workout:coins' : 'workout:calories',
+  });
 
-    console.log(`✅ [CoinCalculator] Awarded ${coins} coins (${calories} calories) to user ${userId} using atomic increment`);
-    return { coins, success: true };
-  } catch (error) {
-    console.error('[CoinCalculator] Error awarding coins:', error);
+  if (!result) {
     return { coins: 0, success: false };
   }
+
+  console.log(
+    `✅ [CoinCalculator] Guardian credited ${result.coinsDelta} coins ` +
+      `+ ${result.caloriesDelta} cal (${IS_COIN_SYSTEM_ENABLED ? 'enabled' : 'paused'})`,
+  );
+  return { coins: result.coinsDelta, success: true };
 }
 
 /**

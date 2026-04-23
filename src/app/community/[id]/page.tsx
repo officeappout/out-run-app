@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -62,6 +63,15 @@ export default function CommunityHubPage() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const uid = profile?.id;
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+
+  // Route guard
+  useEffect(() => {
+    if (!flagsLoading && !featureFlags.enableCommunityFeed) {
+      router.replace('/home');
+    }
+  }, [flagsLoading, featureFlags.enableCommunityFeed, router]);
 
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [members, setMembers] = useState<MemberInfo[]>([]);
@@ -133,6 +143,8 @@ export default function CommunityHubPage() {
     },
     [uid, profile],
   );
+
+  if (flagsLoading || !featureFlags.enableCommunityFeed) return null;
 
   if (loading) {
     return (

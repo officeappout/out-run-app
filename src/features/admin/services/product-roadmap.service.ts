@@ -44,11 +44,21 @@ function toFirestoreDate(date: Date | undefined | null): string | null {
 /**
  * Convert Firestore timestamp or ISO string to Date
  */
-function toDate(timestamp: Timestamp | Date | string | undefined | null): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  if (typeof timestamp === 'string') return new Date(timestamp);
-  if (typeof timestamp === 'object' && 'toDate' in timestamp) return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
   return undefined;
 }
 

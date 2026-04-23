@@ -97,6 +97,8 @@ export interface WorkoutPlan {
   trainingType?: 'strength' | 'cardio';
   /** AI-generated contextual coaching cue (e.g., "Focus on form today") */
   aiCue?: string;
+  /** Workout execution location — used for location-aware equipment icons */
+  workoutLocation?: 'home' | 'park' | 'gym' | 'street' | 'office' | string;
 }
 
 export interface PlannedRoute {
@@ -136,6 +138,8 @@ export interface Route {
 
   type: ActivityType;
   activityType?: ActivityType;
+  /** Multiple activity types this route supports (e.g., walking + running) */
+  activityTypes?: ActivityType[];
   difficulty: 'easy' | 'medium' | 'hard';
 
   // Ratings
@@ -220,6 +224,19 @@ export interface Route {
   hybridActivities?: ActivityType[];
   /** Facility pit-stops along the route */
   facilityStops?: FacilityStop[];
+
+  // Runtime social enrichment (never persisted — populated by useCommunityEnrichment)
+  linkedSessions?: {
+    eventId?: string;
+    eventLabel?: string;
+    nextStartTime?: string;
+    plannedCount?: number;
+    maxParticipants?: number;
+    currentRegistrations?: number;
+    spotsLeft?: number;
+    /** Up to 3 avatar URLs for social proof on route cards */
+    avatars?: { uid: string; name: string; photoURL?: string }[];
+  };
 
   // Runtime fields
   calculatedScore?: number;

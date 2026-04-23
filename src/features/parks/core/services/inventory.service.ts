@@ -41,6 +41,57 @@ function stripUndefined<T extends Record<string, any>>(obj: T): T {
     return clean as T;
 }
 
+/**
+ * Compute total distance in meters from a path of [lng, lat] coordinates
+ * using the Haversine formula.
+ */
+function computePathDistanceMeters(path: [number, number][]): number {
+    if (!path || path.length < 2) return 0;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    let total = 0;
+    for (let i = 1; i < path.length; i++) {
+        const [lng1, lat1] = path[i - 1];
+        const [lng2, lat2] = path[i];
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        total += 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    return Math.round(total);
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function routePassesNearPoint(
+    route: Route,
+    destLat: number,
+    destLng: number,
+    thresholdKm = 1.5,
+): boolean {
+    if (!route.path || route.path.length < 2) return false;
+    const indices = [0, Math.floor(route.path.length / 2), route.path.length - 1];
+    return indices.some((i) => {
+        const [lng, lat] = route.path[i];
+        return haversineKm(lat, lng, destLat, destLng) < thresholdKm;
+    });
+}
+
+let _officialCache: Route[] | null = null;
+export async function getCachedOfficialRoutes(): Promise<Route[]> {
+    if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes();
+    return _officialCache;
+}
+
 export const InventoryService = {
     /**
      * Save multiple facilities to Firestore.
@@ -75,15 +126,20 @@ export const InventoryService = {
 
     /**
      * Fetch facilities from Firestore.
-     * When `authorityId` is provided, results are scoped to that authority.
-     * Without it, all facilities are returned (super-admin view).
+     * Scoped by tenantId (preferred) or authorityId (legacy fallback).
+     * Without either, all facilities are returned (super-admin view).
      */
-    fetchFacilities: async (authorityId?: string): Promise<MapFacility[]> => {
+    fetchFacilities: async (authorityId?: string, tenantId?: string): Promise<MapFacility[]> => {
         try {
             const facilitiesRef = collection(db, 'facilities');
-            const q = authorityId
-                ? query(facilitiesRef, where('authorityId', '==', authorityId))
-                : facilitiesRef;
+            let q;
+            if (tenantId) {
+                q = query(facilitiesRef, where('tenantId', '==', tenantId));
+            } else if (authorityId) {
+                q = query(facilitiesRef, where('authorityId', '==', authorityId));
+            } else {
+                q = facilitiesRef;
+            }
             const querySnapshot = await getDocs(q);
             return querySnapshot.docs.map(d => ({
                 ...d.data(),
@@ -112,17 +168,23 @@ export const InventoryService = {
                 chunk.forEach((r, idx) => {
                     try {
                 const newDocRef = doc(routesRef);
-                // Transform path from [lng, lat][] to {lng, lat}[] for Firestore
                 const transformedPath = r.path.map(p => ({
                     lng: p[0],
                     lat: p[1]
                 }));
 
+                const distance = r.distance > 0 ? r.distance : computePathDistanceMeters(r.path);
+                const durationEstimate = r.duration > 0
+                    ? r.duration
+                    : Math.round(distance / ((r.activityType === 'cycling' || r.type === 'cycling') ? 250 : 100));
+
                         const routeDoc = stripUndefined({
                     ...r,
                     path: transformedPath,
-                            // Ensure activityType is always persisted for downstream mapping
+                    distance,
+                    duration: durationEstimate,
                             activityType: r.activityType || r.type,
+                            activityTypes: r.activityTypes || [r.activityType || r.type],
                     createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
                         });
@@ -657,6 +719,115 @@ export const InventoryService = {
             });
         } catch (error) {
             console.error('❌ Error rejecting route:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete multiple routes by their document IDs.
+     */
+    bulkDeleteRoutes: async (routeIds: string[]): Promise<number> => {
+        if (routeIds.length === 0) return 0;
+        try {
+            let deleted = 0;
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => batch.delete(doc(db, 'official_routes', id)));
+                await batch.commit();
+                deleted += chunk.length;
+            }
+            console.log(`✅ Bulk-deleted ${deleted} routes`);
+            return deleted;
+        } catch (error) {
+            console.error('❌ Error bulk-deleting routes:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete ALL routes that have a specific city value.
+     * Returns the number of deleted documents.
+     */
+    deleteRoutesByCity: async (city: string): Promise<number> => {
+        try {
+            const q = query(
+                collection(db, 'official_routes'),
+                where('city', '==', city),
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) return 0;
+
+            let deleted = 0;
+            for (let i = 0; i < snapshot.docs.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = snapshot.docs.slice(i, i + 500);
+                chunk.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+                deleted += chunk.length;
+            }
+            console.log(`✅ Deleted ${deleted} routes for city "${city}"`);
+            return deleted;
+        } catch (error) {
+            console.error('❌ Error deleting routes by city:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Recalculate distances for ALL routes in official_routes using Haversine
+     * on the actual path geometry. Saves distance in **kilometers**.
+     *
+     * Returns { updated, skipped, errors } counts. Fires onProgress for UI feedback.
+     */
+    recalculateAllDistances: async (
+        onProgress?: (done: number, total: number, current: string) => void,
+    ): Promise<{ updated: number; skipped: number; errors: number }> => {
+        const stats = { updated: 0, skipped: 0, errors: 0 };
+        try {
+            const snapshot = await getDocs(collection(db, 'official_routes'));
+            const total = snapshot.docs.length;
+
+            for (let i = 0; i < snapshot.docs.length; i++) {
+                const docSnap = snapshot.docs[i];
+                const data = docSnap.data();
+                const rawPath = data.path;
+                const routeName = (data.name as string) || docSnap.id;
+
+                onProgress?.(i + 1, total, routeName);
+
+                if (!Array.isArray(rawPath) || rawPath.length < 2) {
+                    stats.skipped++;
+                    continue;
+                }
+
+                const path: [number, number][] = rawPath.map(
+                    (p: any) => [Number(p.lng) || 0, Number(p.lat) || 0],
+                );
+
+                const distanceKm = computePathDistanceMeters(path) / 1000;
+                const roundedKm = Math.round(distanceKm * 100) / 100;
+
+                const activityType = (data.activityType || data.type || 'running') as string;
+                const speedMpm = activityType === 'cycling' ? 250 : 100;
+                const durationMinutes = Math.round((roundedKm * 1000) / speedMpm);
+
+                try {
+                    await updateDoc(docSnap.ref, {
+                        distance: roundedKm,
+                        duration: durationMinutes,
+                        updatedAt: serverTimestamp(),
+                    });
+                    stats.updated++;
+                } catch {
+                    stats.errors++;
+                }
+            }
+
+            console.log(`✅ Recalculated distances: ${stats.updated} updated, ${stats.skipped} skipped, ${stats.errors} errors`);
+            return stats;
+        } catch (error) {
+            console.error('❌ Error recalculating distances:', error);
             throw error;
         }
     },

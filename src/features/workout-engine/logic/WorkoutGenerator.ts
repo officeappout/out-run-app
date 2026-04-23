@@ -1063,7 +1063,7 @@ export class WorkoutGenerator {
       const videoUrl = ex.method?.media?.mainVideoUrl || (ex.exercise as any).media?.videoUrl || '(none)';
       console.log(
         `[${i + 1}] ${name} | programLevel=${programLevel} ${levelResLog} | ` +
-        `Tier=${ex.tier} | Sets=${ex.sets} Reps=${ex.reps} Rest=${ex.restSeconds}s | Video=${videoUrl ? 'YES' : 'NO'}`,
+        `Tier=${ex.tier} | Sets=${ex.sets} ${ex.isTimeBased ? `Hold=${ex.reps}s` : `Reps=${ex.reps}`} Rest=${ex.restSeconds}s | Video=${videoUrl ? 'YES' : 'NO'}`,
       );
     });
     console.groupEnd();

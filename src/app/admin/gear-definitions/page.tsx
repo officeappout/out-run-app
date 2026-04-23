@@ -15,6 +15,43 @@ import { getLocalizedText } from '@/features/content/shared';
 import { Plus, Edit2, Trash2, Copy, Search, Package } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
+/**
+ * Icon cell for the list view.
+ * Priority: iconKey → SVG file | lucideIconName → Lucide component | Package fallback.
+ * customIconUrl is intentionally NOT used here — it belongs only in the editor preview.
+ * alt="" prevents any text from appearing when an image fails to load.
+ */
+function EquipmentIconCell({
+  iconKey,
+  lucideIconName,
+}: {
+  iconKey?: string | null;
+  lucideIconName?: string | null;
+}) {
+  const [svgFailed, setSvgFailed] = React.useState(false);
+
+  if (iconKey && !svgFailed) {
+    return (
+      <img
+        src={`/assets/icons/equipment/${iconKey}.svg`}
+        alt=""
+        aria-hidden="true"
+        width={24}
+        height={24}
+        className="object-contain"
+        onError={() => setSvgFailed(true)}
+      />
+    );
+  }
+
+  if (lucideIconName) {
+    const IconComponent = (LucideIcons as any)[lucideIconName];
+    if (IconComponent) return <IconComponent size={20} className="text-gray-500" aria-hidden="true" />;
+  }
+
+  return <Package size={20} className="text-gray-300" aria-hidden="true" />;
+}
+
 export default function GearDefinitionsAdminPage() {
   const [gearDefinitions, setGearDefinitions] = useState<GearDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,32 +123,6 @@ export default function GearDefinitionsAdminPage() {
     }
   };
 
-  const getIconComponent = (iconName?: string) => {
-    if (!iconName) return null;
-    const IconComponent = (LucideIcons as any)[iconName];
-    return IconComponent ? <IconComponent size={20} className="text-gray-600" /> : null;
-  };
-
-  // Gear Icon Component with fallback
-  const GearIcon = ({ gear }: { gear: GearDefinition }) => {
-    const [imageError, setImageError] = useState(false);
-
-    // Priority: customIconUrl > Lucide icon > default Package icon
-    if (gear.customIconUrl && !imageError) {
-      return (
-        <img
-          src={gear.customIconUrl}
-          alt={gear.name?.he || gear.name?.en || ''}
-          className="w-full h-full object-contain"
-          onError={() => setImageError(true)}
-        />
-      );
-    }
-
-    // Fallback to Lucide icon
-    const IconComponent = getIconComponent(gear.icon);
-    return IconComponent || <Package size={20} className="text-gray-400" />;
-  };
 
   if (loading && gearDefinitions.length === 0) {
     return (
@@ -186,9 +197,12 @@ export default function GearDefinitionsAdminPage() {
                       {gear.id.substring(0, 8)}...
                     </td>
                     <td className="px-6 py-4">
-            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-              <GearIcon gear={gear} />
-            </div>
+                      <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
+                        <EquipmentIconCell
+                          iconKey={gear.iconKey}
+                          lucideIconName={gear.icon}
+                        />
+                      </div>
                     </td>
                     <td className="px-6 py-4">
             <div className="font-bold text-gray-900">

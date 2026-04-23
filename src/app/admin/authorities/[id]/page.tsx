@@ -172,6 +172,9 @@ export default function EditAuthorityPage() {
     contactType: 'whatsapp' as 'whatsapp' | 'email' | 'link',
     contactValue: '',
     contactPersonName: '',
+    isShelterDisplayEnabled: false,
+    maxShelterWalkingMinutes: 10,
+    defenseTimeSeconds: 0,
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -236,6 +239,9 @@ export default function EditAuthorityPage() {
         contactType: data.contactType || 'whatsapp',
         contactValue: data.contactValue || '',
         contactPersonName: data.contactPersonName || '',
+        isShelterDisplayEnabled: data.isShelterDisplayEnabled ?? false,
+        maxShelterWalkingMinutes: data.maxShelterWalkingMinutes ?? 10,
+        defenseTimeSeconds: data.defenseTimeSeconds ?? 0,
       });
     } catch (error) {
       console.error('Error loading authority:', error);
@@ -304,6 +310,12 @@ export default function EditAuthorityPage() {
         contactPersonName: formData.contactPersonName || undefined,
       };
 
+      const shelterFields = {
+        isShelterDisplayEnabled: formData.isShelterDisplayEnabled,
+        maxShelterWalkingMinutes: formData.maxShelterWalkingMinutes || 10,
+        defenseTimeSeconds: formData.defenseTimeSeconds || undefined,
+      };
+
       if (isNew) {
         await createAuthority({
           name: formData.name,
@@ -312,6 +324,7 @@ export default function EditAuthorityPage() {
           managerIds: formData.managerIds,
           userCount: 0,
           ...leagueFields,
+          ...shelterFields,
         });
       } else {
         await updateAuthority(authorityId, {
@@ -320,6 +333,7 @@ export default function EditAuthorityPage() {
           logoUrl: formData.logoUrl || undefined,
           managerIds: formData.managerIds,
           ...leagueFields,
+          ...shelterFields,
         });
       }
       
@@ -658,6 +672,77 @@ export default function EditAuthorityPage() {
                 dir="ltr"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Shelter / Safety Settings (מיגון) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 mb-6">
+            <span className="w-1 h-6 bg-emerald-500 rounded-full"></span>
+            הגדרות מיגון ובטיחות
+          </h2>
+
+          <div className="space-y-6">
+            {/* Master toggle */}
+            <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+              <div className="flex-1">
+                <p className="font-bold text-gray-800">הצגת תגית מיגונית קרובה</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  כאשר מופעל, פארקים עם מיגונית קרובה יציגו תגית &quot;🛡️ מיגונית קרובה&quot;
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, isShelterDisplayEnabled: !formData.isShelterDisplayEnabled })}
+                className={`relative w-14 h-7 rounded-full transition-colors ${
+                  formData.isShelterDisplayEnabled ? 'bg-emerald-500' : 'bg-gray-300'
+                }`}
+              >
+                <span className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+                  formData.isShelterDisplayEnabled ? 'right-0.5' : 'right-7'
+                }`} />
+              </button>
+            </div>
+
+            {formData.isShelterDisplayEnabled && (
+              <>
+                {/* Max walking minutes */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    מרחק מקסימלי להצגה (דקות הליכה)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={formData.maxShelterWalkingMinutes}
+                    onChange={(e) => setFormData({ ...formData, maxShelterWalkingMinutes: parseInt(e.target.value) || 10 })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-black bg-white"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    תגית המיגונית תוצג רק כשזמן ההליכה (1.4 מ&quot;ש) קטן או שווה לערך זה
+                  </p>
+                </div>
+
+                {/* Defense time seconds */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    זמן הגנה מקסימלי — ריצה (שניות)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={formData.defenseTimeSeconds}
+                    onChange={(e) => setFormData({ ...formData, defenseTimeSeconds: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-black bg-white"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    בדיקת בטיחות נוספת: זמן ריצה (3 מ&quot;ש) חייב להיות בתוך זמן ההגנה. 0 = ללא הגבלה
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

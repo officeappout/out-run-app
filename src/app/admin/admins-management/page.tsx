@@ -18,9 +18,9 @@ import {
   revokeSuperAdmin,
   AdminUser,
 } from '@/features/admin/services/admin-management.service';
-import { createInvitation } from '@/features/admin/services/invitation.service';
 import { getAllAuthorities, getAuthoritiesGrouped } from '@/features/admin/services/authority.service';
-import { Shield, Search, UserPlus, X, Mail, AlertCircle, Link as LinkIcon, Copy, Check, Trash2, Ban, ChevronDown, Building2 } from 'lucide-react';
+import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
+import { Shield, Search, UserPlus, X, Mail, AlertCircle, Trash2, Ban } from 'lucide-react';
 import { Authority } from '@/types/admin-types';
 import { deleteUser } from '@/features/admin/services/users.service';
 import { logAction } from '@/features/admin/services/audit.service';
@@ -42,19 +42,12 @@ export default function AdminsManagementPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   
   // Invitation state
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'super_admin' | 'authority_manager'>('super_admin');
-  const [inviteAuthorityId, setInviteAuthorityId] = useState<string>('');
-  const [authoritySearchQuery, setAuthoritySearchQuery] = useState<string>('');
-  const [isAuthorityDropdownOpen, setIsAuthorityDropdownOpen] = useState<boolean>(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [authorities, setAuthorities] = useState<Authority[]>([]);
   const [groupedAuthorities, setGroupedAuthorities] = useState<{
     regionalCouncils: (Authority & { settlements: Authority[] })[];
     standaloneAuthorities: Authority[];
   } | null>(null);
-  const [inviteLink, setInviteLink] = useState<string>('');
-  const [linkCopied, setLinkCopied] = useState(false);
-  const [creatingInvite, setCreatingInvite] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null);
 
@@ -278,64 +271,6 @@ export default function AdminsManagementPage() {
     }
   };
 
-  const handleCreateInvitation = async () => {
-    if (!inviteEmail.trim()) {
-      setError('אנא הזן כתובת אימייל');
-      return;
-    }
-
-    if (inviteRole === 'authority_manager' && !inviteAuthorityId) {
-      setError('אנא בחר רשות עבור מנהל רשות');
-      return;
-    }
-
-    setCreatingInvite(true);
-    setError('');
-    setInviteLink('');
-
-    try {
-      const adminInfo = await getCurrentAdminInfo();
-      if (!adminInfo) {
-        setError('שגיאה: לא ניתן לזהות את המנהל');
-        setCreatingInvite(false);
-        return;
-      }
-
-      const result = await createInvitation(
-        {
-          email: inviteEmail.trim(),
-          role: inviteRole,
-          authorityId: inviteRole === 'authority_manager' ? inviteAuthorityId : undefined,
-        },
-        adminInfo
-      );
-
-      setInviteLink(result.inviteLink);
-      setSuccess('קישור הזמנה נוצר בהצלחה');
-      setInviteEmail('');
-      setInviteAuthorityId('');
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error: any) {
-      console.error('Error creating invitation:', error);
-      setError(error.message || 'שגיאה ביצירת קישור הזמנה');
-    } finally {
-      setCreatingInvite(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    if (inviteLink) {
-      try {
-        await navigator.clipboard.writeText(inviteLink);
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
-      } catch (error) {
-        console.error('Error copying link:', error);
-        setError('שגיאה בהעתקת הקישור');
-      }
-    }
-  };
-
   if (checkingAuth) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -373,272 +308,30 @@ export default function AdminsManagementPage() {
       {/* Invite New Admin Section */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">הזמן מנהל חדש</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">כתובת אימייל</label>
-            <div className="relative">
-              <Mail size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="email@example.com"
-                className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-black placeholder:text-gray-600"
-                dir="ltr"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">תפקיד</label>
-            <select
-              value={inviteRole}
-              onChange={(e) => {
-                setInviteRole(e.target.value as 'super_admin' | 'authority_manager');
-                if (e.target.value === 'super_admin') {
-                  setInviteAuthorityId('');
-                }
-              }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-black"
-            >
-              <option value="super_admin">מנהל מערכת (Super Admin)</option>
-              <option value="authority_manager">מנהל רשות (Authority Manager)</option>
-            </select>
-          </div>
-
-          {inviteRole === 'authority_manager' && (
-            <div className="relative">
-              <label className="block text-sm font-bold text-gray-700 mb-2">רשות</label>
-              
-              {/* Searchable Combobox */}
-              <div className="relative">
-                {/* Trigger Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsAuthorityDropdownOpen(!isAuthorityDropdownOpen)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-black bg-white text-right flex items-center justify-between hover:bg-gray-50 transition-colors"
-                  dir="rtl"
-              >
-                  <span className={inviteAuthorityId ? 'text-black' : 'text-gray-500'}>
-                    {(() => {
-                      if (!inviteAuthorityId) return 'בחר רשות...';
-                      const selected = authorities.find(a => a.id === inviteAuthorityId);
-                      if (selected) {
-                        const city = (groupedAuthorities?.standaloneAuthorities || []).find(a => a.id === inviteAuthorityId && a.type === 'city');
-                        const council = groupedAuthorities?.regionalCouncils?.find(c => c.id === inviteAuthorityId);
-                        if (city) return `${selected.name} - כל העיר`;
-                        if (council) return `${selected.name} - כל המועצה`;
-                        return selected.name;
-                      }
-                      return 'בחר רשות...';
-                    })()}
-                  </span>
-                  <ChevronDown size={20} className={`text-gray-400 transition-transform ${isAuthorityDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {/* Dropdown Panel - Opens Below */}
-                {isAuthorityDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-xl z-50 max-h-96 overflow-hidden flex flex-col">
-                    {/* Sticky Search Input */}
-                    <div className="sticky top-0 bg-white border-b border-gray-200 p-3 z-10">
-                      <div className="relative">
-                        <Search size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          value={authoritySearchQuery}
-                          onChange={(e) => setAuthoritySearchQuery(e.target.value)}
-                          onFocus={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                          placeholder="חפש רשות..."
-                          className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-black placeholder:text-gray-600"
-                          dir="rtl"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-
-                    {/* Filtered Options List */}
-                    <div className="overflow-y-auto flex-1 p-2">
-                {(() => {
-                  // Get all authorities with parent links (neighborhoods/settlements from Firestore)
-                  const subAuthorities = authorities.filter(auth => auth.parentAuthorityId);
-                  
-                        // Get all top-level cities directly from authorities (not just from grouped)
-                        // This ensures we get ALL cities, not just those in standaloneAuthorities
-                        const allTopLevelCities = authorities.filter(
-                          auth => auth.type === 'city' && !auth.parentAuthorityId
-                        );
-                        
-                        // Also get cities from groupedAuthorities for completeness
-                        const groupedCities = (groupedAuthorities?.standaloneAuthorities || []).filter(
-                    auth => auth.type === 'city'
-                  );
-                        
-                        // Merge and deduplicate cities (prefer authorities from getAllAuthorities)
-                        const citiesMap = new Map<string, Authority>();
-                        allTopLevelCities.forEach(city => citiesMap.set(city.id, city));
-                        groupedCities.forEach(city => {
-                          if (!citiesMap.has(city.id)) {
-                            citiesMap.set(city.id, city);
-                          }
-                        });
-                        const cities = Array.from(citiesMap.values());
-                        
-                        // Separate other standalone authorities
-                  const otherStandalone = (groupedAuthorities?.standaloneAuthorities || []).filter(
-                    auth => auth.type !== 'city'
-                  );
-
-                  // Group neighborhoods by parent city ID
-                  const neighborhoodsByCity = new Map<string, Authority[]>();
-                  subAuthorities.forEach(subAuth => {
-                    if (!subAuth.parentAuthorityId) return;
-                    const parentCity = cities.find(c => c.id === subAuth.parentAuthorityId);
-                    if (parentCity) {
-                      if (!neighborhoodsByCity.has(subAuth.parentAuthorityId)) {
-                        neighborhoodsByCity.set(subAuth.parentAuthorityId, []);
-                      }
-                      neighborhoodsByCity.get(subAuth.parentAuthorityId)!.push(subAuth);
-                    }
-                  });
-
-                        // Flatten all options for filtering
-                        const allOptions: Array<{ id: string; label: string; group: string; type: 'city' | 'council' | 'neighborhood' | 'settlement' | 'other' }> = [];
-                        
-                        // Add cities
-                        cities.forEach(city => {
-                          allOptions.push({ id: city.id, label: `${city.name} - כל העיר`, group: 'ערים (Cities)', type: 'city' });
-                            const neighborhoods = neighborhoodsByCity.get(city.id) || [];
-                          neighborhoods.forEach(n => {
-                            allOptions.push({ id: n.id, label: `${city.name} - ${n.name}`, group: 'ערים (Cities)', type: 'neighborhood' });
-                          });
-                        });
-
-                        // Add regional councils
-                        if (groupedAuthorities?.regionalCouncils) {
-                          groupedAuthorities.regionalCouncils.forEach(council => {
-                            allOptions.push({ id: council.id, label: `${council.name} - כל המועצה`, group: 'מועצות אזוריות (Regional Councils)', type: 'council' });
-                            council.settlements.forEach(settlement => {
-                              allOptions.push({ id: settlement.id, label: `${council.name} - ${settlement.name}`, group: 'מועצות אזוריות (Regional Councils)', type: 'settlement' });
-                            });
-                          });
-                        }
-
-                        // Add other standalone
-                        otherStandalone.forEach(auth => {
-                          allOptions.push({ id: auth.id, label: auth.name, group: 'רשויות אחרות (Other Authorities)', type: 'other' });
-                        });
-
-                        // Filter by search query
-                        const filtered = authoritySearchQuery.trim()
-                          ? allOptions.filter(opt => opt.label.toLowerCase().includes(authoritySearchQuery.toLowerCase()))
-                          : allOptions;
-
-                        // Group filtered results
-                        const groupedFiltered = new Map<string, typeof filtered>();
-                        filtered.forEach(opt => {
-                          if (!groupedFiltered.has(opt.group)) {
-                            groupedFiltered.set(opt.group, []);
-                          }
-                          groupedFiltered.get(opt.group)!.push(opt);
-                        });
-
-                        if (filtered.length === 0) {
-                            return (
-                            <div className="py-8 text-center text-gray-500 text-sm">
-                              לא נמצאו רשויות תואמות
-                            </div>
-                          );
-                        }
-
-                        return Array.from(groupedFiltered.entries()).map(([group, opts]) => (
-                          <div key={group} className="mb-2">
-                            <div className="text-xs font-bold text-gray-500 px-2 py-1 mb-1">{group}</div>
-                            {opts.map(opt => (
-                              <button
-                                key={opt.id}
-                                type="button"
-                                onClick={() => {
-                                  setInviteAuthorityId(opt.id);
-                                  setIsAuthorityDropdownOpen(false);
-                                  setAuthoritySearchQuery('');
-                                }}
-                                className={`w-full text-right px-4 py-2 rounded-lg text-sm transition-colors ${
-                                  opt.type === 'neighborhood' || opt.type === 'settlement' ? 'pr-8' : ''
-                                } ${
-                                  inviteAuthorityId === opt.id
-                                    ? 'bg-cyan-100 text-cyan-900 font-bold'
-                                    : 'text-black hover:bg-gray-100'
-                                }`}
-                                >
-                                {opt.label}
-                              </button>
-                              ))}
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-                      )}
-              </div>
-
-              {/* Click outside to close */}
-              {isAuthorityDropdownOpen && (
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => {
-                    setIsAuthorityDropdownOpen(false);
-                    setAuthoritySearchQuery('');
-                  }}
-                />
-              )}
-            </div>
-          )}
-
-          <button
-            onClick={handleCreateInvitation}
-            disabled={creatingInvite}
-            className="w-full px-6 py-3 bg-cyan-600 text-white rounded-xl font-bold hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <LinkIcon size={18} />
-            {creatingInvite ? 'יוצר קישור...' : 'צור קישור הזמנה'}
-          </button>
-
-          {inviteLink && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <label className="block text-sm font-bold text-gray-700 mb-2">קישור הזמנה</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={inviteLink}
-                  readOnly
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm text-black"
-                  dir="ltr"
-                />
-                <button
-                  onClick={handleCopyLink}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition-colors flex items-center gap-2"
-                >
-                  {linkCopied ? (
-                    <>
-                      <Check size={16} />
-                      הועתק
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} />
-                      העתק
-                    </>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                הקישור תקף ל-7 ימים. שלח את הקישור למשתמש כדי לאפשר לו להירשם עם ההרשאות המתאימות.
-              </p>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => setShowInviteModal(true)}
+          className="w-full px-6 py-3 bg-cyan-600 text-white rounded-xl font-bold hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <UserPlus size={18} />
+          פתח טופס הזמנה
+        </button>
       </div>
+
+      <InviteMemberModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        context={{}}
+        callerInfo={{
+          adminId: currentUserId || '',
+          adminName: 'Admin',
+          adminEmail: '',
+        }}
+        onSuccess={() => {
+          setSuccess('הזמנה נוצרה בהצלחה');
+          setShowInviteModal(false);
+          setTimeout(() => setSuccess(''), 3000);
+        }}
+      />
 
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-gray-200 p-2">

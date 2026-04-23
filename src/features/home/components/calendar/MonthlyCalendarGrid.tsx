@@ -1,33 +1,35 @@
 'use client';
 
 /**
- * MonthlyCalendarGrid — UTS Phase 3.1 + Phase 5 Dynamic Sizing
+ * MonthlyCalendarGrid — Unified with home screen DayIconCell engine.
  *
- * Apple-Fitness-inspired lightweight navigator.
- * Supports dynamic cell/ring sizing for expanded planner mode.
+ * Every cell renders a 32 px rounded-lg icon square via DayIconCell /
+ * resolveDayDisplayProps — identical to SmartWeeklySchedule.
+ * No legacy ring renderer remains in this file.
  *
- * ViewMode:
- *   'rings'           → 3 concentric rings (Strength / Cardio / Maintenance)
- *   'icons'           → Program-specific Lucide icons
- *   'strength_only'   → Single cyan ring
- *   'cardio_only'     → Single lime ring
- *   'maintenance_only' → Single purple ring
+ * The `viewMode`, `ringSize`, `ringStroke` props are kept for API stability
+ * but are no longer used for rendering.
  */
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Moon, Dumbbell, Footprints, Sparkles, Clock, Target, TrendingUp, Users } from 'lucide-react';
-import { CompactRingsProgress } from '../rings/ConcentricRingsProgress';
+import { ChevronRight, ChevronLeft, Dumbbell, Footprints, Sparkles, Clock, Target, TrendingUp, Users } from 'lucide-react';
 import { toISODate, HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 import { getScheduleEntry, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
-import { useWeeklyProgress } from '@/features/activity';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
 import type { UserScheduleEntry, RecurringTemplate, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import {
   ACTIVITY_COLORS,
   ACTIVITY_LABELS,
   type ActivityCategory,
-  type RingData,
 } from '@/features/activity/types/activity.types';
+import {
+  DayIconCell,
+  resolveDayDisplayProps,
+  type DayDisplayInput,
+} from '@/features/home/utils/day-display.utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -64,63 +66,23 @@ interface MonthCell {
   isPast: boolean;
 }
 
-// ── Constants (defaults) ───────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────
 
 const HEBREW_MONTH_NAMES = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ];
 
-const DEFAULT_RING_SIZE = 30;
-const DEFAULT_RING_STROKE = 5;
-const DEFAULT_CELL_HEIGHT = 40;
-const GHOST_OPACITY = 0.45;
+// Minimum cell height: day-number (9 px) + gap (4 px) + DayIconCell (32 px) + dot row (7 px) ≈ 52 px.
+const DEFAULT_CELL_HEIGHT = 52;
 
-const MINI_RING_GOALS = { strength: 30, cardio: 20, maintenance: 15 } as const;
+const ALL_CATEGORIES: ActivityCategory[] = ['strength', 'cardio', 'maintenance'];
+
 const DOT_COLORS = {
   strength: ACTIVITY_COLORS.strength.hex,
   cardio: ACTIVITY_COLORS.cardio.hex,
   maintenance: ACTIVITY_COLORS.maintenance.hex,
 } as const;
-
-// ── Ring builders ──────────────────────────────────────────────────────────
-
-const ALL_CATEGORIES: ActivityCategory[] = ['strength', 'cardio', 'maintenance'];
-
-function makeRing(cat: ActivityCategory, value: number, order: number): RingData {
-  const goal = MINI_RING_GOALS[cat];
-  return {
-    id: cat,
-    label: ACTIVITY_LABELS[cat].he,
-    value,
-    max: goal,
-    percentage: Math.min((value / goal) * 100, 100),
-    color: DOT_COLORS[cat],
-    colorClass: ACTIVITY_COLORS[cat].tailwind,
-    order,
-    icon: cat === 'strength' ? 'dumbbell' : cat === 'cardio' ? 'heart' : 'sparkles',
-  };
-}
-
-function filterCategories(mode: GridViewMode): ActivityCategory[] {
-  switch (mode) {
-    case 'strength_only': return ['strength'];
-    case 'cardio_only': return ['cardio'];
-    case 'maintenance_only': return ['maintenance'];
-    default: return ALL_CATEGORIES;
-  }
-}
-
-function buildRings(
-  cats: ActivityCategory[],
-  values: Record<ActivityCategory, number>,
-): RingData[] {
-  return cats.map((cat, i) => makeRing(cat, values[cat], i));
-}
-
-function buildGhostRings(cats: ActivityCategory[]): RingData[] {
-  return cats.map((cat, i) => makeRing(cat, 0, i));
-}
 
 // ── Month cell builder ─────────────────────────────────────────────────────
 
@@ -144,185 +106,75 @@ function buildMonthCells(year: number, month: number): MonthCell[] {
   return cells;
 }
 
-// ── Category → Icon mapping ─────────────────────────────────────────────────
+// ── Category icon mapping — used only in the Peek Card ────────────────────
 
-const CATEGORY_ICONS: Record<ScheduleActivityCategory, React.FC<{ className?: string }>> = {
+const CATEGORY_ICONS_PEEK: Record<ScheduleActivityCategory, React.FC<{ className?: string }>> = {
   strength: Dumbbell,
   cardio: Footprints,
   maintenance: Sparkles,
 };
 
-const CATEGORY_ICON_COLORS: Record<ScheduleActivityCategory, string> = {
+const CATEGORY_ICON_COLORS_PEEK: Record<ScheduleActivityCategory, string> = {
   strength: 'text-cyan-500',
   cardio: 'text-lime-500',
   maintenance: 'text-purple-400',
 };
 
-// ── Cell content (accepts dynamic ring sizing) ─────────────────────────────
-
-function CellContent({
-  cell,
-  entry,
-  viewMode,
-  scheduleDays,
-  ringSize,
-  ringStroke,
-}: {
-  cell: MonthCell;
-  entry: UserScheduleEntry | null;
-  viewMode: GridViewMode;
-  scheduleDays?: string[];
-  ringSize: number;
-  ringStroke: number;
-}) {
+// ── Cell props builder — maps UserScheduleEntry → DayDisplayInput ──────────
+/**
+ * Converts a calendar cell + its Firestore schedule entry into a `DayDisplayInput`
+ * for `resolveDayDisplayProps`. This is the single mapping point that ensures
+ * MonthlyCalendarGrid uses the exact same visual engine as SmartWeeklySchedule.
+ *
+ * `todayCompletedOverride` bridges the two completion signals for today's cell:
+ *   • activityStore → ≥10 min logged
+ *   • dailyProgress → workoutCompleted flag (set by the "Done" button)
+ * For all other cells, `entry.completed` from the schedule is used.
+ */
+function buildCellProps(
+  cell: MonthCell,
+  entry: UserScheduleEntry | null,
+  scheduleDays: string[] | undefined,
+  programIconKey: string | undefined,
+  isSelected: boolean,
+  todayCompletedOverride?: boolean,
+  /**
+   * For past days: `workoutCompleted` read from the `dailyProgress` Firestore
+   * document. Ensures the flame persists after a day transitions from "today"
+   * to "past" — even if `userSchedule.completed` was never written.
+   */
+  pastProgressCompleted?: boolean,
+): DayDisplayInput {
   const dayLetter = HEBREW_DAYS[new Date(cell.iso + 'T00:00:00').getDay()];
   const isTraining = scheduleDays?.includes(dayLetter) ?? false;
   const isRest = entry?.type === 'rest' || (!entry && !isTraining);
-  const isCompleted = entry?.completed ?? false;
-  const hasScheduled = entry?.type === 'training';
-  const cats = entry?.scheduledCategories;
-  const hasCommunity = (entry?.communitySessions?.length ?? 0) > 0;
+  // Completion priority:
+  //   today → bridged override (minutes OR workoutCompleted flag)
+  //   past  → schedule entry flag OR dailyProgress.workoutCompleted
+  // This prevents flames from disappearing when a day rolls from today to past.
+  const isCompleted = cell.isToday
+    ? (todayCompletedOverride ?? entry?.completed ?? false)
+    : (entry?.completed || pastProgressCompleted || false);
+  const isMissed = cell.isPast && !cell.isToday && !isRest && !isCompleted;
+  const state: DayDisplayInput['state'] = cell.isToday ? 'today' : cell.isPast ? 'past' : 'future';
+  // Map the first scheduled category → dominantCategory for the engine
+  const cats = entry?.scheduledCategories ?? [];
+  const dominantCategory = cats.length > 0
+    ? (cats[0] as 'strength' | 'cardio' | 'maintenance')
+    : null;
 
-  const isIconMode = viewMode === 'icons';
-  const activeCats = filterCategories(viewMode);
-
-  if (!cell.isCurrentMonth) return null;
-
-  if (hasCommunity && !hasScheduled && !isTraining) {
-    return (
-      <div
-        className="rounded-full flex items-center justify-center"
-        style={{
-          width: ringSize,
-          height: ringSize,
-          background: 'linear-gradient(135deg, #14B8A6, #0891B2)',
-        }}
-      >
-        <Users className="w-3 h-3 text-white" />
-      </div>
-    );
-  }
-
-  // Resolve which ring categories this day targets
-  const dayCats: ActivityCategory[] = cats && cats.length > 0
-    ? (cats as ActivityCategory[])
-    : (isRest ? ['maintenance'] : activeCats);
-
-  // ── 1. FUTURE — always ghost rings / positioned icons, never filled ────
-  if (!cell.isPast && !cell.isToday) {
-    if (!hasScheduled && !isTraining) {
-      // Future rest — subtle maintenance ghost
-      if (isIconMode) {
-        return (
-          <div className="rounded-full flex items-center justify-center" style={{ width: ringSize, height: ringSize, opacity: 0.35 }}>
-            <Moon className="w-3 h-3 text-purple-400" />
-          </div>
-        );
-      }
-      return (
-        <div style={{ opacity: 0.35 }}>
-          <CompactRingsProgress ringData={buildGhostRings(['maintenance'])} size={ringSize} strokeWidth={ringStroke} />
-        </div>
-      );
-    }
-    // Future scheduled — ghost outlines for all scheduled categories + icons
-    if (isIconMode) {
-      return (
-        <div className="rounded-full flex items-center justify-center gap-px" style={{ width: ringSize, height: ringSize, opacity: 0.65 }}>
-          {dayCats.map((cat) => {
-            const Icon = CATEGORY_ICONS[cat as ScheduleActivityCategory] ?? Dumbbell;
-            return <Icon key={cat} className={`w-2.5 h-2.5 ${CATEGORY_ICON_COLORS[cat as ScheduleActivityCategory] ?? 'text-cyan-500'}`} />;
-          })}
-        </div>
-      );
-    }
-    return (
-      <div style={{ opacity: 0.65 }}>
-        <CompactRingsProgress ringData={buildGhostRings(dayCats)} size={ringSize} strokeWidth={ringStroke} />
-      </div>
-    );
-  }
-
-  // ── 2. TODAY — rings reflect combined progress of active goals ─────────
-  if (cell.isToday) {
-    if (isIconMode) {
-      return (
-        <div className="rounded-full flex items-center justify-center gap-px bg-cyan-500/10" style={{ width: ringSize, height: ringSize }}>
-          {dayCats.map((cat) => {
-            const Icon = CATEGORY_ICONS[cat as ScheduleActivityCategory] ?? Dumbbell;
-            return <Icon key={cat} className={`w-2.5 h-2.5 ${CATEGORY_ICON_COLORS[cat as ScheduleActivityCategory] ?? 'text-cyan-500'}`} />;
-          })}
-        </div>
-      );
-    }
-    // Show rings for all day categories; values come from live ActivityStore (placeholder for now)
-    const todayValues: Record<ActivityCategory, number> = { strength: 12, cardio: 5, maintenance: 3 };
-    return (
-      <CompactRingsProgress
-        ringData={buildRings(dayCats, todayValues)}
-        size={ringSize}
-        strokeWidth={ringStroke}
-      />
-    );
-  }
-
-  // ── 3. PAST completed — filled rings ───────────────────────────────────
-  if (cell.isPast && isCompleted) {
-    if (isIconMode) {
-      return (
-        <div className="rounded-full flex items-center justify-center gap-px" style={{ width: ringSize, height: ringSize, background: 'linear-gradient(135deg, #06B6D4, #0891B2)' }}>
-          {dayCats.map((cat) => {
-            const Icon = CATEGORY_ICONS[cat as ScheduleActivityCategory] ?? Dumbbell;
-            return <Icon key={cat} className="w-2.5 h-2.5 text-white" />;
-          })}
-        </div>
-      );
-    }
-    return (
-      <CompactRingsProgress
-        ringData={buildRings(dayCats, { strength: 25, cardio: 15, maintenance: 10 })}
-        size={ringSize}
-        strokeWidth={ringStroke}
-      />
-    );
-  }
-
-  // ── 4. PAST rest — maintenance ring (purple dominant) ──────────────────
-  if (cell.isPast && isRest) {
-    if (isIconMode) {
-      return (
-        <div className="rounded-full flex items-center justify-center" style={{ width: ringSize, height: ringSize, opacity: GHOST_OPACITY }}>
-          <Moon className="w-3 h-3 text-purple-400" />
-        </div>
-      );
-    }
-    return (
-      <div style={{ opacity: GHOST_OPACITY }}>
-        <CompactRingsProgress ringData={buildGhostRings(['maintenance'])} size={ringSize} strokeWidth={ringStroke} />
-      </div>
-    );
-  }
-
-  // ── 5. PAST missed training — faint ghost rings ────────────────────────
-  if (cell.isPast && !isCompleted) {
-    if (isIconMode) {
-      return (
-        <div className="rounded-full flex items-center justify-center gap-px" style={{ width: ringSize, height: ringSize, opacity: GHOST_OPACITY }}>
-          {dayCats.map((cat) => {
-            const Icon = CATEGORY_ICONS[cat as ScheduleActivityCategory] ?? Dumbbell;
-            return <Icon key={cat} className="w-2.5 h-2.5 text-gray-400" />;
-          })}
-        </div>
-      );
-    }
-    return (
-      <div style={{ opacity: GHOST_OPACITY }}>
-        <CompactRingsProgress ringData={buildGhostRings(dayCats)} size={ringSize} strokeWidth={ringStroke} />
-      </div>
-    );
-  }
-
-  return null;
+  return {
+    state,
+    isSelected,
+    isRest,
+    isMissed,
+    isCompleted,
+    debtCleared: false,
+    isSuper: false,
+    stepGoalMet: false,
+    dominantCategory,
+    programIconKey: programIconKey ?? null,
+  };
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
@@ -336,24 +188,54 @@ export default function MonthlyCalendarGrid({
   scheduleDays,
   programIconKey,
   cellHeight: cellHeightProp,
-  ringSize: ringSizeProp,
-  ringStroke: ringStrokeProp,
+  // ringSize / ringStroke are accepted for API stability but no longer used —
+  // DayIconCell owns its own CONTAINER_SIZE_PX (32px) internally.
+  ringSize: _ringSize,
+  ringStroke: _ringStroke,
   refreshKey,
 }: MonthlyCalendarGridProps) {
+  // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
   const effectiveCellHeight = cellHeightProp ?? DEFAULT_CELL_HEIGHT;
-  const effectiveRingSize = ringSizeProp ?? DEFAULT_RING_SIZE;
-  const effectiveRingStroke = ringStrokeProp ?? DEFAULT_RING_STROKE;
+
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log('ACTIVE CALENDAR FILE: MonthlyCalendarGrid.tsx', {
+      cellHeight: effectiveCellHeight,
+      engine: 'DayIconCell (unified with home screen)',
+      viewMode,
+    });
+  }
 
   const todayDate = useMemo(() => new Date(), []);
   const [displayMonth, setDisplayMonth] = useState(todayDate.getMonth());
   const [displayYear, setDisplayYear] = useState(todayDate.getFullYear());
   const [scheduleMap, setScheduleMap] = useState<Map<string, UserScheduleEntry>>(new Map());
   const [peekEntry, setPeekEntry] = useState<{ iso: string; entry: UserScheduleEntry } | null>(null);
+
+  /**
+   * Map of ISO date → true for past days where `dailyProgress.workoutCompleted`
+   * is set. Populated by the effect below. This is the "memory" layer: it keeps
+   * flames alive after a day transitions from "today" to "past", even if the
+   * `userSchedule.completed` field was never back-filled.
+   */
+  const [pastProgressMap, setPastProgressMap] = useState<Map<string, boolean>>(new Map());
+
   const { summary: weeklySummary } = useWeeklyProgress();
 
+  // useDayStatus encapsulates the Completion Bridge (≥10 min OR workoutCompleted)
+  // for both today and any past days still in weekActivities.
+  const getDayStatus = useDayStatus();
+
+  // Subscribe to the global midnight clock so isToday/isPast flip at 00:00
+  // even when the user has the calendar open across the day boundary.
+  const dateKey = useDateKey();
+
   const cells = useMemo(
+    // dateKey is intentionally a dep: at midnight the cells rebuild with
+    // a fresh `new Date()` inside buildMonthCells, so isToday moves to the
+    // new day and yesterday's cell flips to isPast — no manual refresh.
     () => buildMonthCells(displayYear, displayMonth),
-    [displayYear, displayMonth],
+    [displayYear, displayMonth, dateKey],
   );
 
   useEffect(() => {
@@ -380,6 +262,47 @@ export default function MonthlyCalendarGrid({
     fetchAll();
     return () => { cancelled = true; };
   }, [userId, cells, recurringTemplate, refreshKey]);
+
+  // Fetch dailyProgress.workoutCompleted for every past day in the current
+  // month view. One getDoc per past day — respects the uid-prefix rule that
+  // was fixed in firestore.rules. Results are cached in pastProgressMap so
+  // the flame persists after a day rolls from "today" to "past".
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    async function fetchPastProgress() {
+      const pastIsos = cells
+        .filter((c) => c.isPast && c.isCurrentMonth)
+        .map((c) => c.iso);
+      if (!pastIsos.length) return;
+
+      const results = await Promise.all(
+        pastIsos.map(async (iso) => {
+          try {
+            const ref = doc(db, 'dailyProgress', `${userId}_${iso}`);
+            const snap = await getDoc(ref);
+            return {
+              iso,
+              completed: snap.exists() ? !!(snap.data()?.workoutCompleted) : false,
+            };
+          } catch {
+            return { iso, completed: false };
+          }
+        }),
+      );
+
+      if (cancelled) return;
+      const map = new Map<string, boolean>();
+      results.forEach(({ iso, completed }) => {
+        if (completed) map.set(iso, true);
+      });
+      setPastProgressMap(map);
+    }
+
+    fetchPastProgress();
+    return () => { cancelled = true; };
+  }, [userId, cells]);
 
   const goToPrevMonth = useCallback(() => {
     setDisplayMonth(prev => {
@@ -430,6 +353,7 @@ export default function MonthlyCalendarGrid({
         {cells.map((cell) => {
           const isSelected = cell.iso === selectedDate;
           const entry = scheduleMap.get(cell.iso) ?? null;
+          const hasTraining = entry?.type === 'training';
 
           return (
             <button
@@ -437,17 +361,16 @@ export default function MonthlyCalendarGrid({
               onClick={() => {
                 if (!cell.isCurrentMonth) return;
                 onDaySelect(cell.iso);
-                if (viewMode === 'icons' && entry?.type === 'training') {
+                // Peek card opens on any training day — no longer gated to icons viewMode
+                if (hasTraining) {
                   setPeekEntry(prev => prev?.iso === cell.iso ? null : { iso: cell.iso, entry });
                 } else {
                   setPeekEntry(null);
                 }
               }}
               className={[
-                'flex flex-col items-center justify-center gap-0 rounded-lg transition-all',
+                'flex flex-col items-center justify-center gap-1 rounded-lg transition-all',
                 cell.isCurrentMonth ? 'active:scale-90' : 'pointer-events-none',
-                isSelected ? 'bg-cyan-500/8 shadow-[0_0_6px_rgba(6,182,212,0.25)]' : '',
-                cell.isToday && !isSelected ? 'bg-cyan-500/5' : '',
               ].join(' ')}
               style={{ height: effectiveCellHeight }}
             >
@@ -468,38 +391,42 @@ export default function MonthlyCalendarGrid({
                 </span>
               )}
 
-              {/* Ring / Icon */}
-              <div className="relative flex items-center justify-center shrink-0" style={{ width: effectiveRingSize, height: effectiveRingSize }}>
-                <CellContent
-                  cell={cell}
-                  entry={entry}
-                  viewMode={viewMode}
-                  scheduleDays={scheduleDays}
-                  ringSize={effectiveRingSize}
-                  ringStroke={effectiveRingStroke}
-                />
-                {/* Community dot — tiny teal indicator when day has both personal + community */}
-                {(entry?.communitySessions?.length ?? 0) > 0 && (entry?.programIds?.length ?? 0) > 0 && (
-                  <div
-                    className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-slate-900"
-                    style={{ background: '#14B8A6' }}
+              {/* DayIconCell — same engine as home screen weekly strip */}
+              {cell.isCurrentMonth && (
+                <div className="relative">
+                  <DayIconCell
+                    props={resolveDayDisplayProps(
+                      buildCellProps(
+                        cell, entry, scheduleDays, programIconKey, isSelected,
+                        // Today: use useDayStatus for the unified Completion Bridge
+                        // (≥10 min logged OR workoutCompleted flag).
+                        cell.isToday ? getDayStatus(cell.iso).isCompleted : undefined,
+                        // Past: dailyProgress.workoutCompleted from the Firestore
+                        // pastProgressMap — keeps the flame alive after a day
+                        // transitions from "today" to "past".
+                        cell.isPast ? (pastProgressMap.get(cell.iso) ?? false) : undefined,
+                      )
+                    )}
                   />
-                )}
-              </div>
+                  {/* Community dot — tiny teal badge when day has both personal + community */}
+                  {(entry?.communitySessions?.length ?? 0) > 0 && (entry?.programIds?.length ?? 0) > 0 && (
+                    <div
+                      className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-slate-900"
+                      style={{ background: '#14B8A6' }}
+                    />
+                  )}
+                </div>
+              )}
             </button>
           );
         })}
 
-        {/* Floating Peek Card — Glassmorphism popover with gap summary */}
+        {/* Floating Peek Card — Glassmorphism popover with schedule summary */}
         <AnimatePresence>
           {peekEntry && (() => {
             const cats = peekEntry.entry.scheduledCategories ?? [];
             const peekDate = new Date(peekEntry.iso + 'T00:00:00');
             const isFuture = peekDate > new Date(new Date().setHours(0, 0, 0, 0));
-
-            const CAT_ICONS_PEEK: Record<string, React.FC<{ className?: string }>> = {
-              strength: Dumbbell, cardio: Footprints, maintenance: Sparkles,
-            };
 
             return (
               <motion.div
@@ -513,11 +440,11 @@ export default function MonthlyCalendarGrid({
                 onClick={() => setPeekEntry(null)}
               >
                 <div className="bg-white/75 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-slate-700/50 px-4 py-3 min-w-[180px]">
-                  {/* Header: Icons + name */}
+                  {/* Header: category icons + label */}
                   <div className="flex items-center gap-2 mb-2">
                     {cats.map(cat => {
-                      const Icon = CAT_ICONS_PEEK[cat] ?? Dumbbell;
-                      const color = CATEGORY_ICON_COLORS[cat] ?? 'text-cyan-500';
+                      const Icon = CATEGORY_ICONS_PEEK[cat as ScheduleActivityCategory] ?? Dumbbell;
+                      const color = CATEGORY_ICON_COLORS_PEEK[cat as ScheduleActivityCategory] ?? 'text-cyan-500';
                       return <Icon key={cat} className={`w-4 h-4 ${color}`} />;
                     })}
                     <span className="text-[11px] font-black text-gray-800 dark:text-gray-100">

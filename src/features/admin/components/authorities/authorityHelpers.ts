@@ -12,6 +12,10 @@ export function getTypeLabel(type: AuthorityType): string {
       return 'שכונה';
     case 'settlement':
       return 'יישוב';
+    case 'school':
+      return 'מוסד חינוכי';
+    case 'military_unit':
+      return 'יחידה צבאית';
     default:
       return type;
   }
@@ -29,6 +33,10 @@ export function getTypeColor(type: AuthorityType): string {
       return 'bg-orange-100 text-orange-800 border-orange-300';
     case 'settlement':
       return 'bg-teal-100 text-teal-800 border-teal-300';
+    case 'school':
+      return 'bg-amber-100 text-amber-700 border-amber-300';
+    case 'military_unit':
+      return 'bg-red-100 text-red-700 border-red-300';
     default:
       return 'bg-gray-100 text-gray-700 border-gray-200';
   }

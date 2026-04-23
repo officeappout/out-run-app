@@ -225,10 +225,14 @@ export default function AgendaDayCard({
 
   return (
     <div ref={rowRef} data-date={date}>
-      <button
+      {/* role="button" instead of <button> to allow a real <button> child (Add workout) */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onSelect}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
         className={`
-          w-full flex items-center gap-1.5 px-1 text-right transition-colors
+          w-full flex items-center gap-1.5 px-1 text-right transition-colors cursor-pointer
           ${isRest ? 'h-[36px]' : 'h-[44px]'}
           ${isSelected ? 'bg-cyan-50/60 dark:bg-cyan-950/20' : 'bg-transparent'}
           active:bg-gray-50 dark:active:bg-gray-800/40
@@ -345,7 +349,7 @@ export default function AgendaDayCard({
             </div>
           )}
         </div>
-      </button>
+      </div>
     </div>
   );
 }

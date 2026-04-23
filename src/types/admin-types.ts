@@ -3,7 +3,9 @@
 export type { Park, ParkFacility, ParkFacilityType, ParkAmenities, ParkStatus, ParkFacilityCategory, ParkSportType, ParkFeatureTag, NatureType, CommunityType, UrbanType, StairsDetails, BenchDetails, ParkingDetails, ParkingPaymentType, RouteTerrainType, RouteEnvironment } from '@/features/parks';
 export { FACILITY_SPORT_MAPPING, ROUTE_SUB_SPORT_MAPPING, getAutoSportTypes } from '@/features/parks';
 
-export type AuthorityType = 'city' | 'regional_council' | 'local_council' | 'neighborhood' | 'settlement';
+export type AuthorityType = 'city' | 'regional_council' | 'local_council' | 'neighborhood' | 'settlement' | 'school' | 'military_unit';
+
+export type TenantType = 'municipal' | 'educational' | 'military';
 
 // CRM Contact Roles
 export type ContactRole = 'sports_head' | 'ceo' | 'health_coordinator' | 'technical' | 'other';
@@ -66,6 +68,22 @@ export interface AuthorityFinancials {
   installments: Installment[];
 }
 
+export interface KpiSettings {
+    targetAgeMin: number;
+    targetAgeMax: number;
+    weightWorkoutVolume: number;
+    weightAppPenetration: number;
+    weightActiveMinutes: number;
+}
+
+export const DEFAULT_KPI_SETTINGS: KpiSettings = {
+    targetAgeMin: 35,
+    targetAgeMax: 55,
+    weightWorkoutVolume: 33,
+    weightAppPenetration: 34,
+    weightActiveMinutes: 33,
+};
+
 export interface Authority {
     id: string;
     name: string;           // Authority/City name
@@ -74,10 +92,15 @@ export interface Authority {
     logoUrl?: string;      // URL for the authority's logo
     managerIds: string[];  // List of user IDs assigned as health coordinators/managers
     userCount: number;     // Count of users associated with this authority
+    unitCount?: number;    // Pre-calculated count of units in tenants/{id}/units (denormalized)
     status?: 'active' | 'inactive'; // Active if parks exist, Inactive if not yet mapped
     isActiveClient?: boolean; // Whether this authority is an active paying client (לקוח פעיל)
     coordinates?: { lat: number; lng: number }; // City center coordinates for map display
-    
+    /** Jurisdiction radius in km (used to generate circular safe-zone when no polygon) */
+    radiusKm?: number;
+    /** GeoJSON polygon defining exact municipal boundaries (overrides radiusKm) */
+    boundaryGeoJSON?: GeoJSON.Feature<GeoJSON.Polygon>;
+
     // CRM Fields
     contacts?: AuthorityContact[];      // Multi-contact support
     pipelineStatus?: PipelineStatus;    // Sales pipeline status
@@ -95,6 +118,17 @@ export interface Authority {
 
     /** Pillar 7: total count of user pressure clicks on "Contact City" CTA */
     pressureCount?: number;
+
+    // BI KPI Configuration
+    kpiSettings?: KpiSettings;
+
+    // Shelter / Safety configuration (מיגון)
+    /** Master toggle — show/hide shelter proximity tags for parks in this authority */
+    isShelterDisplayEnabled?: boolean;
+    /** Max walking time (minutes) to show a shelter tag on a park (default: 10) */
+    maxShelterWalkingMinutes?: number;
+    /** Max emergency sprint time (seconds) allowed by civil defense for this authority */
+    defenseTimeSeconds?: number;
     
     createdAt?: Date;
     updatedAt?: Date;

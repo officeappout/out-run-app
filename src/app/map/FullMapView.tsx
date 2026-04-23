@@ -14,9 +14,9 @@
  */
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/features/user';
-import { syncFieldToFirestore } from '@/lib/firestore.service';
+import { syncLocationToFirestore } from '@/lib/firestore.service';
 import { MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import type { MapPurpose } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-types';
 
@@ -34,12 +34,19 @@ interface FullMapViewProps {
 }
 
 export default function FullMapView({ initialWorkoutId, initialContext, spotFocus }: FullMapViewProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
+
+  // If the user just confirmed their location in /explorer, bypass the gate entirely.
+  // We read this once — before any state is set — so there is no flash-of-gate.
+  const fromExplorer = searchParams.get('fromExplorer') === 'true';
+
   const { profile, refreshProfile } = useUserStore();
 
-  const [locationGateCleared, setLocationGateCleared] = useState(false);
+  const [locationGateCleared, setLocationGateCleared] = useState(fromExplorer);
 
+  // Standard profile-based auto-clear (existing users with a saved authorityId)
   useEffect(() => {
     if (!profile) return;
     const hasAuthority = !!profile.core?.authorityId;
@@ -49,12 +56,55 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
     }
   }, [profile]);
 
+  // fromExplorer bypass: clean up the URL and run the same background sync
+  // that the bridge gate's handleLocationGateComplete performs.
+  useEffect(() => {
+    if (!fromExplorer) return;
+
+    // Remove the query param so a manual refresh doesn't re-trigger edge cases
+    router.replace('/map');
+
+    if (typeof window === 'undefined') return;
+
+    const authorityId = sessionStorage.getItem('selected_authority_id');
+    const lat = sessionStorage.getItem('selected_anchor_lat');
+    const lng = sessionStorage.getItem('selected_anchor_lng');
+
+    // Clear immediately so a subsequent session doesn't replay stale data
+    sessionStorage.removeItem('selected_anchor_lat');
+    sessionStorage.removeItem('selected_anchor_lng');
+    sessionStorage.removeItem('selected_authority_id');
+
+    const hasData = authorityId || lat || lng;
+    if (hasData) {
+      syncLocationToFirestore({
+        authorityId: authorityId || undefined,
+        anchorLat: lat ? parseFloat(lat) : undefined,
+        anchorLng: lng ? parseFloat(lng) : undefined,
+      }).then(() => refreshProfile());
+    }
+  }, [fromExplorer, router, refreshProfile]);
+
   const handleLocationGateComplete = async () => {
-    const authorityId =
-      typeof window !== 'undefined' ? sessionStorage.getItem('selected_authority_id') : null;
-    if (authorityId) {
-      await syncFieldToFirestore('core.authorityId', authorityId);
-      refreshProfile();
+    if (typeof window !== 'undefined') {
+      const authorityId = sessionStorage.getItem('selected_authority_id');
+      const lat = sessionStorage.getItem('selected_anchor_lat');
+      const lng = sessionStorage.getItem('selected_anchor_lng');
+
+      // Clear immediately so a subsequent visit doesn't replay stale data
+      sessionStorage.removeItem('selected_anchor_lat');
+      sessionStorage.removeItem('selected_anchor_lng');
+      sessionStorage.removeItem('selected_authority_id');
+
+      const hasData = authorityId || lat || lng;
+      if (hasData) {
+        await syncLocationToFirestore({
+          authorityId: authorityId || undefined,
+          anchorLat: lat ? parseFloat(lat) : undefined,
+          anchorLng: lng ? parseFloat(lng) : undefined,
+        });
+        refreshProfile();
+      }
     }
     setLocationGateCleared(true);
   };

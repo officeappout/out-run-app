@@ -8,13 +8,14 @@ import {
   Activity,
   Circle,
   Square,
+  PersonStanding,
   type LucideIcon
 } from 'lucide-react';
 import { WorkoutPlan, WorkoutSegment } from '@/features/parks';
 import { resolveDescription, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { UserFullProfile } from '@/features/user';
 import { useIsMounted } from '@/hooks/useIsMounted';
-import { resolveEquipmentLabel, resolveEquipmentSvgPath } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 interface StrengthOverviewCardProps {
   workoutPlan: WorkoutPlan;
@@ -79,9 +80,7 @@ export default function StrengthOverviewCard({
           icon: exercise.icon,
         });
 
-        // Use the real equipment[] array from the exercise data
         if (Array.isArray(exercise.equipment)) {
-          console.log('OVERVIEW_SYNC_CHECK:', exercise.name, exercise.equipment);
           exercise.equipment.forEach((eqId: string) => {
             if (eqId && eqId !== 'none' && eqId !== 'bodyweight') {
               equipmentSet.add(eqId);
@@ -188,7 +187,8 @@ export default function StrengthOverviewCard({
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">ציוד</h3>
           <div className="flex flex-wrap gap-2">
             {Array.from(equipmentSet).map((eqId) => {
-              const svgPath = resolveEquipmentSvgPath(eqId);
+              const svgPaths = resolveEquipmentSvgPathList(eqId, workoutPlan.workoutLocation);
+              const svgPath = svgPaths[0] ?? null;
               const label = resolveEquipmentLabel(eqId);
               return (
                 <div
@@ -196,14 +196,14 @@ export default function StrengthOverviewCard({
                   className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm"
                   dir="rtl"
                 >
-                  {svgPath && svgPath.startsWith('/') ? (
+                  {svgPath ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={svgPath}
                       alt=""
                       width={16}
                       height={16}
-                      className="flex-shrink-0 brightness-0 dark:brightness-100"
+                      className="flex-shrink-0 object-contain"
                       onError={(e) => {
                         const img = e.currentTarget as HTMLImageElement;
                         img.removeAttribute('src');
@@ -211,7 +211,7 @@ export default function StrengthOverviewCard({
                       }}
                     />
                   ) : (
-                    <Dumbbell size={16} className="text-black dark:text-white flex-shrink-0" />
+                    <PersonStanding size={16} className="text-slate-400 flex-shrink-0" />
                   )}
                   <span className="text-sm font-semibold text-gray-900 dark:text-white">{label}</span>
                 </div>

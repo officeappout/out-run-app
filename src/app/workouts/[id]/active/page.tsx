@@ -25,6 +25,7 @@ import { processWorkoutCompletion } from '@/features/user/progression/services/p
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
 import { auth } from '@/lib/firebase';
 import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
+import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
@@ -32,6 +33,7 @@ import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useWorkoutPresence } from '@/features/workout-engine/hooks/useWorkoutPresence';
+import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
 import { useKudosInbox } from '@/features/safecity/hooks/useKudosInbox';
 import KudoToast from '@/features/safecity/components/KudoToast';
 
@@ -197,7 +199,6 @@ function enrichExercise(
     }
   }
 
-  // Merge equipment: matched method → all methods fallback → legacy exercise.equipment
   const matchedGear = method?.gearIds ?? (method?.gearId ? [method.gearId] : []);
   const matchedEquip = method?.equipmentIds ?? (method?.equipmentId ? [method.equipmentId] : []);
   let methodIdsCollected = [...matchedGear, ...matchedEquip].filter(Boolean);
@@ -212,8 +213,7 @@ function enrichExercise(
     methodIdsCollected = methodIdsCollected.filter(Boolean);
   }
 
-  const legacyEquip = Array.isArray((ex as any).equipment) ? (ex as any).equipment : [];
-  const allRaw = [...methodIdsCollected, ...legacyEquip].filter(Boolean);
+  const allRaw = [...methodIdsCollected].filter(Boolean);
   const seen = new Set<string>();
   const equipment: string[] = [];
   for (const id of allRaw) {
@@ -463,6 +463,9 @@ export default function ActiveWorkoutPage() {
     workoutTitle: workoutPlan?.name,
   });
 
+  // === HEATMAP HEARTBEAT (45s active_workouts doc for municipal heat map) ===
+  useActiveWorkoutHeartbeat({ workoutType: 'strength' });
+
   // === USER PROGRESSION (real data from Firestore) ===
   const { profile, refreshProfile } = useUserStore();
 
@@ -523,7 +526,7 @@ export default function ActiveWorkoutPage() {
           const parsed = JSON.parse(activeWorkoutRaw) as WorkoutPlan;
           if (parsed && parsed.segments && parsed.segments.length > 0) {
             console.log('[ActiveWorkoutPage] Loaded full workout from active_workout_data');
-            setWorkoutPlan(parsed);
+            setWorkoutPlan({ ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' });
 
             // Fetch per-exercise history in the background for smart target selection
             const uid = auth.currentUser?.uid;
@@ -555,7 +558,7 @@ export default function ActiveWorkoutPage() {
             sessionStorage.removeItem('currentWorkoutPlan');
             sessionStorage.removeItem('currentWorkoutPlanId');
             console.log('[ActiveWorkoutPage] Loaded workout from legacy sessionStorage');
-            setWorkoutPlan(parsed);
+            setWorkoutPlan({ ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' });
             setIsLoading(false);
             return;
           }
@@ -573,7 +576,7 @@ export default function ActiveWorkoutPage() {
       const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId, storedLocation || 'home');
       
       if (firestoreWorkout) {
-        setWorkoutPlan(firestoreWorkout);
+        setWorkoutPlan({ ...firestoreWorkout, workoutLocation: storedLocation || firestoreWorkout.workoutLocation || 'home' });
       } else {
         setError('לא הצלחנו לטעון את האימון. נסה שוב.');
       }
@@ -798,9 +801,23 @@ export default function ActiveWorkoutPage() {
     const durationSec = workoutStats.duration;
     const durationMin = Math.max(1, Math.round(durationSec / 60));
 
-    // 1. Save workout to Firestore history
+    // 1. Save workout to Firestore history (include XP so the activity list can show it)
     if (currentUser) {
       try {
+        const bolts: 1 | 2 | 3 =
+          workoutStats.difficulty === 'easy' ? 1 :
+          workoutStats.difficulty === 'hard' ? 3 : 2;
+        const totalSetsCount = workoutStats.completedExercises.reduce(
+          (acc, ex) => acc + ex.sets.length, 0,
+        );
+        const sessionXP = calculateStrengthWorkoutXP({
+          durationMinutes: durationMin,
+          difficultyBolts: bolts,
+          totalSets: totalSetsCount,
+          totalReps: workoutStats.totalReps,
+          streak: 0, // streak multiplier applied separately by awardStrengthXP
+        });
+
         await saveWorkout({
           userId: currentUser.uid,
           activityType: 'strength',
@@ -809,6 +826,7 @@ export default function ActiveWorkoutPage() {
           calories: 0,
           pace: 0,
           earnedCoins: 0,
+          xpEarned: sessionXP,
           workoutType: 'STRENGTH',
           category: 'strength',
           displayIcon: 'dumbbell',
@@ -925,7 +943,7 @@ export default function ActiveWorkoutPage() {
       const newSegments = workoutPlan.segments.map((seg, si) => {
         if (si !== segIdx) return seg;
         const exercises = [...(seg.exercises ?? [])];
-        exercises[exIdx] = newWorkoutExercise;
+        exercises[exIdx] = { ...newWorkoutExercise, wasSwapped: true };
         return { ...seg, exercises };
       });
 

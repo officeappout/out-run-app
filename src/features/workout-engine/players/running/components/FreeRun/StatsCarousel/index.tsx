@@ -71,15 +71,17 @@ export default function StatsCarousel() {
         })}
       </motion.div>
 
-      {/* Pagination Dots */}
-      <div className="flex justify-center gap-2 mt-2 pb-2">
+      {/* Pagination dots — white/cyan for dark glass background */}
+      <div className="flex justify-center gap-2 mt-2 pb-3">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrentSlide(index)}
-            className={`h-1.5 rounded-full transition-all ${
-              index === currentSlide ? 'bg-[#00ADEF] w-6' : 'bg-gray-300 w-1.5'
-            }`}
+            className="h-1.5 rounded-full transition-all"
+            style={{
+              width: index === currentSlide ? '1.5rem' : '0.375rem',
+              background: index === currentSlide ? '#00E5FF' : 'rgba(255,255,255,0.25)',
+            }}
           />
         ))}
       </div>

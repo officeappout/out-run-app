@@ -46,9 +46,10 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Send, AlertCircle, Route, Footprints, Heart, CalendarCheck, ArrowLeft } from 'lucide-react';
+import { TrendingUp, Users, Calendar, MapPin, Map, Target, DollarSign, Bell, Send, AlertCircle, Route, Footprints, Heart, CalendarCheck, ArrowLeft, Settings, Save, ChevronDown, ChevronUp } from 'lucide-react';
 import { getParksByAuthority } from '@/features/parks';
-import { Park } from '@/types/admin-types';
+import { Park, KpiSettings, DEFAULT_KPI_SETTINGS } from '@/types/admin-types';
+import { getAuthority, updateAuthority } from '@/features/admin/services/authority.service';
 import {
   getWHO150Tracker,
   getHealthSavings,
@@ -115,6 +116,12 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   const [todaySessionCount, setTodaySessionCount] = useState(0);
   const [todayRsvpCount, setTodayRsvpCount] = useState(0);
 
+  // KPI Configuration State
+  const [kpiSettings, setKpiSettings] = useState<KpiSettings>(DEFAULT_KPI_SETTINGS);
+  const [kpiOpen, setKpiOpen] = useState(false);
+  const [kpiSaving, setKpiSaving] = useState(false);
+  const [kpiDirty, setKpiDirty] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid || null);
@@ -124,10 +131,25 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
 
   useEffect(() => {
     setFilters(DEFAULT_FILTERS);
+    loadKpiSettings();
     loadAll();
     loadNotifications();
     loadSessionSummary();
   }, [authorityId]);
+
+  const loadKpiSettings = async () => {
+    try {
+      const auth = await getAuthority(authorityId);
+      if (auth?.kpiSettings) {
+        setKpiSettings(auth.kpiSettings);
+      } else {
+        setKpiSettings(DEFAULT_KPI_SETTINGS);
+      }
+      setKpiDirty(false);
+    } catch (err) {
+      console.error('[KPI] Error loading settings:', err);
+    }
+  };
 
   // Debounced filter re-query (300ms) — does NOT re-run the full loadAll
   useEffect(() => {
@@ -166,7 +188,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         getPopularParks(authorityId, 5),
         getActivityTrend(authorityId, 30),
         getParksByAuthority(authorityId),
-        getNeighborhoodBreakdown(authorityId),
+        getNeighborhoodBreakdown(authorityId, { min: kpiSettings.targetAgeMin, max: kpiSettings.targetAgeMax }),
         getWHO150Tracker(authorityId),
         getHealthSavings(authorityId),
         getSavingsOverTime(authorityId, 12),
@@ -249,18 +271,19 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
 
   const loadSessionSummary = async () => {
     try {
-      const snap = await getDocs(
+      const today = new Date();
+      const dow = today.getDay();
+      const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      // ── 1) Count from recurring group schedule slots ────────────
+      const groupSnap = await getDocs(
         query(collection(db, 'community_groups'), where('authorityId', '==', authorityId)),
       );
-      const groups = snap.docs.map((d) => ({ id: d.id, ...d.data() } as CommunityGroup));
-      const dow = new Date().getDay();
+      const groups = groupSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CommunityGroup));
+
       let sessionCount = 0;
       let rsvpCount = 0;
-
-      const todayISO = (() => {
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      })();
+      const groupIdsWithAttendance = new Set<string>();
 
       for (const g of groups) {
         const slots = g.scheduleSlots?.length ? g.scheduleSlots : g.schedule ? [g.schedule] : [];
@@ -273,16 +296,68 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
               for (const adoc of attSnap.docs) {
                 if (adoc.id === docId) {
                   rsvpCount += (adoc.data() as SessionAttendance).currentCount ?? 0;
+                  groupIdsWithAttendance.add(g.id);
                 }
               }
             } catch { /* no attendance */ }
           }
         }
       }
+
+      // ── 2) Count from standalone community_events (today only) ──
+      const eventSnap = await getDocs(
+        query(collection(db, 'community_events'), where('authorityId', '==', authorityId)),
+      );
+      for (const edoc of eventSnap.docs) {
+        const edata = edoc.data();
+        const eventDate = edata.date?.toDate?.() ?? new Date(edata.date);
+        const eventISO = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}-${String(eventDate.getDate()).padStart(2, '0')}`;
+        if (eventISO !== todayISO) continue;
+
+        // Skip materialized events whose parent group already has attendance counted
+        if (edata.source === 'virtual_materialized' && edata.groupId && groupIdsWithAttendance.has(edata.groupId)) {
+          continue;
+        }
+        sessionCount++;
+        rsvpCount += edata.currentRegistrations ?? 0;
+      }
+
       setTodaySessionCount(sessionCount);
       setTodayRsvpCount(rsvpCount);
     } catch (err) {
       console.error('[AnalyticsDashboard] session summary failed:', err);
+    }
+  };
+
+  const handleKpiChange = (patch: Partial<KpiSettings>) => {
+    setKpiSettings(prev => ({ ...prev, ...patch }));
+    setKpiDirty(true);
+  };
+
+  const handleAgeRangeChange = async (min: number, max: number) => {
+    handleKpiChange({ targetAgeMin: min, targetAgeMax: max });
+    try {
+      const breakdown = await getNeighborhoodBreakdown(authorityId, { min, max });
+      setNeighborhoodBreakdown(breakdown);
+    } catch (err) {
+      console.error('[KPI] Error refreshing breakdown:', err);
+    }
+  };
+
+  const handleWeightChange = (key: 'weightWorkoutVolume' | 'weightAppPenetration' | 'weightActiveMinutes', value: number) => {
+    handleKpiChange({ [key]: value });
+  };
+
+  const saveKpiSettings = async () => {
+    setKpiSaving(true);
+    try {
+      await updateAuthority(authorityId, { kpiSettings });
+      setKpiDirty(false);
+    } catch (err) {
+      console.error('[KPI] Error saving settings:', err);
+      alert('שגיאה בשמירת ההגדרות');
+    } finally {
+      setKpiSaving(false);
     }
   };
 
@@ -737,9 +812,120 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         )}
       </div>
 
+      {/* ── KPI Configuration ────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden" dir="rtl">
+        <button
+          onClick={() => setKpiOpen(o => !o)}
+          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-50 rounded-lg">
+              <Settings size={20} className="text-purple-600" />
+            </div>
+            <div className="text-right">
+              <h3 className="text-lg font-black text-gray-900">הגדרות KPI</h3>
+              <p className="text-sm text-gray-500">טווח גילאי קהל יעד ומשקולות ביצועים</p>
+            </div>
+          </div>
+          {kpiOpen
+            ? <ChevronUp size={20} className="text-gray-400" />
+            : <ChevronDown size={20} className="text-gray-400" />}
+        </button>
+
+        {kpiOpen && (
+          <div className="px-6 pb-6 border-t border-gray-100 pt-5 space-y-6">
+            {/* Age Range */}
+            <div>
+              <label className="block text-sm font-black text-gray-700 mb-3">טווח גילאים — קהל יעד</label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">מגיל</label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={kpiSettings.targetAgeMax - 1}
+                    value={kpiSettings.targetAgeMin}
+                    onChange={(e) => {
+                      const v = Math.max(10, Math.min(Number(e.target.value), kpiSettings.targetAgeMax - 1));
+                      handleAgeRangeChange(v, kpiSettings.targetAgeMax);
+                    }}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-center text-lg font-black focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+                  />
+                </div>
+                <span className="text-gray-400 font-bold text-lg mt-5">—</span>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">עד גיל</label>
+                  <input
+                    type="number"
+                    min={kpiSettings.targetAgeMin + 1}
+                    max={120}
+                    value={kpiSettings.targetAgeMax}
+                    onChange={(e) => {
+                      const v = Math.max(kpiSettings.targetAgeMin + 1, Math.min(Number(e.target.value), 120));
+                      handleAgeRangeChange(kpiSettings.targetAgeMin, v);
+                    }}
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-center text-lg font-black focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                עמודת ״קהל יעד״ בטבלה תציג את אחוז המשתמשים בטווח {kpiSettings.targetAgeMin}–{kpiSettings.targetAgeMax}
+              </p>
+            </div>
+
+            {/* KPI Weight Sliders */}
+            <div>
+              <label className="block text-sm font-black text-gray-700 mb-3">
+                משקולות ציון ביצועים
+                <span className="text-xs font-normal text-gray-400 mr-2">
+                  (סה״כ: {kpiSettings.weightWorkoutVolume + kpiSettings.weightAppPenetration + kpiSettings.weightActiveMinutes}%)
+                </span>
+              </label>
+              <div className="space-y-4">
+                <SliderRow
+                  label="נפח אימונים"
+                  value={kpiSettings.weightWorkoutVolume}
+                  onChange={(v) => handleWeightChange('weightWorkoutVolume', v)}
+                  color="cyan"
+                />
+                <SliderRow
+                  label="חדירת אפליקציה"
+                  value={kpiSettings.weightAppPenetration}
+                  onChange={(v) => handleWeightChange('weightAppPenetration', v)}
+                  color="purple"
+                />
+                <SliderRow
+                  label="דקות פעילות"
+                  value={kpiSettings.weightActiveMinutes}
+                  onChange={(v) => handleWeightChange('weightActiveMinutes', v)}
+                  color="green"
+                />
+              </div>
+              {(kpiSettings.weightWorkoutVolume + kpiSettings.weightAppPenetration + kpiSettings.weightActiveMinutes) !== 100 && (
+                <p className="text-xs text-amber-600 font-semibold mt-2">
+                  שים לב: סכום המשקולות ({kpiSettings.weightWorkoutVolume + kpiSettings.weightAppPenetration + kpiSettings.weightActiveMinutes}%) שונה מ-100%
+                </p>
+              )}
+            </div>
+
+            {/* Save */}
+            {kpiDirty && (
+              <button
+                onClick={saveKpiSettings}
+                disabled={kpiSaving}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold text-sm hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-purple-200/50"
+              >
+                <Save size={16} />
+                {kpiSaving ? 'שומר...' : 'שמור הגדרות'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ── Section: Neighborhood & Maintenance ─────────────────────── */}
 
-      <NeighborhoodBreakdown data={neighborhoodBreakdown} loading={loading} />
+      <NeighborhoodBreakdown data={neighborhoodBreakdown} loading={loading} kpiSettings={kpiSettings} />
 
       {/* Savings Over Time */}
       {savingsOverTime.length > 0 && (
@@ -896,6 +1082,46 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SliderRow({
+  label,
+  value,
+  onChange,
+  color,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  color: 'cyan' | 'purple' | 'green';
+}) {
+  const colorMap = {
+    cyan: 'accent-cyan-600',
+    purple: 'accent-purple-600',
+    green: 'accent-green-600',
+  };
+  const bgMap = {
+    cyan: 'bg-cyan-50 text-cyan-700',
+    purple: 'bg-purple-50 text-purple-700',
+    green: 'bg-green-50 text-green-700',
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      <span className="text-sm font-bold text-gray-600 w-28 flex-shrink-0 text-right">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className={`flex-1 h-2 rounded-full cursor-pointer ${colorMap[color]}`}
+      />
+      <span className={`text-sm font-black w-12 text-center px-2 py-0.5 rounded-lg ${bgMap[color]}`}>
+        {value}%
+      </span>
     </div>
   );
 }

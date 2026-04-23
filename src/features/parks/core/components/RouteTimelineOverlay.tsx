@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Route, RouteSegment } from '../types/map-objects.type';
+import { Route, RouteSegment } from '../types/route.types';
 import { Play, X, Footprints, Dumbbell, Flag, MapPin, Bike } from 'lucide-react';
 
 interface RouteTimelineOverlayProps {

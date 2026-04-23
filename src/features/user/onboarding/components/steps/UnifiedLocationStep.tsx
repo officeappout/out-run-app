@@ -464,6 +464,19 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   };
 
   const handleConfirm = () => {
+    // Clear any previous anchor data before writing fresh coordinates.
+    // Prevents write-collisions from multiple selections in one session.
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('selected_anchor_lat');
+      sessionStorage.removeItem('selected_anchor_lng');
+    }
+    // Persist the exact confirmed coordinates so the main map can initialize
+    // at the user's selected neighborhood instead of defaulting to Tel Aviv.
+    if (typeof window !== 'undefined' && userLocation) {
+      sessionStorage.setItem('selected_anchor_lat', String(userLocation.lat));
+      sessionStorage.setItem('selected_anchor_lng', String(userLocation.lng));
+    }
+
     // Bridge mode: persist authority and dismiss — no onboarding state changes
     if (mode === 'bridge') {
       onNext();
@@ -502,6 +515,14 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
 
   const handleCitySelect = async (city: CityData) => {
     setSearchQuery('');
+
+    // Clear any previous selection so stale data from an earlier pick in the
+    // same session never leaks into the next Firestore write.
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('selected_anchor_lat');
+      sessionStorage.removeItem('selected_anchor_lng');
+      sessionStorage.removeItem('selected_authority_id');
+    }
     
     // ── Precise Snap: Always forward-geocode to get Mapbox's exact
     // center for the selected location (city OR neighborhood).

@@ -15,6 +15,8 @@ import {
   orderBy,
   limit,
   getDocs,
+  getDoc,
+  doc,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -82,6 +84,21 @@ export async function createWorkoutPost(params: {
   ageGroup?: 'minor' | 'adult';
 }): Promise<string | null> {
   try {
+    // Feature flag guard — skip post creation when community feed is disabled
+    try {
+      const flagsSnap = await getDoc(doc(db, 'system_config', 'feature_flags'));
+      const feedEnabled = flagsSnap.exists()
+        ? (flagsSnap.data().enable_community_feed ?? false)
+        : false;
+      if (!feedEnabled) {
+        console.log('[FeedService] Community feed disabled — skipping post creation');
+        return null;
+      }
+    } catch (flagErr) {
+      // If we can't read the flag doc, default to NOT posting (safe default)
+      console.warn('[FeedService] Could not read feature flags — skipping post:', flagErr);
+      return null;
+    }
     const multiplier = CREDIT_MULTIPLIER[params.activityCategory] ?? 1;
     const activityCredit = params.durationMinutes * multiplier;
 

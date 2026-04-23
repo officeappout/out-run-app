@@ -8,6 +8,14 @@ const nextConfig = {
     // מתעלם משגיאות TypeScript בזמן הבנייה ב-Vercel
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
+      { protocol: 'https', hostname: 'storage.googleapis.com' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.cache = false;

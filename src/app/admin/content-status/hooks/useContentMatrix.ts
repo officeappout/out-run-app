@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getAllExercises } from '@/features/content/exercises';
 import { Exercise, ExecutionLocation, ExecutionMethod } from '@/features/content/exercises';
+import { OutdoorBrand } from '@/features/content/equipment/brands/core/outdoor-brand.types';
+import { getAllOutdoorBrands } from '@/features/content/equipment/brands/core/outdoor-brand.service';
 import { FilterState, MatrixCell, ContentStats, GroupByOption } from '../components/types';
 import {
   LOCATION_LABELS,
@@ -14,6 +16,7 @@ export function useContentMatrix() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     lifestyleTags: [],
     locations: [],
@@ -44,12 +47,13 @@ export function useContentMatrix() {
 
   const loadExercises = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getAllExercises();
       setExercises(data);
-    } catch (error) {
-      console.error('Error loading exercises:', error);
-      alert('שגיאה בטעינת התרגילים');
+    } catch (err: any) {
+      console.error('Error loading exercises:', err);
+      setError(err?.message || 'שגיאה בטעינת התרגילים');
     } finally {
       setLoading(false);
     }
@@ -181,20 +185,21 @@ export function useContentMatrix() {
 
         if (!method) return;
 
-        const hasVideo = !!method.media?.mainVideoUrl;
+        const videoUrl = typeof method.media?.mainVideoUrl === 'string' ? method.media.mainVideoUrl.trim() : '';
+        const hasVideo = videoUrl.length > 0;
         const hasDuration = !!method.media?.videoDurationSeconds;
-        const hasNotificationText = !!method.notificationText && method.notificationText.trim().length > 0;
-        const hasYouTubeTutorial = !!method.media?.instructionalVideos?.length;
+        const notifText = typeof method.notificationText === 'string' ? method.notificationText.trim() : '';
+        const hasNotificationText = notifText.length > 0;
+        const instructionalVideos = Array.isArray(method.media?.instructionalVideos) ? method.media!.instructionalVideos : [];
+        const hasYouTubeTutorial = instructionalVideos.length > 0;
         const youtubeTutorialLangs: ('he' | 'en')[] = [];
-        if (method.media?.instructionalVideos) {
-          method.media.instructionalVideos.forEach((video: { lang: string; url: string }) => {
-            if (video.lang === 'he' || video.lang === 'en') {
-              youtubeTutorialLangs.push(video.lang as 'he' | 'en');
-            }
-          });
+        for (const video of instructionalVideos) {
+          const lang = typeof video?.lang === 'string' ? video.lang : '';
+          if (lang === 'he' || lang === 'en') {
+            youtubeTutorialLangs.push(lang);
+          }
         }
 
-        // Status: complete if video, duration, and notification text exist
         let status: 'complete' | 'partial' | 'missing' = 'missing';
         if (hasVideo && hasDuration && hasNotificationText) {
           status = 'complete';
@@ -210,7 +215,7 @@ export function useContentMatrix() {
           hasNotificationText,
           hasYouTubeTutorial,
           youtubeTutorialLangs,
-          lifestyleTags: method.lifestyleTags || [],
+          lifestyleTags: Array.isArray(method.lifestyleTags) ? method.lifestyleTags : [],
           status,
         });
       });
@@ -224,9 +229,9 @@ export function useContentMatrix() {
     filteredExercises.forEach((exercise) => {
       let key = 'ללא קבוצה';
       if (groupBy === 'muscleGroup' && exercise.muscleGroups?.length) {
-        key = exercise.muscleGroups.map((mg) => MUSCLE_GROUP_LABELS[mg]).join(', ');
+        key = exercise.muscleGroups.map((mg) => MUSCLE_GROUP_LABELS[mg] ?? mg).join(', ');
       } else if (groupBy === 'pattern' && exercise.movementGroup) {
-        key = MOVEMENT_GROUP_LABELS[exercise.movementGroup];
+        key = MOVEMENT_GROUP_LABELS[exercise.movementGroup] ?? exercise.movementGroup;
       } else if (groupBy === 'location') {
         const locations = new Set<ExecutionLocation>();
         const executionMethods = exercise.executionMethods || exercise.execution_methods;
@@ -239,7 +244,7 @@ export function useContentMatrix() {
             locations.add(method.location);
           }
         });
-        key = Array.from(locations).map((loc) => LOCATION_LABELS[loc]).join(', ') || 'ללא מיקום';
+        key = Array.from(locations).map((loc) => LOCATION_LABELS[loc] ?? loc).join(', ') || 'ללא מיקום';
       } else if (groupBy === 'program' && exercise.targetPrograms?.length) {
         key = `תוכנית: ${exercise.targetPrograms.length} תוכניות`;
       }
@@ -301,6 +306,7 @@ export function useContentMatrix() {
 
   return {
     loading,
+    error,
     exercises,
     allLocations,
     allLifestyleTags,

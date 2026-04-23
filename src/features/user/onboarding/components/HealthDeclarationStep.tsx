@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, ShieldCheck, Zap, X, FileText, Loader2 } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, Zap, X, FileText, Loader2, Info } from 'lucide-react';
 import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import SignaturePad from './SignaturePad';
@@ -35,6 +35,11 @@ export default function HealthDeclarationStep({
     : 'male' as const;
   const isFemale = gender === 'female';
 
+  // ── Direction (i18n-ready — swap for a prop/context in a future i18n pass) ──
+  // true  → Lemur on RIGHT, bubble on LEFT, tail points right.
+  // false → Lemur on LEFT,  bubble on RIGHT, tail points left, lemur flipped.
+  const isRTL = true;
+
   // ── Store ──
   const updateData = useOnboardingStore((state) => state.updateData);
 
@@ -46,6 +51,7 @@ export default function HealthDeclarationStep({
   const [usedFastTrack, setUsedFastTrack] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showSafetyInfoModal, setShowSafetyInfoModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const signatureRef = useRef<HTMLDivElement>(null);
@@ -186,45 +192,163 @@ export default function HealthDeclarationStep({
     <div className="flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50" dir="rtl">
       {/* ── Scrollable content ── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-36 scroll-smooth">
-        {/* Header */}
-        <div className="mb-6 pt-2" style={{ fontFamily: 'var(--font-simpler)' }}>
-          <h1 className="text-xl font-bold leading-relaxed mb-1.5">
-            {userName ? (
-              <>
-                <span className="text-slate-900">{userName}</span>
-                <span className="text-slate-900">, </span>
-                <span style={{ color: '#5BC2F2' }}>
-                  {isFemale
-                    ? 'רגע לפני שיוצאים לדרך — חשוב לנו לוודא שאנחנו שומרות עלייך ב-100%.'
-                    : 'רגע לפני שיוצאים לדרך — חשוב לנו לוודא שאנחנו שומרים עליך ב-100%.'
-                  }
-                </span>
-              </>
-            ) : (
-              <span className="text-slate-900">{title || 'הצהרת בריאות'}</span>
-            )}
-          </h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            נשאר לנו רק לעבור על שאלון הבריאות הקצר ולחתום למטה.
-          </p>
+        {/* ── PHASE 1 + 2: Header — Lemur pops in → Bubble pops in → Words mist in ── */}
+        <div className="mb-5 pt-2" style={{ fontFamily: 'var(--font-simpler)' }}>
+          {/*
+            DOM order is always [Lemur, Bubble].
+            RTL (isRTL=true):  dir="rtl" reverses flex → Lemur=RIGHT, Bubble=LEFT. Tail points right.
+            LTR (isRTL=false): normal flex-row       → Lemur=LEFT,  Bubble=RIGHT. Tail points left. Lemur flipped.
+          */}
+          <div className={`flex items-center gap-4${isRTL ? '' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+
+            {/* ── Phase 1a: Doctor Lemur pops in ── */}
+            <motion.div
+              style={{ flexShrink: 0 }}
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }} // spring-like overshoot
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/assets/lemur/lemur-doctor.png"
+                alt=""
+                aria-hidden="true"
+                style={{
+                  height: '110px',
+                  width: 'auto',
+                  maxWidth: '90px',
+                  objectFit: 'contain',
+                  // In LTR the lemur naturally faces away from the bubble — flip him to face it
+                  transform: isRTL ? undefined : 'scaleX(-1)',
+                }}
+              />
+            </motion.div>
+
+            {/* ── Phase 1b: Speech Bubble pops in simultaneously ── */}
+            <motion.div
+              className="relative flex-1 min-w-0 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.28, ease: 'easeOut' }}
+            >
+              {/*
+                Bubble tail — direction-aware.
+                RTL: tail on the END (right) side, pointing toward the lemur on the right.
+                     borderLeft creates a right-pointing triangle; positioned at right:-9px.
+                LTR: tail on the START (left) side, pointing toward the lemur on the left.
+                     borderRight creates a left-pointing triangle; positioned at left:-9px.
+              */}
+              {/* Tail — border layer */}
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  ...(isRTL
+                    ? { right: '-9px', borderLeft: '9px solid #e2e8f0' }
+                    : { left:  '-9px', borderRight: '9px solid #e2e8f0' }),
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 0,
+                  height: 0,
+                  borderTop: '9px solid transparent',
+                  borderBottom: '9px solid transparent',
+                }}
+              />
+              {/* Tail — white fill layer */}
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  ...(isRTL
+                    ? { right: '-7px', borderLeft: '8px solid white' }
+                    : { left:  '-7px', borderRight: '8px solid white' }),
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 0,
+                  height: 0,
+                  borderTop: '8px solid transparent',
+                  borderBottom: '8px solid transparent',
+                }}
+              />
+
+              {/*
+                Phase 2 — Word-by-word "mist clearing" animation.
+                Spaces are static text nodes (never animated) → zero layout shift.
+                delayChildren: 0.2 lets Phase 1 finish before words appear.
+              */}
+              <motion.div
+                dir={isRTL ? 'rtl' : 'ltr'}
+                variants={{
+                  hidden: {},
+                  show: { transition: { delayChildren: 0.2, staggerChildren: 0.055 } },
+                }}
+                initial="hidden"
+                animate="show"
+              >
+                <h1 className="font-bold leading-snug mb-1.5" style={{ fontSize: '17px', color: '#000000' }}>
+                  {(() => {
+                    const sentence = isFemale
+                      ? 'רגע לפני שיוצאים לדרך — חשוב לנו לוודא שאנחנו שומרות עלייך ב-100%.'
+                      : 'רגע לפני שיוצאים לדרך — חשוב לנו לוודא שאנחנו שומרים עליך ב-100%.';
+                    const words = userName
+                      ? [`${userName},`, ...sentence.split(' ')]
+                      : [(title || 'הצהרת בריאות')];
+                    return words.map((word, i) => (
+                      <React.Fragment key={i}>
+                        <motion.span
+                          variants={{
+                            hidden: { opacity: 0, y: 5, filter: 'blur(4px)' },
+                            show:   { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.4, ease: 'easeOut' } },
+                          }}
+                          style={{ display: 'inline-block' }}
+                        >
+                          {word}
+                        </motion.span>
+                        {' '}
+                      </React.Fragment>
+                    ));
+                  })()}
+                </h1>
+
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {'נשאר לנו רק לעבור על שאלון הבריאות הקצר ולחתום למטה.'.split(' ').map((word, i) => (
+                    <React.Fragment key={i}>
+                      <motion.span
+                        variants={{
+                          hidden: { opacity: 0, y: 5, filter: 'blur(4px)' },
+                          show:   { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.4, ease: 'easeOut' } },
+                        }}
+                        style={{ display: 'inline-block' }}
+                      >
+                        {word}
+                      </motion.span>
+                      {' '}
+                    </React.Fragment>
+                  ))}
+                </p>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
 
-        {/* Info banner */}
-        <div
-          className="bg-sky-50/60 border border-sky-100 rounded-2xl p-4 mb-6"
-          style={{ fontFamily: 'var(--font-simpler)' }}
+        {/* ── PHASE 3: Bottom form — fades in after text animation is mostly done (~2.2s) ── */}
+        {/* overflow: visible ensures no clipping; scroll container handles the growth */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2.2, duration: 0.6, ease: 'easeOut' }}
         >
-          <div className="flex items-start gap-3">
-            <ShieldCheck size={20} className="text-[#5BC2F2] flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                כל המידע שתמלא נשמר באופן פרטי ומאובטח, ומשמש רק לצורך התאמת התוכנית עבורך.
-              </p>
-              <p className="text-sm text-slate-800 font-semibold mt-1">
-                אם התשובה לאחת השאלות תצביע על בעיה רפואית, מומלץ להתייעץ עם רופא.
-              </p>
-            </div>
-          </div>
+
+        {/* Privacy info trigger — replaces the old shield banner */}
+        <div className="mb-5">
+          <button
+            type="button"
+            onClick={() => setShowSafetyInfoModal(true)}
+            className="flex items-center gap-1.5 text-[#5BC2F2] text-sm font-medium hover:text-[#4AADE3] transition-colors"
+          >
+            <Info size={15} className="flex-shrink-0" />
+            <span>מידע על פרטיות ובטיחות</span>
+          </button>
         </div>
 
         {/* ── Fast-Track Card ── */}
@@ -418,6 +542,7 @@ export default function HealthDeclarationStep({
 
         {/* Bottom spacer for fixed button */}
         <div className="h-8" />
+        </motion.div>{/* end Phase 3 wrapper */}
       </div>
 
       {/* ── Fixed bottom CTA ── */}
@@ -497,6 +622,61 @@ export default function HealthDeclarationStep({
           </p>
         )}
       </div>
+
+      {/* ── Safety & Privacy Info Modal ── */}
+      <AnimatePresence>
+        {showSafetyInfoModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-4 pb-6"
+            onClick={() => setShowSafetyInfoModal(false)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              dir="rtl"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={20} className="text-[#5BC2F2] flex-shrink-0" />
+                  <h2 className="text-base font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    פרטיות ובטיחות
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowSafetyInfoModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={18} className="text-slate-600" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3" style={{ fontFamily: 'var(--font-simpler)' }}>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  כל המידע שתמלא נשמר באופן פרטי ומאובטח, ומשמש רק לצורך התאמת התוכנית האישית עבורך.
+                </p>
+                <p className="text-sm text-slate-800 font-semibold leading-relaxed">
+                  אם התשובה לאחת השאלות תצביע על בעיה רפואית, מומלץ להתייעץ עם רופא לפני תחילת פעילות גופנית.
+                </p>
+              </div>
+              <div className="px-5 pb-5">
+                <button
+                  onClick={() => setShowSafetyInfoModal(false)}
+                  className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-3 rounded-xl transition-all text-sm"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  הבנתי
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Terms of Use Modal ── */}
       <AnimatePresence>

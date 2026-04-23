@@ -12,7 +12,28 @@ import {
   searchGymEquipment,
 } from '@/features/content/equipment/gym';
 import { GymEquipment } from '@/features/content/equipment/gym';
-import { Plus, Edit2, Trash2, Copy, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Copy, Search, Box } from 'lucide-react';
+
+/** SVG icon cell — shows /assets/icons/equipment/{iconKey}.svg, falls back to a box icon. */
+function EquipmentIconCell({ iconKey }: { iconKey?: string | null }) {
+  const [failed, setFailed] = React.useState(false);
+
+  if (iconKey && !failed) {
+    return (
+      <img
+        src={`/assets/icons/equipment/${iconKey}.svg`}
+        alt=""
+        aria-hidden="true"
+        width={24}
+        height={24}
+        className="object-contain"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return <Box size={20} className="text-gray-300" aria-hidden="true" />;
+}
 
 export default function GymEquipmentAdminPage() {
   const [equipment, setEquipment] = useState<GymEquipment[]>([]);
@@ -38,7 +59,7 @@ export default function GymEquipmentAdminPage() {
       setEquipment(data);
     } catch (error) {
       console.error('Error loading gym equipment:', error);
-      alert('שגיאה בטעינת הציוד');
+      alert('שגיאה בטעינת המתקנים');
     } finally {
       setLoading(false);
     }
@@ -56,21 +77,21 @@ export default function GymEquipmentAdminPage() {
       setEquipment(results);
     } catch (error) {
       console.error('Error searching gym equipment:', error);
-      alert('שגיאה בחיפוש ציוד');
+      alert('שגיאה בחיפוש מתקנים');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (equipmentId: string, equipmentName: string) => {
-    if (!confirm(`האם אתה בטוח שברצונך למחוק את הציוד "${equipmentName}"?`)) return;
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את המתקן "${equipmentName}"?`)) return;
 
     try {
       await deleteGymEquipment(equipmentId);
       await loadEquipment();
     } catch (error) {
       console.error('Error deleting gym equipment:', error);
-      alert('שגיאה במחיקת הציוד');
+      alert('שגיאה במחיקת המתקן');
     }
   };
 
@@ -78,10 +99,10 @@ export default function GymEquipmentAdminPage() {
     try {
       await duplicateGymEquipment(equipmentId);
       await loadEquipment();
-      alert('הציוד שוכפל בהצלחה');
+      alert('המתקן שוכפל בהצלחה');
     } catch (error) {
       console.error('Error duplicating gym equipment:', error);
-      alert('שגיאה בשכפול הציוד');
+      alert('שגיאה בשכפול המתקן');
     }
   };
 
@@ -142,6 +163,7 @@ export default function GymEquipmentAdminPage() {
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold sticky top-0">
                 <tr>
                   <th className="px-6 py-4 rounded-tr-2xl">ID</th>
+                  <th className="px-6 py-4">אייקון</th>
                   <th className="px-6 py-4">שם המתקן</th>
                   <th className="px-6 py-4">סוג</th>
                   <th className="px-6 py-4">רמה</th>
@@ -157,6 +179,11 @@ export default function GymEquipmentAdminPage() {
                   >
                     <td className="px-6 py-4 font-mono text-xs text-gray-500">
                       {item.id.substring(0, 8)}...
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
+                        <EquipmentIconCell iconKey={item.iconKey} />
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-bold text-gray-900">{item.name}</div>

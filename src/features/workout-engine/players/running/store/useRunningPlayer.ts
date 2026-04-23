@@ -56,7 +56,9 @@ interface RunningPlayerState {
   durationIntervalId: NodeJS.Timeout | null;
   wakeLock: WakeLockSentinel | null;
   gpsAccuracy: number | null;
-  gpsStatus: 'searching' | 'poor' | 'good' | 'perfect';
+  gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
+  // When true, real watchPosition is completely bypassed; sim positions drive the workout
+  isSimulationActive: boolean;
 
   // ── Planned Run State ────────────────────────────────────────────
   currentWorkout: RunWorkout | null;
@@ -97,6 +99,9 @@ interface RunningPlayerState {
   // Map follow (Pillar 6)
   setMapFollowEnabled: (v: boolean) => void;
 
+  // Simulation control — when active, real GPS is bypassed entirely
+  setSimulationActive: (active: boolean) => void;
+
   // ── Planned Run Actions ──────────────────────────────────────────
   setCurrentWorkout: (workout: RunWorkout | null) => void;
   advanceBlock: () => void;
@@ -136,6 +141,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   wakeLock: null,
   gpsAccuracy: null,
   gpsStatus: 'searching',
+  isSimulationActive: false,
 
   // Planned Run Initial State
   currentWorkout: null,
@@ -347,35 +353,78 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     }
   },
 
-  // Start GPS tracking with industry-standard settings
+  // Start GPS tracking with industry-standard settings.
+  // When isSimulationActive is true the real watchPosition is completely skipped —
+  // only the duration interval runs so laps/time keep ticking.
+  // Sim positions are injected externally via injectSimPosition (MapShell → useWorkoutSession).
   startGPSTracking: () => {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      console.warn('[useRunningPlayer] Geolocation not available');
+    const { stopGPSTracking, requestWakeLock, isSimulationActive } = get();
+
+    // Stop any existing tracking first
+    stopGPSTracking();
+
+    // Request wake lock to prevent phone from sleeping
+    if (typeof window !== 'undefined') requestWakeLock();
+
+    // ── Shared: duration ticker (runs in both real and sim modes) ──────
+    const durationInterval = setInterval(() => {
+      const { laps, settings } = get();
+      const activeLap = laps.find(l => l.isActive);
+      if (!activeLap) return;
+
+      const newDuration = activeLap.durationSeconds + 1;
+      let updatedLaps = laps.map(lap =>
+        lap.isActive ? { ...lap, durationSeconds: newDuration } : lap
+      );
+
+      if (settings.autoLapMode === 'time' && settings.autoLapValue > 0) {
+        const thresholdSeconds = settings.autoLapValue * 60;
+        const currentLap = updatedLaps.find(l => l.isActive);
+        if (currentLap && currentLap.durationSeconds >= thresholdSeconds) {
+          get().triggerLap();
+          return;
+        }
+      }
+
+      set({ laps: updatedLaps });
+    }, 1000);
+
+    // ── Simulation mode: bypass all real GPS entirely ──────────────────
+    if (isSimulationActive) {
+      console.log('[useRunningPlayer] 🎮 Simulation active — real GPS bypassed, using mock positions');
+      set({
+        gpsStatus: 'simulated',
+        gpsAccuracy: 5,
+        gpsWatchId: null,
+        durationIntervalId: durationInterval,
+      });
       return;
     }
 
-    const { stopGPSTracking, requestWakeLock } = get();
-    // Stop any existing tracking
-    stopGPSTracking();
+    // ── Real GPS mode ──────────────────────────────────────────────────
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      console.warn('[useRunningPlayer] Geolocation not available');
+      set({ durationIntervalId: durationInterval });
+      return;
+    }
 
-    // Initialize GPS status to searching
     set({ gpsStatus: 'searching', gpsAccuracy: null });
-
-    // Request wake lock to prevent phone from sleeping
-    requestWakeLock();
 
     let lastPos: { lat: number; lng: number } | null = null;
     let lastTimestamp: number | null = null;
     const DISTANCE_THRESHOLD = 5;
-    const MIN_SPEED_MS = 0.5;   // 1.8 km/h — below this, display "--:--"
-    const MAX_PACE_MIN_KM = 15; // hard cap — ignore anything slower
+    const MIN_SPEED_MS = 0.5;
+    const MAX_PACE_MIN_KM = 15;
 
     const watchId = watchPosition(
       (location) => {
+        // If simulation was enabled mid-workout, ignore any stale real callbacks
+        if (get().isSimulationActive) return;
+
         const { lat, lng, accuracy } = location;
         const currentPos = { lat, lng };
 
-        let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect';
+        let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
         if (accuracy <= 10) gpsStatus = 'perfect';
         else if (accuracy <= 30) gpsStatus = 'good';
         else gpsStatus = 'poor';
@@ -387,22 +436,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
           if (distanceDelta > DISTANCE_THRESHOLD) {
             get().addCoord([lng, lat]);
-
-            // Track block-level distance for planned-run progression
             get().addBlockDistance(distanceDelta);
 
-            // Track total distance in the session store (km)
             try {
               const { useSessionStore } = require('@/features/workout-engine/core/store/useSessionStore');
               useSessionStore.getState().updateDistance(distanceDelta / 1000);
-            } catch { /* fallback — session store unavailable */ }
+            } catch { /* session store unavailable */ }
 
             const now = Date.now();
             const timeDeltaSeconds = lastTimestamp ? (now - lastTimestamp) / 1000 : 0;
 
             if (timeDeltaSeconds > 0) {
               const speedMs = distanceDelta / timeDeltaSeconds;
-
               if (speedMs < MIN_SPEED_MS) {
                 set({ currentPace: 0 });
               } else {
@@ -412,7 +457,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 }
               }
             }
-
             lastTimestamp = now;
           }
         } else {
@@ -424,53 +468,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         set({ lastPosition: currentPos });
       },
       (error) => {
+        if (get().isSimulationActive) return; // ignore errors when sim took over
         console.error('[useRunningPlayer] GPS error:', error.code, error.message);
-        // Set status to searching on error
         set({ gpsStatus: 'searching', gpsAccuracy: null });
       },
       {
         enableHighAccuracy: true,
         maximumAge: 1000,
         timeout: 10000,
-        accuracyThreshold: 25, // Only accept positions with accuracy <= 25 meters
+        accuracyThreshold: 25,
       }
     );
-
-    // Update duration every second and check for auto-lap
-    const durationInterval = setInterval(() => {
-      const { laps, settings } = get();
-      const activeLap = laps.find(l => l.isActive);
-      
-      if (activeLap) {
-        const newDuration = activeLap.durationSeconds + 1;
-        
-        // Update duration
-        let updatedLaps = laps.map(lap =>
-          lap.isActive
-            ? { ...lap, durationSeconds: newDuration }
-            : lap
-        );
-        
-        // Check for time-based auto-lap
-        if (settings.autoLapMode === 'time' && settings.autoLapValue > 0) {
-          const thresholdSeconds = settings.autoLapValue * 60;
-          const currentLap = updatedLaps.find(l => l.isActive);
-          
-          if (currentLap) {
-            console.log(`[Auto-Lap] Checking Time: Current ${currentLap.durationSeconds}s vs Target ${thresholdSeconds}s`);
-            
-            if (currentLap.durationSeconds >= thresholdSeconds) {
-              console.log(`[Auto-Lap] Time threshold reached! Triggering lap.`);
-              // Trigger lap automatically
-              get().triggerLap();
-              return; // Exit early since triggerLap will update state
-            }
-          }
-        }
-        
-        set({ laps: updatedLaps });
-      }
-    }, 1000);
 
     set({ gpsWatchId: watchId, durationIntervalId: durationInterval });
   },
@@ -619,6 +627,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     
     // Stop all timers and GPS tracking
     stopGPSTracking();
+
+    // Immediately wipe active_workouts doc (heatmap cleanup)
+    if (typeof window !== 'undefined') {
+      import('@/features/heatmap/services/active-workout.service').then(({ clearActiveWorkout }) => {
+        import('@/lib/firebase').then(({ auth }) => {
+          if (auth.currentUser?.uid) {
+            clearActiveWorkout(auth.currentUser.uid).catch(() => {});
+          }
+        });
+      }).catch(() => {});
+    }
     
     // Get final stats from session store
     if (typeof window !== 'undefined') {
@@ -737,6 +756,21 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   },
 
   setMapFollowEnabled: (v) => set({ isMapFollowEnabled: v }),
+
+  // When devSim enables mock: kill any live real GPS watcher + mark status as simulated.
+  // When devSim disables mock: clear the flag; next startGPSTracking call uses real GPS.
+  setSimulationActive: (active: boolean) => {
+    const { isSimulationActive: prev, gpsWatchId } = get();
+    set({ isSimulationActive: active });
+    if (active && !prev) {
+      // Transitioning INTO simulation — silence any running real GPS watcher
+      if (gpsWatchId !== null) {
+        clearWatch(gpsWatchId);
+        set({ gpsWatchId: null });
+      }
+      set({ gpsStatus: 'simulated', gpsAccuracy: 5 });
+    }
+  },
 
   // ── Planned Run Actions ────────────────────────────────────────────
 

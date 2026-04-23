@@ -27,9 +27,9 @@ import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import type { CommunityGroup } from '@/types/community.types';
 
 import {
-  LogOut, Settings, BadgeCheck, AlertCircle,
+  LogOut, Settings, BadgeCheck,
   Shield, RefreshCcw, CheckCircle2, Circle, ChevronDown,
-  CalendarDays, X,
+  CalendarDays, X, Search,
 } from 'lucide-react';
 import { signOutUser } from '@/lib/auth.service';
 import { signOut } from 'firebase/auth';
@@ -44,11 +44,17 @@ import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firesto
 import { isAdminEmailAllowed } from '@/config/feature-flags';
 import StatsOverview from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
+import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
+import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
+import HealthMetricsRow from '@/features/home/components/rows/HealthMetricsRow';
+import PerformanceMetricsRow from '@/features/home/components/rows/PerformanceMetricsRow';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 
 import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -154,75 +160,6 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
 // 2. HERO GLASS CARD — for users without a program yet
 // ════════════════════════════════════════════════════════════════════
 
-function HeroGlassCard({
-  onPress,
-  hasProgram,
-  showHealthDot,
-  hasCompletedAssessment,
-}: {
-  onPress: () => void;
-  hasProgram: boolean;
-  showHealthDot: boolean;
-  /** True once the user has finished the onboarding assessment */
-  hasCompletedAssessment: boolean;
-}) {
-  // Determine copy based on user state
-  let title: string;
-  let subtitle: string;
-
-  if (hasProgram) {
-    title = 'האימון שלך מוכן';
-    subtitle = 'לחץ כדי להתחיל';
-  } else if (!hasCompletedAssessment) {
-    title = 'בוא נעשה יחד את האימון הראשון';
-    subtitle = 'מלא/י אבחון רמה קצר כדי להתאים עבורך תוכנית אישית';
-  } else {
-    title = 'בנה תוכנית אימון';
-    subtitle = 'מותאם אישית למטרות שלך';
-  }
-
-  return (
-    <motion.button
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.3 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onPress}
-      className="w-full relative overflow-hidden rounded-[28px] shadow-xl h-[300px] group"
-    >
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=1400&auto=format&fit=crop')`,
-        }}
-      />
-      <div className="absolute inset-0 bg-black/15" />
-
-      <div className="absolute inset-0 flex items-center justify-center px-8">
-        <div className="relative w-full max-w-[280px] backdrop-blur-xl bg-white/30 border border-white/20 rounded-[32px] px-8 py-10 flex flex-col items-center gap-3 shadow-lg">
-          {showHealthDot && (
-            <div className="absolute top-4 left-4">
-              <AlertCircle size={14} className="text-red-500" />
-            </div>
-          )}
-          <h2
-            className="text-2xl font-black text-white text-center leading-tight"
-            style={{ fontFamily: 'var(--font-simpler)', textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}
-          >
-            {title}
-          </h2>
-          <p
-            className="text-sm text-white/90 text-center font-medium"
-            style={{ fontFamily: 'var(--font-simpler)', textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}
-          >
-            {subtitle}
-          </p>
-        </div>
-      </div>
-    </motion.button>
-  );
-}
-
 // ════════════════════════════════════════════════════════════════════
 // MAIN HOME PAGE — Clean Execution Zone
 // ════════════════════════════════════════════════════════════════════
@@ -231,7 +168,9 @@ export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, resetProfile, refreshProfile } = useUserStore();
   const { reset: resetOnboarding } = useOnboardingStore();
-  const resolvedDashboardMode = useDashboardMode(profile);
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags: featureFlags } = useFeatureFlags(isSuperAdmin);
+  const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -524,7 +463,6 @@ export default function HomePage() {
           description: resolveGoal(),
           equipment: (() => {
             const raw = [
-              ...(ex.exercise.equipment || []),
               ...(ex.method?.equipmentIds || []),
               ...(ex.method?.gearIds || []),
               ...(ex.method?.gearId ? [ex.method.gearId] : []),
@@ -760,8 +698,15 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">
 
-          {/* Left: Planner + Settings + Logout */}
+          {/* Left: Library + Planner + Settings + Logout */}
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => router.push('/library')}
+              className="p-2 text-slate-400 hover:text-[#00C9F2] hover:bg-cyan-50 rounded-full transition-all"
+              aria-label="ספריית תרגילים"
+            >
+              <Search size={22} />
+            </button>
             <button
               onClick={() => setShowPlanner(true)}
               className="p-2 text-slate-400 hover:text-[#00C9F2] hover:bg-cyan-50 rounded-full transition-all"
@@ -851,50 +796,124 @@ export default function HomePage() {
       )}
 
       {/* ── Main Content: Clean Execution Zone ── */}
-      <div className="max-w-md mx-auto px-4 pt-4 pb-4 space-y-4">
+      <div className="max-w-md mx-auto px-4 pt-2 pb-4 space-y-4">
 
-        {/* Week Strip — locked to 1-row week view, no month toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="relative overflow-hidden rounded-3xl"
-        >
-          <SmartWeeklySchedule
-            schedule={realSchedule}
-            currentTrack={isRunningMode ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
-            scheduleDays={userScheduleDays}
-            programIconKey={programIconKey}
-            selectedDate={selectedDate}
-            onDaySelect={setSelectedDate}
-            userId={profile?.id}
-            recurringTemplate={profile?.lifestyle?.recurringTemplate}
-            calendarMode="week"
-            hideMonthToggle
-            onSwipeDown={() => setShowPlanner(true)}
-            hasCompletedAssessment={hasCompletedAssessment}
-            hasSchedule={hasSchedule}
-            onStartAssessment={handleHeroPress}
-            onSetSchedule={() => setShowLifestyleWizard(true)}
-            runningSchedule={profile?.running?.activeProgram?.schedule as any}
-            runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
-            runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
-            runningBasePace={profile?.running?.paceProfile?.basePace}
-          />
-        </motion.div>
+        {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
+        {hasCompletedAssessment && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="relative overflow-hidden rounded-3xl"
+          >
+            <SmartWeeklySchedule
+              schedule={realSchedule}
+              currentTrack={isRunningMode ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
+              scheduleDays={userScheduleDays}
+              programIconKey={programIconKey}
+              selectedDate={selectedDate}
+              onDaySelect={setSelectedDate}
+              userId={profile?.id}
+              recurringTemplate={profile?.lifestyle?.recurringTemplate}
+              calendarMode="week"
+              hideMonthToggle
+              onSwipeDown={() => setShowPlanner(true)}
+              hasCompletedAssessment={hasCompletedAssessment}
+              hasSchedule={hasSchedule}
+              onStartAssessment={handleHeroPress}
+              onSetSchedule={() => setShowLifestyleWizard(true)}
+              runningSchedule={profile?.running?.activeProgram?.schedule as any}
+              runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
+              runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
+              runningBasePace={profile?.running?.paceProfile?.basePace}
+            />
+          </motion.div>
+        )}
 
-        {/* StatsOverview — weekly progress + workout trio (trio hidden when post-workout) */}
-        <div style={{ marginTop: 32 }}>
-          <StatsOverview
-            stats={MOCK_STATS}
-            onStartWorkout={handleHeroPress}
-            onDirectStart={handleDirectStart}
-            onWorkoutGenerated={handleWorkoutGenerated}
-            selectedDate={selectedDate}
-            hasCompletedAssessment={hasCompletedAssessment}
-            hideWorkoutSection={!!postWorkoutData}
-          />
-        </div>
+        {/* ════════════════════════════════════════════════════════════════
+            Dashboard Restructure — 5-Row Hierarchy (Apr 2026 spec)
+            ────────────────────────────────────────────────────────────────
+            Row 1: SmartWeeklySchedule (rendered above this block).
+            Row 2: 65/35 RTL grid (matches the legacy "Power Row" model):
+                     • RIGHT 65% — ProgramProgressCard (full size, large
+                       80px ring + level + remaining %).
+                     • LEFT 35%  — ConsistencyWidget mini-bars (כוח / ריצה
+                       captions + segmented bars, per StatsOverview's
+                       legacy strength tile).
+                   Both halves share the same card chrome (`WIDGET_CARD_STYLE`
+                   — same border, shadow, radius) and stretch to matching
+                   heights via `items-stretch` so the row reads as one
+                   cohesive unit. Incomplete surveys blur the bars in place
+                   via `<GhostUpsell variant="silent">` — no "Add Run" copy.
+            Row 3: Daily Workout Hero — `StatsOverview` trimmed to its
+                   action zone so the workout trio sits in the "Thumb Zone".
+            Rows 4 & 5: COMPACT (CompactMetricTile) tiles inside
+                   SideBySideRow, with Hebrew section headers
+                   ("מדדי בריאות" / "מדדי ביצועים"). Conditional swap by
+                   `dashboardMode`:
+                     - DEFAULT (Health Track)         → Health, then Performance
+                     - RUNNING / PERFORMANCE / HYBRID → Performance, then Health
+                   PerformanceMetricsRow returns null until the strength
+                   survey is complete (goals are derived from active strength
+                   programs, so the section is meaningless beforehand).
+            ════════════════════════════════════════════════════════════════ */}
+        {(() => {
+          const track = resolvedDashboardMode === 'DEFAULT' ? 'health' : 'performance';
+          const HealthRow = <HealthMetricsRow />;
+          const PerfRow = <PerformanceMetricsRow />;
+
+          return (
+            // `gap-4` collapses naturally when PerformanceMetricsRow returns
+            // null (no strength survey), so we never get a phantom 16px gap.
+            <div className="flex flex-col gap-4 mt-4">
+              {/* Row 2 — 65/35 RTL grid. `direction: 'rtl'` puts the first
+                  DOM child (ProgramProgressRow) into the visually-RIGHT
+                  column (8fr / 65%); ConsistencyWidget lands LEFT (5fr /
+                  35%). `items-stretch` matches heights so both halves
+                  feel like a single card. */}
+              <div
+                className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
+                style={{ gridTemplateColumns: '8fr 5fr', direction: 'rtl' }}
+              >
+                <ProgramProgressRow />
+                <ConsistencyWidget />
+              </div>
+
+              {/* Row 3 — Daily Workout Hero (Thumb Zone).
+                  `StatsOverview` was trimmed to its action zone — the
+                  workout trio (DEFAULT/PERF/HYBRID) or the run card
+                  (RUNNING) sits here without preceding "Power Row" noise. */}
+              <StatsOverview
+                stats={MOCK_STATS}
+                onStartWorkout={handleHeroPress}
+                onDirectStart={handleDirectStart}
+                onWorkoutGenerated={handleWorkoutGenerated}
+                selectedDate={selectedDate}
+                hasCompletedAssessment={hasCompletedAssessment}
+                hideWorkoutSection={!!postWorkoutData}
+                enableRunningPrograms={featureFlags.enableRunningPrograms}
+              />
+
+              {/* Rows 4 & 5 — compact section-headed tiles, swap by mode. */}
+              {track === 'health' ? (
+                <>
+                  {HealthRow}
+                  {PerfRow}
+                </>
+              ) : (
+                <>
+                  {PerfRow}
+                  {HealthRow}
+                </>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Nearby Workout Locations — context-aware carousel (below the 5 rows) */}
+        <WorkoutLocationSuggestions
+          workoutType={isRunningMode ? 'running' : 'strength'}
+        />
 
         {/* Post-Workout Celebration Card — replaces the workout trio when just completed */}
         {postWorkoutData && completionData && (
@@ -910,18 +929,9 @@ export default function HomePage() {
               completionData={completionData}
               onRequestMore={handleRequestMore}
               onDismissCelebration={handleDismissCelebration}
+              userGender={profile?.core?.gender}
             />
           </motion.div>
-        )}
-
-        {/* Hero Glass Card — only for users without a program */}
-        {!hasProgram && (
-          <HeroGlassCard
-            onPress={handleHeroPress}
-            hasProgram={hasProgram}
-            showHealthDot={isHealthMissing && hasProgram}
-            hasCompletedAssessment={hasCompletedAssessment}
-          />
         )}
 
         {/* Lifestyle Bridge Overlay */}

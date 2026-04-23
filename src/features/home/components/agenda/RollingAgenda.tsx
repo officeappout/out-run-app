@@ -22,8 +22,10 @@ const PAST_DAYS    = 7;
 const FUTURE_DAYS  = 14;
 const ALL_FUTURE   = 6;
 const PLANNER_FUTURE_DAYS = 84; // 12 weeks
+/** Days of history shown in the 'planner' filter (full TrainingPlannerOverlay). */
+const PLANNER_PAST_DAYS = 30;
 
-export type RollingAgendaFilterMode = 'all' | 'future_only';
+export type RollingAgendaFilterMode = 'all' | 'future_only' | 'planner';
 
 interface RollingAgendaProps {
   selectedDate: string;
@@ -78,11 +80,16 @@ export default function RollingAgenda({
   const dates = useMemo(() => {
     let raw: string[];
 
-    if (filterMode === 'future_only') {
-      // For planner view, show the full program range (12 weeks)
-      const futureDays = PLANNER_FUTURE_DAYS;
-      raw = Array.from({ length: futureDays + 1 }, (_, i) => addDays(todayISO, i));
+    if (filterMode === 'planner') {
+      // Full planner: 30 days of history + today + 12 weeks ahead
+      const startDate = addDays(todayISO, -PLANNER_PAST_DAYS);
+      const total = PLANNER_PAST_DAYS + 1 + PLANNER_FUTURE_DAYS;
+      raw = Array.from({ length: total }, (_, i) => addDays(startDate, i));
+    } else if (filterMode === 'future_only') {
+      // Legacy: today + 12 weeks ahead only
+      raw = Array.from({ length: PLANNER_FUTURE_DAYS + 1 }, (_, i) => addDays(todayISO, i));
     } else {
+      // 'all': 7 past + today + 6 future
       const startDate = addDays(todayISO, -PAST_DAYS);
       const total = PAST_DAYS + 1 + ALL_FUTURE;
       raw = Array.from({ length: total }, (_, i) => addDays(startDate, i));
@@ -151,11 +158,14 @@ export default function RollingAgenda({
   // Combine external + local refresh keys
   const combinedRefreshKey = (refreshKey ?? 0) + localRefreshKey;
 
-  const label = filterMode === 'future_only' ? 'תכנון קדימה' : 'יומן אימונים';
+  const label =
+    filterMode === 'future_only' || filterMode === 'planner'
+      ? 'תכנון אימונים'
+      : 'יומן אימונים';
 
   // Group dates by calendar week for the planner view
   const weekGroups = useMemo(() => {
-    if (filterMode !== 'future_only') return null;
+    if (filterMode !== 'future_only' && filterMode !== 'planner') return null;
     const running = profile?.running;
     const programStart = running?.activeProgram?.startDate;
     const groups: { weekLabel: string; dates: string[] }[] = [];
@@ -202,7 +212,7 @@ export default function RollingAgenda({
         </h3>
       </div>
 
-      {filterMode === 'future_only' && weekGroups ? (
+      {(filterMode === 'future_only' || filterMode === 'planner') && weekGroups ? (
         /* ── Planner: Weekly groups (no drag-and-drop for performance) ── */
         <div className="flex flex-col gap-3 mx-2">
           {weekGroups.map((group) => (

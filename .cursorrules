@@ -1,0 +1,64 @@
+# OUT-RUN App - Cursor Rules
+# Project: Hebrew-first fitness PWA with Mapbox, Firebase, Zustand
+
+## Language & RTL
+- This is a Hebrew-first app. Default text direction is RTL.
+- Always set `dir="rtl"` on the outermost container of any new component that renders user-facing text.
+- Use Tailwind logical properties: `ms-` (margin-inline-start), `me-` (margin-inline-end), `ps-`, `pe-`, `text-start`, `text-end`. NEVER use `ml-`/`mr-`/`pl-`/`pr-`/`text-left`/`text-right` in RTL contexts.
+- Exception: `dir="ltr"` is allowed for numeric displays, code blocks, and admin data tables where LTR is semantically correct.
+- The Mapbox RTL text plugin is loaded in `AppMap.tsx` — do not duplicate this initialization.
+
+## Tailwind Best Practices
+- Use the project's design tokens from `tailwind.config.ts`: `primary`, `secondary`, `out-blue`, `card-light`, `background-light`.
+- Use the shadow system: `shadow-subtle`, `shadow-floating`, `shadow-drawer`, `shadow-premium`, `shadow-card`.
+- Use the border-radius scale: `rounded-lg` (10px) for buttons, `rounded-2xl` (14px) for cards, `rounded-3xl` (20px) for sheets/drawers.
+- Font stack: `font-sans` uses Simpler Pro. For Hebrew-optimized text use `font-hebrew`.
+- Dark mode is `manual` (locked to light). Do NOT add `dark:` variants unless explicitly building a dark-mode component.
+- Prefer `clsx()` + `tailwind-merge` for conditional classes. Import from `clsx`.
+
+## One-Card-Only UI Rule
+- On the map screen, only ONE bottom overlay may be visible at a time. The priority order is:
+  1. Full-screen search (NavigationHub searching) — z-[100]
+  2. Navigation sheet (NavigationHub navigating) — z-[60]
+  3. Route preview card (RoutePreviewCard) — z-[60]
+  4. Workout drawer (WorkoutDrawer, generated routes) — z-[60]
+  5. Journey carousel (BottomJourneyContainer, curated routes) — z-40
+  6. Park preview card (ParkPreview) — z-30
+- When opening a higher-priority overlay, all lower-priority overlays must be hidden.
+- The `screen` state machine in `DiscoverLayer` enforces this: SEARCH | NAV | ROUTE_CARD | DISCOVERY.
+- Generated routes → WorkoutDrawer. Curated routes → BottomJourneyContainer carousel. This is THE LAW.
+
+## Z-Index Budget (Map UI)
+- z-[-1]: ParticleBackground
+- z-0: Map canvas (AppMap)
+- z-20: Active workout overlay, navigate bottom
+- z-30: ParkPreview floating card
+- z-40: BottomJourneyContainer, HUD controls
+- z-50: Mapbox facility popups
+- z-[60]: WorkoutDrawer, NavigationHub (navigating), RoutePreviewCard
+- z-[70]: Search bars in discover mode
+- z-[90]: JITSetupModal
+- z-[95]: Referral toast
+- z-[100]: Full-screen overlays (search, sheets, contribution wizard)
+- z-[120]: Dev-only banners
+- z-[200]: Post-workout summary (RunSummary nested UI)
+- DO NOT create new z-index values without updating this table.
+
+## State Management
+- Zustand is the state management solution. No Redux, no MobX, no new React Contexts.
+- Store ownership: each feature owns its store. Cross-feature reads are allowed; cross-feature writes go through actions/callbacks.
+- Existing stores: useAppStore, useUserStore, useMapStore, useSessionStore, useRunningPlayer, useRunningConfigStore, useWeeklyVolumeStore, useActivityStore, useSocialStore, useProgressionStore, usePrivacyStore, useOnboardingStore.
+- MapModeContext is the only React Context for map mode routing. LanguageContext wraps useAppStore.
+
+## Architecture Patterns
+- Next.js 14 App Router. All client pages use `export const dynamic = 'force-dynamic'`.
+- SSR protection: `typeof window !== 'undefined'` guards, `dynamic()` with `ssr: false` for map components, `skipHydration` on persisted stores.
+- Feature folder structure: `src/features/{domain}/{admin|client|core}/{components|hooks|services|store|types}`.
+- Services import `db` from `@/lib/firebase` and use Firebase modular v9+ API.
+- No server sessions — auth is Firebase Auth client-side. Admin RBAC via `checkUserRole()` + `feature-flags.ts`.
+
+## File Boundaries for Parallel Work
+- Map & Geo: `src/app/map/`, `src/features/parks/core/` (except drawers)
+- UI & Drawers: `src/features/parks/client/`, drawer/sheet components in `src/features/parks/core/components/`
+- Firebase & Admin: `src/features/admin/`, `src/app/admin/`, `src/app/api/`, `src/lib/`
+- Workout Engine: `src/features/workout-engine/`, `src/app/workouts/`

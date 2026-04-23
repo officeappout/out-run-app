@@ -3,104 +3,250 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapboxService } from '../services/mapbox.service';
 import { Route, ActivityType } from '../types/route.types';
-import { ChatMessage } from '../components/ChatDrawer';
-import { getAIRecommendation } from '../services/ai-coach.service';
+import { fetchRealParks } from '../services/parks.service';
+import type { Park } from '../types/park.types';
+import { getCachedOfficialRoutes, routePassesNearPoint, InventoryService } from '../services/inventory.service';
+
+export type RouteVariant = 'recommended' | 'scenic' | 'facilityRich';
+
+export interface SearchSuggestion {
+  text: string;
+  coords: [number, number];
+  _source?: 'mapbox' | 'park' | 'route';
+  _id?: string;
+}
+
+export interface NavVariants {
+  recommended: Route | null;
+  scenic: Route | null;
+  facilityRich: Route | null;
+}
+
+let _parksSearchCache: Park[] | null = null;
+async function getCachedParks(): Promise<Park[]> {
+  if (!_parksSearchCache) _parksSearchCache = await fetchRealParks();
+  return _parksSearchCache;
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export interface SearchNavigationState {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  suggestions: any[];
-  setSuggestions: (s: any[]) => void;
+  suggestions: SearchSuggestion[];
+  setSuggestions: (s: SearchSuggestion[]) => void;
   isSearching: boolean;
   selectedAddress: any;
-  isChatOpen: boolean;
-  setIsChatOpen: (v: boolean) => void;
-  chatMessages: ChatMessage[];
-  isAILoading: boolean;
   isFilterOpen: boolean;
   setIsFilterOpen: (v: boolean) => void;
   searchInputRef: React.RefObject<HTMLInputElement>;
-  fetchAllNavigationRoutes: (addr: { text: string; coords: [number, number] }) => Promise<void>;
-  handleAICoachRequest: (prompt: string) => Promise<void>;
+  fetchNavigationVariants: (addr: { text: string; coords: [number, number] }, activity: ActivityType) => Promise<void>;
+  navigationVariants: NavVariants;
+  setNavigationVariants: (v: NavVariants) => void;
+  selectedVariant: RouteVariant;
+  setSelectedVariant: (v: RouteVariant) => void;
+  navActivity: ActivityType;
+  setNavActivity: (a: ActivityType) => void;
 }
 
 export function useSearchNavigation(
   currentUserPos: { lat: number; lng: number } | null,
-  selectedNavActivity: ActivityType,
-  setNavigationRoutes: (r: Record<ActivityType, Route | null>) => void,
   setFocusedRoute: (r: Route | null) => void,
   setSelectedRoute: (r: Route | null) => void,
 ): SearchNavigationState {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<any>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [isAILoading, setIsAILoading] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Debounced address search
+  const [navigationVariants, setNavigationVariants] = useState<NavVariants>({
+    recommended: null, scenic: null, facilityRich: null,
+  });
+  const [selectedVariant, setSelectedVariant] = useState<RouteVariant>('recommended');
+  const [navActivity, setNavActivity] = useState<ActivityType>('walking');
+
   useEffect(() => {
     if (searchQuery.length < 3) { setSuggestions([]); setIsSearching(false); return; }
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await MapboxService.searchAddress(searchQuery);
-        setSuggestions(results);
+        const term = searchQuery.toLowerCase();
+
+        const [mapboxResults, parks, routes] = await Promise.all([
+          MapboxService.searchAddress(searchQuery),
+          getCachedParks(),
+          getCachedOfficialRoutes(),
+        ]);
+
+        const parkHits: SearchSuggestion[] = parks
+          .filter(p =>
+            p.name?.toLowerCase().includes(term) ||
+            p.city?.toLowerCase().includes(term),
+          )
+          .slice(0, 5)
+          .map(p => ({
+            text: p.name + (p.city ? ` · ${p.city}` : ''),
+            coords: [p.location?.lng ?? 0, p.location?.lat ?? 0] as [number, number],
+            _source: 'park' as const,
+            _id: p.id,
+          }));
+
+        const routeHits: SearchSuggestion[] = routes
+          .filter(r =>
+            r.name?.toLowerCase().includes(term) ||
+            r.city?.toLowerCase().includes(term),
+          )
+          .filter(r => r.path?.length > 0)
+          .slice(0, 3)
+          .map(r => ({
+            text: r.name + (r.city ? ` · ${r.city}` : ''),
+            coords: r.path[0] as [number, number],
+            _source: 'route' as const,
+            _id: r.id,
+          }));
+
+        const geoHits: SearchSuggestion[] = mapboxResults.map(r => ({
+          ...r,
+          _source: 'mapbox' as const,
+        }));
+
+        setSuggestions([...parkHits, ...routeHits, ...geoHits]);
       } catch { setSuggestions([]); }
       finally { setIsSearching(false); }
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchAllNavigationRoutes = useCallback(async (address: { text: string; coords: [number, number] }) => {
+  const fetchNavigationVariants = useCallback(async (
+    address: { text: string; coords: [number, number] },
+    activity: ActivityType,
+  ) => {
     if (!currentUserPos || !address?.coords) return;
+    setSelectedAddress(address);
     const [destLng, destLat] = address.coords;
-    const destLocation = { lat: destLat, lng: destLng };
-    const modes: ActivityType[] = ['walking', 'running', 'cycling'];
-    const newRoutes: Record<string, Route | null> = { walking: null, running: null, cycling: null, workout: null };
+    const dest = { lat: destLat, lng: destLng };
+    const mapboxProfile = activity === 'cycling' ? 'cycling' : 'walking';
 
-    for (const mode of modes) {
-      try {
-        const result = await MapboxService.getSmartPath(currentUserPos, destLocation, mode === 'cycling' ? 'cycling' : 'walking', []);
-        if (result && result.path.length > 0) {
-          const distanceKm = result.distance / 1000;
-          newRoutes[mode] = {
-            id: `nav-${mode}-${Date.now()}`, name: `מסלול ל${address.text || 'יעד נבחר'}`,
-            description: `ניווט ${mode === 'running' ? 'בריצה' : mode === 'cycling' ? 'באופניים' : 'בהליכה'}`,
-            distance: parseFloat(distanceKm.toFixed(1)), duration: Math.round(result.duration / 60),
-            score: Math.round(distanceKm * 60), rating: 5, calories: Math.round(distanceKm * 60),
-            type: mode, activityType: mode, difficulty: 'easy', path: result.path, segments: [],
-            features: { hasGym: false, hasBenches: true, lit: true, scenic: true, terrain: 'road', environment: 'urban', trafficLoad: 'medium', surface: 'asphalt' },
-            source: { type: 'system', name: 'Navigation' },
-          };
-        }
-      } catch { /* skip failed mode */ }
+    const mid = {
+      lat: (currentUserPos.lat + destLat) / 2,
+      lng: (currentUserPos.lng + destLng) / 2,
+    };
+
+    const [parks, facilities, official] = await Promise.all([
+      fetchRealParks(),
+      InventoryService.fetchFacilities(),
+      getCachedOfficialRoutes(),
+    ]);
+
+    const nearParks = parks
+      .filter(p => p.location?.lat && p.location?.lng)
+      .sort((a, b) =>
+        haversineKm(mid.lat, mid.lng, a.location.lat, a.location.lng) -
+        haversineKm(mid.lat, mid.lng, b.location.lat, b.location.lng),
+      )
+      .slice(0, 2)
+      .map(p => ({ lat: p.location.lat, lng: p.location.lng }));
+
+    const nearFacilities = facilities
+      .filter(f => ['water', 'gym'].includes(f.type) && f.location?.lat)
+      .sort((a, b) =>
+        haversineKm(mid.lat, mid.lng, a.location.lat, a.location.lng) -
+        haversineKm(mid.lat, mid.lng, b.location.lat, b.location.lng),
+      )
+      .slice(0, 2)
+      .map(f => ({ lat: f.location.lat, lng: f.location.lng }));
+
+    // Step 1: check official routes near destination
+    const nearbyOfficial = official
+      .filter(r => r.activityType === activity || !r.activityType)
+      .filter(r => routePassesNearPoint(r, destLat, destLng, 1.5))
+      .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+    let recommendedVariant: Route | null = null;
+    if (nearbyOfficial.length > 0) {
+      const src = nearbyOfficial[0];
+      recommendedVariant = {
+        ...src,
+        id: `nav-recommended-${src.id}`,
+        name: `מומלץ — ${src.name || address.text}`,
+      };
     }
 
-    setNavigationRoutes(newRoutes as any);
-    const defaultRoute = newRoutes[selectedNavActivity] || newRoutes['walking'];
-    if (defaultRoute) { setFocusedRoute(defaultRoute); setSelectedRoute(defaultRoute); }
-  }, [currentUserPos, selectedNavActivity, setNavigationRoutes, setFocusedRoute, setSelectedRoute]);
+    // Step 2: parallel Mapbox calls (Scenic + Facility always, Fastest only as fallback)
+    const mapboxCalls: Promise<any>[] = [
+      MapboxService.getSmartPath(currentUserPos, dest, mapboxProfile, nearParks),
+      MapboxService.getSmartPath(currentUserPos, dest, mapboxProfile, nearFacilities),
+    ];
+    if (!recommendedVariant) {
+      mapboxCalls.push(MapboxService.getSmartPath(currentUserPos, dest, mapboxProfile, []));
+    }
 
-  const handleAICoachRequest = useCallback(async (p: string) => {
-    setIsAILoading(true);
-    setChatMessages((prev) => [...prev, { role: 'user', text: p }]);
-    try {
-      const response = await getAIRecommendation(p);
-      setChatMessages((prev) => [...prev, { role: 'coach', text: response }]);
-      setIsChatOpen(true);
-    } catch { setChatMessages((prev) => [...prev, { role: 'coach', text: 'שגיאה' }]); }
-    finally { setIsAILoading(false); }
-  }, []);
+    const results = await Promise.allSettled(mapboxCalls);
+    const scenicResult = results[0];
+    const facilityResult = results[1];
+    const fastestResult = results.length > 2 ? results[2] : null;
+
+    const buildRoute = (result: PromiseSettledResult<any> | null, label: string, variantId: string): Route | null => {
+      if (!result || result.status !== 'fulfilled' || !result.value) return null;
+      const { path, distance, duration } = result.value;
+      const km = parseFloat((distance / 1000).toFixed(2));
+      return {
+        id: `nav-${variantId}-${Date.now()}`,
+        name: `${label} ל${address.text || 'יעד'}`,
+        description: `ניווט ${activity === 'running' ? 'בריצה' : activity === 'cycling' ? 'באופניים' : 'בהליכה'}`,
+        distance: km,
+        duration: Math.round(duration / 60),
+        score: Math.round(km * 60),
+        rating: 5,
+        calories: Math.round(km * (activity === 'cycling' ? 25 : 65)),
+        type: activity,
+        activityType: activity,
+        difficulty: 'easy',
+        path,
+        segments: [],
+        features: { hasGym: false, hasBenches: true, lit: true, scenic: variantId === 'scenic', terrain: 'road', environment: 'urban', trafficLoad: 'medium', surface: 'asphalt' },
+        source: { type: 'system', name: 'Navigation' },
+      };
+    };
+
+    if (!recommendedVariant) {
+      recommendedVariant = buildRoute(fastestResult, 'מסלול ישיר', 'recommended');
+    }
+
+    const variants: NavVariants = {
+      recommended: recommendedVariant,
+      scenic: buildRoute(scenicResult, 'מסלול ירוק', 'scenic'),
+      facilityRich: buildRoute(facilityResult, 'מסלול מתקנים', 'facility'),
+    };
+
+    setNavigationVariants(variants);
+    setSelectedVariant('recommended');
+    setNavActivity(activity);
+
+    const primary = variants.recommended ?? variants.scenic ?? variants.facilityRich;
+    if (primary) {
+      setFocusedRoute(primary);
+      setSelectedRoute(primary);
+    }
+  }, [currentUserPos, setFocusedRoute, setSelectedRoute]);
 
   return {
     searchQuery, setSearchQuery, suggestions, setSuggestions, isSearching,
     selectedAddress,
-    isChatOpen, setIsChatOpen, chatMessages, isAILoading,
     isFilterOpen, setIsFilterOpen, searchInputRef,
-    fetchAllNavigationRoutes, handleAICoachRequest,
+    fetchNavigationVariants,
+    navigationVariants, setNavigationVariants,
+    selectedVariant, setSelectedVariant,
+    navActivity, setNavActivity,
   };
 }

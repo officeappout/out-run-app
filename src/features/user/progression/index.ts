@@ -7,6 +7,9 @@
 export { useProgressionStore, useLemurStage } from './store/useProgressionStore';
 export type { GoalHistoryEntry, ActivityType } from './store/useProgressionStore';
 
+// Config
+export * from './config/xp-rules';
+
 // Services
 export * from './services/coin-calculator.service';
 export * from './services/lemur-evolution.service';

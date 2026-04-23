@@ -179,17 +179,84 @@ export function ensureArray<T>(value: unknown): T[] {
 }
 
 /**
- * Sanitize highlights array - ensure all items are strings
+ * Normalize a single cue/highlight item (any legacy shape) to LocalizedText.
+ *
+ * Legacy shapes we may encounter in Firestore:
+ *   - plain string               → { he: string, en: '' }
+ *   - GenderedText { male, female } → { he: male, en: '' }
+ *   - already LocalizedText { he, en } → pass-through
+ */
+function normalizeToLocalizedText(item: unknown): { he: string; en: string } {
+  if (!item) return { he: '', en: '' };
+  if (typeof item === 'string') return { he: item, en: '' };
+  if (typeof item === 'object' && item !== null) {
+    const o = item as Record<string, unknown>;
+    // Already LocalizedText shape
+    if (typeof o.he === 'string' || typeof o.en === 'string') {
+      return { he: String(o.he || ''), en: String(o.en || '') };
+    }
+    // GenderedText shape — use male as Hebrew
+    if (typeof o.male === 'string') {
+      return { he: o.male, en: '' };
+    }
+  }
+  return { he: String(item), en: '' };
+}
+
+/**
+ * Normalize a cue/highlight array to LocalizedText[].
+ * Called from sanitizeExecutionMethod (read path) and normalizeExercise.
+ */
+function normalizeLocalizedTextArray(arr: unknown): Array<{ he: string; en: string }> {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(normalizeToLocalizedText).filter((t) => t.he || t.en);
+}
+
+/**
+ * Sanitize highlights array — kept for content.highlights (exercise-level, still string[]).
+ * Converts legacy mixed shapes to plain Hebrew strings.
  */
 export function sanitizeHighlights(highlights: unknown): string[] {
   if (!Array.isArray(highlights)) return [];
   return highlights.map((h) => {
     if (typeof h === 'string') return h;
     if (typeof h === 'object' && h !== null) {
-      return (h as any).he || (h as any).en || String(h);
+      return (h as any).he || (h as any).en || (h as any).male || String(h);
     }
     return String(h || '');
   });
+}
+
+/**
+ * Normalize methodName from any legacy shape to LocalizedText.
+ * Legacy Firestore docs may have methodName as a plain string.
+ */
+function normalizeMethodName(raw: unknown): { he: string; en: string } {
+  if (!raw) return { he: '', en: '' };
+  if (typeof raw === 'string') return { he: raw, en: '' };
+  if (typeof raw === 'object' && raw !== null) {
+    const o = raw as Record<string, unknown>;
+    if (typeof o.he === 'string' || typeof o.en === 'string') {
+      return { he: String(o.he || ''), en: String(o.en || '') };
+    }
+  }
+  return { he: String(raw), en: '' };
+}
+
+/**
+ * Normalize a LocalizedExternalVideo from any legacy shape.
+ * Legacy: plain ExternalVideo object → wrap as { he: <object> }
+ * New:    already a map { he: ..., en: ... } → pass-through
+ */
+function normalizeLocalizedVideo(raw: unknown): Record<string, unknown> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  // If it has `videoId` at the top level, it's a legacy flat ExternalVideo
+  if (typeof o.videoId === 'string') {
+    return { he: o };
+  }
+  // Otherwise assume it's already a lang map
+  return o as Record<string, unknown>;
 }
 
 // ============================================================================
@@ -199,24 +266,36 @@ export function sanitizeHighlights(highlights: unknown): string[] {
 const VALID_LOCATIONS: ExecutionLocation[] = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport'];
 
 /**
- * Sanitize execution method - ensure methodName is always a string
+ * Sanitize execution method for the read path (Firestore → JS model).
+ * Normalizes all i18n fields to their new LocalizedText / LocalizedExternalVideo shapes,
+ * handling every legacy format found in existing documents.
  */
 export function sanitizeExecutionMethod(method: any): any {
   if (!method || typeof method !== 'object') return method;
   
   const sanitized = { ...method };
   
-  // CRITICAL: Ensure methodName is always a string (fix for React Error #31)
-  if (sanitized.methodName !== undefined) {
-    if (typeof sanitized.methodName === 'object' && sanitized.methodName !== null) {
-      // If it's a LocalizedText object, extract Hebrew
-      sanitized.methodName = sanitized.methodName.he || sanitized.methodName.en || '';
-      console.warn('[sanitizeExecutionMethod] Sanitized methodName from object to string:', sanitized.methodName);
-    } else if (typeof sanitized.methodName !== 'string') {
-      sanitized.methodName = String(sanitized.methodName || '');
+  // Phase 5.5 — i18n: methodName is now LocalizedText (was plain string)
+  sanitized.methodName = normalizeMethodName(sanitized.methodName);
+
+  // Phase 5.5 — i18n: normalize cue/highlight arrays to LocalizedText[]
+  sanitized.specificCues = normalizeLocalizedTextArray(sanitized.specificCues);
+  sanitized.highlights   = normalizeLocalizedTextArray(sanitized.highlights);
+
+  // Phase 5.5 — i18n: normalize per-method video slots to lang maps
+  if (sanitized.media) {
+    if (sanitized.media.previewVideo !== undefined) {
+      sanitized.media = {
+        ...sanitized.media,
+        previewVideo: normalizeLocalizedVideo(sanitized.media.previewVideo),
+      };
     }
-  } else {
-    sanitized.methodName = '';
+    if (sanitized.media.fullTutorial !== undefined) {
+      sanitized.media = {
+        ...sanitized.media,
+        fullTutorial: normalizeLocalizedVideo(sanitized.media.fullTutorial),
+      };
+    }
   }
   
   // Ensure arrays are properly typed and contain valid values
@@ -265,22 +344,19 @@ export function sanitizeExecutionMethod(method: any): any {
 }
 
 /**
- * Sanitize execution method for saving - full sanitization including media and workflow
+ * Sanitize execution method for saving (write path: JS model → Firestore).
+ * Ensures methodName is saved as LocalizedText, cues as LocalizedText[],
+ * and video slots as LocalizedExternalVideo maps.
  */
 function sanitizeExecutionMethodForSave(method: any): any {
   const sanitizedMethod: any = { ...method };
   
-  // Ensure methodName is a string (fix for React crash #31)
-  if (sanitizedMethod.methodName !== undefined) {
-    if (typeof sanitizedMethod.methodName === 'object' && sanitizedMethod.methodName !== null) {
-      // If it's a LocalizedText object, extract Hebrew
-      sanitizedMethod.methodName = sanitizedMethod.methodName.he || sanitizedMethod.methodName.en || '';
-    } else if (typeof sanitizedMethod.methodName !== 'string') {
-      sanitizedMethod.methodName = '';
-    }
-  } else {
-    sanitizedMethod.methodName = '';
-  }
+  // Phase 5.5 — i18n: persist methodName as LocalizedText { he, en }
+  sanitizedMethod.methodName = normalizeMethodName(sanitizedMethod.methodName);
+
+  // Phase 5.5 — i18n: persist cues/highlights as LocalizedText[]
+  sanitizedMethod.specificCues = normalizeLocalizedTextArray(sanitizedMethod.specificCues);
+  sanitizedMethod.highlights   = normalizeLocalizedTextArray(sanitizedMethod.highlights);
   
   // Sanitize media URLs - convert undefined to null to track missing media
   if (sanitizedMethod.media !== undefined) {
@@ -496,7 +572,7 @@ export function sanitizeExerciseData(data: ExerciseFormData | Partial<ExerciseFo
     if (data.content.instructions !== undefined) {
       sanitized.content.instructions = sanitizeLocalizedText(data.content.instructions);
     }
-    // Copy other content fields (goal, notes, highlights) if they exist
+    // Copy other content fields (goal, notes, highlights, specificCues) if they exist
     if (data.content.goal !== undefined) {
       sanitized.content.goal = data.content.goal;
     }
@@ -507,6 +583,12 @@ export function sanitizeExerciseData(data: ExerciseFormData | Partial<ExerciseFo
     if (data.content.highlights !== undefined) {
       sanitized.content.highlights = Array.isArray(data.content.highlights) 
         ? data.content.highlights 
+        : [];
+    }
+    // Preserve specificCues — filtered to non-empty strings
+    if (data.content.specificCues !== undefined) {
+      sanitized.content.specificCues = Array.isArray(data.content.specificCues)
+        ? data.content.specificCues.filter((c: unknown) => typeof c === 'string' && c.trim())
         : [];
     }
   }
@@ -686,26 +768,23 @@ export function sanitizeExerciseData(data: ExerciseFormData | Partial<ExerciseFo
  * CRITICAL: All metadata fields MUST be explicitly included to prevent data loss
  */
 export function normalizeExercise(docId: string, data: any): Exercise {
-  // CRITICAL: Sanitize execution_methods before creating exercise object
-  // This ensures methodName is ALWAYS a string, never an object
+  // Phase 5.5 — i18n: sanitize execution_methods.
+  // sanitizeExecutionMethod now normalizes methodName → LocalizedText,
+  // cues/highlights → LocalizedText[], video slots → LocalizedExternalVideo maps.
   let sanitizedExecutionMethods: any[] | undefined;
   if (Array.isArray(data.execution_methods)) {
     sanitizedExecutionMethods = data.execution_methods.map((method: any) => {
       const sanitized = sanitizeExecutionMethod(method);
-      // DOUBLE-CHECK: Ensure methodName is definitely a string
-      if (typeof sanitized.methodName !== 'string') {
-        sanitized.methodName = '';
-      }
-      // Ensure gearIds and equipmentIds are arrays (sanitizeExecutionMethod handles migration)
-      if (!Array.isArray(sanitized.gearIds)) {
-        sanitized.gearIds = [];
-      }
-      if (!Array.isArray(sanitized.equipmentIds)) {
-        sanitized.equipmentIds = [];
-      }
+      // Ensure equipment arrays are always present (migration guard)
+      if (!Array.isArray(sanitized.gearIds))       sanitized.gearIds = [];
+      if (!Array.isArray(sanitized.equipmentIds))  sanitized.equipmentIds = [];
       return sanitized;
     });
   }
+
+  // Phase 5.5 — i18n: normalize top-level video slots to LocalizedExternalVideo maps
+  const normalizedPreviewVideo = normalizeLocalizedVideo(data.media?.previewVideo);
+  const normalizedFullTutorial = normalizeLocalizedVideo(data.media?.fullTutorial);
   
   // CRITICAL: Sanitize highlights - ensure all items are strings
   const sanitizedHighlights = sanitizeHighlights(data.content?.highlights);
@@ -753,6 +832,9 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     media: {
       ...(data.media || {}),
       imageUrl: rawMediaImageUrl,
+      // Phase 5.5 — i18n: normalized to LocalizedExternalVideo maps (or undefined)
+      previewVideo: normalizedPreviewVideo,
+      fullTutorial: normalizedFullTutorial,
     },
     execution_methods: sanitizedExecutionMethods,
     executionMethods: sanitizedExecutionMethods, // Alias for camelCase access
@@ -800,6 +882,9 @@ export function normalizeExercise(docId: string, data: any): Exercise {
     
     // === PRODUCTION REQUIREMENTS ===
     requiredLocations: Array.isArray(data.requiredLocations) ? data.requiredLocations : undefined,
+
+    // === i18n ===
+    supportedLangs: Array.isArray(data.supportedLangs) ? data.supportedLangs : undefined,
   };
 
   // Silenced: previously logged per-exercise when base_movement_id was missing.

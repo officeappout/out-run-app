@@ -155,11 +155,15 @@ export function ProgramProgressCard({
           )}
         </div>
 
-        {/* Left side: progress ring */}
+        {/* Left side: progress ring.
+            Unified to 68px / strokeWidth 5 across both single and carousel
+            modes (Apr 2026 dashboard refresh) so it matches the 64px rings
+            used by `CompactMetricTile` in the Health/Performance rows
+            below — single design language for every ring on the dashboard. */}
         <ProgressRing
           percentage={progressPercent}
-          size={isCarousel ? 68 : 80}
-          strokeWidth={isCarousel ? 5 : 6}
+          size={68}
+          strokeWidth={5}
         />
       </button>
 

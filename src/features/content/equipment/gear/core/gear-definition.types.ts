@@ -26,6 +26,13 @@ export interface GearDefinition {
    */
   customIconUrl?: string;
   /**
+   * Filename stem of the SVG icon in /public/assets/icons/equipment/.
+   * E.g. "pullupbar" → /assets/icons/equipment/pullupbar.svg
+   * Takes precedence over `icon` and `customIconUrl` in the workout card UI.
+   * Used by resolveEquipmentSvgPath via registerGearAlias at runtime.
+   */
+  iconKey?: string;
+  /**
    * Equipment family (physical type, not movement type)
    * Allowed values (UX-aligned):
    * - suspension   (e.g., Rings, TRX)
@@ -61,6 +68,12 @@ export interface GearDefinition {
    * Lifestyle tags for this gear (e.g., ['student', 'parent', 'office_worker'])
    */
   lifestyleTags?: string[];
+  /**
+   * When true, this gear is "nice to have" — exercises won't be blocked
+   * if the user doesn't own it, and the SwapEngine penalty is reduced.
+   * Examples: Mat, Jump Rope, Chair, Stool.
+   */
+  isOptional?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -9,9 +9,12 @@ import type { UserFullProfile } from '../../core/types/user.types';
 import { getLemurStage, recordActivity as recordLemurActivity } from '../services/lemur-evolution.service';
 import { awardCoins as awardCoinsToFirestore } from '../services/coin-calculator.service';
 import { checkAndUnlockAchievements } from '../services/achievement.service';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { calculateStrengthWorkoutXP, calculateRunningWorkoutXP, calculateLevelFromXP } from '../services/xp.service';
+import type { StrengthWorkoutXPParams, RunningWorkoutXPParams } from '../services/xp.service';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUserProgression } from '@/lib/firestore.service';
+import { awardWorkoutXP as guardianAward } from '@/lib/awardWorkoutXP';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
 export interface GoalHistoryEntry {
@@ -42,6 +45,10 @@ interface ProgressionState {
   lastActiveDate: string; // 'YYYY-MM-DD' format
   lemurStage: number; // 1-10
 
+  // Global XP & Level (lifetime accumulator, mapped to 10-level curve)
+  globalXP: number;
+  globalLevel: number;
+
   // Dynamic Goals (NEW)
   dailyStepGoal: number;        // Default: 3000, adjusts adaptively
   dailyFloorGoal: number;       // Default: 3, adjusts adaptively
@@ -65,11 +72,18 @@ interface ProgressionState {
   // Actions
   addCoins: (amount: number) => void;
   hydrateFromFirestore: (userId: string) => Promise<void>;
+  /** Set up a real-time Firestore onSnapshot listener on the user document.
+   *  Returns an unsubscribe function. Safe to call multiple times — deduplicates. */
+  subscribeToProgression: (userId: string) => Unsubscribe;
   recordActivity: (userId: string) => Promise<{ evolved: boolean; lemurStage: number }>;
   unlockBadge: (badgeId: string) => void;
   syncFromProfile: (profile: UserFullProfile | null) => void;
   awardWorkoutRewards: (userId: string, calories: number) => Promise<void>;
   awardWorkoutCoins: (calories: number) => Promise<void>;
+  awardStrengthXP: (params: StrengthWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
+  awardRunningXP: (params: RunningWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
+  /** Award a flat XP bonus (e.g. for completing a LevelGoal). Uses atomic Firestore increment. */
+  awardBonusXP: (xp: number, reason?: string) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
@@ -86,6 +100,8 @@ const initialState = {
   daysActive: 0,
   lastActiveDate: '',
   lemurStage: 1,
+  globalXP: 0,
+  globalLevel: 1,
   // Dynamic Goals
   dailyStepGoal: 3000,
   dailyFloorGoal: 3,
@@ -98,6 +114,10 @@ const initialState = {
   isLoaded: false,
   isHydrated: false,
 };
+
+/** Module-level map: userId → active Firestore onSnapshot unsubscribe fn.
+ *  Kept outside the store so it survives store resets and hot-reloads. */
+const _progressionUnsubscribe = new Map<string, Unsubscribe>();
 
 export const useProgressionStore = create<ProgressionState>((set, get) => ({
   ...initialState,
@@ -193,6 +213,8 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       daysActive: progression.daysActive || 0,
       lastActiveDate: progression.lastActiveDate || '',
       lemurStage,
+      globalXP: progression.globalXP || 0,
+      globalLevel: progression.globalLevel || 1,
       unlockedBadges: progression.unlockedBadges || [],
       domainProgress: progression.tracks || {},
       // Dynamic Goals
@@ -207,30 +229,184 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
   },
 
   /**
-   * Hydrate progression store from Firestore
-   * Called on app load to sync coins and calories
+   * Hydrate all progression fields from a one-shot Firestore read.
+   * Also starts a real-time onSnapshot listener (via subscribeToProgression)
+   * so the store stays in sync after any subsequent Firestore write.
+   *
+   * IMPORTANT: getUserProgression (getDoc) runs BEFORE subscribeToProgression
+   * (onSnapshot). This ensures the SDK cache is warm with server data before
+   * the listener fires, preventing stale cache values (e.g. globalXP: 0)
+   * from overwriting the freshly hydrated data.
+   *
+   * If the Firestore SDK is bricked (INTERNAL ASSERTION FAILED), the getDoc
+   * call will throw. In that case the store falls back to the most recent
+   * successful hydration cached in sessionStorage, so the UI never shows
+   * all-zeros after a crash.
    */
   hydrateFromFirestore: async (userId: string) => {
     try {
       if (typeof window === 'undefined') return;
-      
+
+      // Idempotency guard: if already hydrated AND the real-time listener is
+      // active for this userId, there is nothing more to do. This prevents
+      // multiple callers (DashboardTab, UserHeaderPill, etc.) from each
+      // kicking off a redundant getDoc round-trip and causing the
+      // "Hydrated 4 times" re-render loop.
+      if (get().isHydrated && _progressionUnsubscribe.has(userId)) return;
+
+      // 1. One-shot server read — warms the SDK cache with authoritative data
       const progression = await getUserProgression(userId);
       if (progression) {
         set({
-          coins: progression.coins || 0,
-          totalCaloriesBurned: progression.totalCaloriesBurned || 0,
+          coins: progression.coins,
+          totalCaloriesBurned: progression.totalCaloriesBurned,
+          globalXP: progression.globalXP,
+          globalLevel: progression.globalLevel,
+          daysActive: progression.daysActive,
+          lemurStage: progression.lemurStage,
+          currentStreak: progression.currentStreak,
+          lastActiveDate: progression.lastActiveDate,
           isHydrated: true,
         });
-        console.log(`✅ [ProgressionStore] Hydrated from Firestore: ${progression.coins} coins, ${progression.totalCaloriesBurned} calories`);
+        console.log(
+          `✅ [ProgressionStore] Hydrated: coins=${progression.coins}, XP=${progression.globalXP} (L${progression.globalLevel}), daysActive=${progression.daysActive}`,
+        );
+
+        // Cache for SDK crash recovery
+        try { sessionStorage.setItem('_prog_cache', JSON.stringify(progression)); } catch { /* quota */ }
       } else {
-        // No progression data yet, mark as hydrated anyway
         set({ isHydrated: true });
       }
+
+      // 2. Start the live listener AFTER initial data is set (idempotent)
+      get().subscribeToProgression(userId);
     } catch (error) {
       console.error('[ProgressionStore] Error hydrating from Firestore:', error);
-      // Mark as hydrated even on error to prevent infinite loading
-      set({ isHydrated: true });
+
+      // Fallback: restore from the most recent successful hydration
+      try {
+        const cached = typeof window !== 'undefined' ? sessionStorage.getItem('_prog_cache') : null;
+        if (cached) {
+          const p = JSON.parse(cached);
+          set({
+            coins: p.coins ?? 0,
+            totalCaloriesBurned: p.totalCaloriesBurned ?? 0,
+            globalXP: p.globalXP ?? 0,
+            globalLevel: p.globalLevel ?? 1,
+            daysActive: p.daysActive ?? 0,
+            lemurStage: p.lemurStage ?? 1,
+            currentStreak: p.currentStreak ?? 0,
+            lastActiveDate: p.lastActiveDate ?? '',
+            isHydrated: true,
+          });
+          console.warn('[ProgressionStore] Recovered from sessionStorage cache');
+        } else {
+          set({ isHydrated: true });
+        }
+      } catch {
+        set({ isHydrated: true });
+      }
+
+      // Still try to start the listener so future writes are picked up
+      try { get().subscribeToProgression(userId); } catch { /* swallow */ }
     }
+  },
+
+  /**
+   * Real-time Firestore listener on the user document.
+   *
+   * Keeps globalXP, globalLevel, daysActive, lemurStage, currentStreak, coins
+   * updated the instant any write lands in Firestore — no refresh needed.
+   *
+   * Safe to call multiple times: deduplicates by userId.
+   *
+   * Guards:
+   * - Stale cache snapshots are skipped when the store is already hydrated.
+   * - On listener error the broken subscription is torn down and retried
+   *   with exponential backoff (max 3 retries) so a transient permission
+   *   or network error doesn't brick the SDK for the rest of the session.
+   */
+  subscribeToProgression: (userId: string) => {
+    const prev = _progressionUnsubscribe.get(userId);
+    if (prev) return prev;
+
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+
+    const createListener = (): Unsubscribe => {
+      try {
+        const userDocRef = doc(db, 'users', userId);
+        const unsubscribe = onSnapshot(
+          userDocRef,
+          (snap) => {
+            if (!snap.exists()) return;
+
+            // Skip stale cache snapshots that could overwrite freshly-hydrated
+            // server data with local zeros (the `??`/`0` race condition).
+            if (snap.metadata.fromCache && get().isHydrated) return;
+
+            retryCount = 0; // reset on any successful delivery
+
+            const p = snap.data().progression || {};
+
+            // "Only Forward" rule — never let incoming Firestore data shrink
+            // a value that is already known to be higher in local state.
+            // This prevents the elastic-band effect where a stale cache
+            // snapshot (globalXP: 0) temporarily overwrites a freshly-awarded
+            // value (globalXP: 73) that was set optimistically.
+            const forwardOrKeep = <T extends number | string>(
+              incoming: T | undefined,
+              current: T,
+            ): T => {
+              if (incoming === undefined || incoming === null) return current;
+              if (typeof incoming === 'number' && typeof current === 'number') {
+                return (incoming as number) >= (current as number) ? incoming : current;
+              }
+              return incoming;
+            };
+
+            set((state) => ({
+              coins:                forwardOrKeep(p.coins,                state.coins),
+              totalCaloriesBurned:  forwardOrKeep(p.totalCaloriesBurned,  state.totalCaloriesBurned),
+              globalXP:             forwardOrKeep(p.globalXP,             state.globalXP),
+              globalLevel:          forwardOrKeep(p.globalLevel,          state.globalLevel),
+              daysActive:           forwardOrKeep(p.daysActive,           state.daysActive),
+              lemurStage:           forwardOrKeep(p.lemurStage,           state.lemurStage),
+              currentStreak:        forwardOrKeep(p.currentStreak,        state.currentStreak),
+              lastActiveDate:       p.lastActiveDate ?? state.lastActiveDate,
+              isHydrated: true,
+            }));
+          },
+          (error) => {
+            console.error('[ProgressionStore] onSnapshot error:', error);
+
+            // Tear down the broken listener so the SDK can recover
+            try { unsubscribe(); } catch { /* already dead */ }
+            _progressionUnsubscribe.delete(userId);
+
+            // Retry with exponential backoff
+            if (retryCount < MAX_RETRIES) {
+              retryCount++;
+              const delay = Math.min(2000 * Math.pow(2, retryCount), 30_000);
+              console.warn(`[ProgressionStore] Retrying onSnapshot in ${delay}ms (attempt ${retryCount}/${MAX_RETRIES})`);
+              setTimeout(() => {
+                if (_progressionUnsubscribe.has(userId)) return; // already re-subscribed
+                const newUnsub = createListener();
+                _progressionUnsubscribe.set(userId, newUnsub);
+              }, delay);
+            }
+          },
+        );
+        return unsubscribe;
+      } catch (err) {
+        console.error('[ProgressionStore] Failed to create onSnapshot listener:', err);
+        return () => {}; // no-op unsubscribe
+      }
+    };
+
+    const unsubscribe = createListener();
+    _progressionUnsubscribe.set(userId, unsubscribe);
+    return unsubscribe;
   },
 
   /**
@@ -364,6 +540,132 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       }
     } catch (error) {
       console.error('[ProgressionStore] Error awarding workout rewards:', error);
+    }
+  },
+
+  /**
+   * Award global XP after a strength workout using the overhauled formula.
+   * Uses atomic Firestore increment for globalXP and sets the derived globalLevel.
+   */
+  awardStrengthXP: async (params: StrengthWorkoutXPParams) => {
+    const state = get();
+    const previousLevel = state.globalLevel;
+
+    try {
+      const xpEarned = calculateStrengthWorkoutXP(params);
+      const newTotalXP = state.globalXP + xpEarned;
+      const newLevel = calculateLevelFromXP(newTotalXP, []);
+      const leveledUp = newLevel > previousLevel;
+
+      // Optimistic local update — keep UI responsive while the Guardian call
+      // is in flight. The onSnapshot listener will reconcile to the
+      // authoritative server value when the write lands.
+      set({ globalXP: newTotalXP, globalLevel: newLevel });
+
+      // Persist via the Guardian Cloud Function (Firestore Security Rules
+      // block direct client writes to progression.globalXP/globalLevel).
+      if (typeof window !== 'undefined') {
+        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+        const userId = useUserStore.getState().profile?.id;
+        if (userId) {
+          await guardianAward({ xpDelta: xpEarned, source: 'workout:strength' });
+          // Record activity so daysActive / lemurStage update (idempotent per day)
+          get().recordActivity(userId).catch((e) =>
+            console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
+          );
+        }
+      }
+
+      console.log(
+        `[ProgressionStore] +${xpEarned} XP → total ${newTotalXP}, Level ${newLevel}` +
+        (leveledUp ? ` (LEVEL UP from ${previousLevel}!)` : ''),
+      );
+
+      return { xpEarned, newLevel, leveledUp };
+    } catch (error) {
+      console.error('[ProgressionStore] Error awarding strength XP:', error);
+      return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
+    }
+  },
+
+  /**
+   * Award global XP after a running or walking workout.
+   * Mirrors awardStrengthXP — uses atomic Firestore increment for globalXP.
+   *
+   * Formula: round((Minutes × 3 + Km × 10) × StreakMultiplier)
+   */
+  awardRunningXP: async (params: RunningWorkoutXPParams) => {
+    const state = get();
+    const previousLevel = state.globalLevel;
+
+    try {
+      const xpEarned = calculateRunningWorkoutXP(params);
+      const newTotalXP = state.globalXP + xpEarned;
+      const newLevel = calculateLevelFromXP(newTotalXP, []);
+      const leveledUp = newLevel > previousLevel;
+
+      // Optimistic local update
+      set({ globalXP: newTotalXP, globalLevel: newLevel });
+
+      // Persist via Guardian (rules block direct client writes)
+      if (typeof window !== 'undefined') {
+        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+        const userId = useUserStore.getState().profile?.id;
+        if (userId) {
+          await guardianAward({ xpDelta: xpEarned, source: `workout:${params.activityType ?? 'running'}` });
+          // Record activity so daysActive / lemurStage update (idempotent per day)
+          get().recordActivity(userId).catch((e) =>
+            console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
+          );
+        }
+      }
+
+      console.log(
+        `[ProgressionStore] +${xpEarned} XP (running) → total ${newTotalXP}, Level ${newLevel}` +
+        (leveledUp ? ` (LEVEL UP from ${previousLevel}!)` : ''),
+      );
+
+      return { xpEarned, newLevel, leveledUp };
+    } catch (error) {
+      console.error('[ProgressionStore] Error awarding running XP:', error);
+      return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
+    }
+  },
+
+  /**
+   * Award a flat one-time XP bonus (e.g. for completing a LevelGoal from a program).
+   * Uses the same atomic Firestore increment pattern as awardStrengthXP.
+   */
+  awardBonusXP: async (xp: number, reason = 'bonus') => {
+    const state = get();
+    const previousLevel = state.globalLevel;
+    const xpEarned = Math.max(0, Math.round(xp));
+    if (xpEarned === 0) return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
+
+    try {
+      const newTotalXP = state.globalXP + xpEarned;
+      const newLevel = calculateLevelFromXP(newTotalXP, []);
+      const leveledUp = newLevel > previousLevel;
+
+      set({ globalXP: newTotalXP, globalLevel: newLevel });
+
+      if (typeof window !== 'undefined') {
+        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+        const userId = useUserStore.getState().profile?.id;
+        if (userId) {
+          await guardianAward({ xpDelta: xpEarned, source: `bonus:${reason}` });
+        }
+      }
+
+      console.log(
+        `[ProgressionStore] +${xpEarned} XP (${reason}) → total ${newTotalXP}, Level ${newLevel}` +
+        (leveledUp ? ` (LEVEL UP from ${previousLevel}!)` : ''),
+      );
+
+      return { xpEarned, newLevel, leveledUp };
+    } catch (error) {
+      console.error('[ProgressionStore] Error awarding bonus XP:', error);
+      return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
     }
   },
 
@@ -602,8 +904,11 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
 
   /**
    * Reset progression state (for logout)
+   * Also tears down the real-time Firestore listener.
    */
   reset: () => {
+    _progressionUnsubscribe.forEach((unsub) => unsub());
+    _progressionUnsubscribe.clear();
     set(initialState);
   },
 }));

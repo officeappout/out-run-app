@@ -29,7 +29,7 @@ export default function EditGymEquipmentPage() {
       const equipmentData = await getGymEquipment(equipmentId);
 
       if (!equipmentData) {
-        alert('ציוד לא נמצא');
+        alert('מתקן לא נמצא');
         router.push('/admin/gym-equipment');
         return;
       }
@@ -37,7 +37,7 @@ export default function EditGymEquipmentPage() {
       setEquipment(equipmentData);
     } catch (error) {
       console.error('Error loading gym equipment:', error);
-      alert('שגיאה בטעינת הציוד');
+      alert('שגיאה בטעינת המתקן');
       router.push('/admin/gym-equipment');
     } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export default function EditGymEquipmentPage() {
       router.push('/admin/gym-equipment');
     } catch (error) {
       console.error('Error updating gym equipment:', error);
-      alert('שגיאה בעדכון הציוד');
+      alert('שגיאה בעדכון המתקן');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,6 +83,7 @@ export default function EditGymEquipmentPage() {
     brands: equipment.brands,
     availableInLocations: equipment.availableInLocations || [],
     defaultLocation: equipment.defaultLocation || undefined,
+    iconKey: equipment.iconKey || '',
   };
 
   return (
@@ -94,7 +95,7 @@ export default function EditGymEquipmentPage() {
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ArrowRight size={18} />
-            חזור לרשימת הציוד
+            חזור לרשימת המתקנים
           </Link>
           <h1 className="text-3xl font-black text-gray-900">עריכת מתקן</h1>
           <p className="text-gray-500 mt-2">{sanitizedName}</p>

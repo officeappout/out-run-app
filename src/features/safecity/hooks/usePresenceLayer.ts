@@ -123,6 +123,8 @@ function docToMarker(data: Record<string, unknown>, id: string): PresenceMarker 
     lemurStage: data.lemurStage as number | undefined,
     level: data.level as number | undefined,
     programId: data.programId as string | undefined,
+    personaId: data.personaId as string | undefined,
+    photoURL: data.photoURL as string | undefined,
   };
 }
 
@@ -166,7 +168,12 @@ export function usePresenceLayer(
     : (!profileLoaded || ageGroup === 'minor' || !userId || privacyMode === 'ghost');
   const isReady = hasBypass ? (!!userId && enabled) : (enabled && !isBlocked);
 
-  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null });
+  const personaId = profile?.personaId ?? undefined;
+  const lemurStage = profile?.progression?.lemurStage ?? undefined;
+  const photoURL = profile?.core?.photoURL ?? undefined;
+  const runningLevel = profile?.running?.level ?? undefined;
+
+  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel });
   stateRef.current = {
     privacyMode,
     following,
@@ -175,6 +182,10 @@ export function usePresenceLayer(
     userId,
     authorityId: profile?.core?.authorityId ?? null,
     schoolName: profile?.core?.affiliations?.find((a: any) => a.type === 'school' || a.type === 'company')?.name ?? null,
+    personaId,
+    lemurStage,
+    photoURL,
+    runningLevel,
   };
 
   // Load social connections
@@ -201,6 +212,10 @@ export function usePresenceLayer(
         lat: currentLocation.lat,
         lng: currentLocation.lng,
         authorityId: s.authorityId,
+        personaId: s.personaId,
+        lemurStage: s.lemurStage,
+        photoURL: s.photoURL,
+        runningLevel: s.runningLevel,
       };
     };
 
@@ -238,20 +253,28 @@ export function usePresenceLayer(
       const batchResults = new Map<number, PresenceMarker[]>();
 
       batches.forEach((batch, idx) => {
-        const q = query(collection(db, 'presence'), where('uid', 'in', batch));
-        const unsub = onSnapshot(q, (snap) => {
-          const markers: PresenceMarker[] = [];
-          snap.forEach((d) => {
-            const m = docToMarker(d.data(), d.id);
-            if (m && m.ageGroup === ageGroup && m.uid !== userId) markers.push(m);
+        try {
+          const q = query(collection(db, 'presence'), where('uid', 'in', batch));
+          const unsub = onSnapshot(q, (snap) => {
+            const markers: PresenceMarker[] = [];
+            snap.forEach((d) => {
+              const m = docToMarker(d.data(), d.id);
+              if (m && m.ageGroup === ageGroup && m.uid !== userId) markers.push(m);
+            });
+            batchResults.set(idx, markers);
+            const merged: PresenceMarker[] = [];
+            batchResults.forEach((v) => merged.push(...v));
+            setRawMarkers(merged);
+            setIsLoading(false);
+          }, (err) => {
+            console.warn('[PresenceLayer] friends batch listener error:', err?.code ?? err);
+            setIsLoading(false);
           });
-          batchResults.set(idx, markers);
-          const merged: PresenceMarker[] = [];
-          batchResults.forEach((v) => merged.push(...v));
-          setRawMarkers(merged);
+          unsubscribers.push(unsub);
+        } catch (err) {
+          console.warn('[PresenceLayer] Failed to create friends listener:', err);
           setIsLoading(false);
-        }, () => setIsLoading(false));
-        unsubscribers.push(unsub);
+        }
       });
 
       return () => unsubscribers.forEach((u) => u());
@@ -265,23 +288,32 @@ export function usePresenceLayer(
       discoverConstraints.push(where('authorityId', '==', stateRef.current.authorityId));
     }
     const q = query(collection(db, 'presence'), ...discoverConstraints);
-    const unsub = onSnapshot(q, (snap) => {
-      const markers: PresenceMarker[] = [];
-      snap.forEach((d) => {
-        const m = docToMarker(d.data(), d.id);
-        if (!m || m.uid === userId) return;
-        if (!IS_DEV) {
-          const myAg = (ageGroup ?? '').toLowerCase().trim();
-          const theirAg = (m.ageGroup ?? '').toLowerCase().trim();
-          if (myAg && theirAg && myAg !== theirAg) return;
-        }
-        markers.push(m);
+    let unsub: (() => void) | undefined;
+    try {
+      unsub = onSnapshot(q, (snap) => {
+        const markers: PresenceMarker[] = [];
+        snap.forEach((d) => {
+          const m = docToMarker(d.data(), d.id);
+          if (!m || m.uid === userId) return;
+          if (!IS_DEV) {
+            const myAg = (ageGroup ?? '').toLowerCase().trim();
+            const theirAg = (m.ageGroup ?? '').toLowerCase().trim();
+            if (myAg && theirAg && myAg !== theirAg) return;
+          }
+          markers.push(m);
+        });
+        setRawMarkers(markers);
+        setIsLoading(false);
+      }, (err) => {
+        console.warn('[PresenceLayer] discover listener error:', err?.code ?? err);
+        setIsLoading(false);
       });
-      setRawMarkers(markers);
+    } catch (err) {
+      console.warn('[PresenceLayer] Failed to create discover listener:', err);
       setIsLoading(false);
-    }, () => setIsLoading(false));
+    }
 
-    return () => unsub();
+    return () => unsub?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, socialMode, socialLoaded, following, ageGroup, userId]);
 

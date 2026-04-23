@@ -3,10 +3,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Map, Users, Swords } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine';
+import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 export default function BottomNavigation() {
   const pathname = usePathname();
   const { status } = useSessionStore();
+  const profile = useUserStore((s) => s.profile);
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags } = useFeatureFlags(isSuperAdmin);
 
   if (
     pathname?.startsWith('/onboarding') ||
@@ -24,10 +29,14 @@ export default function BottomNavigation() {
   }
 
   const navItems = [
-    { name: 'בית',    href: '/home',  icon: Home },
-    { name: 'מפה',    href: '/map',   icon: Map },
-    { name: 'קהילה',  href: '/feed',  icon: Users },
-    { name: 'הליגה',  href: '/arena', icon: Swords },
+    { name: 'בית',   href: '/home',  icon: Home },
+    { name: 'מפה',   href: '/map',   icon: Map },
+    ...(flags.enableCommunityFeed
+      ? [
+          { name: 'קהילה', href: '/feed',  icon: Users },
+          { name: 'הליגה', href: '/arena', icon: Swords },
+        ]
+      : []),
   ];
 
   return (

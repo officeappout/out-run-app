@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -269,12 +269,14 @@ const FEATURE_TAG_OPTIONS: { id: ParkFeatureTag; label: string; icon: string }[]
     { id: 'night_lighting', label: 'תאורת לילה', icon: '💡' },
     { id: 'water_fountain', label: 'ברזיית מים', icon: '🚰' },
     { id: 'has_toilets', label: 'שירותים', icon: '🚻' },
+    { id: 'has_benches', label: 'ספסלים', icon: '🪑' },
     { id: 'parkour_friendly', label: 'ידידותי לפארקור', icon: '🤸' },
     { id: 'stairs_training', label: 'מדרגות לאימון', icon: '🪜' },
     { id: 'rubber_floor', label: 'ריצפת גומי', icon: '🟫' },
     { id: 'near_water', label: 'ליד מים', icon: '🌊' },
     { id: 'dog_friendly', label: 'ידידותי לכלבים', icon: '🐕' },
     { id: 'wheelchair_accessible', label: 'נגיש לכיסא גלגלים', icon: '♿' },
+    { id: 'safe_zone', label: 'אזור בטוח / מיגונית', icon: '🛡️' },
 ];
 
 // Route terrain/environment options (for Routes tab auto sub-sport mapping)
@@ -302,6 +304,27 @@ const FACILITY_TYPE_LABELS: Record<ParkFacilityCategory, string> = {
 };
 
 // ============================================
+// ROUTE PREVIEW — Mapbox Static Images helper
+// ============================================
+
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
+/** Builds a Mapbox Static Images URL that shows the full route path.
+ *  Simplifies to ≤40 points so the URL stays within the 8 KB GET limit. */
+function buildRouteStaticMapUrl(path: [number, number][]): string | null {
+    if (!MAPBOX_TOKEN || !path || path.length < 2) return null;
+    const simplified = path.length > 40
+        ? path.filter((_, i) => i % Math.ceil(path.length / 40) === 0 || i === path.length - 1)
+        : path;
+    const geojson = JSON.stringify({
+        type: 'Feature',
+        properties: { stroke: '#00E5FF', 'stroke-width': 4, 'stroke-opacity': 1 },
+        geometry: { type: 'LineString', coordinates: simplified },
+    });
+    return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/geojson(${encodeURIComponent(geojson)})/auto/600x180@2x?access_token=${MAPBOX_TOKEN}&padding=30`;
+}
+
+// ============================================
 // ADD/EDIT MODAL COMPONENT
 // ============================================
 
@@ -326,6 +349,8 @@ interface LocationFormData {
     parkingDetails?: ParkingDetails;
     externalSourceId?: string;
     imageFile?: File | null;
+    /** URL of an existing image — used when admin pastes a link instead of uploading a file */
+    imageUrl?: string;
     authorityId?: string;
     /** Star rating 1–5 with decimal precision (e.g. 4.3) */
     rating?: number;
@@ -377,14 +402,23 @@ function AddLocationModal({
         parkingDetails: undefined,
         externalSourceId: undefined,
         imageFile: null,
+        imageUrl: '',
         authorityId: undefined,
         rating: undefined,
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [imageInputMode, setImageInputMode] = useState<'file' | 'url'>('file');
     const [citySearch, setCitySearch] = useState('');
     const [showCityDropdown, setShowCityDropdown] = useState(false);
     const [authoritySearch, setAuthoritySearch] = useState('');
     const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
+
+    // Derived: is this edit session targeting an official route?
+    const editingOfficialRoute = isRoutesTab && (editingPark as any)?._isOfficialRoute === true;
+    const routePath: [number, number][] | null = editingOfficialRoute
+        ? ((editingPark as any)._routePath as [number, number][]) || null
+        : null;
+    const routeStaticMapUrl = routePath ? buildRouteStaticMapUrl(routePath) : null;
 
     // Derive unique cities from authority names
     const uniqueCities = Array.from(new Set(authorities.map(a => a.name).filter(Boolean)));
@@ -435,9 +469,11 @@ function AddLocationModal({
                 parkingDetails: editingPark.parkingDetails,
                 externalSourceId: editingPark.externalSourceId,
                 imageFile: null,
+                imageUrl: (editingPark.image || (editingPark as any).images?.[0]) ?? '',
                 authorityId: editingPark.authorityId,
                 rating: editingPark.rating,
             });
+            setImageInputMode('file');
             // Pre-fill authority search text
             if (editingPark.authorityId) {
                 const auth = authorities.find(a => a.id === editingPark.authorityId);
@@ -467,9 +503,11 @@ function AddLocationModal({
                 parkingDetails: undefined,
                 externalSourceId: undefined,
                 imageFile: null,
+                imageUrl: '',
                 authorityId: undefined,
                 rating: undefined,
             });
+            setImageInputMode('file');
             setCitySearch('');
             setAuthoritySearch('');
         }
@@ -537,14 +575,56 @@ function AddLocationModal({
 
                 {/* Form Body */}
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                    {/* Image Upload — at the top for high visibility */}
+                    {/* Route path map preview — only when editing an official route */}
+                    {editingOfficialRoute && routeStaticMapUrl && (
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <Map size={14} className="text-blue-500" />
+                                תצוגת מסלול
+                            </label>
+                            <div className="relative rounded-2xl overflow-hidden border border-blue-100 bg-gray-100" style={{ height: 160 }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={routeStaticMapUrl}
+                                    alt="תצוגת מסלול"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                                <div className="absolute bottom-2 right-2 bg-blue-600/90 text-white text-xs font-bold px-2 py-1 rounded-lg">
+                                    {routePath!.length} נקודות
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Image Upload — with URL / File toggle */}
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                            <ImageIcon size={14} className="text-blue-500" />
-                            תמונת המיקום
-                        </label>
-                        {formData.imageFile ? (
-                            <div className="relative">
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                <ImageIcon size={14} className="text-blue-500" />
+                                תמונת המיקום
+                            </label>
+                            {/* URL / File toggle */}
+                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 text-xs font-bold">
+                                <button
+                                    type="button"
+                                    onClick={() => setImageInputMode('file')}
+                                    className={`px-2.5 py-1 rounded-md transition-all ${imageInputMode === 'file' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+                                >
+                                    קובץ
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setImageInputMode('url')}
+                                    className={`px-2.5 py-1 rounded-md transition-all ${imageInputMode === 'url' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+                                >
+                                    קישור URL
+                                </button>
+                            </div>
+                        </div>
+
+                        {imageInputMode === 'file' ? (
+                            formData.imageFile ? (
                                 <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
                                     <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                                         <ImageIcon size={20} className="text-green-600" />
@@ -561,24 +641,44 @@ function AddLocationModal({
                                         <X size={16} />
                                     </button>
                                 </div>
-                            </div>
+                            ) : (
+                                <label className="flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 hover:bg-blue-50 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-4 transition-all">
+                                    <Upload size={24} className="text-gray-400" />
+                                    <span className="text-sm text-gray-500">גרור תמונה או לחץ לבחירה</span>
+                                    <span className="text-xs text-gray-400">
+                                        {`ברירת מחדל: ${DEFAULT_CATEGORY_ICONS[formData.urbanType || formData.courtType || formData.facilityType || 'gym_park'] || '📍'}`}
+                                    </span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0] || null;
+                                            setFormData(prev => ({ ...prev, imageFile: file, imageUrl: '' }));
+                                        }}
+                                        className="hidden"
+                                    />
+                                </label>
+                            )
                         ) : (
-                            <label className="flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 hover:bg-blue-50 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-4 transition-all">
-                                <Upload size={24} className="text-gray-400" />
-                                <span className="text-sm text-gray-500">גרור תמונה או לחץ לבחירה</span>
-                                <span className="text-xs text-gray-400">
-                                    {!formData.imageFile && `ברירת מחדל: ${DEFAULT_CATEGORY_ICONS[formData.urbanType || formData.courtType || formData.facilityType || 'gym_park'] || '📍'}`}
-                                </span>
+                            <div className="space-y-2">
                                 <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        setFormData(prev => ({ ...prev, imageFile: file }));
-                                    }}
-                                    className="hidden"
+                                    type="url"
+                                    value={formData.imageUrl || ''}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value, imageFile: null }))}
+                                    className="w-full p-3 bg-gray-50 rounded-xl border-2 border-transparent focus:border-blue-500 focus:bg-white transition-all outline-none text-sm"
+                                    placeholder="https://example.com/image.jpg"
+                                    dir="ltr"
                                 />
-                            </label>
+                                {formData.imageUrl && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={formData.imageUrl}
+                                        alt="תצוגה מקדימה"
+                                        className="w-full h-28 object-cover rounded-xl border border-gray-200"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -1198,7 +1298,8 @@ function AddLocationModal({
                         </div>
                     )}
 
-                    {/* Map Picker (shared across all tabs) */}
+                    {/* Map Picker — hidden for official routes (the static route preview already shows the path) */}
+                    {!editingOfficialRoute && (
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-gray-700">מיקום במפה</label>
                         <p className="text-xs text-gray-400">לחץ על המפה כדי לסמן את המיקום</p>
@@ -1211,6 +1312,7 @@ function AddLocationModal({
                             <span>Lng: {formData.location.lng.toFixed(6)}</span>
                         </div>
                     </div>
+                    )}
 
                     {/* Sport Types — hidden for courts when courtType is selected (auto-assigned) */}
                     {!(isCourtTab && formData.courtType) && (
@@ -1438,41 +1540,51 @@ export default function LocationsPage() {
         getCategoryBranding().then(config => setBrandingConfig(config)).catch(console.error);
     }, []);
 
-    // Fetch official routes when routes tab is active, converting to Park-like objects
+    // Extracted as useCallback so it can be called from handleSaveLocation
+    // to immediately refresh the table after a successful route save.
+    const refreshOfficialRoutes = useCallback(async () => {
+        try {
+            console.log('[LocationsPage] fetching official_routes…');
+            const routes = await InventoryService.fetchOfficialRoutes(
+                isAuthorityManagerOnly && userAuthorityIds.length > 0
+                    ? userAuthorityIds
+                    : undefined
+            );
+            console.log('[LocationsPage] fetchOfficialRoutes returned', routes.length, 'routes');
+            // Convert Route objects to Park-like objects for the table
+            const routeParks: Park[] = routes.map((r: RouteType) => ({
+                id: r.id,
+                name: r.name,
+                description: r.description || '',
+                location: r.path && r.path.length > 0
+                    ? { lat: r.path[0][1], lng: r.path[0][0] }
+                    : { lat: 0, lng: 0 },
+                facilityType: 'route' as ParkFacilityCategory,
+                sportTypes: (r.activityType ? [r.activityType] : [r.type]) as ParkSportType[],
+                featureTags: [],
+                status: 'open' as const,
+                city: r.city || '',
+                authorityId: r.authorityId || undefined,
+                // Map images from Firestore so the table thumbnail column can render them
+                images: (r as any).images as string[] | undefined,
+                // ── Official-route metadata (used by handleSaveLocation + map preview) ──
+                _isOfficialRoute: true,
+                _routePath: r.path,
+                _activityType: r.activityType || r.type,
+                _importBatchId: r.importBatchId || undefined,
+                _importSourceName: r.importSourceName || undefined,
+            } as Park & { _isOfficialRoute?: boolean; _routePath?: [number, number][]; _activityType?: string; _importBatchId?: string; _importSourceName?: string }));
+            setOfficialRoutes(routeParks);
+        } catch (err) {
+            console.error('Error loading official routes:', err);
+        }
+    }, [isAuthorityManagerOnly, userAuthorityIds]);
+
+    // Fetch official routes when routes tab is active
     useEffect(() => {
         if (activeTab !== 'routes') return;
-        const loadOfficialRoutes = async () => {
-            try {
-                const routes = await InventoryService.fetchOfficialRoutes(
-                    isAuthorityManagerOnly && userAuthorityIds.length > 0
-                        ? userAuthorityIds
-                        : undefined
-                );
-                // Convert Route objects to Park-like objects for the table
-                const routeParks: Park[] = routes.map((r: RouteType) => ({
-                    id: r.id,
-                    name: r.name,
-                    description: r.description || '',
-                    location: r.path && r.path.length > 0
-                        ? { lat: r.path[0][1], lng: r.path[0][0] }
-                        : { lat: 0, lng: 0 },
-                    facilityType: 'route' as ParkFacilityCategory,
-                    sportTypes: (r.activityType ? [r.activityType] : [r.type]) as ParkSportType[],
-                    featureTags: [],
-                    status: 'open' as const,
-                    city: r.city || '',
-                    authorityId: r.authorityId || undefined,
-                    _isOfficialRoute: true,
-                    _importBatchId: r.importBatchId || undefined,
-                    _importSourceName: r.importSourceName || undefined,
-                } as Park & { _isOfficialRoute?: boolean; _importBatchId?: string; _importSourceName?: string }));
-                setOfficialRoutes(routeParks);
-            } catch (err) {
-                console.error('Error loading official routes:', err);
-            }
-        };
-        loadOfficialRoutes();
-    }, [activeTab, isAuthorityManagerOnly, userAuthorityIds]);
+        refreshOfficialRoutes();
+    }, [activeTab, refreshOfficialRoutes]);
 
     const fetchParks = async (filterByAuthority: boolean = false, authorityIds: string[] = []) => {
         try {
@@ -1561,7 +1673,7 @@ export default function LocationsPage() {
         // Derive hasWaterFountain from feature tags (single source of truth)
         const hasWaterFromTags = data.featureTags.includes('water_fountain');
 
-        // Upload image if provided
+        // Upload image if a file was picked; otherwise use the pasted URL
         let imageUrl: string | undefined = undefined;
         if (data.imageFile) {
             try {
@@ -1572,6 +1684,8 @@ export default function LocationsPage() {
                 console.error('Error uploading image:', err);
                 // Continue without image
             }
+        } else if (data.imageUrl?.trim()) {
+            imageUrl = data.imageUrl.trim();
         }
 
         const parkData: Partial<Omit<Park, 'id' | 'createdAt' | 'updatedAt'>> = {
@@ -1605,8 +1719,32 @@ export default function LocationsPage() {
         }
 
         if (editingPark) {
-            await updatePark(editingPark.id, parkData);
-            setParks(prev => prev.map(p => p.id === editingPark.id ? { ...p, ...parkData } as Park : p));
+            const isOfficialRoute = (editingPark as any)._isOfficialRoute === true;
+
+            if (isOfficialRoute) {
+                // ── Route: save to official_routes, not parks ──────────────────────────
+                // updatePark would write to the parks collection where the route doc
+                // doesn't exist, producing "FirebaseError: No document to update".
+                const routePayload = {
+                    name:        parkData.name        as any,
+                    description: parkData.description as any,
+                    activityType: ((editingPark as any)._activityType || parkData.sportTypes?.[0]) as any,
+                    city:        parkData.city        as any,
+                    authorityId: parkData.authorityId as any,
+                    // Always include images array: if new image was uploaded/pasted use it,
+                    // otherwise fall back to existing images from editingPark so we don't erase them.
+                    images: parkData.image
+                        ? [parkData.image]
+                        : ((editingPark as any).images as string[] | undefined) ?? undefined,
+                };
+                console.log('SAVE_PAYLOAD', { docId: editingPark.id, ...routePayload });
+                await InventoryService.updateRoute(editingPark.id, routePayload as any);
+                // Re-fetch from Firestore so the table reflects the saved image + all fields immediately
+                await refreshOfficialRoutes();
+            } else {
+                await updatePark(editingPark.id, parkData);
+                setParks(prev => prev.map(p => p.id === editingPark.id ? { ...p, ...parkData } as Park : p));
+            }
         } else {
             const id = await createPark(parkData as Omit<Park, 'id' | 'createdAt' | 'updatedAt'>);
             setParks(prev => [...prev, { id, ...parkData } as Park]);
@@ -1739,7 +1877,9 @@ export default function LocationsPage() {
                     <div>
                         <h1 className="text-2xl font-black text-gray-900">ניהול מיקומים על המפה</h1>
                         <p className="text-sm text-gray-500 mt-0.5">
-                            {parks.length} מיקומים במערכת · {filteredParks.length} ב{currentTabConfig.label}
+                            {activeTab === 'routes'
+                                ? `${officialRoutes.length} מסלולים רשמיים`
+                                : `${parks.length} מיקומים במערכת · ${filteredParks.length} ב${currentTabConfig.label}`}
                         </p>
                     </div>
                 </div>
@@ -1813,12 +1953,17 @@ export default function LocationsPage() {
                     {TABS.map(tab => {
                         const isActive = activeTab === tab.id;
                         const isBrandingTab = tab.id === 'branding';
-                        const count = isBrandingTab ? 0 : parks.filter(p => {
-                            if (p.facilityType) {
-                                return tab.facilityTypes.includes(p.facilityType);
-                            }
-                            return tab.id === 'parks';
-                        }).length;
+                        // Routes live in the separate official_routes collection — use
+                        // officialRoutes.length so the badge shows the real count (e.g. 26),
+                        // not the 0 you'd get by filtering parks (wrong collection).
+                        const count = isBrandingTab ? 0
+                            : tab.id === 'routes' ? officialRoutes.length
+                            : parks.filter(p => {
+                                if (p.facilityType) {
+                                    return tab.facilityTypes.includes(p.facilityType);
+                                }
+                                return tab.id === 'parks';
+                            }).length;
 
                         return (
                             <button

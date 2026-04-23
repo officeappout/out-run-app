@@ -7,7 +7,7 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { sendAdminMagicLink } from '@/features/admin/services/passwordless-auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
-import { Building2, Mail, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
 
 export default function AuthorityPortalLoginPage() {
   return (
@@ -26,13 +26,22 @@ function AuthorityPortalLoginContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState('');
 
   const [brandName, setBrandName] = useState<string | null>(null);
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [brandLoading, setBrandLoading] = useState(false);
+
+  // Persist invitation token to localStorage so it survives the magic link redirect
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (token && typeof window !== 'undefined') {
+      window.localStorage.setItem('pendingInvitationToken', token);
+    }
+  }, [searchParams]);
 
   // Fetch branding from ?authority=XXXX URL parameter
   useEffect(() => {
@@ -92,7 +101,6 @@ function AuthorityPortalLoginContent() {
   const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setLoading(true);
 
     try {
@@ -101,17 +109,22 @@ function AuthorityPortalLoginContent() {
         try {
           const roleInfo = await checkUserRole(currentUser.uid);
           if (roleInfo.isSuperAdmin) {
-            setSuccess('מעביר לדשבורד...');
-            setTimeout(() => { router.push('/admin/authority-manager'); }, 500);
+            router.push('/admin/authority-manager');
             return;
           }
         } catch {}
       }
 
+      const hasInvitationToken = !!(
+        searchParams.get('token') ||
+        (typeof window !== 'undefined' && window.localStorage.getItem('pendingInvitationToken'))
+      );
+
       const result = await sendAdminMagicLink(
         email,
         'authority_manager',
-        `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`
+        `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`,
+        { hasInvitationToken }
       );
 
       if (result.error) {
@@ -121,18 +134,9 @@ function AuthorityPortalLoginContent() {
       }
 
       if (result.sent) {
-        const isDevMode = typeof window !== 'undefined' &&
-          (window.location.hostname === 'localhost' ||
-           window.location.hostname === '127.0.0.1' ||
-           window.location.hostname.includes('localhost'));
-
-        if (isDevMode) {
-          setSuccess('מעביר לדשבורד...');
-          setTimeout(() => { router.push('/admin/authority-manager'); }, 500);
-        } else {
-          setSuccess(`נשלח קישור התחברות לכתובת ${email}. בדוק את תיבת הדואר הנכנס שלך.`);
-          setEmail('');
-        }
+        setSentToEmail(email);
+        setShowSuccessModal(true);
+        setEmail('');
       } else {
         setError('שגיאה בשליחת הקישור. נסה שוב.');
       }
@@ -141,6 +145,11 @@ function AuthorityPortalLoginContent() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+    setSentToEmail('');
   };
 
   if (checkingAuth) {
@@ -198,16 +207,12 @@ function AuthorityPortalLoginContent() {
         {/* Login Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
           {error && (
-            <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-lg flex items-start gap-3">
+            <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-xl flex items-start gap-3">
               <AlertCircle size={20} className="flex-shrink-0 mt-0.5 text-red-600" />
               <p className="text-sm flex-1 text-red-800">{error}</p>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-6 p-4 border border-green-200 bg-green-50 rounded-lg flex items-start gap-3">
-              <CheckCircle size={20} className="flex-shrink-0 mt-0.5 text-green-600" />
-              <p className="text-sm flex-1 text-green-800">{success}</p>
+              <button onClick={() => setError('')} className="text-red-400 hover:text-red-600 flex-shrink-0">
+                <X size={16} />
+              </button>
             </div>
           )}
 
@@ -272,6 +277,66 @@ function AuthorityPortalLoginContent() {
           </p>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative animate-in fade-in zoom-in-95 duration-300">
+            {/* Close */}
+            <button
+              onClick={handleCloseSuccessModal}
+              className="absolute top-5 left-5 text-gray-300 hover:text-gray-500 transition-colors"
+            >
+              <X size={22} />
+            </button>
+
+            {/* Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-200/60">
+                <MailCheck size={36} className="text-white" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-black text-gray-900 text-center mb-3">
+              המייל בדרך אליך!
+            </h2>
+
+            {/* Body */}
+            <p className="text-gray-600 text-center leading-relaxed mb-2">
+              שלחנו לך קישור התחברות מאובטח לכתובת המייל שהזנת.
+              לחיצה על הקישור תכניס אותך ישירות לפורטל הניהול.
+            </p>
+
+            {/* Email badge */}
+            {sentToEmail && (
+              <div className="flex justify-center mb-5">
+                <span className="inline-flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-bold" dir="ltr">
+                  <Mail size={14} className="text-cyan-600" />
+                  {sentToEmail}
+                </span>
+              </div>
+            )}
+
+            {/* Spam warning */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+              <Search size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800 leading-relaxed">
+                <strong>לא מצאת את המייל?</strong>
+                {' '}כדאי לבדוק גם בתיקיית ה-Spam (דואר זבל).
+              </p>
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={handleCloseSuccessModal}
+              className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors"
+            >
+              הבנתי, אבדוק את המייל
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

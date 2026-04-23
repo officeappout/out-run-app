@@ -184,7 +184,7 @@ export default function UserHeaderPill({
   compact = false,
 }: UserHeaderPillProps) {
   const { profile } = useUserStore();
-  const { coins, isHydrated, hydrateFromFirestore } = useProgressionStore();
+  const { coins, hydrateFromFirestore } = useProgressionStore();
   const { todayActivity, streak, isLoading: activityLoading } = useDailyActivity();
   
   const [isCoinsLoading, setIsCoinsLoading] = useState(true);
@@ -219,8 +219,10 @@ export default function UserHeaderPill({
       }
     });
 
-    // Also hydrate immediately if user is already authenticated
-    if (auth.currentUser && profile?.id && !isHydrated) {
+    // Also hydrate immediately if user is already authenticated.
+    // NOTE: hydrateFromFirestore is idempotent — if already hydrated it
+    // returns immediately, so this is safe to call unconditionally.
+    if (auth.currentUser && profile?.id) {
       setIsCoinsLoading(true);
       hydrateFromFirestore(profile.id)
         .catch((error) => {
@@ -232,7 +234,11 @@ export default function UserHeaderPill({
     }
 
     return () => unsubscribe();
-  }, [profile?.id, isHydrated, hydrateFromFirestore]);
+    // isHydrated intentionally omitted: including it caused an infinite
+    // re-render loop (hydrate → isHydrated flips → effect re-runs → hydrate…).
+    // The store's idempotency guard handles deduplication instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
   
   // User avatar URL
   const avatarUrl = profile?.core?.photoURL;

@@ -1,15 +1,15 @@
 /**
  * Enhanced Execution Method Selector
- * Selects the best execution method considering park brand matching
+ * Selects the best execution method considering park brand matching,
+ * media availability, and pullup-bar priority for מתח exercises.
  */
 import { Exercise, ExecutionMethod, ExecutionLocation, RequiredGearType } from '@/features/content/exercises';
 import { Park } from '@/features/parks';
-import { ParkGymEquipment } from '@/features/content/equipment/gym';
 import { UserFullProfile } from '@/types/user-profile';
 import { getAllGymEquipment } from '@/features/content/equipment/gym';
 import { GymEquipment } from '@/features/content/equipment/gym';
+import { normalizeGearId, isEquipmentFamilyMatch } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
-// Cache for gym equipment
 let gymEquipmentCache: GymEquipment[] | null = null;
 
 async function getGymEquipment(): Promise<GymEquipment[]> {
@@ -24,23 +24,72 @@ async function getGymEquipment(): Promise<GymEquipment[]> {
   return gymEquipmentCache;
 }
 
-/**
- * Check if a method matches a location.
- * Handles both the legacy `location` field and the newer `locationMapping` array.
- */
 function methodMatchesLocation(method: ExecutionMethod, location: ExecutionLocation): boolean {
   if (method.location === location) return true;
   if (method.locationMapping?.includes(location)) return true;
   return false;
 }
 
+function methodHasMedia(method: ExecutionMethod): boolean {
+  const m = method.media as Record<string, any> | undefined;
+  return !!(m?.mainVideoUrl || m?.videoUrl || m?.imageUrl);
+}
+
+function getMethodEquipmentIds(method: ExecutionMethod): string[] {
+  const gearIds = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
+  const equipmentIds = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
+  return [...equipmentIds, ...gearIds];
+}
+
+function methodUsesPullupBar(method: ExecutionMethod): boolean {
+  const ids = getMethodEquipmentIds(method);
+  return ids.some((id) => {
+    const canonical = normalizeGearId(id);
+    return canonical === 'pullup_bar' || isEquipmentFamilyMatch('pullup_bar', canonical);
+  });
+}
+
+function exerciseNameContainsPullup(exercise: Exercise): boolean {
+  const heName = typeof exercise.name === 'string'
+    ? exercise.name
+    : (exercise.name as any)?.he || '';
+  return heName.includes('מתח');
+}
+
+interface ScoredCandidate {
+  method: ExecutionMethod;
+  hasMedia: boolean;
+  usesPullupBar: boolean;
+}
+
+function rankCandidates(candidates: ScoredCandidate[], preferPullup: boolean): ExecutionMethod | undefined {
+  if (candidates.length === 0) return undefined;
+  if (candidates.length === 1) return candidates[0].method;
+
+  candidates.sort((a, b) => {
+    // 1. Prefer methods WITH media over those without
+    if (a.hasMedia !== b.hasMedia) return a.hasMedia ? -1 : 1;
+    // 2. For מתח exercises, prefer pullup_bar over rings
+    if (preferPullup && a.usesPullupBar !== b.usesPullupBar) return a.usesPullupBar ? -1 : 1;
+    return 0;
+  });
+
+  return candidates[0].method;
+}
+
 /**
- * Select execution method with brand matching for parks
+ * Select execution method with brand matching for parks.
+ *
  * Priority:
- * 1. Match equipment ID AND brand name (if at park)
- * 2. Match equipment ID only
- * 3. User gear
- * 4. Improvised
+ *  1. Match equipment ID AND brand name (if at park)
+ *  2. Match equipment ID only
+ *  3. User gear
+ *  4. Improvised
+ *
+ * Within each tier, methods are ranked by:
+ *  - Media availability (methods WITH video/image beat those without)
+ *  - Pull-up priority (for exercises whose name contains 'מתח',
+ *    methods using pullup_bar beat methods using rings)
  */
 export async function selectExecutionMethodWithBrand(
   exercise: Exercise,
@@ -52,102 +101,142 @@ export async function selectExecutionMethodWithBrand(
     return undefined;
   }
 
-  // Filter methods by location — checks both legacy `location` AND `locationMapping`
   const locationMethods = exercise.execution_methods.filter((m) => methodMatchesLocation(m, location));
   if (locationMethods.length === 0) {
     return undefined;
   }
 
-  // If at park, try to match by brand first
+  const preferPullup = exerciseNameContainsPullup(exercise);
+
+  // ── Park: collect ALL matching methods, then rank ──
   if (location === 'park' && park && park.gymEquipment) {
     const gymEquipmentList = await getGymEquipment();
-    
-    // First, try to find exact brand match
+    const parkCanonicalMap = park.gymEquipment.map((eq) => ({
+      ...eq,
+      canonical: normalizeGearId(eq.equipmentId),
+    }));
+
+    const candidates: ScoredCandidate[] = [];
+
     for (const method of locationMethods) {
-      // Use new array-based fields, with fallback to legacy single fields
-      const gearIdsToCheck = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
-      const equipmentIdsToCheck = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
-      const allEquipmentIds = [...equipmentIdsToCheck, ...gearIdsToCheck];
-      
+      const allEquipmentIds = getMethodEquipmentIds(method);
+
       if (method.requiredGearType === 'fixed_equipment' && allEquipmentIds.length > 0) {
-        // Check each equipment ID for park availability
         for (const eqId of allEquipmentIds) {
-          // Find the park equipment entry
-          const parkEquipment = park.gymEquipment.find(
-            (eq) => eq.equipmentId === eqId
-          );
-          
-          if (parkEquipment) {
-            // Find the gym equipment definition
+          // Try exact Firestore ID match first (preserves brand-specific videos)
+          const exactMatch = park.gymEquipment.find((eq) => eq.equipmentId === eqId);
+
+          if (exactMatch) {
             const equipmentDef = gymEquipmentList.find((eq) => eq.id === eqId);
-            
+            let enrichedMethod = method;
             if (equipmentDef) {
-              // Check if the park's brand matches any brand in the equipment definition
               const brandMatch = equipmentDef.brands.find(
-                (brand) => brand.brandName === parkEquipment.brandName
+                (brand) => brand.brandName === exactMatch.brandName
               );
-              
-              // If brand matches and has a video URL, prefer this method
-              if (brandMatch && brandMatch.videoUrl) {
-                // Return method with brand-specific main video
-                return {
+              if (brandMatch?.videoUrl) {
+                enrichedMethod = {
                   ...method,
-                  media: {
-                    ...method.media,
-                    mainVideoUrl: brandMatch.videoUrl,
-                  },
+                  media: { ...method.media, mainVideoUrl: brandMatch.videoUrl },
                 };
               }
             }
-            
-            // If equipment matches but no brand-specific video, still return this method
-            return method;
+            candidates.push({
+              method: enrichedMethod,
+              hasMedia: methodHasMedia(enrichedMethod),
+              usesPullupBar: methodUsesPullupBar(method),
+            });
+            break;
+          }
+
+          // Canonical / family match
+          const requiredCanonical = normalizeGearId(eqId);
+          const familyMatch = parkCanonicalMap.find(
+            (eq) => eq.canonical === requiredCanonical
+              || isEquipmentFamilyMatch(requiredCanonical, eq.canonical)
+          );
+          if (familyMatch) {
+            const equipmentDef = gymEquipmentList.find((eq) => eq.id === familyMatch.equipmentId);
+            let enrichedMethod = method;
+            if (equipmentDef) {
+              const brandMatch = equipmentDef.brands.find(
+                (brand) => brand.brandName === familyMatch.brandName
+              );
+              if (brandMatch?.videoUrl) {
+                enrichedMethod = {
+                  ...method,
+                  media: { ...method.media, mainVideoUrl: brandMatch.videoUrl },
+                };
+              }
+            }
+            candidates.push({
+              method: enrichedMethod,
+              hasMedia: methodHasMedia(enrichedMethod),
+              usesPullupBar: methodUsesPullupBar(method),
+            });
+            break;
           }
         }
       }
     }
+
+    const parkWinner = rankCandidates(candidates, preferPullup);
+    if (parkWinner) return parkWinner;
   }
 
-  // Fallback to standard selection logic
+  // ── Fallback: standard gear-type priority ──
   let priorityOrder: RequiredGearType[];
   if (location === 'home' || location === 'office' || location === 'school') {
-    // Indoor / home-like: user gear first, then improvised
     priorityOrder = ['user_gear', 'improvised'];
   } else if (location === 'park' || location === 'gym') {
-    // Environments with fixed equipment
     priorityOrder = ['fixed_equipment', 'user_gear', 'improvised'];
   } else {
-    // Street and other outdoor contexts
     priorityOrder = ['user_gear', 'improvised'];
   }
 
-  // Try each priority in order
   for (const gearType of priorityOrder) {
     const methodsOfType = locationMethods.filter((m) => m.requiredGearType === gearType);
+    const candidates: ScoredCandidate[] = [];
 
     for (const method of methodsOfType) {
-      // Use new array-based fields, with fallback to legacy single fields
-      const gearIdsToCheck = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
-      const equipmentIdsToCheck = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
-      const allEquipmentIds = [...equipmentIdsToCheck, ...gearIdsToCheck];
-      
+      const allEquipmentIds = getMethodEquipmentIds(method);
+
       if (method.requiredGearType === 'fixed_equipment' && allEquipmentIds.length > 0) {
-        if (park && park.gymEquipment && park.gymEquipment.length > 0) {
-          const parkGymEquipment = park.gymEquipment; // Capture for TypeScript
-          const hasEquipment = allEquipmentIds.some(id =>
-            parkGymEquipment.some((eq) => eq.equipmentId === id)
-          );
+        if (park?.gymEquipment?.length) {
+          const parkGymEquipment = park.gymEquipment;
+          const hasEquipment = allEquipmentIds.some((id) => {
+            if (parkGymEquipment.some((eq) => eq.equipmentId === id)) return true;
+            const requiredCanonical = normalizeGearId(id);
+            return parkGymEquipment.some((eq) => {
+              const parkCanonical = normalizeGearId(eq.equipmentId);
+              return parkCanonical === requiredCanonical
+                || isEquipmentFamilyMatch(requiredCanonical, parkCanonical);
+            });
+          });
           if (hasEquipment) {
-            return method;
+            candidates.push({
+              method,
+              hasMedia: methodHasMedia(method),
+              usesPullupBar: methodUsesPullupBar(method),
+            });
           }
         }
-      } else if (method.requiredGearType === 'user_gear' && gearIdsToCheck.length > 0) {
-        // TODO: Implement proper user gear checking
-        return method;
-      } else if (method.requiredGearType === 'improvised' && gearIdsToCheck.length > 0) {
-        return method;
+      } else if (method.requiredGearType === 'user_gear') {
+        candidates.push({
+          method,
+          hasMedia: methodHasMedia(method),
+          usesPullupBar: methodUsesPullupBar(method),
+        });
+      } else if (method.requiredGearType === 'improvised') {
+        candidates.push({
+          method,
+          hasMedia: methodHasMedia(method),
+          usesPullupBar: methodUsesPullupBar(method),
+        });
       }
     }
+
+    const winner = rankCandidates(candidates, preferPullup);
+    if (winner) return winner;
   }
 
   return undefined;

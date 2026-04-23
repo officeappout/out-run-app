@@ -84,6 +84,8 @@ function docToContent(id: string, data: Record<string, unknown>): VisualAssessme
     exerciseId: (data.exerciseId as string) ?? undefined,
     showInOnboarding: data.showInOnboarding === true,
     onboardingBubbleText: (data.onboardingBubbleText as string) ?? undefined,
+    targetReps: (data.targetReps as string) ?? undefined,
+    unitType: (data.unitType as 'reps' | 'seconds') ?? undefined,
     createdAt: toDate(data.createdAt as Timestamp | Date | undefined),
     updatedAt: toDate(data.updatedAt as Timestamp | Date | undefined),
   };
@@ -205,6 +207,8 @@ export async function saveVisualContent(
       exerciseId: data.exerciseId ?? null,
       showInOnboarding: data.showInOnboarding ?? false,
       onboardingBubbleText: data.onboardingBubbleText ?? '',
+      targetReps: data.targetReps?.trim() ?? '',
+      unitType: data.unitType ?? 'reps',
       updatedAt: serverTimestamp(),
       createdAt: existing.exists() ? existing.data()?.createdAt : serverTimestamp(),
     };

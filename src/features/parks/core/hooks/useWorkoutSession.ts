@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
@@ -17,11 +17,10 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function formatPace(distanceKm: number, timeSeconds: number): string {
-  if (distanceKm <= 0) return '0:00';
-  const paceDec = (timeSeconds / 60) / distanceKm;
-  const mins = Math.floor(paceDec);
-  const secs = Math.round((paceDec - mins) * 60);
+function formatPaceFromMinKm(paceMinKm: number): string {
+  if (paceMinKm <= 0) return '0:00';
+  const mins = Math.floor(paceMinKm);
+  const secs = Math.round((paceMinKm - mins) * 60);
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
@@ -53,6 +52,7 @@ export interface WorkoutSessionState {
   endSession: () => void;
   triggerLap: () => void;
   addCoord: (c: [number, number]) => void;
+  injectSimPosition: (pos: { lat: number; lng: number }) => void;
   jitState: ReturnType<typeof useRequiredSetup>['jitState'];
   dismissJIT: () => void;
   cancelJIT: () => void;
@@ -69,6 +69,13 @@ export function useWorkoutSession(
   const { status, startSession, pauseSession, resumeSession, endSession, updateDistance } = useSessionStore();
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
 
+  // Read canonical coord trail and pace from the running store (single source of truth)
+  const routeCoords = useRunningPlayer((s) => s.routeCoords);
+  const currentPace = useRunningPlayer((s) => s.currentPace);
+
+  // Read canonical distance from the session store (updated by useRunningPlayer.startGPSTracking)
+  const runDistance = useSessionStore((s) => s.totalDistance);
+
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [isWorkoutPaused, setIsWorkoutPaused] = useState(false);
   const [isNavigationMode, setIsNavigationMode] = useState(false);
@@ -78,14 +85,23 @@ export function useWorkoutSession(
   const [showDopamine, setShowDopamine] = useState(false);
   const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [runDistance, setRunDistance] = useState(0);
-  const [userBearing, setUserBearing] = useState(0);
-  const [workoutWatchId, setWorkoutWatchId] = useState<number | null>(null);
 
   const userWeight = (profile as any)?.core?.weight || (profile as any)?.weight || 70;
-  const runPace = formatPace(runDistance, elapsedTime);
 
-  // Timer
+  // Pace string derived directly from the store's smoothed currentPace value (Fix #2).
+  // No more formatPace(runDistance, elapsedTime) — that passed elapsedTime as pace.
+  const runPace = formatPaceFromMinKm(currentPace);
+
+  // ── Fix #1: livePath is now a mirror of routeCoords from useRunningPlayer ──
+  // The store's startGPSTracking() is the ONLY GPS watcher; this effect keeps
+  // the local livePath in sync so MapShell/AppMap can read it normally.
+  useEffect(() => {
+    if (isWorkoutActive && routeCoords.length > 0) {
+      setLivePath(routeCoords as [number, number][]);
+    }
+  }, [isWorkoutActive, routeCoords]);
+
+  // Timer — keeps elapsedTime for the HUD and ticks the session store
   useEffect(() => {
     if (!isWorkoutActive || isWorkoutPaused || !workoutStartTime) return;
     const interval = setInterval(() => {
@@ -95,56 +111,43 @@ export function useWorkoutSession(
     return () => clearInterval(interval);
   }, [isWorkoutActive, isWorkoutPaused, workoutStartTime]);
 
-  // GPS watchPosition during active workout
-  useEffect(() => {
-    if (!isWorkoutActive || isWorkoutPaused) {
-      if (workoutWatchId && typeof window !== 'undefined' && 'geolocation' in navigator) {
-        try { navigator.geolocation.clearWatch(workoutWatchId); } catch { /* ignore */ }
-        setWorkoutWatchId(null);
-      }
-      return;
-    }
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+  // ── Fix #4: Simulation injection bookkeeping ──
+  const lastSimInjectionRef = useRef<{ pos: { lat: number; lng: number }; time: number } | null>(null);
 
-    let id: number | null = null;
-    try {
-      id = navigator.geolocation.watchPosition(
-        (pos) => {
-          const newLat = pos.coords.latitude;
-          const newLng = pos.coords.longitude;
-          const prev = currentUserPos;
-          if (prev) {
-            const dist = getDistanceKm(prev.lat, prev.lng, newLat, newLng);
-            if (dist > 0.015) {
-              setRunDistance((d) => d + dist);
-              setLivePath((p) => [...p, [newLng, newLat]]);
-              addCoord([newLng, newLat]);
-              if (status === 'running' || status === 'active') {
-                updateRunData(dist, elapsedTime);
-                updateDistance(dist);
-              }
-              setCurrentUserPos({ lat: newLat, lng: newLng });
-              if (pos.coords.heading) setUserBearing(pos.coords.heading);
-            }
-          } else {
-            setCurrentUserPos({ lat: newLat, lng: newLng });
-            setLivePath([[newLng, newLat]]);
-            if (pos.coords.heading) setUserBearing(pos.coords.heading);
+  // Accepts a mock position from useDevSimulation and records it into the workout
+  // pipeline identically to how real GPS coords are recorded in startGPSTracking.
+  const injectSimPosition = useCallback((pos: { lat: number; lng: number }) => {
+    if (!isWorkoutActive || isWorkoutPaused) return;
+
+    const now = Date.now();
+    const last = lastSimInjectionRef.current;
+
+    if (last) {
+      const distKm = getDistanceKm(last.pos.lat, last.pos.lng, pos.lat, pos.lng);
+      if (distKm < 0.005) return; // < 5 m — skip, same threshold as startGPSTracking
+
+      addCoord([pos.lng, pos.lat]);
+      updateDistance(distKm);
+
+      const timeDeltaSeconds = (now - last.time) / 1000;
+      if (timeDeltaSeconds > 0) {
+        const speedMs = (distKm * 1000) / timeDeltaSeconds;
+        const MIN_SPEED_MS = 0.3;
+        const MAX_PACE_MIN_KM = 15;
+        if (speedMs > MIN_SPEED_MS) {
+          const instantPaceMinKm = 1000 / (speedMs * 60);
+          if (instantPaceMinKm <= MAX_PACE_MIN_KM) {
+            updateRunData(distKm, instantPaceMinKm);
           }
-        },
-        () => { /* retry on error */ },
-        { enableHighAccuracy: true, maximumAge: 0 },
-      );
-      setWorkoutWatchId(id);
-    } catch { /* ignore */ }
-
-    return () => {
-      if (id !== null && typeof window !== 'undefined' && 'geolocation' in navigator) {
-        try { navigator.geolocation.clearWatch(id); } catch { /* ignore */ }
+        }
       }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isWorkoutActive, isWorkoutPaused, currentUserPos, status, runDistance]);
+    } else {
+      addCoord([pos.lng, pos.lat]);
+    }
+
+    lastSimInjectionRef.current = { pos, time: now };
+    setCurrentUserPos(pos);
+  }, [isWorkoutActive, isWorkoutPaused, addCoord, updateDistance, updateRunData, setCurrentUserPos]);
 
   const _doStartActiveWorkout = useCallback(() => {
     const rp = useRunningPlayer.getState();
@@ -154,16 +157,16 @@ export function useWorkoutSession(
     startSession('running');
     if (planned) { rp.setCurrentWorkout(planned); rp.setRunMode('plan'); }
     else { rp.setRunMode('free'); }
+    // Single GPS watcher — only startGPSTracking runs; no second watcher here.
     rp.startGPSTracking();
+    lastSimInjectionRef.current = null;
     setWorkoutStartTime(Date.now());
     setIsWorkoutActive(true);
     setIsNavigationMode(true);
-    setRunDistance(0);
     setElapsedTime(0);
-    const isMock = focusedRoute?.id?.startsWith('mock') || false;
-    if (focusedRoute?.path && focusedRoute.path.length > 2 && !isMock && workoutMode !== 'free') {
-      setLivePath(focusedRoute.path);
-    } else if (currentUserPos) {
+    // Seed livePath with starting point; the store-sync effect will take over
+    // as real coords come in.
+    if (currentUserPos) {
       setLivePath([[currentUserPos.lng, currentUserPos.lat]]);
     } else {
       setLivePath([]);
@@ -188,6 +191,7 @@ export function useWorkoutSession(
     startActiveWorkout,
     pauseSession, resumeSession, endSession,
     triggerLap, addCoord,
+    injectSimPosition,
     jitState, dismissJIT, cancelJIT,
   };
 }

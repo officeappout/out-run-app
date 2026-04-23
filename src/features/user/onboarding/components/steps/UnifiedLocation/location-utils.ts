@@ -165,7 +165,10 @@ export async function forwardGeocode(
 
     if (!data.features || data.features.length === 0) return null;
 
-    const [lng, lat] = data.features[0].center;
+    const center = data.features[0]?.center;
+    if (!Array.isArray(center) || center.length < 2) return null;
+
+    const [lng, lat] = center;
     return { lat, lng };
   } catch (error) {
     console.warn('Forward geocoding failed:', error);

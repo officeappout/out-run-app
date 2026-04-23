@@ -32,21 +32,18 @@ export default function IdentityProfilePage() {
   const { profile } = useUserStore();
   const direction = 'rtl';
 
-  // Auth state — resolved via onAuthStateChanged so we never hit a stale null
-  const [authUser, setAuthUser] = useState<User | null>(auth.currentUser);
-  const [authReady, setAuthReady] = useState(!!auth.currentUser);
+  // Auth state — always start null so SSR and first client render match
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    setIsHydrated(true);
     const unsub = onAuthStateChanged(auth, (user) => {
       setAuthUser(user);
       setAuthReady(true);
     });
     return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    setIsHydrated(true);
   }, []);
 
   // Form state
@@ -55,13 +52,15 @@ export default function IdentityProfilePage() {
     birthDay: '',
     birthMonth: '',
     birthYear: '',
-    gender: '' as 'male' | 'female' | '',
+    gender: '' as 'male' | 'female' | 'other' | '',
   });
 
   // Refs for auto-tabbing
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const dayInputRef = useRef<HTMLInputElement>(null);
   const monthInputRef = useRef<HTMLInputElement>(null);
   const yearInputRef = useRef<HTMLInputElement>(null);
+  const genderSectionRef = useRef<HTMLDivElement>(null);
 
   // Validation states
   const [hasDobError, setHasDobError] = useState(false);
@@ -72,7 +71,7 @@ export default function IdentityProfilePage() {
   // Pre-fill from existing profile if available
   useEffect(() => {
     if (profile?.core?.name) setFormData(prev => ({ ...prev, name: profile.core.name }));
-    if (profile?.core?.gender) setFormData(prev => ({ ...prev, gender: profile.core.gender as 'male' | 'female' }));
+    if (profile?.core?.gender) setFormData(prev => ({ ...prev, gender: profile.core.gender as 'male' | 'female' | 'other' }));
     if (profile?.core?.birthDate) {
       const bd = profile.core.birthDate;
       const date = bd instanceof Date ? bd : new Date(bd);
@@ -217,11 +216,10 @@ export default function IdentityProfilePage() {
     }
   };
 
-  // ── Auth guard: don't render the form until we have a confirmed uid ──
-  const resolvedUid = resolveUid(authUser);
+  // Only resolve uid after hydration so SSR and first client render both
+  // produce null → loading spinner (no mismatch).
+  const resolvedUid = isHydrated ? resolveUid(authUser) : null;
 
-  // Redirect to Gateway only after hydration so we don't redirect before
-  // sessionStorage (gateway_uid) has been read.
   useEffect(() => {
     if (!isHydrated) return;
     if (authReady && !resolveUid(authUser)) {
@@ -254,13 +252,24 @@ export default function IdentityProfilePage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 py-8 overflow-y-auto">
-        {/* Title */}
-        <h2 className="text-2xl font-black text-slate-900 mb-2">בואו נכיר</h2>
-
-        {/* Subheader */}
-        <p className="mb-8 text-base font-medium text-slate-600 text-right">
-          כמה פרטים קצרים כדי שנוכל לבנות לך תוכנית מדויקת
-        </p>
+        {/* Title + Lemur Guide */}
+        <div className="flex flex-row items-center gap-4 mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/lemur/lemur_notepad.png"
+            alt=""
+            className="w-1/4 max-w-[120px] shrink-0 object-contain drop-shadow-md pointer-events-none"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+          <div className="flex-1 text-right">
+            <h2 className="text-2xl font-black text-slate-900 mb-1">נעים להכיר! 👋</h2>
+            <div className="text-sm font-medium text-slate-500 leading-relaxed">
+              אני קלי, המאמן האישי שלך.
+              <br />
+              כדי שנתפור לך תוכנית מדויקת, אני צריך רק כמה פרטים קטנים.
+            </div>
+          </div>
+        </div>
 
         <form className="space-y-6 px-1" onSubmit={(e) => e.preventDefault()}>
           {/* Name Input */}
@@ -269,12 +278,17 @@ export default function IdentityProfilePage() {
               איך קוראים לך?
             </label>
             <div className="relative">
-              <input 
+              <input
+                ref={nameInputRef}
                 type="text"
+                enterKeyHint="next"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); dayInputRef.current?.focus(); }
+                }}
                 className="w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right"
-                placeholder="השם שלי הוא..."
+                placeholder="השם שלך כאן..."
                 autoFocus
               />
             </div>
@@ -283,14 +297,18 @@ export default function IdentityProfilePage() {
           {/* Date of Birth */}
           <div className="space-y-2">
             <label className="block text-slate-800 font-bold text-sm text-right pr-1">
-              מתי נולדת?
+              מתי חוגגים לך יום הולדת? 🎂
             </label>
+            <p className="text-sm text-gray-400 text-right pr-1">
+              עוזר לנו להתאים את עצימות האימון לגילך.
+            </p>
             <div className="flex gap-3 flex-row">
               {/* Day */}
               <input
                 ref={dayInputRef}
                 type="text"
                 inputMode="numeric"
+                enterKeyHint="next"
                 pattern="[0-9]*"
                 maxLength={2}
                 value={formData.birthDay}
@@ -312,6 +330,7 @@ export default function IdentityProfilePage() {
                 ref={monthInputRef}
                 type="text"
                 inputMode="numeric"
+                enterKeyHint="next"
                 pattern="[0-9]*"
                 maxLength={2}
                 value={formData.birthMonth}
@@ -336,12 +355,17 @@ export default function IdentityProfilePage() {
                 ref={yearInputRef}
                 type="text"
                 inputMode="numeric"
+                enterKeyHint="done"
                 pattern="[0-9]*"
                 maxLength={4}
                 value={formData.birthYear}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 4);
                   setFormData({...formData, birthYear: value});
+                  if (value.length === 4) {
+                    yearInputRef.current?.blur();
+                    genderSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Backspace' && formData.birthYear === '') monthInputRef.current?.focus();
@@ -367,10 +391,13 @@ export default function IdentityProfilePage() {
           </div>
 
           {/* Gender Selection */}
-          <div className="space-y-2">
+          <div className="space-y-2" ref={genderSectionRef}>
             <label className="block text-slate-800 font-bold text-sm text-right pr-1">
               מה המגדר שלך?
             </label>
+            <p className="text-sm text-gray-400 text-right pr-1">
+              קריטי לאלגוריתם שלנו לחישוב מדדי כוח והוצאה קלורית.
+            </p>
             <div className="flex gap-3">
               <button 
                 type="button"
@@ -381,7 +408,7 @@ export default function IdentityProfilePage() {
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}
               >
                 <span className="text-xl">🙋‍♂️</span>
-                <span>זכר</span>
+                <span>גבר</span>
               </button>
               <button 
                 type="button"
@@ -392,7 +419,18 @@ export default function IdentityProfilePage() {
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}
               >
                 <span className="text-xl">🙋‍♀️</span>
-                <span>נקבה</span>
+                <span>אישה</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => setFormData({...formData, gender: 'other'})}
+                className={`flex-1 py-4 rounded-2xl font-semibold transition-all active:scale-[0.97] border-2 flex items-center justify-center gap-1.5 text-sm
+                  ${formData.gender === 'other' 
+                    ? 'border-[#5BC2F2] bg-[#5BC2F2] text-white shadow-md' 
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}`}
+              >
+                <span className="text-lg">✨</span>
+                <span>אחר</span>
               </button>
             </div>
           </div>

@@ -41,6 +41,8 @@ export interface ScheduleSlot {
     address?: string;
     lat?: number;
     lng?: number;
+    /** FK → official_routes or curated_routes. Mutually exclusive with parkId on the parent. */
+    routeId?: string;
   };
 }
 
@@ -67,6 +69,8 @@ export interface CommunityGroup {
   category: CommunityGroupCategory;
   meetingLocation?: {
     parkId?: string;
+    /** FK → official_routes or curated_routes. Mutually exclusive with parkId. */
+    routeId?: string;
     address?: string;
     location?: { lat: number; lng: number };
   };
@@ -120,6 +124,14 @@ export interface CommunityGroup {
   /** Free-text community rules shown in the group drawer (Hebrew) */
   rules?: string;
 
+  // ── Access Control ───────────────────────────────────────────────────
+  /** When true, users must provide a valid access code to join */
+  isLocked?: boolean;
+  /** Links this group to a specific tenant / organization */
+  organizationId?: string;
+  /** Hint for which code vertical to expect (e.g. 'military', 'school') */
+  requiredAccessCodeType?: string;
+
   // ── Geo-restrictions ──────────────────────────────────────────────────
   /** Restrict visibility to the group's authority city only */
   isCityOnly?: boolean;
@@ -146,6 +158,8 @@ export interface CommunityEvent {
   endTime?: string;
   location: {
     parkId?: string;
+    /** FK → official_routes or curated_routes. Mutually exclusive with parkId. */
+    routeId?: string;
     address: string;
     location: { lat: number; lng: number };
   };
@@ -185,6 +199,13 @@ export interface CommunityEvent {
   images?: string[];
   /** External registration / info URL */
   externalLink?: string;
+
+  // ── Origin / Source ──────────────────────────────────────────────────
+  /**
+   * 'virtual_materialized' — auto-created when a user joins a recurring group slot
+   * undefined / absent      — manually created by admin or standalone event
+   */
+  source?: 'virtual_materialized' | string;
 
   // ── Geo-restrictions ──────────────────────────────────────────────────
   isCityOnly?: boolean;
@@ -229,3 +250,58 @@ export type EventCategory =
   | 'workshop' 
   | 'community_meetup' 
   | 'other';
+
+// ─── Planned Sessions — Ephemeral Social Layer ────────────────────────────────
+
+import type { ActivityType } from '@/features/parks/core/types/route.types';
+
+export type PlannedSessionStatus = 'planned' | 'active' | 'completed' | 'cancelled';
+export type PrivacyMode = 'ghost' | 'squad' | 'verified_global';
+export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/**
+ * Firestore: planned_sessions/{sessionId}
+ * Lightweight spontaneous "I'm heading to this route" declarations.
+ */
+export interface PlannedSession {
+  id: string;
+  userId: string;
+  displayName: string;
+  photoURL: string | null;
+  routeId: string;
+  activityType: ActivityType;
+  level: FitnessLevel;
+  startTime: Date;
+  expiresAt: Date;
+  status: PlannedSessionStatus;
+  privacyMode: PrivacyMode;
+  createdAt: Date;
+  /** Shared key linking multiple sessions into a group run */
+  groupSessionId?: string;
+  groupName?: string;
+  isGroupLeader?: boolean;
+}
+
+// ─── Group Sessions — Live Group Interaction ──────────────────────────────────
+
+export type GroupSessionStatus = 'forming' | 'active' | 'completed';
+
+/**
+ * Firestore: group_sessions/{groupSessionId}
+ * Links multiple planned_sessions into a shared workout.
+ */
+export interface GroupSession {
+  id: string;
+  routeId: string;
+  activityType: ActivityType;
+  leaderUserId: string;
+  leaderName: string;
+  startTime: Date;
+  status: GroupSessionStatus;
+  memberIds: string[];
+  memberCount: number;
+  /** Stable color assignment per member for map avatars */
+  memberColors: Record<string, string>;
+  createdAt: Date;
+  expiresAt: Date;
+}

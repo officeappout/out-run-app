@@ -13,6 +13,16 @@
 import { Level } from '@/types/workout';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  DIFFICULTY_MULTIPLIER,
+  XP_PER_SET,
+  XP_PER_REP,
+  XP_PER_MINUTE_RUNNING,
+  XP_PER_KM_BONUS,
+  STREAK_MULTIPLIER_INCREMENT,
+  STREAK_MULTIPLIER_MAX_DAYS,
+  GLOBAL_LEVEL_THRESHOLDS,
+} from '../config/xp-rules';
 
 // ============================================================================
 // XP Settings — loaded from Firestore with hardcoded fallbacks
@@ -76,14 +86,19 @@ export async function getXPSettings(): Promise<XPSettings> {
 /**
  * Calculate globalLevel from total XP using admin-defined level thresholds.
  * Returns the highest level whose minXP the user has reached.
+ *
+ * When `levels` is empty (e.g. called from the store without a Firestore fetch),
+ * falls back to GLOBAL_LEVEL_THRESHOLDS from xp-rules.ts.
  */
 export function calculateLevelFromXP(
   totalXP: number,
   levels: Level[]
 ): number {
-  if (!levels.length) return 1;
+  const effective: Pick<Level, 'order' | 'minXP'>[] = levels.length > 0
+    ? levels
+    : GLOBAL_LEVEL_THRESHOLDS.map(t => ({ order: t.level, minXP: t.minXP }));
 
-  const sorted = [...levels].sort((a, b) => (a.minXP || 0) - (b.minXP || 0));
+  const sorted = [...effective].sort((a, b) => (a.minXP || 0) - (b.minXP || 0));
 
   for (let i = sorted.length - 1; i >= 0; i--) {
     if (totalXP >= (sorted[i].minXP || 0)) {
@@ -91,7 +106,7 @@ export function calculateLevelFromXP(
     }
   }
 
-  return 1; // default
+  return 1;
 }
 
 /**
@@ -211,4 +226,85 @@ export function calculateGoalCompletionPercent(
 ): number {
   if (targetValue <= 0) return 0;
   return Math.min(100, Math.round((actualPerformance / targetValue) * 100));
+}
+
+// ============================================================================
+// XP Calculation — Strength Workout (New Formula)
+// ============================================================================
+
+export interface StrengthWorkoutXPParams {
+  durationMinutes: number;
+  difficultyBolts: 1 | 2 | 3;
+  totalSets: number;
+  totalReps: number;
+  streak: number;
+  goalBonus?: number;
+}
+
+/**
+ * Calculate XP for a strength workout using the overhauled formula.
+ *
+ * FinalXP = round((BaseXP + VolumeXP) × StreakMultiplier) + goalBonus
+ *
+ * - BaseXP     = durationMinutes × DIFFICULTY_MULTIPLIER[bolts]
+ * - VolumeXP   = (totalSets × XP_PER_SET) + (totalReps × XP_PER_REP)
+ * - StreakMult  = 1 + min(streak, 30) × 0.01   → caps at 1.30×
+ * - goalBonus  = flat additive (pre-calculated by calculateGoalBonusXP)
+ *
+ * All constants sourced from config/xp-rules.ts.
+ */
+// ============================================================================
+// XP Calculation — Running / Walking Workout
+// ============================================================================
+
+export interface RunningWorkoutXPParams {
+  /** Total activity duration in whole minutes */
+  durationMinutes: number;
+  /** Distance covered in kilometres */
+  distanceKm: number;
+  /** Current daily streak (days) — same multiplier logic as strength */
+  streak: number;
+  /** Activity sub-type (walking earns the same rate as running) */
+  activityType?: 'running' | 'walking';
+}
+
+/**
+ * Calculate XP for a running or walking workout.
+ *
+ * FinalXP = round((Minutes × XP_PER_MINUTE_RUNNING + Km × XP_PER_KM_BONUS) × StreakMultiplier)
+ *
+ * - Base rate:  3 XP per minute (rewards time on feet)
+ * - Distance:  +10 XP per km (rewards intensity)
+ * - StreakMult: 1 + min(streak, 30) × 0.01  (caps at 1.30×)
+ *
+ * Walking uses the same formula — deliberate choice to reward all movement.
+ * All constants sourced from config/xp-rules.ts.
+ */
+export function calculateRunningWorkoutXP(params: RunningWorkoutXPParams): number {
+  const { durationMinutes, distanceKm, streak } = params;
+
+  const baseXP = Math.max(durationMinutes, 1) * XP_PER_MINUTE_RUNNING;
+  const distanceBonus = Math.max(0, distanceKm) * XP_PER_KM_BONUS;
+  const streakMultiplier = 1 + Math.min(streak, STREAK_MULTIPLIER_MAX_DAYS) * STREAK_MULTIPLIER_INCREMENT;
+
+  const finalXP = Math.round((baseXP + distanceBonus) * streakMultiplier);
+  return Math.max(1, finalXP);
+}
+
+export function calculateStrengthWorkoutXP(params: StrengthWorkoutXPParams): number {
+  const {
+    durationMinutes,
+    difficultyBolts,
+    totalSets,
+    totalReps,
+    streak,
+    goalBonus = 0,
+  } = params;
+
+  const baseXP = Math.max(durationMinutes, 1) * DIFFICULTY_MULTIPLIER[difficultyBolts];
+  const volumeXP = (totalSets * XP_PER_SET) + (totalReps * XP_PER_REP);
+  const streakMultiplier = 1 + Math.min(streak, STREAK_MULTIPLIER_MAX_DAYS) * STREAK_MULTIPLIER_INCREMENT;
+
+  const finalXP = Math.round((baseXP + volumeXP) * streakMultiplier) + goalBonus;
+  return Math.max(1, finalXP);
 }

@@ -20,8 +20,9 @@ import { Program } from '@/features/content/programs';
 import {
   Plus, Edit2, Trash2, Copy, Search, Eye, HelpCircle,
   PlayCircle, Download, AlertCircle, CheckCircle, Camera,
-  Zap, X,
+  Zap, X, Languages,
 } from 'lucide-react';
+import BulkTranslationDialog from '@/features/content/exercises/admin/components/BulkTranslationDialog';
 
 // ────────────────────────────────────────────────────────────────
 // Constants
@@ -268,6 +269,19 @@ export default function ExercisesAdminPage() {
   const [diagnosticData, setDiagnosticData] = useState<ReturnType<typeof diagnoseSmartSwapGaps> | null>(null);
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const [filterMissingIds, setFilterMissingIds] = useState(false);
+
+  // Bulk Translation dialog
+  const [showTranslationDialog, setShowTranslationDialog] = useState(false);
+
+  /** Re-fetch exercises for the current tab. Used after bulk imports. */
+  const refreshExercises = useCallback(async () => {
+    try {
+      const data = activeTab === 'all' ? await getAllExercises() : await getExercisesByProgram(activeTab);
+      setAllExercises(data);
+    } catch (err) {
+      console.error('Error refreshing exercises:', err);
+    }
+  }, [activeTab]);
 
   // Auto-compute missing base_movement_id count whenever exercises load
   const missingIdCount = useMemo(
@@ -598,6 +612,15 @@ export default function ExercisesAdminPage() {
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowTranslationDialog(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border border-indigo-200 rounded-xl font-bold hover:from-indigo-100 hover:to-purple-100 transition-colors"
+            title="ייצוא/ייבוא תרגומים בכמות עבור כל התרגילים"
+          >
+            <Languages size={18} />
+            תרגום בכמות
+          </button>
           <a
             href="/api/admin/exercises/export"
             download
@@ -813,6 +836,17 @@ export default function ExercisesAdminPage() {
           </div>
         )}
       </div>
+
+      {/* Bulk Translation Tool */}
+      <BulkTranslationDialog
+        isOpen={showTranslationDialog}
+        onClose={() => setShowTranslationDialog(false)}
+        exercises={allExercises}
+        onImportSuccess={() => {
+          showToast('✓ התרגומים יובאו בהצלחה');
+          void refreshExercises();
+        }}
+      />
     </div>
   );
 }

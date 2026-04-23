@@ -871,10 +871,15 @@ export function useWorkoutStateMachine(
           (exercise as any)?.executionMethods ||
           [];
         for (const m of methods) {
-          if (m.notificationText) {
-            if (typeof m.notificationText === 'string') return m.notificationText;
-            if (m.notificationText.male) return m.notificationText.male as string;
-          }
+          const nt = m.notificationText;
+          if (!nt) continue;
+          if (typeof nt === 'string') return nt;
+          // LocalizedText (current shape) — prefer he, fall back to en
+          if (typeof nt.he === 'string' && nt.he.trim()) return nt.he as string;
+          if (typeof nt.en === 'string' && nt.en.trim()) return nt.en as string;
+          // Legacy GenderedText
+          if (typeof nt.male === 'string' && nt.male.trim()) return nt.male as string;
+          if (typeof nt.female === 'string' && nt.female.trim()) return nt.female as string;
         }
         return null;
       })(),

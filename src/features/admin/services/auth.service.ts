@@ -9,15 +9,21 @@ import { getAuthoritiesByManager } from './authority.service';
 import { getAuthorityStats } from './analytics.service';
 import { isAdminEmailAllowed, isRootAdmin } from '@/config/feature-flags';
 
-export type UserRole = 'super_admin' | 'system_admin' | 'authority_manager' | 'none';
+export type UserRole = 'super_admin' | 'system_admin' | 'vertical_admin' | 'authority_manager' | 'none';
 
 export interface UserRoleInfo {
   role: UserRole;
   isSuperAdmin: boolean;
   isSystemAdmin: boolean;
+  isVerticalAdmin: boolean;
+  managedVertical?: 'military' | 'municipal' | 'educational';
   isAuthorityManager: boolean;
   /** True only for ENV-defined Root Admins — can manage invitations */
   isRootAdmin: boolean;
+  /** Tenant Owner can manage all units under their tenant */
+  isTenantOwner: boolean;
+  tenantId?: string;
+  tenantType?: string;
   authorityIds: string[];
   isApproved: boolean;
   email?: string;
@@ -44,6 +50,11 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     const isAuthorityManager = authorities.length > 0;
     let isSuperAdmin = false;
     let isSystemAdmin = false;
+    let isVerticalAdmin = false;
+    let managedVertical: 'military' | 'municipal' | 'educational' | undefined;
+    let isTenantOwner = false;
+    let tenantId: string | undefined;
+    let tenantType: string | undefined;
     let isApproved = false;
     let emailFromProfile: string | null = null;
 
@@ -51,12 +62,16 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
       const userProfile = await getUserFromFirestore(userId);
       if (userProfile && userProfile.core) {
-        isSuperAdmin = (userProfile.core as any)?.isSuperAdmin === true;
-        // Check for system_admin role (can be in core.isSystemAdmin or role field)
-        isSystemAdmin = (userProfile.core as any)?.isSystemAdmin === true || 
-                        (userProfile.core as any)?.role === 'system_admin';
-        isApproved = (userProfile.core as any)?.isApproved === true;
-        emailFromProfile = (userProfile.core as any)?.email || null;
+        const core = userProfile.core as any;
+        isSuperAdmin = core?.isSuperAdmin === true;
+        isSystemAdmin = core?.isSystemAdmin === true || core?.role === 'system_admin';
+        isVerticalAdmin = core?.isVerticalAdmin === true;
+        managedVertical = core?.managedVertical || undefined;
+        isTenantOwner = core?.isTenantOwner === true;
+        tenantId = core?.tenantId || undefined;
+        tenantType = core?.tenantType || undefined;
+        isApproved = core?.isApproved === true;
+        emailFromProfile = core?.email || null;
         await logAdminLogin(userId);
       }
     } catch (error) {
@@ -81,28 +96,34 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       isApproved = true;
     }
 
-    // Determine role priority: super_admin > system_admin > authority_manager > none
     const role: UserRole = isSuperAdmin 
       ? 'super_admin' 
       : isSystemAdmin 
         ? 'system_admin' 
-        : isAuthorityManager 
-          ? 'authority_manager' 
-          : 'none';
+        : isVerticalAdmin 
+          ? 'vertical_admin'
+          : isAuthorityManager 
+            ? 'authority_manager' 
+            : 'none';
     
     return { 
       role, 
       isSuperAdmin, 
       isSystemAdmin, 
+      isVerticalAdmin,
+      managedVertical,
       isAuthorityManager,
       isRootAdmin: userIsRootAdmin,
+      isTenantOwner,
+      tenantId,
+      tenantType,
       authorityIds: authorities.map((a) => a.id), 
       isApproved,
       email: emailToCheck || undefined,
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);
-    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isAuthorityManager: false, isRootAdmin: false, authorityIds: [], isApproved: false };
+    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, authorityIds: [], isApproved: false };
   }
 }
 
@@ -169,8 +190,10 @@ export function useUserRole() {
           role: 'none',
           isSuperAdmin: false,
           isSystemAdmin: false,
+          isVerticalAdmin: false,
           isAuthorityManager: false,
           isRootAdmin: false,
+          isTenantOwner: false,
           authorityIds: [],
           isApproved: false,
         });

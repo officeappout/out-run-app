@@ -14,6 +14,7 @@ import ScheduleStep from './steps/ScheduleStep';
 import HealthDeclarationStep from './HealthDeclarationStep';
 import AccountSecureStep from './steps/AccountSecureStep';
 import ProcessingStep from './steps/ProcessingStep';
+import AccessCodeStep from './steps/AccessCodeStep';
 import { syncOnboardingToFirestore } from '../services/onboarding-sync.service';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
@@ -83,6 +84,24 @@ export default function OnboardingWizard() {
       return [
         'PERSONA',
         'EQUIPMENT',
+        'PROCESSING',
+        'COMPLETED',
+        'SUMMARY',
+      ];
+    }
+
+    // MILITARY_JOIN / SCHOOL_JOIN: identical to FULL_PROGRAM.
+    // The only difference is the ACCESS_CODE step that preceded wizard entry
+    // and the tenant fields (tenantId, unitPath) stored in sessionStorage.
+    if (onboardingPath === 'MILITARY_JOIN' || onboardingPath === 'SCHOOL_JOIN') {
+      return [
+        'PERSONA',
+        'PERSONAL_STATS',
+        'EQUIPMENT',
+        'SCHEDULE',
+        'LOCATION',
+        'HEALTH_DECLARATION',
+        'ACCOUNT_SECURE',
         'PROCESSING',
         'COMPLETED',
         'SUMMARY',
@@ -269,6 +288,9 @@ export default function OnboardingWizard() {
   // ── Render ─────────────────────────────────────────────────────────
   const renderStepContent = () => {
     switch (currentStep) {
+      case 'ACCESS_CODE':
+        return <AccessCodeStep onNext={() => handleNext(undefined, 0)} />;
+
       case 'PERSONA':
         return <PersonaStep onNext={() => handleNext(undefined, 10)} />;
 
@@ -405,6 +427,8 @@ export default function OnboardingWizard() {
   // Step title for header
   const getStepTitle = () => {
     switch (currentStep) {
+      case 'ACCESS_CODE':
+        return savedLanguage === 'he' ? 'קוד גישה' : 'Access Code';
       case 'PERSONA':
         return savedLanguage === 'he' ? 'ספר/י לנו על עצמך' : 'Tell us about yourself';
       case 'PERSONAL_STATS':

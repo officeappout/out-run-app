@@ -1,5 +1,6 @@
 // Workout Storage Service - Saves workout history to Firestore
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+// NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
 
 // Route coordinate format stored in Firestore (object format to avoid nested arrays)
@@ -25,6 +26,8 @@ export interface WorkoutHistoryEntry {
   routeId?: string; // If guided route
   routeName?: string;
   earnedCoins: number;
+  /** Global XP earned in this session — written at save time for the activity history list. */
+  xpEarned?: number;
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this was a recovery/maintenance workout (does not consume weekly volume budget) */
@@ -174,7 +177,10 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
       routePathLength: formattedRoutePath?.length || 0,
     });
 
-    // Save to Firestore with try/catch around the actual save operation
+    // Save to Firestore with try/catch around the actual save operation.
+    // Native Phase: when the network is down (gym/bunker), enqueue to the
+    // outbox instead of losing the workout. OutboxFlusher replays it on
+    // reconnect, then awards XP via the Guardian (awardWorkoutXP).
     let docRef;
     try {
       docRef = await addDoc(collection(db, 'workouts'), {
@@ -182,8 +188,29 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
       date: serverTimestamp(), // Use server timestamp for consistency
     });
     } catch (saveError) {
-      console.error('❌ [DB] Firestore addDoc error:', saveError);
-      throw saveError; // Re-throw to be caught by outer catch
+      const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      console.error('❌ [DB] Firestore addDoc error:', saveError, { isOffline });
+      try {
+        const { enqueueWorkout, generateLocalWorkoutId } = await import(
+          '@/lib/outbox/outbox-db'
+        );
+        const localWorkoutId = generateLocalWorkoutId();
+        await enqueueWorkout({
+          localWorkoutId,
+          uid: workoutData.userId,
+          payload: workoutData,
+          enqueuedAt: Date.now(),
+          attempts: 0,
+        });
+        console.log(
+          `📥 [DB] Workout queued offline (localId=${localWorkoutId}). ` +
+          `Will sync on reconnect via OutboxFlusher.`,
+        );
+        return true;
+      } catch (queueError) {
+        console.error('❌ [DB] Failed to enqueue workout offline:', queueError);
+        throw saveError;
+      }
     }
 
     console.log(`✅ [DB] Workout saved successfully with ID: ${docRef.id} (Type: ${metadata.workoutType}, Category: ${metadata.category}, Icon: ${metadata.displayIcon})`);
@@ -200,10 +227,91 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
 /**
  * Convert Firestore Timestamp to Date
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return undefined;
+}
+
+/**
+ * Fetch the last N run or walk sessions for a user, ordered chronologically
+ * (oldest → newest), ready for direct use as Recharts chart data.
+ *
+ * Returns an empty array when the user is offline, has no history, or on error.
+ *
+ * @param userId       Firestore user ID
+ * @param activityType 'running' | 'walking'  (default: 'running')
+ * @param limitCount   Max sessions to return (default: 8 — fits a bar chart nicely)
+ *
+ * @example
+ * const trend = await getRunTrend(userId, 'running', 8);
+ * const chartData = trend.map((w, i) => ({
+ *   session: i + 1,
+ *   distance: w.distance,
+ *   duration: Math.round(w.duration / 60),
+ *   pace: w.pace,
+ * }));
+ */
+export async function getRunTrend(
+  userId: string,
+  activityType: 'running' | 'walking' = 'running',
+  limitCount: number = 8,
+): Promise<WorkoutHistoryEntry[]> {
+  if (!userId) return [];
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return [];
+
+  try {
+    const q = query(
+      collection(db, 'workouts'),
+      where('userId', '==', userId),
+      where('workoutType', '==', activityType),
+      orderBy('date', 'desc'),
+      limit(limitCount),
+    );
+
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+
+    const entries: WorkoutHistoryEntry[] = snapshot.docs
+      .map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          userId: data.userId,
+          date: toDate(data.date) || new Date(),
+          activityType: data.activityType || activityType,
+          workoutType: data.workoutType || activityType,
+          category: data.category || 'cardio',
+          displayIcon: data.displayIcon || 'run-fast',
+          distance: data.distance || 0,
+          duration: data.duration || 0,
+          calories: data.calories || 0,
+          pace: data.pace || 0,
+          earnedCoins: data.earnedCoins || 0,
+        } as WorkoutHistoryEntry;
+      })
+      .reverse(); // Chronological order (oldest → newest) for chart x-axis
+
+    console.log(
+      `[WorkoutStorage] getRunTrend: ${entries.length} ${activityType} sessions for user ${userId}`,
+    );
+    return entries;
+  } catch (error) {
+    console.warn('[WorkoutStorage] getRunTrend failed:', error);
+    return [];
+  }
 }
 
 /**
@@ -254,6 +362,7 @@ export async function getWorkoutHistory(userId: string, limitCount: number = 50)
         routeId: data.routeId,
         routeName: data.routeName,
         earnedCoins: data.earnedCoins || 0,
+        xpEarned: data.xpEarned ?? 0,
       });
       } catch (error) {
         console.error('[WorkoutStorage] Error parsing workout document:', docSnap.id, error);

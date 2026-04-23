@@ -174,6 +174,7 @@ export default function RouteEditor({
     const [qualityScore, setQualityScore] = useState(5);
     const [routeRating,  setRouteRating]  = useState(3.0);
     const [description,  setDescription]  = useState('');
+    const [imageUrl,     setImageUrl]     = useState('');
 
     // Authority (only used when NOT locked)
     const [authorities,           setAuthorities]           = useState<Authority[]>([]);
@@ -314,6 +315,7 @@ export default function RouteEditor({
                     trafficLoad: environment === 'urban' ? 'medium' : 'none',
                     surface: terrain === 'asphalt' ? 'road' : 'trail',
                 },
+                images: imageUrl.trim() ? [imageUrl.trim()] : undefined,
                 source: { type: 'system', name: 'Manual Route Builder' },
                 authorityId: effectiveAuthorityId || undefined,
                 city: selectedAuthority?.name || undefined,
@@ -428,6 +430,22 @@ export default function RouteEditor({
                         <textarea value={description} onChange={e => setDescription(e.target.value)}
                             placeholder="מסלול מואר ובטוח לאורך הפארק..." rows={2}
                             className="w-full bg-gray-50 border-2 border-transparent focus:border-cyan-400 focus:bg-white px-4 py-3 rounded-xl text-sm outline-none transition-all resize-none" />
+                    </div>
+
+                    {/* Image URL */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">תמונה — URL (אופציונלי)</label>
+                        <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
+                            placeholder="https://..."
+                            dir="ltr"
+                            className="w-full bg-gray-50 border-2 border-transparent focus:border-cyan-400 focus:bg-white px-4 py-3 rounded-xl text-sm outline-none transition-all" />
+                        {imageUrl && (
+                            <div className="rounded-xl overflow-hidden border border-gray-200 h-20 relative">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={imageUrl} alt="preview" className="w-full h-full object-cover"
+                                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </div>
+                        )}
                     </div>
 
                     <div className="border-t border-gray-100" />

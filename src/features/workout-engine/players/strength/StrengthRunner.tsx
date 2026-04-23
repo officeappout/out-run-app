@@ -22,7 +22,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Pause, Play, Dumbbell, ChevronUp, Square, Check,
+  Pause, Play, Dumbbell, ChevronUp, Square, Check, PersonStanding,
 } from 'lucide-react';
 import { motion, useDragControls, AnimatePresence } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
@@ -43,8 +43,12 @@ import {
 import { useWorkoutPersistence } from './hooks/useWorkoutPersistence';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import { useMediaSession } from './hooks/useMediaSession';
-import { resolveEquipmentLabel, resolveEquipmentSvgPath } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import ExerciseDetailContent from './components/ExerciseDetailContent';
+import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+
+const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 export type { ExerciseResultLog };
 
@@ -81,6 +85,20 @@ export default function StrengthRunner({
     onForeground: sm.togglePause,
   });
 
+  // ── Offline-cached media URLs (must be before any usage) ────────────────
+  const isOnline = useOnlineStatus();
+  const cachedVideoUrl = useCachedMediaUrl(sm.exerciseVideoUrl);
+  const cachedImageUrl = useCachedMediaUrl(sm.activeExercise?.imageUrl);
+  const cachedNextVideoUrl = useCachedMediaUrl(sm.nextExercise.videoUrl);
+
+  // When offline, only use blob: URLs or a local placeholder — never hit the network
+  const safeVideoUrl = cachedVideoUrl?.startsWith('blob:') ? cachedVideoUrl
+    : isOnline ? cachedVideoUrl : null;
+  const safeImageUrl = cachedImageUrl?.startsWith('blob:') ? cachedImageUrl
+    : isOnline ? cachedImageUrl : OFFLINE_PLACEHOLDER;
+  const safeNextVideoUrl = cachedNextVideoUrl?.startsWith('blob:') ? cachedNextVideoUrl
+    : isOnline ? cachedNextVideoUrl : null;
+
   // ── Phase 4: Native Device Capabilities ──────────────────────────────────
 
   const isWorkoutActive =
@@ -101,7 +119,7 @@ export default function StrengthRunner({
     exerciseName: sm.exerciseName,
     nextExerciseName: sm.nextExercise.name,
     workoutName: workout.name,
-    exerciseImageUrl: sm.activeExercise?.imageUrl || sm.nextExercise.imageUrl,
+    exerciseImageUrl: safeImageUrl || sm.nextExercise.imageUrl,
     isPaused: sm.isPaused,
     onNextTrack: mediaSessionNextTrack,
     onTogglePause: sm.togglePause,
@@ -187,8 +205,8 @@ export default function StrengthRunner({
   if (sm.isLogDrawerOpen && sm.activeExercise) {
     currentExerciseSnapshotRef.current = {
       name: sm.exerciseName,
-      videoUrl: sm.exerciseVideoUrl,
-      imageUrl: sm.activeExercise.imageUrl ?? null,
+      videoUrl: safeVideoUrl,
+      imageUrl: safeImageUrl ?? null,
       equipment: sm.activeExercise.equipment
         ? (Array.isArray(sm.activeExercise.equipment) ? sm.activeExercise.equipment : [sm.activeExercise.equipment])
         : [],
@@ -467,8 +485,8 @@ export default function StrengthRunner({
         style={{ touchAction: 'none' }}
       >
         <div className="w-11 h-11 rounded-lg bg-slate-700 overflow-hidden flex-shrink-0">
-          {sm.exerciseVideoUrl ? (
-            <video src={sm.exerciseVideoUrl} className="w-full h-full object-cover" muted playsInline />
+          {safeVideoUrl ? (
+            <video src={safeVideoUrl} className="w-full h-full object-cover" muted playsInline />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Dumbbell size={18} className="text-slate-400" />
@@ -598,19 +616,20 @@ export default function StrengthRunner({
             {restPreviewExercise.equipment.length > 0 && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {restPreviewExercise.equipment.map((eqId: string) => {
-                  const svgPath = resolveEquipmentSvgPath(eqId);
+                  const svgPaths = resolveEquipmentSvgPathList(eqId, workout.workoutLocation);
+                  const svgPath = svgPaths[0] ?? null;
                   return (
                     <div
                       key={eqId}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     >
-                      {svgPath && svgPath.startsWith('/') ? (
+                      {svgPath ? (
                         <img
                           src={svgPath}
                           alt=""
                           width={14}
                           height={14}
-                          className="brightness-0 dark:brightness-100"
+                          className="object-contain"
                           onError={(e) => {
                             const img = e.currentTarget as HTMLImageElement;
                             img.removeAttribute('src');
@@ -618,7 +637,7 @@ export default function StrengthRunner({
                           }}
                         />
                       ) : (
-                        <Dumbbell size={14} className="text-black dark:text-white" />
+                        <PersonStanding size={14} className="text-slate-400" />
                       )}
                       <span
                         className="text-xs font-normal text-slate-700 dark:text-slate-200"
@@ -687,12 +706,12 @@ export default function StrengthRunner({
             sm.fadeIn ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {(sm.exerciseVideoUrl || sm.activeExercise?.imageUrl) && (
+          {(safeVideoUrl || safeImageUrl) && (
             <div className="absolute inset-0">
-              {sm.activeExercise?.imageUrl ? (
-                <img src={sm.activeExercise.imageUrl} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30" />
-              ) : sm.exerciseVideoUrl ? (
-                <video src={sm.exerciseVideoUrl} className="w-full h-full object-cover blur-2xl scale-110 opacity-30" autoPlay loop muted playsInline />
+              {safeImageUrl && safeImageUrl !== OFFLINE_PLACEHOLDER ? (
+                <img src={safeImageUrl} alt="" className="w-full h-full object-cover blur-2xl scale-110 opacity-30" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : safeVideoUrl ? (
+                <video src={safeVideoUrl} className="w-full h-full object-cover blur-2xl scale-110 opacity-30" autoPlay loop muted playsInline />
               ) : null}
               <div className="absolute inset-0 bg-black/50" />
             </div>
@@ -797,7 +816,7 @@ export default function StrengthRunner({
         <ExerciseVideoPlayer
           key={`player-${activeKey}`}
           exerciseId={sm.activeExercise?.id || `ex-${sm.currentExerciseIndex}`}
-          videoUrl={sm.exerciseVideoUrl}
+          videoUrl={safeVideoUrl}
           exerciseName={sm.exerciseName}
           exerciseType={sm.exerciseType}
           isPaused={sm.isPaused}
@@ -806,9 +825,9 @@ export default function StrengthRunner({
           onVideoEnded={isTimeExercise ? undefined : sm.handleExerciseComplete}
         />
 
-        {/* Pre-fetch next exercise video */}
-        {sm.nextExercise.videoUrl && (
-          <video src={sm.nextExercise.videoUrl} preload="auto" className="hidden" muted playsInline />
+        {/* Pre-fetch next exercise video (uses cached blob when offline) */}
+        {safeNextVideoUrl && (
+          <video src={safeNextVideoUrl} preload="auto" className="hidden" muted playsInline />
         )}
 
         {/* Isometric timer drawer — bottom sheet for time-based exercises */}
@@ -926,6 +945,7 @@ export default function StrengthRunner({
                 cues={sm.executionSteps.length > 0 ? sm.executionSteps : undefined}
                 goal={sm.exerciseGoal}
                 equipment={sm.activeExercise?.equipment}
+                workoutLocation={workout.workoutLocation}
               />
             </div>
           </div>

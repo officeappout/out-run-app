@@ -221,6 +221,17 @@ export default function VisualSlider({
   // Exercise name for below-video label: ONLY exerciseName (no fallback)
   const exerciseLabel = resolved?.exerciseName || null;
 
+  // Gender-aware performance label (reps or seconds)
+  const targetReps = resolved?.targetReps || null;
+  const unitType = resolved?.unitType ?? 'reps';
+  const verb = unitType === 'seconds' ? 'להחזיק' : 'לבצע';
+  const unitWord = unitType === 'seconds' ? 'שניות' : 'חזרות';
+  const repsLabel = targetReps
+    ? demographics.gender === 'female'
+      ? `מסוגלת ${verb} ${targetReps} ${unitWord}`
+      : `מסוגל ${verb} ${targetReps} ${unitWord}`
+    : null;
+
   // Bubble position: track slider thumb (account for thumb width offset)
   const bubbleLeftPct = fillPct;
 
@@ -267,20 +278,27 @@ export default function VisualSlider({
           />
         </div>
 
-        {/* Exercise name / bold title below the faded video */}
+        {/* Exercise name + reps label below the faded video */}
         <AnimatePresence mode="wait">
-          {exerciseLabel && (
+          {(exerciseLabel || repsLabel) && (
             <motion.div
-              key={exerciseLabel}
+              key={`${exerciseLabel}_${targetReps}`}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.25 }}
-              className="text-center px-6 mt-1"
+              className="text-center px-6 mt-1 space-y-0.5"
             >
-              <h3 className="text-lg font-black text-slate-800 leading-snug">
-                {exerciseLabel}
-              </h3>
+              {exerciseLabel && (
+                <h3 className="text-lg font-black text-slate-800 leading-snug">
+                  {exerciseLabel}
+                </h3>
+              )}
+              {repsLabel && (
+                <p className="text-sm font-semibold text-[#5BC2F2] leading-snug">
+                  {repsLabel}
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -341,6 +359,31 @@ export default function VisualSlider({
             }}
           />
 
+          {/* Step dot markers — visible in simple mode only */}
+          {isSimple && steps && steps.length > 1 && (
+            <div
+              className="absolute top-1/2 -translate-y-1/2 inset-x-0 pointer-events-none z-[5]"
+              style={{ paddingLeft: 14, paddingRight: 14 }}
+            >
+              {steps.map((_, i) => {
+                const pct = (i / (steps.length - 1)) * 100;
+                const active = i <= sliderVal;
+                return (
+                  <div
+                    key={i}
+                    className="absolute -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full border-2 transition-colors duration-150"
+                    style={{
+                      top: '50%',
+                      right: `${pct}%`,
+                      backgroundColor: active ? meta.color : 'white',
+                      borderColor: active ? meta.color : '#cbd5e1',
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
+
           {/* Sliding hand hint — plays twice on mount, larger & slower */}
           <AnimatePresence>
             {showHint && !userInteracted && (
@@ -359,7 +402,7 @@ export default function VisualSlider({
             )}
           </AnimatePresence>
 
-          <div className="flex justify-between mt-1.5 px-0.5">
+          <div className="flex justify-between mt-2 px-0.5">
             <span className="text-[10px] font-bold text-slate-400">קל</span>
             <span className="text-[10px] font-bold text-slate-400">קשה</span>
           </div>

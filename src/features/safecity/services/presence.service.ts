@@ -92,9 +92,13 @@ export interface PresencePayload {
   lemurStage?: number;
   level?: number;
   programId?: string;
+  personaId?: string;
+  photoURL?: string;
+  runningLevel?: number;
 }
 
 export async function updatePresence(payload: PresencePayload): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   if (payload.mode === 'ghost') {
     await clearPresence(payload.uid);
     return;
@@ -118,15 +122,27 @@ export async function updatePresence(payload: PresencePayload): Promise<void> {
     updatedAt: serverTimestamp(),
   };
 
-  if (payload.activity) data.activity = payload.activity;
+  if (payload.activity) {
+    // Strip any undefined values from the activity sub-object before writing to Firestore.
+    // Firestore throws INTERNAL ASSERTION FAILED when any nested field is undefined.
+    const safeActivity: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(payload.activity)) {
+      if (v !== undefined) safeActivity[k] = v;
+    }
+    data.activity = safeActivity;
+  }
   if (payload.lemurStage != null) data.lemurStage = payload.lemurStage;
   if (payload.level != null) data.level = payload.level;
   if (payload.programId) data.programId = payload.programId;
+  if (payload.personaId) data.personaId = payload.personaId;
+  if (payload.photoURL) data.photoURL = payload.photoURL;
+  if (payload.runningLevel != null) data.runningLevel = payload.runningLevel;
 
-  await setDoc(doc(db, 'presence', payload.uid), data);
+  await setDoc(doc(db, 'presence', payload.uid), data, { merge: true });
 }
 
 export async function clearPresence(uid: string): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   try {
     await deleteDoc(doc(db, 'presence', uid));
   } catch {
@@ -213,6 +229,7 @@ export function stopWorkoutHeartbeat(): void {
 
 const MOCK_NAMES = ['אריאל', 'נועה', 'איתי', 'מאיה', 'עידו', 'שירה', 'אדם', 'ליאור'];
 const MOCK_ACTIVITIES: WorkoutActivityStatus[] = ['strength', 'running', 'strength', 'running', 'strength'];
+const MOCK_PERSONAS = ['athlete', 'parent', 'office_worker', 'student', 'senior', 'athlete', 'parent', 'office_worker'];
 
 export async function seedMockLemurs(
   center: { lat: number; lng: number },
@@ -253,6 +270,7 @@ export async function seedMockLemurs(
       lemurStage: level,
       level,
       programId: 'mock_program',
+      personaId: MOCK_PERSONAS[i % MOCK_PERSONAS.length],
     };
 
     await setDoc(doc(db, 'presence', uid), data);

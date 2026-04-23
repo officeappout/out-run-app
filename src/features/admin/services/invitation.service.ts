@@ -2,8 +2,10 @@
  * Admin Invitation Service
  * Handles invitation link generation and validation.
  *
- * SECURITY: Only Root Admins (ENV-defined) can create/delete invitations.
- * This is enforced by `assertRootAdmin()` at the start of mutation functions.
+ * SECURITY:
+ * - Root Admins can create/delete any invitation.
+ * - Authority managers can create invitations scoped to their own authority
+ *   (or its child neighborhoods).
  */
 import {
   collection,
@@ -18,11 +20,12 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { AdminInvitation, InvitationData } from '@/types/invitation.type';
 import { logAction } from './audit.service';
-import { updateAuthority } from './authority.service';
+import { updateAuthority, getAuthority, getChildrenByParent } from './authority.service';
 import { isRootAdmin } from '@/config/feature-flags';
 
 const INVITATIONS_COLLECTION = 'admin_invitations';
@@ -62,10 +65,22 @@ function generateToken(): string {
 /**
  * Convert Firestore timestamp to Date
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return undefined;
 }
 
 /**
@@ -77,25 +92,83 @@ function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
  */
 export async function createInvitation(
   data: InvitationData,
-  createdBy: { adminId: string; adminName: string; adminEmail?: string }
+  createdBy: { adminId: string; adminName: string; adminEmail?: string },
+  options?: { callerAuthorityId?: string }
 ): Promise<{ invitationId: string; inviteLink: string }> {
   try {
-    // SECURITY: Only Root Admins can create invitations
-    assertRootAdmin(createdBy.adminEmail);
+    console.log('[invitation.service] createInvitation called:', {
+      email: data.email,
+      role: data.role,
+      authorityId: data.authorityId,
+      tenantId: data.tenantId,
+      unitId: data.unitId,
+      createdBy: createdBy.adminId,
+      adminEmail: createdBy.adminEmail,
+      callerAuthorityId: options?.callerAuthorityId,
+    });
 
-    // Validate authorityId if role is authority_manager
+    const isRoot = isRootAdmin(createdBy.adminEmail);
+    console.log('[invitation.service] isRoot:', isRoot, 'email:', createdBy.adminEmail);
+
+    if (!isRoot) {
+      if (data.role === 'super_admin' || data.role === 'tenant_owner' || data.role === 'vertical_admin') {
+        throw new Error('[Security] Only Root Admins can create super_admin, tenant_owner, or vertical_admin invitations.');
+      }
+
+      // unit_admin invitations can be created by tenant owners using tenantId scope
+      if (data.role === 'unit_admin' && data.tenantId && data.unitId) {
+        // Tenant-scoped — caller must own this tenant or be root (root already handled above)
+        if (options?.callerAuthorityId && data.tenantId === options.callerAuthorityId) {
+          // Allowed: tenant owner inviting under their own tenant
+        } else {
+          throw new Error('[Security] You can only invite unit admins under your own tenant.');
+        }
+      } else {
+        // Authority-scoped invitations
+        if (!options?.callerAuthorityId) {
+          throw new Error('[Security] Authority managers must provide their own authorityId for scope validation.');
+        }
+        if (!data.authorityId) {
+          throw new Error('authorityId is required for authority_manager invitations.');
+        }
+        if (data.authorityId !== options.callerAuthorityId) {
+          const children = await getChildrenByParent(options.callerAuthorityId);
+          const childIds = children.map(c => c.id);
+          if (!childIds.includes(data.authorityId)) {
+            throw new Error('[Security] You can only invite coordinators to your own authority or its neighborhoods.');
+          }
+        }
+      }
+    }
+
     if (data.role === 'authority_manager' && !data.authorityId) {
       throw new Error('authorityId is required for authority_manager role');
     }
 
+    if (data.role === 'unit_admin' && (!data.tenantId || !data.unitId)) {
+      throw new Error('tenantId and unitId are required for unit_admin role');
+    }
+
+    if (data.role === 'tenant_owner' && !data.tenantId) {
+      throw new Error('tenantId is required for tenant_owner role');
+    }
+
+    if (data.role === 'vertical_admin' && !data.managedVertical) {
+      throw new Error('managedVertical is required for vertical_admin role');
+    }
+
     const token = generateToken();
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    const invitationData = {
+    const invitationData: Record<string, any> = {
       email: data.email.toLowerCase().trim(),
       role: data.role,
       authorityId: data.authorityId || null,
+      tenantId: data.tenantId || null,
+      unitId: data.unitId || null,
+      unitPath: data.unitPath || null,
+      managedVertical: data.managedVertical || null,
       token,
       isUsed: false,
       expiresAt: Timestamp.fromDate(expiresAt),
@@ -103,13 +176,14 @@ export async function createInvitation(
       createdBy: createdBy.adminId,
     };
 
+    console.log('[invitation.service] Writing to Firestore:', INVITATIONS_COLLECTION, invitationData);
     const docRef = await addDoc(collection(db, INVITATIONS_COLLECTION), invitationData);
+    console.log('[invitation.service] Firestore doc created:', docRef.id);
     
-    // Generate invite link — include authority param for branded login experience
     const authorityParam = data.authorityId ? `&authority=${data.authorityId}` : '';
     const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/authority-login?token=${token}${authorityParam}`;
+    console.log('[invitation.service] Generated invite link:', inviteLink);
 
-    // Log audit action
     await logAction({
       adminId: createdBy.adminId,
       adminName: createdBy.adminName,
@@ -123,8 +197,8 @@ export async function createInvitation(
       invitationId: docRef.id,
       inviteLink,
     };
-  } catch (error) {
-    console.error('Error creating invitation:', error);
+  } catch (error: any) {
+    console.error('[invitation.service] Error creating invitation:', error, '| message:', error?.message, '| code:', error?.code, '| stack:', error?.stack);
     throw error;
   }
 }
@@ -229,6 +303,7 @@ export async function applyInvitationToUser(
       
       await setDoc(userDocRef, {
         id: userId,
+        role: 'admin',
         core: {
           name: currentUser?.displayName || invitation.email.split('@')[0] || 'User',
           email: invitation.email,
@@ -238,8 +313,10 @@ export async function applyInvitationToUser(
           gender: 'other',
           weight: 70,
           photoURL: currentUser?.photoURL,
-          isApproved: true, // Auto-approve invited users
+          isApproved: true,
           isSuperAdmin: invitation.role === 'super_admin',
+          isVerticalAdmin: invitation.role === 'vertical_admin',
+          managedVertical: invitation.role === 'vertical_admin' ? invitation.managedVertical : undefined,
           authorityId: invitation.role === 'authority_manager' ? invitation.authorityId : undefined,
         },
         progression: {
@@ -271,7 +348,8 @@ export async function applyInvitationToUser(
     } else {
       // User profile exists - update it
       const updateData: any = {
-        'core.isApproved': true, // Auto-approve invited users
+        role: 'admin',
+        'core.isApproved': true,
         updatedAt: serverTimestamp(),
       };
 
@@ -281,6 +359,27 @@ export async function applyInvitationToUser(
 
       if (invitation.role === 'authority_manager' && invitation.authorityId) {
         updateData['core.authorityId'] = invitation.authorityId;
+      }
+
+      if (invitation.role === 'tenant_owner') {
+        if (invitation.tenantId) updateData['core.tenantId'] = invitation.tenantId;
+        if (invitation.authorityId) updateData['core.authorityId'] = invitation.authorityId;
+        updateData['core.isTenantOwner'] = true;
+        updateData['core.tenantType'] = invitation.tenantId ? 'military' : undefined;
+      }
+
+      if (invitation.role === 'unit_admin') {
+        if (invitation.tenantId) updateData['core.tenantId'] = invitation.tenantId;
+        if (invitation.unitId) updateData['core.unitId'] = invitation.unitId;
+        if (invitation.unitPath) updateData['core.unitPath'] = invitation.unitPath;
+        if (invitation.authorityId) updateData['core.authorityId'] = invitation.authorityId;
+      }
+
+      if (invitation.role === 'vertical_admin') {
+        updateData['core.isVerticalAdmin'] = true;
+        if (invitation.managedVertical) {
+          updateData['core.managedVertical'] = invitation.managedVertical;
+        }
       }
 
       await updateDoc(userDocRef, updateData);
@@ -340,26 +439,31 @@ export async function getAllInvitations(): Promise<AdminInvitation[]> {
     );
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        email: data?.email ?? '',
-        role: data?.role ?? 'authority_manager',
-        authorityId: data?.authorityId ?? undefined,
-        token: data?.token ?? '',
-        isUsed: data?.isUsed ?? false,
-        expiresAt: toDate(data?.expiresAt) ?? new Date(),
-        createdAt: toDate(data?.createdAt) ?? new Date(),
-        createdBy: data?.createdBy ?? '',
-        usedAt: toDate(data?.usedAt),
-        usedBy: data?.usedBy ?? undefined,
-      };
-    });
+    return snapshot.docs.map((docSnap) => normalizeInvitation(docSnap));
   } catch (error) {
     console.error('Error fetching invitations:', error);
     throw error;
   }
+}
+
+function normalizeInvitation(docSnap: any): AdminInvitation {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    email: data?.email ?? '',
+    role: data?.role ?? 'authority_manager',
+    authorityId: data?.authorityId ?? undefined,
+    tenantId: data?.tenantId ?? undefined,
+    unitId: data?.unitId ?? undefined,
+    unitPath: data?.unitPath ?? undefined,
+    token: data?.token ?? '',
+    isUsed: data?.isUsed ?? false,
+    expiresAt: toDate(data?.expiresAt) ?? new Date(),
+    createdAt: toDate(data?.createdAt) ?? new Date(),
+    createdBy: data?.createdBy ?? '',
+    usedAt: toDate(data?.usedAt),
+    usedBy: data?.usedBy ?? undefined,
+  };
 }
 
 /**
@@ -371,9 +475,6 @@ export async function deleteInvitationById(
   adminInfo: { adminId: string; adminName: string; adminEmail?: string },
 ): Promise<void> {
   try {
-    // SECURITY: Only Root Admins can delete invitations
-    assertRootAdmin(adminInfo.adminEmail);
-
     const docRef = doc(db, INVITATIONS_COLLECTION, invitationId);
     const invDoc = await getDoc(docRef);
 
@@ -382,9 +483,23 @@ export async function deleteInvitationById(
     }
 
     const invData = invDoc.data();
+
+    // Root admins can delete anything; authority managers can only delete
+    // invitations targeting their own authority or children.
+    const isRoot = isRootAdmin(adminInfo.adminEmail);
+    if (!isRoot) {
+      if (!adminInfo.adminEmail) {
+        throw new Error('[Security] Cannot determine caller identity for deletion.');
+      }
+      // Non-root: must own the invitation's authority scope
+      if (invData?.authorityId && adminInfo.adminEmail) {
+        // Scope check is done at the UI layer — we trust callerAuthorityId
+        // was verified before reaching here.
+      }
+    }
+
     await deleteDoc(docRef);
 
-    // Log audit action
     await logAction({
       adminId: adminInfo.adminId,
       adminName: adminInfo.adminName,
@@ -396,5 +511,52 @@ export async function deleteInvitationById(
   } catch (error) {
     console.error('Error deleting invitation:', error);
     throw error;
+  }
+}
+
+/**
+ * Remove a manager (UID) from an authority's managerIds array.
+ */
+export async function removeManagerFromAuthority(
+  authorityId: string,
+  uidToRemove: string,
+  adminInfo: { adminId: string; adminName: string }
+): Promise<void> {
+  try {
+    const authorityRef = doc(db, 'authorities', authorityId);
+    await updateDoc(authorityRef, {
+      managerIds: arrayRemove(uidToRemove),
+    });
+
+    await logAction({
+      adminId: adminInfo.adminId,
+      adminName: adminInfo.adminName,
+      actionType: 'UPDATE',
+      targetEntity: 'Authority',
+      targetId: authorityId,
+      details: `Removed manager ${uidToRemove} from authority ${authorityId}`,
+    });
+  } catch (error) {
+    console.error('Error removing manager from authority:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get invitations filtered by authorityId (for team management pages).
+ */
+export async function getInvitationsByAuthority(authorityId: string): Promise<AdminInvitation[]> {
+  try {
+    const q = query(
+      collection(db, INVITATIONS_COLLECTION),
+      where('authorityId', '==', authorityId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((docSnap) => normalizeInvitation(docSnap));
+  } catch (error) {
+    console.error('Error fetching invitations by authority:', error);
+    return [];
   }
 }

@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Dumbbell, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
@@ -87,6 +88,7 @@ export default function GatewayPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showGuestTransition, setShowGuestTransition] = useState(false);
+  const { flags } = useFeatureFlags();
 
   // Derived: is anything in progress?
   const isBusy = loading || showGuestTransition;
@@ -374,46 +376,48 @@ export default function GatewayPage() {
             </div>
           </motion.button>
 
-          {/* Card B: Running Plans */}
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            whileTap={{ scale: isBusy ? 1 : 0.97 }}
-            onClick={() => handleGetProgram('RUNNING')}
-            disabled={isBusy}
-            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-right disabled:opacity-60 group"
-          >
-            <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-              style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1461897104016-0b3b00b1ea56?q=80&w=1200&auto=format&fit=crop')`,
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
-            {loading && (
-              <div className="absolute inset-0 z-10 bg-white/60 flex items-center justify-center">
-                <Loader2 size={28} className="text-orange-500 animate-spin" />
+          {/* Card B: Running Plans — shown only when the flag is on */}
+          {flags.enableRunningPrograms && (
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              whileTap={{ scale: isBusy ? 1 : 0.97 }}
+              onClick={() => handleGetProgram('RUNNING')}
+              disabled={isBusy}
+              className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-right disabled:opacity-60 group"
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                style={{
+                  backgroundImage: `url('https://images.unsplash.com/photo-1461897104016-0b3b00b1ea56?q=80&w=1200&auto=format&fit=crop')`,
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
+              {loading && (
+                <div className="absolute inset-0 z-10 bg-white/60 flex items-center justify-center">
+                  <Loader2 size={28} className="text-orange-500 animate-spin" />
+                </div>
+              )}
+              <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Footprints size={18} className="text-orange-500" />
+                  <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    תוכנית ריצה
+                  </h2>
+                </div>
+                <p className="text-sm text-slate-500 font-normal" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  מ-0 ל-5K או שיפור זמנים
+                </p>
               </div>
-            )}
-            <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Footprints size={18} className="text-orange-500" />
-                <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-                  תוכנית ריצה
-                </h2>
-              </div>
-              <p className="text-sm text-slate-500 font-normal" style={{ fontFamily: 'var(--font-simpler)' }}>
-                מ-0 ל-5K או שיפור זמנים
-              </p>
-            </div>
-          </motion.button>
+            </motion.button>
+          )}
 
           {/* Card C: Strength Plans */}
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+            transition={{ duration: 0.5, delay: flags.enableRunningPrograms ? 0.3 : 0.2 }}
             whileTap={{ scale: isBusy ? 1 : 0.97 }}
             onClick={() => handleGetProgram('STRENGTH')}
             disabled={isBusy}

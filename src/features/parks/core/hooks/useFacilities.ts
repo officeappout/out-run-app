@@ -19,7 +19,7 @@ export function useFacilities() {
             } catch (err) {
                 console.error('Failed to load facilities:', err);
             } finally {
-                setLoading(true);
+                setLoading(false);
             }
         };
 

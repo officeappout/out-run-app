@@ -86,17 +86,20 @@ export default function GearDefinitionEditorForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [activeLang, setActiveLang] = useState<AppLanguage>('he');
+  const [svgIcons, setSvgIcons] = useState<{ slug: string; label: string }[]>([]);
   const [formData, setFormData] = useState<GearDefinitionFormData>({
     name: { he: '', en: '' },
     description: { he: '', en: '' },
     icon: '',
     category: '',
+    iconKey: '',
     shopLink: '',
     tutorialVideo: '',
     customIconUrl: '',
     allowedLocations: [],
     defaultLocation: undefined,
     lifestyleTags: [],
+    isOptional: false,
     ...initialData,
   });
 
@@ -107,15 +110,24 @@ export default function GearDefinitionEditorForm({
         description: initialData.description || { he: '', en: '' },
         icon: initialData.icon || '',
         category: initialData.category || '',
+        iconKey: initialData.iconKey || '',
         shopLink: initialData.shopLink || '',
         tutorialVideo: initialData.tutorialVideo || '',
         customIconUrl: initialData.customIconUrl || '',
         allowedLocations: initialData.allowedLocations || [],
         defaultLocation: initialData.defaultLocation || undefined,
         lifestyleTags: initialData.lifestyleTags || [],
+        isOptional: initialData.isOptional ?? false,
       });
     }
   }, [initialData]);
+
+  useEffect(() => {
+    fetch('/api/admin/equipment-icons')
+      .then((r) => r.json())
+      .then((data) => setSvgIcons(Array.isArray(data) ? data : []))
+      .catch(() => setSvgIcons([]));
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -281,10 +293,86 @@ export default function GearDefinitionEditorForm({
           </div>
         </div>
 
+        {/* SVG Icon Picker (App Asset) */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-1">
+            אייקון SVG מהאפליקציה
+          </label>
+          <p className="text-xs text-gray-400 mb-3">
+            בחר קובץ SVG מהתיקייה <code>/public/assets/icons/equipment/</code>. האייקון יוצג בכרטיסי האימון.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {/* "None" option */}
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, iconKey: '' })}
+              className={`flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-xl border-2 text-xs transition-all ${
+                !formData.iconKey
+                  ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                  : 'border-gray-200 hover:border-gray-300 text-gray-400'
+              }`}
+            >
+              <span className="text-lg leading-none">—</span>
+              <span className="font-medium">ללא</span>
+            </button>
+
+            {svgIcons.length === 0 && (
+              /* Skeleton placeholders while the API response loads */
+              Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-20 h-20 rounded-xl border-2 border-gray-100 bg-gray-50 animate-pulse"
+                />
+              ))
+            )}
+
+            {svgIcons.map((icon) => {
+              const isSelected = formData.iconKey === icon.slug;
+              const src = `/assets/icons/equipment/${icon.slug}.svg`;
+              return (
+                <button
+                  key={icon.slug}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, iconKey: icon.slug })}
+                  className={`flex flex-col items-center justify-center gap-1.5 w-20 h-20 rounded-xl border-2 text-xs transition-all ${
+                    isSelected
+                      ? 'border-cyan-500 bg-cyan-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <img
+                    src={src}
+                    alt={icon.label}
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                    onLoad={() => console.log(`[EquipmentPicker] Loaded: ${window.location.origin}${src}`)}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      fetch(src, { method: 'HEAD' })
+                        .then((r) => console.warn(`[EquipmentPicker] Failed to display ${src} — HTTP ${r.status} ${r.statusText}`))
+                        .catch(() => console.warn(`[EquipmentPicker] Network error loading ${src}`));
+                      target.style.opacity = '0';
+                    }}
+                  />
+                  <span className={`font-medium truncate max-w-[70px] text-center ${isSelected ? 'text-cyan-700' : 'text-gray-500'}`}>
+                    {icon.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {formData.iconKey && (
+            <p className="text-xs text-cyan-600 font-mono">
+              נבחר: /assets/icons/equipment/{formData.iconKey}.svg
+            </p>
+          )}
+        </div>
+
         {/* Icon Selection */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
-            אייקון
+            אייקון Lucide (חלופי)
           </label>
           <div className="grid grid-cols-4 md:grid-cols-6 gap-3 mb-3">
             {COMMON_ICONS.map((icon) => {
@@ -429,6 +517,35 @@ export default function GearDefinitionEditorForm({
           <p className="text-xs text-gray-500 mt-1">
             בחר את סוג הציוד הפיזי (ולא את קבוצת השרירים או מטרת האימון).
           </p>
+        </div>
+
+        {/* Optional Gear Toggle */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+            formData.isOptional ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-gray-50'
+          }`}>
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                ציוד אופציונלי (Nice to Have)
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                ציוד אופציונלי לא יחסום תרגילים — אם למשתמש אין אותו, התרגיל עדיין יופיע באימון עם עונש קל בלבד (-5 במקום -25).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, isOptional: !formData.isOptional })}
+              className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                formData.isOptional ? 'bg-amber-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  formData.isOptional ? '-translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Shop & Tutorial Links */}

@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { generateDynamicRoutes } from '../services/route-generator.service';
 import { MOCK_ROUTES } from '../data/mock-routes';
 import { fetchRealParks } from '../services/parks.service';
+import { InventoryService, getCachedOfficialRoutes } from '../services/inventory.service';
 import { Route, ActivityType } from '../types/route.types';
 import { Park } from '../types/park.types';
 import { useRouteFilter, FilterPreferences } from './useRouteFilter';
 import { NavHubState } from '../components/NavigationHub';
+import { isRouteNearby, distanceToRouteStart } from '../services/geoUtils';
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -37,6 +39,7 @@ export interface RouteGenerationState {
   setNavigationRoutes: (r: Record<ActivityType, Route | null>) => void;
   selectedNavActivity: ActivityType;
   setSelectedNavActivity: (t: ActivityType) => void;
+  setEffectiveUserPos: (pos: { lat: number; lng: number } | null) => void;
 }
 
 export function useRouteGeneration(
@@ -59,44 +62,92 @@ export function useRouteGeneration(
   const [selectedNavActivity, setSelectedNavActivity] = useState<ActivityType>(
     contextActivity ?? 'walking',
   );
+  const [effectiveUserPos, setEffectiveUserPos] = useState<{ lat: number; lng: number } | null>(null);
 
   const { filteredRoutes, preferences, updateFilter, isGenerating } =
     useRouteFilter(allRoutes, currentUserPos, routeGenerationIndex, mapMode);
 
-  // NO auto-generation on mount. Routes are ONLY generated via handleShuffle
-  // (explicit user interaction through BuilderLayer / DiscoverLayer).
+  // ── Fetch official routes from Firestore on mount ──
+  const [officialRoutes, setOfficialRoutes] = useState<Route[]>([]);
+  const officialFetched = useRef(false);
+
+  useEffect(() => {
+    if (officialFetched.current) return;
+    officialFetched.current = true;
+    InventoryService.fetchOfficialRoutes()
+      .then((routes) => {
+        console.log(`[Routes] Fetched ${routes.length} official routes from Firestore`);
+        if (routes.length > 0) {
+          setOfficialRoutes(routes);
+        }
+      })
+      .catch((err) => console.error('[Routes] Failed to fetch official routes:', err));
+  }, []);
+
+  const proximityPos = effectiveUserPos ?? currentUserPos;
 
   const routesToDisplay = useMemo(() => {
     if (navState === 'navigating' && navigationRoutes[selectedNavActivity]) {
       return [navigationRoutes[selectedNavActivity]!];
     }
-    return filteredRoutes;
-  }, [navState, navigationRoutes, selectedNavActivity, filteredRoutes]);
+    const dynamicRoutes = filteredRoutes;
+    const dynamicIds = new Set(dynamicRoutes.map(r => r.id));
+    const nearbyOfficial = officialRoutes.filter(r => {
+      if (dynamicIds.has(r.id)) return false;
+      if (!proximityPos) return false;
+      return isRouteNearby(r, proximityPos);
+    });
 
-  // Auto-focus first route when routes arrive
-  useEffect(() => {
-    if (!routesToDisplay || routesToDisplay.length === 0 || focusedRoute) return;
-    const first = routesToDisplay[0];
-    if (!first?.path || first.path.length < 2) return;
-    setFocusedRoute(first);
-    setSelectedRoute(first);
-  }, [routesToDisplay, focusedRoute]);
+    const merged = [...dynamicRoutes, ...nearbyOfficial];
+
+    const MAX_DISPLAY = 3;
+
+    if (!proximityPos) return merged.slice(0, MAX_DISPLAY);
+    return merged
+      .sort((a, b) => distanceToRouteStart(a, proximityPos) - distanceToRouteStart(b, proximityPos))
+      .slice(0, MAX_DISPLAY);
+  }, [navState, navigationRoutes, selectedNavActivity, filteredRoutes, officialRoutes, proximityPos]);
 
   const handleShuffle = useCallback(async (activity?: ActivityType) => {
     if (!currentUserPos) return;
     setIsGeneratingRoutes(true);
     const newIndex = routeGenerationIndex + 1;
     setRouteGenerationIndex(newIndex);
+    const act = activity || preferences.activity || 'running';
+    const speed = act === 'cycling' ? 20 : act === 'running' ? 10 : 5;
+    const targetKm = (preferences.duration || 30) * (speed / 60);
+
     try {
       setAllRoutes([]);
       setFocusedRoute(null);
       setSelectedRoute(null);
+
+      // Official-route priority: check cached official routes before generating
+      const official = await getCachedOfficialRoutes();
+      const matched = official
+        .filter(r => {
+          const actOk = !r.activityType || r.activityType === act;
+          const distOk = Math.abs((r.distance || 0) - targetKm) <= targetKm * 0.6;
+          return actOk && distOk;
+        })
+        .sort((a, b) =>
+          Math.abs((a.distance || 0) - targetKm) - Math.abs((b.distance || 0) - targetKm),
+        )
+        .slice(0, 3);
+
+      if (matched.length >= 1) {
+        console.log(`[Builder] Using ${matched.length} official routes (target ${targetKm.toFixed(1)}km)`);
+        setAllRoutes(matched);
+        setFocusedRoute(matched[0]);
+        return;
+      }
+
+      // Fallback: dynamic loop generator
       const parks = await getCachedParks();
-      const targetDistance = (preferences.duration || 30) * ((preferences.activity === 'cycling' ? 20 : 6) / 60);
       const newRoutes = await generateDynamicRoutes({
         userLocation: currentUserPos,
-        targetDistance,
-        activity: activity || preferences.activity || 'running',
+        targetDistance: targetKm,
+        activity: act,
         routeGenerationIndex: newIndex,
         preferences: { includeStrength: preferences.includeStrength || false, surface: preferences.surface as 'road' | 'trail' },
         parks,
@@ -119,5 +170,6 @@ export function useRouteGeneration(
     handleShuffle, handleActivityChange,
     navigationRoutes, setNavigationRoutes: setNavigationRoutes as any,
     selectedNavActivity, setSelectedNavActivity,
+    setEffectiveUserPos,
   };
 }

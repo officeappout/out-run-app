@@ -202,14 +202,44 @@ const PUSH_PULL_MG = new Set(['vertical_push', 'horizontal_push', 'vertical_pull
 const LEGS_MG      = new Set(['squat', 'hinge', 'lunge']);
 
 export function isTimeBasedExercise(exercise: Exercise): boolean {
-  // Dynamic movement groups are always rep-based, regardless of DB tags
-  if (DYNAMIC_MOVEMENT_GROUPS.has(exercise.movementGroup ?? '')) return false;
+  // ── PRIMARY: CMS type field is the single source of truth ─────────────────
+  // The Admin Panel "סוג התרגיל" toggle writes to exercise.type ('reps' | 'time').
+  // If the CMS has it marked as time-based, trust it unconditionally — before any
+  // movement-group guard, mechanical-type check, or name heuristic.
   if (exercise.type === 'time') return true;
-  if (exercise.mechanicalType === 'straight_arm') return true;
-  const name = getLocalizedText(exercise.name).toLowerCase();
-  if (name.includes('hold') || name.includes('plank') || name.includes('hang') || name.includes('החזקה')) {
+  // If explicitly 'reps' and NOT straight_arm / hold-named, trust that too.
+  // We only fall through to heuristics when type is absent/defaulted.
+
+  // ── FALLBACK 1: straight_arm mechanics (must run BEFORE movement-group guard) ─
+  // A parallettes or front-lever hold may carry movementGroup='horizontal_push'
+  // but is still a timed hold.  straight_arm overrides the dynamic-group guard
+  // so isometric holds are never mis-classified as rep-based.
+  // NOTE: bent-arm holds (dead hang, L-sit) should be marked type='time' in the
+  // CMS — this fallback does NOT cover them.
+  if (exercise.mechanicalType === 'straight_arm') {
+    if (exercise.type !== 'reps') {
+      console.warn(
+        `[isTimeBasedExercise] "${typeof exercise.name === 'string' ? exercise.name : (exercise.name as any)?.he ?? exercise.id}" `+
+        `has mechanicalType=straight_arm but type="${exercise.type}". Fix in CMS → set type to "זמן".`,
+      );
+    }
     return true;
   }
+
+  // ── DYNAMIC movement groups are always rep-based ───────────────────────────
+  if (DYNAMIC_MOVEMENT_GROUPS.has(exercise.movementGroup ?? '')) return false;
+
+  // ── FALLBACK 2: name heuristics ────────────────────────────────────────────
+  // 'החזק' matches the absolute form (החזקה) AND the construct/smichut form (החזקת).
+  const name = getLocalizedText(exercise.name).toLowerCase();
+  if (name.includes('hold') || name.includes('plank') || name.includes('hang') || name.includes('החזק')) {
+    console.warn(
+      `[isTimeBasedExercise] "${name}" detected as time-based via name heuristic. `+
+      `Fix in CMS → set type to "זמן" so this warning disappears.`,
+    );
+    return true;
+  }
+
   return false;
 }
 

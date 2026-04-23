@@ -8,7 +8,7 @@ import {
   Plus, Info, Zap, Target, MapPin, Users, Package, ArrowDown, Copy, 
   ChevronDown, ChevronRight, Home, Navigation, Building2, User, Plane, X,
   Video, VideoOff, ListChecks, AlertCircle, Image, ImageOff, Dumbbell, Trees,
-  Save, CheckCircle2
+  Save, CheckCircle2, Loader2
 } from 'lucide-react';
 import ExecutionMethodCard from './ExecutionMethodCard';
 import { useMethodsAutosave } from '../../hooks/useMethodsAutosave';
@@ -49,6 +49,8 @@ interface MethodsSectionProps {
   focusedMethodIndex?: number | null;
   onMethodFocused?: () => void;
   exerciseId?: string | null; // For autosave
+  legacyEquipment?: string[]; // Old top-level equipment[] from Firestore (pre-executionMethods)
+  onLegacyCleaned?: () => void; // Called after legacy field is deleted
 }
 
 export interface MethodsSectionRef {
@@ -65,7 +67,13 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
   focusedMethodIndex = null,
   onMethodFocused,
   exerciseId = null,
+  legacyEquipment = [],
+  onLegacyCleaned,
 }, ref) => {
+  // Legacy equipment cleanup state
+  const [cleaningLegacy, setCleaningLegacy] = useState(false);
+  const [legacyCleaned, setLegacyCleaned] = useState(false);
+
   // Track which method was just duplicated (for visual feedback)
   const [justDuplicatedIndex, setJustDuplicatedIndex] = useState<number | null>(null);
   
@@ -183,6 +191,29 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
     clearDraft();
     setShowDraftPrompt(false);
     setDraftToRestore(null);
+  };
+
+  const handleCleanLegacy = async () => {
+    if (!exerciseId) return;
+    setCleaningLegacy(true);
+    try {
+      const res = await fetch('/api/admin/exercises/sanitize-legacy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exerciseId }),
+      });
+      const result = await res.json();
+      if (res.ok && result.status === 'sanitized') {
+        setLegacyCleaned(true);
+        onLegacyCleaned?.();
+      } else {
+        console.error('[legacy-clean] unexpected:', result);
+      }
+    } catch (err) {
+      console.error('[legacy-clean] error:', err);
+    } finally {
+      setCleaningLegacy(false);
+    }
   };
 
   const toggleMethodExpanded = (index: number) => {
@@ -323,6 +354,62 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Legacy Equipment Warning Banner */}
+      {legacyEquipment.length > 0 && !legacyCleaned && (
+        <div className="mb-4 p-4 bg-orange-50 border-2 border-orange-300 rounded-xl">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <AlertCircle size={20} className="text-orange-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-orange-900 mb-1">
+                נמצא ציוד מיושן (Legacy Equipment)
+              </h3>
+              <p className="text-xs text-orange-700 mb-2">
+                לתרגיל הזה יש שדה <code className="bg-orange-200 px-1 rounded">equipment[]</code> ישן
+                שלא מוצג בשיטות הביצוע אבל <strong>כן מוצג למשתמש באפליקציה</strong>.
+                זו הסיבה ל&quot;ציוד רפאים&quot; שמופיע בכרטיסי אימון.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {legacyEquipment.map((eq) => (
+                  <span
+                    key={eq}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-orange-200 text-orange-900 rounded-lg text-xs font-mono"
+                  >
+                    {eq}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={cleaningLegacy}
+                onClick={handleCleanLegacy}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-colors disabled:opacity-50"
+              >
+                {cleaningLegacy ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    מנקה...
+                  </>
+                ) : (
+                  <>
+                    <X size={14} />
+                    מחק שדה ישן מ-Firestore
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {legacyCleaned && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-green-600" />
+          <span className="text-sm text-green-800 font-medium">שדה הציוד הישן נמחק בהצלחה!</span>
         </div>
       )}
 

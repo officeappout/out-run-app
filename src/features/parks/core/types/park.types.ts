@@ -110,9 +110,11 @@ export type ParkFeatureTag =
   | 'near_water'
   | 'water_fountain'
   | 'has_toilets'
+  | 'has_benches'
   | 'dog_friendly'
   | 'wheelchair_accessible'
-  | 'safe_zone';
+  | 'safe_zone'
+  | 'nearby_shelter';
 
 /**
  * ============================================
@@ -297,11 +299,17 @@ export interface Park {
   isVerified?: boolean;
   distance?: number;  // Runtime field - distance from user
   
+  // Functional classification (from equipment import)
+  isFunctional?: boolean;
+
   // MapPark-specific features
   hasDogPark?: boolean;
   hasWaterFountain?: boolean;
   hasLights?: boolean;
   isShaded?: boolean;
+  hasNaturalShade?: boolean;
+  hasBikeRacks?: boolean;
+  hasNearbyShelter?: boolean;
   
   // Timestamps
   createdAt?: Date;

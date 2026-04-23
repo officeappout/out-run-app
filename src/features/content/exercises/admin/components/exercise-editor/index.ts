@@ -11,3 +11,5 @@ export { default as ExecutionDetailsSection } from './ExecutionDetailsSection';
 export { default as MobilePreview } from './MobilePreview';
 export { default as ExecutionMethodCard } from './ExecutionMethodCard';
 export { default as CollapsibleSection } from './CollapsibleSection';
+export { default as VideoUploadSection } from './VideoUploadSection';
+export { default as BunnyVideoUploader } from './BunnyVideoUploader';

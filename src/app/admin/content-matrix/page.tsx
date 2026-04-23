@@ -440,6 +440,7 @@ function StatusBadge({ status }: { status: 'complete' | 'partial' | 'missing' })
 
 export default function ContentMatrixPage() {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<ContentMatrixRow[]>([]);
   const [fieldRecordingMode, setFieldRecordingMode] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
@@ -458,11 +459,13 @@ export default function ContentMatrixPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await getContentMatrixData();
-      setRows(data);
-    } catch (error) {
-      console.error('Error loading content matrix:', error);
+      setRows(data ?? []);
+    } catch (err: any) {
+      console.error('Error loading content matrix:', err);
+      setLoadError(err?.message || 'שגיאה בטעינת מטריצת התוכן');
     } finally {
       setLoading(false);
     }
@@ -475,7 +478,7 @@ export default function ContentMatrixPage() {
     // Search filter - filter by exercise name
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
-      result = result.filter((row) => row.name.toLowerCase().includes(lowerSearch));
+      result = result.filter((row) => (row.name || '').toLowerCase().includes(lowerSearch));
     }
     
     // Location filter - only show exercises that have at least one method for the selected location
@@ -495,7 +498,7 @@ export default function ContentMatrixPage() {
           : CONTENT_LOCATIONS;
         
         for (const loc of locationsToCheck) {
-          const locMethods = row.locations[loc];
+          const locMethods = row.locations[loc] ?? [];
           for (const locData of locMethods) {
             if (locData.productionStatus === statusFilter) return true;
           }
@@ -518,7 +521,7 @@ export default function ContentMatrixPage() {
           : CONTENT_LOCATIONS;
         
         for (const loc of locationsToCheck) {
-          const locMethods = row.locations[loc];
+          const locMethods = row.locations[loc] ?? [];
           for (const locData of locMethods) {
             if (workflowFilter === 'not_filmed' && !locData.workflow.filmed) return true;
             if (workflowFilter === 'filmed_not_edited' && locData.workflow.filmed && !locData.workflow.edited) return true;
@@ -554,8 +557,7 @@ export default function ContentMatrixPage() {
     
     for (const row of filteredRows) {
       for (const loc of locationsToCount) {
-        const locMethods = row.locations[loc];
-        // Now iterates over ALL methods at each location
+        const locMethods = row.locations[loc] ?? [];
         for (const locData of locMethods) {
           totalMethods++;
           if (locData.workflow.filmed) filmedCount++;
@@ -694,8 +696,30 @@ export default function ContentMatrixPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <p className="text-gray-500 font-medium">טוען מטריצת תוכן...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4" dir="rtl">
+        <div className="flex items-center gap-3 px-6 py-4 bg-red-50 border border-red-200 rounded-2xl">
+          <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0" />
+          <div>
+            <p className="font-bold text-red-700">שגיאה בטעינת מטריצת התוכן</p>
+            <p className="text-sm text-red-600 mt-1">{loadError}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setRefreshKey((k) => k + 1)}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+        >
+          <RefreshCw size={18} />
+          נסה שוב
+        </button>
       </div>
     );
   }
@@ -936,7 +960,7 @@ export default function ContentMatrixPage() {
                     <td key={loc} className="px-2 py-2">
                       <LocationCell
                         location={loc}
-                        methods={row.locations[loc]}
+                        methods={row.locations[loc] ?? []}
                         isRequired={row.requiredLocations.includes(loc)}
                         fieldRecordingMode={fieldRecordingMode}
                         onAddMethod={() => {

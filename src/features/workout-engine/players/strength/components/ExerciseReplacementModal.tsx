@@ -5,12 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Exercise, ExecutionMethod, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { getExerciseVariations, getAlternativeExercises, AlternativeExerciseOption } from '../../../generator/services/exercise-replacement.service';
-import { getGearBadgeProps, getMuscleGroupLabel } from '../../../shared/utils/gear-mapping.utils';
+import {
+  getMuscleGroupLabel,
+  normalizeGearId,
+  resolveEquipmentSvgPathList,
+  resolveEquipmentLabel,
+} from '../../../shared/utils/gear-mapping.utils';
 import { selectExecutionMethodWithBrand } from '../../../generator/services/execution-method-selector.service';
 import { ExecutionLocation } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
-import { TrendingDown, TrendingUp, Minus, Dumbbell, X } from 'lucide-react';
+import { Dumbbell, X } from 'lucide-react';
 
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
@@ -25,11 +30,45 @@ interface ExerciseReplacementModalProps {
 
 type TabType = 'adaptation' | 'alternative';
 
-const LEVEL_STYLES: Record<string, { color: string }> = {
-  lower:  { color: 'text-orange-500' },
-  same:   { color: 'text-blue-500' },
-  higher: { color: 'text-emerald-500' },
+const LEVEL_ICONS: Record<string, { src: string; color: string }> = {
+  lower:  { src: '/assets/icons/ui/level_down.svg', color: 'text-orange-500' },
+  same:   { src: '/assets/icons/ui/level_same.svg', color: 'text-[#00BAF7]' },
+  higher: { src: '/assets/icons/ui/level_up.svg',   color: 'text-emerald-500' },
 };
+
+function DrawerGearBadge({ srcList, label }: { srcList: string[]; label: string }) {
+  const [srcIdx, setSrcIdx] = React.useState(0);
+  const [failed, setFailed] = React.useState(false);
+  const src = srcList[srcIdx];
+  const validSrc = !failed && src?.startsWith('/') ? src : null;
+
+  return (
+    <div
+      className="flex items-center gap-1.5 bg-white/90 dark:bg-slate-800/90 shadow-sm"
+      style={{ borderRadius: 8, border: '1.5px solid #E0E9FF', padding: '4px 8px' }}
+    >
+      {validSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={validSrc}
+          alt={label}
+          width={20}
+          height={20}
+          className="object-contain flex-shrink-0"
+          onError={() => {
+            if (srcIdx < srcList.length - 1) setSrcIdx((i) => i + 1);
+            else setFailed(true);
+          }}
+        />
+      ) : (
+        <Dumbbell className="text-gray-400 flex-shrink-0" style={{ width: 20, height: 20 }} />
+      )}
+      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap leading-none">
+        {label}
+      </span>
+    </div>
+  );
+}
 
 // ── Lazy-loaded image with skeleton ──
 function LazyExerciseImage({ src, alt }: { src: string; alt: string }) {
@@ -84,9 +123,7 @@ export default function ExerciseReplacementModal({
   const [adaptationExercises, setAdaptationExercises] = useState<AlternativeExerciseOption[]>([]);
   const [alternativeExercises, setAlternativeExercises] = useState<AlternativeExerciseOption[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<AlternativeExerciseOption | null>(null);
-  const [gearLabels, setGearLabels] = useState<Record<string, { label: string }>>({});
 
-  // Separate loading flags: skeleton stays until ALL async work (fetch + filter + gear labels) completes
   const [loadingAdaptation, setLoadingAdaptation] = useState(true);
   const [loadingAlternative, setLoadingAlternative] = useState(true);
 
@@ -106,58 +143,23 @@ export default function ExerciseReplacementModal({
     setLoadingAlternative(true);
     setAdaptationExercises([]);
     setAlternativeExercises([]);
-    setGearLabels({});
     setSelectedExercise(null);
 
     (async () => {
       try {
-        // Tab 1 — Variations
         const variations = await getExerciseVariations(
           currentExercise, currentLevel, location, park, userProfile, activeProgramId,
         );
         if (id !== fetchId.current) return;
-
-        // Resolve gear labels for Tab 1
-        const gearPromises: Promise<[string, { label: string }]>[] = [];
-        const enqueueGear = (opt: AlternativeExerciseOption) => {
-          const m = opt.selectedExecutionMethod || opt.exercise.execution_methods?.find((em) => em.location === location);
-          if (!m) return;
-          const gearId = m.gearIds?.[0] || (m as any).gearId || '';
-          gearPromises.push(
-            getGearBadgeProps(m.requiredGearType, gearId).then((p) => [opt.exercise.id, p]),
-          );
-        };
-        for (const v of variations) enqueueGear(v);
-
-        const tab1Labels = await Promise.all(gearPromises);
-        if (id !== fetchId.current) return;
-
         setAdaptationExercises(variations);
-        setGearLabels((prev) => ({ ...prev, ...Object.fromEntries(tab1Labels) }));
         setLoadingAdaptation(false);
 
-        // Tab 2 — Alternatives (deduplicated)
         const tab1Ids = new Set(variations.map((v) => v.exercise.id));
         const alternatives = await getAlternativeExercises(
           currentExercise, currentLevel, location, park, userProfile, activeProgramId, tab1Ids,
         );
         if (id !== fetchId.current) return;
-
-        const gearPromises2: Promise<[string, { label: string }]>[] = [];
-        for (const a of alternatives) {
-          const m = a.selectedExecutionMethod;
-          if (!m) continue;
-          const gearId = m.gearIds?.[0] || (m as any).gearId || '';
-          gearPromises2.push(
-            getGearBadgeProps(m.requiredGearType, gearId).then((p) => [a.exercise.id, p]),
-          );
-        }
-
-        const tab2Labels = await Promise.all(gearPromises2);
-        if (id !== fetchId.current) return;
-
         setAlternativeExercises(alternatives);
-        setGearLabels((prev) => ({ ...prev, ...Object.fromEntries(tab2Labels) }));
         setLoadingAlternative(false);
       } catch (err) {
         console.error('[ExerciseReplacement] Error:', err);
@@ -195,8 +197,45 @@ export default function ExerciseReplacementModal({
     return imageUrl || '/images/park-placeholder.svg';
   };
 
-  const getLevelIcon = (c: 'lower' | 'same' | 'higher') =>
-    c === 'lower' ? TrendingDown : c === 'higher' ? TrendingUp : Minus;
+  const getLevelConfig = (c: 'lower' | 'same' | 'higher') =>
+    LEVEL_ICONS[c] ?? LEVEL_ICONS.same;
+
+  const resolveGearBadges = (option: AlternativeExerciseOption) => {
+    const m = option.selectedExecutionMethod || option.exercise.execution_methods?.find((em) => em.location === location);
+    if (!m) return [];
+    const rawIds: string[] = [
+      ...((m as any).gearIds ?? []),
+      ...((m as any).equipmentIds ?? []),
+      ...((m as any).gearId ? [(m as any).gearId] : []),
+    ].filter(Boolean);
+    const seen = new Set<string>();
+    const badges: { srcList: string[]; label: string }[] = [];
+    for (const raw of rawIds) {
+      let norm = normalizeGearId(raw);
+      let label = resolveEquipmentLabel(raw);
+
+      // Force fix: if the Hebrew label clearly indicates a pullup bar,
+      // override whatever normalizeGearId returned (catches bad iconKey in Firestore).
+      if (label.includes('מתח') || norm === 'מתח') {
+        norm = 'pullup_bar';
+        label = 'מתקן מתח';
+      }
+
+      console.log('[DrawerGearBadge]', {
+        rawId: raw,
+        normalizedKey: norm,
+        label,
+        exerciseName: getLocalizedText(option.exercise.name, 'he'),
+      });
+
+      if (norm === 'bodyweight' || norm === 'none' || norm === 'unknown_gear' || seen.has(norm)) continue;
+      seen.add(norm);
+      const srcList = resolveEquipmentSvgPathList(norm, location);
+      if (srcList.length === 0) continue;
+      badges.push({ srcList, label });
+    }
+    return badges;
+  };
 
   const primaryMuscleLabel = currentExercise.primaryMuscle
     ? getMuscleGroupLabel(currentExercise.primaryMuscle)
@@ -273,7 +312,7 @@ export default function ExerciseReplacementModal({
                   onClick={() => setActiveTab('adaptation')}
                   className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
                     activeTab === 'adaptation'
-                      ? 'text-[#00E5FF] border-[#00E5FF]'
+                      ? 'text-[#00BAF7] border-[#00BAF7]'
                       : 'text-slate-400 dark:text-slate-500 border-transparent'
                   }`}
                 >
@@ -283,7 +322,7 @@ export default function ExerciseReplacementModal({
                   onClick={() => setActiveTab('alternative')}
                   className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
                     activeTab === 'alternative'
-                      ? 'text-[#00E5FF] border-[#00E5FF]'
+                      ? 'text-[#00BAF7] border-[#00BAF7]'
                       : 'text-slate-400 dark:text-slate-500 border-transparent'
                   }`}
                 >
@@ -312,30 +351,19 @@ export default function ExerciseReplacementModal({
                 <div className="space-y-4">
                   {currentList.map((option) => {
                     const isSelected = selectedExercise?.exercise.id === option.exercise.id;
-                    const gearInfo = gearLabels[option.exercise.id];
-                    const style = LEVEL_STYLES[option.levelComparison];
-                    const LevelIcon = getLevelIcon(option.levelComparison);
+                    const levelCfg = getLevelConfig(option.levelComparison);
                     const resolvedImageUrl = getImage(option.exercise);
-
-                    // DEBUG: verify image URL reaching the UI
-                    const methodForDebug = findMethodForLocation(option.exercise, location);
-                    console.log(
-                      `[SwapUI] "${getLocalizedText(option.exercise.name, 'he')}" (${option.exercise.id})`,
-                      `| method.media.imageUrl=${methodForDebug?.media?.imageUrl ?? '(none)'}`,
-                      `| method.media.mainVideoUrl=${methodForDebug?.media?.mainVideoUrl ?? '(none)'}`,
-                      `| ex.media.imageUrl=${option.exercise.media?.imageUrl ?? '(none)'}`,
-                      `| resolved → ${resolvedImageUrl}`,
-                    );
+                    const gearBadges = resolveGearBadges(option);
 
                     return (
                       <motion.div
                         key={option.exercise.id}
                         layout
                         onClick={() => setSelectedExercise(option)}
-                        className={`bg-white dark:bg-slate-800/50 p-4 rounded-3xl flex items-center gap-5 shadow-sm transition-all cursor-pointer ${
+                        className={`bg-white dark:bg-slate-800/50 p-4 rounded-3xl flex items-center gap-5 shadow-sm transition-all cursor-pointer active:scale-[0.98] ${
                           isSelected
-                            ? 'border-2 border-[#00E5FF] shadow-md'
-                            : 'border border-slate-100 dark:border-slate-700 hover:border-[#00E5FF]/50'
+                            ? 'border-2 border-[#00BAF7] shadow-md'
+                            : 'border border-slate-100 dark:border-slate-700 hover:border-[#00BAF7]/50'
                         }`}
                       >
                         <LazyExerciseImage
@@ -349,15 +377,17 @@ export default function ExerciseReplacementModal({
                           </h3>
 
                           <div className="flex items-center gap-3 flex-wrap">
-                            <div className={`flex items-center gap-1 ${style.color}`}>
-                              <LevelIcon size={18} />
+                            <div className={`flex items-center gap-1 ${levelCfg.color}`}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={levelCfg.src} alt="" width={16} height={16} className="object-contain" />
                               <span className="text-sm font-semibold">רמה {option.resolvedLevel}</span>
                             </div>
 
-                            {gearInfo && (
-                              <div className="inline-flex items-center gap-1 bg-slate-50 dark:bg-slate-700/50 px-3 py-1 rounded-full">
-                                <Dumbbell size={12} className="text-slate-400" />
-                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{gearInfo.label}</span>
+                            {gearBadges.length > 0 && (
+                              <div className="flex gap-1.5 flex-wrap">
+                                {gearBadges.slice(0, 3).map((badge, i) => (
+                                  <DrawerGearBadge key={badge.srcList[0] ?? i} srcList={badge.srcList} label={badge.label} />
+                                ))}
                               </div>
                             )}
                           </div>
@@ -377,11 +407,12 @@ export default function ExerciseReplacementModal({
               <button
                 onClick={handleReplace}
                 disabled={!selectedExercise}
-                className={`w-full font-black py-4 rounded-full text-lg shadow-lg transition-all ${
+                className={`w-full font-semibold py-4 rounded-full text-lg shadow-lg transition-all ${
                   selectedExercise
-                    ? 'bg-[#00E5FF] hover:opacity-90 active:scale-[0.97] text-slate-900 shadow-[#00E5FF]/20'
+                    ? 'text-black hover:opacity-90 active:scale-[0.97] shadow-cyan-400/20'
                     : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
                 }`}
+                style={selectedExercise ? { background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' } : undefined}
               >
                 החליפו תרגיל
               </button>

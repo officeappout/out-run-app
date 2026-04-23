@@ -5,7 +5,7 @@
 
 export type SessionMode = 'running' | 'walking' | 'strength' | 'hybrid' | 'idle';
 export type SessionStatus = 'idle' | 'countdown' | 'active' | 'paused' | 'finished';
-export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
+export type { ActivityType } from '@/features/parks/core/types/route.types';
 
 export interface GeoPoint {
   latitude: number;

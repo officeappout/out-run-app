@@ -265,9 +265,90 @@ export type ExerciseTag = 'skill' | 'compound' | 'isolation' | 'explosive' | 'hi
  */
 export type ExerciseRole = 'warmup' | 'cooldown' | 'main';
 
+// ============================================================================
+// EXTERNAL VIDEO PROVIDERS (Phase 5 — Bunny.net Infrastructure)
+// ============================================================================
+
+/**
+ * Supported video hosting providers.
+ * - 'bunny': Bunny.net Stream (primary, used for new uploads)
+ * - 'youtube': External YouTube link (legacy / instructional fallback)
+ * - 'internal': Local /public asset (rare, dev only)
+ * - 'firebase-storage': Legacy Firebase Storage upload
+ */
+export type VideoProvider = 'bunny' | 'youtube' | 'internal' | 'firebase-storage';
+
+/**
+ * Reference to an externally-hosted video.
+ * The full playback URL is built at render time by the ExerciseVideoPlayer
+ * component — Firestore only stores the videoId + provider.
+ */
+export interface ExternalVideo {
+  /** Provider-specific identifier (Bunny GUID, YouTube ID, Storage path, etc.). */
+  videoId: string;
+  provider: VideoProvider;
+  /** CDN-generated thumbnail URL (Bunny auto-generates one). */
+  thumbnailUrl?: string;
+  /** Encoded duration, returned by the provider after processing. */
+  durationSeconds?: number;
+}
+
+/**
+ * Per-language map of Bunny (or other-provider) video references.
+ *
+ * Option B unified-document strategy (Phase 5.5 i18n):
+ *   { he: { videoId: 'abc', provider: 'bunny' },
+ *     en: { videoId: 'xyz', provider: 'bunny' } }
+ *
+ * Backward-compat: the normalizer in exercise-mapping.utils.ts converts legacy
+ * flat ExternalVideo documents (pre-i18n) to `{ he: <oldValue> }` on read.
+ * New documents always use the map shape.
+ *
+ * Use `resolveTutorialForLang()` / `resolvePreviewForLang()` at render time
+ * instead of reading this map directly.
+ */
+export type LocalizedExternalVideo = Partial<Record<ExerciseLang, ExternalVideo>>;
+
 export interface ExerciseMedia {
   videoUrl?: string;
   imageUrl?: string;
+  /**
+   * Short (5–15s), muted, looping clip rendered on library list cards.
+   * Per-language map — the preview loop for HE and EN may be identical
+   * (same body, no audio) but different Bunny IDs if re-encoded per language.
+   * Resolve with `resolvePreviewForLang(media, lang)`.
+   */
+  previewVideo?: LocalizedExternalVideo;
+  /**
+   * Full instructional video shown inside the ExerciseDetailSheet.
+   * HE = original Hebrew audio; EN = AI-voiceover version (uploaded separately).
+   * Resolve with `resolveTutorialForLang(media, lang)`.
+   */
+  fullTutorial?: LocalizedExternalVideo;
+}
+
+/**
+ * Resolve the best matching preview loop for a given language.
+ * Falls back to Hebrew if the requested language has no upload yet.
+ */
+export function resolvePreviewForLang(
+  media: ExerciseMedia | undefined,
+  lang: ExerciseLang = 'he',
+): ExternalVideo | undefined {
+  if (!media?.previewVideo) return undefined;
+  return media.previewVideo[lang] ?? media.previewVideo['he'];
+}
+
+/**
+ * Resolve the best matching full tutorial for a given language.
+ * Falls back to Hebrew if the requested language has no upload yet.
+ */
+export function resolveTutorialForLang(
+  media: ExerciseMedia | undefined,
+  lang: ExerciseLang = 'he',
+): ExternalVideo | undefined {
+  if (!media?.fullTutorial) return undefined;
+  return media.fullTutorial[lang] ?? media.fullTutorial['he'];
 }
 
 export type InstructionalVideoLang = 'he' | 'en' | 'es';
@@ -312,13 +393,22 @@ export interface ProductionWorkflow {
 export type ExplanationStatus = 'missing' | 'ready';
 
 export interface ExecutionMethod {
-  methodName?: string; // Hebrew name for this execution method variant
-  
   /**
-   * Text shown in push notification (max 100 chars)
-   * Can be a simple string or gender-specific: { male: "...", female: "..." }
+   * Name of this execution method variant.
+   * Stored as LocalizedText so HE/EN admins can name it in their language.
+   * Backward-compat: the normalizer converts a legacy plain string to { he: string, en: '' }.
    */
-  notificationText?: string | GenderedText;
+  methodName?: LocalizedText;
+
+  /**
+   * Text shown in push notification (max 100 chars).
+   * Multi-shape for backward compatibility:
+   *   • LocalizedText: { he, en }   (current — used by bulk translation tool)
+   *   • string                       (legacy)
+   *   • GenderedText: { male, female } (legacy gendered copy)
+   * The normalizer in exercise-mapping.utils converts legacy values on read.
+   */
+  notificationText?: LocalizedText | string | GenderedText;
   
   location: ExecutionLocation;
   requiredGearType: RequiredGearType;
@@ -348,17 +438,21 @@ export interface ExecutionMethod {
   
   /**
    * Specific execution cues for THIS method variant.
-   * Short, actionable coaching points (e.g., "Keep elbows tight", "Squeeze at the top")
-   * Each cue can be a simple string or gender-specific: { male: "...", female: "..." }
+   * Short, actionable coaching points (e.g., "Keep elbows tight", "Squeeze at the top").
+   *
+   * Stored as LocalizedText so each cue has an HE and EN translation.
+   * Backward-compat: the normalizer converts legacy plain strings / GenderedText to
+   * LocalizedText by placing existing content in the `he` slot.
    */
-  specificCues?: (string | GenderedText)[];
-  
+  specificCues?: LocalizedText[];
+
   /**
    * Highlights/key points for THIS method variant.
    * Benefits, tips, or important notes specific to this execution method.
-   * Each highlight can be a simple string or gender-specific: { male: "...", female: "..." }
+   *
+   * Same LocalizedText upgrade as specificCues above.
    */
-  highlights?: (string | GenderedText)[];
+  highlights?: LocalizedText[];
   
   media: {
     /**
@@ -377,6 +471,18 @@ export interface ExecutionMethod {
      */
     instructionalVideos?: InstructionalVideo[];
     imageUrl?: string | null;
+    /**
+     * Phase 5: Per-execution-method short preview loop (per-language map).
+     * Falls back to the exercise-level `media.previewVideo` if absent.
+     * Resolve with `resolvePreviewForLang(method.media, lang)`.
+     */
+    previewVideo?: LocalizedExternalVideo;
+    /**
+     * Phase 5: Per-execution-method full instructional video (per-language map).
+     * Falls back to the exercise-level `media.fullTutorial` if absent.
+     * Resolve with `resolveTutorialForLang(method.media, lang)`.
+     */
+    fullTutorial?: LocalizedExternalVideo;
   };
   
   // ========================================================================
@@ -453,8 +559,34 @@ export interface AlternativeEquipmentRequirement {
 /** Access tier required to view/use this content. 1=Starter, 2=Municipal, 3=Pro/Elite */
 export type ContentTier = 1 | 2 | 3;
 
+/**
+ * Primary language of an Exercise document.
+ *
+ * Architectural note (Phase 5.5 — i18n separation):
+ * Each exercise document is owned by one language. Hebrew and English
+ * variants live in SEPARATE documents because their videos differ
+ * (HE original-audio vs EN AI-voiceover Bunny IDs are not interchangeable).
+ *
+ * Variants of the same conceptual exercise are linked via `baseExerciseId`
+ * (see below). User-facing fetches add `where('lang', '==', userLang)`.
+ *
+ * Default for backfilled / un-tagged docs is 'he'.
+ */
+export type ExerciseLang = 'he' | 'en';
+
 export interface Exercise {
   id: string;
+  /**
+   * Languages for which this exercise has uploaded video content.
+   * Added automatically when a video is saved to `media.fullTutorial[lang]`.
+   *
+   * Used for Firestore filtering:
+   *   where('supportedLangs', 'array-contains', 'en')
+   * to show only exercises that have English video ready.
+   *
+   * An empty / absent array means only Hebrew is authored (default state).
+   */
+  supportedLangs?: ExerciseLang[];
   /**
    * Localized exercise name (multi-language).
    */

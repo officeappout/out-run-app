@@ -121,6 +121,7 @@ function normalizeEvent(docId: string, data: any): CommunityEvent {
     targetAgeRange: data?.targetAgeRange ?? undefined,
     images: data?.images ?? undefined,
     externalLink: data?.externalLink ?? undefined,
+    source: data?.source ?? undefined,
     isCityOnly: data?.isCityOnly ?? false,
     restrictedNeighborhoodId: data?.restrictedNeighborhoodId ?? undefined,
   };
@@ -170,11 +171,13 @@ function cleanForFirestore(obj: Record<string, any>): Record<string, any> {
 // Community Groups
 // ==========================================
 
-export async function getGroupsByAuthority(authorityId: string): Promise<CommunityGroup[]> {
+export async function getGroupsByAuthority(authorityId: string, tenantId?: string): Promise<CommunityGroup[]> {
   try {
+    const scopeField = tenantId ? 'tenantId' : 'authorityId';
+    const scopeValue = tenantId ?? authorityId;
     const q = query(
       collection(db, GROUPS_COLLECTION),
-      where('authorityId', '==', authorityId),
+      where(scopeField, '==', scopeValue),
       orderBy('createdAt', 'desc')
     );
     const snapshot = await getDocs(q);
@@ -344,6 +347,44 @@ export async function getEventsByAuthority(authorityId: string): Promise<Communi
     console.error('Error fetching events:', error);
     throw error;
   }
+}
+
+/**
+ * Fetch only standalone/admin-created events (excludes auto-materialized ones).
+ * Used by the Admin Events tab so virtual_materialized events only appear
+ * inside their parent Group's accordion.
+ */
+export async function getStandaloneEventsByAuthority(authorityId: string): Promise<CommunityEvent[]> {
+  try {
+    const all = await getEventsByAuthority(authorityId);
+    return all.filter((e) => e.source !== 'virtual_materialized');
+  } catch (error) {
+    console.error('Error fetching standalone events:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete stale materialized events older than 48 hours with 0 registrations.
+ * Returns the number of deleted documents.
+ */
+export async function cleanupStaleMaterializedEvents(authorityId: string): Promise<number> {
+  const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const all = await getEventsByAuthority(authorityId);
+  const stale = all.filter(
+    (e) =>
+      e.source === 'virtual_materialized' &&
+      e.date < cutoff &&
+      (e.currentRegistrations ?? 0) === 0,
+  );
+
+  let deleted = 0;
+  for (const ev of stale) {
+    await deleteDoc(doc(db, EVENTS_COLLECTION, ev.id));
+    deleted++;
+  }
+  console.log(`[cleanupStaleMaterializedEvents] Deleted ${deleted} stale events for ${authorityId}`);
+  return deleted;
 }
 
 export async function getEvent(eventId: string): Promise<CommunityEvent | null> {
@@ -637,4 +678,74 @@ export async function purgeAllCommunityData(): Promise<{ groups: number; events:
 
   console.log(`✅ Purged ALL community data: ${groupCount} groups + ${eventCount} events`);
   return { groups: groupCount, events: eventCount };
+}
+
+// ==========================================
+// Virtual Session Materialization
+// ==========================================
+
+/**
+ * Materializes a recurring/virtual group schedule slot into a real
+ * community_events document and registers the joining user.
+ *
+ * Called when a user taps "Join" on a session that exists only as a
+ * virtual slot (sourced from a community_groups scheduleSlot).
+ *
+ * Returns the newly created eventId.
+ */
+export async function materializeVirtualSession(
+  groupId: string,
+  date: string,
+  time: string,
+  uid: string,
+  displayName: string,
+  photoURL?: string,
+): Promise<string> {
+  console.log('[materializeVirtualSession] START', { groupId, date, time, uid });
+
+  const groupSnap = await getDoc(doc(db, GROUPS_COLLECTION, groupId));
+  if (!groupSnap.exists()) throw new Error('Group not found');
+  const group = groupSnap.data();
+
+  const eventDate = new Date(`${date}T${time}:00`);
+
+  const eventData: Record<string, unknown> = {
+    authorityId: group.authorityId ?? '',
+    name: group.name ?? 'מפגש קבוצתי',
+    description: group.description ?? '',
+    category: 'community_meetup',
+    date: Timestamp.fromDate(eventDate),
+    startTime: time,
+    location: {
+      parkId: group.meetingLocation?.parkId ?? null,
+      routeId: group.meetingLocation?.routeId ?? null,
+      address: group.meetingLocation?.address ?? '',
+      location: group.meetingLocation?.location ?? { lat: 0, lng: 0 },
+    },
+    registrationRequired: false,
+    maxParticipants: group.maxParticipants ?? null,
+    currentRegistrations: 1,
+    isActive: true,
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    groupId,
+    isOfficial: group.isOfficial ?? false,
+    source: 'virtual_materialized',
+  };
+
+  const cleaned = cleanForFirestore(eventData);
+  const docRef = await addDoc(collection(db, EVENTS_COLLECTION), cleaned);
+  console.log('[materializeVirtualSession] ✅ Event created:', docRef.id);
+
+  const regRef = doc(db, EVENTS_COLLECTION, docRef.id, 'registrations', uid);
+  await setDoc(regRef, {
+    uid,
+    name: displayName,
+    photoURL: photoURL ?? null,
+    joinedAt: serverTimestamp(),
+  });
+  console.log('[materializeVirtualSession] ✅ User registered');
+
+  return docRef.id;
 }

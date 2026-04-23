@@ -36,6 +36,9 @@ import {
     Sparkles,
     Clock,
     ShieldCheck,
+    ChevronDown,
+    SquareCheck,
+    Square,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
@@ -207,6 +210,32 @@ export default function AdminRouteManager() {
     // Approval workflow state
     const [approvingRouteId, setApprovingRouteId] = useState<string | null>(null);
 
+    // Quick View state (for inventory tab)
+    const [quickViewRouteId, setQuickViewRouteId] = useState<string | null>(null);
+
+    // Recalculate distances state
+    const [isRecalculating, setIsRecalculating] = useState(false);
+    const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+    const [recalcResult, setRecalcResult] = useState<string | null>(null);
+
+    // Inventory filters
+    const [invFilterCity, setInvFilterCity] = useState<string>('all');
+    const [invFilterActivity, setInvFilterActivity] = useState<string>('all');
+    const [invFilterKind, setInvFilterKind] = useState<'all' | 'curated' | 'infrastructure'>('all');
+    const [invFilterStatus, setInvFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
+
+    // Bulk selection state
+    const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+    const [isDeletingByCity, setIsDeletingByCity] = useState(false);
+
+    // Toast state (moved up so handlers below can reference it)
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const showToast = useCallback((message: string) => {
+        setToastMessage(message);
+        setTimeout(() => setToastMessage(null), 3500);
+    }, []);
+
     // Import batch management state
     const [importBatches, setImportBatches] = useState<ImportBatchSummary[]>([]);
     const [isDeletingBatch, setIsDeletingBatch] = useState<string | null>(null);
@@ -245,6 +274,46 @@ export default function AdminRouteManager() {
     const [labHoveredFacility, setLabHoveredFacility] = useState<Park | null>(null);
     const [labPioneerMessage, setLabPioneerMessage] = useState<string | null>(null);
     const labMapRef = useRef<any>(null);
+    const inventoryMapRef = useRef<any>(null);
+
+    // ── Inventory: Derived filter data ──────────────────────────────────
+    const isInfrastructureRoute = useCallback((route: Route) => {
+        return route.isInfrastructure === true || (route.name || '').includes('מקטע');
+    }, []);
+
+    const uniqueCities = useMemo(() => {
+        const cities = new Set<string>();
+        for (const r of existingRoutes) {
+            if (r.city) cities.add(r.city);
+        }
+        return Array.from(cities).sort();
+    }, [existingRoutes]);
+
+    const filteredInventoryRoutes = useMemo(() => {
+        return existingRoutes.filter(r => {
+            if (invFilterCity !== 'all' && r.city !== invFilterCity) return false;
+            if (invFilterActivity !== 'all') {
+                const act = r.activityType || r.type || '';
+                const infra = r.infrastructureMode || '';
+                if (invFilterActivity === 'cycling' && act !== 'cycling' && infra !== 'cycling') return false;
+                if (invFilterActivity === 'pedestrian' && infra !== 'pedestrian' && act !== 'walking' && act !== 'running') return false;
+            }
+            if (invFilterKind === 'curated' && isInfrastructureRoute(r)) return false;
+            if (invFilterKind === 'infrastructure' && !isInfrastructureRoute(r)) return false;
+            if (invFilterStatus === 'published' && (r.published === false || r.status === 'pending')) return false;
+            if (invFilterStatus === 'draft' && r.published !== false && r.status !== 'pending') return false;
+            return true;
+        });
+    }, [existingRoutes, invFilterCity, invFilterActivity, invFilterKind, invFilterStatus, isInfrastructureRoute]);
+
+    const invStats = useMemo(() => {
+        const total = existingRoutes.length;
+        const infra = existingRoutes.filter(isInfrastructureRoute).length;
+        return { total, infra, curated: total - infra, filtered: filteredInventoryRoutes.length };
+    }, [existingRoutes, filteredInventoryRoutes, isInfrastructureRoute]);
+
+    // Clear selection when filters change
+    useEffect(() => { setSelectedRouteIds(new Set()); }, [invFilterCity, invFilterActivity, invFilterKind, invFilterStatus]);
 
     // Lab derived
     const labAuthority = authorities.find(a => a.id === labAuthorityId);
@@ -466,9 +535,103 @@ export default function AdminRouteManager() {
         setTimeout(() => setLabHighlightedRouteId(prev => prev === route.id ? null : prev), 5000);
     }, []);
 
-    // Classification State
+    // ── Inventory: Quick View handler ────────────────────────────────
+    const handleQuickViewRoute = useCallback((route: Route) => {
+        setQuickViewRouteId(prev => prev === route.id ? null : route.id);
+        const map = inventoryMapRef.current?.getMap?.();
+        if (!map || !route.path || route.path.length < 2) return;
+
+        let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        for (const [lng, lat] of route.path) {
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+        }
+        try {
+            map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+                padding: { top: 80, bottom: 80, left: 80, right: 80 },
+                duration: 800,
+                maxZoom: 17,
+            });
+        } catch { /* map not ready */ }
+    }, []);
+
+    // ── Inventory: Toggle route status (Draft ↔ Published) ──────────
+    const handleToggleRouteStatus = useCallback(async (route: Route) => {
+        const newPublished = !(route.published !== false);
+        try {
+            if (newPublished) {
+                await InventoryService.approveRoute(route.id);
+            } else {
+                await InventoryService.rejectRoute(route.id);
+            }
+            setExistingRoutes(prev => prev.map(r =>
+                r.id === route.id
+                    ? { ...r, published: newPublished, status: newPublished ? 'published' : 'pending' }
+                    : r
+            ));
+        } catch {
+            alert('שגיאה בעדכון סטטוס');
+        }
+    }, []);
+
+    // ── Inventory: Bulk delete selected ─────────────────────────────
+    const handleBulkDeleteSelected = useCallback(async () => {
+        if (selectedRouteIds.size === 0) return;
+        if (!confirm(`האם למחוק ${selectedRouteIds.size} מסלולים? פעולה זו אינה הפיכה.`)) return;
+        setIsBulkDeleting(true);
+        try {
+            const count = await InventoryService.bulkDeleteRoutes(Array.from(selectedRouteIds));
+            setExistingRoutes(prev => prev.filter(r => !selectedRouteIds.has(r.id)));
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים נמחקו`);
+        } catch {
+            alert('שגיאה במחיקה');
+        } finally {
+            setIsBulkDeleting(false);
+        }
+    }, [selectedRouteIds, showToast]);
+
+    // ── Inventory: Delete all by city ────────────────────────────────
+    const handleDeleteAllByCity = useCallback(async (city: string) => {
+        const count = existingRoutes.filter(r => r.city === city).length;
+        if (!confirm(`האם למחוק את כל ${count} המסלולים של "${city}"? פעולה זו אינה הפיכה.`)) return;
+        setIsDeletingByCity(true);
+        try {
+            const deleted = await InventoryService.deleteRoutesByCity(city);
+            setExistingRoutes(prev => prev.filter(r => r.city !== city));
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${deleted} מסלולים של "${city}" נמחקו`);
+        } catch {
+            alert('שגיאה במחיקה');
+        } finally {
+            setIsDeletingByCity(false);
+        }
+    }, [existingRoutes, showToast]);
+
+    // ── Inventory: Recalculate distances ──────────────────────────────
+    const handleRecalculateDistances = useCallback(async () => {
+        if (!confirm('פעולה זו תחשב מחדש את המרחק של כל המסלולים לפי ה-Geometry בפועל (Haversine). להמשיך?')) return;
+        setIsRecalculating(true);
+        setRecalcResult(null);
+        try {
+            const result = await InventoryService.recalculateAllDistances(
+                (done, total, current) => setRecalcProgress({ done, total, current })
+            );
+            setRecalcResult(`✅ עודכנו ${result.updated} מסלולים | ${result.skipped} דולגו (ללא geometry) | ${result.errors} שגיאות`);
+            setRecalcProgress(null);
+            await loadInventory();
+        } catch {
+            setRecalcResult('❌ שגיאה בחישוב מחדש');
+        } finally {
+            setIsRecalculating(false);
+        }
+    }, []);
+
+    // Classification State (activities is multi-select)
     const [classification, setClassification] = useState({
-        activity: 'running' as ActivityType,
+        activities: ['running'] as ActivityType[],
         terrain: 'asphalt' as 'asphalt' | 'dirt' | 'mixed',
         environment: 'urban' as 'urban' | 'nature' | 'park' | 'beach',
         difficulty: 'easy' as 'easy' | 'medium' | 'hard'
@@ -484,15 +647,24 @@ export default function AdminRouteManager() {
 
         try {
             const json = await GISParserService.parseFile(file);
+            const totalFeatures = json?.features?.length ?? 0;
+            const primaryActivity = classification.activities[0] || 'running';
             const parsed = GISParserService.parseGeoJSON(json, {
-                activity: classification.activity,
+                activity: primaryActivity,
+                activities: classification.activities,
                 terrain: classification.terrain,
                 environment: classification.environment,
                 difficulty: classification.difficulty
             });
+
+            if (parsed.length === 0 && totalFeatures > 0) {
+                alert(`הקובץ מכיל ${totalFeatures} אובייקטים אך אף אחד מהם אינו מסלול (LineString/MultiLineString). ודאו שהקובץ מכיל מסלולים ולא נקודות או פוליגונים.`);
+            }
+
             setPreviewRoutes(parsed);
         } catch (err: any) {
-            alert(err.message || 'Error parsing file. Please upload a valid GeoJSON or Shapefile (.zip)');
+            console.error('[Routes] File parse error:', err);
+            alert(err.message || 'שגיאה בקריאת הקובץ. אנא העלו קובץ GeoJSON (.geojson) או Shapefile (.zip) תקין.');
         }
     };
 
@@ -534,7 +706,7 @@ export default function AdminRouteManager() {
 
             const paths = await GISIntegrationService.fetchFromArcGIS(
                 externalUrl,
-                classification,
+                { ...classification, activity: classification.activities[0] || 'running' },
                 (p) => setFetchProgress(p)
             );
             setPreviewRoutes(paths);
@@ -574,7 +746,7 @@ export default function AdminRouteManager() {
 
             const routes = await GISIntegrationService.fetchFromArcGIS(
                 externalUrl,
-                classification,
+                { ...classification, activity: classification.activities[0] || 'running' },
                 (p) => {
                     setPipelineDetail(p.detail);
                     setPipelinePercent(Math.round(p.percent * 0.3)); // 0-30%
@@ -617,10 +789,9 @@ export default function AdminRouteManager() {
             const stitchResult = await RouteStitchingService.generateCuratedRoutes(
                 selectedAuthorityId,
                 selectedAuthority.name || '',
-                classification.activity,
+                classification.activities[0] || 'running',
                 (sp) => {
                     setPipelineDetail(sp.detail);
-                    // Map stitching progress (0-100%) to pipeline range (50-95%)
                     setPipelinePercent(50 + Math.round(sp.percent * 0.45));
                 }
             );
@@ -694,32 +865,38 @@ export default function AdminRouteManager() {
                         <span>נקה תצוגה</span>
                     </button>
                     <button
-                        disabled={previewRoutes.length === 0 || isSubmitting}
+                        disabled={previewRoutes.length === 0 || isSubmitting || !selectedAuthorityId}
                         className="flex items-center gap-2 bg-cyan-500 text-white px-8 py-2.5 rounded-2xl font-bold shadow-lg shadow-cyan-200 hover:bg-cyan-600 transition-all disabled:opacity-50 disabled:shadow-none"
                         onClick={async () => {
+                            if (!selectedAuthorityId) {
+                                alert('אנא בחרו רשות/עיר לפני שמירת המסלולים');
+                                return;
+                            }
                             setIsSubmitting(true);
                             try {
-                                // Generate a unique import batch ID
                                 const batchId = `import_${Date.now()}_${lastImportFileName.replace(/[^a-zA-Z0-9_.-]/g, '_') || 'unknown'}`;
                                 const sourceName = lastImportFileName || 'Unknown Source';
 
-                                // Inject batch tracking + authority + infrastructure flag into every route
-                                // IMPORTANT: never pass `undefined` — Firestore rejects it
                                 const enrichedRoutes = previewRoutes.map(r => ({
                                     ...r,
                                     importBatchId: batchId,
                                     importSourceName: sourceName,
-                                    authorityId: selectedAuthorityId || r.authorityId || '',
+                                    authorityId: selectedAuthorityId,
                                     city: selectedAuthority?.name || r.city || '',
-                                    isInfrastructure: true, // GIS imports are always infrastructure
+                                    activityTypes: r.activityTypes || classification.activities,
+                                    isInfrastructure: true,
                                 }));
 
                                 await InventoryService.saveRoutes(enrichedRoutes);
-                                alert(`${enrichedRoutes.length} מסלולים נשמרו בהצלחה במערכת!`);
+                                const activityLabels = classification.activities.map(a =>
+                                    a === 'running' ? 'ריצה' : a === 'walking' ? 'הליכה' : 'רכיבה'
+                                ).join(' + ');
+                                showToast(`✅ ${enrichedRoutes.length} מסלולי ${activityLabels} נשמרו עבור ${selectedAuthority?.name || 'הרשות הנבחרת'}`);
                                 setPreviewRoutes([]);
                                 await loadInventory();
                                 setActiveTab('inventory');
                             } catch (err) {
+                                console.error('[Routes] Save error:', err);
                                 alert('שגיאה בשמירה');
                             } finally {
                                 setIsSubmitting(false);
@@ -836,21 +1013,36 @@ export default function AdminRouteManager() {
                             {/* Route Classification */}
                             <div className="space-y-8">
                                 <div className="space-y-4">
-                                    <label className="text-sm font-black text-gray-400 uppercase tracking-widest px-1">סוג פעילות</label>
+                                    <label className="text-sm font-black text-gray-400 uppercase tracking-widest px-1">סוגי פעילות (ניתן לבחור מספר)</label>
                                     <div className="grid grid-cols-3 gap-2">
-                                        {activityOptions.map((opt) => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => setClassification({ ...classification, activity: opt.id })}
-                                                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${classification.activity === opt.id
-                                                    ? 'border-cyan-500 bg-cyan-50 text-cyan-600'
-                                                    : 'border-gray-50 bg-gray-50 text-gray-400'
-                                                    }`}
-                                            >
-                                                <opt.icon size={20} />
-                                                <span className="text-xs font-bold">{opt.label}</span>
-                                            </button>
-                                        ))}
+                                        {activityOptions.map((opt) => {
+                                            const isSelected = classification.activities.includes(opt.id);
+                                            return (
+                                                <button
+                                                    key={opt.id}
+                                                    onClick={() => {
+                                                        setClassification(prev => {
+                                                            const next = isSelected
+                                                                ? prev.activities.filter(a => a !== opt.id)
+                                                                : [...prev.activities, opt.id];
+                                                            return { ...prev, activities: next.length > 0 ? next : [opt.id] };
+                                                        });
+                                                    }}
+                                                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${isSelected
+                                                        ? 'border-cyan-500 bg-cyan-50 text-cyan-600'
+                                                        : 'border-gray-50 bg-gray-50 text-gray-400'
+                                                        }`}
+                                                >
+                                                    <div className="relative">
+                                                        <opt.icon size={20} />
+                                                        {isSelected && (
+                                                            <CheckCircle2 size={12} className="absolute -top-1 -right-2 text-cyan-500" />
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs font-bold">{opt.label}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -923,14 +1115,14 @@ export default function AdminRouteManager() {
                                         </div>
                                         <div className="text-center">
                                             <span className="block font-black text-gray-800">לחץ להעלאת קובץ</span>
-                                            <span className="text-xs text-gray-400 mt-1">GeoJSON או Shapefile (.zip)</span>
+                                            <span className="text-xs text-gray-400 mt-1">GeoJSON (.geojson / .json) או Shapefile (.zip)</span>
                                         </div>
                                         <input
                                             type="file"
                                             ref={fileInputRef}
                                             onChange={handleFileUpload}
                                             className="hidden"
-                                            accept=".json,.geojson,.zip"
+                                            accept=".json,.geojson,.zip,application/json,application/geo+json,application/zip"
                                         />
                                     </div>
                                 ) : (
@@ -1269,7 +1461,7 @@ export default function AdminRouteManager() {
 
                         <div className="flex-1 relative bg-gray-50">
                             <Map
-                                ref={activeTab === 'lab' ? labMapRef : undefined}
+                                ref={activeTab === 'lab' ? labMapRef : activeTab === 'inventory' ? inventoryMapRef : undefined}
                                 initialViewState={{
                                     longitude: 34.7818,
                                     latitude: 32.0853,
@@ -1307,32 +1499,98 @@ export default function AdminRouteManager() {
                                     </Source>
                                 ))}
 
-                                {/* Existing Inventory */}
-                                {activeTab === 'inventory' && existingRoutes.map((route) => (
-                                    <Source
-                                        key={route.id}
-                                        id={route.id}
-                                        type="geojson"
-                                        data={{
-                                            type: 'Feature',
-                                            properties: {},
-                                            geometry: {
-                                                type: 'LineString',
-                                                coordinates: route.path
-                                            }
-                                        }}
-                                    >
-                                        <Layer
-                                            id={`${route.id}-layer`}
-                                            type="line"
-                                            paint={{
-                                                'line-color': getRouteColor(route),
-                                                'line-width': 4,
-                                                'line-opacity': 0.8
+                                {/* Existing Inventory — only filtered routes, with Quick View highlight */}
+                                {activeTab === 'inventory' && filteredInventoryRoutes.map((route) => {
+                                    const isQuickViewed = quickViewRouteId === route.id;
+                                    const isInfra = isInfrastructureRoute(route);
+                                    return (
+                                        <Source
+                                            key={route.id}
+                                            id={route.id}
+                                            type="geojson"
+                                            data={{
+                                                type: 'Feature',
+                                                properties: {},
+                                                geometry: {
+                                                    type: 'LineString',
+                                                    coordinates: route.path
+                                                }
                                             }}
-                                        />
-                                    </Source>
-                                ))}
+                                        >
+                                            {isQuickViewed && (
+                                                <Layer
+                                                    id={`${route.id}-glow`}
+                                                    type="line"
+                                                    paint={{
+                                                        'line-color': '#3b82f6',
+                                                        'line-width': 14,
+                                                        'line-opacity': 0.25,
+                                                        'line-blur': 6,
+                                                    }}
+                                                    layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                                                />
+                                            )}
+                                            <Layer
+                                                id={`${route.id}-layer`}
+                                                type="line"
+                                                paint={{
+                                                    'line-color': isQuickViewed ? '#2563eb' : isInfra ? '#FBBF24' : getRouteColor(route),
+                                                    'line-width': isQuickViewed ? 6 : isInfra ? 2 : 4,
+                                                    'line-opacity': isQuickViewed ? 1 : isInfra ? 0.35 : 0.7,
+                                                }}
+                                                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                                            />
+                                        </Source>
+                                    );
+                                })}
+                                {/* Start/End markers for Quick Viewed route */}
+                                {activeTab === 'inventory' && quickViewRouteId && (() => {
+                                    const route = existingRoutes.find(r => r.id === quickViewRouteId);
+                                    if (!route?.path || route.path.length < 2) return null;
+                                    const start = route.path[0];
+                                    const end = route.path[route.path.length - 1];
+                                    const computedKm = Math.round((computeTotalKm([route]) || 0) * 100) / 100;
+                                    return (
+                                        <>
+                                            <Marker longitude={start[0]} latitude={start[1]} anchor="bottom">
+                                                <div className="flex flex-col items-center">
+                                                    <div className="bg-green-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg border-2 border-white">START</div>
+                                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-0.5" />
+                                                </div>
+                                            </Marker>
+                                            <Marker longitude={end[0]} latitude={end[1]} anchor="bottom">
+                                                <div className="flex flex-col items-center">
+                                                    <div className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg border-2 border-white">END</div>
+                                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full mt-0.5" />
+                                                </div>
+                                            </Marker>
+                                            <Popup
+                                                longitude={(start[0] + end[0]) / 2}
+                                                latitude={(start[1] + end[1]) / 2}
+                                                anchor="bottom"
+                                                offset={20}
+                                                closeButton={false}
+                                                className="z-50"
+                                            >
+                                                <div className="p-2 bg-white rounded-lg shadow text-center min-w-[120px]" dir="rtl">
+                                                    <p className="text-xs font-black text-gray-800 truncate">{route.name}</p>
+                                                    <div className="flex items-center justify-center gap-3 mt-1">
+                                                        <div>
+                                                            <p className="text-[9px] text-gray-400">שמור</p>
+                                                            <p className="text-sm font-black text-gray-700">{Math.round(route.distance * 100) / 100}</p>
+                                                        </div>
+                                                        <div className="text-gray-300">→</div>
+                                                        <div>
+                                                            <p className="text-[9px] text-gray-400">חישוב</p>
+                                                            <p className={`text-sm font-black ${Math.abs(route.distance - computedKm) > 0.5 ? 'text-red-600' : 'text-green-600'}`}>{computedKm}</p>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[9px] text-gray-400 mt-1">ק״מ</p>
+                                                </div>
+                                            </Popup>
+                                        </>
+                                    );
+                                })()}
 
                                 {/* ── LAB: Infrastructure Polylines ─────────────── */}
                                 {activeTab === 'lab' && filteredLabInfra.map((route) => (
@@ -1556,121 +1814,362 @@ export default function AdminRouteManager() {
 
                     {/* Inventory Table (When in Inventory Tab) */}
                     {activeTab === 'inventory' && (
-                        <div className="bg-white rounded-3xl shadow-premium border border-gray-50 p-6">
-                            <div className="flex justify-between items-center mb-6">
+                        <div className="bg-white rounded-3xl shadow-premium border border-gray-50 p-6 space-y-4">
+                            {/* ── Header: title + actions ── */}
+                            <div className="flex flex-wrap justify-between items-center gap-3">
                                 <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
                                     <Database size={24} className="text-cyan-500" />
                                     רשימת מסלולים
-                                    <span className="text-sm font-bold text-gray-400">({existingRoutes.length})</span>
+                                    <span className="text-sm font-bold text-gray-400">
+                                        ({invStats.filtered}/{invStats.total})
+                                    </span>
                                 </h3>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                        onClick={handleRecalculateDistances}
+                                        disabled={isRecalculating || existingRoutes.length === 0}
+                                        className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-all disabled:opacity-50 border border-orange-200"
+                                    >
+                                        {isRecalculating ? <Loader2 className="animate-spin" size={12} /> : <RefreshCw size={12} />}
+                                        חשב מרחקים מחדש
+                                    </button>
+                                    <button
+                                        onClick={loadInventory}
+                                        disabled={isSubmitting}
+                                        className="flex items-center gap-1.5 bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-gray-100 transition-all border border-gray-200"
+                                    >
+                                        {isSubmitting ? <Loader2 className="animate-spin" size={12} /> : <RefreshCw size={12} />}
+                                        רענן
+                                    </button>
+                                </div>
                             </div>
 
-                            {/* Pending routes banner */}
-                            {existingRoutes.some(r => r.status === 'pending' || r.published === false) && (
-                                <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
-                                    <Clock size={14} />
-                                    {existingRoutes.filter(r => r.status === 'pending' || r.published === false).length} מסלולים ממתינים לאישור
+                            {/* ── Stats bar ── */}
+                            <div className="grid grid-cols-4 gap-2">
+                                <div className="bg-gray-50 rounded-xl p-2.5 text-center border border-gray-100">
+                                    <p className="text-lg font-black text-gray-800">{invStats.total}</p>
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase">סה״כ</p>
+                                </div>
+                                <div className="bg-cyan-50 rounded-xl p-2.5 text-center border border-cyan-100">
+                                    <p className="text-lg font-black text-cyan-700">{invStats.curated}</p>
+                                    <p className="text-[9px] font-bold text-cyan-500 uppercase">מסלולים</p>
+                                </div>
+                                <div className="bg-amber-50 rounded-xl p-2.5 text-center border border-amber-100">
+                                    <p className="text-lg font-black text-amber-700">{invStats.infra}</p>
+                                    <p className="text-[9px] font-bold text-amber-500 uppercase">מקטעי תשתית</p>
+                                </div>
+                                <div className="bg-blue-50 rounded-xl p-2.5 text-center border border-blue-100">
+                                    <p className="text-lg font-black text-blue-700">{invStats.filtered}</p>
+                                    <p className="text-[9px] font-bold text-blue-500 uppercase">מוצג עכשיו</p>
+                                </div>
+                            </div>
+
+                            {/* ── Filter bar ── */}
+                            <div className="flex flex-wrap gap-2 items-center bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                <Filter size={14} className="text-gray-400" />
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider ml-1">סינון:</span>
+
+                                {/* City filter */}
+                                <div className="relative">
+                                    <select
+                                        value={invFilterCity}
+                                        onChange={(e) => setInvFilterCity(e.target.value)}
+                                        className="appearance-none bg-white border border-gray-200 rounded-lg pl-7 pr-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer"
+                                    >
+                                        <option value="all">כל הערים ({uniqueCities.length})</option>
+                                        {uniqueCities.map(c => (
+                                            <option key={c} value={c}>{c} ({existingRoutes.filter(r => r.city === c).length})</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                </div>
+
+                                {/* Activity type filter */}
+                                <div className="relative">
+                                    <select
+                                        value={invFilterActivity}
+                                        onChange={(e) => setInvFilterActivity(e.target.value)}
+                                        className="appearance-none bg-white border border-gray-200 rounded-lg pl-7 pr-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer"
+                                    >
+                                        <option value="all">כל הפעילויות</option>
+                                        <option value="pedestrian">🚶 הולכי רגל / ריצה</option>
+                                        <option value="cycling">🚴 רכיבה</option>
+                                    </select>
+                                    <ChevronDown size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                </div>
+
+                                {/* Kind toggle: All / Curated / Infrastructure */}
+                                <div className="flex bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                    {([
+                                        { id: 'all' as const, label: 'הכל' },
+                                        { id: 'curated' as const, label: 'מסלולים' },
+                                        { id: 'infrastructure' as const, label: 'מקטעים' },
+                                    ]).map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setInvFilterKind(opt.id)}
+                                            className={`px-2.5 py-1.5 text-[10px] font-bold transition-all ${
+                                                invFilterKind === opt.id
+                                                    ? 'bg-cyan-500 text-white'
+                                                    : 'text-gray-500 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Status filter */}
+                                <div className="flex bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                    {([
+                                        { id: 'all' as const, label: 'כל סטטוס' },
+                                        { id: 'published' as const, label: 'פורסם' },
+                                        { id: 'draft' as const, label: 'טיוטה' },
+                                    ]).map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setInvFilterStatus(opt.id)}
+                                            className={`px-2.5 py-1.5 text-[10px] font-bold transition-all ${
+                                                invFilterStatus === opt.id
+                                                    ? 'bg-gray-800 text-white'
+                                                    : 'text-gray-500 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Clear filters */}
+                                {(invFilterCity !== 'all' || invFilterActivity !== 'all' || invFilterKind !== 'all' || invFilterStatus !== 'all') && (
+                                    <button
+                                        onClick={() => { setInvFilterCity('all'); setInvFilterActivity('all'); setInvFilterKind('all'); setInvFilterStatus('all'); }}
+                                        className="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-700 transition-colors"
+                                    >
+                                        <X size={12} />
+                                        נקה סינון
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* ── Bulk action bar ── */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {selectedRouteIds.size > 0 && (
+                                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 animate-in fade-in duration-200">
+                                        <span className="text-xs font-bold text-red-700">{selectedRouteIds.size} נבחרו</span>
+                                        <button
+                                            onClick={handleBulkDeleteSelected}
+                                            disabled={isBulkDeleting}
+                                            className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            {isBulkDeleting ? <Loader2 className="animate-spin" size={12} /> : <Trash2 size={12} />}
+                                            מחק נבחרים
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedRouteIds(new Set())}
+                                            className="text-[10px] font-bold text-gray-500 hover:text-gray-700 px-2 py-1"
+                                        >
+                                            בטל בחירה
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Clear all by city — only show when a city filter is active */}
+                                {invFilterCity !== 'all' && (
+                                    <button
+                                        onClick={() => handleDeleteAllByCity(invFilterCity)}
+                                        disabled={isDeletingByCity}
+                                        className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                                    >
+                                        {isDeletingByCity ? <Loader2 className="animate-spin" size={12} /> : <Trash2 size={12} />}
+                                        מחק הכל ב-{invFilterCity} ({existingRoutes.filter(r => r.city === invFilterCity).length})
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* ── Recalculate progress ── */}
+                            {isRecalculating && recalcProgress && (
+                                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-700 truncate max-w-[200px]">{recalcProgress.current}</span>
+                                        <span className="text-[10px] font-mono text-orange-600">{recalcProgress.done}/{recalcProgress.total}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                        <div
+                                            className="bg-orange-500 h-1.5 rounded-full transition-all duration-300"
+                                            style={{ width: `${Math.round((recalcProgress.done / recalcProgress.total) * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {recalcResult && !isRecalculating && (
+                                <div className={`p-3 rounded-xl text-xs font-bold ${recalcResult.includes('❌') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                                    {recalcResult}
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
-                                {existingRoutes.map(route => {
-                                    const isPending = route.status === 'pending' || route.published === false;
-                                    const isApproving = approvingRouteId === route.id;
-
-                                    const infraMode = route.infrastructureMode || (
-                                        route.activityType === 'cycling' ? 'cycling' :
-                                        route.activityType === 'running' || route.activityType === 'walking' ? 'pedestrian' :
-                                        'shared'
-                                    );
-                                    const dataSourceLabel =
-                                        infraMode === 'cycling' ? 'Cycling Infra' :
-                                        infraMode === 'pedestrian' ? 'Pedestrian Infra' : 'Mixed';
-                                    const dataSourceColor =
-                                        infraMode === 'cycling' ? 'bg-purple-50 text-purple-600' :
-                                        infraMode === 'pedestrian' ? 'bg-green-50 text-green-600' :
-                                        'bg-amber-50 text-amber-600';
-
-                                    const handleApprove = async () => {
-                                        setApprovingRouteId(route.id);
-                                        try {
-                                            await InventoryService.approveRoute(route.id);
-                                            // Optimistically update local state
-                                            setExistingRoutes(prev => prev.map(r =>
-                                                r.id === route.id ? { ...r, status: 'published', published: true } : r
-                                            ));
-                                        } catch {
-                                            alert('שגיאה באישור המסלול');
-                                        } finally {
-                                            setApprovingRouteId(null);
-                                        }
-                                    };
-
-                                    return (
-                                        <div key={route.id}
-                                            className={`p-4 rounded-2xl border flex flex-col gap-3 group transition-all ${
-                                                isPending
-                                                    ? 'bg-amber-50 border-amber-200'
-                                                    : 'bg-gray-50 border-gray-100'
-                                            }`}>
-                                            <div className="flex items-start gap-3">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                                    isPending ? 'bg-amber-100 text-amber-600' : 'bg-cyan-100 text-cyan-600'
-                                                }`}>
-                                                    {isPending ? <Clock size={20} /> : <Bike size={20} />}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <p className="text-sm font-black text-gray-800 truncate">{route.name}</p>
-                                                        {isPending && (
-                                                            <span className="flex items-center gap-0.5 text-[9px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
-                                                                <Clock size={8} />
-                                                                ממתין לאישור
-                                                            </span>
-                                                        )}
-                                                        {!isPending && route.published === true && (
-                                                            <span className="flex items-center gap-0.5 text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
-                                                                <CheckCircle2 size={8} />
-                                                                פורסם
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                        <p className="text-xs font-bold text-gray-400">
-                                                            {route.distance > 0 ? `${Math.round(route.distance * 10) / 10} ק״מ` : '—'}
-                                                            {route.type && ` | ${route.type}`}
-                                                            {route.city && ` | ${route.city}`}
-                                                        </p>
-                                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${dataSourceColor}`}>
-                                                            {dataSourceLabel}
-                                                        </span>
-                                                    </div>
-                                                    {route.importSourceName && (
-                                                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-                                                            📦 {route.importSourceName}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Approve & Publish button — only shown for pending routes */}
-                                            {isPending && (
+                            {/* ── Route table ── */}
+                            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                                <table className="w-full text-sm" dir="rtl">
+                                    <thead className="sticky top-0 bg-white z-10">
+                                        <tr className="border-b-2 border-gray-200">
+                                            <th className="py-2 px-2 w-8">
                                                 <button
-                                                    onClick={handleApprove}
-                                                    disabled={isApproving}
-                                                    className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl transition-all disabled:opacity-60 shadow-sm shadow-green-200"
+                                                    onClick={() => {
+                                                        if (selectedRouteIds.size === filteredInventoryRoutes.length) {
+                                                            setSelectedRouteIds(new Set());
+                                                        } else {
+                                                            setSelectedRouteIds(new Set(filteredInventoryRoutes.map(r => r.id)));
+                                                        }
+                                                    }}
+                                                    className="text-gray-400 hover:text-cyan-600 transition-colors"
                                                 >
-                                                    {isApproving
-                                                        ? <Loader2 className="animate-spin" size={13} />
-                                                        : <ShieldCheck size={13} />
+                                                    {selectedRouteIds.size > 0 && selectedRouteIds.size === filteredInventoryRoutes.length
+                                                        ? <SquareCheck size={16} className="text-cyan-600" />
+                                                        : <Square size={16} />
                                                     }
-                                                    {isApproving ? 'מאשר...' : 'אשר ופרסם'}
                                                 </button>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                            </th>
+                                            <th className="text-right py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-8">#</th>
+                                            <th className="text-right py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider">שם מסלול</th>
+                                            <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-16">סיווג</th>
+                                            <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-12">סוג</th>
+                                            <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-20">מרחק</th>
+                                            <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-16">סטטוס</th>
+                                            <th className="text-right py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-20">עיר</th>
+                                            <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-16">מקור</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredInventoryRoutes.map((route, idx) => {
+                                            const isInfra = isInfrastructureRoute(route);
+                                            const isDraft = route.published === false || route.status === 'pending';
+                                            const isQuickViewed = quickViewRouteId === route.id;
+                                            const isChecked = selectedRouteIds.has(route.id);
+
+                                            const computedKm = route.path && route.path.length >= 2
+                                                ? Math.round(computeTotalKm([route]) * 100) / 100
+                                                : 0;
+
+                                            const infraMode = route.infrastructureMode || (
+                                                route.activityType === 'cycling' ? 'cycling' :
+                                                route.activityType === 'running' || route.activityType === 'walking' ? 'pedestrian' :
+                                                'shared'
+                                            );
+                                            const dsLabel = infraMode === 'cycling' ? 'Cycling' : infraMode === 'pedestrian' ? 'Ped.' : 'Mixed';
+                                            const dsColor = infraMode === 'cycling' ? 'bg-purple-50 text-purple-600' : infraMode === 'pedestrian' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600';
+
+                                            return (
+                                                <tr
+                                                    key={route.id}
+                                                    className={`border-b border-gray-50 transition-all ${
+                                                        isQuickViewed
+                                                            ? 'bg-blue-50 border-blue-200'
+                                                            : isChecked
+                                                                ? 'bg-red-50/30'
+                                                                : isInfra
+                                                                    ? 'bg-amber-50/30 hover:bg-amber-50/60'
+                                                                    : 'hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    <td className="py-2 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedRouteIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (next.has(route.id)) next.delete(route.id);
+                                                                    else next.add(route.id);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            className="text-gray-400 hover:text-cyan-600 transition-colors"
+                                                        >
+                                                            {isChecked
+                                                                ? <SquareCheck size={14} className="text-cyan-600" />
+                                                                : <Square size={14} />
+                                                            }
+                                                        </button>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-gray-400 font-mono text-[10px]">{idx + 1}</td>
+                                                    <td className="py-2 px-2 cursor-pointer" onClick={() => handleQuickViewRoute(route)}>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getRouteColor(route) }} />
+                                                            <span className="font-bold text-gray-800 text-[11px] truncate max-w-[160px]">{route.name}</span>
+                                                            {isQuickViewed && (
+                                                                <span className="text-[7px] bg-blue-500 text-white px-1 py-0.5 rounded font-bold flex-shrink-0 animate-pulse">MAP</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center">
+                                                        {isInfra ? (
+                                                            <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">מקטע</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">מסלול</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center">
+                                                        <span className="text-sm">{getActivityEmoji(route.activityType || route.type)}</span>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center">
+                                                        <span className="text-[11px] font-bold text-gray-600">
+                                                            {computedKm > 0 ? `${computedKm} ק״מ` : '—'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={() => handleToggleRouteStatus(route)}
+                                                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                                                                isDraft
+                                                                    ? 'bg-gray-200 text-gray-600 hover:bg-amber-200 hover:text-amber-700'
+                                                                    : 'bg-green-100 text-green-700 hover:bg-gray-200 hover:text-gray-600'
+                                                            }`}
+                                                            title={isDraft ? 'לחץ לפרסם' : 'לחץ להעביר לטיוטה'}
+                                                        >
+                                                            {isDraft ? 'טיוטה' : 'פורסם'}
+                                                        </button>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-right">
+                                                        <span className="text-[10px] text-gray-500 font-bold">{route.city || '—'}</span>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center">
+                                                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${dsColor}`}>{dsLabel}</span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
+
+                            {/* ── Empty state ── */}
+                            {filteredInventoryRoutes.length === 0 && existingRoutes.length > 0 && (
+                                <div className="text-center py-8">
+                                    <Filter size={36} className="mx-auto text-gray-200 mb-3" />
+                                    <p className="text-gray-400 font-bold text-sm">אין מסלולים תואמים לסינון הנוכחי</p>
+                                    <button
+                                        onClick={() => { setInvFilterCity('all'); setInvFilterActivity('all'); setInvFilterKind('all'); setInvFilterStatus('all'); }}
+                                        className="text-xs text-cyan-600 font-bold mt-2 hover:underline"
+                                    >
+                                        נקה סינון
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* ── Distance anomaly summary ── */}
+                            {filteredInventoryRoutes.length > 0 && (() => {
+                                const anomalies = filteredInventoryRoutes.filter(r => {
+                                    const stored = Math.round((r.distance || 0) * 100) / 100;
+                                    const computed = r.path && r.path.length >= 2 ? Math.round(computeTotalKm([r]) * 100) / 100 : 0;
+                                    return stored > 0 && computed > 0 && Math.abs(stored - computed) > 0.3;
+                                });
+                                if (anomalies.length === 0) return null;
+                                return (
+                                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-xs font-bold text-red-700">
+                                        <AlertCircle size={14} />
+                                        {anomalies.length} מסלולים עם חוסר התאמה במרחק. השתמש ב-&quot;חשב מרחקים מחדש&quot; לתיקון.
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
 
@@ -2036,6 +2535,15 @@ export default function AdminRouteManager() {
                     )}
                 </div>
             </div>
+
+            {/* Success Toast */}
+            {toastMessage && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="bg-gray-900 text-white text-sm font-bold px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2">
+                        {toastMessage}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

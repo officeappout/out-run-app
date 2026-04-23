@@ -35,6 +35,9 @@ import {
   computeNextSession as computeNextSessionBooking,
 } from '@/features/arena/services/booking.service';
 import { getGroupMembers, leaveGroup } from '@/features/arena/services/group.service';
+import AccessCodeGate from '@/components/ui/AccessCodeGate';
+import { useToast } from '@/components/ui/Toast';
+import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
   walking:      { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -104,6 +107,8 @@ export default function GroupDetailsDrawer({
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [codeUnlocked, setCodeUnlocked] = useState(false);
+  const { showToast } = useToast();
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
   const userName = profile?.core?.name || 'משתמש';
@@ -752,22 +757,38 @@ export default function GroupDetailsDrawer({
                   </div>
                 )}
 
-                {/* Join button (pre-join) */}
+                {/* Join button (pre-join) — gated when group.isLocked */}
                 {!isJoined && onJoin && (
-                  <button
-                    disabled={joining}
-                    onClick={() => { if (!joining) onJoin(group.id); }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg disabled:opacity-50"
-                  >
-                    {joining ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        הצטרף לקבוצה
-                      </>
-                    )}
-                  </button>
+                  group.isLocked && !codeUnlocked ? (
+                    <AccessCodeGate
+                      orgName={group.name}
+                      groupType={group.groupType}
+                      tenantType={group.requiredAccessCodeType}
+                      contactPhone={null}
+                      hideSkip
+                      compact
+                      onSuccess={(result: AccessCodeResult) => {
+                        setCodeUnlocked(true);
+                        showToast('success', `ברוכים הבאים ל${group.name}!`);
+                        onJoin(group.id);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      disabled={joining}
+                      onClick={() => { if (!joining) onJoin(group.id); }}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg disabled:opacity-50"
+                    >
+                      {joining ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          הצטרף לקבוצה
+                        </>
+                      )}
+                    </button>
+                  )
                 )}
 
                 {/* Report link */}

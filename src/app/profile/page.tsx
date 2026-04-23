@@ -4,12 +4,18 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, X, ChevronLeft, Pencil, Check, Loader2, Crown, Users2, Settings2 } from 'lucide-react';
+import { ArrowRight, X, ChevronLeft, Pencil, Check, Loader2, Crown, Users2, Settings2, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import nextDynamic from 'next/dynamic';
 import { useUserStore } from '@/features/user';
 import { useMyGroups } from '@/features/arena/hooks/useMyGroups';
 import HistoryTab from '@/features/profile/components/HistoryTab';
+import DashboardTab from '@/features/profile/components/DashboardTab';
+import FavoritesTab from '@/features/favorites/components/FavoritesTab';
+import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
+import SettingsModal from '@/features/home/components/SettingsModal';
+import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import type { FavoriteWorkout } from '@/features/favorites/types';
 
 const CreatorManagementDrawer = nextDynamic(
   () => import('@/features/arena/components/CreatorManagementDrawer'),
@@ -20,12 +26,16 @@ const CreateGroupWizard = nextDynamic(
   { ssr: false },
 );
 import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
+import StrengthHistoryDetail from '@/features/profile/components/StrengthHistoryDetail';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
 import { getAllGearDefinitions, type GearDefinition } from '@/features/content/equipment/gear';
-import { doc as firestoreDoc, updateDoc } from 'firebase/firestore';
+import { doc as firestoreDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import AccessCodeGate from '@/components/ui/AccessCodeGate';
+import { useToast } from '@/components/ui/Toast';
+import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 
 function formatBirthDate(raw: unknown): string | null {
   if (!raw) return null;
@@ -82,14 +92,49 @@ export default function ProfilePage() {
   const { profile, _hasHydrated } = useUserStore();
   const { groups: myGroups } = useMyGroups();
   const managedGroups = myGroups.filter((g) => g.createdBy === profile?.id);
-  const [activeTab, setActiveTab] = useState<'profile' | 'history'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'history' | 'favorites'>('profile');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // ── Creator Hub drawers ──
   const [managementGroupId, setManagementGroupId] = useState<string | null>(null);
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistoryEntry | null>(null);
+
+  // ── Favorites drawer ──
+  const [favDrawerOpen, setFavDrawerOpen] = useState(false);
+  const [favGeneratedWorkout, setFavGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
+  const [favWorkoutLocation, setFavWorkoutLocation] = useState<string | undefined>();
+
+  const handleFavSelect = useCallback((generated: GeneratedWorkout, fav: FavoriteWorkout) => {
+    setFavGeneratedWorkout(generated);
+    setFavWorkoutLocation(fav.workoutLocation ?? undefined);
+    setFavDrawerOpen(true);
+  }, []);
   const [gearDefs, setGearDefs] = useState<GearDefinition[]>([]);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
+  const { showToast } = useToast();
+
+  const hasTenant = !!(profile as any)?.core?.tenantId;
+
+  const handleOrgCodeSuccess = useCallback(async (result: AccessCodeResult) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    try {
+      await setDoc(firestoreDoc(db, 'users', uid), {
+        core: {
+          tenantId: result.tenantId,
+          unitId: result.unitId,
+          unitPath: result.unitPath,
+          tenantType: result.tenantType,
+        },
+      }, { merge: true });
+      showToast('success', 'הצטרפת לארגון בהצלחה!');
+      const fresh = await getUserFromFirestore(uid);
+      if (fresh) useUserStore.setState({ profile: fresh });
+    } catch {
+      showToast('error', 'שגיאה בהצטרפות לארגון');
+    }
+  }, [showToast]);
 
   // ── Inline edit modals ──
   const [editingField, setEditingField] = useState<'name' | 'dob' | null>(null);
@@ -196,6 +241,16 @@ export default function ProfilePage() {
   }
 
   if (selectedWorkout) {
+    const isStrength =
+      selectedWorkout.workoutType === 'strength' || selectedWorkout.category === 'strength';
+    if (isStrength) {
+      return (
+        <StrengthHistoryDetail
+          workout={selectedWorkout}
+          onClose={() => setSelectedWorkout(null)}
+        />
+      );
+    }
     return (
       <FreeRunSummary
         workout={selectedWorkout}
@@ -292,42 +347,64 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      {/* Header with back button */}
+      {/* Header — Avatar + Name + Gear */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-md mx-auto px-4 py-3" dir="rtl">
           <div className="flex items-center gap-3 mb-3">
+            {/* User avatar */}
             <button
               onClick={() => router.push('/home')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md flex-shrink-0 active:scale-95 transition-transform"
               aria-label="חזרה לבית"
             >
-              <ArrowRight className="w-5 h-5 text-gray-900" />
-              <span className="text-sm font-bold text-gray-900">חזור</span>
+              {profile?.core?.photoURL ? (
+                <img
+                  src={profile.core.photoURL}
+                  alt={profile?.core?.name || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#00ADEF] to-cyan-600 text-white font-bold text-sm">
+                  {(profile?.core?.name || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
             </button>
-            <h1 className="text-lg font-black text-gray-900 flex-1">פרופיל</h1>
+
+            {/* Name */}
+            <h1 className="text-lg font-black text-gray-900 flex-1 truncate">
+              {profile?.core?.name || 'משתמש'}
+            </h1>
+
+            {/* Settings gear */}
             <button
-              onClick={() => router.push('/home')}
+              onClick={() => setSettingsOpen(true)}
               className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
-              aria-label="סגור"
+              aria-label="הגדרות"
             >
-              <X className="w-5 h-5 text-gray-900" />
+              <Settings2 className="w-5 h-5 text-gray-900" />
             </button>
           </div>
 
           {/* Tabs */}
           <div className="flex gap-1">
-            {(['profile', 'history'] as const).map((tab) => (
+            {(['profile', 'history', 'favorites'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-bold text-sm transition-colors relative ${
+                className={`px-4 py-2 font-bold text-sm transition-colors relative flex items-center gap-1.5 ${
                   activeTab === tab
                     ? 'text-[#00C9F2]'
                     : 'text-gray-900 hover:text-gray-900'
                 }`}
               >
-                {tab === 'profile' && 'פרופיל'}
+                {tab === 'profile' && 'דשבורד'}
                 {tab === 'history' && 'היסטוריה'}
+                {tab === 'favorites' && (
+                  <>
+                    <Heart size={14} className={activeTab === 'favorites' ? 'fill-[#00C9F2]' : ''} />
+                    השמורים שלי
+                  </>
+                )}
                 {activeTab === tab && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#00C9F2] rounded-full" />
                 )}
@@ -340,114 +417,15 @@ export default function ProfilePage() {
       {/* Content */}
       <div className="max-w-md mx-auto px-4 py-5">
         {activeTab === 'profile' && (
-          <div className="space-y-4">
-            {/* Name & Program header */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100" dir="rtl">
-              <h2 className="text-lg font-black text-gray-900 mb-1">
-                {profile?.core?.name || 'משתמש'}
-              </h2>
-              {activeProgramName && (
-                <span className="text-xs font-bold text-cyan-600">
-                  {activeProgramName}
-                </span>
-              )}
-            </div>
-
-            {/* Interactive field rows */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-100" dir="rtl">
-              {profileRows.map((row) => (
-                <button
-                  key={row.label}
-                  onClick={() => row.onPress ? row.onPress() : row.step && handleGoToStep(row.step)}
-                  className="w-full flex items-center justify-between px-5 py-3.5 text-right transition-colors hover:bg-slate-50 active:bg-slate-100 cursor-pointer group"
-                >
-                  <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    {row.label}
-                    {row.filled && (
-                      <Pencil size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    )}
-                  </span>
-                  <span className="flex items-center gap-1.5 max-w-[60%]">
-                    {row.filled ? (
-                      row.customRender ? row.customRender : (
-                        <span className="text-sm font-bold text-gray-900 truncate">{row.value}</span>
-                      )
-                    ) : (
-                      <>
-                        <span className="text-sm font-bold text-[#00C9F2]">טרם סופק</span>
-                        <ChevronLeft className="w-4 h-4 text-[#00C9F2]" />
-                      </>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Affiliations card */}
-            {profile?.core?.affiliations && profile.core.affiliations.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100" dir="rtl">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">שיוכים</h3>
-                <div className="space-y-2">
-                  {profile.core.affiliations.map((aff, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-gray-700 font-medium">
-                        {aff.type === 'city' ? 'עיר' : aff.type === 'school' ? 'בית ספר' : 'ארגון'}
-                      </span>
-                      <span className="font-bold text-gray-900">{aff.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── Creator Hub ───────────────────────────────────────────── */}
-            {managedGroups.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-3" dir="rtl">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm">
-                    <Crown className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-gray-900">הקהילות בניהולי</h3>
-                    <p className="text-[10px] text-gray-400 font-medium">{managedGroups.length} {managedGroups.length === 1 ? 'קהילה' : 'קהילות'} שיצרת</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {managedGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-lg shadow-sm flex-shrink-0">
-                        {CATEGORY_ICONS[group.category] ?? '⭐'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 truncate">{group.name}</p>
-                        <p className="text-[10px] text-gray-500 font-medium">
-                          {CATEGORY_LABELS[group.category] ?? group.category}
-                          {group.memberCount != null && ` · ${group.memberCount} חברים`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setManagementGroupId(group.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-900 text-white text-[11px] font-black active:scale-95 transition-all flex-shrink-0"
-                      >
-                        <Settings2 className="w-3 h-3" />
-                        ניהול
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <DashboardTab />
         )}
 
         {activeTab === 'history' && (
           <HistoryTab onWorkoutClick={(workout) => setSelectedWorkout(workout)} />
+        )}
+
+        {activeTab === 'favorites' && (
+          <FavoritesTab onSelectWorkout={handleFavSelect} />
         )}
       </div>
 
@@ -574,6 +552,9 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
+      {/* ── Settings Modal ────────────────────────────────────────────────────── */}
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
       {/* ── Creator Hub: Management Drawer ───────────────────────────────────── */}
       <CreatorManagementDrawer
         isOpen={!!managementGroupId}
@@ -591,6 +572,19 @@ export default function ProfilePage() {
         onClose={() => setEditGroupId(null)}
         editGroupId={editGroupId ?? undefined}
         onSuccess={() => setEditGroupId(null)}
+      />
+
+      {/* ── Favorites: Workout Preview Drawer ──────────────────────────── */}
+      <WorkoutPreviewDrawer
+        isOpen={favDrawerOpen}
+        onClose={() => {
+          setFavDrawerOpen(false);
+          setFavGeneratedWorkout(null);
+        }}
+        workout={null}
+        generatedWorkout={favGeneratedWorkout}
+        workoutLocation={favWorkoutLocation}
+        onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
       />
 
       {/* Success toast after JIT profile update */}

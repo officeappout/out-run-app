@@ -2,13 +2,18 @@ import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { useUserStore } from '@/features/user';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
-import { RunningStatsWidget } from './widgets/RunningStatsWidget';
-import { StrengthVolumeWidget } from './widgets/StrengthVolumeWidget';
-import { ProgramProgressCard } from './widgets/ProgramProgressCard';
+// PR 4 (Apr 2026) — these widgets were removed from this file as part of the
+// dashboard restructure. They are now mounted by the new dashboard rows in
+// `src/features/home/components/rows/`. The imports remain available for
+// any future re-introduction inside the action zone but are no longer used
+// from this component.
+//   - RunningStatsWidget        → replaced by RaceAndKmCarousel (Row 4/5)
+//   - StrengthVolumeWidget      → replaced by ConsistencyWidget   (Row 2)
+//   - ProgramProgressCard       → replaced by ProgramProgressRow  (Row 2)
+//   - RunProgressCircle         → mounted inside RaceAndKmCarousel (Row 4/5)
+//   - WeeklyExecutionCard       → replaced by ConsistencyWidget   (Row 2)
 import { LoadAdvisorBanner } from './widgets/LoadAdvisorBanner';
 import { RunForecastWidget } from './widgets/RunForecastWidget';
-import RunProgressCircle from './widgets/RunProgressCircle';
-import WeeklyExecutionCard from './widgets/WeeklyExecutionCard';
 import NextRunWorkoutCard from './widgets/NextRunWorkoutCard';
 import MissedWorkoutBanner from '@/features/workout-engine/players/running/components/MissedWorkoutBanner';
 import { PlanRealignPopup, RebuildPopup } from '@/features/workout-engine/players/running/components/PlanAlignmentPopup';
@@ -21,9 +26,8 @@ import {
   type AlignmentAction,
 } from '@/features/workout-engine/core/services/workout-completion.service';
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
-import { ConcentricRingsProgress } from './rings/ConcentricRingsProgress';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dumbbell, Sparkles, Footprints, SlidersHorizontal, Lock } from 'lucide-react';
+import { X, Dumbbell, Footprints, SlidersHorizontal, Lock } from 'lucide-react';
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
 import type { HomeWorkoutTrioResult } from '@/features/workout-engine/services/home-workout.types';
@@ -42,6 +46,8 @@ import { getProgramLevelSetting } from '@/features/content/programs/core/program
 import type { GoalItem } from './widgets/ProgramProgressCard';
 import { getLocalizedText } from '@/features/content/exercises';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs';
+import { getPark } from '@/features/parks/core/services/parks.service';
+import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
 
 
@@ -237,6 +243,8 @@ interface StatsOverviewProps {
   hasCompletedAssessment?: boolean;
   /** When true, hides the workout trio carousel (e.g. post-workout celebration replaces it) */
   hideWorkoutSection?: boolean;
+  /** Feature flag — when false, clamps RUNNING/HYBRID dashboard mode to DEFAULT */
+  enableRunningPrograms?: boolean;
 }
 
 export default function StatsOverview({ 
@@ -250,10 +258,20 @@ export default function StatsOverview({
   selectedDate: selectedDateProp,
   hasCompletedAssessment = true,
   hideWorkoutSection = false,
+  enableRunningPrograms = true,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
   const recalculateFromActivities = useWeeklyVolumeStore((s) => s.recalculateFromActivities);
+
+  // ── Gear cache warm-up (best-effort, non-blocking) ────────────────────
+  // Populates BOTH the runtime caches (for resolveEquipmentLabel /
+  // normalizeGearId) AND the ALIAS_TO_CANONICAL map (via registerGearAlias).
+  // The generation effect also awaits this inside the promise chain for
+  // correctness; this useEffect just starts the cache fill a bit sooner.
+  useEffect(() => {
+    ensureEquipmentCachesLoaded().catch(() => {});
+  }, []);
 
   // ── Weekly Budget Sync: init/reset store when profile loads ───────────
   useEffect(() => {
@@ -286,19 +304,14 @@ export default function StatsOverview({
   const { 
     stepsToday, 
     caloriesToday, 
-    totalMinutesToday,
-    ringData,
-    dominantColor,
   } = useDailyActivity();
   
   const {
-    totalMinutes: weeklyMinutes,
-    daysWithActivity,
     summary: weeklySummaryData,
   } = useWeeklyProgress();
 
-  // 1. Calculate Mode
-  const mode = useDashboardMode(profile);
+  // 1. Calculate Mode (clamped by feature flag)
+  const mode = useDashboardMode(profile, enableRunningPrograms);
 
   // 2. Safe Logging
   useEffect(() => {
@@ -308,15 +321,6 @@ export default function StatsOverview({
     }
   }, [mode]);
 
-  // 3. Smart Goals Logic (Memoized)
-  const goals = useMemo(
-    () => ({
-      dailySteps: profile?.goals?.dailySteps || 4000,
-      weeklyMinutes: 150,
-    }),
-    [profile?.goals?.dailySteps],
-  );
-  
   const displaySteps = stepsToday > 0 ? stepsToday : (stats?.steps || 0);
 
   // ── Missed-Workout Alignment (Running) ──
@@ -595,8 +599,21 @@ export default function StatsOverview({
     return () => { cancelled = true; };
   }, [primaryDomainId, domainLevel, profile?.progression?.levelGoalProgress, profile?.progression?.tracks, programMeta]);
 
-  // ── State ────────────────────────────────────────────────────────────
-  const [showWeeklyDetail, setShowWeeklyDetail] = useState(false);
+  // ── Park Equipment Bridge (temporary filter, never written to profile) ──
+  const [parkEquipmentIds, setParkEquipmentIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const parkId = profile?.firstWorkoutParkId;
+    if (!parkId) return;
+    let cancelled = false;
+    getPark(parkId)
+      .then((park) => {
+        if (cancelled || !park?.gymEquipment?.length) return;
+        setParkEquipmentIds(park.gymEquipment.map((eq) => eq.equipmentId));
+      })
+      .catch((err) => console.warn('[StatsOverview] Park equipment fetch failed:', err));
+    return () => { cancelled = true; };
+  }, [profile?.firstWorkoutParkId]);
 
   // ── Dynamic Workout State (Trio) ────────────────────────────────────────
   const [trioResult, setTrioResult] = useState<HomeWorkoutTrioResult | null>(null);
@@ -671,7 +688,7 @@ export default function StatsOverview({
         }
         return entry;
       })
-      .then(entry => {
+      .then(async (entry) => {
         const isRestDay = entry?.type === 'rest';
         const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
         const scheduledProgramIds =
@@ -701,6 +718,11 @@ export default function StatsOverview({
             }).length || 1
           : undefined;
 
+        // Ensure both runtime caches AND alias map are ready before generation,
+        // so Firestore equipment IDs resolve to canonical keys in the useMemo.
+        // Cached + deduped — essentially free on repeat calls.
+        await ensureEquipmentCachesLoaded();
+
         return generateHomeWorkoutTrio({
           userProfile: profile,
           location: resolvedLocation,
@@ -714,6 +736,7 @@ export default function StatsOverview({
             ? domainSetsCompletedThisWeek : undefined,
           remainingScheduleDays,
           recentExerciseIds: recentExerciseIds.length > 0 ? recentExerciseIds : undefined,
+          parkEquipmentIds: parkEquipmentIds.length > 0 ? parkEquipmentIds : undefined,
         });
       })
       .then((trio) => {
@@ -814,13 +837,6 @@ export default function StatsOverview({
     weeklySummaryData?.categorySessions?.cardio ?? 0,
     runningScheduleCompletedThisWeek,
   );
-  const hasRunningPlan = mode === 'RUNNING' || mode === 'HYBRID'
-    || profile?.lifestyle?.primaryTrack === 'run'
-    || profile?.lifestyle?.primaryTrack === 'hybrid';
-  const runningGoal = Math.max(1, Math.ceil(scheduleDaysCount * 0.4));
-  const [showRunningCTA, setShowRunningCTA] = useState(false);
-
-
   // ── Build carousel slides from tracks / subPrograms ──
   type ProgramSlide = {
     id: string;
@@ -882,9 +898,9 @@ export default function StatsOverview({
     <div>
       {/* Header + description — padded */}
       <div className="px-5" dir="rtl">
-        <div className="flex items-center justify-between mb-1">
+        <div className="relative flex items-center justify-between mb-1">
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
-          {isGenerated && (
+          {isGenerated && hasCompletedAssessment && (
             <button
               onClick={() => setIsUserAdjusterOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 transition-all hover:bg-gray-200 dark:hover:bg-slate-700 active:scale-95"
@@ -893,31 +909,61 @@ export default function StatsOverview({
               התאם
             </button>
           )}
+          {!hasCompletedAssessment && (
+            <img
+              src="/assets/lemur/lemur_curious_peek.png"
+              alt=""
+              className="absolute -top-12 -left-4 w-[176px] h-[176px] object-contain drop-shadow-lg pointer-events-none"
+            />
+          )}
         </div>
 
-        {dynamicWorkout ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
-            {dynamicWorkout.description || 'מוכן להתחיל?'}
-          </p>
-        ) : (
-          <div className="h-4 w-56 rounded bg-gray-200 dark:bg-slate-700 animate-pulse mb-4 mr-auto" />
-        )}
+        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
+          {!hasCompletedAssessment
+            ? 'התאימו את האימונים לרמה שלכם .'
+            : dynamicWorkout?.description || 'מוכן להתחיל?'}
+        </p>
       </div>
 
-      {/* Carousel — full bleed so side cards peek to screen edges */}
-      {trioResult ? (
-        <WorkoutSelectionCarousel
-          options={trioResult.options}
-          isRestDay={trioResult.isRestDay}
-          onSelect={handleTrioSelect}
-          onStart={handleTrioStart}
-          workoutLocation={currentWorkoutLocation}
-          programIconKey={primaryDomainId}
-          selectedIndex={selectedOptionIndex}
-        />
-      ) : (
-        <CarouselSkeleton />
-      )}
+      {/* Carousel — blurred with lemur teaser overlay when assessment is not completed */}
+      <div className="relative">
+        <div className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}>
+          {trioResult ? (
+            <WorkoutSelectionCarousel
+              options={trioResult.options}
+              isRestDay={trioResult.isRestDay}
+              onSelect={handleTrioSelect}
+              onStart={handleTrioStart}
+              workoutLocation={currentWorkoutLocation}
+              programIconKey={primaryDomainId}
+              selectedIndex={selectedOptionIndex}
+              userGender={profile?.core?.gender}
+            />
+          ) : (
+            <CarouselSkeleton />
+          )}
+        </div>
+
+        {!hasCompletedAssessment && (
+          <button
+            onClick={() => onStartWorkout?.()}
+            className="absolute inset-0 z-10 flex items-center justify-center"
+          >
+            <div
+              className="flex flex-col items-center gap-1 px-6 py-4 rounded-2xl shadow-xl"
+              style={{ backgroundColor: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(6px)' }}
+              dir="rtl"
+            >
+              <span className="text-[15px] font-black text-gray-800 leading-snug">
+                בואו נראה למה אתם מסוגלים...
+              </span>
+              <span className="text-xs text-gray-500 font-medium">
+                שאלון קצר והאימונים פתוחים!
+              </span>
+            </div>
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -937,11 +983,14 @@ export default function StatsOverview({
   );
 
   // ── Render: RUNNING Mode ──
+  // Decomposition (PR 4 of 4): removed the "Top Row: Running Circle + Strength
+  // Circle" and the WeeklyExecutionCard at the bottom. Real equivalents now
+  // live in:
+  //   - Running Circle (Riegel)   → RaceAndKmCarousel  (Row 4/5 via PerformanceMetricsRow)
+  //   - Strength program ring     → ProgramProgressRow (Row 2 right)
+  //   - Run + Strength session bars → ConsistencyWidget (Row 2 left)
+  // What remains here is the action zone: NextRunWorkoutCard for today.
   if (mode === 'RUNNING') {
-    const runFreq = profile?.running?.generatedProgramTemplate?.canonicalFrequency ?? 3;
-    const strengthScheduleTotal = Math.max(1, profile?.lifestyle?.scheduleDays?.length ?? 3);
-    const hasStrengthPlan = !!(profile?.personaId || (profile?.progression?.domains && Object.keys(profile.progression.domains).length > 0));
-
     const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
     const todayHebrewLetter = DAY_LETTERS[new Date().getDay()];
     const runScheduleDays = profile?.running?.scheduleDays ?? [];
@@ -955,52 +1004,6 @@ export default function StatsOverview({
             <NextRunWorkoutCard />
           </div>
         )}
-
-        {/* ── Top Row: Running Circle + Strength Circle ── */}
-        <div
-          className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
-          style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
-        >
-          <RunProgressCircle />
-
-          {hasStrengthPlan ? (
-            <div
-              className="bg-white dark:bg-slate-800 flex items-center gap-2.5 px-3 py-3"
-              dir="rtl"
-              style={{
-                borderRadius: 16,
-                border: '0.5px solid #E0E9FF',
-                boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
-              }}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span style={{ color: '#0AC2B6' }} className="flex-shrink-0">
-                    {getProgramIcon(resolvedProgramIcon, 'w-4 h-4')}
-                  </span>
-                  <h3 className="text-[14px] font-bold text-gray-900 dark:text-white truncate leading-tight">
-                    {resolvedProgramName}
-                  </h3>
-                </div>
-                <p className="text-[13px] text-gray-600 dark:text-gray-300 font-semibold">
-                  רמה {domainLevel}/{domainMaxLevel}
-                </p>
-              </div>
-              <ProgressRingInline percentage={inLevelPercent} size={66} strokeWidth={5.5} color="#0AC2B6" />
-            </div>
-          ) : (
-            <button
-              onClick={onStartWorkout}
-              dir="rtl"
-              className="bg-gradient-to-br from-[#0AC2B6]/10 to-[#0AC2B6]/5 flex flex-col items-center justify-center p-4 text-center"
-              style={{ borderRadius: 16, border: '1px dashed #0AC2B6' }}
-            >
-              <Dumbbell className="w-6 h-6 mb-1.5" style={{ color: '#0AC2B6' }} />
-              <p className="text-sm font-bold text-gray-700 dark:text-gray-200">התאמת תוכנית כוח</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">השלם אבחון לפתוח תוכנית</p>
-            </button>
-          )}
-        </div>
 
         {/* ── Missed Workout Banner ── */}
         {alignmentAction.type === 'quality_makeup' && !bannerDismissed && (
@@ -1018,16 +1021,6 @@ export default function StatsOverview({
             <NextRunWorkoutCard />
           </div>
         )}
-
-        {/* ── Weekly Execution: Running + Strength Bars ── */}
-        <div className="w-full max-w-[358px] mx-auto">
-          <WeeklyExecutionCard
-            runDone={cardioSessions}
-            runTotal={runFreq}
-            strengthDone={weeklySummaryData?.categorySessions?.strength ?? 0}
-            strengthTotal={strengthScheduleTotal}
-          />
-        </div>
 
         {renderModals()}
 
@@ -1056,54 +1049,18 @@ export default function StatsOverview({
   }
 
   // ── Render: PERFORMANCE / Strength Mode ──
+  // Decomposition (PR 4 of 4 — Apr 2026): the previous "Weekly Progress" tiles
+  // (StrengthVolumeWidget compact + Steps numeric tile) and the standalone
+  // ProgramProgressCard have been removed. They now live in the new dashboard
+  // rows above this hero:
+  //   - Strength bars     → ConsistencyWidget   (Row 2 left)
+  //   - Steps tile        → StepsSummaryCard    (Row 4/5 left, Health Metrics)
+  //   - Program ring      → ProgramProgressRow  (Row 2 right)
+  // What remains here is the action zone: LoadAdvisor + workout selection.
   if (mode === 'PERFORMANCE') {
     return (
       <div className="space-y-8">
-        {/* Weekly Progress — 231px strength + 111px steps */}
-        <div className="w-full max-w-[358px] mx-auto" dir="rtl">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 px-1">
-            התקדמות שבועית
-          </h3>
-          <div className="flex gap-4">
-            {/* Strength — 231px */}
-            <StrengthVolumeWidget layout="compact" />
-            {/* Steps — 111px */}
-            <div
-              className="bg-white dark:bg-slate-800 overflow-hidden flex flex-col items-center justify-center text-center"
-              style={{
-                width: 111,
-                minWidth: 0,
-                flexShrink: 1,
-                borderRadius: 12,
-                padding: 16,
-                border: '0.5px solid #E0E9FF',
-                boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-              }}
-            >
-              <Footprints className="w-6 h-6 text-gray-800 dark:text-gray-200 mb-1" />
-              <span className="text-2xl font-black text-[#00C9F2] tabular-nums leading-none">
-                {displaySteps.toLocaleString()}
-              </span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">צעדים היום</span>
-              <span className="text-[12px] font-bold text-[#00C9F2] mt-2">התחילו לצעוד!</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Program Progress Card (Level Ring) — below weekly */}
-        <ProgramProgressCard
-          programName={resolvedProgramName}
-          iconKey={resolvedProgramIcon}
-          currentLevel={domainLevel}
-          maxLevel={domainMaxLevel}
-          progressPercent={inLevelPercent}
-          goals={levelGoals}
-          programCount={activeProgramCount}
-        />
-
-        {/* Load Advisor */}
         <LoadAdvisorBanner />
-
         {!hideWorkoutSection && renderWorkoutSection()}
         {renderModals()}
       </div>
@@ -1111,354 +1068,34 @@ export default function StatsOverview({
   }
 
   // ── Render: HYBRID Mode (Strength + Running) ──
+  // Decomposition (PR 4 of 4): removed StrengthVolumeWidget, ProgramProgressCard
+  // and the placeholder RunningStatsWidget(weeklyDistance={12.5}). Real
+  // equivalents now live in:
+  //   - Strength bars + Run bars  → ConsistencyWidget         (Row 2 left)
+  //   - Program ring              → ProgramProgressRow         (Row 2 right)
+  //   - Real Weekly KM            → RaceAndKmCarousel via
+  //                                 PerformanceMetricsRow      (Row 4/5 left)
   if (mode === 'HYBRID') {
     return (
       <div className="space-y-8">
-        {/* Weekly Progress (segmented bars) — top of dashboard */}
-        <StrengthVolumeWidget />
-
-        {/* Program Progress Card (Level Ring) — below weekly */}
-        {hasProgramData && (
-          <ProgramProgressCard
-            programName={resolvedProgramName}
-            iconKey={resolvedProgramIcon}
-            currentLevel={domainLevel}
-            maxLevel={domainMaxLevel}
-            progressPercent={inLevelPercent}
-            goals={levelGoals}
-            programCount={activeProgramCount}
-          />
-        )}
-
-        {/* Running Snapshot */}
-        <RunningStatsWidget weeklyDistance={12.5} weeklyGoal={20} calories={caloriesToday || 450} />
-
-        {/* Load Advisor */}
         <LoadAdvisorBanner />
-
         {!hideWorkoutSection && renderWorkoutSection()}
         {renderModals()}
       </div>
     );
   }
 
-  // DEFAULT / HEALTH MODE
+  // ── DEFAULT / HEALTH MODE ─────────────────────────────────────────────────
+  // Decomposition (PR 4 of 4 — Apr 2026): the previous "Power Row"
+  // (5fr/8fr strength bar tile + program ring carousel) and the locked
+  // progress circle have been removed. Real equivalents now live above:
+  //   - Strength bar tile         → ConsistencyWidget    (Row 2 left, via StrengthVolumeWidget)
+  //   - Program ring carousel     → ProgramProgressRow   (Row 2 right)
+  // What remains here is the action zone (workout selection trio + nudge
+  // modal), so this row truly becomes the "Thumb Zone" hero.
   return (
-    <div className="space-y-5">
-      {/* ── Power Row: 5fr / 8fr grid ── */}
-      <div
-        className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
-        style={{ gridTemplateColumns: '5fr 8fr', direction: 'ltr' }}
-      >
-        {/* ── Left Card (35%): Weekly Metrics ── */}
-        <div
-          className="bg-white dark:bg-slate-800 flex flex-col justify-center px-3.5 py-3.5 h-full"
-          dir="rtl"
-          style={{
-            borderRadius: 16,
-            border: '0.5px solid #E0E9FF',
-            boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
-          }}
-        >
-          {/* ── Strength Block ── */}
-          <div className="mb-1">
-            {/* Top: [Icon + Label]  ···  [Count] */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <svg width="13" height="11" viewBox="0 0 13 11" fill="none" className="text-gray-800 dark:text-gray-200 flex-shrink-0">
-                  <path d="M11.875 8.49641C11.6642 9.35355 10.5787 9.5625 9.88848 9.5625C8.3983 9.5625 2.71702 9.5625 2.71702 9.5625C1.30519 9.5625 0.227331 7.96126 0.766428 6.5655C1.95888 4.46229 3.02976 2.83719 3.64838 0.894899C5.07769 0.0616627 6.91005 0.894898 6.4791 2.2858M4.64655 2.83719C3.87448 3.99641 4.30703 5.28212 3.64838 6.5655C5.60422 5.28159 7.52284 5.02481 9.60907 6.5655" stroke="currentColor" strokeWidth="1.125" strokeLinejoin="round"/>
-                </svg>
-                <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">כוח</span>
-              </div>
-              <span className="text-sm font-black text-gray-900 dark:text-white tabular-nums leading-none">{strengthSessions}/{strengthGoal}</span>
-            </div>
-            {/* Bottom: Full-width segmented bars */}
-            <div className="flex gap-1">
-              {Array.from({ length: strengthGoal }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 h-[5px] rounded-full overflow-hidden"
-                  style={{ backgroundColor: '#F1F5F9' }}
-                >
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: '#00C9F2' }}
-                    initial={{ width: 0 }}
-                    animate={{ width: i < strengthSessions ? '100%' : '0%' }}
-                    transition={{ duration: 0.6, delay: i * 0.12, ease: 'easeOut' }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Divider ── */}
-          <div className="h-px bg-gray-100 dark:bg-slate-700 my-2.5" />
-
-          {/* ── Running Block ── */}
-          <button
-            onClick={() => { if (!hasRunningPlan) setShowRunningCTA(true); }}
-            className={`transition-all ${!hasRunningPlan ? 'opacity-35 blur-[1px]' : ''}`}
-          >
-            {/* Top: [Icon + Label]  ···  [Count] */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="text-gray-800 dark:text-gray-200 flex-shrink-0">
-                  <g clipPath="url(#runClip)">
-                    <path d="M13.5411 4.81964C13.2994 4.38452 12.7507 4.22773 12.3155 4.46947L10.8856 5.26389L9.94303 3.82233C9.91514 3.82331 9.88731 3.82446 9.8592 3.82446C8.90979 3.82446 8.09211 3.25156 7.73243 2.43354C6.62716 2.43346 4.76196 2.43335 4.76196 2.43335C4.43346 2.43335 4.13098 2.6121 3.9725 2.89983L2.83089 4.97276C2.59079 5.40879 2.74957 5.95689 3.18557 6.197C3.32344 6.27293 3.47252 6.30897 3.61954 6.30897C3.93741 6.30897 4.24563 6.14045 4.4098 5.84232L5.29451 4.23588H6.99666L4.39786 8.77229H1.24698C0.749242 8.77229 0.345703 9.1758 0.345703 9.67356C0.345703 10.1713 0.749215 10.5748 1.24698 10.5748H4.91216C5.23091 10.5748 5.52595 10.4065 5.6881 10.1321L6.33552 9.03646L7.97002 10.3243L6.99004 12.7623C6.80441 13.2241 7.0283 13.749 7.49013 13.9346C7.60036 13.9789 7.71408 13.9999 7.826 13.9999C8.18313 13.9999 8.52118 13.7862 8.66252 13.4345L9.89425 10.3702C10.0435 9.99893 9.9301 9.57373 9.61581 9.32611L7.80349 7.89822L9.05652 5.76032L9.83584 6.95223C10.0079 7.21539 10.2957 7.36039 10.5909 7.36039C10.7393 7.36039 10.8896 7.32367 11.0279 7.24686L13.1909 6.04516C13.626 5.80347 13.7828 5.25476 13.5411 4.81964Z" fill="currentColor"/>
-                    <path d="M9.85906 3.00426C10.6887 3.00426 11.3612 2.33173 11.3612 1.50213C11.3612 0.672526 10.6887 0 9.85906 0C9.02946 0 8.35693 0.672526 8.35693 1.50213C8.35693 2.33173 9.02946 3.00426 9.85906 3.00426Z" fill="currentColor"/>
-                  </g>
-                  <defs><clipPath id="runClip"><rect width="14" height="14" fill="white"/></clipPath></defs>
-                </svg>
-                <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">ריצה</span>
-              </div>
-              <span className="text-sm font-black text-gray-900 dark:text-white tabular-nums leading-none">{cardioSessions}/{runningGoal}</span>
-            </div>
-            {/* Bottom: Full-width segmented bars */}
-            <div className="flex gap-1">
-              {Array.from({ length: runningGoal }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 h-[5px] rounded-full overflow-hidden"
-                  style={{ backgroundColor: '#F1F5F9' }}
-                >
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: '#84cc16' }}
-                    initial={{ width: 0 }}
-                    animate={{ width: i < cardioSessions ? '100%' : '0%' }}
-                    transition={{ duration: 0.6, delay: i * 0.12, ease: 'easeOut' }}
-                  />
-                </div>
-              ))}
-            </div>
-          </button>
-        </div>
-
-        {/* ── Right Cell (65%): Program Carousel ── */}
-        {hasProgramData && programSlides.length > 0 ? (
-          <div
-            className="overflow-hidden relative h-full"
-            ref={carouselRef}
-            style={{ borderRadius: 16 }}
-          >
-            <motion.div
-              className="flex h-full"
-              dir="ltr"
-              drag={programSlides.length > 1 ? 'x' : false}
-              dragConstraints={carouselRef}
-              dragElastic={0.15}
-              onDragEnd={(_e, info) => {
-                const threshold = 40;
-                if (info.offset.x < -threshold && activeSlide < programSlides.length - 1) {
-                  setActiveSlide((p) => p + 1);
-                } else if (info.offset.x > threshold && activeSlide > 0) {
-                  setActiveSlide((p) => p - 1);
-                }
-              }}
-              animate={{ x: `${-activeSlide * 100}%` }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              style={{ width: '100%' }}
-            >
-              {programSlides.map((slide) => (
-                <div
-                  key={slide.id}
-                  className="w-full flex-shrink-0 h-full bg-white dark:bg-slate-800 flex items-center gap-2.5 px-3 py-3"
-                  dir="rtl"
-                  style={{
-                    borderRadius: 16,
-                    border: '0.5px solid #E0E9FF',
-                    boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-[#00C9F2] flex-shrink-0">
-                        {getProgramIcon(slide.iconKey, 'w-4 h-4')}
-                      </span>
-                      <h3 className="text-[14px] font-bold text-gray-900 dark:text-white truncate leading-tight">
-                        {slide.name}
-                      </h3>
-                    </div>
-                    <p className="text-[13px] text-gray-600 dark:text-gray-300 font-semibold">
-                      רמה {slide.level}/{slide.maxLevel}
-                    </p>
-                    {slide.level < slide.maxLevel && (
-                      <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                        עוד {Math.max(0, 100 - Math.round(slide.percent))}% לרמה הבאה
-                      </p>
-                    )}
-                  </div>
-                  <ProgressRingInline
-                    percentage={slide.percent}
-                    size={66}
-                    strokeWidth={5.5}
-                  />
-                </div>
-              ))}
-            </motion.div>
-          </div>
-        ) : (
-          <button
-            onClick={onStartWorkout}
-            dir="rtl"
-            className="bg-gradient-to-br from-[#00C9F2]/10 to-[#00C9F2]/5 flex flex-col items-center justify-center p-4 text-center"
-            style={{
-              borderRadius: 16,
-              border: '1px dashed #00C9F2',
-            }}
-          >
-            <Sparkles className="w-7 h-7 text-[#00C9F2] mb-2" />
-            <p className="text-sm font-bold text-gray-700 dark:text-gray-200">התחל תוכנית</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">השלם אבחון לפתוח תוכנית מותאמת</p>
-          </button>
-        )}
-      </div>
-
-      {/* ── Pagination Dots — aligned under the right card only ── */}
-      {programSlides.length > 1 && (
-        <div
-          className="w-full max-w-[358px] mx-auto grid -mt-3"
-          style={{ gridTemplateColumns: '5fr 8fr', direction: 'ltr' }}
-        >
-          <div />
-          <div className="flex items-center justify-center gap-1.5 pt-1.5">
-            {programSlides.map((slide, idx) => (
-              <button
-                key={slide.id}
-                onClick={() => setActiveSlide(idx)}
-                className="transition-all duration-200"
-                style={{
-                  width: idx === activeSlide ? 16 : 6,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: idx === activeSlide ? '#00C9F2' : '#CBD5E1',
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Running Plan CTA Popup ── */}
-      <AnimatePresence>
-        {showRunningCTA && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] flex items-center justify-center p-6"
-            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.4)' }}
-            onClick={() => setShowRunningCTA(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.85, opacity: 0, y: 20 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
-              dir="rtl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-lime-50 dark:bg-lime-900/20 border-2 border-lime-400 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 14 14" fill="none" className="text-lime-500">
-                  <g clipPath="url(#runCta)">
-                    <path d="M13.5411 4.81964C13.2994 4.38452 12.7507 4.22773 12.3155 4.46947L10.8856 5.26389L9.94303 3.82233C9.91514 3.82331 9.88731 3.82446 9.8592 3.82446C8.90979 3.82446 8.09211 3.25156 7.73243 2.43354C6.62716 2.43346 4.76196 2.43335 4.76196 2.43335C4.43346 2.43335 4.13098 2.6121 3.9725 2.89983L2.83089 4.97276C2.59079 5.40879 2.74957 5.95689 3.18557 6.197C3.32344 6.27293 3.47252 6.30897 3.61954 6.30897C3.93741 6.30897 4.24563 6.14045 4.4098 5.84232L5.29451 4.23588H6.99666L4.39786 8.77229H1.24698C0.749242 8.77229 0.345703 9.1758 0.345703 9.67356C0.345703 10.1713 0.749215 10.5748 1.24698 10.5748H4.91216C5.23091 10.5748 5.52595 10.4065 5.6881 10.1321L6.33552 9.03646L7.97002 10.3243L6.99004 12.7623C6.80441 13.2241 7.0283 13.749 7.49013 13.9346C7.60036 13.9789 7.71408 13.9999 7.826 13.9999C8.18313 13.9999 8.52118 13.7862 8.66252 13.4345L9.89425 10.3702C10.0435 9.99893 9.9301 9.57373 9.61581 9.32611L7.80349 7.89822L9.05652 5.76032L9.83584 6.95223C10.0079 7.21539 10.2957 7.36039 10.5909 7.36039C10.7393 7.36039 10.8896 7.32367 11.0279 7.24686L13.1909 6.04516C13.626 5.80347 13.7828 5.25476 13.5411 4.81964Z" fill="currentColor"/>
-                    <path d="M9.85906 3.00426C10.6887 3.00426 11.3612 2.33173 11.3612 1.50213C11.3612 0.672526 10.6887 0 9.85906 0C9.02946 0 8.35693 0.672526 8.35693 1.50213C8.35693 2.33173 9.02946 3.00426 9.85906 3.00426Z" fill="currentColor"/>
-                  </g>
-                  <defs><clipPath id="runCta"><rect width="14" height="14" fill="white"/></clipPath></defs>
-                </svg>
-              </div>
-              <h2
-                className="text-xl font-black text-slate-900 dark:text-white mb-2"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                בואו נוסיף תוכנית ריצה
-              </h2>
-              <p
-                className="text-sm text-slate-500 dark:text-slate-400 mb-7"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                הוסיפו תוכנית ריצה מותאמת אישית כדי לעקוב אחרי ההתקדמות שלכם
-              </p>
-              <button
-                onClick={() => {
-                  setShowRunningCTA(false);
-                  onStartWorkout?.();
-                }}
-                className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-lime-500 to-lime-400 shadow-lg shadow-lime-500/20 active:scale-[0.98] transition-transform"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                הוסף תוכנית ריצה
-              </button>
-              <button
-                onClick={() => setShowRunningCTA(false)}
-                className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                אולי מאוחר יותר
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Daily Stats Row: Steps + Minutes ── */}
-      <div className="w-full max-w-[358px] mx-auto grid grid-cols-2 gap-3" dir="rtl">
-        {/* Minutes card */}
-        <button
-          onClick={() => {
-            if (!hasCompletedAssessment) { handleLockedWidgetTap(); return; }
-            setShowWeeklyDetail(true);
-          }}
-          className="relative bg-white dark:bg-slate-800 rounded-2xl p-3.5 text-right transition-all hover:shadow-md active:scale-[0.98]"
-          style={{
-            borderRadius: 14,
-            border: '0.5px solid #E0E9FF',
-            boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-          }}
-        >
-          {!hasCompletedAssessment && (
-            <div className="absolute top-2.5 left-2.5 z-10">
-              <Lock className="w-3.5 h-3.5 text-amber-500" />
-            </div>
-          )}
-          <div className="flex items-center gap-2 mb-1">
-            <Dumbbell className="w-4 h-4 text-[#00C9F2]" />
-            <span className="text-[10px] font-bold text-gray-400">דקות שבועיות</span>
-          </div>
-          <div className={!hasCompletedAssessment ? 'opacity-40' : ''}>
-            <p className="text-xl font-black text-gray-900 dark:text-white tabular-nums">
-              {Math.round(weeklyMinutes)}
-              <span className="text-[10px] font-bold text-gray-400 mr-1">/ {goals.weeklyMinutes}</span>
-            </p>
-          </div>
-        </button>
-
-        {/* Steps card */}
-        <button
-          onClick={handleLockedWidgetTap}
-          className="relative bg-white dark:bg-slate-800 rounded-2xl p-3.5 text-right"
-          style={{
-            borderRadius: 14,
-            border: '0.5px solid #E0E9FF',
-            boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Footprints className="w-4 h-4 text-lime-500" />
-            <span className="text-[10px] font-bold text-gray-400">צעדים היום</span>
-          </div>
-          <div className={!hasCompletedAssessment ? 'blur-sm pointer-events-none select-none' : ''}>
-            <p className="text-xl font-black text-gray-900 dark:text-white tabular-nums">
-              {displaySteps.toLocaleString()}
-              <span className="text-[10px] font-bold text-gray-400 mr-1">/ {goals.dailySteps.toLocaleString()}</span>
-            </p>
-          </div>
-        </button>
-      </div>
-
-      {/* Nudge Popup — directs user to scroll down to the assessment hero card */}
+    <div className="space-y-3">
+      {/* Nudge Popup — directs user to assessment */}
       <AnimatePresence>
         {showNudge && (
           <motion.div
@@ -1517,67 +1154,6 @@ export default function StatsOverview({
 
       {!hideWorkoutSection && renderWorkoutSection()}
       {renderModals()}
-      
-      {/* Weekly Detail Modal */}
-      <AnimatePresence>
-        {showWeeklyDetail && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            onClick={() => setShowWeeklyDetail(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl"
-              dir="rtl"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">יעד שבועי</h3>
-                <button
-                  onClick={() => setShowWeeklyDetail(false)}
-                  className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center"
-                >
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="flex justify-center mb-6">
-                <ConcentricRingsProgress
-                  size={180}
-                  strokeWidth={16}
-                  showCenter={true}
-                  centerMode="minutes"
-                  showLegend={false}
-                  animationDuration={0.8}
-                  dynamicCenterColor={true}
-                />
-              </div>
-              
-              <div className="space-y-3">
-                <p className="text-sm font-bold text-gray-600 dark:text-gray-300">התפלגות לפי קטגוריה</p>
-                {ringData.map((ring) => (
-                  <div key={ring.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ring.color }} />
-                    <span className="flex-1 text-sm text-gray-700 dark:text-gray-200">{ring.label}</span>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">{Math.round(ring.value)} דק'</span>
-                    <span className="text-xs text-gray-400">({Math.round(ring.percentage)}%)</span>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700 flex items-center justify-between">
-                <span className="text-sm text-gray-500">ימים פעילים השבוע</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">{daysWithActivity} / 7</span>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

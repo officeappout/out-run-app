@@ -20,18 +20,29 @@ interface EquipmentStepProps {
 }
 
 const EQUIPMENT_SVG_MAP: Record<string, string> = {
-  rings: '/assets/icons/equipment/rings.svg',
-  gymnastic_rings: '/assets/icons/equipment/rings.svg',
-  bands: '/assets/icons/equipment/bands.svg',
-  resistance_band: '/assets/icons/equipment/bands.svg',
-  resistance_bands: '/assets/icons/equipment/bands.svg',
-  pull_up_bar: '/assets/icons/equipment/pullupbar.svg',
-  pullup_bar: '/assets/icons/equipment/pullupbar.svg',
-  pullUpBar: '/assets/icons/equipment/pullupbar.svg',
-  dip_station: '/assets/icons/equipment/parallelbars.svg',
-  parallettes: '/assets/icons/equipment/parallelbars.svg',
-  parallel_bars: '/assets/icons/equipment/parallelbars.svg',
-  trx: '/assets/icons/equipment/trx.svg',
+  // Rings
+  rings:            '/assets/icons/equipment/rings.svg',
+  gymnastic_rings:  '/assets/icons/equipment/rings.svg',
+  ring_park:        '/assets/icons/equipment/ring_park.svg',
+  // Resistance bands — all aliases point to the actual file on disk
+  bands:            '/assets/icons/equipment/long_resistance_band.svg',
+  resistance_band:  '/assets/icons/equipment/long_resistance_band.svg',
+  resistance_bands: '/assets/icons/equipment/long_resistance_band.svg',
+  long_resistance_band: '/assets/icons/equipment/long_resistance_band.svg',
+  // Pull-up bar — use the park variant (verified on disk)
+  pull_up_bar:      '/assets/icons/equipment/pullupbar_park.svg',
+  pullup_bar:       '/assets/icons/equipment/pullupbar_park.svg',
+  pullUpBar:        '/assets/icons/equipment/pullupbar_park.svg',
+  pullupbar_park:   '/assets/icons/equipment/pullupbar_park.svg',
+  pullup_bar_park:  '/assets/icons/equipment/pullupbar_park.svg',
+  pullup_bar_door:  '/assets/icons/equipment/pullup_bar_door.svg',
+  // Parallel bars / dip station
+  dip_station:      '/assets/icons/equipment/parallel_bars.svg',
+  parallettes:      '/assets/icons/equipment/parallel_bars.svg',
+  parallel_bars:    '/assets/icons/equipment/parallel_bars.svg',
+  parallel_bars_home: '/assets/icons/equipment/parallel_bars_home.svg',
+  // TRX
+  trx:              '/assets/icons/equipment/trx.svg',
 };
 
 function getSvgIconPath(gear: GearDefinition): string | null {
@@ -41,7 +52,7 @@ function getSvgIconPath(gear: GearDefinition): string | null {
   const nameHe = (gear.name?.he || '').toLowerCase();
 
   if (nameEn.includes('ring') || nameHe.includes('טבעות')) return EQUIPMENT_SVG_MAP.rings;
-  if (nameEn.includes('band') || nameEn.includes('resistance') || nameHe.includes('גומי')) return EQUIPMENT_SVG_MAP.bands;
+  if (nameEn.includes('band') || nameEn.includes('resistance') || nameHe.includes('גומי')) return EQUIPMENT_SVG_MAP.resistance_bands;
   if (nameEn.includes('pull') && nameEn.includes('bar') || nameHe.includes('מתח')) return EQUIPMENT_SVG_MAP.pull_up_bar;
   if (nameEn.includes('parallel') || nameEn.includes('dip') || nameHe.includes('מקביל')) return EQUIPMENT_SVG_MAP.dip_station;
   if (nameEn.includes('trx') || nameHe.includes('trx')) return EQUIPMENT_SVG_MAP.trx;

@@ -49,6 +49,7 @@ export default function EditGearDefinitionPage() {
         description: sanitizedDescription,
         icon: gear.icon || '',
         category: gear.category || '',
+        iconKey: gear.iconKey || '',
         shopLink: gear.shopLink || '',
         tutorialVideo: gear.tutorialVideo || '',
         customIconUrl: gear.customIconUrl || '',

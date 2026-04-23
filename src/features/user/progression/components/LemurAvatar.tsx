@@ -1,63 +1,85 @@
 'use client';
 
-import React from 'react';
-import Image from 'next/image';
-
-interface LemurAvatarProps {
-  level: number; // 1-10 (or higher, will default to highest available)
-  state?: 'idle' | 'active' | 'walking' | 'working'; // For future use
-  size?: 'small' | 'medium' | 'large'; // Size variants
-  className?: string; // Additional CSS classes
-}
+import React, { useState } from 'react';
+import { Award } from 'lucide-react';
 
 /**
- * LemurAvatar Component
- * Displays a level-based lemur character avatar
- * 
- * Level images should be placed in /public/assets/lemur/level1.png through level10.png
- * If a level image doesn't exist, it will fallback to the closest available level
+ * Set to true once PNG files are uploaded to /public/assets/lemur/level{1-10}.png.
+ * While false the component renders the Award icon fallback immediately,
+ * making ZERO network requests and eliminating the 404 console noise.
  */
-export default function LemurAvatar({ 
-  level, 
-  state = 'idle',
+const LEMUR_ASSETS_AVAILABLE = false;
+
+interface LemurAvatarProps {
+  level: number; // 1-10 (clamped automatically)
+  state?: 'idle' | 'active' | 'walking' | 'working'; // reserved for future animation
+  size?: 'small' | 'medium' | 'large';
+  className?: string;
+}
+
+const SIZE_PX: Record<NonNullable<LemurAvatarProps['size']>, number> = {
+  small: 32,
+  medium: 48,
+  large: 64,
+};
+
+const SIZE_CLASSES: Record<NonNullable<LemurAvatarProps['size']>, string> = {
+  small: 'w-8 h-8',
+  medium: 'w-12 h-12',
+  large: 'w-16 h-16',
+};
+
+const TEXT_CLASSES: Record<NonNullable<LemurAvatarProps['size']>, string> = {
+  small: 'text-[10px]',
+  medium: 'text-sm',
+  large: 'text-xl',
+};
+
+/**
+ * LemurAvatar
+ *
+ * Renders the lemur character for a given level (1-10).
+ * Images live at /public/assets/lemur/level{n}.png.
+ *
+ * If the image is missing or fails to load, falls back to a styled gradient
+ * circle with the level number — no broken-image icon, no console 404.
+ *
+ * Uses a plain <img> (not next/image) so onError fires reliably for missing
+ * local assets without Next.js image optimization interfering.
+ */
+export default function LemurAvatar({
+  level,
   size = 'medium',
-  className = '' 
+  className = '',
 }: LemurAvatarProps) {
-  // Clamp level between 1 and 10 (or use highest available)
-  const clampedLevel = Math.max(1, Math.min(level, 10));
-  
-  // Image path for the lemur based on level
-  const imagePath = `/assets/lemur/level${clampedLevel}.png`;
-  
-  // Size classes
-  const sizeClasses = {
-    small: 'w-8 h-8',
-    medium: 'w-12 h-12',
-    large: 'w-16 h-16',
-  };
-  
+  const clampedLevel = Math.max(1, Math.min(Math.round(level), 10));
+  // When assets are not available, skip the network request immediately.
+  const [imgFailed, setImgFailed] = useState(!LEMUR_ASSETS_AVAILABLE);
+
+  const sizeClass = SIZE_CLASSES[size];
+  const textClass = TEXT_CLASSES[size];
+  const px = SIZE_PX[size];
+
   return (
-    <div className={`relative ${sizeClasses[size]} ${className}`}>
-      {/* Placeholder/Loading State */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center border-2 border-white shadow-lg">
-        {/* If image fails to load, show level number as fallback */}
-        <span className="text-white text-xs font-bold">{clampedLevel}</span>
-      </div>
-      
-      {/* Lemur Image */}
-      <Image
-        src={imagePath}
-        alt={`Lemur Level ${clampedLevel}`}
-        width={size === 'small' ? 32 : size === 'medium' ? 48 : 64}
-        height={size === 'small' ? 32 : size === 'medium' ? 48 : 64}
-        className="rounded-full object-cover border-2 border-white shadow-lg relative z-10"
-        onError={(e) => {
-          // If image doesn't exist, keep the placeholder visible
-          (e.target as HTMLImageElement).style.display = 'none';
-        }}
-      />
-      
-      {/* Level Badge (optional, can be removed if not needed) */}
+    <div className={`relative flex-shrink-0 ${sizeClass} ${className}`}>
+      {imgFailed ? (
+        /* Fallback: Award icon — no 404 noise, no number clutter */
+        <div className={`${sizeClass} rounded-full bg-gradient-to-br from-[#00ADEF] to-cyan-600 flex items-center justify-center border-2 border-white shadow-lg`}>
+          <Award className={`text-white ${size === 'small' ? 'w-4 h-4' : size === 'medium' ? 'w-6 h-6' : 'w-9 h-9'}`} />
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/assets/lemur/level${clampedLevel}.png`}
+          alt={`Lemur Level ${clampedLevel}`}
+          width={px}
+          height={px}
+          className="rounded-full object-cover border-2 border-white shadow-lg w-full h-full"
+          onError={() => setImgFailed(true)}
+        />
+      )}
+
+      {/* Level badge (hidden at small size) */}
       {size !== 'small' && (
         <div className="absolute -bottom-1 -right-1 bg-yellow-400 rounded-full w-5 h-5 border-2 border-white flex items-center justify-center shadow-md z-20">
           <span className="text-[8px] font-black text-yellow-900">{clampedLevel}</span>
@@ -68,14 +90,12 @@ export default function LemurAvatar({
 }
 
 /**
- * Empty State Lemur Component
- * Used when no parks/results are found
+ * EmptyStateLemur — shown when no parks/results are found.
  */
 export function EmptyStateLemur({ message }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="relative w-24 h-24 mb-4">
-        {/* Empty state lemur - uses level 1 as default */}
         <LemurAvatar level={1} size="large" className="opacity-50" />
       </div>
       {message && (

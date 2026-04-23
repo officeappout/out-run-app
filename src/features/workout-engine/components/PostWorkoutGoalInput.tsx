@@ -13,7 +13,7 @@
 
 import React, { useState } from 'react';
 import { Target, CheckCircle, Award } from 'lucide-react';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import {
   calculateGoalBonusXP,
@@ -66,18 +66,19 @@ export default function PostWorkoutGoalInput({
       setBonusAwarded(bonus);
       setCompletionPct(pct);
 
-      // 2. Update user's globalXP with the bonus
+      // 2. Update user's globalXP with the bonus.
+      //    Routed through the Guardian (rules block direct client writes
+      //    to progression.globalXP). Then continue with read-modify-write
+      //    of the *non-protected* `progression.levelGoalProgress` array.
+      const { awardWorkoutXP } = await import('@/lib/awardWorkoutXP');
+      if (bonus > 0) {
+        await awardWorkoutXP({ xpDelta: bonus, source: 'goal-bonus' });
+      }
+
       const userRef = doc(db, 'users', uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const data = userSnap.data();
-        const currentXP = data.progression?.globalXP || 0;
-
-        // Update globalXP
-        await updateDoc(userRef, {
-          'progression.globalXP': currentXP + bonus,
-          updatedAt: serverTimestamp(),
-        });
 
         // 3. Update levelGoalProgress (upsert)
         const existingGoalProgress: any[] = data.progression?.levelGoalProgress || [];

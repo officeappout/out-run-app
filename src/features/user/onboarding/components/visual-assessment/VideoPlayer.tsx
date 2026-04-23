@@ -52,11 +52,33 @@ export default function VideoPlayer({
     <div className={`relative flex items-center justify-center ${className}`}>
       {/* Fixed aspect-ratio container prevents layout shift while video loads */}
       <div className="relative w-full aspect-[3/4] max-h-[480px]">
+
+        {/* ── Thumbnail — always rendered as the lowest layer ─────────────
+            Visible until the video fades in. Provides seamless coverage
+            so there's never a blank/white flash between content changes. */}
+        {thumbnailUrl && !showPlaceholder && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
+              isLoading ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        )}
+
+        {/* ── Fallback skeleton — only shown while loading with no thumbnail ── */}
+        {isLoading && hasSources && !hasError && !thumbnailUrl && (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50/80 to-slate-100/80 animate-pulse flex items-center justify-center rounded-2xl">
+            <div className="w-10 h-10 border-2 border-slate-300 border-t-cyan-400 rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* ── Video — fades in over the thumbnail once buffered ── */}
         {!showPlaceholder ? (
           <video
             ref={videoRef}
             key={sourceKey}
-            poster={thumbnailUrl ?? undefined}
             autoPlay
             loop
             muted
@@ -73,6 +95,7 @@ export default function VideoPlayer({
             {videoUrl && <source src={videoUrl} />}
           </video>
         ) : (
+          /* ── No-source / error placeholder ── */
           <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center rounded-2xl">
             <div className="text-center">
               <div className="text-5xl mb-2 opacity-40">🏋️</div>
@@ -80,13 +103,6 @@ export default function VideoPlayer({
                 {hasError ? 'שגיאה בטעינת הווידאו' : 'אין וידאו — הזיזו את הסליידר'}
               </p>
             </div>
-          </div>
-        )}
-
-        {/* Loading skeleton — fills the reserved space */}
-        {isLoading && hasSources && !hasError && (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50/80 to-slate-100/80 animate-pulse flex items-center justify-center rounded-2xl">
-            <div className="w-10 h-10 border-2 border-slate-300 border-t-cyan-400 rounded-full animate-spin" />
           </div>
         )}
 

@@ -83,6 +83,7 @@ export interface WorkoutExercise {
   rampedTarget?: number;
   exerciseRole?: 'warmup' | 'main' | 'cooldown';
   pairedWith?: string;
+  wasSwapped?: boolean;
 }
 
 // ============================================================================

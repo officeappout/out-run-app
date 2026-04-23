@@ -2,12 +2,12 @@
 
 /**
  * SmartWeeklySchedule Component
- * 
+ *
  * Enhanced weekly calendar with:
  * - Smart Activity Dots (Cyan=Strength, Lime=Cardio, Purple=Maintenance)
- * - Liquid Momentum Path connecting completed days
+ * - Liquid Momentum Path connecting completed days (rings view)
  * - Ghost Ring for missed days
- * - Interactive tooltip with activity summary
+ * - DayIconCell flame/lemur icons with pager dots (icons view, default)
  */
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
@@ -15,10 +15,10 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import { Bed, Check, X, LayoutGrid, Circle as CircleIcon, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
-import { useDailyProgress } from '../hooks/useDailyProgress';
-import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
+import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot } from '@/features/content/programs/core/program-icon.util';
+import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/features/home/utils/day-display.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
@@ -26,10 +26,11 @@ import {
   generateCommunityICS,
   downloadICS,
 } from '@/features/user/scheduling/services/communitySchedule.service';
-import { getSundayWeekStart } from '@/features/user/scheduling/utils/dateUtils';
+import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
+  STREAK_MINIMUM_MINUTES,
   type ActivityCategory,
   type DailyActivity,
   type RingData,
@@ -119,15 +120,12 @@ interface DayActivityData {
     maintenance: number;
   };
   dominantCategory: ActivityCategory | null;
-}
-
-interface TooltipData {
-  visible: boolean;
-  x: number;
-  y: number;
-  day: string;
-  date: string;
-  data: DayActivityData | null;
+  /**
+   * Phase 3 — Cross-Day Debt Clearing.
+   * True if THIS day is a missed planned day whose workout was made up
+   * on a later (rest) day in the same ISO week.
+   */
+  debtCleared: boolean;
 }
 
 // ============================================================================
@@ -351,112 +349,6 @@ function GhostRing() {
 // DAY TOOLTIP COMPONENT
 // ============================================================================
 
-function DayTooltip({ 
-  data, 
-  position,
-  onClose,
-}: { 
-  data: TooltipData;
-  position: 'top' | 'bottom';
-  onClose: () => void;
-}) {
-  if (!data.visible || !data.data) return null;
-  
-  const { data: dayData, day, date } = data;
-  
-  // Format date for display
-  const dateObj = new Date(date);
-  const formattedDate = dateObj.toLocaleDateString('he-IL', { 
-    month: 'short', 
-    day: 'numeric' 
-  });
-  
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: position === 'top' ? 10 : -10, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: position === 'top' ? 10 : -10, scale: 0.9 }}
-        className={`absolute z-50 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 p-3 min-w-[160px] ${
-          position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
-        }`}
-        style={{ left: '50%', transform: 'translateX(-50%)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-bold text-gray-900 dark:text-white">
-            יום {day} • {formattedDate}
-          </span>
-          <button 
-            onClick={onClose}
-            className="p-0.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"
-          >
-            <X className="w-3.5 h-3.5 text-gray-400" />
-          </button>
-        </div>
-        
-        {/* Activity Summary */}
-        {dayData.hasActivity ? (
-          <div className="space-y-1.5">
-            {/* Minutes breakdown */}
-            {dayData.categories.strength > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: DOT_COLORS.strength }} />
-                <span className="text-gray-600 dark:text-gray-300">
-                  {dayData.categories.strength} דק' כוח
-                </span>
-              </div>
-            )}
-            {dayData.categories.cardio > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: DOT_COLORS.cardio }} />
-                <span className="text-gray-600 dark:text-gray-300">
-                  {dayData.categories.cardio} דק' קרדיו
-                </span>
-              </div>
-            )}
-            {dayData.categories.maintenance > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: DOT_COLORS.maintenance }} />
-                <span className="text-gray-600 dark:text-gray-300">
-                  {dayData.categories.maintenance} דק' תחזוקה
-                </span>
-              </div>
-            )}
-            
-            {/* Total stats */}
-            <div className="pt-1.5 mt-1.5 border-t border-gray-100 dark:border-slate-700 flex items-center gap-3 text-[10px] text-gray-500">
-              {dayData.steps > 0 && (
-                <span>👟 {dayData.steps.toLocaleString()}</span>
-              )}
-              {dayData.calories > 0 && (
-                <span>🔥 {dayData.calories}</span>
-              )}
-            </div>
-          </div>
-        ) : dayData.isRest ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">יום מנוחה</p>
-        ) : dayData.isMissed ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">לא הושלם פעילות</p>
-        ) : dayData.isFuture ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">אימון מתוכנן</p>
-        ) : (
-          <p className="text-xs text-gray-500 dark:text-gray-400">אין נתונים</p>
-        )}
-        
-        {/* Arrow */}
-        <div 
-          className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-white dark:bg-slate-800 transform rotate-45 border-gray-100 dark:border-slate-700 ${
-            position === 'top' 
-              ? 'bottom-0 translate-y-1/2 border-b border-r' 
-              : 'top-0 -translate-y-1/2 border-t border-l'
-          }`}
-        />
-      </motion.div>
-    </AnimatePresence>
-  );
-}
 
 // ============================================================================
 // RUNNING WORKOUT CARDS — Daily Focus View
@@ -820,15 +712,6 @@ export default function SmartWeeklySchedule({
     }
   }, [userId, syncing]);
 
-  const [tooltip, setTooltip] = useState<TooltipData>({
-    visible: false,
-    x: 0,
-    y: 0,
-    day: '',
-    date: '',
-    data: null,
-  });
-  
   const isHealthMode = currentTrack === 'wellness';
   const isRunningMode = currentTrack === 'running';
   const plannedDotColor = isRunningMode ? '#00BAF7' : '#00C9F2';
@@ -872,9 +755,10 @@ export default function SmartWeeklySchedule({
     router.push(`/map?${params.toString()}`);
   }, [router]);
 
-  // View mode: default from track, togglable per session
-  const defaultViewMode: ScheduleViewMode = isHealthMode ? 'rings' : 'icons';
-  const [viewMode, setViewMode] = useState<ScheduleViewMode>(defaultViewMode);
+  // View mode: Phase 5 dots-only DayIconCell is the canonical view for
+  // every track. The toggle still lets users opt in to the legacy rings
+  // view for activity-progress detail.
+  const [viewMode, setViewMode] = useState<ScheduleViewMode>('icons');
   const toggleViewMode = useCallback(() => {
     setViewMode((prev) => (prev === 'rings' ? 'icons' : 'rings'));
   }, []);
@@ -890,7 +774,6 @@ export default function SmartWeeklySchedule({
 
   const resolvedIconKey = useMemo(() => {
     const key = resolveIconKey(programIconKey, userProgram);
-    console.log('[Schedule] icon resolve:', { programIconKey, userProgram, resolved: key });
     return key;
   }, [programIconKey, userProgram]);
   
@@ -899,8 +782,13 @@ export default function SmartWeeklySchedule({
     daysWithActivity,
   } = useWeeklyProgress();
   
-  // Get today's daily progress from the existing hook
-  const todayProgress = useDailyProgress();
+  // Centralized day-status brain — encapsulates the Completion Bridge and
+  // icon-priority logic. Returns a stable getter to use inside useMemo.
+  const getDayStatus = useDayStatus();
+
+  // Subscribe to the global midnight clock so the weekly strip's "today"
+  // index advances at 00:00 without a hard refresh.
+  const dateKey = useDateKey();
   
   // Measure container width for liquid path
   useEffect(() => {
@@ -946,52 +834,40 @@ export default function SmartWeeklySchedule({
         calories: 0,
         categories: { strength: 0, cardio: 0, maintenance: 0 },
         dominantCategory: null,
+        debtCleared: false,
       };
       
-      // For today, use todayActivity from the store
-      if (isToday && todayActivity) {
-        const strengthMins = todayActivity.categories.strength.minutes;
-        const cardioMins = todayActivity.categories.cardio.minutes;
-        const maintenanceMins = todayActivity.categories.maintenance.minutes;
-        const totalMins = strengthMins + cardioMins + maintenanceMins;
-        
+      // Compute ISO date for this day index within the current week.
+      // The week is Sunday-anchored (i=0=Sun, …, i=6=Sat).
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() - todayIndex + i);
+      const isoDate = toISODate(dayDate);
+
+      // scheduleDay drives the "completed" signal for past non-today days.
+      const scheduleDay = schedule.find(s => s.day === dayLetter);
+      const scheduleCompleted = scheduleDay?.status === 'completed';
+
+      // useDayStatus handles the Completion Bridge and real per-category data
+      // for today AND any past days that are still in weekActivities.
+      if (!isFuture) {
+        const status = getDayStatus(isoDate, scheduleCompleted);
         dayData = {
           ...dayData,
-          hasActivity: totalMins > 0,
-          isCompleted: totalMins >= 10, // 10+ mins counts as completed
-          totalMinutes: totalMins,
-          steps: todayActivity.steps,
-          calories: todayActivity.calories,
-          categories: {
-            strength: strengthMins,
-            cardio: cardioMins,
-            maintenance: maintenanceMins,
-          },
-          dominantCategory: todayActivity.dominantCategory,
+          hasActivity: status.hasActivity,
+          isCompleted: status.isCompleted,
+          totalMinutes: status.totalMinutes,
+          categories: status.categories,
+          dominantCategory: status.dominantCategory,
+          // Keep steps/calories from the store when available (today only)
+          steps: isToday && todayActivity ? todayActivity.steps : dayData.steps,
+          calories: isToday && todayActivity ? todayActivity.calories : dayData.calories,
         };
-      }
-      // For past days, check the schedule status
-      else if (!isFuture && !isToday) {
-        const scheduleDay = schedule.find(s => s.day === dayLetter);
-        if (scheduleDay) {
-          if (scheduleDay.status === 'completed') {
-            // Mock data for completed past days (in real app, would come from weekly store)
-            dayData = {
-              ...dayData,
-              hasActivity: true,
-              isCompleted: true,
-              totalMinutes: 30, // Default
-              steps: 5000, // Default
-              calories: 200, // Default
-              categories: { strength: 20, cardio: 10, maintenance: 0 },
-              dominantCategory: 'strength',
-            };
-          } else if (scheduleDay.status === 'missed' || (isTrainingDay(dayLetter) && scheduleDay.status !== 'rest')) {
-            dayData.isMissed = true;
-          }
-        } else if (isTrainingDay(dayLetter)) {
-          // Training day with no data = missed
-          dayData.isMissed = true;
+        // Mark missed: past training day with no activity and not completed.
+        if (!isToday && !status.isCompleted) {
+          const isTraining = scheduleDay
+            ? scheduleDay.status !== 'rest'
+            : isTrainingDay(dayLetter);
+          if (isTraining) dayData.isMissed = true;
         }
       }
       
@@ -1018,9 +894,46 @@ export default function SmartWeeklySchedule({
 
       map.set(i, dayData);
     }
-    
+
+    // ── Phase 5: One-to-One Debt Clearing ────────────────────────────────
+    // A makeup = a past rest-day on which the user actually completed a
+    // workout. Each makeup clears EXACTLY ONE missed training day — the
+    // oldest still-unpaired missed day that occurred *before* the makeup.
+    //
+    // Algorithm:
+    //   1. Collect past missed-training indices in chronological order.
+    //   2. Collect past makeup-rest indices in chronological order.
+    //   3. For each makeup (earliest first), pair it with the oldest
+    //      unpaired missed day whose index < makeup index.
+    //   4. Flip `debtCleared` on the paired missed day.
+    //
+    // This prevents one makeup from inflating the streak by clearing every
+    // prior missed day in the week.
+    const missedQueue: number[] = [];
+    const makeupQueue: number[] = [];
+    for (let i = 0; i < todayIndex; i++) {
+      const day = map.get(i);
+      if (!day) continue;
+      if (day.isMissed) missedQueue.push(i);
+      if (day.isRest && day.hasActivity && day.isCompleted) makeupQueue.push(i);
+    }
+
+    for (const makeupIdx of makeupQueue) {
+      // Find the oldest missed day strictly before this makeup that is
+      // still unpaired (hasn't been spliced out yet).
+      const pairIdxInQueue = missedQueue.findIndex((m) => m < makeupIdx);
+      if (pairIdxInQueue === -1) continue;
+      const pairedMissedIdx = missedQueue[pairIdxInQueue];
+      missedQueue.splice(pairIdxInQueue, 1);
+
+      const missedDay = map.get(pairedMissedIdx);
+      if (missedDay) {
+        map.set(pairedMissedIdx, { ...missedDay, debtCleared: true });
+      }
+    }
+
     return map;
-  }, [schedule, scheduleDays, todayActivity, todayProgress, isRunningMode, runningEntriesByDayIndex]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -1066,7 +979,38 @@ export default function SmartWeeklySchedule({
     const { day: dayLetter } = day;
     const planned = isTrainingDay(dayLetter);
 
-    // ── Running mode: ALL days handled here — never fall through to strength ──
+    // ── Running mode + icon view: route through the centralized engine
+    //    so we get the branded flame + colored pager dot for the actual
+    //    running category (tempo → red intensity flame + red dot, etc.).
+    if (isRunningMode && useIconView) {
+      const runEntry = runningEntriesByDayIndex.get(dayIndex);
+      const state: 'past' | 'today' | 'future' = dayData.isToday
+        ? 'today'
+        : dayData.isFuture
+          ? 'future'
+          : 'past';
+
+      const runningCategory = runEntry?.category;
+      const runningColor = runningCategory ? getCategoryColor(runningCategory) : undefined;
+
+      const displayProps = resolveDayDisplayProps({
+        state,
+        isSelected: isCellSelected,
+        isRest: dayData.isRest,
+        isMissed: dayData.isMissed,
+        isCompleted: dayData.isCompleted,
+        debtCleared: dayData.debtCleared,
+        dominantCategory: dayData.dominantCategory ?? (runEntry ? 'cardio' : null),
+        stepGoalMet: false,
+        programIconKey: 'shoe',
+        runningCategory,
+        runningColor,
+      });
+
+      return <DayIconCell props={displayProps} />;
+    }
+
+    // ── Running mode (rings view): keep the legacy RunningDayIcon path ──
     if (isRunningMode) {
       const runEntry = runningEntriesByDayIndex.get(dayIndex);
       if (runEntry) {
@@ -1092,49 +1036,67 @@ export default function SmartWeeklySchedule({
       );
     }
 
-    // 1. Missed training day: Ghost Ring (same for both modes)
-    if (dayData.isMissed && !dayData.isToday && !dayData.isFuture) {
-      return <GhostRing />;
+    // ── Icon-view: delegate everything (including missed days) to the
+    //    centralized state engine. The engine renders the GhostRing for
+    //    debt-uncleared misses AND the branded flame + dot for debt-cleared
+    //    ones — so we MUST NOT short-circuit before this branch.
+    if (useIconView) {
+      const state: 'past' | 'today' | 'future' = dayData.isToday
+        ? 'today'
+        : dayData.isFuture
+          ? 'future'
+          : 'past';
+
+      // ── Multi-session detection ─────────────────────────────────────
+      // Build sessions from per-bucket minutes. Any category with ≥ 10
+      // logged minutes counts as its own session; sorted desc by minutes
+      // and capped at 3 by the engine. When 2+ are present and the day
+      // qualifies, the engine returns alternating sessions and DayIconCell
+      // pulses through them with pager dots.
+      const sessions: DaySessionInput[] = (
+        ['strength', 'cardio', 'maintenance'] as const
+      )
+        .filter((cat) => (dayData.categories[cat] ?? 0) >= STREAK_MINIMUM_MINUTES)
+        .map((cat) => ({
+          category: cat,
+          minutes: dayData.categories[cat],
+          // Strength session reuses the user's resolved program icon;
+          // cardio/maintenance fall back to category defaults inside the engine.
+          programIconKey: cat === 'strength' ? resolvedIconKey : undefined,
+        }))
+        .sort((a, b) => b.minutes - a.minutes);
+
+      // Hero-flame selection: Strength > Cardio > Maintenance priority order.
+      // Used as the fallback dominantCategory/programIconKey when only one
+      // session is active, and as the first icon in the alternating sequence
+      // when multiple real sessions exist.
+      const heroPriority = ['strength', 'cardio', 'maintenance'] as const;
+      const heroSession =
+        sessions.find((s) => s.category === heroPriority[0]) ??
+        sessions.find((s) => s.category === heroPriority[1]) ??
+        sessions[0];
+
+      const displayProps = resolveDayDisplayProps({
+        state,
+        isSelected: isCellSelected,
+        isRest: dayData.isRest,
+        isMissed: dayData.isMissed,
+        isCompleted: dayData.isCompleted,
+        debtCleared: dayData.debtCleared,
+        dominantCategory: heroSession?.category ?? dayData.dominantCategory,
+        stepGoalMet: false,
+        programIconKey: heroSession?.programIconKey ?? resolvedIconKey,
+        // Pass the full sessions array when 2+ real activities exist so
+        // DayIconCell alternates between them with pager dots.
+        sessions: sessions.length >= 2 ? sessions : undefined,
+      });
+
+      return <DayIconCell props={displayProps} />;
     }
 
-    // ── Icon-view: delegate everything to SmartDayIcon ────────────
-    if (useIconView) {
-      if (dayData.isCompleted) {
-        return (
-          <SmartDayIcon
-            iconKey={resolvedIconKey}
-            status="completed"
-            isPlanned={planned}
-            isSelected={isCellSelected}
-          />
-        );
-      }
-      if (dayData.isToday) {
-        const progress = (dayData.totalMinutes / 30) * 100;
-        return (
-          <SmartDayIcon
-            iconKey={resolvedIconKey}
-            status="today"
-            progress={progress}
-            isPlanned={planned}
-            isSelected={isCellSelected}
-          />
-        );
-      }
-      if (dayData.isFuture && planned) {
-        return (
-          <SmartDayIcon
-            iconKey={resolvedIconKey}
-            status="future"
-            isPlanned={planned}
-            isSelected={isCellSelected}
-          />
-        );
-      }
-      if (dayData.isRest) {
-        return <Bed className="text-gray-500 dark:text-gray-400 text-lg" />;
-      }
-      return null;
+    // Rings-view fallback: missed past days still need the legacy ghost.
+    if (dayData.isMissed && !dayData.isToday && !dayData.isFuture) {
+      return <GhostRing />;
     }
 
     // ── Rings-view: keep existing CompactRingsProgress paths ─────
@@ -1161,7 +1123,7 @@ export default function SmartWeeklySchedule({
     }
 
     if (dayData.isToday) {
-      if (dayData.hasActivity && dayData.totalMinutes >= 10) {
+      if (dayData.hasActivity && dayData.totalMinutes >= STREAK_MINIMUM_MINUTES) {
         const todayRingData = buildMiniRingData(dayData.categories);
         if (todayRingData.length > 0) {
           return (
@@ -1200,44 +1162,16 @@ export default function SmartWeeklySchedule({
     return null;
   };
   
-  // Handle day click for tooltip + UTS date selection
-  const handleDayClick = (day: DaySchedule, index: number, event: React.MouseEvent) => {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const dayData = weekActivityData.get(index) || null;
-    
-    // Calculate date string for this day
+  // Handle day click — propagate selected date to parent, no tooltip
+  const handleDayClick = (day: DaySchedule, index: number) => {
     const today = new Date();
     const dayDate = new Date(today);
     const todayIndex = today.getDay();
     dayDate.setDate(today.getDate() + (index - todayIndex));
     const isoDate = dayDate.toISOString().split('T')[0];
-    
-    setTooltip({
-      visible: true,
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-      day: day.day,
-      date: isoDate,
-      data: dayData,
-    });
-    
-    // UTS Phase 2 — propagate selected date to parent
     onDaySelect?.(isoDate);
-    // Legacy handler
     onDayClick?.(day);
   };
-  
-  // Close tooltip
-  const closeTooltip = () => setTooltip(prev => ({ ...prev, visible: false }));
-  
-  // Click outside to close tooltip
-  useEffect(() => {
-    const handleClickOutside = () => closeTooltip();
-    if (tooltip.visible) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [tooltip.visible]);
 
   const handlePanEnd = useCallback((_: unknown, info: PanInfo) => {
     if (onSwipeDown && info.offset.y > 50 && info.velocity.y > 100) {
@@ -1401,8 +1335,11 @@ export default function SmartWeeklySchedule({
             >
               {/* Days Grid with Liquid Path */}
               <div ref={containerRef} className="relative">
-                {/* Liquid Momentum Path (behind the day circles) */}
-                {containerWidth > 0 && completedIndices.length > 1 && (
+                {/* Liquid Momentum Path — rings-view only. In icon view the
+                    DayIconCell engine owns the visual story (flames + dots),
+                    and the blurred glow path was layering as a "filled circle"
+                    blob over completed cells (David's bug report). */}
+                {!useIconView && containerWidth > 0 && completedIndices.length > 1 && (
                   <LiquidMomentumPath 
                     completedIndices={completedIndices}
                     dominantColor={dominantColor || '#06B6D4'}
@@ -1445,18 +1382,24 @@ export default function SmartWeeklySchedule({
                           {day.day}
                         </span>
                         
-                        {/* Day icon — 44×44 slot, relative for dot anchor */}
+                        {/* Day icon — 32×32 slot (matches CONTAINER_SIZE_PX).
+                            In icon view the DayIconCell owns its own pager dot
+                            below the container, so we no longer render the
+                            legacy absolute cyan dot here (it collided with the
+                            engine's dot, producing the "double circle" David
+                            flagged). The legacy dot is preserved for rings view
+                            only. */}
                         <motion.button
-                          onClick={(e) => handleDayClick(day, index, e)}
+                          onClick={() => handleDayClick(day, index)}
                           whileTap={{ scale: 0.92 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                           className="flex items-center justify-center relative"
-                          style={{ width: 44, height: 44, overflow: 'visible' }}
+                          style={{ width: 32, height: 32, overflow: 'visible' }}
                         >
                           {dayData && getDayIcon(day, dayData, isCellSelected, index)}
 
-                          {/* Cyan dot — Y=48 from button top (4px below the 44px icon) */}
-                          {planned && (
+                          {/* Legacy planned dot — rings view only */}
+                          {!useIconView && planned && (
                             <div
                               className="absolute left-1/2 -translate-x-1/2"
                               style={{ top: 48 }}
@@ -1478,17 +1421,11 @@ export default function SmartWeeklySchedule({
                           )}
                         </motion.button>
 
-                        {/* Spacer — reserves space for dot so it stays inside card padding */}
-                        <div style={{ height: 12 }} />
+                        {/* Spacer — only needed in rings view (legacy dot lives
+                            outside the button); in icon view DayIconCell already
+                            adds its own 8 px of internal spacing. */}
+                        {!useIconView && <div style={{ height: 12 }} />}
                         
-                        {/* Tooltip (positioned per day) */}
-                        {tooltip.visible && tooltip.day === day.day && (
-                          <DayTooltip 
-                            data={tooltip}
-                            position="bottom"
-                            onClose={closeTooltip}
-                          />
-                        )}
                       </div>
                     );
                   })}

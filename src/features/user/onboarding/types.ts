@@ -165,6 +165,12 @@ export interface OnboardingData {
   assignedLevelId?: string;   // Primary assigned level (first result or legacy)
   assignedLevel?: number;     // Numeric level (legacy)
 
+  // Multi-Tenant fields (Phase 1 — populated from Access Code validation)
+  tenantId?: string;
+  unitId?: string;
+  unitPath?: string[];
+  tenantType?: 'municipal' | 'educational' | 'military';
+
   // Legacy fields (kept for compatibility)
   onboardingCoins?: number; // Total coins earned during onboarding wizard
   pastActivityLevel: string;
@@ -185,6 +191,8 @@ export type OnboardingStepId =
   | 'HEALTH_DECLARATION' // Health declaration before completion
   | 'ACCOUNT_SECURE' // Backup & Security step (after health declaration)
   | 'PROCESSING' // Animated processing screen before summary
+  // Multi-Tenant (Phase 1)
+  | 'ACCESS_CODE' // Access code entry for B2B/B2G onboarding
   // Legacy steps (kept for compatibility)
   | 'HISTORY'
   | 'SOCIAL_MAP'

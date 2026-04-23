@@ -18,10 +18,7 @@ import SummaryOrchestrator, {
   WorkoutType,
 } from './components/SummaryOrchestrator';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
-import { calculateBaseWorkoutXP, calculateLevelFromXP, getProgressToNextLevel } from '@/features/user/progression/services/xp.service';
-import { getAllLevels } from '@/features/content/programs/core/level.service';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { calculateBaseWorkoutXP } from '@/features/user/progression/services/xp.service';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
@@ -164,28 +161,24 @@ export default function WorkoutSummaryPage({
             }).catch(() => {});
           }
 
-          // 2b. Award XP (hidden — user only sees %)
+          // 2b. Award XP (hidden — user only sees %).
+          // Routed through the Guardian Cloud Function; rules block direct
+          // client writes to progression.globalXP / globalLevel.
           try {
             const durationMin = Math.round(totalDuration / 60);
             const baseXP = calculateBaseWorkoutXP(durationMin, 2, 'cardio');
 
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            const userSnap = await getDoc(userDocRef);
-            if (userSnap.exists()) {
-              const userData = userSnap.data();
-              const currentXP = userData.progression?.globalXP || 0;
-              const newXP = currentXP + baseXP;
+            const { awardWorkoutXP } = await import('@/lib/awardWorkoutXP');
+            const result = await awardWorkoutXP({
+              xpDelta: baseXP,
+              source: `workout:${workoutType}`,
+            });
 
-              const levels = await getAllLevels();
-              const newLevel = calculateLevelFromXP(newXP, levels);
-              const pct = getProgressToNextLevel(newXP, newLevel, levels);
-
-              await updateDoc(userDocRef, {
-                'progression.globalXP': newXP,
-                'progression.globalLevel': newLevel,
-              });
-
-              console.log(`[XP] +${baseXP} XP (hidden). Progress: ${Math.round(pct)}% → Level ${newLevel + 1}`);
+            if (result) {
+              console.log(
+                `[XP] +${baseXP} XP (hidden) → total ${result.newGlobalXP}, Level ${result.newGlobalLevel}` +
+                  (result.leveledUp ? ' (LEVEL UP!)' : ''),
+              );
             }
           } catch (xpErr) {
             console.error('[XP] Failed to award XP:', xpErr);

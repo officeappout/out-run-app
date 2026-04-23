@@ -9,10 +9,12 @@ import StatsOverview from './components/StatsOverview';
 import ContentFilters from './components/ContentFilters';
 import StatusGrid from './components/StatusGrid';
 import { MatrixCell } from './components/types';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function ContentStatusPage() {
   const {
     loading,
+    error,
     allLocations,
     allLifestyleTags,
     allBrands,
@@ -82,8 +84,29 @@ export default function ContentStatusPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">טוען...</div>
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <p className="text-gray-500 font-medium">טוען נתוני מדיה...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4" dir="rtl">
+        <div className="flex items-center gap-3 px-6 py-4 bg-red-50 border border-red-200 rounded-2xl">
+          <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0" />
+          <div>
+            <p className="font-bold text-red-700">שגיאה בטעינת הנתונים</p>
+            <p className="text-sm text-red-600 mt-1">{error}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+        >
+          נסה שוב
+        </button>
       </div>
     );
   }

@@ -83,9 +83,11 @@ const FEATURE_TAG_LABELS: Record<ParkFeatureTag, string> = {
   near_water:           'קרוב למים',
   water_fountain:       'ברז שתייה',
   has_toilets:          'שירותים',
+  has_benches:          'ספסלים',
   dog_friendly:         'ידידותי לכלבים',
   wheelchair_accessible:'נגיש לנכים',
-  safe_zone:            'אזור בטוח',
+  safe_zone:            'אזור בטוח / מיגונית',
+  nearby_shelter:       'מיגונית קרובה',
 };
 
 const ALL_FEATURE_TAGS = Object.keys(FEATURE_TAG_LABELS) as ParkFeatureTag[];

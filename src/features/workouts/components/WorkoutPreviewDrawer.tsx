@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import { Play, X, Target, ArrowRight, Share2, Volume2, VolumeX, Replace, Link2, MapPin, Dumbbell } from 'lucide-react';
+import { Play, X, Target, ArrowRight, Share2, Volume2, VolumeX, Link2, MapPin, PersonStanding, Loader2, Heart, ArrowDownCircle, WifiOff } from 'lucide-react';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import SwapIcon from '@/features/workout-engine/components/SwapIcon';
 import { ExecutionMethod } from '@/features/content/exercises';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,10 @@ import { resolveEquipmentLabel, resolveEquipmentIconKey, resolveEquipmentSvgPath
 import ExerciseDetailContent, { type ProgramRef } from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { shareWorkout } from '@/features/workout-engine/services/share.service';
+import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
+import { useCachedMediaUrl, useCachedMediaMap } from '@/features/favorites/hooks/useCachedMedia';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 /**
  * Convert Firestore exercises to WorkoutPlan format
@@ -29,7 +34,6 @@ async function convertExercisesToWorkoutPlan(exercises: FirestoreExercise[]): Pr
   const mergeEquipment = (ex: FirestoreExercise): string[] => {
     const method = ex.execution_methods?.find((m: any) => m.location === 'home') || ex.execution_methods?.[0];
     const raw = [
-      ...((ex as any).equipment || []),
       ...((method as any)?.gearIds || []),
       ...((method as any)?.equipmentIds || []),
       ...((method as any)?.gearId ? [(method as any).gearId] : []),
@@ -380,6 +384,8 @@ export default function WorkoutPreviewDrawer({
   } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const isOnline = useOnlineStatus();
+
   // ── Nearby Parks for "Where to Train" section ──
   const nearbyParks = useNearbyParks(isOpen);
 
@@ -392,6 +398,10 @@ export default function WorkoutPreviewDrawer({
       if (raw) setHeroMedia(JSON.parse(raw));
     } catch { /* ignore */ }
   }, []);
+
+  // ── Offline-cached hero media ──
+  const cachedHeroThumb = useCachedMediaUrl(heroMedia?.thumbnailUrl || workout?.coverImage || null);
+  const cachedHeroVideo = useCachedMediaUrl(heroMedia?.videoUrl || null);
 
   // ── Global Audio Control ──
   const [isAudioEnabled, setIsAudioEnabled] = useState(() => {
@@ -417,9 +427,11 @@ export default function WorkoutPreviewDrawer({
   const [exerciseToReplaceLevel, setExerciseToReplaceLevel] = useState(1);
 
   // ── Exercise Detail Hero Drawer ──
+  // Dynamic-height pattern: the drawer fits its content (up to 90vh cap),
+  // so no snap-points are needed — the sheet is just as tall as the data
+  // dictates and scrolls internally past the cap.
   const [detailExercise, setDetailExercise] = useState<EngineWorkoutExercise | null>(null);
   const detailY = useMotionValue(0);
-  const [detailSnap, setDetailSnap] = useState<'collapsed' | 'expanded'>('collapsed');
   const detailRef = useRef<HTMLDivElement>(null);
 
   // ── Program ID → Hebrew name map (loaded once) ──
@@ -448,6 +460,88 @@ export default function WorkoutPreviewDrawer({
     return () => { cancelled = true; };
   }, []);
 
+  // ── Share State ──
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    if (isSharing) return;
+
+    if (!generatedWorkout) {
+      // Fallback: share a plain text link when no GeneratedWorkout is available
+      const title = workout?.title || 'אימון כוח';
+      const text = `💪 ${title}\nבוא/י לנסות את האימון שלי ב-Out!\nhttps://out-run-app.vercel.app`;
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try { await navigator.share({ title, text }); } catch { /* cancelled */ }
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+      }
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      await shareWorkout(generatedWorkout, workoutLocation);
+    } catch (err) {
+      console.error('[WorkoutPreviewDrawer] Share failed:', err);
+      // Surface the error as a basic fallback share
+      const text = `💪 ${generatedWorkout.title}\nבוא/י לנסות את האימון שלי ב-Out!\nhttps://out-run-app.vercel.app`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } finally {
+      setIsSharing(false);
+    }
+  }, [generatedWorkout, workout, workoutLocation, isSharing]);
+
+  // ── Favorites ──
+  const {
+    toggleFavorite, triggerDownload,
+    isFavorited: checkIsFavorited, isToggling: checkIsToggling,
+    getFavoriteId: checkGetFavoriteId, isDownloaded: checkIsDownloaded,
+    isDownloading: checkIsDownloading, getDownloadProgress: checkDownloadProgress,
+    loadFavorites, _hydrated: favsHydrated,
+  } = useFavoritesStore();
+
+  useEffect(() => {
+    if (!favsHydrated) loadFavorites();
+  }, [favsHydrated, loadFavorites]);
+
+  const isFav = generatedWorkout ? checkIsFavorited(generatedWorkout) : false;
+  const isFavToggling = generatedWorkout ? checkIsToggling(generatedWorkout) : false;
+  const favId = generatedWorkout ? checkGetFavoriteId(generatedWorkout) : undefined;
+  const isFavDownloaded = favId ? checkIsDownloaded(favId) : false;
+  const isFavDownloading = favId ? checkIsDownloading(favId) : isFavToggling;
+  const dlProgress = favId ? checkDownloadProgress(favId) : 0;
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (isFavToggling) return;
+    if (!generatedWorkout) {
+      console.warn('[WorkoutPreviewDrawer] Cannot favorite — no generatedWorkout available');
+      return;
+    }
+    try {
+      await toggleFavorite(generatedWorkout, workoutLocation);
+    } catch (err) {
+      console.error('[WorkoutPreviewDrawer] toggleFavorite failed:', err);
+    }
+  }, [generatedWorkout, isFavToggling, toggleFavorite, workoutLocation]);
+
+  const handleDownload = useCallback(async () => {
+    if (isFavToggling || isFavDownloading) return;
+    if (!generatedWorkout) return;
+    if (!isFav) {
+      try {
+        await toggleFavorite(generatedWorkout, workoutLocation);
+      } catch (err) {
+        console.error('[WorkoutPreviewDrawer] download-favorite failed:', err);
+      }
+    } else if (!isFavDownloaded && favId) {
+      try {
+        await triggerDownload(favId);
+      } catch (err) {
+        console.error('[WorkoutPreviewDrawer] triggerDownload failed:', err);
+      }
+    }
+  }, [generatedWorkout, isFav, isFavDownloaded, isFavToggling, isFavDownloading, favId, toggleFavorite, triggerDownload, workoutLocation]);
+
   const resolvedLocation: ExecutionLocation = (workoutLocation as ExecutionLocation) || 'park';
 
   const handleOpenSwapModal = useCallback((exercise: FirestoreExercise, level: number) => {
@@ -458,33 +552,21 @@ export default function WorkoutPreviewDrawer({
 
   const handleExerciseTap = useCallback((ex: EngineWorkoutExercise) => {
     setDetailExercise(ex);
-    setDetailSnap('collapsed');
     detailY.set(0);
   }, [detailY]);
 
   const handleDetailDismiss = useCallback(() => {
     setDetailExercise(null);
-    setDetailSnap('collapsed');
   }, []);
 
-  const toggleDetailSnap = useCallback(() => {
-    setDetailSnap((prev) => (prev === 'collapsed' ? 'expanded' : 'collapsed'));
-  }, []);
-
+  // With dynamic height there's no snap state — the drag handle only
+  // dismisses the drawer when pulled down past a threshold or flung.
   const handleDetailDragEnd = useCallback((_: any, info: any) => {
     const { offset, velocity } = info;
-    if (detailSnap === 'collapsed') {
-      if (offset.y < -30 || velocity.y < -150) {
-        setDetailSnap('expanded');
-      } else if (offset.y > 50 || velocity.y > 250) {
-        handleDetailDismiss();
-      }
-    } else {
-      if (offset.y > 60 || velocity.y > 250) {
-        setDetailSnap('collapsed');
-      }
+    if (offset.y > 100 || velocity.y > 350) {
+      handleDetailDismiss();
     }
-  }, [detailSnap, handleDetailDismiss]);
+  }, [handleDetailDismiss]);
 
   const VOLUME_ADJUSTMENT_FACTOR = 0.2;
 
@@ -521,6 +603,7 @@ export default function WorkoutPreviewDrawer({
         method,
         reps: adjustedReps,
         repsRange: adjustedRange,
+        wasSwapped: true,
       };
     });
 
@@ -653,40 +736,34 @@ export default function WorkoutPreviewDrawer({
   };
 
   const handleStartWorkout = () => {
-    if (workout) {
-      // Store workout plan + location in sessionStorage to pass to active page
-      if (typeof window !== 'undefined') {
-        // Clear any old workout data first
-        sessionStorage.removeItem('currentWorkoutPlan');
-        sessionStorage.removeItem('currentWorkoutPlanId');
-        sessionStorage.removeItem('currentWorkoutLocation');
-        
-        if (workoutPlan) {
-          // Ensure the workout plan has the correct ID
-          const planWithCorrectId = {
-            ...workoutPlan,
-            id: workout.id, // Use the actual workout ID from props
-          };
-          sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(planWithCorrectId));
-          sessionStorage.setItem('currentWorkoutPlanId', workout.id);
-        }
-        // Persist workout location for the player to use for media selection
-        if (workoutLocation) {
-          sessionStorage.setItem('currentWorkoutLocation', workoutLocation);
-        }
+    const workoutId = workout?.id || 'favorites-workout';
+
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('currentWorkoutPlan');
+      sessionStorage.removeItem('currentWorkoutPlanId');
+      sessionStorage.removeItem('currentWorkoutLocation');
+
+      if (workoutPlan) {
+        const planWithCorrectId = { ...workoutPlan, id: workoutId };
+        sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(planWithCorrectId));
+        sessionStorage.setItem('currentWorkoutPlanId', workoutId);
       }
-      if (onStartWorkout) {
-        onStartWorkout(workout.id);
-      } else {
-        router.push(`/workouts/${workout.id}/active`);
+      if (workoutLocation) {
+        sessionStorage.setItem('currentWorkoutLocation', workoutLocation);
       }
+    }
+
+    if (onStartWorkout) {
+      onStartWorkout(workoutId);
+    } else {
+      router.push(`/workouts/${workoutId}/active`);
     }
   };
 
   return (
     <>
     <AnimatePresence>
-      {isOpen && workout && (
+      {isOpen && (workout || generatedWorkout) && (
         <>
           {/* Backdrop */}
           <motion.div
@@ -736,15 +813,10 @@ export default function WorkoutPreviewDrawer({
                 >
                   <ArrowRight size={20} />
                 </button>
-                <h1 className="text-lg font-black text-gray-900 dark:text-white flex-1 text-center px-4">
+                <h1 className="text-base font-bold text-gray-900 dark:text-white flex-1 text-center px-4 leading-tight line-clamp-2">
                   {displayTitle}
                 </h1>
-                <button
-                  className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
-                  aria-label="שתף"
-                >
-                  <Share2 size={20} />
-                </button>
+                <div className="w-10" />
               </div>
             </div>
 
@@ -762,18 +834,18 @@ export default function WorkoutPreviewDrawer({
                   transform: `scale(${imageScale})`,
                 }}
               >
-                {/* Hero Image — uses Home Screen media for continuity */}
-                {(heroMedia?.thumbnailUrl || workout.coverImage) && (
+                {/* Hero Image — uses cached blob URL when offline */}
+                {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
                   <div className="absolute inset-0">
                     <img
-                      src={heroMedia?.thumbnailUrl || workout.coverImage}
+                      src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
                       alt={displayTitle}
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    {heroMedia?.videoUrl && (
+                    {(cachedHeroVideo || heroMedia?.videoUrl) && (
                       <video
-                        src={heroMedia.videoUrl}
+                        src={cachedHeroVideo || heroMedia?.videoUrl}
                         autoPlay loop muted playsInline preload="auto"
                         className="absolute inset-0 w-full h-full object-cover"
                       />
@@ -788,58 +860,72 @@ export default function WorkoutPreviewDrawer({
                   </div>
                 )}
 
-                {/* Top Controls - Only visible when image is visible */}
+                {/* Top Controls - Close button pinned to top-right (RTL leading) */}
                 <div
-                  className={`absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10 transition-opacity duration-300 ${
+                  className={`absolute top-0 right-0 p-3 pt-12 z-10 transition-opacity duration-300 ${
                     imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'
                   }`}
                 >
                   <button
                     onClick={onClose}
-                    className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
+                    className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-700 active:scale-90 transition-transform"
                     aria-label="סגור"
                   >
-                    <X size={20} />
-                  </button>
-                  <button
-                    className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
-                    aria-label="שתף"
-                  >
-                    <Share2 size={20} />
+                    <X size={20} strokeWidth={2.5} />
                   </button>
                 </div>
 
-                {/* Workout Title — icon + text, sits where image melts into white */}
-                <div
-                  className="absolute bottom-0 left-0 right-0 p-6 z-10"
-                  style={{
-                    transform: `translateY(-${titleY}px) scale(${titleScale})`,
-                    transformOrigin: 'bottom center',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/icons/programs/full_body.svg" alt="" width={22} height={22} className="flex-shrink-0" style={{ filter: CATEGORY_ICON_FILTER_CYAN }} />
-                    <h1 className="text-[20px] font-bold text-gray-900 dark:text-white leading-snug transition-all duration-300">
-                      {displayTitle}
-                    </h1>
-                  </div>
+              </div>
+
+              {/* Workout Title — pulled OUTSIDE the hero so it escapes the hero's
+                  transform-based stacking context and renders above the content section. */}
+              <div
+                className="relative z-20 -mt-14 px-6 pb-2"
+                style={{
+                  transform: `scale(${titleScale})`,
+                  transformOrigin: 'bottom right',
+                  transition: 'transform 0.3s ease',
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/icons/programs/full_body.svg" alt="" width={20} height={20} className="flex-shrink-0 mt-0.5" style={{ filter: 'brightness(0)' }} />
+                  <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight whitespace-normal">
+                    {displayTitle}
+                  </h1>
                 </div>
               </div>
 
+              {/* Action Row removed — icons now integrated into metadata pills row */}
+
               {/* Content Section — 16px side padding, 16px gap below hero title row */}
-              <div className="bg-white dark:bg-slate-900 -mt-12 relative z-10 px-4 pt-4 pb-8">
+              <div className="bg-white dark:bg-slate-900 relative z-10 px-4 pt-4 pb-8">
 
                 {/* Generated Workout: Clean exercise list */}
                 {generatedWorkout ? (
-                  <GeneratedWorkoutExerciseList generatedWorkout={generatedWorkout} onSwap={handleOpenSwapModal} onExerciseTap={handleExerciseTap} />
+                  <GeneratedWorkoutExerciseList
+                    generatedWorkout={generatedWorkout}
+                    onSwap={handleOpenSwapModal}
+                    onExerciseTap={handleExerciseTap}
+                    actions={{
+                      isFav,
+                      isFavToggling,
+                      isFavDownloading,
+                      isFavDownloaded,
+                      downloadProgress: dlProgress,
+                      isSharing,
+                      onToggleFavorite: handleToggleFavorite,
+                      onShare: handleShare,
+                      onDownload: handleDownload,
+                    }}
+                  />
                 ) : (
                   /* Fallback: StrengthOverviewCard for park-route workouts */
                   workoutPlan && (
                     <StrengthOverviewCard
                       workoutPlan={workoutPlan}
                       userProfile={profile || undefined}
-                      coverImage={workout.coverImage}
+                      coverImage={workout?.coverImage}
                       onStartWorkout={handleStartWorkout}
                     />
                   )
@@ -848,7 +934,7 @@ export default function WorkoutPreviewDrawer({
                 {/* ── Where to Train — Nearest Parks (bottom of scroll) ── */}
                 {nearbyParks.length > 0 && (
                   <section className="mt-6 mb-2">
-                    <h3 className="text-right font-bold text-lg mb-3">איפה כדאי להתאמן?</h3>
+                    <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">איפה כדאי להתאמן?</h3>
                     <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1" dir="rtl">
                       {nearbyParks.map((park, idx) => (
                         <motion.div
@@ -882,11 +968,18 @@ export default function WorkoutPreviewDrawer({
               className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
               style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
             >
+              {!isOnline && !isFavDownloaded && (
+                <div className="flex items-center justify-center gap-1.5 pb-2" dir="rtl">
+                  <WifiOff size={12} className="text-gray-400" />
+                  <span className="text-[11px] text-gray-400">שמור אימון למועדפים כדי להתאמן אופליין</span>
+                </div>
+              )}
               <div className="flex items-center gap-3" dir="rtl">
                 {/* Start Workout — gradient pill, full-width (RIGHT in RTL) */}
                 <button
                   onClick={handleStartWorkout}
-                  className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-lg border-0 outline-none"
+                  disabled={!isOnline && !isFavDownloaded}
+                  className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-lg border-0 outline-none disabled:opacity-40 disabled:active:scale-100"
                   style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 42 }}
                 >
                   <Play size={20} fill="currentColor" />
@@ -934,7 +1027,6 @@ export default function WorkoutPreviewDrawer({
         const eqIds: string[] = [
           ...(method?.gearIds ?? []),
           ...(method?.equipmentIds ?? []),
-          ...(exercise.equipment ?? []),
         ].filter((v, i, a) => a.indexOf(v) === i);
 
         const primary = exercise.primaryMuscle || null;
@@ -968,6 +1060,29 @@ export default function WorkoutPreviewDrawer({
             ? exercise.content.goal
             : (exercise.content?.goal as any)?.he || null) || null;
 
+        const descriptionText = (() => {
+          const d = exercise.content?.description;
+          if (!d) return null;
+          if (typeof d === 'string') return d;
+          return (d as any)?.he || null;
+        })();
+
+        const instructionsText = (() => {
+          const inst = exercise.content?.instructions;
+          if (!inst) return null;
+          if (typeof inst === 'string') return inst;
+          return (inst as any)?.he || null;
+        })();
+
+        const notesArr: string[] = [];
+        const rawNotes = exercise.content?.notes;
+        if (rawNotes && Array.isArray(rawNotes)) {
+          for (const n of rawNotes) {
+            const text = typeof n === 'string' ? n : (n as any)?.he || '';
+            if (text) notesArr.push(text);
+          }
+        }
+
         // Resolve programs from targetPrograms (multi-program with levels)
         const resolvedPrograms: ProgramRef[] = [];
         if (exercise.targetPrograms && exercise.targetPrograms.length > 0) {
@@ -982,8 +1097,6 @@ export default function WorkoutPreviewDrawer({
           }
         }
 
-        const isExpanded = detailSnap === 'expanded';
-
         return (
           <>
             {/* Backdrop */}
@@ -996,35 +1109,50 @@ export default function WorkoutPreviewDrawer({
               className="fixed inset-0 bg-black z-[200]"
             />
 
-            {/* Detail Drawer — Framer handles ONLY enter/exit (y). Height uses CSS transition. */}
+            {/*
+              Detail Drawer — Dynamic Height (Fit Content, capped at 90vh).
+              ─────────────────────────────────────────────────────────────
+              • motion.div is `flex flex-col` with NO explicit height; the
+                browser sizes it to its children up to `maxHeight: 90vh`.
+              • Drag handle is `flex-shrink-0` — keeps its 24px no matter what.
+              • Scroll container is the natural-flex child with `min-h-0`
+                + `overflow-y-auto` → it reports content height to the parent
+                while still allowing internal scrolling once the cap is hit.
+              • A short, lean exercise (only video + muscles) opens as a small
+                drawer; rich exercises grow up to 90vh and scroll past that.
+            */}
             <motion.div
               ref={detailRef}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
-              className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[20px] overflow-hidden"
+              className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[20px] flex flex-col"
               style={{
-                height: isExpanded ? '98vh' : '45vh',
-                transition: 'height 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+                maxHeight: '90vh',
                 fontFamily: 'var(--font-simpler)',
               }}
             >
-              {/* Drag handle — absolute overlay, floats over the video */}
+              {/* Drag handle — only dismisses (no snap toggle); part of flex layout */}
               <motion.div
                 drag="y"
                 dragConstraints={{ top: 0, bottom: 0 }}
                 dragElastic={0.5}
                 onDragEnd={handleDetailDragEnd}
-                className="absolute top-2 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center cursor-grab active:cursor-grabbing select-none"
+                onClick={handleDetailDismiss}
+                className="flex-shrink-0 flex justify-center pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing select-none"
                 style={{ touchAction: 'none' }}
-                onClick={toggleDetailSnap}
               >
-                <div className="w-10 h-1.5 rounded-full bg-white/70 shadow-sm" />
+                <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
               </motion.div>
 
-              {/* Scrollable content — starts at the very top, video touches drawer edge */}
-              <div className="h-full overflow-y-auto overscroll-contain pb-6">
+              {/* Scroll container — fits content; scrolls internally past 90vh.
+                  WHITE_FADE on ExerciseDetailContent's hero already smooths
+                  the boundary as the user scrolls text content over it. */}
+              <div
+                className="overflow-y-auto overscroll-contain pb-6"
+                style={{ minHeight: 0 }}
+              >
                 <ExerciseDetailContent
                   exerciseName={name}
                   videoUrl={heroVideoUrl}
@@ -1036,6 +1164,9 @@ export default function WorkoutPreviewDrawer({
                   secondaryMuscles={secondary.length > 0 ? secondary : undefined}
                   cues={allCues.length > 0 ? allCues : undefined}
                   goal={goalText}
+                  description={descriptionText}
+                  instructions={instructionsText}
+                  notes={notesArr.length > 0 ? notesArr : undefined}
                 />
               </div>
             </motion.div>
@@ -1080,23 +1211,29 @@ function groupExercisesIntoSections(exercises: EngineWorkoutExercise[]): Exercis
   const regular: EngineWorkoutExercise[] = [];
   const cooldown: EngineWorkoutExercise[] = [];
 
+  // Check if exercises carry explicit role metadata (from generator or favorites)
+  const hasRoles = exercises.some(
+    (ex) => ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown'
+      || ex.exercise.exerciseRole === 'warmup' || ex.exercise.exerciseRole === 'cooldown',
+  );
+
   for (const ex of exercises) {
-    const role = ex.exercise.exerciseRole;
+    const role = ex.exerciseRole || ex.exercise.exerciseRole;
     if (role === 'warmup') {
       warmup.push(ex);
     } else if (role === 'cooldown') {
       cooldown.push(ex);
-    } else if (ex.exercise.tags?.includes('compound' as any)) {
+    } else if (ex.pairedWith || ex.exercise.tags?.includes('compound' as any)) {
       supersets.push(ex);
     } else {
       regular.push(ex);
     }
   }
 
-  // If no role-based grouping available, split by priority
-  if (warmup.length === 0 && cooldown.length === 0) {
+  // Only apply the guessing fallback when NO exercise has an explicit role.
+  // Favorites always store exerciseRole, so this branch is skipped for them.
+  if (!hasRoles && warmup.length === 0 && cooldown.length === 0) {
     const all = [...exercises];
-    // First exercise → warmup, last → cooldown, rest split evenly
     if (all.length >= 4) {
       warmup.push(all.shift()!);
       cooldown.push(all.pop()!);
@@ -1111,7 +1248,6 @@ function groupExercisesIntoSections(exercises: EngineWorkoutExercise[]): Exercis
   const sections: ExerciseSection[] = [];
   if (warmup.length > 0) sections.push({ id: 'warmup', title: 'חימום', rounds: 1, exercises: warmup });
   if (supersets.length > 0) sections.push({ id: 'superset', title: 'סופר סט', rounds: 3, exercises: supersets });
-  // Each regular exercise gets its own section with its specific sets count
   regular.forEach((ex, i) => {
     sections.push({
       id: `regular-${i}`,
@@ -1132,9 +1268,9 @@ function resolveExerciseImage(ex: EngineWorkoutExercise): string {
 
 interface EquipmentEntry { id: string; label: string }
 
-/** Collect unique equipment entries (raw ID + Hebrew label) from exercises */
+/** Collect unique equipment entries (canonical ID + Hebrew label) from exercises */
 function collectEquipment(exercises: EngineWorkoutExercise[]): EquipmentEntry[] {
-  const seenIds = new Set<string>();
+  const seenNorms = new Set<string>();
   const seenLabels = new Set<string>();
   const result: EquipmentEntry[] = [];
   for (const ex of exercises) {
@@ -1142,17 +1278,23 @@ function collectEquipment(exercises: EngineWorkoutExercise[]): EquipmentEntry[] 
     const ids: string[] = [
       ...(method?.gearIds ?? []),
       ...(method?.equipmentIds ?? []),
-      ...(ex.exercise.equipment ?? []),
     ];
     for (const id of ids) {
-      if (!id || seenIds.has(id)) continue;
-      seenIds.add(id);
-      const label = resolveEquipmentLabel(id);
+      if (!id) continue;
+      // Normalise immediately so Firestore doc IDs (e.g. '9HVoe7t0PmaP5YJOYAlv')
+      // resolve to their canonical key ('pullup_bar'). DrawerEquipmentBadge then
+      // receives the canonical key and can always resolve the SVG path.
+      const norm = normalizeGearId(id);
+      if (norm === 'bodyweight' || norm === 'none' || norm === 'unknown_gear') continue;
+      if (seenNorms.has(norm)) continue;
+      seenNorms.add(norm);
+      const label = resolveEquipmentLabel(norm);
       if (seenLabels.has(label)) continue;
       seenLabels.add(label);
-      result.push({ id, label });
+      result.push({ id: norm, label });
     }
   }
+
   return result.slice(0, 6);
 }
 
@@ -1169,11 +1311,44 @@ function collectMuscles(exercises: EngineWorkoutExercise[]): string[] {
 }
 
 // ============================================================================
-// Gender-aware muscle icon paths — /icons/muscles/{gender}/{muscleFile}.svg
+// DrawerEquipmentBadge — icon + Hebrew label in a frosted pill
 // ============================================================================
-type GenderPath = 'male' | 'female';
+function DrawerEquipmentBadge({ id, label }: { id: string; label: string }) {
+  const iconSrc = resolveEquipmentSvgPath(id);
+  // Track whether the SVG failed to load so we can fall back to Dumbbell.
+  const [imgFailed, setImgFailed] = React.useState(false);
+  const showImg = !imgFailed && iconSrc && iconSrc.startsWith('/');
 
-const MUSCLE_SVG_FILE: Record<string, string> = {
+  return (
+    <div
+      className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-4 py-2"
+      style={{ border: '0.5px solid #E0E9FF' }}
+      dir="rtl"
+    >
+      {showImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={iconSrc!}
+          alt={label}
+          width={18}
+          height={18}
+          className="object-contain"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <PersonStanding size={18} className="text-slate-400 flex-shrink-0" />
+      )}
+      <span className="text-sm font-normal text-gray-800 dark:text-gray-100 whitespace-nowrap">{label}</span>
+    </div>
+  );
+}
+
+// ============================================================================
+// DrawerMuscleBadge — icon + Hebrew label, no border
+// Falls back: /icons/muscles/{file}.svg → /icons/muscles/male/{file}.svg → letter
+// ============================================================================
+
+const MUSCLE_FILE: Record<string, string> = {
   chest: 'chest', back: 'back', shoulders: 'shoulders',
   biceps: 'biceps', triceps: 'triceps', forearms: 'forearms',
   traps: 'traps', lats: 'back', upper_back: 'back',
@@ -1185,115 +1360,22 @@ const MUSCLE_SVG_FILE: Record<string, string> = {
   neck: 'traps', serratus: 'chest',
 };
 
-function getMuscleIconPath(muscle: string, gender: GenderPath): string {
-  const file = MUSCLE_SVG_FILE[muscle] ?? muscle;
-  return `/icons/muscles/${gender}/${file}.svg`;
-}
-
-const MUSCLE_ICON_FALLBACK: Record<string, string> = {
-  chest: '/icons/programs/muscle.svg',
-  back: '/icons/programs/muscle.svg',
-  shoulders: '/icons/programs/muscle.svg',
-  biceps: '/icons/programs/muscle.svg',
-  triceps: '/icons/programs/muscle.svg',
-  forearms: '/icons/programs/muscle.svg',
-  traps: '/icons/programs/muscle.svg',
-  lats: '/icons/programs/muscle.svg',
-  upper_back: '/icons/programs/muscle.svg',
-  neck: '/icons/programs/muscle.svg',
-  serratus: '/icons/programs/muscle.svg',
-  quads: '/icons/programs/leg.svg',
-  hamstrings: '/icons/programs/leg.svg',
-  glutes: '/icons/programs/leg.svg',
-  calves: '/icons/programs/leg.svg',
-  legs: '/icons/programs/leg.svg',
-  hip_flexors: '/icons/programs/leg.svg',
-  adductors: '/icons/programs/leg.svg',
-  abductors: '/icons/programs/leg.svg',
-  lower_back: '/icons/programs/leg.svg',
-  core: '/icons/programs/full_body.svg',
-  abs: '/icons/programs/full_body.svg',
-  obliques: '/icons/programs/full_body.svg',
-  full_body: '/icons/programs/full_body.svg',
-  cardio: '/icons/programs/Run.svg',
-};
-
-// ============================================================================
-// DrawerEquipmentBadge — icon + Hebrew label in a frosted pill
-// ============================================================================
-function DrawerEquipmentBadge({ id, label }: { id: string; label: string }) {
-  const iconSrc = resolveEquipmentSvgPath(id);
-
-  return (
-    <div
-      className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-4 py-2"
-      style={{ border: '0.5px solid #E0E9FF' }}
-      dir="rtl"
-    >
-      {iconSrc && iconSrc.startsWith('/') ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={iconSrc}
-          alt={label}
-          width={18}
-          height={18}
-          className="brightness-0 dark:brightness-100"
-          onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            img.removeAttribute('src');
-            img.style.display = 'none';
-          }}
-        />
-      ) : (
-        <Dumbbell size={18} className="text-black dark:text-white flex-shrink-0" />
-      )}
-      <span className="text-sm font-normal text-gray-800 dark:text-gray-100">{label}</span>
-    </div>
-  );
-}
-
-// ============================================================================
-// FramelessMuscleBadge — gender-aware icon + Hebrew label, no border/background
-// Fallback chain: gendered → male → /icons/programs/ → first-letter
-// ============================================================================
-function FramelessMuscleBadge({ muscle, gender = 'male' }: { muscle: string; gender?: GenderPath }) {
+function DrawerMuscleBadge({ muscle }: { muscle: string }) {
   const label = getMuscleGroupLabel(muscle);
-  // 0 = gendered path, 1 = male fallback (if gender was female), 2 = program fallback
+  const file = MUSCLE_FILE[muscle] ?? muscle;
   const [tier, setTier] = React.useState(0);
 
-  const genderedPath = getMuscleIconPath(muscle, gender);
-  const malePath = gender !== 'male' ? getMuscleIconPath(muscle, 'male') : null;
-  const programPath = MUSCLE_ICON_FALLBACK[muscle];
-
-  const iconSrc =
-    tier === 0 ? genderedPath :
-    tier === 1 && malePath ? malePath :
-    tier === 1 ? programPath :
-    programPath;
-
-  const handleError = React.useCallback(() => {
-    setTier((prev) => {
-      if (prev === 0 && malePath) return 1;
-      if (prev <= 1 && programPath) return 2;
-      return 3;
-    });
-  }, [malePath, programPath]);
+  const src = tier === 0 ? `/icons/muscles/${file}.svg` : `/icons/muscles/male/${file}.svg`;
 
   return (
-    <div className="flex-shrink-0 flex items-center gap-2" dir="rtl">
-      {tier < 3 && iconSrc ? (
+    <div className="flex-shrink-0 flex items-center gap-1.5" dir="rtl">
+      {tier < 2 ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={iconSrc}
-          alt={label}
-          width={36}
-          height={36}
-          onError={handleError}
-        />
+        <img src={src} alt={label} width={28} height={28} onError={() => setTier((p) => p + 1)} />
       ) : (
-        <span className="text-[#00C9F2] text-lg font-normal">{label.charAt(0)}</span>
+        <span className="text-cyan-500 text-sm font-bold w-7 h-7 flex items-center justify-center">{label.charAt(0)}</span>
       )}
-      <span className="text-sm font-normal text-gray-800 dark:text-gray-200">{label}</span>
+      <span className="text-[13px] font-normal text-gray-800 dark:text-gray-200">{label}</span>
     </div>
   );
 }
@@ -1324,20 +1406,84 @@ function DrawerBoltIcon({ filled }: { filled: boolean }) {
   );
 }
 
+const DL_CIRCLE_SIZE = 28;
+const DL_CIRCLE_STROKE = 2.5;
+const DL_CIRCLE_RADIUS = (DL_CIRCLE_SIZE - DL_CIRCLE_STROKE) / 2;
+const DL_CIRCLE_CIRCUMFERENCE = 2 * Math.PI * DL_CIRCLE_RADIUS;
+
+function DownloadProgressCircle({ progress }: { progress: number }) {
+  const clamped = Math.min(100, Math.max(0, progress));
+  const offset = DL_CIRCLE_CIRCUMFERENCE - (clamped / 100) * DL_CIRCLE_CIRCUMFERENCE;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: DL_CIRCLE_SIZE, height: DL_CIRCLE_SIZE }}>
+      <svg
+        width={DL_CIRCLE_SIZE}
+        height={DL_CIRCLE_SIZE}
+        viewBox={`0 0 ${DL_CIRCLE_SIZE} ${DL_CIRCLE_SIZE}`}
+        className="absolute inset-0 -rotate-90"
+      >
+        <circle
+          cx={DL_CIRCLE_SIZE / 2}
+          cy={DL_CIRCLE_SIZE / 2}
+          r={DL_CIRCLE_RADIUS}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={DL_CIRCLE_STROKE}
+        />
+        <motion.circle
+          cx={DL_CIRCLE_SIZE / 2}
+          cy={DL_CIRCLE_SIZE / 2}
+          r={DL_CIRCLE_RADIUS}
+          fill="none"
+          stroke="#06b6d4"
+          strokeWidth={DL_CIRCLE_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={DL_CIRCLE_CIRCUMFERENCE}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        />
+      </svg>
+      <ArrowDownCircle size={16} strokeWidth={1.8} className="text-cyan-500 relative z-[1]" />
+    </div>
+  );
+}
+
+interface WorkoutActions {
+  isFav: boolean;
+  isFavToggling: boolean;
+  isFavDownloading: boolean;
+  isFavDownloaded: boolean;
+  downloadProgress: number;
+  isSharing: boolean;
+  onToggleFavorite: () => void;
+  onShare: () => void;
+  onDownload: () => void;
+}
+
 function GeneratedWorkoutExerciseList({
   generatedWorkout,
   onSwap,
   onExerciseTap,
+  actions,
 }: {
   generatedWorkout: GeneratedWorkout;
   onSwap?: (exercise: FirestoreExercise, level: number) => void;
   onExerciseTap?: (ex: EngineWorkoutExercise) => void;
+  actions?: WorkoutActions;
 }) {
-  const { profile } = useUserStore();
-  const userGender: GenderPath = profile?.core?.gender === 'female' ? 'female' : 'male';
   const sections = groupExercisesIntoSections(generatedWorkout.exercises);
   const equipment = collectEquipment(generatedWorkout.exercises);
   const muscles = collectMuscles(generatedWorkout.exercises);
+
+  const allMediaUrls = useMemo(() => {
+    const urls: (string | null)[] = [];
+    for (const ex of generatedWorkout.exercises) {
+      urls.push(resolveExerciseImage(ex));
+    }
+    return urls;
+  }, [generatedWorkout.exercises]);
+  const cachedMediaMap = useCachedMediaMap(allMediaUrls);
 
   const displayText = generatedWorkout.logicCue || generatedWorkout.description;
   const diff = generatedWorkout.difficulty;
@@ -1345,64 +1491,109 @@ function GeneratedWorkoutExerciseList({
 
   return (
     <div dir="rtl">
-      {/* ── Metadata pills — RTL order: [Difficulty] [Duration] from right ── */}
-      {(diff || dur) && (
-        <div className="flex items-center gap-3 flex-wrap mb-4">
+      {/* ── Top row: [Difficulty · Duration] ←→ [Share · Heart · Download] ── */}
+      <div className="flex items-center justify-between mb-3">
+        {/* Start (RTL right): stat pills */}
+        <div className="flex items-center gap-2">
           {diff != null && (
             <div
-              className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-4 py-2"
+              className="flex-shrink-0 flex items-center gap-1.5 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
               style={{ border: PILL_BORDER_DRAWER }}
-              dir="rtl"
             >
               <div className="flex items-center gap-0.5">
                 {[1, 2, 3].map((n) => (
                   <DrawerBoltIcon key={n} filled={n <= diff} />
                 ))}
               </div>
-              <span className="text-sm font-normal text-gray-800 dark:text-gray-100">{DIFF_LABELS_DRAWER[diff] || ''}</span>
+              <span className="text-[13px] font-normal text-gray-800 dark:text-gray-100">{DIFF_LABELS_DRAWER[diff] || ''}</span>
             </div>
           )}
           {dur != null && dur > 0 && (
             <div
-              className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-4 py-2"
+              className="flex-shrink-0 flex items-center gap-1.5 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
               style={{ border: PILL_BORDER_DRAWER }}
-              dir="rtl"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 flex-shrink-0"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-              <span className="text-sm font-normal text-gray-800 dark:text-gray-100">{dur} דק&apos;</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 flex-shrink-0"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              <span className="text-[13px] font-normal text-gray-800 dark:text-gray-100">{dur} דק&apos;</span>
             </div>
           )}
         </div>
-      )}
 
-      {/* ── Workout description (logicCue replaces generic description) ── */}
+        {/* End (RTL left): action icons */}
+        {actions && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={actions.onShare}
+              disabled={actions.isSharing}
+              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50"
+              aria-label="שתף"
+            >
+              {actions.isSharing
+                ? <Loader2 size={20} className="animate-spin text-gray-400" />
+                : <Share2 size={20} strokeWidth={1.8} className="text-gray-500" />
+              }
+            </button>
+            <button
+              onClick={actions.onToggleFavorite}
+              disabled={actions.isFavToggling}
+              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50"
+              aria-label={actions.isFav ? 'הסר ממועדפים' : 'מועדפים'}
+            >
+              {actions.isFavToggling ? (
+                <Loader2 size={20} className="animate-spin text-gray-400" />
+              ) : (
+                <Heart
+                  size={20}
+                  strokeWidth={1.8}
+                  className={actions.isFav ? 'text-red-500 fill-red-500' : 'text-gray-500'}
+                />
+              )}
+            </button>
+            <button
+              onClick={actions.onDownload}
+              disabled={actions.isFavToggling || actions.isFavDownloading || actions.isFavDownloaded}
+              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50 relative"
+              aria-label="הורדה לאופליין"
+            >
+              {actions.isFavDownloading ? (
+                <DownloadProgressCircle progress={actions.downloadProgress} />
+              ) : actions.isFavDownloaded ? (
+                <ArrowDownCircle size={21} className="text-emerald-500 fill-emerald-100" />
+              ) : (
+                <ArrowDownCircle size={20} strokeWidth={1.8} className="text-gray-500" />
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Workout description ── */}
       {displayText && (
-        <section className="mb-6">
-          <p className="text-slate-600 dark:text-slate-400 text-right leading-relaxed text-sm">
-            {displayText}
-          </p>
-        </section>
+        <p className="text-slate-600 dark:text-slate-400 text-right leading-relaxed text-sm mb-3">
+          {displayText}
+        </p>
       )}
 
-      {/* ── ציוד נדרש (Equipment) — Premium badges with icons ── */}
+      {/* ── ציוד (Equipment) ── */}
       {equipment.length > 0 && (
-        <section className="mb-8">
-          <h3 className="text-right text-[16px] font-semibold mb-3" style={{ fontFamily: 'var(--font-simpler)' }}>ציוד</h3>
-          <div className="flex flex-wrap gap-2" dir="rtl">
+        <section className="mb-4">
+          <h3 className="text-right text-[15px] font-semibold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-simpler)' }}>ציוד</h3>
+          <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1" dir="rtl">
             {equipment.map((eq) => (
               <DrawerEquipmentBadge key={eq.id} id={eq.id} label={eq.label} />
             ))}
+            <div className="flex-shrink-0 w-2" aria-hidden />
           </div>
         </section>
       )}
 
-      {/* ── שרירים (Muscles) — Frameless icon + label ── */}
+      {/* ── שרירים (Muscles) ── */}
       {muscles.length > 0 && (
-        <section className="mb-8">
-          <h3 className="text-right text-[16px] font-semibold mb-3" style={{ fontFamily: 'var(--font-simpler)' }}>שרירים</h3>
+        <section className="mb-4">
+          <h3 className="text-right text-[15px] font-semibold text-slate-900 dark:text-white mb-2" style={{ fontFamily: 'var(--font-simpler)' }}>שרירים</h3>
           <div className="flex flex-wrap gap-2" dir="rtl">
             {muscles.map((m) => (
-              <FramelessMuscleBadge key={m} muscle={m} gender={userGender} />
+              <DrawerMuscleBadge key={m} muscle={m} />
             ))}
           </div>
         </section>
@@ -1467,7 +1658,7 @@ function GeneratedWorkoutExerciseList({
                     <div className="flex items-center h-full">
                       {/* Thumbnail — right edge in RTL, fills full card height */}
                       <div className="w-[70px] h-full flex-shrink-0">
-                        <img alt={name} className="w-full h-full object-cover" src={imageUrl} loading="lazy" />
+                        <img alt={name} className="w-full h-full object-cover" src={cachedMediaMap.get(imageUrl) || imageUrl} loading="lazy" />
                       </div>
 
                       {/* Info — fills remaining space */}
@@ -1490,16 +1681,7 @@ function GeneratedWorkoutExerciseList({
 
                       {/* Swap button — pinned to left edge in RTL */}
                       <div className="h-full flex items-center pl-3 flex-shrink-0">
-                        <button
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-cyan-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          aria-label="החלף תרגיל"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSwap?.(ex.exercise, ex.programLevel || 1);
-                          }}
-                        >
-                          <Replace size={15} />
-                        </button>
+                        <SwapIcon size={18} onClick={() => onSwap?.(ex.exercise, ex.programLevel || 1)} isSwapped={ex.wasSwapped} />
                       </div>
                     </div>
                   </div>

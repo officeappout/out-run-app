@@ -3,8 +3,10 @@ import JSZip from 'jszip';
 import { Route, ActivityType } from '../types/route.types';
 import { MapFacility, FacilityType } from '../types/facility.types';
 
-interface GISClassification {
+export interface GISClassification {
     activity: ActivityType;
+    /** Multiple activity types for this import (overrides single `activity` when set) */
+    activities?: ActivityType[];
     terrain: 'asphalt' | 'dirt' | 'mixed';
     environment: 'urban' | 'nature' | 'park' | 'beach';
     difficulty: 'easy' | 'medium' | 'hard';
@@ -57,48 +59,75 @@ export const GISParserService = {
 
         // 1. Handle JSON/GeoJSON directly
         if (fileName.endsWith('.json') || fileName.endsWith('.geojson')) {
-            const text = await file.text();
-            return JSON.parse(text);
+            let text = await file.text();
+            // Strip BOM if present
+            if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+            try {
+                const parsed = JSON.parse(text);
+                if (!parsed.features && !parsed.type) {
+                    throw new Error('הקובץ אינו GeoJSON תקין — חסר שדה "features" או "type".');
+                }
+                return parsed;
+            } catch (jsonErr: any) {
+                throw new Error(`שגיאת פירוש GeoJSON: ${jsonErr.message}`);
+            }
         }
 
-        // 2. Handle ZIP (Shapefiles) with robust sanitization
+        // 2. Handle ZIP — check for GeoJSON inside first, then fall back to Shapefile
         if (fileName.endsWith('.zip')) {
             try {
                 const buffer = await file.arrayBuffer();
-
-                // Sanitize ZIP using JSZip to remove junk like __MACOSX
                 const zip = await JSZip.loadAsync(buffer);
+
+                const entries = Object.entries(zip.files);
+
+                // ── 2a. Look for GeoJSON files inside the ZIP ──
+                for (const [entryPath, zipFile] of entries) {
+                    const entryName = entryPath.toLowerCase();
+                    if (zipFile.dir || entryName.includes('__macosx') || entryPath.startsWith('.')) continue;
+
+                    if (entryName.endsWith('.geojson') || entryName.endsWith('.json')) {
+                        let text = await zipFile.async('string');
+                        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+                        try {
+                            const parsed = JSON.parse(text);
+                            if (parsed.features || parsed.type === 'FeatureCollection') {
+                                console.log(`[GISParser] Found GeoJSON inside ZIP: "${entryPath}", processing...`);
+                                return parsed;
+                            }
+                        } catch {
+                            // Not valid JSON — might be a shapefile companion .json (e.g. .prj.json), skip
+                        }
+                    }
+                }
+
+                // ── 2b. No GeoJSON found — try Shapefile extraction ──
                 const cleanZip = new JSZip();
                 let hasShapefile = false;
 
-                // Only keep actual shapefile components, ignore __MACOSX and hidden files
-                const entries = Object.entries(zip.files);
-                for (const [path, zipFile] of entries) {
-                    const name = path.toLowerCase();
-                    if (name.includes('__macosx') || zipFile.dir || path.startsWith('.')) continue;
+                for (const [entryPath, zipFile] of entries) {
+                    const entryName = entryPath.toLowerCase();
+                    if (entryName.includes('__macosx') || zipFile.dir || entryPath.startsWith('.')) continue;
 
-                    // Common shapefile extensions
-                    if (name.endsWith('.shp') || name.endsWith('.dbf') ||
-                        name.endsWith('.shx') || name.endsWith('.prj') ||
-                        name.endsWith('.cpg') || name.endsWith('.json')) {
+                    if (entryName.endsWith('.shp') || entryName.endsWith('.dbf') ||
+                        entryName.endsWith('.shx') || entryName.endsWith('.prj') ||
+                        entryName.endsWith('.cpg')) {
 
                         const content = await zipFile.async('arraybuffer');
-                        // Use the basename to avoid deep nested folder issues in some shpjs versions
-                        const basename = path.split('/').pop() || path;
+                        const basename = entryPath.split('/').pop() || entryPath;
                         cleanZip.file(basename, content);
                         hasShapefile = true;
                     }
                 }
 
                 if (!hasShapefile) {
-                    throw new Error('No valid Shapefile found in the ZIP. Ensure it contains .shp, .shx, and .dbf files.');
+                    throw new Error('לא נמצא Shapefile או GeoJSON בתוך קובץ ה-ZIP. ודאו שהקובץ מכיל .shp/.shx/.dbf או .geojson.');
                 }
 
-                // Generate a "clean" ZIP buffer
                 const cleanBuffer = await cleanZip.generateAsync({ type: 'arraybuffer' });
                 const result = await shp(cleanBuffer);
 
-                // Normalize: shpjs might return a FeatureCollection or an array of them
                 if (Array.isArray(result)) {
                     return {
                         type: 'FeatureCollection',
@@ -109,7 +138,7 @@ export const GISParserService = {
             } catch (err: any) {
                 console.error('[GISParser] ZIP Error:', err);
                 if (err.message?.includes('Junk found') || err.message?.includes('compressed data')) {
-                    throw new Error('The ZIP file format is non-standard. Please try extracting and re-zipping only the .shp, .shx, and .dbf files manually.');
+                    throw new Error('פורמט ה-ZIP אינו תקני. נסו לחלץ ולדחוס מחדש רק את קבצי .shp/.shx/.dbf.');
                 }
                 throw err;
             }
@@ -134,26 +163,33 @@ export const GISParserService = {
             const geometry = feature.geometry;
             const properties = feature.properties || {};
 
-            // Ensure we have a LineString or MultiLineString
-            if (geometry.type !== 'LineString' && geometry.type !== 'MultiLineString') {
+            if (!geometry || (geometry.type !== 'LineString' && geometry.type !== 'MultiLineString')) {
+                console.warn(`[GISParser] Skipping feature ${index}: unsupported geometry type "${geometry?.type}"`);
                 return null;
             }
 
-            // Extract coordinates (handling MultiLineString by taking the first segment or flattening)
-            let path: [number, number][] = [];
+            // Extract coordinates (handling MultiLineString by flattening)
+            // Strip elevation if present: [lng, lat, elev] → [lng, lat]
+            let rawCoords: number[][] = [];
             if (geometry.type === 'LineString') {
-                path = geometry.coordinates;
+                rawCoords = geometry.coordinates;
             } else {
-                path = geometry.coordinates[0]; // Simplified: take first segment
+                rawCoords = geometry.coordinates.flat();
             }
+            const path: [number, number][] = rawCoords.map(
+                (c: number[]) => [c[0], c[1]] as [number, number]
+            );
 
             // Calculate an approximate distance if not provided in properties
             // (Using a simple 0-value placeholder for now as Mapbox or Parks service usually recalculates)
             const distanceMetres = properties.length || properties.distance || 0;
             const distanceKm = Number((distanceMetres / 1000).toFixed(2)) || 1.0;
 
-            // Extract name from properties (common GIS fields)
-            const name = properties.name || properties.label || properties.Name || `Section ${index + 1}`;
+            // Extract name from properties (common GIS fields, including Hebrew)
+            const name = properties.name || properties.Name || properties.NAME
+                || properties.label || properties.Label || properties.LABEL
+                || properties.shem || properties.SHEM || properties.שם
+                || `מקטע ${index + 1}`;
 
             // Auto-map rating: if source provides a rating, normalize to 1–5
             const rawRating = properties.rating ?? properties.Rating ?? properties.score ?? properties.Score;
@@ -165,20 +201,25 @@ export const GISParserService = {
                 normalizedRating = Math.max(1, Math.min(5, normalizedRating));
             }
 
-            // Auto-detect infrastructure mode from GIS properties
-            const infraMode = detectInfrastructureMode(properties, classification.activity);
+            const allActivities = classification.activities?.length
+                ? classification.activities
+                : [classification.activity];
+            const primaryActivity = allActivities[0];
+
+            const infraMode = detectInfrastructureMode(properties, primaryActivity);
 
             const route: Route = {
-                id: `gis-${classification.activity}-${Date.now()}-${index}`,
+                id: `gis-${primaryActivity}-${Date.now()}-${index}`,
                 name: name,
-                description: properties.description || `מסלול ${classification.activity === 'cycling' ? 'רכיבה' : 'ריצה'} בתוואי ${classification.terrain === 'asphalt' ? 'סלול' : 'שטח'}`,
+                description: properties.description || `מסלול ${primaryActivity === 'cycling' ? 'רכיבה' : primaryActivity === 'walking' ? 'הליכה' : 'ריצה'} בתוואי ${classification.terrain === 'asphalt' ? 'סלול' : 'שטח'}`,
                 distance: distanceKm,
-                duration: Math.round(distanceKm * (classification.activity === 'cycling' ? 3 : 6)), // Rough estimate
+                duration: Math.round(distanceKm * (primaryActivity === 'cycling' ? 3 : 6)),
                 score: Math.round(distanceKm * 10),
                 rating: normalizedRating,
-                calories: Math.round(distanceKm * (classification.activity === 'cycling' ? 30 : 65)),
-                type: classification.activity,
-                activityType: classification.activity,
+                calories: Math.round(distanceKm * (primaryActivity === 'cycling' ? 30 : 65)),
+                type: primaryActivity,
+                activityType: primaryActivity,
+                activityTypes: allActivities,
                 difficulty: classification.difficulty,
                 path: path,
                 segments: [],

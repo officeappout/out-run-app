@@ -195,10 +195,17 @@ export default function LevelsPage() {
       const payload = {
         name: form.name.trim(),
         order: form.order,
-        description: form.description.trim() || undefined,
+        description: form.description.trim() || '',
         minXP: form.minXP,
         maxXP: form.maxXP,
-        targetGoals: form.targetGoals.length > 0 ? form.targetGoals : undefined,
+        targetGoals: form.targetGoals.map((g) => ({
+          exerciseId: g.exerciseId,
+          exerciseName: g.exerciseName,
+          targetValue: g.targetValue,
+          unit: g.unit,
+          ...(g.progressBonus != null ? { progressBonus: g.progressBonus } : {}),
+          ...(g.xpBonus != null ? { xpBonus: g.xpBonus } : {}),
+        })),
         requiredTier: form.requiredTier ?? 1,
       };
 

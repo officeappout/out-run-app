@@ -10,7 +10,7 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getPark } from '@/features/admin/services/parks.service';
-import LocationEditor from '@/features/admin/components/locations/LocationEditor';
+import ParkForm from '@/features/admin/components/parks/ParkForm';
 import type { Park } from '@/features/parks/core/types/park.types';
 import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 
@@ -18,13 +18,11 @@ export default function EditLocationPage() {
   const params = useParams();
   const parkId = params?.id as string;
 
-  const [park,          setPark]          = useState<Park | null>(null);
-  const [authorityId,   setAuthorityId]   = useState<string | null>(null);
+  const [park, setPark] = useState<Park | null>(null);
+  const [authorityId, setAuthorityId] = useState<string | null>(null);
   const [authorityName, setAuthorityName] = useState<string>('');
-  const [authorityLat,  setAuthorityLat]  = useState<number | undefined>(undefined);
-  const [authorityLng,  setAuthorityLng]  = useState<number | undefined>(undefined);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!parkId) { setError('מזהה מיקום חסר'); setLoading(false); return; }
@@ -40,10 +38,8 @@ export default function EditLocationPage() {
 
         if (!fetchedPark) { setError('המיקום לא נמצא'); setLoading(false); return; }
 
-        let aId   = role.authorityIds?.[0] || null;
+        let aId = role.authorityIds?.[0] || null;
         let aName = '';
-        let aLat: number | undefined;
-        let aLng: number | undefined;
 
         if (role.isSuperAdmin) {
           const allAuths = await getAllAuthorities(undefined, true);
@@ -51,23 +47,18 @@ export default function EditLocationPage() {
             ? localStorage.getItem('admin_selected_authority_id') : null;
           const target = (stored && allAuths.find(a => a.id === stored)) ?? allAuths[0];
           if (target) {
-            aId   = target.id;
+            aId = target.id;
             aName = typeof target.name === 'string' ? target.name : (target.name?.he || '');
-            aLat  = target.coordinates?.lat;
-            aLng  = target.coordinates?.lng;
           }
         } else {
           const auths = await getAuthoritiesByManager(user.uid);
           if (auths.length > 0) {
             const a = auths[0];
-            aId   = aId ?? a.id;
+            aId = aId ?? a.id;
             aName = typeof a.name === 'string' ? a.name : (a.name?.he || a.name?.en || '');
-            aLat  = a.coordinates?.lat;
-            aLng  = a.coordinates?.lng;
           }
         }
 
-        // Guard: authority manager can only edit parks that belong to their authority
         if (!role.isSuperAdmin && aId && fetchedPark.authorityId && fetchedPark.authorityId !== aId) {
           setError('אין לך הרשאה לערוך מיקום זה');
           setLoading(false);
@@ -77,8 +68,6 @@ export default function EditLocationPage() {
         setPark(fetchedPark);
         setAuthorityId(aId);
         setAuthorityName(aName);
-        if (aLat !== undefined) setAuthorityLat(aLat);
-        if (aLng !== undefined) setAuthorityLng(aLng);
       } catch (err: any) {
         setError(err?.message || 'שגיאה בטעינת המיקום');
       } finally {
@@ -107,7 +96,7 @@ export default function EditLocationPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col" dir="rtl">
+    <div className="min-h-screen flex flex-col" dir="rtl">
       <div className="flex-shrink-0 px-5 py-2.5 border-b border-slate-200 bg-white flex items-center justify-between">
         <Link
           href="/admin/authority/locations"
@@ -119,16 +108,13 @@ export default function EditLocationPage() {
         <span className="text-xs text-slate-400 font-mono">{parkId}</span>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <LocationEditor
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <ParkForm
+          initialData={park}
           lockedAuthorityId={authorityId ?? undefined}
           lockedAuthorityName={authorityName}
           defaultStatus={park.contentStatus === 'published' ? 'published' : 'pending'}
           redirectPath="/admin/authority/locations"
-          initialLat={authorityLat}
-          initialLng={authorityLng}
-          initialZoom={15}
-          initialData={park}
         />
       </div>
     </div>

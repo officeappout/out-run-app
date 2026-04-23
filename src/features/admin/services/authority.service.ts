@@ -118,11 +118,21 @@ const AUTHORITIES_COLLECTION = 'authorities';
 /**
  * Convert Firestore timestamp or ISO string to Date
  */
-function toDate(timestamp: Timestamp | Date | string | undefined | null): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  if (typeof timestamp === 'string') return new Date(timestamp);
-  if (typeof timestamp === 'object' && 'toDate' in timestamp) return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
   return undefined;
 }
 
@@ -222,18 +232,23 @@ function normalizeAuthority(docId: string, data: any): Authority {
            data?.type === 'regional_council' || 
            data?.type === 'local_council' ||
            data?.type === 'neighborhood' ||
-           data?.type === 'settlement') 
+           data?.type === 'settlement' ||
+           data?.type === 'school' ||
+           data?.type === 'military_unit') 
       ? data.type 
       : 'city', // Default to 'city' for backward compatibility (only for unknown types)
     parentAuthorityId: data?.parentAuthorityId || undefined,
     logoUrl: data?.logoUrl ?? undefined,
     managerIds: Array.isArray(data?.managerIds) ? data.managerIds : [],
     userCount: typeof data?.userCount === 'number' ? data.userCount : 0,
+    unitCount: typeof data?.unitCount === 'number' ? data.unitCount : 0,
     status: data?.status === 'active' || data?.status === 'inactive' ? data.status : undefined,
     isActiveClient: typeof data?.isActiveClient === 'boolean' ? data.isActiveClient : false,
     coordinates: data?.coordinates && typeof data.coordinates === 'object' 
       ? { lat: data.coordinates.lat, lng: data.coordinates.lng }
       : undefined,
+    radiusKm: typeof data?.radiusKm === 'number' ? data.radiusKm : undefined,
+    boundaryGeoJSON: data?.boundaryGeoJSON || undefined,
     // CRM Fields
     contacts: Array.isArray(data?.contacts) ? data.contacts.map(normalizeContact) : [],
     pipelineStatus: data?.pipelineStatus || 'lead',
@@ -840,26 +855,16 @@ export async function getAuthoritiesByManager(managerId: string): Promise<Author
       console.error('Error checking super admin status:', error);
     }
 
-    // If Super Admin, return first authority for testing
+    // Super Admin gets ALL top-level authorities so they can freely switch between cities
     if (isSuperAdmin) {
-      const allAuthorities = await getAllAuthorities(undefined, true); // Top-level only
+      const allAuthorities = await getAllAuthorities(undefined, true);
       if (allAuthorities.length > 0) {
-        // CRITICAL: Use sanitized name for logging (name is already sanitized in normalizeAuthority)
-        const authorityName = allAuthorities[0].name;
-        console.log('[getAuthoritiesByManager] Super Admin detected - returning first authority:', authorityName);
-        console.log('[getAuthoritiesByManager] DEBUG: Authority name type:', typeof authorityName, authorityName);
-        return [allAuthorities[0]]; // Return first authority
+        console.log(`[getAuthoritiesByManager] Super Admin — returning all ${allAuthorities.length} top-level authorities`);
+        return allAuthorities;
       }
-      // Fallback: return all if no top-level found
       const all = await getAllAuthorities();
-      if (all.length > 0) {
-        // CRITICAL: Use sanitized name for logging
-        const authorityName = all[0].name;
-        console.log('[getAuthoritiesByManager] Super Admin - returning first from all:', authorityName);
-        console.log('[getAuthoritiesByManager] DEBUG: Authority name type:', typeof authorityName, authorityName);
-        return [all[0]];
-      }
-      return [];
+      console.log(`[getAuthoritiesByManager] Super Admin — returning all ${all.length} authorities`);
+      return all;
     }
 
     // Regular Authority Manager: filter by managerIds

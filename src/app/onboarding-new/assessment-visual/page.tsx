@@ -207,8 +207,12 @@ export default function VisualAssessmentPage() {
     }
   }, [authReady, isHydrated, demographics, pathConfig, router]);
 
-  // Clean up cache on unmount
-  useEffect(() => () => clearContentCache(), []);
+  // Clear content cache on mount (so admin updates are immediately visible)
+  // and again on unmount (GC).
+  useEffect(() => {
+    clearContentCache();
+    return () => clearContentCache();
+  }, []);
 
   // Prefetch next route (skip dynamic — go straight to health declaration)
   useEffect(() => {
@@ -792,6 +796,12 @@ export default function VisualAssessmentPage() {
                 userName={userName}
                 language="he"
                 onContinue={handleAcceptResult}
+                assessmentLevels={{
+                  push: result.levels?.push ?? 0,
+                  pull: result.levels?.pull ?? 0,
+                  legs: result.levels?.legs ?? 0,
+                  core: result.levels?.core ?? 0,
+                }}
               />
             </motion.div>
           )}

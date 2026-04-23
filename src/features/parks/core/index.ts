@@ -16,7 +16,6 @@ export * from './services/gis-parser.service';
 export * from './services/gis-integration.service';
 export * from './services/inventory.service';
 export * from './services/route-stitching.service';
-export * from './services/ai-coach.service';
 
 // Components
 export { default as AppMap } from './components/AppMap';

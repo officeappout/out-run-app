@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Replace, Target, Package, Dumbbell } from 'lucide-react';
+import { Target, Package, Dumbbell } from 'lucide-react';
 import WorkoutCardWrapper from './WorkoutCardWrapper';
+import SwapIcon from '../SwapIcon';
 
 // Simple className utility function
 const cn = (...classes: (string | undefined | null | false)[]): string => {
@@ -32,6 +33,8 @@ interface StrengthExerciseCardProps {
   isInSuperset?: boolean;
   /** Exercise symmetry — unilateral exercises show '(לכל צד)' suffix */
   symmetry?: 'bilateral' | 'unilateral';
+  /** Whether this exercise was swapped by the user */
+  isSwapped?: boolean;
 }
 
 /**
@@ -54,6 +57,7 @@ export default function StrengthExerciseCard({
   rampedTarget,
   isInSuperset,
   symmetry,
+  isSwapped,
 }: StrengthExerciseCardProps) {
   const perSide = symmetry === 'unilateral' ? ' (לכל צד)' : '';
   // Build range-based display string (no sets prefix -- sets shown in session structure)
@@ -74,18 +78,7 @@ export default function StrengthExerciseCard({
     )}>
       {/* Layout: Swap (Left) | Text (Center) | Image (Right) - with flex-row-reverse this becomes Image | Text | Swap */}
       {/* Action Button (Left in RTL) */}
-      {onSwap && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSwap();
-          }}
-          className="flex items-center justify-center w-10 h-10 rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-          aria-label="החלף תרגיל"
-        >
-          <Replace size={18} />
-        </button>
-      )}
+      {onSwap && <SwapIcon size={22} onClick={() => onSwap()} isSwapped={isSwapped} />}
 
       {/* Text Content (Center) */}
       <div className="flex-1 flex flex-col justify-center mx-3 min-w-0">

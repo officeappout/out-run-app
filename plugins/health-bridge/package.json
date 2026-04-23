@@ -1,0 +1,36 @@
+{
+  "name": "health-bridge",
+  "version": "0.1.0",
+  "description": "Out Run health-data bridge: HealthKit (iOS) + Health Connect (Android).",
+  "main": "dist/plugin.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "dist/",
+    "ios/Plugin/",
+    "HealthBridgePlugin.podspec"
+  ],
+  "author": "Out Run team",
+  "license": "UNLICENSED",
+  "scripts": {
+    "verify": "echo verify-ios + verify-android run inside Xcode/Android Studio",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@capacitor/core": "^6.2.0",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
+}

@@ -3,25 +3,35 @@ rules_version = '2';
 // ============================================================================
 // Firebase Cloud Storage Security Rules — appout-1
 //
-// Architecture:
-//   - Public Read: All content (exercise images/videos, park photos, logos, etc.)
-//     is publicly readable so the app can display thumbnails without auth.
-//   - Authenticated Write: Only authenticated users with admin roles can upload
-//     or delete files in admin content folders.
-//   - User Private Folders: Users can only read/write their own UID-scoped folder
-//     (e.g., health declarations).
+// Architecture (Fortress Phase, Apr 2026):
+//   - Public Read: Admin-curated content (exercise images/videos, park photos,
+//     logos, etc.) is publicly readable so the app can render thumbnails
+//     without auth.
+//   - Admin-Only Write: Admin content folders require an actual admin role,
+//     verified via cross-service firestore.get() against users/{uid}.
+//     A merely-authenticated user can NO LONGER deface or replace assets.
+//   - User Private Folders: UID-scoped paths (health declarations, park
+//     contribution photos) are owner-read/write with strict content-type
+//     and size limits.
+//   - Content-type & size validation on every write to prevent storage
+//     abuse (uploading 10 GB blobs, hosting arbitrary executables, etc.).
 //
 // Storage Paths:
-//   /media-assets/*           — Admin-uploaded exercise/content media
-//   /exercise-videos/*        — Exercise video files (by location subfolder)
-//   /gear_icons/*             — Gear definition icons
-//   /category_branding/*      — Category branding images
-//   /locations/*              — Location images
-//   /authorities/logos/*      — Authority logo images
-//   /parks/*                  — Park images
-//   /health-declarations/{uid}/* — User health declaration PDFs (private)
+//   /media-assets/*                  — admin-only (image)
+//   /exercise-videos/*               — admin-only (image OR video)
+//   /gear_icons/*                    — admin-only (image)
+//   /category_branding/*             — admin-only (image)
+//   /locations/*                     — admin-only (image)
+//   /authorities/logos/*             — admin-only (image)
+//   /parks/*                         — admin-only (image)
+//   /communities/*                   — admin-only (image)
+//   /contribution-photos/{uid}/*     — owner-only (image)         [user UGC]
+//   /health-declarations/{uid}/*     — owner-only (PDF)           [user UGC]
 //
-// Last updated: 2026-02-11
+// ⚠️  Cross-service note: firestore.get() in Storage rules issues a real
+//     Firestore read per evaluation. The result is cached within a single
+//     rule evaluation so duplicate paths in isAdmin() are free. Admin
+//     uploads will be ~30–60 ms slower than before — acceptable trade.
 // ============================================================================
 
 service firebase.storage {
@@ -29,83 +39,140 @@ service firebase.storage {
 
     // ── Helper Functions ──────────────────────────────────────────────
 
-    // Check if the request is from an authenticated user
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Check if the requesting user's UID matches the path UID
     function isOwner(uid) {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
-    // Limit upload file size (50 MB max — covers videos)
-    function isValidFileSize() {
-      return request.resource.size < 50 * 1024 * 1024;
+    // Root admin — hardcoded emails, case-insensitive. Mirrors firestore.rules.
+    // Token-only check; no Firestore read needed.
+    function isRootAdmin() {
+      return isAuthenticated()
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
     }
 
-    // ── 1. Admin Content Folders (Public Read, Authenticated Write) ──
+    // DB-backed admin — checks the user doc in Firestore.
+    // Mirrors src/features/admin/services/auth.service.ts → checkUserRole(),
+    // which treats any of these flags as admin-tier:
+    //   role == 'admin'
+    //   core.isSuperAdmin / isSystemAdmin / isVerticalAdmin / isTenantOwner
+    // The protected-field helpers in firestore.rules guarantee that none of
+    // these flags can be self-set by an attacker — they require Cloud
+    // Function (Admin SDK) or root admin in console.
+    function isAdmin() {
+      return isRootAdmin() || (
+        isAuthenticated() && (
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('core', {}).get('isSuperAdmin', false) == true
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('core', {}).get('isSystemAdmin', false) == true
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('core', {}).get('isVerticalAdmin', false) == true
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('core', {}).get('isTenantOwner', false) == true
+        )
+      );
+    }
+
+    // ── Content-type & size validators ────────────────────────────────
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+
+    function isImageOrVideo() {
+      return request.resource.contentType.matches('(image|video)/.*');
+    }
+
+    function isPdf() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    // Size caps — keep strict to prevent quota-bomb abuse.
+    function isImageSize() { return request.resource.size <  10 * 1024 * 1024; }   //  10 MB
+    function isVideoSize() { return request.resource.size < 200 * 1024 * 1024; }   // 200 MB
+    function isPdfSize()   { return request.resource.size <  10 * 1024 * 1024; }   //  10 MB
+
+    // ── 1. Admin Content Folders (Public Read, Admin-Only Write) ─────
     //
-    // These folders store exercise images, videos, icons, branding, etc.
-    // Anyone can READ (so the app can display thumbnails).
-    // Only authenticated users can WRITE (upload/overwrite/delete).
-    //
-    // Note: Firestore-level role checks (isSuperAdmin, isRootAdmin)
-    // are enforced in the application layer. Storage rules validate
-    // authentication + file size. This is the standard Firebase pattern
-    // because Storage rules cannot query Firestore documents.
+    // Anyone can READ (so the app can display thumbnails without auth).
+    // Only admins can WRITE — non-admin authenticated users are blocked.
+    // This is the actual lockdown that closes the asset-defacement /
+    // quota-bomb vector flagged in the Final Security Audit.
 
     match /media-assets/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
     match /exercise-videos/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      // Exercise library accepts both pre-roll posters (image) and short
+      // demonstration clips (video). Bunny.net hosts the long-form streams
+      // — Firebase Storage only carries supplementary assets.
+      allow write: if isAdmin()
+                   && isImageOrVideo()
+                   && (isImage() ? isImageSize() : isVideoSize());
     }
 
     match /gear_icons/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
     match /category_branding/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
     match /locations/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
     match /authorities/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
     match /parks/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
     match /communities/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && isValidFileSize();
+      allow write: if isAdmin() && isImage() && isImageSize();
     }
 
-    // ── 2. User Private Folders (Owner-only Read/Write) ──────────────
+    // ── 2. User UGC: Park Contribution Photos (Owner Write, Public Read) ──
     //
-    // Health declarations and other user-private files.
-    // Only the owning user can read or write their folder.
+    // Regular users contribute photos via the park contribution wizard.
+    // Path: /contribution-photos/{userId}/{timestamp}_{filename}
+    // The owning user can upload images to their own folder; everyone
+    // can read so the contributions are visible after admin moderation.
+
+    match /contribution-photos/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isImageSize();
+    }
+
+    // ── 3. User Private: Health Declarations (Owner-Only) ────────────
+    //
+    // PDFs of signed health questionnaires. Owner-only read AND write.
+    // Admins can NOT read these — medical privacy.
 
     match /health-declarations/{userId}/{allPaths=**} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId) && isValidFileSize();
+      allow read:  if isOwner(userId);
+      allow write: if isOwner(userId) && isPdf() && isPdfSize();
     }
 
-    // ── 3. Catch-all: Deny everything else ───────────────────────────
+    // ── 4. Catch-all: Deny everything else ───────────────────────────
     //
     // Any path not explicitly matched above is denied.
     // This prevents accidental exposure of new folders.

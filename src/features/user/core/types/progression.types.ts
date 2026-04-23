@@ -157,6 +157,12 @@ export interface WorkoutCompletionResult {
   }[];
   volumeBreakdown: VolumeBreakdown; // Volume feedback for Dopamine Screen
   readyForSplit?: ReadyForSplitStatus;
+  /**
+   * Whether the Firestore progression-tracks write completed successfully.
+   * false means gains are reflected locally but may not have persisted — the
+   * caller should show an error toast / retry message to the user.
+   */
+  trackWriteSucceeded: boolean;
 
   // === Professional Progress Components ===
   /** Session completion % based on total sets completed vs required */

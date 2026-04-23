@@ -2,15 +2,25 @@
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, PanInfo } from 'framer-motion';
-import { Play } from 'lucide-react';
+import { PersonStanding, Heart } from 'lucide-react';
 import type { WorkoutTrioOption } from '@/features/workout-engine/services/home-workout.types';
+import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
 import {
   pickHeroExercise,
   resolveHeroMedia,
-  EquipmentBadgeRow,
+  EquipmentBadge,
   HeroMediaBackground,
+  getGenderedCtaText,
 } from './HeroWorkoutCard';
-import { resolveEquipmentLabel, resolveEquipmentSvgPath, normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import {
+  resolveEquipmentLabel,
+  resolveEquipmentSvgPathList,
+  resolveEquipmentCategory,
+  CATEGORY_PRIORITY,
+  normalizeGearId,
+} from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useToast } from '@/components/ui/Toast';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
 const CARD_MAX_W = 260;
@@ -68,7 +78,7 @@ function MetadataRow({ difficulty, duration, isRecovery }: {
 }) {
   if (isRecovery) {
     return (
-      <div className="flex items-center gap-2 text-[13px] font-semibold" style={{ color: '#374151' }} dir="rtl">
+      <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
         <span>🧘 התאוששות פעילה</span>
         <span style={{ color: '#343434' }}>|</span>
         <span>{duration} דקות</span>
@@ -80,7 +90,7 @@ function MetadataRow({ difficulty, duration, isRecovery }: {
   const label = DIFFICULTY_LABELS[clamped];
 
   return (
-    <div className="flex items-center gap-2 text-[13px] font-semibold" style={{ color: '#374151' }} dir="rtl">
+    <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
       <span>{label}</span>
       <span className="flex items-center gap-0.5">
         {[0, 1, 2].map(i => (
@@ -103,6 +113,7 @@ interface WorkoutSelectionCarouselProps {
   workoutLocation?: string | null;
   programIconKey?: string | null;
   selectedIndex?: number;
+  userGender?: 'male' | 'female' | 'other' | null;
 }
 
 export default function WorkoutSelectionCarousel({
@@ -113,6 +124,7 @@ export default function WorkoutSelectionCarousel({
   workoutLocation,
   programIconKey,
   selectedIndex: controlledIndex,
+  userGender,
 }: WorkoutSelectionCarouselProps) {
   const [internalIndex, setInternalIndex] = useState(1);
   const activeIndex = controlledIndex ?? internalIndex;
@@ -140,11 +152,22 @@ export default function WorkoutSelectionCarousel({
   const dragLeft = centerX - lastIndex * stride;
   const dragRight = centerX;
 
+  const isOnline = useOnlineStatus();
+  const { showToast } = useToast();
+
   const handleSelect = useCallback((idx: number) => {
     const clamped = Math.max(0, Math.min(options.length - 1, idx));
     setInternalIndex(clamped);
     onSelect(clamped);
   }, [options.length, onSelect]);
+
+  const handleGuardedStart = useCallback((idx: number) => {
+    if (!isOnline) {
+      showToast('error', 'יצירת אימון חדש דורשת חיבור לאינטרנט');
+      return;
+    }
+    onStart(idx);
+  }, [isOnline, onStart, showToast]);
 
   const handleDragEnd = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.x < -40) handleSelect(activeIndex + 1);
@@ -189,8 +212,9 @@ export default function WorkoutSelectionCarousel({
                 isRecovery={isRestDay || opt.result.workout.isRecovery}
                 workoutLocation={workoutLocation}
                 programIconKey={programIconKey}
-                onStart={() => onStart(i)}
+                onStart={() => handleGuardedStart(i)}
                 isActive={isActive}
+                userGender={userGender}
               />
             </motion.div>
           );
@@ -209,6 +233,7 @@ function TrioCard({
   programIconKey,
   onStart,
   isActive,
+  userGender,
 }: {
   option: WorkoutTrioOption;
   isRecovery: boolean;
@@ -216,10 +241,13 @@ function TrioCard({
   programIconKey?: string | null;
   onStart: () => void;
   isActive: boolean;
+  userGender?: 'male' | 'female' | 'other' | null;
 }) {
   const { workout } = option.result;
   const exercises = workout.exercises;
+  const ctaText = useMemo(() => getGenderedCtaText(userGender, option.label), [userGender, option.label]);
   const isNakedOption = /ללא ציוד|naked/i.test(option.label);
+  const isFavorited = useFavoritesStore((s) => s.isFavorited(workout));
 
   const heroExercise = useMemo(() => pickHeroExercise(exercises), [exercises]);
   const heroMedia = useMemo(
@@ -228,10 +256,10 @@ function TrioCard({
   );
 
   const equipmentIcons = useMemo(() => {
-    if (isNakedOption) return [];
-    if (!exercises?.length) return [];
+    if (isNakedOption) return { display: [], total: 0 };
+    if (!exercises?.length) return { display: [], total: 0 };
     const seen = new Set<string>();
-    const icons: { src?: string; label?: string }[] = [];
+    const icons: { srcList: string[]; label: string; norm: string }[] = [];
     for (const ex of exercises) {
       if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown') continue;
       const method = ex.method;
@@ -240,19 +268,33 @@ function TrioCard({
         ...((method as any)?.equipmentIds ?? []),
         ...((method as any)?.gearId ? [(method as any).gearId] : []),
         ...((method as any)?.equipmentId ? [(method as any).equipmentId] : []),
-        ...(ex.exercise?.equipment ?? []),
+        // NOTE: ex.exercise.equipment is a LEGACY field (EquipmentType[])
+        // that was populated before the executionMethods system. It often
+        // contains stale data from duplicated exercises. Do NOT include it.
       ].filter(Boolean);
       for (const raw of rawIds) {
         const norm = normalizeGearId(raw);
-        if (norm === 'bodyweight' || norm === 'none' || seen.has(norm)) continue;
+        // Skip bodyweight, none, and unclassified placeholder IDs.
+        if (norm === 'bodyweight' || norm === 'none' || norm === 'unknown_gear' || seen.has(norm)) continue;
         seen.add(norm);
-        const svgPath = resolveEquipmentSvgPath(norm);
+        // Build a location-aware priority list: [park/home variant, generic]
+        const srcList = resolveEquipmentSvgPathList(norm, workoutLocation);
+        // Skip equipment that has no icon — it won't be displayed and
+        // must not inflate the total count or generate empty badge slots.
+        if (srcList.length === 0) continue;
         const label = resolveEquipmentLabel(norm);
-        icons.push({ src: svgPath ?? undefined, label });
+        icons.push({ srcList, label, norm });
       }
     }
-    return icons.slice(0, 4);
-  }, [exercises, isNakedOption]);
+    // Sort by category priority (stationary → accessories → improvised)
+    icons.sort((a, b) => {
+      const pa = CATEGORY_PRIORITY[resolveEquipmentCategory(a.norm) ?? ''] ?? 99;
+      const pb = CATEGORY_PRIORITY[resolveEquipmentCategory(b.norm) ?? ''] ?? 99;
+      return pa - pb;
+    });
+
+    return { display: icons.slice(0, 4), total: icons.length };
+  }, [exercises, isNakedOption, workoutLocation]);
 
   const programIconSrc = programIconKey
     ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null
@@ -260,14 +302,15 @@ function TrioCard({
 
   return (
     <div
-      className="relative overflow-hidden group cursor-pointer w-full h-full"
+      onClick={onStart}
+      className="relative overflow-hidden group cursor-pointer w-full h-full transition-transform active:scale-[0.98]"
       style={{
         borderRadius: CARD_RADIUS,
         border: CARD_BORDER,
         boxShadow: isActive
           ? '0 4px 12px rgba(0,0,0,0.05)'
           : '0 2px 6px rgba(0,0,0,0.03)',
-        transition: 'box-shadow 0.3s ease',
+        transition: 'box-shadow 0.3s ease, transform 0.15s ease',
       }}
     >
       {/* 1. Background — video for active card, static thumbnail for side cards */}
@@ -287,9 +330,6 @@ function TrioCard({
         )}
       </div>
 
-      {/* 2. Equipment badges — floated inside the image area */}
-      <EquipmentBadgeRow icons={equipmentIcons} />
-
       {/* 3. Gradient: transparent top → solid white bottom */}
       <div
         className="absolute inset-0 z-[5] pointer-events-none dark:hidden"
@@ -306,13 +346,58 @@ function TrioCard({
 
       {/* 4. Content layer — pinned to the bottom */}
       <div className="absolute inset-0 z-10 flex flex-col justify-end px-4 pb-4" dir="rtl">
-        {/* Metadata row: difficulty + bolts | duration */}
-        <div className="w-full mb-1">
+        {/* Equipment badges — subtle secondary row above metadata */}
+        {equipmentIcons.display.length > 0 ? (
+          <div className="flex gap-1.5 mb-1.5">
+            {equipmentIcons.display.map((icon, i) => (
+              // key = canonical norm + index: always unique; remounts badge
+              // (resetting its internal fallback index) when location changes.
+              <EquipmentBadge
+                key={`${icon.norm}_${i}`}
+                iconSrcList={icon.srcList}
+                label={icon.label}
+                size={30}
+              />
+            ))}
+            {equipmentIcons.total > 4 && (
+              <div
+                className="bg-white/90 shadow-sm flex items-center justify-center text-[10px] font-bold text-slate-500"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  border: '1.5px solid #E0E9FF',
+                  backdropFilter: 'blur(4px)',
+                  WebkitBackdropFilter: 'blur(4px)',
+                }}
+              >
+                +{equipmentIcons.total - 4}
+              </div>
+            )}
+          </div>
+        ) : (!isNakedOption && (exercises?.length ?? 0) > 0) ? (
+          /* Bodyweight workout — no equipment needed */
+          <div className="flex gap-1.5 mb-1.5">
+            <div
+              className="bg-white/90 shadow-sm flex items-center justify-center"
+              style={{ width: 30, height: 30, borderRadius: 6 }}
+              title="ללא ציוד – משקל גוף"
+            >
+              <PersonStanding className="text-slate-400" style={{ width: 17, height: 17 }} />
+            </div>
+          </div>
+        ) : null}
+
+        {/* Metadata row: difficulty + bolts | duration ←→ heart */}
+        <div className="w-full flex items-center justify-between mb-1" dir="rtl">
           <MetadataRow
             difficulty={workout.difficulty}
             duration={workout.estimatedDuration}
             isRecovery={isRecovery}
           />
+          {isFavorited && (
+            <Heart size={14} className="text-red-500 fill-red-500 flex-shrink-0" />
+          )}
         </div>
 
         {/* Title row with program icon */}
@@ -328,24 +413,22 @@ function TrioCard({
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
-          <h4 className="font-semibold text-gray-800 dark:text-white leading-snug text-[16px]">
+          <h4 className="font-bold text-gray-800 dark:text-white leading-snug text-[17px] truncate min-w-0">
             {workout.title}
           </h4>
         </div>
 
         {/* CTA button — cyan gradient, full width */}
-        <button
-          onClick={onStart}
-          className="w-full text-white font-bold rounded-full shadow-lg shadow-cyan-500/20 transition-all active:scale-[0.97] flex items-center justify-center gap-2"
+        <div
+          className="w-full text-black font-semibold rounded-full shadow-lg shadow-cyan-400/20 flex items-center justify-center pointer-events-none"
           style={{
             height: 40,
             fontSize: 14,
-            background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
+            background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)',
           }}
         >
-          <Play size={16} fill="currentColor" />
-          <span>יאללה, אפשר להתחיל!</span>
-        </button>
+          {ctaText}
+        </div>
       </div>
     </div>
   );

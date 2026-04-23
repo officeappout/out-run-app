@@ -17,17 +17,32 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { GymEquipment, GymEquipmentFormData } from './gym-equipment.types';
+import { registerGearAlias } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { ExerciseType } from '../../../exercises/core/exercise.types';
 
 const GYM_EQUIPMENT_COLLECTION = 'gym_equipment';
 
 /**
- * Convert Firestore timestamp to Date
+ * Convert Firestore timestamp, Unix epoch, or date string to Date.
+ * Handles legacy CSV data where timestamps are stored as numbers.
  */
-function toDate(timestamp: Timestamp | Date | undefined): Date | undefined {
-  if (!timestamp) return undefined;
+function toDate(timestamp: unknown): Date | undefined {
+  if (timestamp == null) return undefined;
   if (timestamp instanceof Date) return timestamp;
-  return timestamp.toDate();
+  if (typeof timestamp === 'number') {
+    // Unix seconds (< 10^12) vs milliseconds
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'string') {
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  if (typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
+    return (timestamp as Timestamp).toDate();
+  }
+  return undefined;
 }
 
 /**
@@ -38,12 +53,20 @@ export async function getAllGymEquipment(): Promise<GymEquipment[]> {
     const q = query(collection(db, GYM_EQUIPMENT_COLLECTION), orderBy('name', 'asc'));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((doc) => ({
+    const items: GymEquipment[] = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: toDate(doc.data().createdAt),
       updatedAt: toDate(doc.data().updatedAt),
     } as GymEquipment));
+
+    // Register ALL items — items with iconKey get a direct canonical mapping;
+    // items without iconKey use their Hebrew name to resolve via LABEL_TO_ICON_KEY.
+    for (const item of items) {
+      registerGearAlias(item.id, item.iconKey, undefined, item.name);
+    }
+
+    return items;
   } catch (error) {
     console.error('Error fetching gym equipment:', error);
     throw error;

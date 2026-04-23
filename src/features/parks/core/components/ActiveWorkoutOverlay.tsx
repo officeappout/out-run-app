@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { Route, ActivityType } from '../types/map-objects.type';
+import { Route, ActivityType } from '../types/route.types';
 // Note: Removed AppMap import as it is rendered by parent (page.tsx)
 import { RunLapsTable, ActiveDashboard, RunControls } from '@/features/workout-engine/players/running';
 import { MapPin, Dumbbell, TreePine, Flag } from 'lucide-react';

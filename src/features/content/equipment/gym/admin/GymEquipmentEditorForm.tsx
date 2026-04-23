@@ -81,14 +81,20 @@ export default function GymEquipmentEditorForm({
     brands: [],
     availableInLocations: [],
     defaultLocation: undefined,
+    iconKey: '',
     ...initialData,
   });
+  const [svgIcons, setSvgIcons] = useState<{ slug: string; label: string }[]>([]);
   const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
   const [brandSearchTerm, setBrandSearchTerm] = useState<Record<number, string>>({});
   const [focusedBrandIndex, setFocusedBrandIndex] = useState<number | null>(null);
 
   useEffect(() => {
     loadOutdoorBrands();
+    fetch('/api/admin/equipment-icons')
+      .then((r) => r.json())
+      .then((data) => setSvgIcons(Array.isArray(data) ? data : []))
+      .catch(() => setSvgIcons([]));
   }, []);
 
   useEffect(() => {
@@ -102,8 +108,9 @@ export default function GymEquipmentEditorForm({
         muscleGroups: initialData.muscleGroups || [],
         brands: initialData.brands?.map((brand) => ({
           ...brand,
-          brandId: brand.brandId || undefined, // Ensure brandId is preserved
+          brandId: brand.brandId || undefined,
         })) || [],
+        iconKey: initialData.iconKey || '',
       };
       setFormData(sanitizedData);
       
@@ -203,6 +210,81 @@ export default function GymEquipmentEditorForm({
               className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               placeholder="לדוגמה: Bench Press Machine"
             />
+          </div>
+
+          {/* SVG Icon Picker */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">
+              אייקון SVG מהאפליקציה
+            </label>
+            <p className="text-xs text-gray-400 mb-3">
+              בחר קובץ SVG מהתיקייה <code>/public/assets/icons/equipment/</code>. האייקון יוצג בכרטיסי האימון.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {/* "None" option */}
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, iconKey: '' })}
+                className={`flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-xl border-2 text-xs transition-all ${
+                  !formData.iconKey
+                    ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-400'
+                }`}
+              >
+                <span className="text-lg leading-none">—</span>
+                <span className="font-medium">ללא</span>
+              </button>
+
+              {svgIcons.length === 0 && (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-20 h-20 rounded-xl border-2 border-gray-100 bg-gray-50 animate-pulse"
+                  />
+                ))
+              )}
+
+              {svgIcons.map((icon) => {
+                const isSelected = formData.iconKey === icon.slug;
+                const src = `/assets/icons/equipment/${icon.slug}.svg`;
+                return (
+                  <button
+                    key={icon.slug}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, iconKey: icon.slug })}
+                    className={`flex flex-col items-center justify-center gap-1.5 w-20 h-20 rounded-xl border-2 text-xs transition-all ${
+                      isSelected
+                        ? 'border-cyan-500 bg-cyan-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <img
+                      src={src}
+                      alt={icon.label}
+                      width={32}
+                      height={32}
+                      className="object-contain"
+                      onLoad={() => console.log(`[EquipmentPicker] Loaded: ${window.location.origin}${src}`)}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        fetch(src, { method: 'HEAD' })
+                          .then((r) => console.warn(`[EquipmentPicker] Failed to display ${src} — HTTP ${r.status} ${r.statusText}`))
+                          .catch(() => console.warn(`[EquipmentPicker] Network error loading ${src}`));
+                        target.style.opacity = '0';
+                      }}
+                    />
+                    <span className={`font-medium truncate max-w-[70px] text-center ${isSelected ? 'text-cyan-700' : 'text-gray-500'}`}>
+                      {icon.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {formData.iconKey && (
+              <p className="text-xs text-cyan-600 font-mono">
+                נבחר: /assets/icons/equipment/{formData.iconKey}.svg
+              </p>
+            )}
           </div>
 
           {/* Type and Level */}

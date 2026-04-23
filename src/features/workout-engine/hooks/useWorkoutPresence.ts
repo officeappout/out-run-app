@@ -67,12 +67,16 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
         authorityId: profile.core.authorityId ?? null,
         activity: {
           status: activityStatus,
-          workoutTitle,
+          // Omit workoutTitle entirely when undefined — Firestore rejects undefined values
+          ...(workoutTitle != null ? { workoutTitle } : {}),
           startedAt: startedAtRef.current,
         },
         lemurStage: profile.progression?.lemurStage ?? 1,
         level: profile.progression?.lemurStage ?? 1,
-        programId: profile.progression?.activePrograms?.[0]?.templateId,
+        // Omit programId when undefined — Firestore rejects undefined values
+        ...(profile.progression?.activePrograms?.[0]?.templateId != null
+          ? { programId: profile.progression.activePrograms[0].templateId }
+          : {}),
       };
     };
 

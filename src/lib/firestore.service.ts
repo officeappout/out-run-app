@@ -76,8 +76,17 @@ export async function getUserFromFirestore(userId: string): Promise<UserFullProf
         normalizedLifestyle.scheduleDays = (data as any).scheduleDays;
       }
       
-      // Log info if equipment is missing or empty (silenced warning)
-      if (!data.equipment || (!normalizedEquipment.home.length && !normalizedEquipment.office.length && !normalizedEquipment.outdoor.length)) {
+      // Log info if equipment is missing or empty — skip for MAP_ONLY users
+      // who intentionally haven't completed the equipment onboarding step.
+      const isMapOnlyPath =
+        data.onboardingPath === 'MAP_ONLY' || data.onboardingStatus === 'MAP_ONLY';
+      if (
+        !isMapOnlyPath &&
+        (!data.equipment ||
+          (!normalizedEquipment.home.length &&
+            !normalizedEquipment.office.length &&
+            !normalizedEquipment.outdoor.length))
+      ) {
         console.info(
           `[User Service] User ${userId} has missing or empty equipment profile. ` +
             `This may affect Smart Swap functionality. Please update user equipment in the admin panel.`
@@ -237,37 +246,55 @@ export async function saveUserToFirestore(userId: string, profile: UserFullProfi
 }
 
 /**
- * Update user progression (coins and calories) in Firestore
+ * Update user progression (coins and calories) via the Guardian Cloud Function.
+ *
+ * NOTE: As of the Fortress Phase (Apr 2026), direct client writes to
+ * `progression.coins` / `progression.totalCaloriesBurned` are blocked by
+ * Firestore Security Rules (noGameIntegrityFieldsChanged). All updates
+ * MUST go through the `awardWorkoutXP` callable, which performs atomic
+ * server-side increments and validates per-call caps.
+ *
+ * The signature is preserved so existing callers compile, but `coins`
+ * and `totalCaloriesBurned` are now interpreted as DELTAS to add (not
+ * absolute values to set). Callers that previously read-modify-write
+ * absolute totals must be migrated to pass a delta.
+ *
+ * `userId` is accepted for backwards compatibility but unused — the
+ * Guardian derives uid from request.auth.
  */
 export async function updateUserProgression(
-  userId: string,
+  _userId: string,
   updates: {
-    coins?: number;
-    totalCaloriesBurned?: number;
+    coins?: number;              // delta to add (>= 0)
+    totalCaloriesBurned?: number; // delta to add (>= 0)
   }
 ): Promise<boolean> {
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    await updateDoc(userDocRef, {
-      'progression.coins': updates.coins,
-      'progression.totalCaloriesBurned': updates.totalCaloriesBurned,
-      updatedAt: serverTimestamp(),
-    });
-
-    return true;
-  } catch (error) {
-    console.error('Error updating user progression:', error);
-    return false;
-  }
+  const { awardWorkoutXP } = await import('@/lib/awardWorkoutXP');
+  const result = await awardWorkoutXP({
+    coinsDelta: Math.max(0, Math.floor(updates.coins ?? 0)),
+    caloriesDelta: Math.max(0, Math.floor(updates.totalCaloriesBurned ?? 0)),
+    source: 'firestore-service:updateUserProgression',
+  });
+  return result !== null;
 }
 
 /**
- * Get user progression (coins) from Firestore with retry logic
+ * Get user progression from Firestore with retry logic.
+ * Returns all fields used by useProgressionStore for full hydration.
  */
 export async function getUserProgression(
-  userId: string, 
+  userId: string,
   retries: number = 3
-): Promise<{ coins: number; totalCaloriesBurned: number } | null> {
+): Promise<{
+  coins: number;
+  totalCaloriesBurned: number;
+  globalXP: number;
+  globalLevel: number;
+  daysActive: number;
+  lemurStage: number;
+  currentStreak: number;
+  lastActiveDate: string;
+} | null> {
   for (let attempt = 0; attempt < retries; attempt++) {
   try {
     const userDocRef = doc(db, 'users', userId);
@@ -280,6 +307,12 @@ export async function getUserProgression(
       return {
         coins: progression.coins || 0,
         totalCaloriesBurned: progression.totalCaloriesBurned || 0,
+        globalXP: progression.globalXP || 0,
+        globalLevel: progression.globalLevel || 1,
+        daysActive: progression.daysActive || 0,
+        lemurStage: progression.lemurStage || 1,
+        currentStreak: progression.currentStreak || 0,
+        lastActiveDate: progression.lastActiveDate || '',
       };
     }
 
@@ -331,6 +364,38 @@ export async function syncFieldToFirestore(
     return true;
   } catch (error) {
     console.error(`[syncFieldToFirestore] Failed to sync "${fieldPath}":`, error);
+    return false;
+  }
+}
+
+/**
+ * Write all location anchor fields in a single updateDoc call.
+ * Prevents write-collision errors (INTERNAL ASSERTION FAILED) that occur
+ * when three separate syncFieldToFirestore calls race on the same document.
+ *
+ * Only the fields that are actually provided are written.
+ */
+export async function syncLocationToFirestore(data: {
+  authorityId?: string | null;
+  anchorLat?: number | null;
+  anchorLng?: number | null;
+}): Promise<boolean> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return false;
+
+  const fields: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  if (data.authorityId != null) fields['core.authorityId'] = data.authorityId;
+  if (data.anchorLat != null) fields['core.anchorLat'] = data.anchorLat;
+  if (data.anchorLng != null) fields['core.anchorLng'] = data.anchorLng;
+
+  if (Object.keys(fields).length === 1) return true; // nothing to write
+
+  try {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, fields);
+    return true;
+  } catch (error) {
+    console.error('[syncLocationToFirestore] Failed to sync location fields:', error);
     return false;
   }
 }

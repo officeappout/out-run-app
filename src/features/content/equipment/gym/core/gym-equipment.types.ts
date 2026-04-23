@@ -29,6 +29,12 @@ export interface GymEquipment {
   brands: EquipmentBrand[]; // Array of manufacturers/brands for this equipment
   availableInLocations?: EquipmentLocation[]; // Locations where this equipment is available
   defaultLocation?: EquipmentLocation; // Default/primary location for this equipment
+  /**
+   * Filename stem of the SVG icon in /public/assets/icons/equipment/.
+   * E.g. "parallelbars" → /assets/icons/equipment/parallelbars.svg
+   * Used by resolveEquipmentSvgPath via registerGearAlias at runtime.
+   */
+  iconKey?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

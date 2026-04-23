@@ -84,3 +84,32 @@ export {
   useWeeklyProgress,
   type DailyActivityResult,
 } from './hooks/useDailyActivity';
+
+export {
+  useDayStatus,
+  type DayStatusResult,
+} from './hooks/useDayStatus';
+
+export {
+  useMidnightRefresh,
+  useDateKey,
+  useDateStore,
+} from './hooks/useMidnightRefresh';
+
+export {
+  useStepsAnalytics,
+  type StepsTimeRange,
+  type StepsChartPoint,
+  type StepsAnalyticsStats,
+} from './hooks/useStepsAnalytics';
+
+export {
+  useWeeklyRunningKm,
+  type UseWeeklyRunningKmResult,
+} from './hooks/useWeeklyRunningKm';
+
+export {
+  getWeeklyRunningKm,
+  getStrengthAdherence,
+  type StrengthAdherence,
+} from './services/activity-history.service';

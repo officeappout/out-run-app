@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
 
 interface KingLemurLoadingScreenProps {
@@ -44,14 +43,14 @@ export default function KingLemurLoadingScreen({
           className="relative mb-6"
         >
           <div className="relative w-48 h-64 flex items-center justify-center">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/assets/lemur/king-lemur.png"
               alt="King Lemur"
               width={192}
               height={256}
               className="object-contain drop-shadow-lg"
               onError={(e) => {
-                // Fallback if image doesn't exist yet - show placeholder
                 (e.target as HTMLImageElement).style.display = 'none';
                 const parent = (e.target as HTMLImageElement).parentElement;
                 if (parent) {

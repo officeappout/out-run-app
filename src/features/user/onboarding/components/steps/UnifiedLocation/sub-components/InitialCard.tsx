@@ -20,16 +20,12 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
     : isExplorer
       ? (locationAnchor
           ? <>הגינה הכי קרובה ל{locationAnchor}</>
-          : <>היי, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>)
-      : userName
-        ? <>היי {userName}, {isFemale ? 'בואי' : 'בוא'} נמצא את הגינה הכי קרובה {isFemale ? 'אלייך' : 'אליך'}</>
-        : <>בואו נמצא את הגינה הכי קרובה אליכם</>;
+          : <>להכיר את השכונה, מקרוב</>)
+      : <>להכיר את השכונה, מקרוב</>;
 
   const subtitle = isRunning
     ? <>נמצא לך מסלול ריצה וגם גינות כושר בדרך</>
-    : isExplorer
-      ? <>מיפינו מאות גינות כושר, מגרשים ומסלולים ברחבי הארץ. {t('אשר את המיקום שלך ונגלה מה יש באזור!', 'אשרי את המיקום שלך ונגלה מה יש באזור!')}</>
-      : <>מיפינו מאות גינות כושר ברחבי הארץ, עם מתקנים שמתאימים לאימוני OUT.{' '}{t('אשר את המיקום שלך ונמצא את הגינה הקרובה אליך.', 'אשרי את המיקום שלך ונמצא את הגינה הקרובה אלייך.')}</>;
+    : <>כדי שנוכל להציג את מסלולי ההליכה, גינות הכושר והמקומות הכי בטוחים וקרובים אליכם, יש לאשר גישה למיקום.</>;
 
   return (
     <motion.div
@@ -73,7 +69,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             <MapPin size={20} />
-            <span>מצאו את המיקום שלי</span>
+            <span>מציאת מיקום אוטומטית (GPS)</span>
           </button>
 
           <button
@@ -81,7 +77,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             className="w-full mt-4 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            או חפשו ידנית
+            בחירת עיר ושכונה באופן ידני
           </button>
         </div>
       </div>
