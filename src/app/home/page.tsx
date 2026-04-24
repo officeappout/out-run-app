@@ -695,7 +695,10 @@ export default function HomePage() {
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100">
+      <header
+        className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
         <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">
 
           {/* Left: Library + Planner + Settings + Logout */}
