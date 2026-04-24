@@ -86,7 +86,27 @@
 /* ============================================
    Global Body Styles with Simpler Pro
    ============================================ */
+
+/*
+ * Full-screen mobile layout foundation.
+ *
+ * html/body are locked to 100% height with no overflow.
+ * The single scroll container is <main> in ClientLayout (h-[100dvh] overflow-y-auto).
+ * This prevents:
+ *   - Double scroll (body + page container both scrolling)
+ *   - iOS rubber-band bounce at the body level
+ *   - Horizontal ghost-scroll from animated or overflowing elements
+ */
+html {
+  height: 100%;
+  overflow-x: hidden;
+}
+
 body {
+  height: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: none;       /* kill iOS rubber-band bounce on the body */
+  -webkit-tap-highlight-color: transparent;
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-simpler);

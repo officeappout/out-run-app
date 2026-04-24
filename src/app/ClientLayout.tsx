@@ -41,7 +41,7 @@ export default function ClientLayout({
 
   if (!mounted) {
     return (
-      <main>
+      <main className="h-[100dvh] overflow-y-auto overflow-x-hidden">
         {children}
       </main>
     );
@@ -60,12 +60,14 @@ export default function ClientLayout({
     <LanguageProvider>
       <ToastProvider>
         <main
-          className="min-h-[100dvh]"
-          style={
-            shouldShowBottomNav && !isMapRoute
-              ? { paddingBottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }
-              : undefined
-          }
+          className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-y-contain"
+          style={{
+            paddingTop: !isMapRoute ? 'env(safe-area-inset-top, 0px)' : undefined,
+            paddingBottom:
+              shouldShowBottomNav && !isMapRoute
+                ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
+                : undefined,
+          }}
         >
           {children}
         </main>
