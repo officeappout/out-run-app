@@ -153,16 +153,18 @@ export default function RouteStoryBar({
         </div>
       )}
 
-      {/* Track — glassmorphism: semi-transparent white blurred surface */}
+      {/* Track — visible on the white card surface. Previously used a
+          white rgba glassmorphism track which was invisible on white.
+          Switched to a slate-100 tint with a subtle inset shadow so the
+          bar has a clear "empty lane" even before any fill. The neon fill
+          and glow are the premium elements; the track just needs to be
+          readable. */}
       <div
         className="relative w-full rounded-full overflow-hidden"
         style={{
-          height: 10, // h-2.5 equivalent (10 px)
-          background: 'rgba(255, 255, 255, 0.25)',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-          border: '1px solid rgba(255, 255, 255, 0.35)',
-          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.12)',
+          height: 12, // 12 px — more substantial than h-1.5, readable at a glance
+          background: 'rgba(15, 23, 42, 0.07)',   // slate-900 at 7% — visible on white
+          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.10)',
         }}
       >
         {/* Fill — neon glow + shimmer overlay. Grows from the RIGHT edge

@@ -173,18 +173,16 @@ export default function AdaptiveMetricsWrapper({
         </div>
 
         {/* Story-style goal bar — high-end, single-segment progress
-            indicator. Only renders when the user set a goal in
-            FreeRunDrawer AND the card is expanded (the pill is the
-            "I want max map" mode and stays clean). The bar lives
-            INSIDE the card so it inherits the same surface, the same
-            ResizeObserver-driven `--session-bar-clearance`, and never
-            collides with TurnCarousel up top. */}
-        {goalProgress && !isPill && (
+            indicator. Only renders when the card is expanded (the pill
+            is the "I want max map" mode and stays clean).
+            DEBUG: bar is always shown at 50 % while we verify rendering.
+            Restore to `goalProgress && !isPill &&` after confirming. */}
+        {!isPill && (
           <RouteStoryBar
-            progress={goalProgress.progress}
+            progress={goalProgress ? goalProgress.progress : 0.5}
             isPaused={isPaused}
-            label={goalLabel(goalProgress.type)}
-            valueText={formatGoalValue(goalProgress)}
+            label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
+            valueText={goalProgress ? formatGoalValue(goalProgress) : '2.50 / 5.0 ק״מ'}
           />
         )}
 
