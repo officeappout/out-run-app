@@ -61,3 +61,4 @@ plugins/**/node_modules/
 *.jks
 *-release-key.*
 google-services*.json
+GoogleService-Info.plist
