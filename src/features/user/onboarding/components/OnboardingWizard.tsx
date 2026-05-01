@@ -22,6 +22,7 @@ import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import { LEGAL_VERSION } from '@/features/legal/legal-content';
 
 /**
  * Phase 2 Onboarding Wizard - Lifestyle Adaptation
@@ -204,7 +205,7 @@ export default function OnboardingWizard() {
         accountStatus: 'secured',
         accountMethod: 'google',
         securedEmail: auth.currentUser?.email || undefined,
-        termsVersion: '1.0',
+        termsVersion: LEGAL_VERSION,
         termsAcceptedAt: new Date(),
       } as any);
       // Jump straight to PROCESSING so they still see the WOW screen
@@ -339,7 +340,7 @@ export default function OnboardingWizard() {
                   accountStatus: 'secured',
                   accountMethod: method,
                   securedEmail: email,
-                  termsVersion: '1.0',
+                  termsVersion: LEGAL_VERSION,
                   termsAcceptedAt: new Date(),
                 } as any);
               } else {

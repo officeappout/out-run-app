@@ -25,16 +25,29 @@ import { auth } from '@/lib/firebase';
 
 const REFRESH_INTERVAL_MS = 50 * 60 * 1000; // 50 minutes
 
-async function postSession(idToken: string): Promise<void> {
+async function postSession(idToken: string): Promise<boolean> {
   try {
-    await fetch('/api/auth/session', {
+    const res = await fetch('/api/auth/session', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.warn(
+        `[AdminSessionSync] Session mint failed — HTTP ${res.status}.`,
+        body,
+        res.status === 401
+          ? 'Check that FIREBASE_SERVICE_ACCOUNT_KEY is set and the project ID matches.'
+          : '',
+      );
+      return false;
+    }
+    return true;
   } catch (err) {
-    console.warn('[AdminSessionSync] Failed to mint session cookie:', err);
+    console.warn('[AdminSessionSync] Failed to reach /api/auth/session:', err);
+    return false;
   }
 }
 
@@ -60,7 +73,7 @@ export function AdminSessionSync() {
         if (!u) return;
         try {
           const idToken = await u.getIdToken(/* forceRefresh */ true);
-          await postSession(idToken);
+          await postSession(idToken); // logs on failure, never throws
         } catch (err) {
           console.warn('[AdminSessionSync] Refresh failed:', err);
         }
@@ -89,8 +102,10 @@ export function AdminSessionSync() {
       if (user) {
         try {
           const idToken = await user.getIdToken(/* forceRefresh */ true);
-          await postSession(idToken);
-          startRefresh();
+          const ok = await postSession(idToken);
+          // Only start the periodic refresh if the mint succeeded.
+          // If it failed, the next tab-focus will retry via onFocus.
+          if (ok) startRefresh();
         } catch (err) {
           console.warn('[AdminSessionSync] Initial mint failed:', err);
         }

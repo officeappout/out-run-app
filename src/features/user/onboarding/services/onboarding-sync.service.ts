@@ -419,6 +419,14 @@ export async function syncOnboardingToFirestore(
     }
     // Sync birthDate from sessionStorage (set during the onboarding questionnaire)
     // Key is 'onboarding_personal_dob' (written by profile/roadmap pages)
+    //
+    // SECURITY (Compliance Phase 2.1 — Age Gate):
+    //   The client-side validation in onboarding-new/profile/page.tsx blocks
+    //   under-14 sign-ups in the UI, but a malicious or modified client could
+    //   bypass that and call this sync directly. We re-validate here and throw
+    //   so no Firestore write happens for under-14 users. The thrown error
+    //   bubbles to the caller (OnboardingWizard / sync triggers) and must be
+    //   surfaced to the user as a blocking message. Do not silently swallow.
     if (typeof window !== 'undefined') {
       const storedBirthDate = sessionStorage.getItem('onboarding_personal_dob');
       if (storedBirthDate) {
@@ -426,13 +434,21 @@ export async function syncOnboardingToFirestore(
           const dateObj = new Date(storedBirthDate);
           if (!isNaN(dateObj.getTime())) {
             const ageYears = (Date.now() - dateObj.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+            if (ageYears < 14) {
+              const err = new Error(
+                'AppOut מיועדת למשתמשים מגיל 14 ומעלה. לא ניתן להמשיך בתהליך ההרשמה.',
+              );
+              (err as any).code = 'UNDER_AGE';
+              throw err;
+            }
             updateData.core = {
               ...updateData.core,
               birthDate: Timestamp.fromDate(dateObj),
               ageGroup: ageYears < 18 ? 'minor' : 'adult',
             };
           }
-        } catch (e) {
+        } catch (e: any) {
+          if (e?.code === 'UNDER_AGE') throw e;
           console.warn('[OnboardingSync] Could not parse birthDate:', storedBirthDate, e);
         }
       }

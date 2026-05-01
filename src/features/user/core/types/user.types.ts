@@ -257,6 +257,28 @@ export interface UserFullProfile {
 
     /** Viral gate: count of friends successfully referred. Social features unlock at 1. */
     referralCount?: number;
+
+    /**
+     * GDPR / Israeli Privacy Law analytics opt-out (Compliance Phase 5.1).
+     * Default: undefined / false → analytics enabled. When true, the custom
+     * AnalyticsService stops writing to `analytics_events` AND Firebase
+     * Analytics (GA) collection is disabled via setAnalyticsCollectionEnabled.
+     */
+    analyticsOptOut?: boolean;
+
+    /**
+     * Profile-search discoverability toggle (Compliance Phase 6.4).
+     *
+     * Default: undefined / false → profile is NOT findable by other users
+     * (privacy-first opt-in, matches T&C §9.3 — "פרופיל המשתמש אינו מופיע
+     * בחיפוש כברירת מחדל").
+     *
+     * When `true`, `searchUsersByName` (user-search.service.ts) and the
+     * `users` collection rule in firestore.rules grant cross-user reads
+     * of the public-facing profile fields. Toggle lives on the Settings
+     * → Privacy section and writes through `core.discoverable`.
+     */
+    discoverable?: boolean;
   };
 
   // ── Pillar 1 — Social graph (denormalized for fast client queries) ───────────
@@ -331,9 +353,57 @@ export interface UserFullProfile {
 
   /** User settings (push notifications, calendar sync, etc.) */
   settings?: {
+    /**
+     * Master switch for push notifications. When false, every channel
+     * below is treated as disabled regardless of its own value, and
+     * `sendPushFromQueue` will skip this user. Defaults to true on
+     * fresh installs (the OS-level prompt is the user's first opt-out
+     * opportunity).
+     */
     pushEnabled?: boolean;
+    /**
+     * Per-channel notification preferences (Sprint 3, Phase 4.4).
+     * Each key is a delivery channel; missing keys default to `true`
+     * (opt-out, not opt-in) so existing users continue to receive the
+     * notifications they were getting before this field was introduced.
+     *
+     * Channels:
+     *   • encouragement     — admin "encouragement" pushes from the
+     *                         authority manager dashboard
+     *   • health_milestone  — auto-generated milestone notifications
+     *   • training_reminder — daily / weekly training reminders
+     *   • system            — operational + security messages (these
+     *                         can be force-sent regardless of the flag)
+     */
+    notificationPrefs?: {
+      encouragement?: boolean;
+      health_milestone?: boolean;
+      training_reminder?: boolean;
+      system?: boolean;
+    };
     calendarSync?: boolean;
   };
+
+  /**
+   * Push delivery handles (Sprint 3, Phase 4.1). Written by the
+   * client via `initPushNotifications()`; read by the Cloud Function
+   * `sendPushFromQueue` to fan messages out to every active device.
+   * Stale tokens are pruned by the function on delivery failure.
+   */
+  fcmTokens?: string[];
+
+  /**
+   * Last-seen metadata for each FCM token, keyed by the token string.
+   * Used by analytics + cleanup tooling — the multicast pipeline only
+   * reads `fcmTokens` above.
+   */
+  fcmTokenMeta?: Record<
+    string,
+    {
+      platform: 'ios' | 'android' | 'web';
+      lastSeenAt?: any; // serverTimestamp
+    }
+  >;
 
   running: RunningProfile; // מתוך קובץ הריצה הנפרד
 

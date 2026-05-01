@@ -13,6 +13,23 @@
  *   - An absolute overlay button sits on top with the CTA text.
  *   - Clicking anywhere on the card fires `onClick` (typically navigates
  *     to the corresponding onboarding screen).
+ *
+ * DOM structure note (Apr 2026):
+ *   The wrapper is a `<div>`, NOT a `<button>`. Several callers
+ *   (notably `ProgramProgressRow`) pass interactive children that
+ *   themselves render a `<button>` — wrapping them inside another
+ *   `<button>` produced React's "<button> cannot be a descendant of
+ *   <button>" hydration error, which during dev forces React 18 to
+ *   bail out and re-render the tree from the nearest stable
+ *   boundary. That cascade was eating downstream state updates
+ *   (e.g. `setGenerationDone(true)` in FreeRunRouteSelector), leaving
+ *   the radar overlay stuck even after routes were generated.
+ *
+ *   The fix: render the click target as an absolutely-positioned
+ *   `<button>` SIBLING of the children. The children stay in DOM for
+ *   their visual silhouette (blur + opacity + pointer-events:none),
+ *   the button sits on top capturing all clicks. No nesting, no
+ *   hydration warning, no cascade.
  */
 
 import React from 'react';
@@ -56,49 +73,65 @@ export function GhostUpsell({
 }: GhostUpsellProps) {
   if (variant === 'silent') {
     return (
-      <button
-        type="button"
-        onClick={onClick}
+      <div
         className={`relative w-full text-right h-full ${className}`}
-        aria-label={label}
         dir="rtl"
       >
         {/* Blurred ghost of the underlying bars/cards. */}
-        <div className="filter blur-[3px] opacity-50 pointer-events-none select-none h-full">
+        <div
+          className="filter blur-[3px] opacity-50 pointer-events-none select-none h-full"
+          aria-hidden="true"
+        >
           {children}
         </div>
 
-        {/* Tiny corner affordance — no copy, no big overlay. */}
-        <span className="absolute bottom-0 left-0 w-6 h-6 rounded-full bg-[#5BC2F2] text-white flex items-center justify-center shadow-md">
-          {icon ?? <Plus size={14} strokeWidth={3} />}
-        </span>
-      </button>
+        {/* Overlay button — sibling of children, NOT ancestor. */}
+        <button
+          type="button"
+          onClick={onClick}
+          className="absolute inset-0 w-full h-full"
+          aria-label={label}
+        >
+          {/* Tiny corner affordance — no copy, no big overlay. */}
+          <span className="absolute bottom-0 left-0 w-6 h-6 rounded-full bg-[#5BC2F2] text-white flex items-center justify-center shadow-md">
+            {icon ?? <Plus size={14} strokeWidth={3} />}
+          </span>
+        </button>
+      </div>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={`relative w-full text-right h-full ${className}`}
       dir="rtl"
     >
-      <div className="filter blur-[6px] opacity-40 pointer-events-none select-none h-full">
+      {/* Blurred ghost — decorative only, click events suppressed. */}
+      <div
+        className="filter blur-[6px] opacity-40 pointer-events-none select-none h-full"
+        aria-hidden="true"
+      >
         {children}
       </div>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-[1px] rounded-xl px-3">
-        <div className="w-10 h-10 rounded-full bg-[#5BC2F2]/10 flex items-center justify-center">
+      {/* Overlay button — sibling of children, captures the entire surface. */}
+      <button
+        type="button"
+        onClick={onClick}
+        className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-[1px] rounded-xl px-3"
+        aria-label={label}
+      >
+        <span className="w-10 h-10 rounded-full bg-[#5BC2F2]/10 flex items-center justify-center">
           {icon ?? <Sparkles size={20} className="text-[#5BC2F2]" />}
-        </div>
+        </span>
         {label && (
-          <p className="text-sm font-bold text-slate-800 dark:text-white text-center leading-snug">
+          <span className="text-sm font-bold text-slate-800 dark:text-white text-center leading-snug">
             {label}
-          </p>
+          </span>
         )}
         {ctaText && <span className="text-xs font-bold text-[#5BC2F2]">{ctaText}</span>}
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 

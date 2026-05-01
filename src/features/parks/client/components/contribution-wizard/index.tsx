@@ -24,6 +24,14 @@ export interface WizardData {
   facilityType: ParkFacilityCategory | null;
   featureTags: ParkFeatureTag[];
   photoUrl: string | null;
+  /**
+   * Storage path of the currently uploaded photo (e.g.
+   * `contribution-photos/{uid}/{ts}_{name}`). Tracked separately from
+   * `photoUrl` so Step3Photo can call `deleteObject(path)` when the user
+   * removes or replaces the photo, preventing orphaned objects in
+   * Firebase Storage. Always reset to null when `photoUrl` is cleared.
+   */
+  photoStoragePath: string | null;
 }
 
 const STEPS = ['מיקום', 'פרטים', 'תמונה'];
@@ -48,6 +56,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
     facilityType: null,
     featureTags: [],
     photoUrl: null,
+    photoStoragePath: null,
   });
 
   const updateData = useCallback((partial: Partial<WizardData>) => {
@@ -91,6 +100,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
           facilityType: null,
           featureTags: [],
           photoUrl: null,
+          photoStoragePath: null,
         });
       }, 2200);
     } catch (err) {

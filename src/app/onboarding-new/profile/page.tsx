@@ -439,7 +439,7 @@ export default function IdentityProfilePage() {
       </div>
 
       {/* Action Button */}
-      <div className="w-full max-w-md mx-auto px-6 pb-safe pb-6">
+      <div className="w-full max-w-md mx-auto px-6" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
         <motion.button
           onClick={handleContinue}
           disabled={!isFormComplete || loading}

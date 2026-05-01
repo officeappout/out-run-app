@@ -1,21 +1,39 @@
 /**
- * cleanupOldLogs — monthly retention sweeper for /audit_logs.
+ * cleanupOldLogs — monthly retention sweeper for long-lived log
+ * collections.
  *
  * Compliance basis
  * ────────────────
- * OUT Standard requires that audit data be retained no longer than
- * 24 months. This scheduled function runs on the 1st of every month at
- * 03:00 UTC and deletes any /audit_logs/{doc} whose `timestamp` field
- * is older than 24 calendar months.
+ *   • /audit_logs           → 24 months  (OUT Standard / privacy §11)
+ *   • /push_messages        → 90 days    (privacy §11 — "הודעות Push
+ *                             שנשלחו: נמחקות אוטומטית לאחר 90 יום")
+ *
+ * This scheduled function runs on the 1st of every month at 03:00 UTC
+ * and prunes both collections in a single pass so we have one cron
+ * entry, one set of logs, and a single point to extend when adding
+ * future log retentions.
+ *
+ * Push-messages sweep semantics
+ * ──────────────────────────────
+ * Only documents in a terminal state (sent / failed / no_recipients /
+ * no_tokens / permanent_failure) are eligible. We use the presence of
+ * `processedAt` as the terminal marker — `sendPushFromQueue` writes it
+ * on every terminal branch and never on `pending` / `processing`. This
+ * keeps stuck/in-flight rows around for investigation rather than
+ * silently dropping them.
  *
  * Implementation notes
  * ────────────────────
- *   • Uses paged BatchedWrites (max 500 per batch — Firestore limit).
+ *   • Each collection sweep is independent — a failure in one MUST NOT
+ *     skip the other (we still throw at the end if anything failed so
+ *     the schedule alert fires, but we always attempt both).
+ *   • Uses paged BatchedWrites (max 400 per batch — safely under
+ *     Firestore's 500-write ceiling).
  *   • Tagged 'us-central1' to align with the rest of the function set.
- *   • `dryRun` is logged but not exposed to callers — this is purely
- *     a scheduler-driven function.
- *   • The retention window is configurable via env var
- *     AUDIT_LOG_RETENTION_MONTHS (defaults to 24).
+ *   • Retention windows are configurable via env vars (mainly for
+ *     emulator / smoke-testing) but default to the policy values:
+ *       AUDIT_LOG_RETENTION_MONTHS    (default 24)
+ *       PUSH_MESSAGES_RETENTION_DAYS  (default 90)
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -28,31 +46,44 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-const RETENTION_MONTHS = (() => {
+const AUDIT_LOG_RETENTION_MONTHS = (() => {
   const raw = Number(process.env.AUDIT_LOG_RETENTION_MONTHS);
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 24;
 })();
 
-const BATCH_SIZE = 400; // safely under Firestore's 500-write batch ceiling
+const PUSH_MESSAGES_RETENTION_DAYS = (() => {
+  const raw = Number(process.env.PUSH_MESSAGES_RETENTION_DAYS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 90;
+})();
 
-function cutoffDate(now = new Date()): Date {
+const BATCH_SIZE = 400;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function monthsAgo(months: number, now = new Date()): admin.firestore.Timestamp {
   const c = new Date(now);
-  c.setMonth(c.getMonth() - RETENTION_MONTHS);
-  return c;
+  c.setMonth(c.getMonth() - months);
+  return admin.firestore.Timestamp.fromDate(c);
 }
 
-async function deleteOlderThan(cutoff: Date): Promise<number> {
+function daysAgo(days: number, now = new Date()): admin.firestore.Timestamp {
+  return admin.firestore.Timestamp.fromMillis(now.getTime() - days * MS_PER_DAY);
+}
+
+/**
+ * Generic paged sweep: delete every doc in `collection` whose `tsField`
+ * is older than `cutoff`. Returns count deleted. Caller chooses the
+ * timestamp semantics (created vs processed vs updated).
+ */
+async function sweepCollection(
+  collection: string,
+  tsField: string,
+  cutoff: admin.firestore.Timestamp,
+): Promise<number> {
   let totalDeleted = 0;
-  // Loop until no more matching docs.
-  // Each pass: query → batch-delete → repeat.
-  // Bounded to a few hundred passes by FN timeout (540s default).
-  // For the audit_logs volume (a few rows per admin action), one sweep
-  // per month is more than sufficient.
-   
   while (true) {
     const snap = await db
-      .collection('audit_logs')
-      .where('timestamp', '<', admin.firestore.Timestamp.fromDate(cutoff))
+      .collection(collection)
+      .where(tsField, '<', cutoff)
       .limit(BATCH_SIZE)
       .get();
 
@@ -63,10 +94,8 @@ async function deleteOlderThan(cutoff: Date): Promise<number> {
     await batch.commit();
     totalDeleted += snap.size;
 
-    // If we got fewer than BATCH_SIZE we're done.
     if (snap.size < BATCH_SIZE) break;
   }
-
   return totalDeleted;
 }
 
@@ -79,20 +108,47 @@ export const cleanupOldLogs = onSchedule(
     memory: '256MiB',
   },
   async () => {
-    const cutoff = cutoffDate();
+    const auditCutoff = monthsAgo(AUDIT_LOG_RETENTION_MONTHS);
+    const pushCutoff = daysAgo(PUSH_MESSAGES_RETENTION_DAYS);
+
     logger.info(
-      `[cleanupOldLogs] Starting sweep — deleting audit_logs older than ${cutoff.toISOString()} ` +
-        `(retention=${RETENTION_MONTHS} months)`,
+      `[cleanupOldLogs] Sweep start — ` +
+        `audit_logs<${auditCutoff.toDate().toISOString()} (${AUDIT_LOG_RETENTION_MONTHS}mo), ` +
+        `push_messages.processedAt<${pushCutoff.toDate().toISOString()} ` +
+        `(${PUSH_MESSAGES_RETENTION_DAYS}d, terminal-state only)`,
     );
 
+    const failures: string[] = [];
+    let auditDeleted = 0;
+    let pushDeleted = 0;
+
     try {
-      const deleted = await deleteOlderThan(cutoff);
-      logger.info(
-        `[cleanupOldLogs] Sweep complete — deleted ${deleted} document(s) older than ${cutoff.toISOString()}`,
-      );
+      auditDeleted = await sweepCollection('audit_logs', 'timestamp', auditCutoff);
     } catch (err: any) {
-      logger.error('[cleanupOldLogs] Sweep failed:', err?.message, err?.stack);
-      throw err;
+      logger.error('[cleanupOldLogs] audit_logs sweep failed:', err?.message, err?.stack);
+      failures.push('audit_logs');
+    }
+
+    try {
+      // `processedAt` is only ever populated on terminal-state writes
+      // by sendPushFromQueue. Filtering on it implicitly excludes
+      // `pending` and `processing` rows from the sweep — those are
+      // in-flight and must not be deleted.
+      pushDeleted = await sweepCollection('push_messages', 'processedAt', pushCutoff);
+    } catch (err: any) {
+      logger.error('[cleanupOldLogs] push_messages sweep failed:', err?.message, err?.stack);
+      failures.push('push_messages');
+    }
+
+    logger.info(
+      `[cleanupOldLogs] Sweep complete — audit_logs=${auditDeleted}, push_messages=${pushDeleted}` +
+        (failures.length ? `, FAILED=${failures.join(',')}` : ''),
+    );
+
+    // Surface failures so the schedule alarm fires, but only AFTER
+    // both sweeps have been attempted.
+    if (failures.length) {
+      throw new Error(`cleanupOldLogs sweep failed for: ${failures.join(', ')}`);
     }
   },
 );

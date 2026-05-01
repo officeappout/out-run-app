@@ -1,6 +1,32 @@
 'use client';
 
+/**
+ * WorkoutSettingsDrawer
+ * ---------------------
+ * Side-sheet for mid-workout settings (auto-lap, audio, auto-pause,
+ * countdown). Triggered from the gear icon inside `AdaptiveMetricsWrapper`.
+ *
+ * Stacking-context escape via React portal:
+ *   The drawer used to render inside FreeRunActive's subtree, which sits
+ *   inside the metrics card's `motion.div` — `transform: translate3d(...)`
+ *   on that ancestor creates a NEW stacking context, scoping our
+ *   `z-[100000]` to that local context instead of the page root. Result:
+ *   the drawer COULD render behind the TurnCarousel (z-[60]) or the
+ *   SessionControlBar even though its z-index was higher.
+ *
+ *   Portalling into `document.body` makes the drawer a top-level child
+ *   of the document, so its z-index competes with every other top-level
+ *   stacking context cleanly. This is the standard fix for "high
+ *   z-index that mysteriously doesn't win".
+ *
+ * SSR safety:
+ *   `createPortal` is called only after the component mounts on the
+ *   client. The `mounted` guard prevents the portal from running during
+ *   SSR (where `document` is undefined and the portal would throw).
+ */
+
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -15,6 +41,16 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
   
   // Local state for settings (to allow canceling changes)
   const [localSettings, setLocalSettings] = useState(settings);
+
+  // SSR-safe portal mount flag. Only true once the component has
+  // mounted on the client; prevents `document.body` access during SSR
+  // and avoids hydration mismatches (server renders nothing, client
+  // mounts the portal post-hydration).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   // Update local state when drawer opens
   useEffect(() => {
@@ -60,11 +96,19 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
     });
   };
 
-  return (
+  // Bail before any portal access during SSR. `createPortal` requires
+  // `document.body`, which doesn't exist server-side. Returning null on
+  // the server + during the very first client render produces no
+  // hydration mismatch (server and first-client agree on "nothing
+  // here"); the second client render mounts the portal.
+  if (!mounted) return null;
+
+  const drawerTree = (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — z-[99999], one below the drawer itself so taps
+              outside the drawer dismiss it without bleeding through. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -74,7 +118,9 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
             style={{ isolation: 'isolate' }}
           />
 
-          {/* Drawer */}
+          {/* Drawer — z-[100000]. Now portalled into document.body so
+              this z-index competes against page-level overlays directly,
+              not against the metrics card's local stacking context. */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -284,4 +330,10 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
       )}
     </AnimatePresence>
   );
+
+  // Mount the drawer outside FreeRunActive's subtree so its z-index is
+  // free of any local stacking context the metrics-card transform (or
+  // any future ancestor with `transform`/`filter`/`isolation`) might
+  // create. document.body is the canonical "page root" portal target.
+  return createPortal(drawerTree, document.body);
 }

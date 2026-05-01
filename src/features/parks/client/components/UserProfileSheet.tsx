@@ -2,10 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageCircle } from 'lucide-react';
+import { X, MessageCircle, Lock } from 'lucide-react';
 import { resolvePersonaImage } from '@/features/parks/core/hooks/useGroupPresence';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useUserStore } from '@/features/user';
+import { useChatStore } from '@/features/social/store/useChatStore';
+import { STAGE_TITLES } from '@/features/user/progression/config/stage-titles';
 
 export interface ProfileUser {
   uid: string;
@@ -15,6 +18,8 @@ export interface ProfileUser {
   lemurStage?: number;
   runningLevel?: number;
   activity?: { status: string; workoutTitle?: string };
+  /** Set lazily from users/{uid}.core.ageGroup — used by the DM gate. */
+  ageGroup?: 'minor' | 'adult';
 }
 
 interface UserProfileSheetProps {
@@ -30,13 +35,9 @@ const ACTIVITY_LABELS: Record<string, string> = {
   strength: 'מתאמן/ת עכשיו',
 };
 
-const STAGE_TITLES: Record<number, string> = {
-  1: 'מתחיל', 2: 'שוחר', 3: 'מתאמן', 4: 'פעיל', 5: 'יציב',
-  6: 'מתקדם', 7: 'חזק', 8: 'אלוף', 9: 'מאסטר', 10: 'אגדה',
-};
-
 export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileSheetProps) {
   const [enriched, setEnriched] = useState<ProfileUser | null>(null);
+  const { profile: currentProfile } = useUserStore();
 
   useEffect(() => {
     if (!isOpen || !user) { setEnriched(null); return; }
@@ -61,6 +62,23 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
         })
         .catch(() => {});
     }
+
+    // Compliance Phase 2.2 — Minor DM Block (UI layer):
+    //   Server-side Firestore rule (firestore.rules → /chats DM create) is
+    //   the source of truth and will reject any minor-involved DM. We also
+    //   hide the button on the client to avoid a confusing failed click.
+    //   This read may return no data when the target's profile is not
+    //   discoverable; in that case we leave ageGroup undefined and fall
+    //   back to current-user-only gating (still safe — server rule denies).
+    getDoc(doc(db, 'users', user.uid))
+      .then((snap) => {
+        if (!snap.exists()) return;
+        const ag = (snap.data() as any)?.core?.ageGroup;
+        if (ag === 'minor' || ag === 'adult') {
+          setEnriched((prev) => (prev ? { ...prev, ageGroup: ag } : prev));
+        }
+      })
+      .catch(() => {});
   }, [isOpen, user]);
 
   if (!user) return null;
@@ -69,6 +87,13 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
   const avatarSrc = display.photoURL || resolvePersonaImage(display.personaId);
   const stageLabel = display.lemurStage ? STAGE_TITLES[display.lemurStage] ?? `שלב ${display.lemurStage}` : null;
   const activityLabel = display.activity?.status ? ACTIVITY_LABELS[display.activity.status] : null;
+
+  // Compliance Phase 2.2 — DM is blocked when EITHER party is a minor.
+  // Self-DMs are also hidden (no point messaging yourself).
+  const currentIsMinor = currentProfile?.core?.ageGroup === 'minor';
+  const targetIsMinor = display.ageGroup === 'minor';
+  const isSelf = currentProfile?.id === display.uid;
+  const canDirectMessage = !currentIsMinor && !targetIsMinor && !isSelf;
 
   return (
     <AnimatePresence>
@@ -152,14 +177,36 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                   </div>
                 )}
 
-                {/* Send message button */}
-                <button
-                  onClick={() => { /* TODO: Open DM / chat */ }}
-                  className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
-                >
-                  <MessageCircle size={15} />
-                  שלח הודעה
-                </button>
+                {/* Send message button — hidden when DM is blocked
+                    (current user is a minor, target is a minor, or self).
+                    Replaced by an explanatory locked tile so the user
+                    understands why messaging is unavailable. */}
+                {canDirectMessage ? (
+                  <button
+                    onClick={() => {
+                      if (!currentProfile?.id) return;
+                      onClose();
+                      void useChatStore.getState().openDM(
+                        currentProfile.id,
+                        currentProfile.core?.name ?? 'אווטיר',
+                        display.uid,
+                        display.name,
+                      );
+                    }}
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 text-sm font-bold active:scale-[0.97] transition-all border border-gray-100"
+                  >
+                    <MessageCircle size={15} />
+                    שלח הודעה
+                  </button>
+                ) : (currentIsMinor || targetIsMinor) ? (
+                  <div
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 rounded-xl text-gray-400 text-xs font-bold border border-gray-100"
+                    aria-disabled="true"
+                  >
+                    <Lock size={13} />
+                    הודעות ישירות זמינות רק לבני 18+
+                  </div>
+                ) : null}
               </div>
             </div>
           </motion.div>

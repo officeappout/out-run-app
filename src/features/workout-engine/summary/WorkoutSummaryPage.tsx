@@ -9,16 +9,11 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { calculateCalories } from '@/lib/calories.utils';
 import { updateUserProgression } from '@/lib/firestore.service';
 import { auth } from '@/lib/firebase';
-import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
-import { createWorkoutPost } from '@/features/social/services/feed.service';
-import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
-import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import SummaryOrchestrator, {
   WorkoutData,
   WorkoutType,
 } from './components/SummaryOrchestrator';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
-import { calculateBaseWorkoutXP } from '@/features/user/progression/services/xp.service';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
@@ -31,7 +26,7 @@ export default function WorkoutSummaryPage({
 }: WorkoutSummaryPageProps) {
   const router = useRouter();
   const { totalDistance, totalDuration } = useSessionStore();
-  const { currentPace, routeCoords, activityType, laps, clearRunningData } =
+  const { currentPace, routeCoords, activityType, laps, clearRunningData, elevationGain, savedWorkoutSnapshot } =
     useRunningPlayer();
   const { profile, updateProfile } = useUserStore();
   const { currentStreak } = useProgressionStore();
@@ -100,91 +95,27 @@ export default function WorkoutSummaryPage({
       }
     }
 
-    // 2. Save Workout History
+    // NOTE: Workout save (Firestore write), park detection, social feed post, and XP
+    // are all handled by finishWorkout in useRunningPlayer. This path only syncs
+    // coins/calories to the user progression document for the WorkoutSummaryPage flow.
     if (profile) {
       const currentUser = auth.currentUser;
       if (currentUser) {
         try {
           const currentCoins = profile.progression?.coins || 0;
-          // COIN_SYSTEM_PAUSED: Don't increment coins when system is disabled
           const newCoins = IS_COIN_SYSTEM_ENABLED ? currentCoins + earnedCoins : currentCoins;
-          const newTotalCalories =
-            (profile.progression?.totalCaloriesBurned || 0) + calories;
+          const newTotalCalories = (profile.progression?.totalCaloriesBurned || 0) + calories;
 
           await updateUserProgression(currentUser.uid, {
             coins: newCoins,
             totalCaloriesBurned: newTotalCalories,
           });
-          console.log(IS_COIN_SYSTEM_ENABLED 
+          console.log(IS_COIN_SYSTEM_ENABLED
             ? '✅ Coins and calories synced to Firestore'
             : '✅ COIN_SYSTEM_PAUSED - Calories only synced to Firestore'
           );
-
-          // Save workout to history
-          await saveWorkout({
-            userId: currentUser.uid,
-            activityType: activityType || 'running',
-            distance: totalDistance,
-            duration: totalDuration,
-            calories: calories,
-            pace: currentPace || 0,
-            routePath:
-              routeCoords.length > 0
-                ? (routeCoords as [number, number][])
-                : undefined,
-            // COIN_SYSTEM_PAUSED: Record 0 coins when system is disabled
-            earnedCoins: IS_COIN_SYSTEM_ENABLED ? earnedCoins : 0,
-          });
-          console.log('✅ Workout saved to history');
-
-          // ✅ Publish to social feed (with scope fields for leaderboard)
-          if (profile?.core?.name) {
-            const durationMin = Math.max(1, Math.round(totalDuration / 60));
-            const scope = extractFeedScope(profile);
-            const lastCoord = routeCoords.length > 0 ? routeCoords[routeCoords.length - 1] : null;
-            const parkPromise = lastCoord
-              ? detectNearbyPark(lastCoord[1], lastCoord[0])
-              : Promise.resolve(null);
-
-            parkPromise.then((park) => {
-              createWorkoutPost({
-                authorUid: currentUser.uid,
-                authorName: profile.core.name,
-                activityCategory: 'cardio',
-                durationMinutes: durationMin,
-                distanceKm: totalDistance > 0 ? totalDistance : undefined,
-                paceMinPerKm: currentPace > 0 ? currentPace : undefined,
-                ...scope,
-                parkId: park?.parkId,
-                parkName: park?.parkName,
-              }).catch((err) => console.warn('[WorkoutSummary] Feed post failed:', err));
-            }).catch(() => {});
-          }
-
-          // 2b. Award XP (hidden — user only sees %).
-          // Routed through the Guardian Cloud Function; rules block direct
-          // client writes to progression.globalXP / globalLevel.
-          try {
-            const durationMin = Math.round(totalDuration / 60);
-            const baseXP = calculateBaseWorkoutXP(durationMin, 2, 'cardio');
-
-            const { awardWorkoutXP } = await import('@/lib/awardWorkoutXP');
-            const result = await awardWorkoutXP({
-              xpDelta: baseXP,
-              source: `workout:${workoutType}`,
-            });
-
-            if (result) {
-              console.log(
-                `[XP] +${baseXP} XP (hidden) → total ${result.newGlobalXP}, Level ${result.newGlobalLevel}` +
-                  (result.leveledUp ? ' (LEVEL UP!)' : ''),
-              );
-            }
-          } catch (xpErr) {
-            console.error('[XP] Failed to award XP:', xpErr);
-          }
         } catch (error) {
-          console.error('❌ Error syncing to Firestore:', error);
+          console.error('❌ [WorkoutSummary] Error syncing progression to Firestore:', error);
         }
       }
     }
@@ -217,14 +148,17 @@ export default function WorkoutSummaryPage({
     );
   }
 
-  // Prepare workout data
+  // Prefer the confirmed snapshot written by finishWorkout over raw store state
+  const snap = savedWorkoutSnapshot;
   const workoutData: WorkoutData = {
-    time: totalDuration,
-    distance: totalDistance,
-    calories: calories,
+    time: snap?.duration ?? totalDuration,
+    distance: snap?.distance ?? totalDistance,
+    calories: snap?.calories ?? calories,
+    pace: snap?.pace ?? currentPace ?? 0,
+    elevationGain: snap?.elevationGain ?? (elevationGain > 0 ? Math.round(elevationGain) : undefined),
     routeCoords: routeCoords,
-    laps: laps.filter((lap) => !lap.isActive || lap.distanceMeters > 0), // Only completed laps
-    date: new Date(),
+    laps: snap?.laps ?? laps.filter((lap) => !lap.isActive || lap.distanceMeters > 0),
+    date: snap?.date ?? new Date(),
     title: 'האימון הושלם!',
     motivationalMessage: 'כל הכבוד! המשך כך!',
   };

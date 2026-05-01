@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import SummaryHeader from './shared/SummaryHeader';
-import MainStatsGrid from './shared/MainStatsGrid';
+import SummaryStatsGrid from './shared/SummaryStatsGrid';
 import DopamineStreakBlock from './shared/DopamineStreakBlock';
 import RunMapBlock from './running/RunMapBlock';
 import LapTableBlock from './running/LapTableBlock';
@@ -12,6 +12,10 @@ export interface WorkoutData {
   time: number; // seconds
   distance: number; // km
   calories: number;
+  /** Average pace in min/km. Shown in the stats grid when > 0. */
+  pace?: number;
+  /** Positive elevation gain in metres. Shown in the stats grid when > 0. */
+  elevationGain?: number;
   routeCoords: number[][]; // [[lng, lat], ...]
   laps: Lap[];
   date?: Date;
@@ -56,10 +60,12 @@ export default function SummaryOrchestrator({
               startCoord={startCoord}
               endCoord={endCoord}
             />
-            <MainStatsGrid
+            <SummaryStatsGrid
               time={workoutData.time}
               distance={workoutData.distance}
               calories={workoutData.calories}
+              pace={workoutData.pace}
+              elevationGain={workoutData.elevationGain}
             />
             {workoutData.laps.length > 0 && (
               <LapTableBlock laps={workoutData.laps} />
@@ -82,10 +88,12 @@ export default function SummaryOrchestrator({
               startCoord={startCoord}
               endCoord={endCoord}
             />
-            <MainStatsGrid
+            <SummaryStatsGrid
               time={workoutData.time}
               distance={workoutData.distance}
               calories={workoutData.calories}
+              pace={workoutData.pace}
+              elevationGain={workoutData.elevationGain}
             />
             {workoutData.laps.length > 0 && (
               <LapTableBlock laps={workoutData.laps} />
@@ -103,7 +111,7 @@ export default function SummaryOrchestrator({
               date={workoutData.date}
               motivationalMessage={workoutData.motivationalMessage}
             />
-            <MainStatsGrid
+            <SummaryStatsGrid
               time={workoutData.time}
               distance={workoutData.distance}
               calories={workoutData.calories}
@@ -120,10 +128,12 @@ export default function SummaryOrchestrator({
               date={workoutData.date}
               motivationalMessage={workoutData.motivationalMessage}
             />
-            <MainStatsGrid
+            <SummaryStatsGrid
               time={workoutData.time}
               distance={workoutData.distance}
               calories={workoutData.calories}
+              pace={workoutData.pace}
+              elevationGain={workoutData.elevationGain}
             />
             {streakDays > 0 && <DopamineStreakBlock streakDays={streakDays} />}
           </>

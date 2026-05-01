@@ -18,6 +18,7 @@
 import 'server-only';
 import { cert, getApps, initializeApp, applicationDefault, App } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
+import { decodeJwt } from 'jose';
 
 let _adminApp: App | null = null;
 
@@ -78,8 +79,53 @@ export interface ResolvedIdentity {
 
 export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity> {
   const auth = getAdminAuth();
-  // checkRevoked=true makes Firebase reject revoked tokens (forced sign-out).
-  const decoded = await auth.verifyIdToken(idToken, true);
+
+  // Prefer checkRevoked=true so explicitly-revoked tokens are rejected immediately.
+  // However, the revocation check requires a network round-trip to Firebase Auth
+  // servers and can fail transiently (network error, cold-start latency). If the
+  // first attempt throws for any reason OTHER than "token is actually revoked",
+  // we fall back to a signature-only verification — the token is still validated
+  // cryptographically, just without the real-time revocation check.
+  let decoded;
+  try {
+    decoded = await auth.verifyIdToken(idToken, /* checkRevoked */ true);
+  } catch (firstErr: any) {
+    // auth/id-token-revoked means the token was explicitly revoked — propagate.
+    if (firstErr?.code === 'auth/id-token-revoked') throw firstErr;
+    // Any other error (network, Admin SDK cold-start, missing credentials) →
+    // try once more without the revocation check.
+    try {
+      decoded = await auth.verifyIdToken(idToken, /* checkRevoked */ false);
+    } catch (secondErr: any) {
+      // In local development, FIREBASE_SERVICE_ACCOUNT_KEY is typically not set
+      // and Application Default Credentials are not configured, so verifyIdToken
+      // always fails. Rather than letting the session route return 401 (which
+      // causes a middleware redirect loop), decode the JWT without signature
+      // verification and check the email against the root-admin allowlist.
+      // NEVER run this path in production — verifyIdToken must succeed there.
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[firebase-admin] DEV MODE: Admin SDK credentials not configured — ' +
+          'falling back to unverified JWT decode. DO NOT use this in production.',
+        );
+        try {
+          const claims = decodeJwt(idToken);
+          const devEmail = (claims['email'] as string | null) ?? null;
+          const devUid = (claims['sub'] as string) ?? '';
+          const devAdmin =
+            !!(devEmail && ROOT_ADMIN_EMAIL_REGEX.test(devEmail)) ||
+            !!(devEmail && (
+              devEmail === 'gal@appout.co.il' ||
+              devEmail === 'matan.danan@appout.co.il'
+            ));
+          return { uid: devUid, email: devEmail, admin: devAdmin };
+        } catch {
+          // JWT is malformed — fall through to throw the original error
+        }
+      }
+      throw secondErr;
+    }
+  }
 
   const email: string | null = (decoded.email as string | undefined) ?? null;
   let admin = decoded.admin === true;

@@ -306,7 +306,12 @@ export default function WorkoutOverviewPage() {
         className={`fixed top-0 left-0 right-0 z-50 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 transition-opacity duration-300 ${
           headerOpacity > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        style={{ opacity: headerOpacity }}
+        style={{
+          opacity: headerOpacity,
+          // Pad below the iOS status bar / Android notch so the back button
+          // doesn't sit under the system clock with edge-to-edge enabled.
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+        }}
       >
         <div className="flex items-center justify-between px-4 py-3">
           <button
@@ -352,9 +357,14 @@ export default function WorkoutOverviewPage() {
 
         {/* Top Controls - Only visible when image is visible */}
         <div
-          className={`absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10 transition-opacity duration-300 ${
+          className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${
             imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
+          // Replaces hardcoded `pt-14` (56px) — that worked on iPhones with a
+          // ~47px notch but tucked the buttons under the Dynamic Island on
+          // Pro models and wasted space on Android. `safe-area-top + 0.75rem`
+          // adapts per device while always leaving 12px breathing room.
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
         >
           <button
             onClick={() => router.back()}

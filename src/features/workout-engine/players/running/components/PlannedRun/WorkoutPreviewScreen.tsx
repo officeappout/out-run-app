@@ -1,11 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Play, ArrowLeft, Clock, Zap } from 'lucide-react';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 import { formatPaceSeconds } from '../../../../core/services/running-engine.service';
 import RunStoryBar from './RunStoryBar';
 import type RunWorkout from '../../types/run-workout.type';
+import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
+import { usePartnerFilters } from '@/features/partners';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 
 interface WorkoutPreviewScreenProps {
   workout: RunWorkout;
@@ -19,6 +24,47 @@ export default function WorkoutPreviewScreen({
   onBack,
 }: WorkoutPreviewScreenProps) {
   const { zones, basePace, showNumbers } = usePlannedRunEngine();
+  const router = useRouter();
+
+  // ── Partner Finder entry point ────────────────────────────────────────────
+  // One-shot GPS fetch — no GPS source already exposed in this screen.
+  // Mirrors the permission-aware pattern used elsewhere; silently skips
+  // when geolocation is unavailable so the section just hides.
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission.state !== 'granted') return;
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 60_000,
+          }),
+        );
+        if (cancelled) return;
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch {
+        /* permission denied / API unsupported — silently hide partner hint */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const { live: livePartners } = usePartnerData(userLocation, 5);
+  const similarCount = useMemo(
+    () => livePartners.filter((p) => p.activityStatus === 'running').length,
+    [livePartners],
+  );
+
+  const handleOpenLivePartners = useCallback(() => {
+    usePartnerFilters.getState().setLiveActivity('running');
+    useMapStore.getState().setPendingPartnerOverlay({ tab: 'live' });
+    router.push('/map');
+  }, [router]);
 
   const totalDuration = workout.blocks.reduce(
     (sum, b) => sum + (b.durationSeconds ?? 0),
@@ -196,6 +242,27 @@ export default function WorkoutPreviewScreen({
           paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
         }}
       >
+        {/* Row 1 — "X people running near you" hint (Partner Finder discovery) */}
+        {similarCount > 0 && (
+          <button
+            type="button"
+            onClick={handleOpenLivePartners}
+            className="block w-full text-center pb-2 active:scale-[0.99] transition-transform"
+            style={{ color: '#00ADEF', fontSize: '13px' }}
+            dir="rtl"
+          >
+            {`${similarCount} אנשים רצים קרוב אליך`}
+          </button>
+        )}
+
+        {/* Row 2 — share-as-live toggle (always visible) */}
+        <ShareAsLiveToggle
+          activityType="running"
+          workoutTitle={workout.title ?? ''}
+          userLocation={userLocation}
+          className="pb-3"
+        />
+
         <button
           onClick={onStart}
           className="w-full h-14 rounded-2xl flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform text-white bg-gradient-to-l from-[#00C9F2] to-[#00AEEF]"

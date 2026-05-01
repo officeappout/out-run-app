@@ -154,7 +154,15 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
       .slice(0, MAX_SUGGESTIONS);
   }, [userPos, parks, routes, workoutType]);
 
-  if (!userPos) return null;
+  // Avoid the classic "widget pops in" jump: render a skeleton while GPS
+  // resolves and parks are fetched. Empty-state still returns null because
+  // by then the user has likely already scrolled past.
+  const isResolvingLocation = !userPos;
+  const isFetchingData = userPos && !loaded;
+
+  if (isResolvingLocation || isFetchingData) {
+    return <WorkoutLocationSuggestionsSkeleton workoutType={workoutType} />;
+  }
   if (loaded && suggestions.length === 0) return null;
 
   const handleTap = (item: (typeof suggestions)[0]) => {
@@ -214,8 +222,10 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
               onClick={() => handleTap(item)}
               className="flex-shrink-0 w-[148px] bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm active:scale-[0.97] transition-transform text-start"
             >
-              {/* Park/Route cover image */}
-              <div className="relative w-full h-[88px] bg-gradient-to-br from-cyan-50 to-cyan-100">
+              {/* Park/Route cover image — `aspect-video` (16:9) replaces the
+                  hardcoded 88px so the slot scales with card width on
+                  larger viewports without re-laying out. */}
+              <div className="relative w-full aspect-video bg-gradient-to-br from-cyan-50 to-cyan-100">
                 <Image
                   src={item.imageUrl || PARK_FALLBACK_IMAGE}
                   alt={item.name}
@@ -240,5 +250,54 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
         </AnimatePresence>
       </div>
     </motion.div>
+  );
+}
+
+/**
+ * WorkoutLocationSuggestionsSkeleton
+ * ---------------------------------
+ * Renders a header + 4 placeholder cards with the EXACT same dimensions as
+ * the loaded carousel — same `w-[148px]` card, same `aspect-video` image
+ * slot, same two text lines below. Reserves the vertical space the real
+ * widget will occupy, so the cards below stop "jumping up" once GPS and
+ * Firestore resolve.
+ *
+ * Uses `aspect-video` (not a fixed pixel height) per the responsive task.
+ */
+function WorkoutLocationSuggestionsSkeleton({ workoutType }: { workoutType: WorkoutType }) {
+  const isStrength = workoutType === 'strength';
+  const title = isStrength ? 'גינות כושר קרובות' : 'מסלולים קרובים';
+
+  return (
+    <div dir="rtl" aria-busy="true" aria-live="polite">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[15px] font-bold text-gray-800 flex items-center gap-1.5">
+          {isStrength ? (
+            <Dumbbell size={15} className="text-cyan-500" />
+          ) : (
+            <RouteIcon size={15} className="text-cyan-500" />
+          )}
+          {title}
+        </h3>
+        {/* Right-side "הכל" link omitted in skeleton — it's interactive. */}
+      </div>
+
+      <div className="flex gap-2.5 overflow-x-hidden -mx-4 px-4 pb-1">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex-shrink-0 w-[148px] bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm"
+          >
+            {/* Image slot — same `aspect-video` so the skeleton card has
+                the exact final card height. */}
+            <div className="relative w-full aspect-video bg-gradient-to-br from-slate-100 to-slate-200 animate-pulse" />
+            <div className="px-2.5 py-2 space-y-1.5">
+              <div className="h-3 w-3/4 rounded bg-slate-200 animate-pulse" />
+              <div className="h-2 w-1/2 rounded bg-slate-100 animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

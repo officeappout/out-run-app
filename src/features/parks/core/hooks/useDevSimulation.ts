@@ -5,6 +5,14 @@ import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Route, type ActivityType } from '../types/route.types';
 import { haversineMeters, interpolatePath } from '../services/geoUtils';
+import {
+  randomMockPace,
+  randomProgramLevel,
+  randomProgramName,
+  randomGender,
+  randomTargetDistanceKm,
+  randomCurrentStreak,
+} from '@/features/safecity/services/presence.service';
 
 const WALK_SPEED_MS = 1.667; // 6 km/h in m/s
 const TICK_MS = 100;
@@ -32,12 +40,21 @@ export interface MockPartner {
   _initialOffset: number;
 }
 
+export interface CityPreset {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 export interface DevSimulationState {
   isMockEnabled: boolean;
   toggleMock: () => void;
   mockLocation: { lat: number; lng: number } | null;
   setMockLocation: (pos: { lat: number; lng: number }) => void;
   effectiveLocation: (realPos: { lat: number; lng: number } | null) => { lat: number; lng: number } | null;
+  selectedCity: string | null;
+  setCityPreset: (city: CityPreset) => void;
   isSimulating: boolean;
   simulationProgress: number;
   simulatedBearing: number;
@@ -53,6 +70,7 @@ export interface DevSimulationState {
 export function useDevSimulation(): DevSimulationState {
   const [isMockEnabled, setIsMockEnabled] = useState(false);
   const [mockLocation, setMockLocationRaw] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [simulatedPath, setSimulatedPath] = useState<[number, number][]>([]);
@@ -73,6 +91,7 @@ export function useDevSimulation(): DevSimulationState {
     setIsMockEnabled(prev => {
       if (prev) {
         setMockLocationRaw(null);
+        setSelectedCity(null);
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
         setIsSimulating(false);
         setSimulationProgress(0);
@@ -87,6 +106,12 @@ export function useDevSimulation(): DevSimulationState {
     setMockLocationRaw(pos);
     if (!isMockEnabled) setIsMockEnabled(true);
   }, [isMockEnabled]);
+
+  const setCityPreset = useCallback((city: CityPreset) => {
+    setMockLocationRaw({ lat: city.lat, lng: city.lng });
+    setIsMockEnabled(true);
+    setSelectedCity(city.name);
+  }, []);
 
   const effectiveLocation = useCallback(
     (realPos: { lat: number; lng: number } | null) => {
@@ -197,12 +222,28 @@ export function useDevSimulation(): DevSimulationState {
     totalDist: number;
     distTravelled: number;
     speed: number;
+    /**
+     * Mock filter-data fields — generated once per partner spawn so the
+     * partner-finder filters (gender / program / level / pace / distance /
+     * streak) bucket each partner consistently across heartbeat ticks.
+     * Re-rolling these every PARTNER_TICK_MS would thrash the carousel.
+     */
+    filterFields: {
+      programLevel: number;
+      programName: string;
+      gender: 'male' | 'female';
+      targetDistanceKm: number;
+      currentStreak: number;
+      mockPace?: string;
+    };
   }>>(new Map());
 
+  // Muted, dusty palette — keeps partners identifiable without competing
+  // with the user's own bright cyan lemur marker.
   const PELOTON_COLORS = [
-    '#FF6B6B', '#4ECDC4', '#FFE66D', '#A78BFA', '#F472B6',
-    '#34D399', '#FB923C', '#60A5FA', '#E879F9', '#FBBF24',
-    '#22D3EE', '#F87171',
+    '#8B9DC3', '#7BA898', '#C9A96E', '#A090B8', '#B08A9A',
+    '#7EA88A', '#C49A7A', '#7E9DB0', '#B898A8', '#A4B87A',
+    '#7AAEC0', '#B0AC84',
   ];
 
   const clearMockPartners = useCallback(() => {
@@ -249,12 +290,21 @@ export function useDevSimulation(): DevSimulationState {
         _initialOffset: offset,
       });
 
+      const isMover = activity === 'running' || activity === 'walking';
       partnerSimRef.current.set(id, {
         path,
         segDist,
         totalDist,
         distTravelled: offset,
         speed: WALK_SPEED_MS * speedMult,
+        filterFields: {
+          programLevel: randomProgramLevel(),
+          programName: randomProgramName(),
+          gender: randomGender(),
+          targetDistanceKm: randomTargetDistanceKm(),
+          currentStreak: randomCurrentStreak(),
+          ...(isMover ? { mockPace: randomMockPace() } : {}),
+        },
       });
     }
 
@@ -269,7 +319,7 @@ export function useDevSimulation(): DevSimulationState {
           if (state.distTravelled >= state.totalDist) state.distTravelled = 0;
           const pos = positionOnPath(state.path, state.segDist, state.distTravelled);
 
-          writePartnerPresence(p.id, p.name, p.activityType, pos.lat, pos.lng);
+          writePartnerPresence(p.id, p.name, p.activityType, pos.lat, pos.lng, state.filterFields);
 
           return { ...p, lat: pos.lat, lng: pos.lng };
         });
@@ -288,6 +338,8 @@ export function useDevSimulation(): DevSimulationState {
     mockLocation,
     setMockLocation,
     effectiveLocation,
+    selectedCity,
+    setCityPreset,
     isSimulating,
     simulationProgress,
     simulatedBearing,
@@ -331,7 +383,23 @@ function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number):
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
-function writePartnerPresence(id: string, name: string, activity: ActivityType, lat: number, lng: number) {
+interface MockFilterFields {
+  programLevel: number;
+  programName: string;
+  gender: 'male' | 'female';
+  targetDistanceKm: number;
+  currentStreak: number;
+  mockPace?: string;
+}
+
+function writePartnerPresence(
+  id: string,
+  name: string,
+  activity: ActivityType,
+  lat: number,
+  lng: number,
+  filterFields: MockFilterFields,
+) {
   setDoc(doc(db, 'presence', id), {
     uid: id,
     name,
@@ -350,5 +418,11 @@ function writePartnerPresence(id: string, name: string, activity: ActivityType, 
     },
     lemurStage: 3,
     level: 3,
+    programLevel: filterFields.programLevel,
+    programName: filterFields.programName,
+    gender: filterFields.gender,
+    targetDistanceKm: filterFields.targetDistanceKm,
+    currentStreak: filterFields.currentStreak,
+    ...(filterFields.mockPace ? { mockPace: filterFields.mockPace } : {}),
   }).catch(() => {});
 }

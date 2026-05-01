@@ -123,9 +123,12 @@ export default function ProgressPage() {
       className="min-h-[100dvh] bg-[#F8FAFC]"
       style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* ── Sticky Header ── */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between" dir="rtl">
+      {/* ── Sticky Header — pad below status bar. ── */}
+      <header
+        className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between" dir="rtl">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#00C9F2]/10 flex items-center justify-center">
               <BarChart2 className="w-4 h-4 text-[#00C9F2]" />

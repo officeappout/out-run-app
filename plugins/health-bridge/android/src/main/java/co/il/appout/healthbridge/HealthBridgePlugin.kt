@@ -1,6 +1,7 @@
 package co.il.appout.healthbridge
 
 import android.content.Context
+import android.content.Intent
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -118,7 +119,7 @@ class HealthBridgePlugin : Plugin() {
     }
 
     @PluginMethod
-    fun requestPermissions(call: PluginCall) {
+    override fun requestPermissions(call: PluginCall) {
         // Health Connect only allows permission requests via an
         // ActivityResultContract launched from an Activity. Capacitor 6
         // does not yet ship with a built-in launcher for the new
@@ -130,7 +131,13 @@ class HealthBridgePlugin : Plugin() {
         // src/lib/native/init.ts).
         try {
             val ctx = context ?: throw IllegalStateException("no-context")
-            val intent = HealthConnectClient.getHealthConnectSettingsIntent(ctx)
+            // Health Connect 1.1.0-alpha+ removed the static
+            // `getHealthConnectSettingsIntent(ctx)` helper. The supported
+            // way to open the Health Connect permission/settings screen
+            // is to launch an Intent with the action constant.
+            val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
             ctx.startActivity(intent)
             // Resolve immediately with empty/denied; the web layer will
             // re-check on resume.

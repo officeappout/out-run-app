@@ -118,10 +118,15 @@ export async function middleware(request: NextRequest) {
   //    layout + Firestore rules; introducing the admin cookie
   //    requirement there would break their flow.
   // ──────────────────────────────────────────────────────────────
+  // Admin gating applies only on the dedicated admin domain.
+  // On localhost the Firebase Admin SDK is typically not configured (no
+  // FIREBASE_SERVICE_ACCOUNT_KEY), so /api/auth/session returns 401 and the
+  // session cookie is never minted — causing a middleware redirect loop.
+  // Client-side auth in the layout is sufficient for local development.
   const shouldGateAdmin =
     pathname.startsWith('/admin') &&
     !isAdminPublic(pathname) &&
-    (isAdminDomain || isLocalDev);
+    isAdminDomain; // intentionally excludes isLocalDev
 
   if (shouldGateAdmin) {
     const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;

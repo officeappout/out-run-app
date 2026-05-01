@@ -3,7 +3,12 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+// Use lightweight `m.*` instead of `motion.*` so feed items don't pull in
+// the full motion bundle on every Android render. The root <LazyMotion
+// features={domAnimation}> in ClientLayout supplies the animation features
+// at runtime, keeping initial JS payload smaller and reducing main-thread
+// work during scroll.
+import { m, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -31,7 +36,7 @@ import FeedPostCard from '@/features/social/components/FeedPostCard';
 import EventCard from '@/features/arena/components/EventCard';
 import GroupCard from '@/features/arena/components/GroupCard';
 import ActivityPanel from '@/features/social/components/ActivityPanel';
-import ChatInbox from '@/features/social/components/ChatInbox';
+import { useChatStore } from '@/features/social/store/useChatStore';
 import DiscoverSection from '@/features/social/components/DiscoverSection';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import SessionDrawer from '@/features/arena/components/SessionDrawer';
@@ -46,6 +51,7 @@ import {
   addCommunitySessionsToPlanner,
 } from '@/features/user/scheduling/services/communitySchedule.service';
 import type { CommunityGroup, CommunityEvent } from '@/types/community.types';
+import CollapsingHeader from '@/components/ui/CollapsingHeader';
 
 type CommunityTab = 'activity' | 'discover';
 
@@ -96,7 +102,10 @@ export default function FeedPage() {
   const [loadingPosts, setLoadingPosts] = useState(false);
 
   const [activityOpen, setActivityOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  // Chat sheet is now mounted globally in ClientLayout — driven by useChatStore.
+  // We just need an action to flip `isOpen` so this page's existing CTAs can
+  // surface the inbox without rendering a second ChatInbox overlay.
+  const openChat = useChatStore((s) => s.open);
   const { unreadCount: activityUnread } = useActivityFeed(userId ?? null);
   const { totalUnread: chatUnread } = useChatInbox(userId ?? null);
 
@@ -388,13 +397,19 @@ export default function FeedPage() {
   }
 
   return (
-    <div
-      className="min-h-[100dvh] bg-[#F8FAFC]"
-      style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
-    >
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between" dir="rtl">
+    // BottomNavbar clearance is handled globally by <main> in ClientLayout
+    // (padding-bottom: calc(3rem + safe-area)). Adding another 5rem + safe-area
+    // here used to double-stack and leave ~196px of empty gel under the feed.
+    <div className="min-h-[100dvh] bg-[#F8FAFC]">
+      {/* ── Header — Instagram-style: hides on scroll-down, slides back on scroll-up.
+            Was missing safe-area-inset-top entirely, so the bar slid under the
+            iOS notch / Dynamic Island. CollapsingHeader applies it for us. ── */}
+      <CollapsingHeader
+        zIndex={30}
+        className="bg-white/90 backdrop-blur-md border-b border-gray-100"
+      >
+        {/* Tightened from py-3 → py-1.5 so the row sits flush under the notch. */}
+        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-between" dir="rtl">
           {/* Right zone (RTL = visually left): Profile + Plus */}
           <div className="flex items-center gap-2">
             <Link href="/profile" className="block">
@@ -449,7 +464,7 @@ export default function FeedPage() {
             </button>
 
             <button
-              onClick={() => setChatOpen(true)}
+              onClick={openChat}
               className="relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
               aria-label="הודעות"
             >
@@ -490,11 +505,11 @@ export default function FeedPage() {
             </button>
           </div>
         </div>
-      </header>
+      </CollapsingHeader>
 
       {/* ── Overlay Panels ──────────────────────────────────────── */}
+      {/* ChatInbox is mounted globally in ClientLayout (driven by useChatStore). */}
       <ActivityPanel isOpen={activityOpen} onClose={() => setActivityOpen(false)} />
-      <ChatInbox isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* ── Group Details Drawer ─────────────────────────────────── */}
       <GroupDetailsDrawer
@@ -505,7 +520,7 @@ export default function FeedPage() {
         onLeave={handleLeaveGroup}
         isJoined={selectedGroup ? joinedGroupIds.has(selectedGroup.id) : false}
         joining={selectedGroup ? joiningId === selectedGroup.id : false}
-        onOpenChat={() => { setSelectedGroup(null); setChatOpen(true); }}
+        onOpenChat={() => { setSelectedGroup(null); openChat(); }}
         onEdit={(id) => { setSelectedGroup(null); setEditGroupId(id); setWizardOpen(true); }}
       />
 
@@ -525,7 +540,7 @@ export default function FeedPage() {
         onClose={() => setSuccessData(null)}
         name={successData?.name ?? ''}
         verb={successData?.verb ?? 'יתאמן'}
-        onOpenChat={() => { setSuccessData(null); setChatOpen(true); }}
+        onOpenChat={() => { setSuccessData(null); openChat(); }}
         scheduleSlots={successData?.scheduleSlots}
         category={successData?.category}
         address={successData?.address}
@@ -544,7 +559,7 @@ export default function FeedPage() {
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
         <AnimatePresence mode="wait">
           {tab === 'activity' ? (
-            <motion.div
+            <m.div
               key="activity"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -552,9 +567,9 @@ export default function FeedPage() {
               transition={{ duration: 0.2 }}
             >
               {renderActivityTab()}
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key="discover"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -562,7 +577,7 @@ export default function FeedPage() {
               transition={{ duration: 0.2 }}
             >
               {renderDiscoverTab()}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
@@ -625,13 +640,17 @@ export default function FeedPage() {
           </div>
 
           {posts.map((post) => (
-            <motion.div
+            <m.div
               key={post.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <FeedPostCard post={post} currentUid={userId} />
-            </motion.div>
+              <FeedPostCard
+                post={post}
+                currentUid={userId}
+                onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))}
+              />
+            </m.div>
           ))}
         </div>
       </div>
@@ -717,7 +736,7 @@ export default function FeedPage() {
                 joining={joiningId === group.id}
                 onJoin={handleJoinGroup}
                 onCardClick={() => setSelectedGroup(group)}
-                onOpenChat={() => setChatOpen(true)}
+                onOpenChat={openChat}
               />
             ))}
           </DiscoverSection>
@@ -739,7 +758,7 @@ export default function FeedPage() {
                 joining={joiningId === group.id}
                 onJoin={handleJoinGroup}
                 onCardClick={() => setSelectedGroup(group)}
-                onOpenChat={() => setChatOpen(true)}
+                onOpenChat={openChat}
               />
             ))}
           </DiscoverSection>
@@ -764,7 +783,7 @@ export default function FeedPage() {
                   joining={joiningId === group.id}
                   onJoin={handleJoinGroup}
                   onCardClick={() => setSelectedGroup(group)}
-                  onOpenChat={() => setChatOpen(true)}
+                  onOpenChat={openChat}
                   onUpdateLocation={
                     canFixLocation
                       ? () => {

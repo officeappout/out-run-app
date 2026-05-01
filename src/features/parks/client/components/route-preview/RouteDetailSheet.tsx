@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import {
-  X, Play, Navigation, MapPin, ChevronLeft, Loader2,
-  Calendar, Users, UserPlus, Gauge, Clock, Footprints, Activity, Bike,
-  PersonStanding, Crosshair, Flag, RefreshCw, MessageCircle, Check,
+  X, Play, Navigation, MapPin, ChevronLeft,
+  Calendar, Users, Footprints, Activity, Bike,
+  PersonStanding, Crosshair, Flag, RefreshCw, Check, Flame, Clock, Ruler,
 } from 'lucide-react';
-import { Route, ActivityType } from '@/features/parks/core/types/route.types';
+import { Route, ActivityType, ROUTE_FEATURE_TAG_LABELS } from '@/features/parks/core/types/route.types';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
+import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import {
   useCommunityEnrichment,
   matchesDayFilter,
@@ -19,20 +20,45 @@ import { useMyRegistrations } from '@/features/parks/core/hooks/useMyRegistratio
 import { joinEvent, materializeVirtualSession } from '@/features/admin/services/community.service';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import { auth } from '@/lib/firebase';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
+import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
+import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
+import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
 
 const DRAWER_HEIGHT = '85vh';
 const CLOSE_THRESHOLD = 180;
 
-const DIFFICULTY_MAP: Record<string, { label: string; bg: string; text: string }> = {
-  easy:   { label: 'קל',    bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  medium: { label: 'בינוני', bg: 'bg-amber-100',   text: 'text-amber-700' },
-  hard:   { label: 'קשה',   bg: 'bg-red-100',     text: 'text-red-700' },
-};
+// Same pill style as WorkoutPreviewDrawer's stat row — keeps visual parity
+// between the route preview and the strength workout preview.
+const PILL_BORDER = '0.5px solid #E0E9FF';
+const STAT_PILL_CLASS =
+  'flex-shrink-0 inline-flex items-center gap-1.5 bg-white shadow-sm rounded-lg px-3 py-1.5';
 
 const ACTIVITY_LABELS: Record<string, string> = {
   running: 'ריצה', walking: 'הליכה', cycling: 'רכיבה', workout: 'אימון',
+};
+
+// Surface / Environment translation tables. Built as Record<string, string>
+// because RouteFeatures.{surface,environment} are loose `string` in the
+// type — the writer (RouteEditor + GIS importers) emits a small set of
+// known values, so we cover those and fall through to the raw value for
+// anything legacy/unknown.
+const SURFACE_LABELS: Record<string, string> = {
+  paved: 'סלול',
+  road: 'סלול',
+  asphalt: 'סלול',
+  trail: 'שבילים',
+  dirt: 'שבילים',
+  mixed: 'מעורב',
+};
+
+const ENVIRONMENT_LABELS: Record<string, string> = {
+  urban: 'עירוני',
+  nature: 'טבע',
+  park: 'פארק',
+  beach: 'חוף',
 };
 
 const DAY_FILTER_LABELS: Record<DayFilter, string> = {
@@ -53,6 +79,15 @@ function formatDuration(minutes: number): string {
     return m > 0 ? `${h} שעה ${m} דק'` : `${h} שעה`;
   }
   return `${Math.round(minutes)} דק'`;
+}
+
+// Route activity → presence activity adapter. The Route domain has a
+// `'workout'` value that doesn't exist on PresenceActivityStatus, so we
+// fold it onto `'strength'` (the closest equivalent broadcast tag).
+function mapRouteActivityToPresence(act: ActivityType | undefined): WorkoutActivityStatus {
+  if (act === 'workout') return 'strength';
+  if (act === 'walking' || act === 'cycling' || act === 'running') return act;
+  return 'running';
 }
 
 function formatEventDate(raw: string): string {
@@ -104,6 +139,9 @@ export default function RouteDetailSheet({
   const [pickedTime, setPickedTime] = useState('18:00');
   const [publishingSession, setPublishingSession] = useState(false);
   const [justPublished, setJustPublished] = useState<{ time: string; name: string; photoURL?: string } | null>(null);
+  // Optimistic local sessions injected immediately after "אני מגיע ב..." publish,
+  // so the list updates without waiting for a Firestore snapshot round-trip.
+  const [localSessions, setLocalSessions] = useState<SessionEnrichment[]>([]);
 
   const currentUid = auth.currentUser?.uid;
 
@@ -116,6 +154,8 @@ export default function RouteDetailSheet({
       const [h, m] = pickedTime.split(':').map(Number);
       today.setHours(h, m, 0, 0);
       if (today < new Date()) today.setDate(today.getDate() + 1);
+      // GeoJSON path format is [lng, lat] — extract start-point coordinates.
+      const startPoint = route.path?.[0];
       await createPlannedSession({
         userId: user.uid,
         displayName: user.displayName ?? 'משתמש',
@@ -125,9 +165,22 @@ export default function RouteDetailSheet({
         level: 'beginner',
         startTime: today,
         privacyMode: 'squad',
+        lat: startPoint != null ? startPoint[1] : null,
+        lng: startPoint != null ? startPoint[0] : null,
       });
       setShowTimePicker(false);
       setJustPublished({ time: pickedTime, name: user.displayName ?? 'משתמש', photoURL: user.photoURL ?? undefined });
+      // Inject an optimistic session immediately so it appears in filteredSessions
+      // without waiting for the Firestore snapshot to propagate.
+      const syntheticSession: SessionEnrichment = {
+        eventId: `local-${user.uid}-${Date.now()}`,
+        eventLabel: user.displayName ?? 'אני',
+        nextStartTime: today.toISOString(),
+        currentRegistrations: 1,
+        plannedCount: 1,
+        avatars: [{ uid: user.uid, name: user.displayName ?? 'אני', photoURL: user.photoURL ?? undefined }],
+      };
+      setLocalSessions((prev) => [...prev, syntheticSession]);
     } catch (err) {
       console.error('[RouteDetail] Failed to publish arrival:', err);
     } finally {
@@ -141,10 +194,7 @@ export default function RouteDetailSheet({
 
   const enrichedRoute = useMemo(() => {
     if (!route) return null;
-    const enriched = enrichRoutes([route])[0];
-    if (enriched?.linkedSessions?.eventId) return enriched;
-    if (route.linkedSessions?.eventId) return route;
-    return enriched;
+    return enrichRoutes([route])[0] ?? null;
   }, [route, enrichRoutes]);
 
   const allSessions = useMemo(() => {
@@ -157,9 +207,13 @@ export default function RouteDetailSheet({
     for (const s of fromProp) {
       if (!merged.some((m) => m.eventId === s.eventId)) merged.push(s);
     }
+    // Merge optimistic locally-published sessions; skip if Firestore already returned them.
+    for (const s of localSessions) {
+      if (!merged.some((m) => m.eventId === s.eventId)) merged.push(s);
+    }
     merged.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
     return merged;
-  }, [route, allSessionsMap]);
+  }, [route, allSessionsMap, localSessions]);
 
   const filteredSessions = useMemo(
     () => allSessions.filter((s) => matchesDayFilter(s.nextStartTime, dayFilter)),
@@ -204,7 +258,11 @@ export default function RouteDetailSheet({
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
+    else {
+      document.body.style.overflow = '';
+      // Clear optimistic sessions when sheet closes so the next route opens clean.
+      setLocalSessions([]);
+    }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
@@ -235,6 +293,20 @@ export default function RouteDetailSheet({
     return distanceLabel(km);
   }, [userLocation, route?.path]);
 
+  const walkToRouteMinutes = useMapStore((s) => s.walkToRouteMinutes);
+  const walkSteps          = useMapStore((s) => s.walkSteps);
+
+  // Pre-compute the route maneuver list once per route (cheap; pure
+  // geometry math). Used by the "The route" accordion row below.
+  const routeTurns = useMemo(
+    () => (route?.path ? computeRouteTurns(route.path) : []),
+    [route?.path],
+  );
+
+  // Accordion state — only one section open at a time. `null` = both
+  // collapsed (default).
+  const [openSection, setOpenSection] = useState<'walk' | 'route' | null>(null);
+
   const handleNavigate = useCallback(() => {
     if (!route?.path?.length) return;
     const [lng, lat] = route.path[0];
@@ -243,7 +315,6 @@ export default function RouteDetailSheet({
 
   if (!route) return null;
 
-  const diff = DIFFICULTY_MAP[route.difficulty] ?? DIFFICULTY_MAP.easy;
   const activityLabel = ACTIVITY_LABELS[route.activityType || route.type] || '';
   const coverImage = route.images?.[0] || null;
   const isNavRoute = route.id?.startsWith('nav-');
@@ -292,7 +363,10 @@ export default function RouteDetailSheet({
                 }`}
                 style={{ opacity: headerOpacity }}
               >
-                <div className="flex items-center justify-between px-4 pt-10 pb-3">
+                <div
+                  className="flex items-center justify-between px-4 pb-3"
+                  style={{ paddingTop: 'calc(max(2.5rem, env(safe-area-inset-top, 0px) + 0.5rem))' }}
+                >
                   <button onClick={onClose} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center active:scale-90 transition-transform">
                     <ChevronLeft size={20} className="text-gray-700" />
                   </button>
@@ -303,8 +377,8 @@ export default function RouteDetailSheet({
                 </div>
               </div>
 
-              {/* Scrollable body */}
-              <div ref={scrollRef} className="h-full overflow-y-auto pb-36">
+              {/* Scrollable body — bottom padding accounts for the fixed action bar + safe-area */}
+              <div ref={scrollRef} className="h-full overflow-y-auto" style={{ paddingBottom: 'calc(max(9rem, env(safe-area-inset-bottom, 0px) + 7rem))' }}>
                 {/* Hero */}
                 <div
                   className="relative w-full overflow-hidden"
@@ -328,25 +402,39 @@ export default function RouteDetailSheet({
                   />
 
                   {/* Top controls */}
-                  <div className={`absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10 transition-opacity duration-300 ${heroOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  <div
+                    className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${heroOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+                  >
                     <button onClick={onClose} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform">
                       <X size={20} />
                     </button>
                   </div>
 
-                  {/* Title + badges */}
+                  {/* Title + activity badge */}
                   <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-3 py-1 ${diff.bg} ${diff.text} text-[10px] font-black rounded-full`}>
-                        {diff.label}
-                      </span>
-                      {activityLabel && (
+                    {activityLabel && (
+                      <div className="flex items-center gap-2 mb-2">
                         <span className="px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm">
                           {activityLabel}
                         </span>
-                      )}
-                    </div>
-                    <h1 className="text-[22px] font-black text-gray-900 leading-tight">
+                      </div>
+                    )}
+                    {/* Hero title — same sizing as the strength workout
+                        overview's hero title (`text-[20px]/font-bold`).
+                        Capped at 2 lines so very long route names wrap
+                        cleanly instead of pushing the layout, and reserves
+                        40px on the inline-end side so a long name doesn't
+                        slide under the close (X) button which sits at the
+                        top-right (RTL = visual right) of the hero. */}
+                    <h1
+                      className="text-[20px] font-bold text-gray-900 leading-tight line-clamp-2"
+                      style={{
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                        paddingRight: 40,
+                      }}
+                    >
                       {route.name || 'מסלול ללא שם'}
                     </h1>
                   </div>
@@ -354,43 +442,360 @@ export default function RouteDetailSheet({
 
                 {/* Content */}
                 <div className="bg-white -mt-10 relative z-10 px-5 pt-2 pb-8">
-                  {/* Location + distance */}
-                  <div className="flex items-center gap-4 mb-5 flex-wrap">
-                    {route.city && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <MapPin size={12} />{route.city}
-                      </span>
+                  {/* Top meta row: city + walk-to-start distance.
+                      Kept intentionally small + grey so it reads as
+                      contextual ("where am I going from?") rather than
+                      as a stat about the route itself. */}
+                  {(route.city || distToStart) && (
+                    <div className="flex items-center gap-3 flex-wrap mb-3">
+                      {route.city && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <MapPin size={12} />{route.city}
+                        </span>
+                      )}
+                      {distToStart && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Navigation size={12} />{distToStart} עד תחילת המסלול
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Primary stat pills — same visual treatment as the
+                      strength preview (white pill, 0.5px cyan border, sm
+                      shadow). Kept above the secondary inline stats so
+                      the user sees the three "headline" facts first. */}
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
+                      <DifficultyBolts difficulty={route.difficulty} size="md" />
+                    </div>
+                    {route.duration > 0 && (
+                      <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
+                        <Clock size={14} className="text-slate-400 flex-shrink-0" />
+                        <span className="text-[13px] font-normal text-gray-800">{formatDuration(route.duration)}</span>
+                      </div>
                     )}
-                    {distToStart && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Navigation size={12} />{distToStart} מההתחלה
-                      </span>
+                    {route.distance > 0 && (
+                      <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
+                        <Ruler size={14} className="text-slate-400 flex-shrink-0" />
+                        <span className="text-[13px] font-normal text-gray-800">{formatDistance(route.distance)}</span>
+                        <span className="text-[10px] text-gray-400 font-bold">אורך מסלול</span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Stats pills */}
-                  <section className="mb-6">
-                    <div className="flex gap-3">
-                      {route.distance > 0 && (
-                        <div className="flex-1 bg-blue-50 rounded-2xl p-3.5 flex flex-col items-center gap-1">
-                          <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-                            <Gauge size={18} className="text-blue-600" />
-                          </div>
-                          <span className="text-lg font-black text-gray-900">{formatDistance(route.distance)}</span>
-                          <span className="text-[10px] text-gray-400 font-bold">מרחק</span>
-                        </div>
+                  {/* Secondary inline stats — calories + monthly popularity.
+                      Smaller, no pill chrome, so the eye separates them
+                      from the primary headline pills above. */}
+                  {(route.calories > 0 || (route.analytics?.usageCount ?? 0) > 0) && (
+                    <div className="flex items-center gap-3 flex-wrap text-[12px] font-bold text-gray-500 mb-4">
+                      {route.calories > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <Flame size={13} className="text-orange-500" />
+                          <span>{route.calories} קק&quot;ל</span>
+                        </span>
                       )}
-                      {route.duration > 0 && (
-                        <div className="flex-1 bg-purple-50 rounded-2xl p-3.5 flex flex-col items-center gap-1">
-                          <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center">
-                            <Clock size={18} className="text-purple-600" />
-                          </div>
-                          <span className="text-lg font-black text-gray-900">{formatDuration(route.duration)}</span>
-                          <span className="text-[10px] text-gray-400 font-bold">משך</span>
-                        </div>
+                      {route.calories > 0 && (route.analytics?.usageCount ?? 0) > 0 && (
+                        <span className="text-gray-300" aria-hidden>•</span>
+                      )}
+                      {(route.analytics?.usageCount ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <Users size={13} className="text-emerald-500" />
+                          <span>{route.analytics?.usageCount} רצו החודש</span>
+                        </span>
                       )}
                     </div>
-                  </section>
+                  )}
+
+                  {/* ── Journey timeline bar ──────────────────────────────
+                      Single pill container with up to three segments:
+                        [🚶 walk] → [🗺️ route] → [🏁]
+                      Walk segment shown only when walkToRouteMinutes is set.
+                      Finish marker omitted for circular routes (start ≈ end).
+                      RTL flex: DOM order [walk, →, route, →, finish] renders
+                      with walk at the right and finish at the left. ✓ */}
+                  {route.duration > 0 && (() => {
+                    const path = route.path;
+                    const isCircular = path && path.length >= 2
+                      ? haversineKm(path[0][1], path[0][0], path[path.length - 1][1], path[path.length - 1][0]) * 1000 < 100
+                      : false;
+                    return (
+                      <div
+                        dir="rtl"
+                        className="w-full bg-white shadow-sm rounded-lg px-4 py-3 flex flex-row items-center justify-between mb-4"
+                        style={{ border: '0.5px solid #E0E9FF' }}
+                      >
+                        {/* Walk segment */}
+                        {walkToRouteMinutes != null && (
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-lg leading-none">🚶</span>
+                              <span className="text-[13px] font-semibold text-gray-500 whitespace-nowrap">
+                                {walkToRouteMinutes} דק&apos;
+                              </span>
+                            </div>
+                            <span className="text-gray-300 mx-2 text-sm select-none">→</span>
+                          </>
+                        )}
+
+                        {/* Route segment */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg leading-none">🗺️</span>
+                          <span className="text-[13px] font-semibold text-cyan-500 whitespace-nowrap">
+                            {formatDuration(route.duration)}
+                          </span>
+                        </div>
+
+                        {/* Finish marker — non-circular routes only */}
+                        {!isCircular && (
+                          <>
+                            <span className="text-gray-300 mx-2 text-sm select-none">→</span>
+                            <span className="text-lg leading-none">🏁</span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── Vertical timeline accordion ─────────────────────
+                      Two stacked rows that mirror the journey bar above:
+                        Row 1 — Walk-to-route (turn list from Mapbox)
+                        Row 2 — The route itself (features, facility
+                                stops, pre-computed maneuvers)
+                      Both collapsed by default. Tapping a header toggles
+                      open/close with a smooth height animation. The dashed
+                      vertical connector on the right (RTL = visual right)
+                      visually links the two rows like a subway map. */}
+                  {(() => {
+                    const path = route.path;
+                    const isRouteCircular = path && path.length >= 2
+                      ? haversineKm(path[0][1], path[0][0], path[path.length - 1][1], path[path.length - 1][0]) * 1000 < 100
+                      : false;
+                    const distanceKm = route.distance ?? 0;
+                    const distanceLabelStr = distanceKm >= 1
+                      ? `${distanceKm.toFixed(1)} ק"מ`
+                      : `${Math.round(distanceKm * 1000)} מ'`;
+                    const facilityStops = route.facilityStops ?? [];
+
+                    // Tiny formatter — keeps the timeline rows compact.
+                    const fmtMeters = (m: number) =>
+                      m >= 1000 ? `${(m / 1000).toFixed(1)} ק"מ` : `${Math.round(m)}מ'`;
+
+                    // Map a Hebrew turn label → unicode arrow icon.
+                    const turnIconFor = (instr: string): string => {
+                      if (instr.includes('שמאלה')) return '↰';
+                      if (instr.includes('ימינה')) return '↱';
+                      return '↑';
+                    };
+
+                    const showWalkRow = walkToRouteMinutes != null;
+
+                    return (
+                      <section dir="rtl" className="mb-6 relative">
+                        {/* Dashed vertical connector — sits on the visual
+                            right (RTL = right edge), spans both rows so
+                            the headers feel linked even when collapsed.
+                            Hidden when only the route row is rendered. */}
+                        {showWalkRow && (
+                          <div
+                            className="absolute top-6 bottom-6 w-px pointer-events-none"
+                            style={{
+                              right: '14px',
+                              borderRight: '2px dashed #D1D5DB',
+                            }}
+                            aria-hidden
+                          />
+                        )}
+
+                        {/* ── Row 1 — Walk to route (optional) ── */}
+                        {showWalkRow && (
+                          <div className="mb-2 relative z-10">
+                            <button
+                              type="button"
+                              onClick={() => setOpenSection((s) => s === 'walk' ? null : 'walk')}
+                              className="w-full bg-gray-50 rounded-lg px-4 py-3 flex items-center gap-2 active:scale-[0.99] transition-transform"
+                            >
+                              <span className="text-lg leading-none">🚶</span>
+                              <span className="text-[13px] font-bold text-gray-700 flex-1 text-right">
+                                הליכה למסלול
+                              </span>
+                              <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
+                                {walkToRouteMinutes} דק&apos;
+                              </span>
+                              <span
+                                className="text-gray-400 text-base transition-transform duration-200"
+                                style={{
+                                  transform: openSection === 'walk' ? 'rotate(90deg)' : 'rotate(0deg)',
+                                }}
+                                aria-hidden
+                              >
+                                ›
+                              </span>
+                            </button>
+
+                            <AnimatePresence initial={false}>
+                              {openSection === 'walk' && (
+                                <motion.div
+                                  key="walk-content"
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="px-4 pb-3 pt-2 text-sm text-gray-600 space-y-1.5">
+                                    {walkSteps && walkSteps.length > 0 ? (
+                                      <>
+                                        {walkSteps.map((step, i) => (
+                                          <div key={`walk_step_${i}`} className="flex items-center gap-2">
+                                            <span className="text-base leading-none w-5 text-center text-gray-500">
+                                              {turnIconFor(step.instruction)}
+                                            </span>
+                                            <span className="flex-1 text-[13px] text-gray-700 truncate">
+                                              {step.instruction}
+                                            </span>
+                                            <span className="text-[12px] text-gray-500 font-semibold whitespace-nowrap">
+                                              {fmtMeters(step.distanceMeters)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                        <div className="flex items-center gap-2 pt-0.5">
+                                          <span className="text-base leading-none w-5 text-center">📍</span>
+                                          <span className="flex-1 text-[13px] text-emerald-600 font-bold">
+                                            הגעת למסלול
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-[12px] text-gray-400 italic">
+                                        מחשב הוראות...
+                                      </div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+
+                        {/* ── Row 2 — The route itself ── */}
+                        <div className="relative z-10">
+                          <button
+                            type="button"
+                            onClick={() => setOpenSection((s) => s === 'route' ? null : 'route')}
+                            className="w-full bg-gray-50 rounded-lg px-4 py-3 flex items-center gap-2 active:scale-[0.99] transition-transform"
+                          >
+                            <span className="text-lg leading-none">🗺️</span>
+                            <span className="text-[13px] font-bold text-gray-700 flex-1 text-right truncate">
+                              {route.name || 'המסלול'}
+                            </span>
+                            <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
+                              {formatDuration(route.duration)} • {distanceLabelStr}
+                            </span>
+                            <span
+                              className="text-gray-400 text-base transition-transform duration-200"
+                              style={{
+                                transform: openSection === 'route' ? 'rotate(90deg)' : 'rotate(0deg)',
+                              }}
+                              aria-hidden
+                            >
+                              ›
+                            </span>
+                          </button>
+
+                          <AnimatePresence initial={false}>
+                            {openSection === 'route' && (
+                              <motion.div
+                                key="route-content"
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.22, ease: 'easeOut' }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-4 pb-3 pt-2 text-sm text-gray-600 space-y-3">
+                                  {/* Feature chips — mirror the existing
+                                      "תכונות מסלול" chip style further down,
+                                      restricted to the three core attributes
+                                      surface / environment / lit. */}
+                                  {route.features && (
+                                    route.features.surface ||
+                                    route.features.environment ||
+                                    route.features.lit === true
+                                  ) && (
+                                    <div className="flex flex-wrap gap-2">
+                                      {route.features.environment && (
+                                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
+                                          {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
+                                        </span>
+                                      )}
+                                      {route.features.surface && (
+                                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
+                                          {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
+                                        </span>
+                                      )}
+                                      {route.features.lit === true && (
+                                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
+                                          מואר
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Facility stops along the route */}
+                                  {facilityStops.length > 0 && (
+                                    <div className="space-y-1.5">
+                                      {facilityStops.map((stop, i) => (
+                                        <div key={`stop_${stop.id}_${i}`} className="flex items-center gap-2">
+                                          <span className="text-base leading-none w-5 text-center">🏋️</span>
+                                          <span className="flex-1 text-[13px] text-gray-700 truncate">
+                                            {stop.name || 'גינת כושר'}
+                                          </span>
+                                          <span className="text-[12px] text-gray-500 font-semibold whitespace-nowrap">
+                                            {fmtMeters((stop as any).distanceFromStart ?? 0)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Pre-computed maneuvers */}
+                                  {routeTurns.length > 0 && (
+                                    <div className="space-y-1.5">
+                                      {routeTurns.map((turn, i) => (
+                                        <div key={`turn_${i}`} className="flex items-center gap-2">
+                                          <span className="text-base leading-none w-5 text-center text-gray-500">
+                                            {turnIconFor(turn.instruction)}
+                                          </span>
+                                          <span className="flex-1 text-[13px] text-gray-700 truncate">
+                                            {turn.instruction}
+                                          </span>
+                                          <span className="text-[12px] text-gray-500 font-semibold whitespace-nowrap">
+                                            {fmtMeters(turn.distanceMeters)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Finish marker — only for non-circular
+                                      routes (matches the journey bar above). */}
+                                  {!isRouteCircular && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-base leading-none w-5 text-center">🏁</span>
+                                      <span className="flex-1 text-[13px] text-emerald-600 font-bold">
+                                        סיום המסלול
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </section>
+                    );
+                  })()}
 
                   {/* Activity mode toggle (nav routes) */}
                   {isNavRoute && onActivityChange && (
@@ -427,7 +832,7 @@ export default function RouteDetailSheet({
                         <span>מתאמנים</span>
                         {allSessions.length > 0 && (
                           <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
-                            {allSessions.reduce((s, e) => s + Math.max(1, e.currentRegistrations ?? 0), 0)}
+                            {allSessions.reduce((s, e) => s + (e.currentRegistrations ?? 0), 0)}
                           </span>
                         )}
                       </h3>
@@ -492,7 +897,7 @@ export default function RouteDetailSheet({
                             timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
                           }
                           const isJoining = joiningEventId === ev.eventId;
-                          const count = Math.max(1, ev.currentRegistrations ?? 0);
+                          const count = ev.currentRegistrations ?? 0;
                           const alreadyJoined = isUserRegistered(ev);
 
                           return (
@@ -565,30 +970,49 @@ export default function RouteDetailSheet({
                       <div className="flex flex-wrap gap-2">
                         {route.features.surface && (
                           <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            {route.features.surface === 'paved' ? 'סלול' : route.features.surface === 'trail' ? 'שבילים' : route.features.surface}
-                          </span>
-                        )}
-                        {route.features.elevation && (
-                          <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            {route.features.elevation === 'flat' ? 'שטוח' : route.features.elevation === 'hilly' ? 'גבעות' : route.features.elevation}
+                            {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
                           </span>
                         )}
                         {route.features.environment && (
                           <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            {route.features.environment === 'nature' ? 'טבע' : route.features.environment === 'urban' ? 'עירוני' : route.features.environment}
+                            {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
                           </span>
                         )}
-                        {route.features.lighting && (
+                        {/* Lighting reads the real `lit: boolean` from RouteFeatures.
+                            Only show the chip when actually lit — we don't want to
+                            advertise an unlit route as a feature. */}
+                        {route.features.lit === true && (
                           <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            {route.features.lighting === 'lit' ? 'מואר' : 'לא מואר'}
+                            מואר
                           </span>
                         )}
                       </div>
                     </section>
                   )}
 
-                  {/* Dev simulation controls */}
-                  {devSim && (
+                  {/* Extended feature tags (route.featureTags). Renders the
+                      same `ParkFeatureTag`-style amenities list the admin
+                      can now toggle in RouteEditor. Backward-compatible:
+                      any route saved before this field exists simply skips
+                      this section. */}
+                  {route.featureTags && route.featureTags.length > 0 && (
+                    <section className="mb-6">
+                      <h3 className="text-[16px] font-bold mb-3">מתקנים בסביבה</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {route.featureTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600"
+                          >
+                            {ROUTE_FEATURE_TAG_LABELS[tag] ?? tag}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Dev simulation controls — hidden in production builds */}
+                  {process.env.NODE_ENV !== 'production' && devSim && (
                     <section className="mb-6">
                       <h3 className="text-[13px] font-bold mb-2 text-orange-600 flex items-center gap-1.5">
                         <Crosshair size={14} />
@@ -645,6 +1069,14 @@ export default function RouteDetailSheet({
                 className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200/50 px-4 pt-3"
                 style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
               >
+                {/* Share-as-live toggle — same primitive used by strength + running previews */}
+                <ShareAsLiveToggle
+                  activityType={mapRouteActivityToPresence(route.activityType ?? route.type)}
+                  workoutTitle={route.name || 'מסלול'}
+                  userLocation={userLocation ?? null}
+                  className="pb-2"
+                />
+
                 <div className="flex items-center gap-2" dir="rtl">
                   <button
                     onClick={() => { onStartWorkout?.(route); }}

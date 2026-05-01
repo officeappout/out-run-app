@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, ShieldCheck, Zap, X, FileText, Loader2, Info } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, Zap, X, Loader2, Info } from 'lucide-react';
 import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import SignaturePad from './SignaturePad';
@@ -10,6 +10,8 @@ import { generateHealthDeclarationPdf } from '../services/pdf-service';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { storage, db, auth } from '@/lib/firebase';
+import LegalDocModal from '@/features/legal/components/LegalDocModal';
+import { LEGAL_VERSION } from '@/features/legal/legal-content';
 
 interface HealthDeclarationStepProps {
   title?: string;
@@ -170,7 +172,7 @@ export default function HealthDeclarationStep({
         healthTimestamp: new Date().toISOString(),
         healthUserName: userName,
         healthGender: gender,
-        termsVersion: '1.0', // Track which version of T&C was signed
+        termsVersion: LEGAL_VERSION,
         ...(pdfDownloadUrl ? { healthDeclarationPdfUrl: pdfDownloadUrl } : {}),
       } as any);
 
@@ -678,137 +680,17 @@ export default function HealthDeclarationStep({
         )}
       </AnimatePresence>
 
-      {/* ── Terms of Use Modal ── */}
-      <AnimatePresence>
-        {showTermsModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowTermsModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
-              dir="rtl"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <FileText size={24} className="text-[#5BC2F2]" />
-                  <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    תנאי השימוש
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setShowTermsModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} className="text-slate-600" />
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto flex-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  ברוכים הבאים ל-OUT. השימוש באפליקציה מהווה הסכמה לתנאי השימוש המפורטים להלן.
-                </p>
-                <h3 className="font-bold text-slate-900 mb-2">1. כללי</h3>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  אפליקציית OUT מספקת תוכניות אימון מותאמות אישית לכושר גופני. השימוש באפליקציה הוא באחריותך הבלעדית.
-                </p>
-                <h3 className="font-bold text-slate-900 mb-2">2. הצהרת בריאות</h3>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  אתה מצהיר כי מילאת את שאלון הבריאות בכנות ומוכן לקחת אחריות מלאה על מצב הבריאות שלך לפני תחילת הפעילות.
-                </p>
-                <h3 className="font-bold text-slate-900 mb-2">3. אחריות</h3>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  OUT אינה אחראית לכל נזק גופני או רכושי שייגרם במהלך השימוש בשירות. מומלץ להתייעץ עם רופא לפני תחילת כל תוכנית אימונים.
-                </p>
-                <p className="text-xs text-slate-400 mt-6">
-                  עדכון אחרון: פברואר 2026
-                </p>
-              </div>
-              <div className="p-4 border-t border-slate-100">
-                <button
-                  onClick={() => setShowTermsModal(false)}
-                  className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-3 rounded-xl transition-all"
-                  style={{ fontFamily: 'var(--font-simpler)' }}
-                >
-                  סגור
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Privacy Policy Modal ── */}
-      <AnimatePresence>
-        {showPrivacyModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowPrivacyModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
-              dir="rtl"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={24} className="text-[#5BC2F2]" />
-                  <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-                    מדיניות הפרטיות
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setShowPrivacyModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={20} className="text-slate-600" />
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto flex-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  ב-OUT אנו מתחייבים להגן על הפרטיות שלך. מדיניות זו מפרטת כיצד אנו אוספים, משתמשים ומגנים על המידע האישי שלך.
-                </p>
-                <h3 className="font-bold text-slate-900 mb-2">1. איסוף מידע</h3>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  אנו אוספים מידע בסיסי כגון שם, גיל, היסטוריית אימונים ותשובות לשאלון הבריאות. המידע נשמר באופן מאובטח בשרתי Firebase.
-                </p>
-                <h3 className="font-bold text-slate-900 mb-2">2. שימוש במידע</h3>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  המידע משמש אך ורק להתאמה אישית של תוכניות האימון ושיפור השירות. לא נשתף את המידע עם צדדים שלישיים ללא הסכמתך.
-                </p>
-                <h3 className="font-bold text-slate-900 mb-2">3. אבטחת מידע</h3>
-                <p className="text-slate-600 leading-relaxed mb-4">
-                  אנו משתמשים בהצפנה ובפרוטוקולי אבטחה מתקדמים כדי להגן על המידע האישי שלך. יש לך זכות לגשת, לתקן או למחוק את המידע שלך בכל עת.
-                </p>
-                <p className="text-xs text-slate-400 mt-6">
-                  עדכון אחרון: פברואר 2026
-                </p>
-              </div>
-              <div className="p-4 border-t border-slate-100">
-                <button
-                  onClick={() => setShowPrivacyModal(false)}
-                  className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-3 rounded-xl transition-all"
-                  style={{ fontFamily: 'var(--font-simpler)' }}
-                >
-                  סגור
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Terms of Use & Privacy Policy modals (shared component) ── */}
+      <LegalDocModal
+        type="terms"
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
+      <LegalDocModal
+        type="privacy"
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
         </div>
     );
 }

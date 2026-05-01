@@ -4,6 +4,7 @@
  */
 import { collection, addDoc, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { isCustomAnalyticsAllowed } from './consent';
 
 const ANALYTICS_COLLECTION = 'analytics_events';
 
@@ -237,6 +238,16 @@ export async function logEvent(
   eventName: AnalyticsEventType,
   params: Record<string, any> = {}
 ): Promise<boolean> {
+  // Compliance Phase 5.1 — honour user analytics opt-out before any
+  // Firestore write. Fail-OPEN if the store is unavailable so a hydration
+  // race never silently kills our funnels.
+  if (!isCustomAnalyticsAllowed()) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Analytics] suppressed (user opted out):', eventName);
+    }
+    return false;
+  }
+
   try {
     const currentUser = auth.currentUser;
     const userId = currentUser?.uid || undefined;

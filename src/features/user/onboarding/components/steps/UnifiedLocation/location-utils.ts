@@ -149,6 +149,60 @@ export async function reverseGeocode(lat: number, lng: number): Promise<{
 }
 
 /**
+ * Reverse-geocode a coordinate to its STREET NAME (no house number).
+ *
+ * Why a separate function from `reverseGeocode`:
+ * - `reverseGeocode` asks Mapbox for `types=place,locality,neighborhood`
+ *   which is the right answer for "what city / district am I in?" but
+ *   never returns a street.
+ * - For TurnCarousel we want "רחוב הרצל" — the street the user is about
+ *   to turn onto. That requires `types=address`, and we want only the
+ *   street component (not "רחוב הרצל 12").
+ *
+ * Returns the bare street name string (`"רחוב הרצל"`), or `null` if:
+ *   • the Mapbox token is missing,
+ *   • the network call fails,
+ *   • Mapbox returned no address features for the coord (rural / off-grid),
+ *   • or the response shape was unexpected.
+ *
+ * Callers MUST handle the null case gracefully — typically by falling back
+ * to the maneuver label (e.g. "פנה שמאלה") on its own.
+ */
+export async function reverseGeocodeStreet(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  if (!MAPBOX_TOKEN) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  try {
+    // `types=address` returns Mapbox's most precise address-level matches
+    // ordered by relevance. `limit=1` is enough — we always pick the
+    // top result and let Mapbox rank.
+    const url =
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
+      `?access_token=${MAPBOX_TOKEN}&language=he&types=address&limit=1`;
+
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data = await response.json();
+
+    const feature = Array.isArray(data?.features) ? data.features[0] : null;
+    if (!feature) return null;
+
+    // `text_he` is the localised street name without the house number
+    // (Mapbox keeps the number in `address`). We fall back to `text`
+    // for areas where Hebrew localisation isn't available.
+    const street: unknown = feature.text_he ?? feature.text ?? null;
+    if (typeof street !== 'string' || street.trim().length === 0) return null;
+    return street.trim();
+  } catch (error) {
+    console.warn('[reverseGeocodeStreet] failed:', error);
+    return null;
+  }
+}
+
+/**
  * Forward geocode a neighborhood/city name using Mapbox API.
  * Returns the exact center coordinates for the given place name.
  * Used when the user selects a neighborhood from the search list to snap

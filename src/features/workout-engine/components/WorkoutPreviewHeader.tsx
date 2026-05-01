@@ -160,7 +160,11 @@ export default function WorkoutPreviewHeader({
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/30 to-transparent z-[2] pointer-events-none" />
         <div className="absolute bottom-0 inset-x-0 h-[60%] bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-950 dark:via-gray-950/90 z-[5] pointer-events-none" />
 
-        <div className="absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10">
+        <div
+          className="absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10"
+          // Replaces hardcoded `pt-14`. See WorkoutOverview page for rationale.
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+        >
           <button
             onClick={() => router.back()}
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"

@@ -13,7 +13,7 @@
  * No map-related hooks, APIs, or GPS calls run until the location gate is passed.
  */
 
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
@@ -42,19 +42,37 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
   // We read this once — before any state is set — so there is no flash-of-gate.
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
 
-  const { profile, refreshProfile } = useUserStore();
+  // Subscribe to individual slices so we only re-render on real changes and
+  // can read the persisted values synchronously on the very first render.
+  const profile = useUserStore((s) => s.profile);
+  const hasHydrated = useUserStore((s) => s._hasHydrated);
+  const refreshProfile = useUserStore((s) => s.refreshProfile);
 
-  const [locationGateCleared, setLocationGateCleared] = useState(fromExplorer);
+  // The user can manually clear the gate by completing UnifiedLocationStep.
+  // Keep this as state so the override sticks immediately, even before
+  // refreshProfile() roundtrips a new authorityId from Firestore.
+  const [manuallyCleared, setManuallyCleared] = useState(false);
 
-  // Standard profile-based auto-clear (existing users with a saved authorityId)
-  useEffect(() => {
-    if (!profile) return;
-    const hasAuthority = !!profile.core?.authorityId;
-    const isMapOnly = profile.onboardingPath === 'MAP_ONLY';
-    if (hasAuthority || isMapOnly) {
-      setLocationGateCleared(true);
-    }
-  }, [profile]);
+  // Derive gate visibility synchronously from the persisted profile so we
+  // never flash UnifiedLocationStep when authority is already known.
+  //
+  // The legacy `useState(fromExplorer)` + `useEffect(...setLocationGateCleared)`
+  // pattern caused a one-frame flash of the location gate on every Map-tab
+  // visit because the effect only ran AFTER the first render. Deriving the
+  // value with useMemo eliminates that in-between render entirely.
+  //
+  // Spec: map-first. Default to "show map" while state is unknown — only
+  // surface the gate when we can affirmatively prove it's needed (profile
+  // hydrated AND no authority AND not MAP_ONLY).
+  const needsLocationGate = useMemo(() => {
+    if (fromExplorer) return false;
+    if (manuallyCleared) return false;
+    if (!hasHydrated) return false;        // store still rehydrating from storage
+    if (!profile) return false;            // profile not loaded — let map render
+    if (profile.core?.authorityId) return false;
+    if (profile.onboardingPath === 'MAP_ONLY') return false;
+    return true;
+  }, [fromExplorer, manuallyCleared, hasHydrated, profile]);
 
   // fromExplorer bypass: clean up the URL and run the same background sync
   // that the bridge gate's handleLocationGateComplete performs.
@@ -106,19 +124,16 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
         refreshProfile();
       }
     }
-    setLocationGateCleared(true);
+    setManuallyCleared(true);
   };
 
-  console.log('🚪 [FullMapView] locationGateCleared:', locationGateCleared, '| initialWorkoutId:', initialWorkoutId, '| hasAuthority:', !!profile?.core?.authorityId, '| onboardingPath:', profile?.onboardingPath);
-
-  if (!locationGateCleared) {
+  if (needsLocationGate) {
     return (
       <Suspense
-        fallback={
-          <div className="fixed inset-0 z-[80] bg-white/80 flex items-center justify-center">
-            <p className="animate-pulse text-slate-500">טוען...</p>
-          </div>
-        }
+        // Map-toned skeleton matches the dynamic-import + Suspense fallbacks
+        // up the tree, so lazy-loading the gate doesn't introduce a third
+        // distinct loading flash.
+        fallback={<div className="fixed inset-0 z-[80] bg-[#f3f4f6]" aria-busy="true" />}
       >
         <div className="fixed inset-0 z-[80]">
           <UnifiedLocationStep

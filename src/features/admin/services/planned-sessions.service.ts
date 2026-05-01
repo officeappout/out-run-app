@@ -52,6 +52,8 @@ function normalizeSession(docId: string, data: any): PlannedSession {
     status: data.status ?? 'planned',
     privacyMode: data.privacyMode ?? 'squad',
     createdAt: toDate(data.createdAt),
+    lat: typeof data.lat === 'number' ? data.lat : null,
+    lng: typeof data.lng === 'number' ? data.lng : null,
     groupSessionId: data.groupSessionId ?? undefined,
     groupName: data.groupName ?? undefined,
     isGroupLeader: data.isGroupLeader ?? undefined,
@@ -69,6 +71,8 @@ export interface CreatePlannedSessionInput {
   level: FitnessLevel;
   startTime: Date;
   privacyMode: PrivacyMode;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export async function createPlannedSession(
@@ -87,6 +91,8 @@ export async function createPlannedSession(
     status: 'planned' as PlannedSessionStatus,
     privacyMode: input.privacyMode,
     createdAt: serverTimestamp(),
+    ...(input.lat != null && { lat: input.lat }),
+    ...(input.lng != null && { lng: input.lng }),
   });
   return docRef.id;
 }

@@ -17,6 +17,11 @@ const config: Config = {
         primary: "#00dcd0",
         secondary: "#ea1d24",
         "out-blue": "#007aff",
+        // Brand sky-blue used across the running player (lap circles,
+        // turn carousel accents, recenter button). Formalised as a
+        // token so the dozens of one-off `#00ADEF` / `#00BAF7` /
+        // `#00E5FF` literals can collapse to a single source of truth.
+        "out-cyan": "#00ADEF",
         "card-light": "#ffffff",
         "background-light": "#f5f5f7",
         // Dark mode colors (for StrengthDopamineScreen & future dark mode)

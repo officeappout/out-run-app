@@ -53,10 +53,12 @@ export interface PartnerPosition {
   lemurStage?: number;
 }
 
+// Muted, dusty palette — keeps partners identifiable without competing
+// with the user's own bright cyan lemur marker.
 const GROUP_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#FFE66D', '#A78BFA', '#F472B6',
-  '#34D399', '#FB923C', '#60A5FA', '#E879F9', '#FBBF24',
-  '#22D3EE', '#F87171',
+  '#8B9DC3', '#7BA898', '#C9A96E', '#A090B8', '#B08A9A',
+  '#7EA88A', '#C49A7A', '#7E9DB0', '#B898A8', '#A4B87A',
+  '#7AAEC0', '#B0AC84',
 ];
 
 export function useGroupPresence(

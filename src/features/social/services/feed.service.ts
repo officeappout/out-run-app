@@ -17,6 +17,7 @@ import {
   getDocs,
   getDoc,
   doc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
@@ -198,4 +199,27 @@ export async function getUserPosts(
   maxResults = 10,
 ): Promise<FeedPost[]> {
   return getFeedPosts([uid], maxResults);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Delete (Compliance Phase 7.1 — author erasure)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Permanently remove the author's own post.
+ *
+ * Authorization: Firestore rules (`feed_posts/{docId}` — Phase 3.2) gate
+ * deletes to `request.auth.uid == resource.data.authorUid`, so a non-author
+ * call will be rejected by the security rule. We do not re-validate the
+ * author here — the server is the source of truth.
+ *
+ * Side effects: only the post document is removed. Reactions in the
+ * `feed_posts/{id}/reactions/{uid}` subcollection become orphaned by
+ * design — a future Cloud Function trigger (`onFeedPostDelete`) will
+ * sweep them; cleaning up client-side is unsafe for popular posts
+ * because we'd have to read & batch-delete an unbounded subcollection
+ * from an authenticated user that may not even own those reaction docs.
+ */
+export async function deleteFeedPost(postId: string): Promise<void> {
+  await deleteDoc(doc(db, 'feed_posts', postId));
 }

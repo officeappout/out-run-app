@@ -276,6 +276,9 @@ export interface PlannedSession {
   status: PlannedSessionStatus;
   privacyMode: PrivacyMode;
   createdAt: Date;
+  /** Geographic coordinates of the intended workout location */
+  lat?: number | null;
+  lng?: number | null;
   /** Shared key linking multiple sessions into a group run */
   groupSessionId?: string;
   groupName?: string;

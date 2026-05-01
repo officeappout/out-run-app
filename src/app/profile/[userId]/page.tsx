@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowRight, UserPlus, UserMinus } from 'lucide-react';
+import { ArrowRight, UserPlus, UserMinus, Flag } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
@@ -12,6 +12,7 @@ import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
 import FeedPostCard from '@/features/social/components/FeedPostCard';
+import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
 
 interface PublicProfile {
   name: string;
@@ -40,6 +41,8 @@ export default function PublicProfilePage() {
   const [publicProfile, setPublicProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  // Phase 7.2 — report-user sheet state
+  const [showReport, setShowReport] = useState(false);
 
   const isSelf = myUid === targetUid;
   const followed = isFollowing(targetUid);
@@ -121,9 +124,12 @@ export default function PublicProfilePage() {
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3" dir="rtl">
+      {/* Header — pad below status bar so the back button isn't covered. */}
+      <header
+        className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-gray-100"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center gap-3" dir="rtl">
           <button
             onClick={() => router.back()}
             className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
@@ -134,13 +140,37 @@ export default function PublicProfilePage() {
           <h1 className="text-lg font-black text-gray-900 flex-1 truncate">
             {publicProfile.name}
           </h1>
-          {isSelf && (
+          {isSelf ? (
             <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
               הפרופיל שלי
             </span>
+          ) : (
+            myUid && (
+              <button
+                type="button"
+                onClick={() => setShowReport(true)}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 active:scale-95 transition-all"
+                aria-label="דווח על המשתמש"
+                title="דווח על המשתמש"
+              >
+                <Flag className="w-4 h-4" />
+              </button>
+            )
           )}
         </div>
       </header>
+
+      {/* Phase 7.2 — Report-user sheet */}
+      {myUid && !isSelf && (
+        <ReportContentSheet
+          isOpen={showReport}
+          onClose={() => setShowReport(false)}
+          targetId={targetUid}
+          targetType="user"
+          targetName={publicProfile.name}
+          reporterId={myUid}
+        />
+      )}
 
       <div className="max-w-md mx-auto px-4 py-5 space-y-4">
         {/* Profile card */}

@@ -7,9 +7,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, Droplet } from 'lucide-react';
 import { Route } from '../types/route.types';
 import { fetchRealParks } from '../services/parks.service';
-import { useMapStore, LayerType } from '../store/useMapStore';
+import { useMapStore, LayerType, PartnerActivityFilter } from '../store/useMapStore';
 import { useFacilities } from '../hooks/useFacilities';
 import { useCameraController } from '../hooks/useCameraController';
+import { useWalkToRoute } from '../hooks/useWalkToRoute';
 import { Popup } from 'react-map-gl';
 import LemurMarker from '@/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
@@ -17,6 +18,12 @@ import PartnerMarker from './PartnerMarker';
 import { registerPinImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { applyFitnessMapStyle } from './mapStyleConfig';
 import { segmentPathByZone } from '../services/geoUtils';
+import {
+  isFiniteNum,
+  isFiniteLngLat,
+  isFiniteBounds,
+  safeNumber,
+} from '@/utils/geoValidation';
 import {
   ROUTES_BACKGROUND, ROUTES_ACTIVE_GLOW, ROUTES_ACTIVE_OUTLINE, ROUTES_ACTIVE,
   GHOST_PATH_GLOW, GHOST_PATH_LINE, TRACE_PATH_LINE,
@@ -34,6 +41,55 @@ if (typeof window !== 'undefined' && !mapboxgl.getRTLTextPluginStatus()) {
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
+// All coordinate-finiteness rules live in `src/utils/geoValidation.ts`
+// so AppMap, TurnCarousel, and any future map consumer apply the same
+// rule. See that file for the rationale ("LngLat invalid: NaN, NaN").
+
+// ── Live partner presence — zoom-tiered Mapbox layers ──
+// The same `partner-presence` GeoJSON source feeds both layers; each layer's
+// zoom range and opacity ramp ensures only one tier is visible at any zoom:
+//   zoom <  13  → heatmap (yellow → orange → red)
+//   zoom 13–14  → small teal dots
+//   zoom >= 15  → React <Marker> with full PartnerMarker (handled in JSX, not here)
+const PRESENCE_HEATMAP_LAYER: mapboxgl.HeatmapLayer = {
+  id: 'presence-heatmap',
+  type: 'heatmap',
+  source: 'partner-presence',
+  maxzoom: 13,
+  paint: {
+    'heatmap-weight': 1,
+    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.6, 12, 1.5],
+    'heatmap-color': [
+      'interpolate', ['linear'], ['heatmap-density'],
+      0,   'rgba(0,0,0,0)',
+      0.2, 'rgba(255,220,0,0.4)',
+      0.5, 'rgba(255,140,0,0.65)',
+      0.8, 'rgba(255,60,0,0.85)',
+      1,   'rgba(200,0,0,1)',
+    ],
+    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 12, 35],
+    // Fade out across zoom 11-13 so the dots layer can take over cleanly.
+    'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.85, 13, 0],
+  },
+};
+
+const PRESENCE_DOTS_LAYER: mapboxgl.CircleLayer = {
+  id: 'presence-dots',
+  type: 'circle',
+  source: 'partner-presence',
+  minzoom: 13,
+  maxzoom: 15,
+  paint: {
+    'circle-radius': 5,
+    'circle-color': '#00ADEF',
+    // Fade in at zoom 13, hold through 14.5, fade back out by 15 where
+    // the React <Marker> tier takes over with full PartnerMarker visuals.
+    'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, 0.85, 14.5, 0.85, 15, 0],
+    'circle-stroke-width': 1.5,
+    'circle-stroke-color': '#ffffff',
+  },
+};
 
 interface AppMapProps {
   routes?: Route[];
@@ -58,13 +114,30 @@ interface AppMapProps {
   /** Current speed in km/h — drives dynamic zoom/pitch adaptation */
   speedKmH?: number;
   /** Live partner positions rendered as PartnerMarker on the map */
-  partnerPositions?: { uid: string; name: string; lat: number; lng: number; color: string; personaImageUrl?: string; lemurStage?: number }[];
+  partnerPositions?: { uid: string; name: string; lat: number; lng: number; color: string; activityStatus?: string; personaImageUrl?: string; lemurStage?: number }[];
+  /**
+   * Active partner-activity filter from useMapStore. Controls which partner
+   * markers stay visible: 'all' shows every partner; 'strength' includes
+   * both 'strength' and 'workout' statuses; 'running' / 'walking' match
+   * exactly. Ignored when `liveUsersVisible` is false.
+   */
+  partnerActivityFilter?: PartnerActivityFilter;
+  /**
+   * Master visibility toggle for live partner markers. When false, NO
+   * partner pins are drawn regardless of `partnerActivityFilter`. Default
+   * `false` keeps the base map clean for users who never open the partner
+   * finder.
+   */
+  liveUsersVisible?: boolean;
   /** Current user's persona ID — determines which lemur character image to show */
   userPersonaId?: string | null;
   /** Callback when a partner marker is tapped */
   onPartnerClick?: (partner: { uid: string; name: string; personaImageUrl?: string; lemurStage?: number }) => void;
   /** Neighborhood-level anchor coordinates to use as initial map center (zoom 14). Falls back to Tel Aviv. */
   initialCenter?: { lat: number; lng: number } | null;
+  /** Current map mode — forwarded to the camera controller so it can run a
+   * one-shot fit-all on first entry into discover mode. */
+  mapMode?: string;
 }
 
 export default function AppMap({
@@ -88,19 +161,176 @@ export default function AppMap({
   simulationActive = false,
   speedKmH = 6,
   partnerPositions = [],
+  partnerActivityFilter = 'all',
+  liveUsersVisible = false,
   userPersonaId,
   onPartnerClick,
   initialCenter,
+  mapMode,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   const [parks, setParks] = useState<any[]>([]);
   const { setSelectedPark, visibleLayers } = useMapStore();
+  const turnFlyToTarget = useMapStore((s) => s.turnFlyToTarget);
+
+  // Consume TurnCarousel camera requests:
+  //   • flyTo     → center the camera on a single turn vertex (peek-one-turn).
+  //   • fitBounds → frame the entire upcoming leg between the user and the
+  //                 swiped turn so the user can preview the segment they're
+  //                 about to traverse, not just the turn corner.
+  // Cleared after consumption so re-renders don't replay the animation.
+  //
+  // ── NUCLEAR NaN guard ──────────────────────────────────────────────────
+  // Last line of defence. Mapbox's `fitBounds` / `flyTo` throw a hard
+  // exception when fed any non-finite coordinate (`LngLat invalid: NaN,
+  // NaN`) which would unmount the entire map tree. We have upstream
+  // guards (geoValidation in TurnCarousel + the structural helpers
+  // below) but a single regression anywhere in the pipeline used to be
+  // enough to crash. The helper + early-returns at the TOP of this
+  // effect are deliberately the simplest, dumbest possible check —
+  // composed before anything else can run, ZERO branches between the
+  // check and the early return. If we ever see a Mapbox crash from
+  // turn-flyTo again, this block can be the only thing we need to read.
+  useEffect(() => {
+    if (!turnFlyToTarget) return;
+
+    // Aggressive nuclear check — runs FIRST, before getMap, before any
+    // structural unwrap, before bearing coercion. A bad payload exits
+    // here without touching anything mutable.
+    const isValid = (coords: unknown): coords is number[] =>
+      Array.isArray(coords) && coords.every((c) => Number.isFinite(c));
+    if (turnFlyToTarget.kind === 'flyTo' && !isValid(turnFlyToTarget.center)) {
+      console.warn(
+        '[AppMap] NUCLEAR guard: dropping flyTo with invalid center.',
+        turnFlyToTarget.center,
+      );
+      useMapStore.getState().setTurnFlyToTarget(null);
+      return;
+    }
+    if (
+      turnFlyToTarget.kind === 'fitBounds' &&
+      (!Array.isArray(turnFlyToTarget.bounds) ||
+        turnFlyToTarget.bounds.length !== 2 ||
+        !isValid(turnFlyToTarget.bounds[0]) ||
+        !isValid(turnFlyToTarget.bounds[1]))
+    ) {
+      console.warn(
+        '[AppMap] NUCLEAR guard: dropping fitBounds with invalid bounds.',
+        turnFlyToTarget.bounds,
+      );
+      useMapStore.getState().setTurnFlyToTarget(null);
+      return;
+    }
+
+    const rawMap = mapRef.current?.getMap();
+    if (!rawMap) return;
+
+    const safeBearing = safeNumber(turnFlyToTarget.bearing, 0);
+
+    // Wrap the actual Mapbox dispatch in try/catch so even if a NaN
+    // somehow slips past every guard above (a Mapbox internal cast, a
+    // future regression upstream, anything we haven't thought of), the
+    // exception stays scoped to this effect — the map keeps its current
+    // camera and the rest of the app keeps rendering. Without this
+    // try/catch, any Mapbox crash here unmounts the entire map tree.
+    try {
+      if (turnFlyToTarget.kind === 'fitBounds') {
+        // Defence-in-depth: structural helper (shape + finiteness in
+        // one call). Already covered by the nuclear guard above; the
+        // explicit re-check protects against a TS-only cast bypass and
+        // keeps the type narrowed for the .fitBounds call.
+        if (!isFiniteBounds(turnFlyToTarget.bounds)) {
+          console.warn('[AppMap] FINAL guard: fitBounds rejected — bounds non-finite.', turnFlyToTarget.bounds);
+          useMapStore.getState().setTurnFlyToTarget(null);
+          return;
+        }
+        // Last-mile inline check on the FOUR raw scalars Mapbox will
+        // actually consume. If we reach this line and any of these is
+        // NaN, the nuclear+structural guards both regressed — log
+        // loudly so the bug is impossible to miss.
+        const [[swLng, swLat], [neLng, neLat]] = turnFlyToTarget.bounds;
+        if (
+          !Number.isFinite(swLng) || !Number.isFinite(swLat) ||
+          !Number.isFinite(neLng) || !Number.isFinite(neLat)
+        ) {
+          console.error('[AppMap] CRITICAL: bounds passed every guard but contain NaN. Aborting.', { swLng, swLat, neLng, neLat });
+          useMapStore.getState().setTurnFlyToTarget(null);
+          return;
+        }
+        // Padding leaves enough room for the carousel banner up top
+        // and the metrics card / control bar down bottom — without it
+        // Mapbox would happily zoom the leg under the UI chrome.
+        //
+        // Canvas-aware clamp: if the map canvas is small (mobile in
+        // landscape, dev preview at non-standard sizes, embedded view)
+        // a 140 + 320 vertical budget can EXCEED the available height,
+        // making Mapbox's internal projection math divide by a
+        // negative number → silent NaN → "LngLat invalid: NaN, NaN"
+        // even though OUR `bounds` passed every guard above. Cap each
+        // axis at 35 % of the corresponding canvas dimension; the
+        // visual result is still the correct framing on any device.
+        const canvas = rawMap.getCanvas();
+        const cw = canvas?.clientWidth ?? 0;
+        const ch = canvas?.clientHeight ?? 0;
+        const fitPadding = {
+          top:    Math.min(140, ch > 0 ? Math.floor(ch * 0.35) : 140),
+          bottom: Math.min(320, ch > 0 ? Math.floor(ch * 0.35) : 320),
+          left:   Math.min(60,  cw > 0 ? Math.floor(cw * 0.20) : 60),
+          right:  Math.min(60,  cw > 0 ? Math.floor(cw * 0.20) : 60),
+        };
+        rawMap.fitBounds(turnFlyToTarget.bounds, {
+          padding: fitPadding,
+          bearing: safeBearing,
+          pitch: 45,
+          duration: 800,
+          maxZoom: 17.5,
+        });
+      } else {
+        if (!isFiniteLngLat(turnFlyToTarget.center)) {
+          console.warn('[AppMap] FINAL guard: flyTo rejected — center non-finite.', turnFlyToTarget.center);
+          useMapStore.getState().setTurnFlyToTarget(null);
+          return;
+        }
+        const [lng, lat] = turnFlyToTarget.center;
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+          console.error('[AppMap] CRITICAL: center passed every guard but contains NaN. Aborting.', { lng, lat });
+          useMapStore.getState().setTurnFlyToTarget(null);
+          return;
+        }
+        rawMap.flyTo({
+          center: turnFlyToTarget.center,
+          bearing: safeBearing,
+          zoom: 17,
+          pitch: 45,
+          duration: 800,
+        });
+      }
+    } catch (err) {
+      // Mapbox raised — most commonly "LngLat invalid: NaN, NaN".
+      // Swallow so the error doesn't unmount the React tree. The
+      // user sees the map frozen at its current camera; the next
+      // valid GPS sample restarts the camera flow naturally.
+      console.error('[AppMap] Mapbox camera call threw — UI preserved, target dropped.', err);
+    }
+    useMapStore.getState().setTurnFlyToTarget(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnFlyToTarget]);
   const { facilities } = useFacilities();
   const [selectedFacility, setSelectedFacility] = useState<any | null>(null);
   const [currentZoom, setCurrentZoom] = useState(13);
+  const [viewportBounds, setViewportBounds] = useState<mapboxgl.LngLatBounds | null>(null);
   const [showInfrastructure, setShowInfrastructure] = useState(false);
+
+  // ── Walk-to-route dotted path (discover mode only) ──
+  // Must be before useCameraController so targetEndpoint is available for the bearing.
+  const walkToRoute = useWalkToRoute(
+    currentLocation ?? null,
+    focusedRoute ?? null,
+    !!isActiveWorkout,
+    mapMode,
+  );
 
   // ── Unified camera controller — single owner, single effect ──
   const camera = useCameraController({
@@ -118,6 +348,8 @@ export default function AppMap({
     skipInitialZoom,
     isAutoFollowEnabled,
     onUserPanDetected,
+    mapMode,
+    walkToRouteTarget: walkToRoute.targetEndpoint ?? null,
   });
 
   const visibleRoutes = useMemo(() => {
@@ -128,6 +360,67 @@ export default function AppMap({
       return true;
     });
   }, [routes, isAdmin, showInfrastructure]);
+
+  // ── Activity-filtered positions ──
+  // Applies the `partnerActivityFilter` (synced live from
+  // `usePartnerFilters.liveActivity` via DiscoverLayer) WITHOUT the
+  // `liveUsersVisible` gate. This is the shared source for both:
+  //   • The always-on heatmap + dots (which should thin out when the user
+  //     filters by an activity, regardless of whether the partner-finder
+  //     UI is open).
+  //   • The `visiblePartners` array used for full <Marker> rendering,
+  //     which adds `liveUsersVisible` on top.
+  // The 'strength' bucket includes both 'strength' and 'workout' statuses
+  // since both surface as strength training in the partner overlay.
+  const activityFilteredPositions = useMemo(() => {
+    if (partnerActivityFilter === 'all') return partnerPositions;
+    return partnerPositions.filter((p) => {
+      const status = p.activityStatus ?? '';
+      if (partnerActivityFilter === 'strength') {
+        return status === 'strength' || status === 'workout';
+      }
+      if (partnerActivityFilter === 'running') return status === 'running';
+      if (partnerActivityFilter === 'walking') return status === 'walking';
+      return false;
+    });
+  }, [partnerPositions, partnerActivityFilter]);
+
+  // ── Visible partner pins (full markers, zoom 15+) ──
+  // Layers the master `liveUsersVisible` switch on top of the
+  // activity-filtered set. False ⇒ no React <Marker> rendered.
+  const visiblePartners = useMemo(() => {
+    if (!liveUsersVisible) return [];
+    return activityFilteredPositions;
+  }, [activityFilteredPositions, liveUsersVisible]);
+
+  // ── Presence GeoJSON sources ──
+  // Two FeatureCollections drive the zoom-tier rendering:
+  //  • presenceGeoJSON         — activity-filtered, ALWAYS-ON. Powers the
+  //                              heatmap + dots so the ambient density
+  //                              indicator thins out as the user filters
+  //                              but stays visible when the partner-finder
+  //                              UI is closed.
+  //  • visiblePartnersGeoJSON  — fully filtered (activity + visibility);
+  //                              reserved for future clustered marker
+  //                              source. Current marker rendering still
+  //                              uses the `visiblePartners` array directly.
+  const presenceGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
+    type: 'FeatureCollection',
+    features: activityFilteredPositions.map((p) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+      properties: { uid: p.uid },
+    })),
+  }), [activityFilteredPositions]);
+
+  const visiblePartnersGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
+    type: 'FeatureCollection',
+    features: visiblePartners.map((p) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+      properties: { uid: p.uid },
+    })),
+  }), [visiblePartners]);
 
   useEffect(() => {
     fetchRealParks().then(setParks);
@@ -153,6 +446,48 @@ export default function AppMap({
         },
       })),
   }), [parks]);
+
+  // ── Forced declutter watchdog ──────────────────────────────────────────
+  // Belt-and-braces: in addition to the on('style.load') listener registered
+  // inside handleMapLoad, this effect watches the React `isMapLoaded` flag
+  // and forces an applyFitnessMapStyle call the moment the style reports
+  // ready. If the style is still parsing, a 250 ms poll retries until
+  // isStyleLoaded() returns true (max 20 attempts = 5 s safety cap).
+  useEffect(() => {
+    if (!isMapLoaded || !mapRef.current) return;
+    const map = mapRef.current.getMap();
+    if (!map) return;
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 20;
+    const tryApply = () => {
+      if (map.isStyleLoaded()) {
+        applyFitnessMapStyle(map, 'watchdog');
+        return true;
+      }
+      return false;
+    };
+
+    if (tryApply()) return;
+
+    const intervalId = setInterval(() => {
+      attempts++;
+      if (tryApply() || attempts >= MAX_ATTEMPTS) {
+        clearInterval(intervalId);
+      }
+    }, 250);
+
+    // One-shot idle safety net — fires once the very first time tiles +
+    // layout settle, then auto-detaches. Using `once` (not `on`) avoids
+    // re-running the declutter on every pan/zoom which would tank perf.
+    const onIdle = () => applyFitnessMapStyle(map, 'idle-safety');
+    map.once('idle', onIdle);
+
+    return () => {
+      clearInterval(intervalId);
+      try { map.off('idle', onIdle); } catch { /* map may be gone */ }
+    };
+  }, [isMapLoaded]);
 
   // ── Register custom pin images once the map is loaded ──
   useEffect(() => {
@@ -194,11 +529,25 @@ export default function AppMap({
       const source = map.getSource('parks-clustered') as mapboxgl.GeoJSONSource;
       source.getClusterExpansionZoom(clusterId, (err: any, zoom: any) => {
         if (err) return;
-        map.easeTo({
-          center: (feature.geometry as GeoJSON.Point).coordinates as [number, number],
-          zoom: zoom!,
-          duration: 500,
-        });
+        // Mapbox sometimes returns null/undefined for `zoom` even when `err`
+        // is null (e.g. when the cluster id is no longer in the source after
+        // a viewport change). Passing null into easeTo throws "Expected
+        // value to be of type number, but found null instead" deep inside
+        // the camera animator. Default to one step deeper than current.
+        const targetZoom = isFiniteNum(zoom)
+          ? zoom
+          : (mapRef.current?.getZoom() ?? 13) + 1;
+        const rawCenter = (feature.geometry as GeoJSON.Point).coordinates;
+        // Bulletproof guard: shape + every lng/lat must be finite. A bad
+        // cluster centroid (rare, but possible during rapid GeoJSON
+        // updates) used to crash the map with `LngLat invalid: NaN, NaN`.
+        if (!isFiniteLngLat(rawCenter)) return;
+        if (!isFiniteNum(targetZoom)) return;
+        try {
+          map.easeTo({ center: rawCenter, zoom: targetZoom, duration: 500 });
+        } catch (err) {
+          console.error('[AppMap] cluster easeTo threw — ignored.', err);
+        }
       });
       return;
     }
@@ -257,11 +606,19 @@ export default function AppMap({
   const routesGeoJSON = useMemo(() => {
     const features = visibleRoutes
       .filter(r => r.path && r.path.length > 1)
-      .map(route => ({
-        type: 'Feature',
-        properties: { id: route.id, isFocused: focusedRoute?.id === route.id, isInfrastructure: route.isInfrastructure || false },
-        geometry: { type: 'LineString', coordinates: route.path },
-      }));
+      .map(route => {
+        // Prefer the rotated/user-prepended displayPath (set by useRouteFilter) for
+        // rendering, so the line on the map matches where the user would actually run.
+        // Fall back to the original stored path when displayPath is absent.
+        const coords = (route.displayPath && route.displayPath.length > 1)
+          ? route.displayPath
+          : route.path;
+        return {
+          type: 'Feature',
+          properties: { id: route.id, isFocused: focusedRoute?.id === route.id, isInfrastructure: route.isInfrastructure || false },
+          geometry: { type: 'LineString', coordinates: coords },
+        };
+      });
     return { type: 'FeatureCollection', features };
   }, [visibleRoutes, focusedRoute]);
 
@@ -338,9 +695,21 @@ export default function AppMap({
     rawMap.on('style.load', applyHebrewLabels);
     rawMap.on('sourcedata', debouncedHebrew);
 
-    if (rawMap.isStyleLoaded()) applyFitnessMapStyle(rawMap);
-    else rawMap.once('style.load', () => applyFitnessMapStyle(rawMap));
-    rawMap.on('style.load', () => applyFitnessMapStyle(rawMap));
+    // ── Fitness declutter — timing fix ──────────────────────────────────────
+    // Diagnostic confirmed: isStyleLoaded() is false during the onLoad callback
+    // because Mapbox fires onLoad when the map container is ready, not when all
+    // style tiles are painted. Strategy: register on('style.load') for both the
+    // initial load and any future style swaps, then call immediately only if the
+    // style is already parsed (rare on first load, common on hot-reload).
+    const runDeclutter = () => applyFitnessMapStyle(rawMap, 'style.load');
+    rawMap.on('style.load', runDeclutter);
+    if (rawMap.isStyleLoaded()) {
+      // Tag this immediate call distinctly from the listener-driven one
+      // so the console trace makes it obvious whether the synchronous
+      // fast-path won (rare on first load, common on hot-reload) or
+      // whether the on('style.load') listener picked it up.
+      applyFitnessMapStyle(rawMap, 'style-already-loaded');
+    }
 
     // Wire camera controller's interaction listeners (mousedown, wheel, touch, movestart)
     camera.onMapReady(rawMap);
@@ -354,14 +723,19 @@ export default function AppMap({
       <Map
         ref={mapRef}
         onLoad={handleMapLoad}
-        onZoomEnd={(e) => setCurrentZoom(e.viewState.zoom)}
+        onZoom={(e) => setCurrentZoom(e.viewState.zoom)}
+        onZoomEnd={(e) => {
+          setCurrentZoom(e.viewState.zoom);
+          setViewportBounds(mapRef.current?.getBounds() ?? null);
+        }}
+        onMoveEnd={() => setViewportBounds(mapRef.current?.getBounds() ?? null)}
         initialViewState={
           initialCenter
             ? { longitude: initialCenter.lng, latitude: initialCenter.lat, zoom: 14 }
             : { longitude: 34.7818, latitude: 32.0853, zoom: 13 }
         }
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
-        mapStyle="mapbox://styles/mapbox/light-v11"
+        mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
         locale={{ 'NavigationControl.ZoomIn': 'הגדל', 'NavigationControl.ZoomOut': 'הקטן' }}
         onClick={handleMapClick}
@@ -404,7 +778,42 @@ export default function AppMap({
           </>
         )}
 
+        {/* ── Walk-to-route: dashed cyan line from user → nearest route endpoint ──
+            The hook controls visibility: loads in discover mode, persists
+            during active workout until the user arrives at the route endpoint
+            (within 30 m) or 60 s elapse. The hook itself returns null when done. */}
+        {walkToRoute.geoJSON && (
+          <Source id="walk-to-route" type="geojson" data={walkToRoute.geoJSON as any}>
+            <Layer
+              id="walk-to-route-line"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': '#00E5FF',
+                'line-width': 4,
+                'line-dasharray': [3, 3],
+                'line-opacity': 0.9,
+              }}
+            />
+          </Source>
+        )}
+
         {/* ── Simulation walk trail — DISABLED (was distracting orange dashes) ── */}
+
+        {/* ── Partner presence: heatmap + dots (always-on density signal) ──
+            Heatmap and small-dot tiers render whenever any presence doc
+            matches the active activity filter. They are an ambient "where
+            the action is" indicator that thins out as the user narrows the
+            filter (e.g. switching from 'all' to 'running' removes strength
+            presence from the heat density), but they stay visible whether
+            or not the partner-finder UI is open — `liveUsersVisible` only
+            gates the full <Marker> tier below. */}
+        {activityFilteredPositions.length > 0 && (
+          <Source id="partner-presence" type="geojson" data={presenceGeoJSON}>
+            <Layer {...PRESENCE_HEATMAP_LAYER} />
+            <Layer {...PRESENCE_DOTS_LAYER} />
+          </Source>
+        )}
 
         {/* ── Parks: Clustered GeoJSON Source ── */}
         <Source id="parks-clustered" type="geojson" data={parksGeoJSON} cluster={true} clusterMaxZoom={14} clusterRadius={50}>
@@ -486,7 +895,25 @@ export default function AppMap({
                     </div>
                   </div>
                 ) : (
-                  <LemurMarker size={52} personaId={userPersonaId} />
+                  // Idle mode: bright cyan ring + soft outer glow distinguishes
+                  // the user's marker from muted partner markers at a glance.
+                  <div className="relative flex items-center justify-center" style={{ width: 52, height: 52 }}>
+                    {/* Slow subtle pulse */}
+                    <div
+                      className="absolute rounded-full animate-ping"
+                      style={{ inset: -6, background: 'rgba(0,229,255,0.12)', animationDuration: '2.8s' }}
+                    />
+                    {/* Solid cyan ring */}
+                    <div
+                      className="absolute rounded-full"
+                      style={{
+                        inset: -3,
+                        border: '2.5px solid rgba(0,229,255,0.9)',
+                        boxShadow: '0 0 10px rgba(0,229,255,0.55), 0 0 22px rgba(0,229,255,0.2)',
+                      }}
+                    />
+                    <LemurMarker size={52} personaId={userPersonaId} />
+                  </div>
                 )}
               </div>
             </Marker>
@@ -508,7 +935,11 @@ export default function AppMap({
         {/* ── Route start markers ── */}
         {!isActiveWorkout && visibleRoutes.map(route => {
           const startPoint = route.path?.[0];
-          if (!startPoint) return null;
+          // Guard against malformed paths produced by upstream generators.
+          // `startPoint` may be present-but-broken: `[null, null]`, NaN, or
+          // a non-array. Mapbox's <Marker> throws "Expected number, found
+          // null" when handed any of those, which blanks the entire map.
+          if (!isFiniteLngLat(startPoint)) return null;
           const isSelected = focusedRoute?.id === route.id;
           if (isSelected && currentLocation && Math.abs(currentLocation.lat - startPoint[1]) < 0.0003 && Math.abs(currentLocation.lng - startPoint[0]) < 0.0003) return null;
           return (
@@ -552,23 +983,29 @@ export default function AppMap({
           );
         })}
 
-        {/* ── Partner markers (Peloton) ── */}
-        {partnerPositions.map((p) => (
-          <Marker key={p.uid} longitude={p.lng} latitude={p.lat} anchor="center">
-            <button
-              onClick={() => onPartnerClick?.({ uid: p.uid, name: p.name, personaImageUrl: p.personaImageUrl, lemurStage: p.lemurStage })}
-              className="cursor-pointer"
-            >
-              <PartnerMarker
-                name={p.name}
-                color={p.color}
-                size={34}
-                personaImageUrl={p.personaImageUrl}
-                lemurStage={p.lemurStage}
-              />
-            </button>
-          </Marker>
-        ))}
+        {/* ── Partner markers (Peloton) ──
+            High-zoom tier only. Below zoom 15 the heatmap/dots layers above
+            represent the same data without DOM cost. Viewport-bounds filter
+            ensures we never mount markers for partners off-screen, which
+            keeps marker count bounded as the city scales. */}
+        {currentZoom >= 15 && visiblePartners
+          .filter((p) => !viewportBounds || viewportBounds.contains([p.lng, p.lat]))
+          .map((p) => (
+            <Marker key={p.uid} longitude={p.lng} latitude={p.lat} anchor="center">
+              <button
+                onClick={() => onPartnerClick?.({ uid: p.uid, name: p.name, personaImageUrl: p.personaImageUrl, lemurStage: p.lemurStage })}
+                className="cursor-pointer"
+              >
+                <PartnerMarker
+                  name={p.name}
+                  color={p.color}
+                  size={34}
+                  personaImageUrl={p.personaImageUrl}
+                  lemurStage={p.lemurStage}
+                />
+              </button>
+            </Marker>
+          ))}
 
         {/* ── Facility popup ── */}
         {selectedFacility && (

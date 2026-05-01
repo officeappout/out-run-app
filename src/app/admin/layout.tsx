@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -88,7 +88,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
         military: ['/admin/authority/readiness'],
         educational: ['/admin/authority/grades'],
         platform: ['/admin/admin-directory', '/admin/access-codes', '/admin/organizations'],
-        appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds'],
+        appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
         running: ['/admin/running'],
         production: ['/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
         brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator'],
@@ -129,6 +129,11 @@ function AdminLayoutInner({
     const [isSystemAdminOnly, setIsSystemAdminOnly] = useState(false);
     const [loading, setLoading] = useState(true);
     const [authorityName, setAuthorityName] = useState<string | null>(null);
+
+    // Stable ref so the auth useEffect callback always reads the current pathname
+    // without re-subscribing onAuthStateChanged on every navigation.
+    const pathnameRef = useRef<string | null>(pathname);
+    useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
     const [authorityType, setAuthorityType] = useState<string | null>(null);
     const [managedAuthorityId, setManagedAuthorityId] = useState<string | null>(null);
     
@@ -202,15 +207,20 @@ function AdminLayoutInner({
     };
 
     useEffect(() => {
+        // onAuthStateChanged must NOT list `pathname` or `router` as deps:
+        // those change on every navigation, which would unsubscribe + re-subscribe
+        // the listener and re-run the entire Firestore auth chain (getIdToken +
+        // checkUserRole + getAllAuthorities) on every page change. Instead we read
+        // `pathnameRef.current` (kept in sync by the effect above) for the public-path
+        // check, and use `window.location` / `router` captured at mount time for redirects.
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            // Skip auth check for login-related pages
             const publicPaths = ['/admin/login', '/admin/auth/callback', '/admin/authority-login', '/admin/pending-approval'];
-            const isPublicPath = publicPaths.some(path => pathname?.startsWith(path));
-            
+            const isPublicPath = publicPaths.some(path => pathnameRef.current?.startsWith(path));
+
             if (!user) {
                 // Not authenticated - redirect to login (unless on public path)
                 if (!isPublicPath) {
-                    if (pathname?.startsWith('/admin/authority-manager')) {
+                    if (pathnameRef.current?.startsWith('/admin/authority-manager')) {
                         if (typeof window !== 'undefined') {
                             window.location.href = '/admin/authority-login';
                         }
@@ -237,6 +247,12 @@ function AdminLayoutInner({
             }
 
             try {
+                // Force-refresh the ID token before any Firestore calls.
+                // onAuthStateChanged may fire with a cached (potentially stale) token;
+                // refreshing here ensures Firestore receives a valid credential and that
+                // any custom claims set server-side are reflected in the first requests.
+                await user.getIdToken(/* forceRefresh */ true);
+
                 // Pass user email for allowlist check
                 const info = await checkUserRole(user.uid, user.email);
                 setRoleInfo(info);
@@ -327,7 +343,8 @@ function AdminLayoutInner({
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [pathname, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // intentionally empty — pathnameRef.current keeps pathname fresh without re-subscribing
 
     const isSuperAdmin = roleInfo?.isSuperAdmin ?? false;
     const isSystemAdmin = roleInfo?.isSystemAdmin ?? false;
@@ -729,6 +746,12 @@ function AdminLayoutInner({
                                                 <SidebarLink href="/admin/brands" icon={Package} label="מותגי מתקנים" />
                                                 <SidebarLink href="/admin/gear-definitions" icon={Package} label="ציוד אישי" />
                                             </div>
+
+                                            {/* Demo / seed tools */}
+                                            <div className="pt-1 pr-2">
+                                                <p className="text-xs font-medium text-slate-500 px-4 py-1">כלי דמו</p>
+                                                <SidebarLink href="/admin/demo-seed" icon={FlaskConical} label="כלי דמו — שדרות" />
+                                            </div>
                                         </div>
                                     )}
                                 </>
@@ -822,22 +845,31 @@ function AdminLayoutInner({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden min-h-[100dvh] bg-white">
-                <div 
-                    className="p-4 md:p-8 pb-16 min-h-full min-w-0 bg-white text-slate-900" 
-                    style={{ 
-                        colorScheme: 'light',
-                        color: '#0f172a'
-                    }}
-                >
+            {/* Full-screen map pages (route builder) must not be wrapped in the padded
+                prose container: percentage heights inside a scroll container with padding
+                break Mapbox's height resolution, rendering a blank canvas. */}
+            {pathname === '/admin/routes/new' || pathname === '/admin/authority/routes/new' ? (
+                <main className="flex-1 min-w-0 overflow-hidden min-h-[100dvh] bg-white flex flex-col">
+                    {children}
+                </main>
+            ) : (
+                <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden min-h-[100dvh] bg-white">
                     <div 
-                        className="min-w-0 text-slate-900 [&_*]:!text-slate-900 [&_input]:!text-slate-900 [&_textarea]:!text-slate-900 [&_select]:!text-slate-900 [&_label]:!text-slate-900 [&_p]:!text-slate-900 [&_span]:!text-slate-900 [&_td]:!text-slate-900 [&_th]:!text-slate-900 [&_h1]:!text-slate-900 [&_h2]:!text-slate-900 [&_h3]:!text-slate-900 [&_div]:!text-slate-900 [&_li]:!text-slate-900"
-                        style={{ color: '#0f172a' }}
+                        className="p-4 md:p-8 pb-16 min-h-full min-w-0 bg-white text-slate-900" 
+                        style={{ 
+                            colorScheme: 'light',
+                            color: '#0f172a'
+                        }}
                     >
-                        {children}
+                        <div 
+                            className="min-w-0 text-slate-900 [&_*]:!text-slate-900 [&_input]:!text-slate-900 [&_textarea]:!text-slate-900 [&_select]:!text-slate-900 [&_label]:!text-slate-900 [&_p]:!text-slate-900 [&_span]:!text-slate-900 [&_td]:!text-slate-900 [&_th]:!text-slate-900 [&_h1]:!text-slate-900 [&_h2]:!text-slate-900 [&_h3]:!text-slate-900 [&_div]:!text-slate-900 [&_li]:!text-slate-900"
+                            style={{ color: '#0f172a' }}
+                        >
+                            {children}
+                        </div>
                     </div>
-                </div>
-            </main>
+                </main>
+            )}
         </div>
     );
 }

@@ -11,6 +11,8 @@ import {
   getAllAuthorities,
 } from '@/features/admin/services/authority.service';
 import LiveHeatMap from '@/features/heatmap/components/LiveHeatMap';
+import PopularRoutesCard from '@/features/heatmap/components/PopularRoutesCard';
+import PopularParksCard from '@/features/heatmap/components/PopularParksCard';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -126,9 +128,15 @@ export default function HeatmapPage() {
       </div>
 
       {/* Heatmap */}
-      <div className="w-full h-[calc(100vh-160px)] rounded-xl overflow-hidden">
+      <div className="w-full h-[calc(100vh-260px)] min-h-[500px] rounded-xl overflow-hidden">
         <LiveHeatMap authorityId={authorityId} center={center} />
       </div>
+
+      {/* Top routes by usage — sits below the map */}
+      <PopularRoutesCard authorityId={authorityId} />
+
+      {/* Top parks by monthly visit count — mirrors the routes card */}
+      <PopularParksCard authorityId={authorityId} />
     </div>
   );
 }

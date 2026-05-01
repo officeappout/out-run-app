@@ -8,6 +8,7 @@ import { InventoryService, getCachedOfficialRoutes } from '../services/inventory
 import { Route, ActivityType } from '../types/route.types';
 import { Park } from '../types/park.types';
 import { useRouteFilter, FilterPreferences } from './useRouteFilter';
+import { useUserCityName } from './useUserCityName';
 import { NavHubState } from '../components/NavigationHub';
 import { isRouteNearby, distanceToRouteStart } from '../services/geoUtils';
 
@@ -67,6 +68,14 @@ export function useRouteGeneration(
   const { filteredRoutes, preferences, updateFilter, isGenerating } =
     useRouteFilter(allRoutes, currentUserPos, routeGenerationIndex, mapMode);
 
+  // Resolve the user's city for street_segments queries. The hook walks three
+  // paths in order: (1) sync city affiliation, (2) async authority lookup,
+  // (3) async Mapbox reverse-geocode against the live GPS position. Path 3
+  // is the safety net for users who entered the app outside the gateway flow
+  // and therefore never received a city affiliation. Without a position the
+  // hook falls back to paths 1 + 2 only.
+  const userCityName = useUserCityName(currentUserPos);
+
   // ── Fetch official routes from Firestore on mount ──
   const [officialRoutes, setOfficialRoutes] = useState<Route[]>([]);
   const officialFetched = useRef(false);
@@ -74,9 +83,9 @@ export function useRouteGeneration(
   useEffect(() => {
     if (officialFetched.current) return;
     officialFetched.current = true;
-    InventoryService.fetchOfficialRoutes()
+    InventoryService.fetchOfficialRoutes(undefined, true)
       .then((routes) => {
-        console.log(`[Routes] Fetched ${routes.length} official routes from Firestore`);
+        console.log(`[Routes] Fetched ${routes.length} published official routes from Firestore`);
         if (routes.length > 0) {
           setOfficialRoutes(routes);
         }
@@ -151,11 +160,12 @@ export function useRouteGeneration(
         routeGenerationIndex: newIndex,
         preferences: { includeStrength: preferences.includeStrength || false, surface: preferences.surface as 'road' | 'trail' },
         parks,
+        cityName: userCityName,
       });
       if (newRoutes.length > 0) { setAllRoutes(newRoutes); setFocusedRoute(newRoutes[0]); }
       else { setAllRoutes(MOCK_ROUTES); if (MOCK_ROUTES.length > 0) setFocusedRoute(MOCK_ROUTES[0]); }
     } catch { setAllRoutes(MOCK_ROUTES); } finally { setIsGeneratingRoutes(false); }
-  }, [currentUserPos, routeGenerationIndex, preferences]);
+  }, [currentUserPos, routeGenerationIndex, preferences, userCityName]);
 
   const handleActivityChange = useCallback((t: ActivityType) => updateFilter({ activity: t }), [updateFilter]);
 

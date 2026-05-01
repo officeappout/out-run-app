@@ -2,6 +2,7 @@
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 // NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
+import type { Lap } from '@/features/workout-engine/core/types/session.types';
 
 // Route coordinate format stored in Firestore (object format to avoid nested arrays)
 export interface RoutePoint {
@@ -25,9 +26,21 @@ export interface WorkoutHistoryEntry {
   routePath?: RoutePoint[] | [number, number][]; // GPS coordinates - supports both formats for backward compatibility
   routeId?: string; // If guided route
   routeName?: string;
+  /**
+   * Auto-detected park (within 200 m) at workout completion.
+   * Persisted on the workout doc so future analytics can group "popular parks"
+   * directly off the workouts collection without a separate sessions write.
+   * See `detectNearbyPark()` in park-detection.service.ts.
+   */
+  parkId?: string;
+  parkName?: string;
   earnedCoins: number;
   /** Global XP earned in this session — written at save time for the activity history list. */
   xpEarned?: number;
+  /** Completed laps for this run. Active (in-progress) lap is excluded. */
+  laps?: Lap[];
+  /** Total metres of positive elevation gained during the run. */
+  elevationGain?: number;
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this was a recovery/maintenance workout (does not consume weekly volume budget) */
@@ -361,8 +374,12 @@ export async function getWorkoutHistory(userId: string, limitCount: number = 50)
           routePath: routePath,
         routeId: data.routeId,
         routeName: data.routeName,
+        parkId: data.parkId,
+        parkName: data.parkName,
         earnedCoins: data.earnedCoins || 0,
         xpEarned: data.xpEarned ?? 0,
+        laps: Array.isArray(data.laps) ? data.laps : undefined,
+        elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
       });
       } catch (error) {
         console.error('[WorkoutStorage] Error parsing workout document:', docSnap.id, error);

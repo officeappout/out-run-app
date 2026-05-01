@@ -23,7 +23,8 @@ import type { BonusStep, VolumeBreakdownDisplay } from '@/features/workout-engin
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
@@ -801,7 +802,30 @@ export default function ActiveWorkoutPage() {
     const durationSec = workoutStats.duration;
     const durationMin = Math.max(1, Math.round(durationSec / 60));
 
-    // 1. Save workout to Firestore history (include XP so the activity list can show it)
+    // 0. Detect nearest park (within 200 m) up front so the workout doc, the
+    // sessions check-in, and the feed post all see the same parkId.
+    // For strength workouts we don't have a routePath, so we ask GPS once.
+    let detectedPark: Awaited<ReturnType<typeof detectNearbyPark>> = null;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        const pos = await new Promise<GeolocationPosition | null>((res) =>
+          navigator.geolocation.getCurrentPosition(
+            (p) => res(p),
+            () => res(null),
+            { timeout: 3000 },
+          ),
+        );
+        if (pos) {
+          detectedPark = await detectNearbyPark(
+            pos.coords.latitude,
+            pos.coords.longitude,
+          ).catch(() => null);
+        }
+      }
+    } catch { /* GPS unavailable — continue without park */ }
+
+    // 1. Save workout to Firestore history (include XP + optional park tagging)
+    let saved = false;
     if (currentUser) {
       try {
         const bolts: 1 | 2 | 3 =
@@ -818,7 +842,7 @@ export default function ActiveWorkoutPage() {
           streak: 0, // streak multiplier applied separately by awardStrengthXP
         });
 
-        await saveWorkout({
+        saved = await saveWorkout({
           userId: currentUser.uid,
           activityType: 'strength',
           distance: 0,
@@ -830,10 +854,30 @@ export default function ActiveWorkoutPage() {
           workoutType: 'STRENGTH',
           category: 'strength',
           displayIcon: 'dumbbell',
+          ...(detectedPark
+            ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
+            : {}),
         });
         console.log('[ActiveWorkoutPage] Workout saved to history');
       } catch (err) {
         console.error('[ActiveWorkoutPage] Failed to save workout:', err);
+      }
+    }
+
+    // 1b. Park check-in for `getPopularParks()` analytics.
+    // Best-effort: never block UI / navigation on this write.
+    if (saved && currentUser && detectedPark?.parkId) {
+      const authorityId =
+        profile?.core?.authorityId ?? detectedPark.authorityId ?? null;
+      if (authorityId) {
+        addDoc(collection(db, 'sessions'), {
+          authorityId,
+          parkId: detectedPark.parkId,
+          userId: currentUser.uid,
+          date: serverTimestamp(),
+        }).catch((err) =>
+          console.warn('[ActiveWorkoutPage] Session check-in failed:', err),
+        );
       }
     }
 
@@ -844,20 +888,6 @@ export default function ActiveWorkoutPage() {
         workoutStats.difficulty === 'hard' ? 'גבוהה' : 'בינונית';
       const scope = extractFeedScope(profile);
 
-      // Try to detect park from user's last known GPS
-      let parkFields: { parkId?: string; parkName?: string } = {};
-      try {
-        if (navigator.geolocation) {
-          const pos = await new Promise<GeolocationPosition>((res, rej) =>
-            navigator.geolocation.getCurrentPosition(res, rej, { timeout: 3000 }),
-          ).catch(() => null);
-          if (pos) {
-            const park = await detectNearbyPark(pos.coords.latitude, pos.coords.longitude);
-            if (park) parkFields = park;
-          }
-        }
-      } catch { /* GPS unavailable — post without park */ }
-
       createWorkoutPost({
         authorUid: currentUser.uid,
         authorName: profile.core.name,
@@ -866,7 +896,9 @@ export default function ActiveWorkoutPage() {
         intensityLevel: diffLabel,
         title: stableWorkoutPlan?.name || undefined,
         ...scope,
-        ...parkFields,
+        ...(detectedPark
+          ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
+          : {}),
       }).catch((err) => console.warn('[ActiveWorkoutPage] Feed post failed:', err));
     }
 

@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+// `m` is the tree-shakeable variant; the root <LazyMotion> in ClientLayout
+// supplies the dom-animation features. Reduces JS payload on the feed tab.
+import { m, AnimatePresence } from 'framer-motion';
 import { X, HandMetal, Users, Trophy } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useActivityFeed } from '../hooks/useActivityFeed';
@@ -70,7 +72,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <m.div
             className="fixed inset-0 z-[70] bg-black/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -78,7 +80,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
             onClick={onClose}
           />
 
-          <motion.div
+          <m.div
             className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl max-h-[80dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -148,7 +150,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
                 })}
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

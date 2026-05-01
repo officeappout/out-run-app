@@ -15,6 +15,8 @@ import {
     ParkFeatureTag,
     getAutoSportTypes,
     ROUTE_SUB_SPORT_MAPPING,
+    ALL_ROUTE_FEATURE_TAGS,
+    ROUTE_FEATURE_TAG_LABELS,
 } from '@/features/parks';
 import type { NatureType, CommunityType, UrbanType, StairsDetails, BenchDetails, ParkingDetails, ParkingPaymentType, RouteTerrainType, RouteEnvironment } from '@/features/parks';
 import {
@@ -1380,26 +1382,55 @@ function AddLocationModal({
                                 </span>
                             )}
                         </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                            {FEATURE_TAG_OPTIONS.map(tag => {
-                                const isSelected = formData.featureTags.includes(tag.id);
-                                return (
-                                    <button
-                                        key={tag.id}
-                                        type="button"
-                                        onClick={() => toggleTag(tag.id)}
-                                        className={`px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all flex items-center gap-2 ${
-                                            isSelected
-                                                ? 'bg-purple-50 border-purple-400 text-purple-700'
-                                                : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <span>{tag.icon}</span>
-                                        <span>{tag.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {/* On the Routes tab, swap to the route-specific tag
+                            list (ALL_ROUTE_FEATURE_TAGS / ROUTE_FEATURE_TAG_LABELS)
+                            so the labels match RouteEditor.tsx exactly and the
+                            user gets the same picker on both create + edit
+                            paths. ParkFeatureTag and RouteFeatureTag share
+                            the same string-literal value set, so toggleTag is
+                            type-safe in both branches. */}
+                        {isRoutesTab ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {ALL_ROUTE_FEATURE_TAGS.map((tag) => {
+                                    const isSelected = formData.featureTags.includes(tag as ParkFeatureTag);
+                                    return (
+                                        <button
+                                            key={tag}
+                                            type="button"
+                                            onClick={() => toggleTag(tag as ParkFeatureTag)}
+                                            className={`px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all text-start ${
+                                                isSelected
+                                                    ? 'bg-purple-50 border-purple-400 text-purple-700'
+                                                    : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                                            }`}
+                                        >
+                                            {ROUTE_FEATURE_TAG_LABELS[tag]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                {FEATURE_TAG_OPTIONS.map(tag => {
+                                    const isSelected = formData.featureTags.includes(tag.id);
+                                    return (
+                                        <button
+                                            key={tag.id}
+                                            type="button"
+                                            onClick={() => toggleTag(tag.id)}
+                                            className={`px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all flex items-center gap-2 ${
+                                                isSelected
+                                                    ? 'bg-purple-50 border-purple-400 text-purple-700'
+                                                    : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                                            }`}
+                                        >
+                                            <span>{tag.icon}</span>
+                                            <span>{tag.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     {/* Star Rating (1-5) */}
@@ -1500,6 +1531,7 @@ export default function LocationsPage() {
     const [parks, setParks] = useState<Park[]>([]);
     const [authorities, setAuthorities] = useState<Authority[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingRoutes, setLoadingRoutes] = useState(false);
     const [isAuthorityManagerOnly, setIsAuthorityManagerOnly] = useState(false);
     const [userAuthorityIds, setUserAuthorityIds] = useState<string[]>([]);
     const [remapping, setRemapping] = useState(false);
@@ -1544,6 +1576,7 @@ export default function LocationsPage() {
     // to immediately refresh the table after a successful route save.
     const refreshOfficialRoutes = useCallback(async () => {
         try {
+            setLoadingRoutes(true);
             console.log('[LocationsPage] fetching official_routes…');
             const routes = await InventoryService.fetchOfficialRoutes(
                 isAuthorityManagerOnly && userAuthorityIds.length > 0
@@ -1561,7 +1594,11 @@ export default function LocationsPage() {
                     : { lat: 0, lng: 0 },
                 facilityType: 'route' as ParkFacilityCategory,
                 sportTypes: (r.activityType ? [r.activityType] : [r.type]) as ParkSportType[],
-                featureTags: [],
+                // Pre-populate from the route doc so the edit form shows
+                // currently saved tags. RouteFeatureTag and ParkFeatureTag
+                // share the same string-literal value set, so the cast is
+                // safe at runtime.
+                featureTags: ((r as any).featureTags as ParkFeatureTag[] | undefined) ?? [],
                 status: 'open' as const,
                 city: r.city || '',
                 authorityId: r.authorityId || undefined,
@@ -1577,6 +1614,8 @@ export default function LocationsPage() {
             setOfficialRoutes(routeParks);
         } catch (err) {
             console.error('Error loading official routes:', err);
+        } finally {
+            setLoadingRoutes(false);
         }
     }, [isAuthorityManagerOnly, userAuthorityIds]);
 
@@ -1736,6 +1775,11 @@ export default function LocationsPage() {
                     images: parkData.image
                         ? [parkData.image]
                         : ((editingPark as any).images as string[] | undefined) ?? undefined,
+                    // Persist extended amenity tags for the route (matches
+                    // RouteEditor.tsx). Omit when empty so stripUndefined in
+                    // InventoryService.updateRoute drops the field cleanly
+                    // and we don't blow away an explicit empty selection.
+                    featureTags: data.featureTags.length > 0 ? data.featureTags : undefined,
                 };
                 console.log('SAVE_PAYLOAD', { docId: editingPark.id, ...routePayload });
                 await InventoryService.updateRoute(editingPark.id, routePayload as any);
@@ -2134,7 +2178,15 @@ export default function LocationsPage() {
             ) : (
                 /* ============ LOCATION TABLE ============ */
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    {filteredParks.length === 0 ? (
+                    {/* Routes-tab-specific loading indicator — doesn't block
+                        the rest of the page, only appears inside the table area
+                        while official_routes are being fetched. */}
+                    {activeTab === 'routes' && loadingRoutes ? (
+                        <div className="flex items-center justify-center py-20 gap-3 text-cyan-500">
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <span className="text-sm font-bold text-gray-500">טוען מסלולים…</span>
+                        </div>
+                    ) : filteredParks.length === 0 ? (
                         <div className="text-center py-20">
                             <div
                                 className="inline-flex p-4 rounded-full mb-4"

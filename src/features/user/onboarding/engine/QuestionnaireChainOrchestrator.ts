@@ -10,8 +10,11 @@
  *   const firstEngine = await orchestrator.startChain(chainDefinition);
  *   // ... user completes first quiz ...
  *   const { hasNext, nextEngine } = await orchestrator.completeCurrentQuestionnaire(firstEngine);
- *   if (hasNext) { /* render nextEngine */ }
- *   else { const results = orchestrator.aggregateResults(); }
+ *   if (hasNext) {
+ *     // render nextEngine
+ *   } else {
+ *     const results = orchestrator.aggregateResults();
+ *   }
  */
 
 import { DynamicOnboardingEngine, DynamicQuestionNode, WorkflowChainTrigger } from './DynamicOnboardingEngine';

@@ -301,7 +301,25 @@ export function sortAuthoritiesByUrgency(authorities: Authority[]): Authority[] 
  * @param type - Optional filter by authority type
  * @param topLevelOnly - If true, only return authorities with parentAuthorityId == null
  */
+
+// Module-level cache so admin pages that call getAllAuthorities() on every
+// mount (e.g. /admin/locations) don't re-scan Firestore more than once every
+// 5 minutes. The cache is keyed on the stringified (type, topLevelOnly)
+// combination so filtered calls don't poison the default one.
+const _authoritiesCache = new Map<string, { data: Authority[]; time: number }>();
+const AUTHORITIES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function clearAuthoritiesCache(): void {
+  _authoritiesCache.clear();
+}
+
 export async function getAllAuthorities(type?: AuthorityType, topLevelOnly: boolean = false): Promise<Authority[]> {
+  const cacheKey = `${type ?? ''}|${topLevelOnly}`;
+  const cached = _authoritiesCache.get(cacheKey);
+  if (cached && Date.now() - cached.time < AUTHORITIES_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     let q;
     const constraints: any[] = [];
@@ -329,7 +347,10 @@ export async function getAllAuthorities(type?: AuthorityType, topLevelOnly: bool
       .map(doc => normalizeAuthority(doc.id, doc.data()));
     
     // Return sorted by urgency
-    return sortAuthoritiesByUrgency(authorities);
+    const sorted = sortAuthoritiesByUrgency(authorities);
+
+    _authoritiesCache.set(cacheKey, { data: sorted, time: Date.now() });
+    return sorted;
   } catch (error) {
     console.error('Error fetching authorities:', error);
     throw error;
@@ -855,16 +876,26 @@ export async function getAuthoritiesByManager(managerId: string): Promise<Author
       console.error('Error checking super admin status:', error);
     }
 
-    // Super Admin gets ALL top-level authorities so they can freely switch between cities
+    // Super Admin gets ALL top-level authorities so they can freely switch between cities.
+    // Wrapped in its own try/catch: a Firestore PERMISSION_DENIED here (e.g. stale rules
+    // deployment) must NOT propagate to checkUserRole's outer catch — that catch returns
+    // role:'none' and strips the user of admin access entirely.
     if (isSuperAdmin) {
-      const allAuthorities = await getAllAuthorities(undefined, true);
-      if (allAuthorities.length > 0) {
-        console.log(`[getAuthoritiesByManager] Super Admin — returning all ${allAuthorities.length} top-level authorities`);
-        return allAuthorities;
+      try {
+        const allAuthorities = await getAllAuthorities(undefined, true);
+        if (allAuthorities.length > 0) {
+          console.log(`[getAuthoritiesByManager] Super Admin — returning all ${allAuthorities.length} top-level authorities`);
+          return allAuthorities;
+        }
+        const all = await getAllAuthorities();
+        console.log(`[getAuthoritiesByManager] Super Admin — returning all ${all.length} authorities`);
+        return all;
+      } catch (err) {
+        // Return empty so checkUserRole continues to STEP 2 (getUserFromFirestore) and
+        // correctly resolves isSuperAdmin from the user document.
+        console.warn('[getAuthoritiesByManager] Super Admin: getAllAuthorities denied — firestore.rules isAdmin() may not yet reflect core.isSuperAdmin', err);
+        return [];
       }
-      const all = await getAllAuthorities();
-      console.log(`[getAuthoritiesByManager] Super Admin — returning all ${all.length} authorities`);
-      return all;
     }
 
     // Regular Authority Manager: filter by managerIds

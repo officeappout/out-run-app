@@ -4,7 +4,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
+import { useSmartwatchPrompt } from '@/features/user/onboarding/hooks/useSmartwatchPrompt';
 import { Route } from '../types/route.types';
+import { computeRouteTurns } from '../services/geoUtils';
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -56,6 +58,12 @@ export interface WorkoutSessionState {
   jitState: ReturnType<typeof useRequiredSetup>['jitState'];
   dismissJIT: () => void;
   cancelJIT: () => void;
+  // ── Smartwatch prompt (running activities only) ──
+  // Mounted by MapShell as a centred modal that surfaces AFTER any JIT
+  // requirements clear and BEFORE _doStartActiveWorkout runs. Skipped
+  // entirely for non-running activities and for runners who've already
+  // seen the prompt this session.
+  smartwatchPrompt: ReturnType<typeof useSmartwatchPrompt>['smartwatchPrompt'];
 }
 
 export function useWorkoutSession(
@@ -68,6 +76,7 @@ export function useWorkoutSession(
   const { triggerLap, addCoord, updateRunData } = useRunningPlayer();
   const { status, startSession, pauseSession, resumeSession, endSession, updateDistance } = useSessionStore();
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
+  const { smartwatchPrompt, openIfFirstRunner } = useSmartwatchPrompt();
 
   // Read canonical coord trail and pace from the running store (single source of truth)
   const routeCoords = useRunningPlayer((s) => s.routeCoords);
@@ -147,6 +156,12 @@ export function useWorkoutSession(
 
     lastSimInjectionRef.current = { pos, time: now };
     setCurrentUserPos(pos);
+
+    // Run deviation detection on the simulated path too, so dev-mode mock
+    // movement triggers the same auto-reroute flow as real GPS would. Pulled
+    // off the store directly to avoid threading another action prop through
+    // useWorkoutSession's already-large dependency array.
+    useRunningPlayer.getState().checkRouteDeviation(pos);
   }, [isWorkoutActive, isWorkoutPaused, addCoord, updateDistance, updateRunData, setCurrentUserPos]);
 
   const _doStartActiveWorkout = useCallback(() => {
@@ -157,6 +172,33 @@ export function useWorkoutSession(
     startSession('running');
     if (planned) { rp.setCurrentWorkout(planned); rp.setRunMode('plan'); }
     else { rp.setRunMode('free'); }
+    // Bind the official_routes id + display metadata of the focused route (if any).
+    // The id is persisted onto the saved workout document and bumps route analytics
+    // on completion. Name + distance feed the GuidedRouteView progress strip so the
+    // active-workout UI can show "מסלול X • Y%" without re-reading focusedRoute.
+    rp.setGuidedRouteId(focusedRoute?.id ?? null);
+    rp.setGuidedRouteName(focusedRoute?.name ?? null);
+    rp.setGuidedRouteDistanceKm(
+      typeof focusedRoute?.distance === 'number' && focusedRoute.distance > 0
+        ? focusedRoute.distance
+        : null,
+    );
+    rp.setGuidedRouteTurns(
+      focusedRoute?.path && focusedRoute.path.length >= 3
+        ? computeRouteTurns(focusedRoute.path)
+        : null,
+    );
+    // Seed the deviation detector with the route polyline. Without this,
+    // checkRouteDeviation has nothing to compare against and the auto-reroute
+    // never fires. setActiveRoutePath also resets the deviation counter on
+    // every call, so re-mounting / re-starting always begins from a clean
+    // state. Free-form runs (no focusedRoute) get an empty path which the
+    // detector treats as "no comparable route" — same behaviour as today.
+    rp.setActiveRoutePath(
+      focusedRoute?.path && focusedRoute.path.length >= 2
+        ? focusedRoute.path
+        : [],
+    );
     // Single GPS watcher — only startGPSTracking runs; no second watcher here.
     rp.startGPSTracking();
     lastSimInjectionRef.current = null;
@@ -173,9 +215,28 @@ export function useWorkoutSession(
     }
   }, [focusedRoute, workoutMode, currentUserPos, startSession]);
 
+  /**
+   * Pre-flight chain for an active workout start:
+   *   1. JIT requirements (health is the only hard block; equipment is
+   *      auto-skipped for runners — we tell `useRequiredSetup` the
+   *      activity type so it filters the requirements list).
+   *   2. Smartwatch prompt (runners only, first-shown only).
+   *   3. _doStartActiveWorkout.
+   *
+   * Both step 1 and step 2 may be no-ops; they pass through synchronously
+   * when not applicable. Net cost when nothing fires: two function
+   * calls, zero re-renders.
+   *
+   * `useWorkoutSession` only ever starts running workouts (the home
+   * page handles strength + planned via its own interceptor), so we
+   * pass `'running'` as the activity type unconditionally.
+   */
   const startActiveWorkout = useCallback(() => {
-    interceptWorkoutStart(() => _doStartActiveWorkout());
-  }, [interceptWorkoutStart, _doStartActiveWorkout]);
+    interceptWorkoutStart(
+      () => openIfFirstRunner('running', () => _doStartActiveWorkout()),
+      'running',
+    );
+  }, [interceptWorkoutStart, openIfFirstRunner, _doStartActiveWorkout]);
 
   return {
     isWorkoutActive, setIsWorkoutActive,
@@ -193,5 +254,6 @@ export function useWorkoutSession(
     triggerLap, addCoord,
     injectSimPosition,
     jitState, dismissJIT, cancelJIT,
+    smartwatchPrompt,
   };
 }

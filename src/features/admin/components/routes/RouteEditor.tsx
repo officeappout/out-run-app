@@ -24,8 +24,13 @@ import {
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { Route, ActivityType } from '@/features/parks';
-import { InventoryService } from '@/features/parks';
-import { ROUTE_SUB_SPORT_MAPPING } from '@/features/parks';
+import { InventoryService, invalidateOfficialRoutesCache } from '@/features/parks';
+import {
+    ROUTE_SUB_SPORT_MAPPING,
+    ALL_ROUTE_FEATURE_TAGS,
+    ROUTE_FEATURE_TAG_LABELS,
+    type RouteFeatureTag,
+} from '@/features/parks';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { auth } from '@/lib/firebase';
 import type { Authority } from '@/types/admin-types';
@@ -175,6 +180,13 @@ export default function RouteEditor({
     const [routeRating,  setRouteRating]  = useState(3.0);
     const [description,  setDescription]  = useState('');
     const [imageUrl,     setImageUrl]     = useState('');
+    const [featureTags,  setFeatureTags]  = useState<RouteFeatureTag[]>([]);
+
+    const toggleFeatureTag = useCallback((tag: RouteFeatureTag) => {
+        setFeatureTags((prev) =>
+            prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+        );
+    }, []);
 
     // Authority (only used when NOT locked)
     const [authorities,           setAuthorities]           = useState<Authority[]>([]);
@@ -306,15 +318,23 @@ export default function RouteEditor({
                 path: fullPath.length > 0 ? fullPath : waypoints,
                 segments: [],
                 features: {
+                    // Boolean toggles below stay derived from environment +
+                    // featureTags so we keep backward compatibility with
+                    // older readers (useRouteFilter, ActiveWorkoutOverlay)
+                    // that consult `features.hasBenches` / `features.lit`
+                    // directly. When the admin explicitly tags benches or
+                    // night_lighting, the boolean flips true; otherwise it
+                    // falls back to the previous heuristic.
                     hasGym: false,
-                    hasBenches: false,
+                    hasBenches: featureTags.includes('has_benches'),
                     scenic: environment === 'nature' || environment === 'beach',
-                    lit: environment === 'urban',
+                    lit: featureTags.includes('night_lighting') || environment === 'urban',
                     terrain,
                     environment,
                     trafficLoad: environment === 'urban' ? 'medium' : 'none',
                     surface: terrain === 'asphalt' ? 'road' : 'trail',
                 },
+                featureTags: featureTags.length > 0 ? featureTags : undefined,
                 images: imageUrl.trim() ? [imageUrl.trim()] : undefined,
                 source: { type: 'system', name: 'Manual Route Builder' },
                 authorityId: effectiveAuthorityId || undefined,
@@ -331,6 +351,7 @@ export default function RouteEditor({
             } as Route;
 
             await InventoryService.saveRoutes([route]);
+            invalidateOfficialRoutesCache();
             setSaveSuccess(true);
             onSaved?.();
             setTimeout(() => router.push(redirectPath), 1500);
@@ -350,7 +371,7 @@ export default function RouteEditor({
 
     // ── Render ─────────────────────────────────────────────────────
     return (
-        <div className="h-screen flex flex-col bg-gray-50" dir="rtl">
+        <div className="h-full flex flex-col bg-gray-50" dir="rtl">
             {/* Top Bar */}
             <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between z-20 shrink-0">
                 <div className="flex items-center gap-4">
@@ -413,7 +434,7 @@ export default function RouteEditor({
             )}
 
             {/* Main: Sidebar + Map */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden min-h-0">
                 {/* Sidebar */}
                 <div className="w-[380px] bg-white border-l border-gray-200 overflow-y-auto p-6 space-y-6 shrink-0">
                     {/* Route Name */}
@@ -555,6 +576,39 @@ export default function RouteEditor({
                         </div>
                     </div>
 
+                    {/* Feature tags (extended amenities along the route) —
+                        same multi-select pattern as ParkFeatureTag in
+                        admin/locations, but writes to `route.featureTags`. */}
+                    <div className="space-y-3">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            תכונות נוספות
+                            {featureTags.length > 0 && (
+                                <span className="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded-full">
+                                    {featureTags.length}
+                                </span>
+                            )}
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {ALL_ROUTE_FEATURE_TAGS.map((tag) => {
+                                const selected = featureTags.includes(tag);
+                                return (
+                                    <button
+                                        key={tag}
+                                        type="button"
+                                        onClick={() => toggleFeatureTag(tag)}
+                                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                                            selected
+                                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-emerald-300'
+                                        }`}
+                                    >
+                                        {ROUTE_FEATURE_TAG_LABELS[tag]}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     {/* Auto sport mapping */}
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">
                         <span className="text-lg mt-0.5">🧠</span>
@@ -645,7 +699,7 @@ export default function RouteEditor({
                 </div>
 
                 {/* Map Area */}
-                <div className="flex-1 relative">
+                <div className="flex-1 relative h-full min-h-0 overflow-hidden">
                     <MapComponent
                         initialViewState={{ longitude: initialLng ?? 34.5955, latitude: initialLat ?? 31.525, zoom: initialZoom ?? 14 }}
                         style={{ width: '100%', height: '100%' }}

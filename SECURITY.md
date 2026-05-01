@@ -1,9 +1,11 @@
 # OUT-RUN — Security Architecture
 
-> **Status:** Fortress Phase complete (Apr 2026).
+> **Status:** Fortress Phase complete + Sprint 3–4 (Push, UGC sovereignty,
+> ephemeral retention) — Apr 2026.
 > **Audience:** internal engineering, third-party auditors, government compliance reviewers.
-> **Scope:** the production web PWA (`appout-1.firebaseapp.com`) plus the
-> `out-run-functions` Cloud Functions package.
+> **Scope:** the production web PWA (`appout-1.firebaseapp.com`), the
+> Capacitor iOS/Android shells, and the `out-run-functions` Cloud
+> Functions package.
 
 This document is the single technical reference for every defensive layer
 that protects user data, gameplay integrity, and admin operations in
@@ -96,6 +98,20 @@ client always seeding `isSuperAdmin: false` etc., this prevents the
 - `feed_posts.update` is locked to the original `authorUid`, AND the
   incoming `authorUid` must equal the existing one — preventing both
   defacement and ownership theft (H1).
+- `feed_posts.delete` is locked to `request.auth.uid ==
+  resource.data.authorUid` so a post can only be erased by its
+  author (Sprint 4 / Phase 7.1 — UGC erasure right). Comparison is
+  against the *existing* doc, not the incoming payload, so an
+  attacker cannot spoof authorship to delete somebody else's post.
+- `users` collection list/query is gated by
+  `resource.data.core.discoverable == true`. Profiles are
+  **non-discoverable by default**; the user must opt in via
+  Settings → "נראות הפרופיל בחיפוש" (Sprint 4 / Phase 6.4) before
+  appearing in any people-search query.
+- `reports` accepts `create` from any authenticated user; the
+  `targetType` field is open-ended (`group | event | post | user`)
+  so the rule did not need to expand when reporting was extended to
+  posts and users (Sprint 4 / Phase 7.2). Reads are admin-only.
 - `programLevelSettings` and `program_level_settings` are
   authenticated-read, admin-write only (C2).
 - `system_config` (feature flags) is public-read, admin-write —
@@ -205,9 +221,15 @@ level" class of cheats.
 | `validateAccessCode`                      | Callable                             | `request.auth` required                                     | Validates a B2E access code in a transaction; updates the caller's `core.tenantId` (Group B fields are server-only).  |
 | `awardWorkoutXP`                          | Callable                             | `request.auth` required                                     | The Guardian. See §5.                                                                                                  |
 | `runDataMigration`                        | Callable                             | `request.auth` + admin (claim/email/Firestore-flag)         | Refactored from a public HTTP endpoint with a hardcoded `?secret=…`. The secret was committed to the repo — replaced. |
+| `requestAccountDeletion`, `onUserDelete`  | Callable / Auth trigger              | `request.auth` required (callable)                          | GDPR-grade account erasure: callable schedules deletion via `auth().deleteUser()`; the trigger then fans out to wipe all `users/{uid}/**` subtrees.|
+| `logAuditAction`                          | Callable                             | `request.auth` + `enforceAppCheck`                          | Sole writer to the locked-down `audit_logs` collection (see §12.1).                                                   |
+| `sendPushFromQueue`                       | Firestore `onCreate` `push_messages/{id}` | n/a (server context, claims the doc on entry)         | The Push Conductor — Sprint 3 / Phase 4.5. See §13.                                                                  |
+| `cleanupOldLogs`                          | Scheduled (`0 3 1 * *` UTC)          | n/a                                                         | Monthly retention sweeper for `audit_logs` (24 mo) and `push_messages` (90 d, terminal-state only). See §12.5.        |
+| `cleanupEphemeralDocs`                    | Scheduled (`7 * * * *` UTC, hourly)  | n/a                                                         | Hourly retention sweeper for `presence` (24 h) and `active_workouts` (2 h). Sprint 4 / Phase 6.2. See §13.            |
 | `onGroupMemberWrite`, `deleteZombieGroups` | Firestore trigger / Scheduled        | n/a (server context)                                        | Membership counter maintenance.                                                                                        |
 | `onUnitWrite`                             | Firestore trigger                    | n/a                                                         | Tenant hierarchy invariants.                                                                                           |
 | `onFeedPostCreate`, `rollupLeaderboard`   | Firestore trigger / Scheduled        | n/a                                                         | Leaderboard fan-out & periodic snapshot.                                                                              |
+| `ingestHealthSamples`                     | Callable                             | `request.auth` required                                     | One-shot ingest of native HealthKit / Health Connect samples. The raw answers never persist — only aggregate XP via the Guardian.|
 
 ### Critical fix: `runDataMigration`
 **Before:** any internet user with the function URL could pass
@@ -292,13 +314,20 @@ why the variable went away.
 - [x] **Audit trail:** every admin mutation captures `oldValue / newValue / sourceIp / uid / timestamp` server-side.
 - [x] **Server-side admin gating:** `/admin/*` is gated by Edge middleware checking an HMAC session cookie minted after Admin-SDK ID-token verification.
 - [x] **Firebase App Check:** reCAPTCHA Enterprise on the client + `enforceAppCheck: true` on every callable function (`awardWorkoutXP`, `validateAccessCode`, `runDataMigration`, `logAuditAction`).
-- [x] **Data retention:** `cleanupOldLogs` scheduled function deletes `audit_logs` older than 24 months on the 1st of each month.
+- [x] **Long-lived log retention:** `cleanupOldLogs` deletes `audit_logs` older than 24 months and terminal-state `push_messages` older than 90 days on the 1st of each month.
+- [x] **Ephemeral retention:** `cleanupEphemeralDocs` deletes `presence` > 24 h and `active_workouts` > 2 h every hour, guaranteeing the privacy-policy retention windows even when the client cleanup path fails (crash / kill-from-tray).
+- [x] **Push notification consent:** push permission is requested only after sign-in via the Capacitor lifecycle bridge; sends are filtered server-side by `settings.pushEnabled` (master) and `settings.notificationPrefs.{channel}` (per-channel) before any token is harvested. See §13.
+- [x] **Push idempotency & token hygiene:** `sendPushFromQueue` claims each queue doc via a transactional compare-and-set, and prunes dead FCM tokens from each owner's user doc on `registration-token-not-registered` errors.
+- [x] **Profile non-discoverability by default:** `users` list/query rule requires `core.discoverable == true`; the toggle lives in Settings and defaults to off (Phase 6.4).
+- [x] **UGC sovereignty:** authors can delete their own feed posts (rule + Phase 7.1 UI). Reporting now covers groups, events, posts, and users (Phase 7.2).
+- [x] **Storage cleanup on UGC delete/replace:** `Step3Photo.tsx` calls `deleteObject` on the previous Storage path BEFORE clearing the UI / replacing it, eliminating orphaned images (Phase 6.1).
 - [x] **PII hygiene:** server logs strip credentials (access codes, request bodies); only metadata + lengths are emitted.
 - [x] **Secrets:** AI key purged, migration secret removed.
 - [x] **Time correctness:** midnight refresh hooked into all calendar/streak UIs.
 - [ ] **Cloud Function rate limits** beyond the Guardian's per-call cap: rely on Firebase's per-uid quotas + App Check today; consider explicit Cloud Armor rules in front.
 - [ ] **Custom Claim migration:** flip `admin` and `tenantId` to claims-only and remove the Firestore-doc admin paths (Path C).
 - [ ] **Password complexity + rotation enforcement** at the Firebase Auth tier (current default is 6-char minimum). MFA is inherited from Google (Workspace MFA) — see §12.
+- [ ] **`me-west1` Firestore migration:** scoped in §15 — viable for Cloud Functions/Storage with low effort, but the existing Firestore database is region-locked and requires a parallel-instance cutover.
 
 ---
 
@@ -347,7 +376,42 @@ why the variable went away.
 
 8. **Retention sweeper:** Manually trigger `cleanupOldLogs` from the
    Cloud Functions console → confirm the log line
-   `[cleanupOldLogs] Sweep complete — deleted N document(s)`.
+   `[cleanupOldLogs] Sweep complete — audit_logs=N, push_messages=M`.
+
+9. **Ephemeral sweeper:** Manually trigger `cleanupEphemeralDocs`
+   from the Cloud Functions console → confirm the log line
+   `[cleanupEphemeralDocs] Sweep complete — presence=N, active_workouts=M`.
+   On a quiet environment both numbers should be 0; on a busy one
+   they should be small (< 100 / hour).
+
+10. **Push pipeline (smoke test):** From the admin panel, send a
+    push to `targetAudience: 'all'` in the test authority. Open
+    the Firestore console → `push_messages` → newest doc → confirm
+    the lifecycle: `pending` (admin write) → `processing`
+    (`processingStartedAt` set) → `sent`
+    (`deliveredCount > 0`, `processedAt` set,
+    `tokensRemoved` ≥ 0). Verify the test device receives the
+    notification on a locked screen.
+
+11. **Push opt-out enforcement:** Toggle
+    Settings → "התראות Push" → off, then re-send a push from the
+    admin panel. The `push_messages` doc should land in `sent` with
+    `deliveredCount` reduced by exactly one (your device's token
+    was filtered server-side, not removed from `fcmTokens`).
+
+12. **UGC erasure:** As an authenticated non-admin user, post to
+    the feed, then delete via the kebab menu → confirm the
+    `feed_posts` doc is gone in Firestore and the post disappears
+    from the feed without a refresh. From a *different* user
+    account, attempt the same delete via the rules playground
+    (`request.auth.uid != resource.data.authorUid`) → must be
+    **denied**.
+
+13. **Profile non-discoverability:** With `core.discoverable
+    !== true` on a test user, attempt a `where('core.discoverable',
+    '==', true)` list query that includes that user → the user
+    must NOT appear. Toggle the Settings switch on, repeat the
+    query → user appears.
 
 ---
 
@@ -440,17 +504,51 @@ reviewer.
   attempting credential stuffing or quota exhaustion fail the
   reCAPTCHA Enterprise scoring.
 
-### 12.5 Data Retention — 24-Month Policy
+### 12.5 Data Retention — Long-Lived Logs (Audit + Push)
 
 - **Mechanism:** `functions/src/cleanupOldLogs.ts` is an `onSchedule`
   Cloud Function pinned to `0 3 1 * * Etc/UTC` (03:00 UTC on the 1st
-  of every month).
-- **Behaviour:** queries `audit_logs` where `timestamp` is older than
-  `now - AUDIT_LOG_RETENTION_MONTHS` (default 24) and deletes them in
-  paged batches of 400 to stay under Firestore's 500-write batch cap.
-- **Configurable:** the retention window can be tuned via the
-  `AUDIT_LOG_RETENTION_MONTHS` env var without redeploying any other
-  function.
+  of every month). It sweeps two collections in a single pass — one
+  cron entry, one log line, one place to extend for future log
+  retentions.
+- **`audit_logs` (24 months):** queries `where timestamp < now -
+  AUDIT_LOG_RETENTION_MONTHS` (default 24) and deletes in paged
+  batches of 400 (safely under the 500-write Firestore ceiling).
+- **`push_messages` (90 days, terminal-state only):** queries
+  `where processedAt < now - PUSH_MESSAGES_RETENTION_DAYS` (default
+  90). Filtering on `processedAt` (a field that `sendPushFromQueue`
+  only writes on terminal branches — `sent`, `failed`,
+  `no_recipients`) implicitly excludes `pending` / `processing`
+  rows, so stuck or in-flight messages are preserved for
+  investigation rather than silently dropped.
+- **Independent failure handling:** each sweep is wrapped in its own
+  try/catch. A failure in one collection does NOT skip the other; if
+  any sweep fails, the function throws at the end so the schedule
+  alarm fires.
+- **Configurable:** retention windows can be tuned via the
+  `AUDIT_LOG_RETENTION_MONTHS` and `PUSH_MESSAGES_RETENTION_DAYS`
+  env vars without redeploying any other function.
+
+### 12.5.1 Ephemeral Retention — Presence & Active Workouts
+
+- **Mechanism:** `functions/src/cleanupEphemeralDocs.ts` is an
+  `onSchedule` Cloud Function pinned to `7 * * * * Etc/UTC` (every
+  hour at minute 7 — offset from common `:00` bursts to dodge cron
+  contention).
+- **`presence` (24 h):** sweeps documents whose `updatedAt` is older
+  than `PRESENCE_RETENTION_HOURS` (default 24) — backstops the
+  client `clearPresence()` call on sign-out.
+- **`active_workouts` (2 h):** sweeps documents whose `lastUpdate`
+  is older than `ACTIVE_WORKOUT_RETENTION_HOURS` (default 2) —
+  backstops the client `clearActiveWorkout()` call on workout end.
+- **Why it matters:** client teardown is unreliable (app crash,
+  kill-from-tray, lost network at the moment of sign-out). Without a
+  server-side guarantee, an orphaned `presence` doc keeps leaking
+  the user's last fuzzed location to the heatmap forever. The
+  hourly sweep is the policy enforcer.
+- **Configurable, idempotent, and isolated:** same env-var override
+  pattern as `cleanupOldLogs`; sweeps run independently so a
+  transient index error on one collection cannot block the other.
 
 ### 12.6 PII Hygiene in Server Logs — OUT Standard
 
@@ -488,10 +586,284 @@ reviewer.
 | Password rotation 180d (Ashkelon 14.1)     | **PASS** (inherited from Google Workspace) | §12.2 |
 | Server-side admin gating (Ashkelon 17.1)   | **PASS**    | `middleware.ts`, `admin-session.ts` |
 | App Check / DDoS defence (Ashkelon 22.1)   | **PASS**    | `firebase.ts`, all callable functions |
-| Audit-log retention 24 months              | **PASS**    | `cleanupOldLogs.ts` |
+| Audit-log retention 24 months              | **PASS**    | `cleanupOldLogs.ts` (`audit_logs` branch) |
+| Push-log retention 90 days (privacy §11)   | **PASS**    | `cleanupOldLogs.ts` (`push_messages` branch — terminal-state only) |
+| Presence retention 24 h (privacy §11)      | **PASS**    | `cleanupEphemeralDocs.ts` (`presence` branch) |
+| Active-workout retention 2 h (privacy §11) | **PASS**    | `cleanupEphemeralDocs.ts` (`active_workouts` branch) |
+| Push consent + per-channel prefs (OUT std) | **PASS**    | `push.ts`, `notification-prefs.service.ts`, `sendPushFromQueue.ts` (server-side filter) |
+| UGC erasure right (privacy §8.2 / Phase 7.1)| **PASS**   | `firestore.rules` (`feed_posts.delete`), `feed.service.ts` (`deleteFeedPost`), `FeedPostCard.tsx` |
+| Profile non-discoverability default (Phase 6.4) | **PASS** | `firestore.rules` (`users` list rule), `SettingsModal.tsx` toggle, `core.discoverable: false` default |
+| Storage orphan-prevention on UGC delete (Phase 6.1) | **PASS** | `Step3Photo.tsx` calls `deleteObject` BEFORE clearing local state |
+| Reporting coverage (groups + events + posts + users) | **PASS** | `ReportContentSheet.tsx` (Phase 7.2), `firestore.rules` (`reports.create`) |
 | PII hygiene in logs (OUT standard)         | **PASS**    | `validateAccessCode.ts` (post-cleanup) |
 | Medical privacy in onboarding (OUT std)    | **PASS**    | `HealthDeclarationStep.tsx`, `onboarding-sync.service.ts` |
 
 ---
 
-*Last updated: Fortress Phase III — Compliance Lockdown, April 2026.*
+## 13. Push Notification Pipeline (Sprint 3 / Phase 4)
+
+End-to-end FCM delivery from the admin's "compose push" form to the
+user's lock screen. Every hop is gated by either authentication, App
+Check, server-trusted state, or an explicit user opt-in.
+
+### 13.1 Token registration (client → Firestore)
+
+- **Capacitor plugin:** `@capacitor-firebase/messaging` (iOS APNs +
+  Android FCM under one TS façade). The web build degrades gracefully
+  — no PWA push (yet).
+- **Lifecycle bridge:** `src/lib/native/init.ts → attachPushAuthBridge()`
+  subscribes to Firebase Auth state. On sign-in it calls
+  `initPushNotifications()`; on sign-out it calls
+  `unregisterPushNotifications()`. Tokens are NEVER persisted while
+  signed-out.
+- **Token store:** `src/lib/native/push.ts → saveTokenToFirestore()`
+  writes to `users/{uid}` as:
+  - `fcmTokens: arrayUnion(token)` — the bare list used by the
+    multicast worker.
+  - `fcmTokenMeta.{token}: { platform, lastSeenAt, appVersion }` — the
+    per-token provenance map used by ops to debug delivery issues.
+- **Permission model:** `Permissions.requestPermissions()` is called
+  from the bridge, NOT at app cold-start. The user always sees the
+  OS prompt in an authenticated context, satisfying the App Store
+  requirement that we explain *why* we need notifications before
+  asking.
+- **iOS native:** `App.entitlements` declares
+  `aps-environment = development` (release build flips to
+  `production` via the App Store provisioning profile);
+  `Info.plist → UIBackgroundModes` includes `remote-notification`,
+  `fetch`, `processing` so silent pushes can wake the app.
+- **Android native:** `AndroidManifest.xml` declares
+  `android.permission.POST_NOTIFICATIONS` (Android 13+ runtime
+  prompt) and the FCM service intent filters supplied by the
+  Capacitor plugin.
+
+### 13.2 Notification preferences (client + Firestore)
+
+- **Storage path:** `users/{uid}.settings.notificationPrefs` — keyed
+  by channel (`encouragement`, `health_milestone`, `training_reminder`,
+  `system`).
+- **Master switch:** `users/{uid}.settings.pushEnabled` (boolean).
+  `false` short-circuits ALL channel sends in the worker.
+- **Service:** `src/features/notifications/services/notification-prefs.service.ts`
+  exposes `getNotificationPrefs / setPushEnabled / setChannelEnabled /
+  saveNotificationPrefs`. The `system` channel is intentionally
+  excluded from the user-facing toggle UI — security and
+  account-recovery messages must always land.
+- **Defaults:** missing fields default to `true` server-side so
+  legacy users (signed up before the prefs schema landed) keep
+  receiving pushes until they explicitly opt out.
+
+### 13.3 Server pipeline — `sendPushFromQueue`
+
+The Push Conductor (`functions/src/sendPushFromQueue.ts`) is a
+Firestore `onCreate` trigger on `push_messages/{messageId}`. The
+admin panel writes the queue doc; the function reads it. The two
+sides are decoupled — if the function is down, the admin's compose
+flow still succeeds and a backfill rerun catches up.
+
+Pipeline steps (each one is a defensive layer):
+
+1. **Compare-and-set claim.** A `runTransaction` flips
+   `status: pending → processing` only if the doc is still pending.
+   Functions delivers `onCreate` at-least-once; this guarantee
+   ensures a retried invocation discovers `status === 'processing'`
+   on the second pass and bails out before any FCM send. **Net
+   effect:** users receive each push exactly once.
+2. **Input validation.** `title`, `message`, `authorityId` are
+   trimmed and required. Missing `authorityId` is a hard fail —
+   we refuse to broadcast cross-tenant.
+3. **Audience resolution (`resolveAudience`).** `all` /
+   `active_users` / `inactive_users` / `park_users` resolve to a
+   `Set<uid>` *within the message's authority*. An admin in city A
+   can never reach a user in city B even with `targetAudience: 'all'`.
+4. **Per-user pref filter (`collectTokens`).** For every candidate
+   uid we read the user doc and skip the row if (a) the master
+   switch is off, or (b) the per-channel switch is off. The
+   `system` channel ignores the per-channel filter (force-on).
+5. **Token harvest + dedupe.** Every surviving uid contributes its
+   `fcmTokens` to a deduped Set, and we record `token → owner_uid`
+   in a parallel Map for later pruning.
+6. **Multicast in batches of 500.** `sendEachForMulticast` (the FCM
+   per-call cap). Per-token responses are tallied into
+   `deliveredCount` / `failedCount`.
+7. **Dead-token pruning.** Any token returning
+   `messaging/registration-token-not-registered`,
+   `invalid-registration-token`, or `invalid-argument` is removed
+   from its owner's `fcmTokens` array AND its
+   `fcmTokenMeta.{token}` map entry — keeping the user doc lean
+   and avoiding repeated quota waste on stale handles.
+8. **Terminal write.** `status: 'sent'` (or `'failed'`),
+   `deliveredCount`, `failedCount`, `tokensRemoved`,
+   `recipientCount`, `tokenCount`, `processedAt`. The
+   `processedAt` field is what `cleanupOldLogs` later uses to
+   detect terminal-state messages eligible for the 90-day sweep.
+
+**Push payload shape:** `notification: { title, body }` (single
+canonical surface) plus a `data: { messageId, authorityId,
+channel, parkId? }` payload for client-side deep-link routing.
+APNs gets `aps.sound: 'default', aps.badge: 1`; Android gets
+`priority: 'high'` so high-importance channels are not throttled
+by Doze mode.
+
+### 13.4 Threats this pipeline defeats
+
+- **Cross-tenant blast radius (T4).** Authority scoping is enforced
+  in `resolveAudience` and is non-negotiable — a Tel-Aviv admin
+  cannot push to Haifa even by editing the Firestore doc directly,
+  because the worker reads `authorityId` from the doc and uses it
+  as the WHERE clause on `users`.
+- **Consent bypass (T3).** A logged-in attacker who somehow inserts
+  a row into `push_messages` (not possible via rules — admin-only
+  write) still cannot reach a user who has opted out: the per-user
+  filter happens *server-side* at send time, not at compose time.
+- **At-least-once delivery duplication.** The compare-and-set claim
+  collapses retries. A user never sees the same notification twice
+  from a single queue doc.
+- **Token leakage.** Tokens never traverse client-side; they are
+  only ever read by the trusted server. Dead tokens are pruned so
+  ops cannot accidentally send a "deleted-account" push to a phone
+  that has already been wiped.
+
+---
+
+## 14. User Content Sovereignty (Sprint 4)
+
+Sprint 4 closed the GDPR / Israeli Privacy Law loop on UGC: users now
+have first-class, in-app controls for *erasure*, *visibility*, and
+*reporting*.
+
+### 14.1 Right to erasure — own posts
+
+- **Rule:** `firestore.rules → feed_posts.delete` allows
+  `request.auth.uid == resource.data.authorUid` (Phase 3.2).
+- **Service:** `src/features/social/services/feed.service.ts`
+  exports `deleteFeedPost(postId)` — a single `deleteDoc` call.
+- **UI:** `FeedPostCard.tsx` ships a kebab menu. For the author it
+  exposes "מחק פוסט" (Delete Post) with an inline confirmation
+  overlay; for everybody else it exposes "דווח על פוסט" (Report
+  Post).
+- **Optimistic removal:** the parent feed page passes an
+  `onDeleted` callback that filters the local `posts` array, so
+  the post disappears immediately on success — no full re-fetch.
+
+### 14.2 Right to non-discovery — `core.discoverable`
+
+- **Default:** `core.discoverable !== true` (i.e. **off** until
+  the user opts in). Onboarding seeds the field to `false`.
+- **Rule:** `users` list/query is gated on `resource.data
+  .core.discoverable == true` — any `where`/`limit` query against
+  the collection silently skips opted-out users.
+- **Toggle:** Settings → "נראות הפרופיל בחיפוש". The handler
+  performs an optimistic UI flip with rollback on Firestore write
+  failure (mirrors the existing `analyticsOptOut` toggle pattern).
+
+### 14.3 Right to report — universal target type
+
+- **Component:** `src/features/arena/components/ReportContentSheet.tsx`
+  was generalised in Phase 7.2.
+- **`ReportTargetType`:** `'group' | 'event' | 'post' | 'user'`.
+- **Reason filtering:** every reason carries an `appliesTo` list,
+  so the sheet renders only contextually relevant reasons (e.g.
+  `impersonation` shows for `user` but not `event`; `spam` is
+  hidden for `user` reports).
+- **Hebrew labels:** `TARGET_LABEL` and `PROMPT_BY_TYPE` maps
+  drive the header and prompt text per target type.
+- **Surfaces wired:** `FeedPostCard.tsx` for posts;
+  `app/profile/[userId]/page.tsx` for users (visible on someone
+  else's profile, hidden on your own).
+- **Rule:** `reports` accepts `create` from any authenticated
+  user. Reads are admin-only (the moderation queue is admin UI).
+
+### 14.4 Storage orphan prevention (Phase 6.1)
+
+- **Risk:** `Step3Photo.tsx` (community contribution wizard) used
+  to clear local UI state without deleting the underlying
+  Firebase Storage object — every "upload then change my mind"
+  cycle leaked one image into the bucket.
+- **Fix:** new `deleteStorageObject()` helper calls
+  `deleteObject()` on the previous `data.photoStoragePath` BEFORE
+  clearing the preview state in both `handleFileSelect` (replace)
+  and `handleRemove` (delete). `storage/object-not-found` is
+  swallowed silently so re-deletions don't error.
+- **Schema:** the wizard's `WizardData` now persists
+  `photoStoragePath` alongside `photoUrl`, so the deleter knows
+  exactly which Storage path to target.
+
+---
+
+## 15. Region & Migration Status (`me-west1` viability)
+
+The `appout-1` project currently runs in `us-central1` (Iowa) for
+Cloud Functions and Firestore, with Storage in the same multi-region
+bucket. This section documents the viability of migrating to
+`me-west1` (Tel Aviv) for data-residency reasons.
+
+### 15.1 Per-service viability
+
+| Service                | `me-west1` supported? | Migration effort | Notes |
+| ---------------------- | --------------------- | ---------------- | ----- |
+| Cloud Functions (v2)   | **Yes**               | **Low**          | Change `region: 'us-central1'` to `region: 'me-west1'` in each function declaration and redeploy. Cold-start times for Israeli users improve by ~80–120 ms. Function code itself is unchanged. |
+| Cloud Storage          | **Yes**               | **Medium**       | Storage buckets are region-locked at creation. Migration requires `gsutil rsync` from old bucket to new + cutover + dual-read window. ~10–60 min downtime depending on object count. |
+| Firebase Authentication| **Yes (global)**      | **None**         | Firebase Auth is a global service with no region setting; users keep their UIDs. |
+| Firestore              | **Yes (regional GA)** | **HEAVY**        | A Firestore database's location is **immutable** for the lifetime of the database. Cannot be moved in place. See §15.2. |
+| FCM                    | **Yes (global)**      | **None**         | FCM is a global service. Tokens remain valid. |
+| Firebase Hosting / PWA | **Yes (global CDN)**  | **None**         | Hosting fronts every region transparently. |
+
+### 15.2 Firestore — the hard constraint
+
+Per Google Cloud documentation
+(`https://firebase.google.com/docs/firestore/locations` —
+"once you provision a database instance, you cannot change its
+location setting"), the existing `(default)` database is locked to
+its original region. The **only** path to `me-west1` Firestore is:
+
+1. Provision a **new named Firestore database** in `me-west1`
+   (Firestore now supports multiple databases per project, GA as of
+   2025).
+2. Run a managed export of the current `(default)` database to GCS,
+   then a managed import into the new `me-west1` database.
+3. Dual-write for a transition window OR accept a maintenance
+   window for the cutover.
+4. Update every Firebase SDK client (web, iOS, Android, Functions
+   Admin SDK) to target the new database name. Currently every
+   client uses the implicit `(default)` — they would all need a
+   `getFirestore(app, 'me-west1')` (or equivalent) wiring change.
+5. Re-deploy `firestore.rules` and `firestore.indexes.json`
+   against the new database — they do NOT auto-attach to a
+   non-default database.
+6. Re-validate every composite index against production query
+   patterns; index propagation on a fresh database is from cold.
+7. Decommission the old database after a stabilisation window.
+
+**Estimated effort:** 3–5 engineer-days of preparation + a 30–60
+minute coordinated cutover + 1 week of dual-monitoring. The
+Cloud Functions and Storage migrations are O(hours); the Firestore
+migration is O(days).
+
+### 15.3 Recommendation
+
+- **Phase A (low-risk, do whenever):** redeploy Cloud Functions
+  to `me-west1`. Update the `region: 'us-central1'` literal in
+  every `onSchedule` / `onCall` / `onCreate` declaration —
+  currently 8 functions, all explicitly pinned (no implicit
+  `us-central1` defaults left). Latency win is meaningful for
+  Israeli users; rollback is a single literal flip.
+- **Phase B (medium-risk, schedule carefully):** Storage bucket
+  migration during a low-traffic window. Pre-stage with
+  `gsutil rsync`, accept a 5–10 minute write freeze for the final
+  delta sync, swap the bucket name in client config.
+- **Phase C (heavy lift, requires program management):** Firestore
+  migration. NOT recommended for a single sprint — needs a
+  dedicated mini-project with explicit business sponsorship and
+  a customer-facing maintenance announcement.
+
+The Phase A redeployment can be staged behind the Sprint 4 close
+without any user-visible impact and would cut median end-to-end
+write latency for Israeli users by an estimated 60–100 ms (round
+trip). It is the highest-value, lowest-risk migration item on the
+roadmap.
+
+---
+
+*Last updated: Fortress Phase III + Sprint 3–4 (Push, UGC sovereignty,
+ephemeral retention, region viability) — April 2026.*

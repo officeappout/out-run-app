@@ -64,12 +64,76 @@ const AGE_MIDPOINTS: Record<string, number> = {
 export interface HeatmapFilters {
   gender: 'all' | 'male' | 'female' | 'other';
   workoutType: 'all' | 'running' | 'walking' | 'cycling' | 'strength';
+  /** Inclusive lower bound (years). Default 18. */
+  ageMin: number;
+  /** Inclusive upper bound (years). Default 99. */
+  ageMax: number;
 }
 
+/** Default = "show everything in adult range". */
 export const DEFAULT_HEATMAP_FILTERS: HeatmapFilters = {
   gender: 'all',
   workoutType: 'all',
+  ageMin: 18,
+  ageMax: 99,
 };
+
+/** True when the filter is the default open range — used to relax 'unknown' fallbacks. */
+function isDefaultAgeRange(filters: HeatmapFilters): boolean {
+  return filters.ageMin <= 18 && filters.ageMax >= 99;
+}
+
+/** Live-mode `demographics.ageGroup` → inclusive [min, max] year range. */
+const AGE_GROUP_RANGES: Record<string, [number, number]> = {
+  '0-17': [0, 17],
+  '18-25': [18, 25],
+  '26-35': [26, 35],
+  '36-45': [36, 45],
+  '46-55': [46, 55],
+  '56+': [56, 99],
+};
+
+/** Returns true iff the bucket [bMin, bMax] overlaps the filter [fMin, fMax]. */
+function ageGroupPassesFilter(group: string | undefined, filters: HeatmapFilters): boolean {
+  if (!group || group === 'unknown') {
+    // Only let unknown through when the user hasn't restricted the range.
+    return isDefaultAgeRange(filters);
+  }
+  const range = AGE_GROUP_RANGES[group];
+  if (!range) return isDefaultAgeRange(filters);
+  const [bMin, bMax] = range;
+  return bMax >= filters.ageMin && bMin <= filters.ageMax;
+}
+
+/** Convert a Firestore birthDate (Timestamp | Date | string | null) to a year. */
+function extractBirthYear(birthDate: unknown): number | null {
+  if (!birthDate) return null;
+  if (birthDate instanceof Date) {
+    const y = birthDate.getFullYear();
+    return y > 1900 ? y : null;
+  }
+  if (typeof birthDate === 'string') {
+    const parsed = new Date(birthDate);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      return y > 1900 ? y : null;
+    }
+    return null;
+  }
+  if (typeof birthDate === 'object' && birthDate !== null) {
+    const ts = birthDate as { toDate?: () => Date; seconds?: number };
+    if (typeof ts.toDate === 'function') {
+      const d = ts.toDate();
+      const y = d.getFullYear();
+      return y > 1900 ? y : null;
+    }
+    if (typeof ts.seconds === 'number') {
+      const y = new Date(ts.seconds * 1000).getFullYear();
+      return y > 1900 ? y : null;
+    }
+  }
+  return null;
+}
 
 // ── Real-time listener ───────────────────────────────────────────────────────
 
@@ -104,13 +168,26 @@ export function subscribeToLiveHeatmap(
         const rawDocs: Record<string, unknown>[] = [];
         snap.forEach((d) => rawDocs.push(d.data()));
 
+        const currentYear = new Date().getFullYear();
         const filtered = rawDocs.filter((doc) => {
+          const demo = doc.demographics as Record<string, unknown> | undefined;
+
           if (filters.gender !== 'all') {
-            const gender = (doc.demographics as Record<string, unknown>)?.gender;
+            const gender = demo?.gender;
             if (gender !== filters.gender) return false;
           }
           if (filters.workoutType !== 'all') {
             if (doc.workoutType !== filters.workoutType) return false;
+          }
+
+          // Age filter — prefer exact birthYear when present, fall back to ageGroup overlap.
+          const birthYear = demo?.birthYear as number | null | undefined;
+          if (typeof birthYear === 'number' && birthYear > 1900) {
+            const age = currentYear - birthYear;
+            if (age < filters.ageMin || age > filters.ageMax) return false;
+          } else {
+            const ageGroup = demo?.ageGroup as string | undefined;
+            if (!ageGroupPassesFilter(ageGroup, filters)) return false;
           }
           return true;
         });
@@ -160,14 +237,24 @@ export async function fetchHistoricalHeatmap(
 ): Promise<HeatmapSnapshot> {
   const authorityIds = await getAuthorityWithChildrenIds(authorityId);
 
-  // 1. Get user IDs for this authority
+  // 1. Get user IDs for this authority + denormalize gender/birthYear so we can
+  //    apply demographic filters against the workout collection (which has no
+  //    gender/age fields of its own).
   const userIds: string[] = [];
+  const userGenderMap = new Map<string, string>();
+  const userBirthYearMap = new Map<string, number | null>();
+
   await Promise.all(chunk(authorityIds.slice(0, 30), 30).map(async (batch) => {
     const snap = await getDocs(query(
       collection(db, 'users'),
       where('core.authorityId', 'in', batch),
     ));
-    snap.docs.forEach((d) => userIds.push(d.id));
+    snap.docs.forEach((d) => {
+      userIds.push(d.id);
+      const data = d.data() as { core?: { gender?: string; birthDate?: unknown } };
+      userGenderMap.set(d.id, data.core?.gender ?? 'other');
+      userBirthYearMap.set(d.id, extractBirthYear(data.core?.birthDate));
+    });
   }));
 
   if (userIds.length === 0) return emptySnapshot();
@@ -181,6 +268,7 @@ export async function fetchHistoricalHeatmap(
   const points: HeatmapPoint[] = [];
   let totalWorkouts = 0;
   const workoutTypeCounts: Record<string, number> = {};
+  const currentYear = new Date().getFullYear();
 
   await Promise.all(chunk(userIds, 30).map(async (batch) => {
     try {
@@ -194,6 +282,25 @@ export async function fetchHistoricalHeatmap(
 
       snap.docs.forEach((d) => {
         const raw = d.data();
+        const ownerId = raw.userId as string | undefined;
+
+        // Apply gender filter via the userId → gender map built above.
+        if (filters.gender !== 'all') {
+          const g = ownerId ? userGenderMap.get(ownerId) : undefined;
+          if (g !== filters.gender) return;
+        }
+
+        // Apply age filter via the userId → birthYear map. Users without a
+        // valid birthYear are only included when the filter is the default
+        // open range (consistent with live mode's "unknown" handling).
+        const by = ownerId ? userBirthYearMap.get(ownerId) ?? null : null;
+        if (by != null) {
+          const age = currentYear - by;
+          if (age < filters.ageMin || age > filters.ageMax) return;
+        } else if (!isDefaultAgeRange(filters)) {
+          return;
+        }
+
         totalWorkouts++;
 
         // Count workout types

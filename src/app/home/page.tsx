@@ -55,6 +55,7 @@ import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
+import CollapsingHeader from '@/components/ui/CollapsingHeader';
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -694,12 +695,14 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
-      {/* ── Header ── */}
-      <header
-        className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      {/* ── Header — Instagram-style: hides on scroll-down, slides back on scroll-up ── */}
+      <CollapsingHeader
+        zIndex={40}
+        className="bg-white/90 backdrop-blur-md border-b border-slate-100"
       >
-        <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">
+        {/* Tightened from py-3 → py-1.5 so the bar sits closer to the iOS
+            status bar instead of stacking 12px on top of the safe-area inset. */}
+        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between">
 
           {/* Left: Library + Planner + Settings + Logout */}
           <div className="flex items-center gap-1.5">
@@ -743,7 +746,7 @@ export default function HomePage() {
             <UserHeaderPill compact />
           </button>
         </div>
-      </header>
+      </CollapsingHeader>
 
       {/* ── Profile Progress Bar ── */}
       <ProfileProgressBar profile={profile} />

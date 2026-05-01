@@ -9,6 +9,7 @@ import { getRunWorkoutTemplate, getPaceMapConfig, getRunProgramTemplate } from '
 import { materializeWorkout } from '@/features/workout-engine/core/services/running-engine.service';
 import { resolveRunningWorkoutMetadata } from '@/features/workout-engine/services/running-metadata.service';
 import { useMapLogic } from '@/features/parks';
+import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { Play, Zap, ChevronDown } from 'lucide-react';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
 
@@ -19,6 +20,11 @@ interface PlannedPreviewLayerProps {
 }
 
 export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps) {
+  // Hide the global BottomNavbar while this layer is mounted — the bottom
+  // CTA card below would otherwise be partially covered by the floating tab
+  // bar. Auto-released on unmount.
+  useSuppressBottomNav();
+
   const { setMode, workoutId: contextWorkoutId } = useMapMode();
   const searchParams = useSearchParams();
   const { profile, refreshProfile } = useUserStore();
@@ -109,7 +115,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
   if (autoStart) {
     if (isLoading) {
       return (
-        <div className="absolute bottom-32 left-0 right-0 z-20 flex justify-center">
+        <div className="absolute left-0 right-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
           <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3" dir="rtl">
             <div className="animate-spin w-5 h-5 border-[3px] border-[#00BAF7] border-t-transparent rounded-full" />
             <span className="text-sm font-bold text-gray-700">מכין את האימון...</span>
@@ -122,7 +128,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
 
   if (isLoading) {
     return (
-      <div className="absolute bottom-32 left-0 right-0 z-20 flex justify-center">
+      <div className="absolute left-0 right-0 z-20 flex justify-center" style={{ bottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))' }}>
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl px-6 py-4 flex items-center gap-3" dir="rtl">
           <div className="animate-spin w-5 h-5 border-[3px] border-[#00BAF7] border-t-transparent rounded-full" />
           <span className="text-sm font-bold text-gray-700">טוען אימון מתוכנן...</span>

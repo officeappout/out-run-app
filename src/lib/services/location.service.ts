@@ -8,6 +8,8 @@ export interface LocationPoint {
   lng: number;
   accuracy: number;
   timestamp: number;
+  /** Metres above sea level from GPS. Null when the device does not provide altitude. */
+  altitude: number | null;
 }
 
 export interface LocationWatchOptions {
@@ -64,6 +66,7 @@ export function watchPosition(
         lng: position.coords.longitude,
         accuracy: accuracy,
         timestamp: position.timestamp || Date.now(),
+        altitude: position.coords.altitude ?? null,
       };
 
       onSuccess(location);

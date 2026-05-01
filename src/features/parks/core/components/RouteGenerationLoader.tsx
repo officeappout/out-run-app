@@ -22,7 +22,7 @@ export default function RouteGenerationLoader() {
     }, []);
 
     return (
-        <div className="fixed inset-0 z-50 bg-white/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[90] bg-white/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
             <div className="mb-8 relative">
                 <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-20"></div>
                 <div className="relative bg-white p-4 rounded-full shadow-xl border border-blue-50">

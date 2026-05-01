@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { MoreHorizontal, Trash2, Flag, Loader2 } from 'lucide-react';
 import { toggleReaction, hasUserReacted } from '../services/reactions.service';
-import type { FeedPost } from '../services/feed.service';
+import { deleteFeedPost, type FeedPost } from '../services/feed.service';
+import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   strength: '💪',
@@ -39,9 +41,15 @@ function formatPace(pace: number): string {
 interface FeedPostCardProps {
   post: FeedPost;
   currentUid?: string;
+  /**
+   * Called after the post is successfully deleted from Firestore so the
+   * parent list can drop it from local state without a re-fetch.
+   * (Phase 7.1 — author erasure on the feed.)
+   */
+  onDeleted?: (postId: string) => void;
 }
 
-export default function FeedPostCard({ post, currentUid }: FeedPostCardProps) {
+export default function FeedPostCard({ post, currentUid, onDeleted }: FeedPostCardProps) {
   const router = useRouter();
   const emoji = CATEGORY_EMOJI[post.activityCategory] ?? '⚡';
   const label = CATEGORY_LABEL[post.activityCategory] ?? post.activityCategory;
@@ -51,12 +59,54 @@ export default function FeedPostCard({ post, currentUid }: FeedPostCardProps) {
   const [count, setCount] = useState(post.reactionCount ?? 0);
   const [toggling, setToggling] = useState(false);
 
+  // Phase 7.1 / 7.2 — context menu (delete for author, report for others)
+  const isAuthor = !!currentUid && currentUid === post.authorUid;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside dismiss for the menu / confirm popover.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocPointer = (e: PointerEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setConfirmDelete(false);
+      }
+    };
+    // pointerdown rather than click so the dismiss happens before the
+    // child receives the click and we don't accidentally trigger
+    // navigateToProfile.
+    document.addEventListener('pointerdown', onDocPointer);
+    return () => document.removeEventListener('pointerdown', onDocPointer);
+  }, [menuOpen]);
+
   useEffect(() => {
     if (!currentUid) return;
     hasUserReacted(post.id, currentUid)
       .then(setReacted)
       .catch(() => {});
   }, [post.id, currentUid]);
+
+  const handleDelete = useCallback(async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await deleteFeedPost(post.id);
+      onDeleted?.(post.id);
+    } catch (err) {
+      console.error('[FeedPostCard] delete failed:', err);
+      alert('מחיקת הפוסט נכשלה. אנא נסה/י שוב.');
+      setDeleting(false);
+      setConfirmDelete(false);
+      setMenuOpen(false);
+    }
+    // On success the card is unmounted by the parent via onDeleted, so
+    // we deliberately do not reset the spinner.
+  }, [deleting, post.id, onDeleted]);
 
   const handleKudos = useCallback(
     async (e: React.MouseEvent) => {
@@ -90,23 +140,129 @@ export default function FeedPostCard({ post, currentUid }: FeedPostCardProps) {
       dir="rtl"
     >
       {/* Author row */}
-      <div
-        className="flex items-center gap-2.5 px-4 pt-4 pb-2 cursor-pointer"
-        onClick={navigateToProfile}
-      >
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xs font-black shrink-0">
-          {post.authorName.charAt(0)}
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
+        <div
+          className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+          onClick={navigateToProfile}
+        >
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xs font-black shrink-0">
+            {post.authorName.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+              {post.authorName}
+            </h4>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              {timeAgo(post.createdAt)}
+            </span>
+          </div>
+          <span className="text-xl">{emoji}</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-            {post.authorName}
-          </h4>
-          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-            {timeAgo(post.createdAt)}
-          </span>
-        </div>
-        <span className="text-xl">{emoji}</span>
+
+        {/* Kebab menu — Phase 7.1 (delete for author) / 7.2 (report for others).
+            Hidden when there is no signed-in user (no actions to offer). */}
+        {currentUid && (
+          <div className="relative shrink-0" ref={menuRef}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+                setConfirmDelete(false);
+              }}
+              className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all"
+              aria-label="פעולות נוספות"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute end-0 top-full mt-1 z-20 min-w-[180px] rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 shadow-lg overflow-hidden"
+              >
+                {confirmDelete ? (
+                  <div className="p-3" dir="rtl">
+                    <p className="text-xs text-gray-700 dark:text-gray-200 font-medium mb-2">
+                      למחוק את הפוסט?
+                    </p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3 leading-snug">
+                      הפעולה הזו אינה ניתנת לביטול.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setConfirmDelete(false); setMenuOpen(false); }}
+                        disabled={deleting}
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold active:scale-95 disabled:opacity-50"
+                      >
+                        ביטול
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-bold active:scale-95 disabled:opacity-50"
+                      >
+                        {deleting ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                        מחק
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="py-1" dir="rtl">
+                    {isAuthor && (
+                      <li>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => setConfirmDelete(true)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-right text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                          מחק פוסט
+                        </button>
+                      </li>
+                    )}
+                    {!isAuthor && (
+                      <li>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => { setShowReport(true); setMenuOpen(false); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-right text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                        >
+                          <Flag size={16} />
+                          דווח על פוסט
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Phase 7.2 — Report sheet for non-author readers */}
+      {currentUid && !isAuthor && (
+        <ReportContentSheet
+          isOpen={showReport}
+          onClose={() => setShowReport(false)}
+          targetId={post.id}
+          targetType="post"
+          targetName={post.title || `פוסט של ${post.authorName}`}
+          reporterId={currentUid}
+        />
+      )}
 
       {/* Workout summary card */}
       <div className="mx-3 mb-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50">

@@ -219,6 +219,53 @@ export async function addMemberToGroupChat(
 }
 
 /**
+ * Fetches the chat thread for a community group without writing anything.
+ * If the chat doc doesn't exist (e.g. the group was created before this
+ * feature shipped), returns a minimal in-memory ChatThread so the inbox
+ * still opens gracefully.
+ */
+export async function getGroupChatThread(
+  groupId: string,
+  groupName: string,
+): Promise<ChatThread> {
+  const chatId = makeGroupChatId(groupId);
+  const snap = await getDoc(doc(db, 'chats', chatId));
+
+  if (snap.exists()) {
+    const d = snap.data();
+    return {
+      id: snap.id,
+      participants: (d.participants as string[]) ?? [],
+      participantNames: (d.participantNames as Record<string, string>) ?? {},
+      lastMessage: (d.lastMessage as string) ?? '',
+      lastMessageAt: tsToDate(d.lastMessageAt),
+      lastSenderId: (d.lastSenderId as string) ?? '',
+      unreadCount: (d.unreadCount as Record<string, number>) ?? {},
+      createdAt: tsToDate(d.createdAt),
+      type: 'group',
+      groupId,
+      groupName: (d.groupName as string) ?? groupName,
+    };
+  }
+
+  // Chat doc not yet created — return a synthetic thread so the UI still
+  // opens and the user sees an empty message list rather than an error.
+  return {
+    id: chatId,
+    participants: [],
+    participantNames: {},
+    lastMessage: '',
+    lastMessageAt: new Date(),
+    lastSenderId: '',
+    unreadCount: {},
+    createdAt: new Date(),
+    type: 'group',
+    groupId,
+    groupName,
+  };
+}
+
+/**
  * Removes a member from a group's chat thread.
  */
 export async function removeMemberFromGroupChat(

@@ -359,7 +359,10 @@ export default function RunBriefingDrawer({
                       <div className="absolute bottom-0 inset-x-0 h-[85%] pointer-events-none"
                         style={{ background: 'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)' }}
                       />
-                      <div className={`absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                      <div
+                        className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+                      >
                         <button onClick={onClose}
                           className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
                         ><X size={20} /></button>

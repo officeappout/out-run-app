@@ -30,6 +30,22 @@ const config: CapacitorConfig = {
       providerAndroid: 'playIntegrity',
       isTokenAutoRefreshEnabled: true,
     },
+    // Push notifications (Sprint 3, Phase 4).
+    // `presentationOptions` controls how iOS shows incoming pushes
+    // when the app is in the FOREGROUND. Without this, iOS swallows
+    // the banner silently. Android ignores this block.
+    FirebaseMessaging: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    // Keyboard resize: 'body' shrinks the WebView body when the software
+    // keyboard opens, preventing it from overlapping fixed-position CTAs
+    // (chat inputs, onboarding Continue buttons, auth submit, etc.).
+    // 'body' is the safest cross-platform choice; the alternative 'native'
+    // may cause flicker on older Android WebViews.
+    Keyboard: {
+      resize: 'body' as const,
+      resizeOnFullScreen: true,
+    },
   },
 };
 

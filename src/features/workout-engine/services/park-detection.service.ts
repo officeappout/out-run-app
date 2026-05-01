@@ -31,6 +31,12 @@ async function getParks(): Promise<Park[]> {
 export interface DetectedPark {
   parkId: string;
   parkName: string;
+  /**
+   * Owning authority of the matched park (city / neighborhood id).
+   * Used as a fallback for `sessions.authorityId` when the user profile
+   * doesn't have one — e.g. a guest finishing a workout in a known park.
+   */
+  authorityId: string | null;
 }
 
 /**
@@ -63,5 +69,6 @@ export async function detectNearbyPark(
   return {
     parkId: closest.park.id,
     parkName: closest.park.name,
+    authorityId: closest.park.authorityId ?? null,
   };
 }

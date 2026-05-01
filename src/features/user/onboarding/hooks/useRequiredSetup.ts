@@ -2,17 +2,28 @@
 
 /**
  * useRequiredSetup — Just-In-Time (JIT) Trigger Hook
- * 
+ *
  * Checks whether critical setup steps are completed before allowing
  * a user to start a workout.
- * 
+ *
  * Trigger rules:
  *   1. Health Declaration → HARD BLOCK (cannot skip, Lemur-branded modal)
  *   2. Account Security   → Soft prompt (can skip)
  *   3. Equipment Config   → Soft prompt (can skip)
- * 
- * The health/terms check fires only on the FIRST "Start Workout" attempt.
- * After the user completes or dismisses it, subsequent starts proceed directly.
+ *      └─ SKIPPED for running activities (free run + guided routes).
+ *         Runners don't need pull-up bars or benches; the smartwatch
+ *         prompt (see useSmartwatchPrompt) replaces this with a
+ *         high-value feature teaser instead.
+ *
+ * Activity-aware behaviour:
+ *   `interceptWorkoutStart` accepts an optional `activityType`. Pass
+ *   `'running'` for free runs and guided routes; equipment will be
+ *   filtered out of the requirements list. Strength / planned workouts
+ *   leave it as 'unknown' (default) and equipment stays in the list.
+ *
+ * The health/terms check fires only on the FIRST "Start Workout"
+ * attempt. After the user completes or dismisses it, subsequent starts
+ * proceed directly.
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -30,6 +41,13 @@ export interface MissingRequirement {
   /** Hard block = user MUST complete before proceeding */
   isHardBlock: boolean;
 }
+
+/**
+ * What kind of workout is the user about to start?
+ * Drives requirement filtering — currently only used to skip the
+ * equipment prompt for runners.
+ */
+export type WorkoutActivityType = 'running' | 'strength' | 'unknown';
 
 export interface JITState {
   /** Whether the JIT modal is currently open */
@@ -61,59 +79,78 @@ export function useRequiredSetup() {
    * Only the Health Declaration is checked here as a hard block.
    * Equipment and Account prompts are deferred to the Profile Progress Bar
    * so they don't interrupt the workout-start flow with a blocking modal.
+   *
+   * @param activityType — When `'running'`, the equipment requirement is
+   *   filtered out (runners don't need pull-up bars or benches). The
+   *   smartwatch prompt — see `useSmartwatchPrompt` — surfaces in its
+   *   place AFTER this check resolves.
    */
-  const checkRequirements = useCallback((): MissingRequirement[] => {
-    if (!profile) return [];
+  const checkRequirements = useCallback(
+    (activityType: WorkoutActivityType = 'unknown'): MissingRequirement[] => {
+      if (!profile) return [];
 
-    const missing: MissingRequirement[] = [];
+      const missing: MissingRequirement[] = [];
 
-    // Health Declaration — HARD BLOCK (the only requirement that gates workout start)
-    const healthAccepted =
-      (profile as any)?.healthDeclarationAccepted ||
-      (profile.health as any)?.healthDeclarationAccepted;
+      // Health Declaration — HARD BLOCK (the only requirement that
+      // gates workout start, regardless of activity type).
+      const healthAccepted =
+        (profile as any)?.healthDeclarationAccepted ||
+        (profile.health as any)?.healthDeclarationAccepted;
 
-    if (!healthAccepted) {
-      missing.push({
-        id: 'health',
-        label: 'הצהרת בריאות',
-        step: 'HEALTH_DECLARATION',
-        isHardBlock: true,
-      });
-    }
+      if (!healthAccepted) {
+        missing.push({
+          id: 'health',
+          label: 'הצהרת בריאות',
+          step: 'HEALTH_DECLARATION',
+          isHardBlock: true,
+        });
+      }
 
-    // Equipment — SOFT BLOCK (user can skip; workout falls back to bodyweight)
-    const hasEquipment =
-      (profile.equipment?.home?.length ?? 0) > 0 ||
-      (profile.equipment?.outdoor?.length ?? 0) > 0 ||
-      (profile.equipment?.office?.length ?? 0) > 0;
+      // Equipment — SOFT BLOCK (user can skip; workout falls back to
+      // bodyweight). DELIBERATELY skipped for running so runners aren't
+      // asked to declare pull-up bars when they're about to log km.
+      const isRunning = activityType === 'running';
+      const hasEquipment =
+        (profile.equipment?.home?.length ?? 0) > 0 ||
+        (profile.equipment?.outdoor?.length ?? 0) > 0 ||
+        (profile.equipment?.office?.length ?? 0) > 0;
 
-    if (!hasEquipment) {
-      missing.push({
-        id: 'equipment',
-        label: 'ציוד אימון',
-        step: 'EQUIPMENT',
-        isHardBlock: false,
-      });
-    }
+      if (!hasEquipment && !isRunning) {
+        missing.push({
+          id: 'equipment',
+          label: 'ציוד אימון',
+          step: 'EQUIPMENT',
+          isHardBlock: false,
+        });
+      }
 
-    return missing;
-  }, [profile]);
+      return missing;
+    },
+    [profile],
+  );
 
   /**
    * Intercept a workout start attempt.
-   * 
+   *
    * @param onProceed - callback to invoke if the user is cleared to start
-   * @returns `true` if the user can proceed immediately, `false` if a modal was shown
+   * @param activityType - drives requirement filtering (see
+   *   `checkRequirements`). Pass `'running'` for free runs and guided
+   *   routes so the equipment prompt is bypassed.
+   * @returns `true` if the user can proceed immediately, `false` if a
+   *   modal was shown
    */
   const interceptWorkoutStart = useCallback(
-    (onProceed: () => void): boolean => {
+    (
+      onProceed: () => void,
+      activityType: WorkoutActivityType = 'unknown',
+    ): boolean => {
       // After first-time check, let subsequent starts pass through
       if (hasShownJIT.current) {
         onProceed();
         return true;
       }
 
-      const missing = checkRequirements();
+      const missing = checkRequirements(activityType);
 
       // Nothing missing — proceed immediately
       if (missing.length === 0) {

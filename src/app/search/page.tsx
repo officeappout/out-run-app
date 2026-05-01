@@ -206,9 +206,12 @@ export default function SearchPage() {
       className="min-h-[100dvh] bg-[#F8FAFC]"
       style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* ── Sticky Header ─────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3" dir="rtl">
+      {/* ── Sticky Header — pad below status bar. ─────────────── */}
+      <header
+        className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center gap-3" dir="rtl">
           <button
             onClick={() => router.back()}
             className="p-1.5 rounded-lg hover:bg-gray-100 active:scale-90 transition-all flex-shrink-0"

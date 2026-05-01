@@ -9,6 +9,8 @@ interface MapModeHeaderProps {
   activeMode: MapMode;
   onModeChange: (mode: MapMode) => void;
   hasNearbyRoutes: boolean;
+  /** Live partner count — appended to the "שותפים לאימון" pill when > 0 */
+  partnerCount?: number;
 }
 
 const MODES: Array<{ id: MapMode; label: string; icon: React.ElementType; alwaysShow: boolean }> = [
@@ -19,13 +21,17 @@ const MODES: Array<{ id: MapMode; label: string; icon: React.ElementType; always
 
 const BRAND_CYAN = '#00E5FF';
 
-export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes }: MapModeHeaderProps) {
+export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes, partnerCount }: MapModeHeaderProps) {
   const visibleModes = MODES.filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes));
 
   return (
     <div className="flex gap-2 overflow-x-auto scrollbar-hide" dir="rtl">
       {visibleModes.map(({ id, label, icon: Icon }) => {
         const isActive = activeMode === id;
+        const displayLabel =
+          id === 'partners' && partnerCount != null && partnerCount > 0
+            ? `${label} · ${partnerCount}`
+            : label;
         return (
           <button
             key={id}
@@ -47,7 +53,7 @@ export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoute
             }
           >
             <Icon size={14} />
-            {label}
+            {displayLabel}
           </button>
         );
       })}

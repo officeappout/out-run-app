@@ -22,7 +22,7 @@ import {
   Timestamp,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { haversineKm } from '../services/geoUtils';
 import type { ActivityType } from '../types/route.types';
@@ -59,6 +59,32 @@ export interface LivePartner {
   workoutTitle?: string;
   startedAt: number;
   lemurStage?: number;
+  currentStreak?: number;
+  /** Hebrew display name of the partner's primary active strength program. */
+  programName?: string;
+  /** Numeric level inside `programName` (1..maxLevel). */
+  programLevel?: number;
+  /** Mock pace string (e.g. "5:30") for running/walking partners. */
+  mockPace?: string;
+  /**
+   * Partner's planned run distance in km (3 / 5 / 10). Comes from the
+   * presence doc's `targetDistanceKm` field — populated by mock seeders
+   * today; will be sourced from real plan/training data later. Powers the
+   * run-distance pill in `PartnerOverlay`.
+   */
+  targetDistanceKm?: number;
+  /** Persona id (e.g. 'athlete') for `resolvePersonaImage` avatar fallback. */
+  personaId?: string;
+  /** Real photo URL when the user uploaded one (preferred over persona avatar). */
+  photoURL?: string;
+  /**
+   * Partner's stored gender (`profile.core.gender`). Powers the gender
+   * filter pill in `PartnerOverlay`. Absent for minors — the heartbeat
+   * writer (`useWorkoutPresence`) strips gender for `ageGroup === 'minor'`
+   * before persisting, so consumers must treat `undefined` as "unknown",
+   * not as a filterable value.
+   */
+  gender?: 'male' | 'female' | 'other';
 }
 
 export interface PartnerDataResult {
@@ -124,6 +150,11 @@ export function usePartnerData(
   const [rawLive, setRawLive] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const myMode = usePrivacyStore((s) => s.mode);
+  // Read once per render. Firebase Auth state rarely changes within the
+  // lifetime of a partner overlay, and downstream filters re-run via the
+  // useMemo dependency array whenever this captured value flips between
+  // null and a uid (e.g. delayed auth resolution on cold start).
+  const currentUid = auth.currentUser?.uid;
   const unsubScheduled = useRef<Unsubscribe | null>(null);
   const unsubEvents = useRef<Unsubscribe | null>(null);
   const unsubGroups = useRef<Unsubscribe | null>(null);
@@ -317,14 +348,12 @@ export function usePartnerData(
 
   // ── Filter + transform scheduled (planned + events + groups) ──
   const scheduled = useMemo<ScheduledPartner[]>(() => {
-    if (!userPos) return [];
-
     const fromPlanned: ScheduledPartner[] = rawScheduled
-      .filter((s) => s.privacyMode !== 'ghost')
+      .filter((s) => s.privacyMode !== 'ghost' && s.userId !== currentUid)
       .map((s) => {
         const lat = s.lat ?? 0;
         const lng = s.lng ?? 0;
-        const dist = haversineKm(userPos.lat, userPos.lng, lat, lng);
+        const dist = userPos ? haversineKm(userPos.lat, userPos.lng, lat, lng) : 0;
         const startTime = s.startTime?.toDate?.() ?? new Date(s.startTime);
         return {
           id: s.id,
@@ -342,10 +371,12 @@ export function usePartnerData(
         };
       });
 
-    const fromEvents: ScheduledPartner[] = rawEventPartners.map((s) => {
+    const fromEvents: ScheduledPartner[] = rawEventPartners
+      .filter((s) => s.userId !== currentUid)
+      .map((s) => {
       const lat = s.lat ?? 0;
       const lng = s.lng ?? 0;
-      const dist = haversineKm(userPos.lat, userPos.lng, lat, lng);
+      const dist = userPos ? haversineKm(userPos.lat, userPos.lng, lat, lng) : 0;
       const startTime = s.startTime instanceof Date ? s.startTime : new Date(s.startTime);
       return {
         id: s.id,
@@ -364,10 +395,16 @@ export function usePartnerData(
       };
     });
 
-    const fromGroups: ScheduledPartner[] = rawGroupPartners.map((s) => {
+    const fromGroups: ScheduledPartner[] = rawGroupPartners
+      // Group entries are virtual slots — `userId` may be a synthetic
+      // `'group_<docId>'` string when the slot represents the group itself
+      // rather than a specific member. We only exclude when `userId`
+      // matches the current uid (i.e. real member slots authored by us).
+      .filter((s) => s.userId !== currentUid)
+      .map((s) => {
       const lat = s.lat ?? 0;
       const lng = s.lng ?? 0;
-      const dist = haversineKm(userPos.lat, userPos.lng, lat, lng);
+      const dist = userPos ? haversineKm(userPos.lat, userPos.lng, lat, lng) : 0;
       return {
         id: s.id,
         userId: s.userId ?? '',
@@ -404,17 +441,20 @@ export function usePartnerData(
       : fromGroups;
 
     return [...fromPlanned, ...fromEvents, ...dedupedGroups]
-      .filter((s) => s.distanceKm <= radiusKm)
+      .filter((s) => !userPos || s.distanceKm <= radiusKm)
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  }, [rawScheduled, rawEventPartners, rawGroupPartners, userPos, radiusKm]);
+  }, [rawScheduled, rawEventPartners, rawGroupPartners, userPos, radiusKm, currentUid]);
 
   // ── Filter + transform live ──
   const live = useMemo<LivePartner[]>(() => {
-    if (!userPos) return [];
     return rawLive
-      .filter((p) => p.mode !== 'ghost' && p.activity?.status)
+      .filter((p) => p.mode !== 'ghost' && p.activity?.status && p.uid !== currentUid)
       .map((p) => {
-        const dist = haversineKm(userPos.lat, userPos.lng, p.lat ?? 0, p.lng ?? 0);
+        // When userPos is unavailable (mock location not yet set, GPS pending),
+        // default distanceKm to 0 so the distance filter does not hide everyone.
+        const dist = userPos
+          ? haversineKm(userPos.lat, userPos.lng, p.lat ?? 0, p.lng ?? 0)
+          : 0;
         return {
           uid: p.uid,
           name: p.name ?? '',
@@ -425,11 +465,26 @@ export function usePartnerData(
           workoutTitle: p.activity?.workoutTitle,
           startedAt: p.activity?.startedAt ?? 0,
           lemurStage: p.lemurStage,
+          currentStreak: typeof p.currentStreak === 'number' ? p.currentStreak : undefined,
+          programName: typeof p.programName === 'string' ? p.programName : undefined,
+          programLevel: typeof p.programLevel === 'number' ? p.programLevel : undefined,
+          mockPace: typeof p.mockPace === 'string' ? p.mockPace : undefined,
+          targetDistanceKm:
+            typeof p.targetDistanceKm === 'number' ? p.targetDistanceKm : undefined,
+          personaId: typeof p.personaId === 'string' ? p.personaId : undefined,
+          photoURL: typeof p.photoURL === 'string' ? p.photoURL : undefined,
+          // Type-guard the raw Firestore value: only accept the three known
+          // literals. Anything else (legacy data, hand-crafted seeds) collapses
+          // to undefined so the gender filter treats the partner as "unknown".
+          gender:
+            p.gender === 'male' || p.gender === 'female' || p.gender === 'other'
+              ? p.gender
+              : undefined,
         } satisfies LivePartner;
       })
-      .filter((p) => p.distanceKm <= radiusKm)
+      .filter((p) => !userPos || p.distanceKm <= radiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm);
-  }, [rawLive, userPos, radiusKm]);
+  }, [rawLive, userPos, radiusKm, currentUid]);
 
   return { scheduled, live, isLoading };
 }

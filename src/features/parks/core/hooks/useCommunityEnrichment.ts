@@ -56,7 +56,9 @@ function safeDate(raw: unknown): Date | null {
 
 function safeDateStr(d: Date | null): string {
   if (!d) return 'upcoming';
-  try { return d.toISOString().split('T')[0]; } catch { return 'upcoming'; }
+  // Use local date components (not UTC) so that dates near midnight don't
+  // shift to the wrong calendar day when concatenated with a local startTime.
+  return toISODate(d);
 }
 
 function resolveEventDate(data: Record<string, unknown>): Date | null {
@@ -65,10 +67,11 @@ function resolveEventDate(data: Record<string, unknown>): Date | null {
 
 function isEventRelevant(eventDate: Date | null): boolean {
   if (!eventDate) return true;
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  yesterday.setHours(0, 0, 0, 0);
-  return eventDate >= yesterday;
+  // Only load events from today onward; this aligns with the UI "today" filter
+  // and prevents yesterday's past events from appearing in the sessions list.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return eventDate >= today;
 }
 
 function toISODate(d: Date): string {

@@ -3,6 +3,7 @@
 import React from 'react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
+import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { ArrowRight, Play, Footprints, Activity, Bike } from 'lucide-react';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 
@@ -19,6 +20,10 @@ const ACTIVITY_LABELS: Record<string, { label: string; icon: React.ReactNode }> 
 };
 
 export default function NavigateLayer({ logic }: NavigateLayerProps) {
+  // Hide the global BottomNavbar — the destination + activity selector card
+  // sits at the bottom of the map and needs the full safe-area to itself.
+  useSuppressBottomNav();
+
   const { setMode } = useMapMode();
 
   const handleBack = () => {

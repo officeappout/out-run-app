@@ -5,6 +5,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { Play, X, Target, ArrowRight, Share2, Volume2, VolumeX, Link2, MapPin, PersonStanding, Loader2, Heart, ArrowDownCircle, WifiOff } from 'lucide-react';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import SwapIcon from '@/features/workout-engine/components/SwapIcon';
+import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
+import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import { ExecutionMethod } from '@/features/content/exercises';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import { useRouter } from 'next/navigation';
@@ -25,6 +27,9 @@ import { shareWorkout } from '@/features/workout-engine/services/share.service';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
 import { useCachedMediaUrl, useCachedMediaMap } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
+import { usePartnerFilters } from '@/features/partners';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 
 /**
  * Convert Firestore exercises to WorkoutPlan format
@@ -388,6 +393,52 @@ export default function WorkoutPreviewDrawer({
 
   // ── Nearby Parks for "Where to Train" section ──
   const nearbyParks = useNearbyParks(isOpen);
+
+  // ── Partner Finder entry point ────────────────────────────────────────────
+  // One-shot GPS fetch (no GPS source already in this file). Mirrors the
+  // permission-aware pattern from `useNearbyParks` — silently skips if the
+  // user hasn't granted geolocation. Result feeds usePartnerData (single
+  // call, single Firestore listener) for the "X people training nearby"
+  // hint and the share-as-live toggle below.
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission.state !== 'granted') return;
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 60_000,
+          }),
+        );
+        if (cancelled) return;
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch {
+        /* permission denied / API unsupported — silently hide partner hint */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
+  const { live: livePartners } = usePartnerData(userLocation, 5);
+  const similarCount = useMemo(
+    () => livePartners.filter((p) => ['strength', 'workout'].includes(p.activityStatus ?? '')).length,
+    [livePartners],
+  );
+
+  const workoutTitleForPresence = generatedWorkout?.title ?? workout?.title ?? '';
+
+  const handleOpenLivePartners = useCallback(() => {
+    usePartnerFilters.getState().setLiveActivity('strength');
+    useMapStore.getState().setPendingPartnerOverlay({ tab: 'live' });
+    onClose();
+    router.push('/map');
+  }, [onClose, router]);
 
   // ── Hero media from Home Screen (sessionStorage) ──
   const [heroMedia, setHeroMedia] = useState<{ thumbnailUrl?: string; videoUrl?: string } | null>(null);
@@ -862,9 +913,10 @@ export default function WorkoutPreviewDrawer({
 
                 {/* Top Controls - Close button pinned to top-right (RTL leading) */}
                 <div
-                  className={`absolute top-0 right-0 p-3 pt-12 z-10 transition-opacity duration-300 ${
+                  className={`absolute top-0 right-0 px-3 pb-3 z-10 transition-opacity duration-300 ${
                     imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'
                   }`}
+                  style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
                 >
                   <button
                     onClick={onClose}
@@ -968,6 +1020,27 @@ export default function WorkoutPreviewDrawer({
               className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
               style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
             >
+              {/* Row 1 — "X people training near you" hint (Partner Finder discovery) */}
+              {similarCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleOpenLivePartners}
+                  className="block w-full text-center pb-1.5 active:scale-[0.99] transition-transform"
+                  style={{ color: '#00ADEF', fontSize: '13px' }}
+                  dir="rtl"
+                >
+                  {`${similarCount} אנשים מתאמנים כוח קרוב אליך`}
+                </button>
+              )}
+
+              {/* Row 2 — share-as-live toggle (always visible) */}
+              <ShareAsLiveToggle
+                activityType="strength"
+                workoutTitle={workoutTitleForPresence}
+                userLocation={userLocation}
+                className="pb-2"
+              />
+
               {!isOnline && !isFavDownloaded && (
                 <div className="flex items-center justify-center gap-1.5 pb-2" dir="rtl">
                   <WifiOff size={12} className="text-gray-400" />
@@ -1384,27 +1457,7 @@ function DrawerMuscleBadge({ muscle }: { muscle: string }) {
 // GeneratedWorkoutExerciseList — HTML-Reference Visual Design
 // ============================================================================
 
-const CATEGORY_ICON_FILTER_CYAN =
-  'brightness(0) saturate(100%) invert(68%) sepia(65%) saturate(2000%) hue-rotate(160deg) brightness(102%) contrast(101%)';
-const BOLT_FILTER_CYAN_DRAWER =
-  'brightness(0) saturate(100%) invert(68%) sepia(65%) saturate(2000%) hue-rotate(160deg) brightness(102%) contrast(101%)';
-const BOLT_FILTER_DARK_DRAWER =
-  'brightness(0) saturate(100%) invert(22%) sepia(10%) saturate(750%) hue-rotate(176deg) brightness(95%) contrast(90%)';
-const DIFF_LABELS_DRAWER: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
 const PILL_BORDER_DRAWER = '0.5px solid #E0E9FF';
-
-function DrawerBoltIcon({ filled }: { filled: boolean }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/icons/ui/Bolt.svg"
-      alt=""
-      width={14}
-      height={14}
-      style={{ filter: filled ? BOLT_FILTER_CYAN_DRAWER : BOLT_FILTER_DARK_DRAWER }}
-    />
-  );
-}
 
 const DL_CIRCLE_SIZE = 28;
 const DL_CIRCLE_STROKE = 2.5;
@@ -1497,15 +1550,10 @@ function GeneratedWorkoutExerciseList({
         <div className="flex items-center gap-2">
           {diff != null && (
             <div
-              className="flex-shrink-0 flex items-center gap-1.5 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
+              className="flex-shrink-0 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
               style={{ border: PILL_BORDER_DRAWER }}
             >
-              <div className="flex items-center gap-0.5">
-                {[1, 2, 3].map((n) => (
-                  <DrawerBoltIcon key={n} filled={n <= diff} />
-                ))}
-              </div>
-              <span className="text-[13px] font-normal text-gray-800 dark:text-gray-100">{DIFF_LABELS_DRAWER[diff] || ''}</span>
+              <DifficultyBolts difficulty={diff as 1 | 2 | 3} size="md" />
             </div>
           )}
           {dur != null && dur > 0 && (

@@ -125,6 +125,58 @@ export interface RouteFeatures {
   surface: string;      
 }
 
+/**
+ * Extended amenity tags for routes — the route-side counterpart of
+ * `ParkFeatureTag`. Lets admins describe what a runner/walker/cyclist
+ * can expect along the route (toilets, water, shade, shelter, etc.)
+ * beyond the small derived set in `RouteFeatures`.
+ *
+ * Values are intentionally aligned with `ParkFeatureTag` so a single
+ * Hebrew label table can later be shared across both domains if the
+ * two schemas converge.
+ */
+export type RouteFeatureTag =
+  | 'night_lighting'
+  | 'has_benches'
+  | 'water_fountain'
+  | 'has_toilets'
+  | 'wheelchair_accessible'
+  | 'dog_friendly'
+  | 'safe_zone'
+  | 'nearby_shelter'
+  | 'parkour_friendly'
+  | 'stairs_training'
+  | 'rubber_floor'
+  | 'shaded'
+  | 'near_water';
+
+/**
+ * Hebrew labels for `RouteFeatureTag`. Single source of truth — both
+ * the admin RouteEditor (write side) and the user-facing
+ * RouteDetailSheet (read side) consume this map so they can never
+ * drift apart again.
+ */
+export const ROUTE_FEATURE_TAG_LABELS: Record<RouteFeatureTag, string> = {
+  night_lighting:         'תאורת לילה 💡',
+  has_benches:            'ספסלים 🪑',
+  water_fountain:         'ברזיות מים 🚰',
+  has_toilets:            'שירותים 🚻',
+  wheelchair_accessible:  'נגיש לכיסא גלגלים ♿',
+  dog_friendly:           'ידידותי לכלבים 🐕',
+  safe_zone:              'אזור בטוח / מיגונית 🛡️',
+  nearby_shelter:         'ממ"ד קרוב 🏠',
+  parkour_friendly:       'ידידותי לפארקור 🤸',
+  stairs_training:        'מדרגות לאימון 🪜',
+  rubber_floor:           'ריצפת גומי ⬛',
+  shaded:                 'מוצל ☀️',
+  near_water:             'ליד מים 🏖️',
+};
+
+/** Stable ordering for UI rendering of feature tag pickers/lists. */
+export const ALL_ROUTE_FEATURE_TAGS = Object.keys(
+  ROUTE_FEATURE_TAG_LABELS,
+) as RouteFeatureTag[];
+
 export interface Route {
   id: string;
   name: string;
@@ -166,6 +218,12 @@ export interface Route {
 
   // Features
   features: RouteFeatures;
+  /**
+   * Extended amenity tags chosen by the admin in RouteEditor.
+   * Optional — older routes saved before this field exists are
+   * fully backward-compatible.
+   */
+  featureTags?: RouteFeatureTag[];
 
   // Route structure
   segments: RouteSegment[];
@@ -246,6 +304,21 @@ export interface Route {
   includesOfficialSegments?: boolean;
   visitingParkId?: string | null;
   includesFitnessStop?: boolean;
+
+  /**
+   * Rotated / user-prepended path used only by AppMap for rendering and camera fitBounds.
+   * When set by useRouteFilter, AppMap and useCameraController prefer this over `path`.
+   * The original `path` always reflects the stored Firestore geometry.
+   */
+  displayPath?: [number, number][];
+
+  /**
+   * Total projected trip distance (walk-to-start + route + walk-home) in km.
+   * Set by useRouteFilter for static official routes. The carousel uses this
+   * value in place of `distance` so users see the full trip estimate.
+   * The original `distance` field is never overwritten.
+   */
+  projectedDistance?: number;
 }
 
 // ── Hybrid Route Types ──────────────────────────────────────────────

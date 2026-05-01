@@ -95,6 +95,27 @@ export interface PresencePayload {
   personaId?: string;
   photoURL?: string;
   runningLevel?: number;
+  currentStreak?: number;
+  /** Hebrew display name of the user's primary active strength program (e.g. "כל הגוף"). */
+  programName?: string;
+  /** Numeric level inside that program (from `progression.tracks.{templateId}.currentLevel`). */
+  programLevel?: number;
+  /**
+   * Mock pace for running/walking partners (e.g. "5:30") — derived deterministically
+   * from lemurStage at presence-write time. Temporary stand-in until a real pace
+   * field is wired through `paceProfile.basePace`. Only set when activity is
+   * running or walking; absent otherwise.
+   */
+  mockPace?: string;
+  /**
+   * User's stored gender from `profile.core.gender`. Powers the partner-finder
+   * gender filter on `LivePartner`. Privacy contract: callers MUST omit this
+   * field for minor accounts (`ageGroup === 'minor'`) — minors' gender is
+   * never broadcast to other users. Enforced at the heartbeat layer
+   * (`useWorkoutPresence`), not here, so this writer simply respects whatever
+   * the caller sent (or didn't send).
+   */
+  gender?: 'male' | 'female' | 'other';
 }
 
 export async function updatePresence(payload: PresencePayload): Promise<void> {
@@ -137,6 +158,11 @@ export async function updatePresence(payload: PresencePayload): Promise<void> {
   if (payload.personaId) data.personaId = payload.personaId;
   if (payload.photoURL) data.photoURL = payload.photoURL;
   if (payload.runningLevel != null) data.runningLevel = payload.runningLevel;
+  if (payload.currentStreak != null) data.currentStreak = payload.currentStreak;
+  if (payload.programName) data.programName = payload.programName;
+  if (payload.programLevel != null) data.programLevel = payload.programLevel;
+  if (payload.mockPace) data.mockPace = payload.mockPace;
+  if (payload.gender) data.gender = payload.gender;
 
   await setDoc(doc(db, 'presence', payload.uid), data, { merge: true });
 }
@@ -231,6 +257,45 @@ const MOCK_NAMES = ['אריאל', 'נועה', 'איתי', 'מאיה', 'עידו'
 const MOCK_ACTIVITIES: WorkoutActivityStatus[] = ['strength', 'running', 'strength', 'running', 'strength'];
 const MOCK_PERSONAS = ['athlete', 'parent', 'office_worker', 'student', 'senior', 'athlete', 'parent', 'office_worker'];
 
+// ─── Mock filter-data pools (used by seedMockLemurs + writePartnerPresence) ──
+// Each helper returns one randomly-picked value matching the shape that
+// `LivePartner` consumers (`PartnerOverlay` filters) expect. Kept exported so
+// dev tools / Storybook stories can reuse them without redefining ranges.
+
+const MOCK_PROGRAM_NAMES = ['full_body', 'push', 'pull'] as const;
+const MOCK_GENDERS = ['male', 'female'] as const;
+const MOCK_TARGET_DISTANCES_KM = [3, 5, 10] as const;
+
+/** Random pace string between "5:30" and "8:00" inclusive (per-second resolution). */
+export function randomMockPace(): string {
+  const minSec = 5 * 60 + 30;
+  const maxSec = 8 * 60;
+  const sec = minSec + Math.floor(Math.random() * (maxSec - minSec + 1));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+/** Random integer 1..10 — matches `programLevel` range (LemurStage scale). */
+export function randomProgramLevel(): number {
+  return 1 + Math.floor(Math.random() * 10);
+}
+
+export function randomProgramName(): (typeof MOCK_PROGRAM_NAMES)[number] {
+  return MOCK_PROGRAM_NAMES[Math.floor(Math.random() * MOCK_PROGRAM_NAMES.length)];
+}
+
+export function randomGender(): (typeof MOCK_GENDERS)[number] {
+  return MOCK_GENDERS[Math.floor(Math.random() * MOCK_GENDERS.length)];
+}
+
+export function randomTargetDistanceKm(): (typeof MOCK_TARGET_DISTANCES_KM)[number] {
+  return MOCK_TARGET_DISTANCES_KM[Math.floor(Math.random() * MOCK_TARGET_DISTANCES_KM.length)];
+}
+
+/** Random integer 1..30 — typical streak range visible in LivePartner cards. */
+export function randomCurrentStreak(): number {
+  return 1 + Math.floor(Math.random() * 30);
+}
+
 export async function seedMockLemurs(
   center: { lat: number; lng: number },
   userLevel: number = 3,
@@ -250,6 +315,8 @@ export async function seedMockLemurs(
     const offsetLng = Math.cos(angle) * radius;
 
     const level = userLevel;
+    const activityStatus = MOCK_ACTIVITIES[i % MOCK_ACTIVITIES.length];
+    const isMover = activityStatus === 'running' || activityStatus === 'walking';
 
     const data: Record<string, unknown> = {
       uid,
@@ -263,7 +330,7 @@ export async function seedMockLemurs(
       authorityId: null,
       updatedAt: serverTimestamp(),
       activity: {
-        status: MOCK_ACTIVITIES[i % MOCK_ACTIVITIES.length],
+        status: activityStatus,
         workoutTitle: i % 2 === 0 ? 'אימון חזה + גב' : 'ריצת בוקר',
         startedAt: ts - Math.floor(Math.random() * 20 * 60_000),
       },
@@ -271,6 +338,17 @@ export async function seedMockLemurs(
       level,
       programId: 'mock_program',
       personaId: MOCK_PERSONAS[i % MOCK_PERSONAS.length],
+      // Filter-driving fields — random per mock user so PartnerOverlay
+      // filters (level, program, pace, gender, distance, streak) all
+      // have realistic data to bucket against.
+      programLevel: randomProgramLevel(),
+      programName: randomProgramName(),
+      gender: randomGender(),
+      targetDistanceKm: randomTargetDistanceKm(),
+      currentStreak: randomCurrentStreak(),
+      // Pace only for moving activities — mirrors `useWorkoutPresence` which
+      // omits `mockPace` when the user is doing strength.
+      ...(isMover ? { mockPace: randomMockPace() } : {}),
     };
 
     await setDoc(doc(db, 'presence', uid), data);

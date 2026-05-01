@@ -70,12 +70,17 @@ export default function SessionControlBar() {
 
   return (
     <>
-      {/* Lap toast */}
+      {/* Lap toast — sits ~50px above the control bar so it doesn't collide
+          with the buttons. Uses the same `--session-bar-clearance` variable
+          as the control bar (set live by FreeRunActive's ResizeObserver) so
+          it auto-tracks the metrics card's actual rendered height. */}
       {lapToast && (
         <div
           className="absolute left-1/2 -translate-x-1/2 z-40 px-5 py-2 rounded-2xl font-black text-sm text-white pointer-events-none animate-bounce"
           style={{
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 380px)',
+            // 88px = control-bar height (~72) + breathing room (16) so the
+            // toast hovers above the buttons rather than overlapping them.
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px) + 88px)',
             background: 'linear-gradient(135deg, #10B981, #059669)',
             boxShadow: '0 6px 24px rgba(16,185,129,0.5)',
           }}
@@ -84,26 +89,40 @@ export default function SessionControlBar() {
         </div>
       )}
 
+      {/*
+        Bottom-offset contract:
+        ───────────────────────
+        `--session-bar-clearance` is written by FreeRunActive's
+        ResizeObserver every time the metrics card resizes. It already
+        includes the bottom-nav height (~72px) and the design-spec gap
+        (16px), so the value here is the COMPLETE bottom offset — no
+        further additions needed beyond `env(safe-area-inset-bottom)` for
+        notched devices.
+
+        Fallback `88px` covers the common case where FreeRunActive isn't
+        mounted (e.g. discover-mode navigation): control bar sits 88px
+        above the bottom (72px nav + 16px gap), which leaves the buttons
+        clear of the bottom nav even without the JS bridge.
+      */}
       <div
         className="absolute left-0 right-0 z-40 flex items-center justify-center gap-5 pointer-events-auto px-6"
         dir="ltr"
         style={{
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 320px)',
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px))',
         }}
       >
-        {/* Lap — Emerald ring */}
+        {/* Lap — clean light pill (gray surface, dark icon). Replaces the
+            previous emerald glass ring as part of the light-theme pivot. */}
         <button
           onClick={handleLap}
           className="w-14 h-14 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{
-            background: 'rgba(16, 185, 129, 0.15)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            border: '1.5px solid rgba(16, 185, 129, 0.45)',
-            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.25)',
+            background: 'rgba(0, 0, 0, 0.05)',
+            border: '1px solid rgba(0, 0, 0, 0.10)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
           }}
         >
-          <RotateCcw size={22} className="text-emerald-300" />
+          <RotateCcw size={22} className="text-gray-800" />
         </button>
 
         {/* Play / Pause — center, largest */}
@@ -127,7 +146,10 @@ export default function SessionControlBar() {
           )}
         </button>
 
-        {/* Stop — long press with conic progress */}
+        {/* Stop — light red tint + long-press conic progress. Icon is now
+            red on a soft red background so the action stays unmistakable
+            without a dark surface. The press-hint label below switches to
+            black for legibility on the light theme. */}
         <div className="relative">
           <button
             onMouseDown={handleStopDown}
@@ -139,18 +161,20 @@ export default function SessionControlBar() {
             className="w-14 h-14 rounded-full flex items-center justify-center active:scale-90 transition-transform relative overflow-hidden"
             style={{
               background: stopProgress > 0
-                ? `conic-gradient(#EF4444 ${stopProgress * 360}deg, rgba(239,68,68,0.2) ${stopProgress * 360}deg)`
-                : 'rgba(239, 68, 68, 0.2)',
-              border: '1.5px solid rgba(239, 68, 68, 0.5)',
-              boxShadow: stopProgress > 0 ? '0 0 20px rgba(239,68,68,0.4)' : '0 4px 16px rgba(0,0,0,0.3)',
+                ? `conic-gradient(#EF4444 ${stopProgress * 360}deg, rgba(239,68,68,0.10) ${stopProgress * 360}deg)`
+                : 'rgba(239, 68, 68, 0.10)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              boxShadow: stopProgress > 0
+                ? '0 0 16px rgba(239, 68, 68, 0.30)'
+                : '0 2px 8px rgba(0, 0, 0, 0.06)',
             }}
           >
-            <Square size={18} fill="white" className="text-white" />
+            <Square size={18} fill="#EF4444" className="text-red-500" />
           </button>
           {stopProgress > 0 && (
             <span
               className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold whitespace-nowrap"
-              style={{ color: '#EF4444' }}
+              style={{ color: '#000000' }}
             >
               החזק לעצירה
             </span>

@@ -302,6 +302,12 @@ export default function GroupDetailsDrawer({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
+              drag="y"
+              dragConstraints={{ top: 0 }}
+              dragElastic={0.15}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 120 || info.velocity.y > 500) onClose();
+              }}
               className="fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
               style={{ height: '85vh' }}
             >
@@ -309,7 +315,7 @@ export default function GroupDetailsDrawer({
               <div className="relative flex-shrink-0 h-56 rounded-t-3xl overflow-hidden">
                 {coverImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverImage} alt={group.name} className="w-full h-full object-cover" />
+                  <img src={coverImage} alt={group.name} className="w-full h-full object-cover" decoding="async" />
                 ) : (
                   <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
                     <span className="text-7xl drop-shadow-md select-none">{catConfig.icon}</span>
@@ -395,7 +401,7 @@ export default function GroupDetailsDrawer({
                           {Object.entries(attendance.attendeeProfiles ?? {}).slice(0, 5).map(([uid, p]) => (
                             p.photoURL ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img key={uid} src={p.photoURL} alt={p.name} className="w-6 h-6 rounded-full border-2 border-white object-cover" />
+                              <img key={uid} src={p.photoURL} alt={p.name} className="w-6 h-6 rounded-full border-2 border-white object-cover" loading="lazy" decoding="async" />
                             ) : (
                               <div key={uid} className="w-6 h-6 rounded-full border-2 border-white bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
                                 <span className="text-[8px] text-white font-black">{p.name?.charAt(0)}</span>

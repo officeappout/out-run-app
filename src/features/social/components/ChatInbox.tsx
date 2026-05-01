@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+// `m` is the tree-shakeable variant; the root <LazyMotion features={domAnimation}>
+// in ClientLayout supplies animation features at runtime, so we don't bundle
+// the full motion runtime per ChatInbox import.
+import { m, AnimatePresence } from 'framer-motion';
 import { X, MessageCircle, ChevronLeft, Search, Users } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useChatInbox } from '../hooks/useChatInbox';
@@ -26,15 +29,29 @@ type InboxFilter = 'all' | 'unread' | 'groups';
 interface ChatInboxProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Optional pre-selected thread. When this prop transitions from null
+   * to a value, the inbox opens directly on that thread (skipping the
+   * list). Driven by `useChatStore` for cross-app DM entry points.
+   */
+  initialThread?: ChatThreadType | null;
 }
 
-export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
+export default function ChatInbox({ isOpen, onClose, initialThread = null }: ChatInboxProps) {
   const { profile } = useUserStore();
   const myUid = profile?.id ?? null;
   const myName = profile?.core?.name ?? 'אווטיר';
   const { threads, isLoading } = useChatInbox(myUid);
 
   const [openThread, setOpenThread] = useState<ChatThreadType | null>(null);
+
+  // Sync external thread selection (e.g. from useChatStore.openDM) into the
+  // local view state. We only react to non-null values so closing the sheet
+  // (which sets activeThread back to null in the store) doesn't immediately
+  // pop the user back to the list mid-exit-animation.
+  useEffect(() => {
+    if (initialThread) setOpenThread(initialThread);
+  }, [initialThread]);
   const [groupCreatorUid, setGroupCreatorUid] = useState<string | undefined>(undefined);
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +130,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <m.div
             className="fixed inset-0 z-[70] bg-black/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -124,7 +141,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
             }}
           />
 
-          <motion.div
+          <m.div
             className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -176,7 +193,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
             {/* Search bar */}
             <AnimatePresence>
               {searchOpen && !openThread && (
-                <motion.div
+                <m.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
@@ -199,7 +216,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
                       </button>
                     )}
                   </div>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -233,7 +250,7 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
             <div className="flex-1 overflow-hidden">
               <AnimatePresence mode="wait">
                 {openThread ? (
-                  <motion.div
+                  <m.div
                     key="thread"
                     initial={{ x: -30, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
@@ -242,9 +259,9 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
                     className="h-full"
                   >
                     <ChatThread thread={openThread} myUid={myUid ?? ''} myName={myName} createdByUid={groupCreatorUid} />
-                  </motion.div>
+                  </m.div>
                 ) : (
-                  <motion.div
+                  <m.div
                     key="list"
                     initial={{ x: 30, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
@@ -336,11 +353,11 @@ export default function ChatInbox({ isOpen, onClose }: ChatInboxProps) {
                         );
                       })}
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

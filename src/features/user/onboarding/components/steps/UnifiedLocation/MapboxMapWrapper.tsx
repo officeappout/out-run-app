@@ -43,7 +43,7 @@ export default function MapboxMapWrapper({
       const map = event.target as unknown as mapboxgl.Map;
       try {
         setMapLanguageToHebrew(map);
-        applyFitnessMapStyle(map);
+        applyFitnessMapStyle(map, 'onboarding-map-load');
       } catch (err) {
         console.warn('[MapboxMapWrapper] Map style sync failed:', err);
       }

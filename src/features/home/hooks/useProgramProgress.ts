@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { resolveIconKey } from '@/features/content/programs';
+import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 
 /**
  * Emergency fallback only — used if both the user's seeded `progression.domains.{id}.maxLevel`
@@ -59,16 +60,6 @@ export interface ProgramProgressData {
   /** Number of active programs the user has — drives carousel mode in `ProgramProgressCard`. */
   programCount: number;
 }
-
-const PROGRAM_NAME_HE: Record<string, string> = {
-  full_body: 'כל הגוף', fullbody: 'כל הגוף',
-  upper_body: 'פלג גוף עליון', push: 'דחיפה', pushing: 'דחיפה',
-  lower_body: 'רגליים', legs: 'רגליים',
-  pull: 'משיכה', pulling: 'משיכה', calisthenics: 'קליסטניקס',
-  running: 'ריצה', cardio: 'קרדיו',
-  pilates: 'פילאטיס', yoga: 'יוגה',
-  healthy_lifestyle: 'אורח חיים בריא', pull_up_pro: 'מתח מקצועי',
-};
 
 /** True if the user has completed the strength survey. */
 export function hasStrengthSurvey(profile: ReturnType<typeof useUserStore>['profile']): boolean {

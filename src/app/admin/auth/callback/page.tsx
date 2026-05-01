@@ -61,6 +61,24 @@ function AuthCallbackContent() {
           return;
         }
 
+        // Mint the admin session cookie NOW, before any router navigation.
+        // The middleware checks for this cookie on the very first /admin/* request.
+        // If we navigate first and mint later (via AdminSessionSync), the middleware
+        // intercepts the navigation while the cookie is still missing → redirect loop.
+        try {
+          const idToken = await result.user.getIdToken(/* forceRefresh */ true);
+          await fetch('/api/auth/session', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          });
+        } catch (sessionErr) {
+          // Non-fatal: AdminSessionSync will retry. Middleware will catch the missing
+          // cookie and redirect to login, but that is safer than blocking sign-in.
+          console.warn('[AuthCallback] Session cookie pre-mint failed:', sessionErr);
+        }
+
         // Check for invitation token — redeem it before role check
         const invitationToken = searchParams?.get('token') || 
           (typeof window !== 'undefined' ? window.localStorage.getItem('pendingInvitationToken') : null);

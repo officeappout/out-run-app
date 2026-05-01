@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import type { WizardData } from './index';
@@ -15,6 +15,22 @@ interface Props {
   submitting: boolean;
 }
 
+/**
+ * Best-effort delete of an orphaned upload at `path`. We swallow
+ * `storage/object-not-found` (object already gone — common when the user
+ * trashes a photo whose upload errored) and log everything else; the UI
+ * state must always be cleared regardless so the user is not stuck with
+ * a stale preview if Storage is temporarily unreachable.
+ */
+async function deleteStorageObject(path: string): Promise<void> {
+  try {
+    await deleteObject(ref(storage, path));
+  } catch (err: any) {
+    if (err?.code === 'storage/object-not-found') return;
+    console.warn('[Step3Photo] deleteObject failed for', path, err);
+  }
+}
+
 export default function Step3Photo({ data, updateData, onBack, onSubmit, submitting }: Props) {
   const { profile } = useUserStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,31 +41,49 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
     const file = e.target.files?.[0];
     if (!file || !profile?.id) return;
 
+    // If the user is replacing an existing photo, delete the previous
+    // upload first so we do not leak orphaned objects in Storage.
+    const previousPath = data.photoStoragePath;
+
     const localPreview = URL.createObjectURL(file);
     setPreview(localPreview);
     setUploading(true);
 
     try {
+      if (previousPath) {
+        await deleteStorageObject(previousPath);
+      }
+
       const path = `contribution-photos/${profile.id}/${Date.now()}_${file.name}`;
       const storageRef = ref(storage, path);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      updateData({ photoUrl: url });
+      updateData({ photoUrl: url, photoStoragePath: path });
       setPreview(url);
     } catch (err) {
       console.error('[Step3Photo] Upload failed:', err);
       setPreview(null);
-      updateData({ photoUrl: null });
+      updateData({ photoUrl: null, photoStoragePath: null });
     } finally {
       setUploading(false);
     }
-  }, [profile?.id, updateData]);
+  }, [profile?.id, updateData, data.photoStoragePath]);
 
-  const handleRemove = () => {
+  const handleRemove = useCallback(async () => {
+    const pathToDelete = data.photoStoragePath;
+
+    // Delete the Storage object FIRST so the orphan never exists; only
+    // then clear the UI / wizard state. This is the bug-fix called out
+    // in Phase 6.1: previously the UI was cleared first and the Storage
+    // object was leaked forever.
+    if (pathToDelete) {
+      await deleteStorageObject(pathToDelete);
+    }
+
     setPreview(null);
-    updateData({ photoUrl: null });
+    updateData({ photoUrl: null, photoStoragePath: null });
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  }, [data.photoStoragePath, updateData]);
 
   return (
     <div className="flex flex-col h-full px-4 pb-6">

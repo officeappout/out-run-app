@@ -12,13 +12,10 @@ import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import RunLapsList from './RunLapsList';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import RunMapBlock from '@/features/workout-engine/summary/components/running/RunMapBlock';
-import StarRatingWidget from '@/features/parks/client/components/contribution-wizard/StarRatingWidget';
+import SummaryStatsGrid from '@/features/workout-engine/summary/components/shared/SummaryStatsGrid';
 import { createContribution } from '@/features/parks/core/services/contribution.service';
 import { XP_REWARDS } from '@/types/contribution.types';
-import { saveWorkout, WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-import { auth } from '@/lib/firebase';
-import { calculateCalories } from '@/lib/calories.utils';
-import { calculateRunningWorkoutXP } from '@/features/user/progression/services/xp.service';
+import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 interface FreeRunSummaryProps {
   onDelete?: () => void;
@@ -38,17 +35,23 @@ export default function FreeRunSummary({
 }: FreeRunSummaryProps) {
   const router = useRouter();
   const { totalDistance: sessionDistance, totalDuration: sessionDuration } = useSessionStore();
-  const { laps: sessionLaps, routeCoords: sessionRouteCoords, currentPace: sessionPace, totalCalories: sessionCalories, activityType: sessionActivityType, clearRunningData } = useRunningPlayer();
+  const { laps: sessionLaps, routeCoords: sessionRouteCoords, currentPace: sessionPace, totalCalories: sessionCalories, activityType: sessionActivityType, clearRunningData, savedWorkoutSnapshot } = useRunningPlayer();
   const [showConfetti, setShowConfetti] = useState(false);
   const [routeQuality, setRouteQuality] = useState(0);
   const [routeDifficulty, setRouteDifficulty] = useState<'easy' | 'medium' | 'hard' | null>(null);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const { profile } = useUserStore();
 
-  // Use workout data if in read-only mode, otherwise use session data
-  const totalDistance = isReadOnly && workout ? workout.distance : sessionDistance;
-  const totalDuration = isReadOnly && workout ? workout.duration : sessionDuration;
-  const laps = isReadOnly && workout ? [] : sessionLaps; // Historical workouts don't have laps data
+  // Data source priority:
+  //   1. isReadOnly + workout prop  → historical view from profile
+  //   2. savedWorkoutSnapshot        → live session confirmed snapshot from finishWorkout
+  //   3. session store / player       → fallback (e.g. snapshot not yet available)
+  const confirmedSource = !isReadOnly ? savedWorkoutSnapshot : null;
+  const historySource  = isReadOnly && workout ? workout : null;
+
+  const totalDistance = historySource?.distance ?? confirmedSource?.distance ?? sessionDistance;
+  const totalDuration = historySource?.duration ?? confirmedSource?.duration ?? sessionDuration;
+  const laps = historySource ? [] : (confirmedSource?.laps ?? sessionLaps);
   
   // Convert routePath to number[][] format for RunMapBlock
   // Handle both formats: [{lat, lng}] (new) or [[lat, lng]] (old)
@@ -83,8 +86,8 @@ export default function FreeRunSummary({
     return sessionRouteCoords;
   })();
   
-  const currentPace = isReadOnly && workout ? workout.pace : sessionPace;
-  const totalCalories = isReadOnly && workout ? workout.calories : sessionCalories;
+  const currentPace = historySource?.pace ?? confirmedSource?.pace ?? sessionPace;
+  const totalCalories = historySource?.calories ?? confirmedSource?.calories ?? sessionCalories;
 
   // Use calculated calories from store (real-time calculation)
   const calories = totalCalories || 0;
@@ -141,65 +144,12 @@ export default function FreeRunSummary({
     }
   };
 
-  // Handle save and close
-  const handleSaveAndClose = async () => {
+  // Workout data is already saved by finishWorkout in useRunningPlayer.
+  // This handler only needs to clear state and navigate.
+  const handleSaveAndClose = () => {
     if (isReadOnly && onClose) {
       onClose();
       return;
-    }
-
-    // ── Persist workout + award XP (new sessions only) ──────────────────
-    if (!isReadOnly) {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const durationMinutes = Math.max(Math.round(totalDuration / 60), 1);
-        const distanceKm = totalDistance;
-        const userWeight = profile?.core?.weight || 70;
-        const earnedCalories = totalCalories || calculateCalories(
-          sessionActivityType || 'running',
-          durationMinutes,
-          userWeight,
-        );
-
-        // 1. Persist to workouts collection — compute XP first so it's stored on the doc
-        const streak = useProgressionStore.getState().currentStreak;
-        const sessionXP = calculateRunningWorkoutXP({
-          durationMinutes,
-          distanceKm,
-          streak,
-          activityType: (sessionActivityType as 'running' | 'walking') ?? 'running',
-        });
-        saveWorkout({
-          userId: currentUser.uid,
-          activityType: sessionActivityType || 'running',
-          distance: distanceKm,
-          duration: totalDuration,
-          calories: earnedCalories,
-          pace: avgPace,
-          routePath: sessionRouteCoords.length > 0
-            ? (sessionRouteCoords as [number, number][])
-            : undefined,
-          earnedCoins: IS_COIN_SYSTEM_ENABLED ? Math.floor(earnedCalories) : 0,
-          xpEarned: sessionXP,
-        }).catch((e) =>
-          console.warn('[FreeRunSummary] saveWorkout failed (non-critical):', e),
-        );
-
-        // 2. Award global XP via progression store (writes to Firestore)
-        useProgressionStore.getState().awardRunningXP({
-          durationMinutes,
-          distanceKm,
-          streak,
-          activityType: (sessionActivityType as 'running' | 'walking') ?? 'running',
-        }).then(({ xpEarned, newLevel, leveledUp }) => {
-          console.log(
-            `[FreeRunSummary] +${xpEarned} XP → Level ${newLevel}` +
-            (leveledUp ? ' (LEVEL UP!)' : ''),
-          );
-        }).catch((e) =>
-          console.warn('[FreeRunSummary] awardRunningXP failed (non-critical):', e),
-        );
-      }
     }
 
     if (onSave) {
@@ -309,48 +259,16 @@ export default function FreeRunSummary({
               </motion.div>
             )}
 
-            {/* Stats Grid */}
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="bg-gray-50 rounded-xl p-6"
-            >
-              <h2 className="text-lg font-bold text-gray-900 mb-4 text-center">סיכום אימון</h2>
-              <div className="grid grid-cols-2 gap-4">
-                {/* Total Distance */}
-                <div className="text-center p-4 bg-cyan-50 rounded-xl">
-                  <div className="text-3xl font-black text-[#00ADEF] mb-1">
-                    {totalDistance.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-600 font-medium">קילומטר</div>
-                </div>
-
-                {/* Total Time */}
-                <div className="text-center p-4 bg-orange-50 rounded-xl">
-                  <div className="text-3xl font-black text-[#FF8C00] mb-1">
-                    {formatTime(totalDuration)}
-                  </div>
-                  <div className="text-sm text-gray-600 font-medium">זמן</div>
-                </div>
-
-                {/* Average Pace */}
-                <div className="text-center p-4 bg-blue-50 rounded-xl">
-                  <div className="text-3xl font-black text-blue-600 mb-1">
-                    {formatPace(avgPace)}
-                  </div>
-                  <div className="text-sm text-gray-600 font-medium">קצב ממוצע</div>
-                </div>
-
-                {/* Calories */}
-                <div className="text-center p-4 bg-red-50 rounded-xl">
-                  <div className="text-3xl font-black text-red-600 mb-1">
-                    {calories}
-                  </div>
-                  <div className="text-sm text-gray-600 font-medium">קלוריות</div>
-                </div>
-              </div>
-            </motion.div>
+            {/* Stats Grid — shared component used by all summary screens */}
+            <SummaryStatsGrid
+              time={totalDuration}
+              distance={totalDistance}
+              calories={calories}
+              pace={avgPace > 0 ? avgPace : currentPace}
+              elevationGain={
+                (confirmedSource?.elevationGain ?? (historySource as any)?.elevationGain) || undefined
+              }
+            />
 
             {/* Laps Table */}
             {laps.length > 0 && (

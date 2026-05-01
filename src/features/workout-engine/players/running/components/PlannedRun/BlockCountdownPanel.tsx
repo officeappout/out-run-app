@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '../../store/useRunningPlayer';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
@@ -92,7 +92,7 @@ export default function BlockCountdownPanel() {
       {/* ── Hero Number (current pace) ── */}
       <div className="text-center">
         <motion.div
-          key={currentPaceFormatted}
+          key={currentBlockIndex}
           initial={{ scale: 0.95, opacity: 0.7 }}
           animate={{ scale: 1, opacity: 1 }}
           className="text-[4rem] font-black leading-none tabular-nums"
@@ -185,6 +185,25 @@ function SegmentedPaceGauge({
     return { markerPercent: marker, leftFlex: lf, centerFlex: cf, rightFlex: rf };
   }, [currentPaceSeconds, targetMinPace, targetMaxPace, hasTarget]);
 
+  // Throttled spring for the marker dot.
+  // GPS pace can arrive multiple times per second; recalculating a new spring
+  // target on every tick drives continuous layout work on the UI thread.
+  // Instead we update the MotionValue at most 5 Hz (200 ms gate) and let
+  // the spring physics run in Framer's own rAF loop, completely decoupled
+  // from React renders.
+  const lastUpdateRef = useRef<number>(Date.now() - 201);
+  const markerLeftMV = useMotionValue(markerPercent);
+  const springLeft = useSpring(markerLeftMV, { stiffness: 150, damping: 22, restDelta: 0.5 });
+  const leftStyle = useTransform(springLeft, (v: number) => `${v}%`);
+
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastUpdateRef.current >= 200) {
+      lastUpdateRef.current = now;
+      markerLeftMV.set(markerPercent);
+    }
+  }, [markerPercent, markerLeftMV]);
+
   return (
     <div>
       {/* Gauge + labels in one layout so labels sit inside the 8px gaps */}
@@ -230,22 +249,25 @@ function SegmentedPaceGauge({
         />
       </div>
 
-      {/* Current pace marker — overlaid on the full gauge width */}
+      {/* Current pace marker — overlaid on the full gauge width.
+          Position is driven by a throttled useSpring MotionValue so the
+          spring physics run in Framer's rAF loop, not on every GPS render. */}
       <div className="relative" style={{ marginTop: -12 }}>
         <div className="relative h-3">
           <AnimatePresence>
             {currentPaceSeconds > 0 && (
               <motion.div
-                className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full shadow-md border-2 border-white z-10"
-                style={{ backgroundColor: paceStatusColor }}
-                initial={{ left: '50%', x: '-50%', scale: 0 }}
-                animate={{
-                  left: `${markerPercent}%`,
-                  x: '-50%',
-                  scale: 1,
+                className="absolute w-3.5 h-3.5 rounded-full shadow-md border-2 border-white z-10"
+                style={{
+                  backgroundColor: paceStatusColor,
+                  top: '50%',
+                  left: leftStyle,
+                  translateX: '-50%',
+                  translateY: '-50%',
                 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                transition={{ type: 'spring', stiffness: 150, damping: 22 }}
               />
             )}
           </AnimatePresence>

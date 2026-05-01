@@ -12,11 +12,11 @@ import dynamicImport from 'next/dynamic';
 const FullMapView = dynamicImport(
   () => import('./FullMapView'),
   {
-    loading: () => (
-      <div className="h-[100dvh] w-full flex items-center justify-center bg-[#f3f4f6]">
-        <p className="text-gray-500 text-sm font-bold animate-pulse">טוען מפה...</p>
-      </div>
-    ),
+    // Map-toned skeleton — matches the placeholder colour the actual Mapbox
+    // canvas paints while tiles load (`#f3f4f6`). Replaces the previous
+    // centered "טוען מפה..." text so the very first paint already feels
+    // like the map background instead of a distinct loading screen.
+    loading: () => <div className="h-[100dvh] w-full bg-[#f3f4f6]" aria-busy="true" />,
     ssr: false,
   }
 );
@@ -37,7 +37,12 @@ export default async function MapPage({ searchParams }: MapPageProps) {
       : null;
 
   return (
-    <Suspense fallback={<div className="h-[100dvh] w-full flex items-center justify-center bg-[#f3f4f6]">טוען...</div>}>
+    // Same map-toned skeleton as the dynamic-import fallback above so the
+    // outer Suspense boundary, the dynamic-import boundary, and the map's
+    // own pre-tile background all look like a single continuous frame.
+    // Three matching frames feel like "the map is loading", not three
+    // different loading screens flashing in sequence.
+    <Suspense fallback={<div className="h-[100dvh] w-full bg-[#f3f4f6]" aria-busy="true" />}>
       <FullMapView
         initialWorkoutId={initialWorkoutId}
         initialContext={initialContext}

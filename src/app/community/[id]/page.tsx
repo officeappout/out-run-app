@@ -185,9 +185,12 @@ export default function CommunityHubPage() {
       className="min-h-[100dvh] bg-[#F8FAFC]"
       style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* ── Header ─────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between" dir="rtl">
+      {/* ── Header — pad below status bar so the back button isn't covered. ── */}
+      <header
+        className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="max-w-md mx-auto px-4 py-1.5 flex items-center justify-between" dir="rtl">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}

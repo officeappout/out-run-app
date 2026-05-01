@@ -21,12 +21,27 @@ service cloud.firestore {
         request.auth.token.email.matches('(?i)^(david|office)@appout\\.co\\.il$');
     }
 
-    // DB-backed admin — reads role field from user document.
-    // Falls back to isRootAdmin() if the get() fails or field is missing.
+    // DB-backed admin — mirrors the multi-field check in resolveIdentity (firebase-admin.ts)
+    // and checkUserRole (auth.service.ts).
+    //
+    // The app stores admin flags under `users/{uid}.core.*` (NOT as a top-level `role`
+    // field). This helper reads all relevant fields so that any path that grants
+    // Super Admin or System Admin privileges on the client also satisfies Firestore rules.
+    //
+    // Firestore caches repeated get() calls to the same document within a single request
+    // evaluation, so calling getUserDoc() multiple times is equivalent to one read.
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function isAdmin() {
       return isRootAdmin() ||
-        (request.auth != null &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+        (request.auth != null && (
+          getUserDoc().role == 'admin' ||
+          getUserDoc().get('core', {}).get('role', '') == 'admin' ||
+          getUserDoc().get('core', {}).get('isSuperAdmin', false) == true ||
+          getUserDoc().get('core', {}).get('isSystemAdmin', false) == true
+        ));
     }
 
     // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
@@ -563,9 +578,28 @@ service cloud.firestore {
     match /official_routes/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+      // Authenticated users may update ONLY the `analytics` sub-object
+      // (e.g. usageCount, lastUsed) when completing a guided route.
+      // Any write that touches another top-level field is rejected.
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['analytics']);
     }
 
     match /curated_routes/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // STREET SEGMENTS — OSM-imported scored road/path segments
+    // used by the dynamic route generator (fetchScoredWaypoints).
+    // Public read so the client-side generator can query by city,
+    // admin-only write (populated via the OSM importer script /
+    // /admin/segments page).
+    // ============================================================
+    match /street_segments/{docId} {
       allow read: if true;
       allow write: if isAdmin();
     }
@@ -715,6 +749,14 @@ service cloud.firestore {
                     && request.auth.uid == resource.data.authorUid
                     && request.resource.data.authorUid == resource.data.authorUid;
 
+      // Delete: only the original author can remove their own post (GDPR /
+      // Israeli Privacy Law compliance — users own their UGC and can erase
+      // it). Authorship is checked against `resource.data.authorUid` (the
+      // existing doc) so an attacker cannot spoof by sending a forged
+      // payload. Compliance Phase 3.2.
+      allow delete: if isAuthenticated()
+                    && request.auth.uid == resource.data.authorUid;
+
       match /reactions/{reactionId} {
         allow read: if isAuthenticated();
         allow write: if isAuthenticated();
@@ -755,9 +797,13 @@ service cloud.firestore {
         allow write: if isAuthenticated() && request.auth.uid == uid;
       }
 
-      // attendance sub-collection — session booking / RSVP
+      // attendance sub-collection — session booking / RSVP.
+      // Any authenticated member can read attendance, but writes are scoped
+      // to the user's own record only (sessionId == uid convention).
       match /attendance/{sessionId} {
-        allow read, write: if request.auth != null;
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated()
+                     && request.auth.uid == sessionId;
       }
     }
 
@@ -811,11 +857,31 @@ service cloud.firestore {
       allow read: if isAuthenticated()
                   && resource.data.type == 'group';
 
-      // DM create: requesting user in participants, exactly 2 people
+      // DM create: requesting user in participants, exactly 2 people.
+      //
+      // SECURITY (Compliance Phase 2.2 — Minor DM Block):
+      //   Both participants must have core.ageGroup == 'adult'. Minors
+      //   (under 18) cannot initiate or be added to a DM. ageGroup is
+      //   set server-side in onboarding-sync.service.ts from the user's
+      //   birthDate (re-validated in the sync service, see Phase 2.1).
+      //
+      //   Defensive .get() calls — if the user doc or core.ageGroup field
+      //   is missing, the comparison fails ('' != 'adult') and creation is
+      //   denied. Legacy users without ageGroup must re-onboard or be
+      //   backfilled by admin tooling before they can create new DMs.
+      //
+      //   NOTE: This rule covers DM creation only. Group chats (`type ==
+      //   'group'`) are handled by a separate allow-create rule below; the
+      //   group-chat case is intentionally left open until tenant-scoped
+      //   group rules are added.
       allow create: if isAuthenticated()
                     && request.auth.uid in request.resource.data.participants
                     && request.resource.data.participants.size() == 2
-                    && request.resource.data.type == 'dm';
+                    && request.resource.data.type == 'dm'
+                    && get(/databases/$(database)/documents/users/$(request.resource.data.participants[0]))
+                         .data.get('core', {}).get('ageGroup', '') == 'adult'
+                    && get(/databases/$(database)/documents/users/$(request.resource.data.participants[1]))
+                         .data.get('core', {}).get('ageGroup', '') == 'adult';
       // Group chat create: requesting user in participants, type == 'group'
       allow create: if isAuthenticated()
                     && request.auth.uid in request.resource.data.participants

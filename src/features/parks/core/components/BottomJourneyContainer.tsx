@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Play, Timer, Car, MapPin, ChevronLeft, Zap, Bike, Dumbbell, Navigation, Users } from 'lucide-react';
 import { Route, ActivityType } from '../types/route.types';
+import { useMapStore } from '../store/useMapStore';
 import Image from 'next/image';
 
 function formatSessionTime(isoString: string): string {
@@ -31,7 +32,7 @@ function ParticipantAvatars({ avatars }: { avatars: { uid: string; name: string;
         >
           {a.photoURL ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={a.photoURL} alt="" className="w-full h-full object-cover" />
+            <img src={a.photoURL} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
           ) : (
             a.name.charAt(0)
           )}
@@ -77,6 +78,9 @@ export default function BottomJourneyContainer({
   const isProgrammaticScroll = useRef(false);
   const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Walk-time from useWalkToRoute (synced via useMapStore — no prop drilling needed).
+  const walkToRouteMinutes = useMapStore((s) => s.walkToRouteMinutes);
+
   // ── Sync carousel when focusedRouteId changes externally ──
   useEffect(() => {
     if (!focusedRouteId || routes.length === 0) return;
@@ -87,7 +91,9 @@ export default function BottomJourneyContainer({
 
     if (carouselRef.current) {
       const cardWidth = carouselRef.current.offsetWidth * 0.85 + 12;
-      const targetScroll = index * cardWidth;
+      // flex-row-reverse: route at arrayIndex occupies DOM position (routes.length-1-index)
+      // from the left, so its scroll position is (routes.length-1-index) * cardWidth.
+      const targetScroll = (routes.length - 1 - index) * cardWidth;
       const currentScroll = carouselRef.current.scrollLeft;
       if (Math.abs(currentScroll - targetScroll) > 20) {
         isProgrammaticScroll.current = true;
@@ -105,7 +111,10 @@ export default function BottomJourneyContainer({
     if (!carouselRef.current) return;
     const scrollLeft = carouselRef.current.scrollLeft;
     const cardWidth = carouselRef.current.offsetWidth * 0.85 + 12;
-    const newIndex = Math.round(scrollLeft / cardWidth);
+    // flex-row-reverse: DOM position k from the left = routes[routes.length-1-k].
+    // scrollLeft=0 → leftmost card (routes[n-1]); scrollLeft=(n-1)*cw → rightmost (routes[0]).
+    const k = Math.round(scrollLeft / cardWidth);
+    const newIndex = routes.length - 1 - k;
     if (newIndex !== activeRouteIndex && newIndex >= 0 && newIndex < routes.length) {
       setActiveRouteIndex(newIndex);
       const route = routes[newIndex];
@@ -116,6 +125,25 @@ export default function BottomJourneyContainer({
   useEffect(() => {
     return () => { if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current); };
   }, []);
+
+  // ── Initial scroll — show route 0 on the RIGHT (RTL UX) ──
+  // The container uses dir="ltr" for positive scrollLeft math, and
+  // flex-row-reverse so route0 is the rightmost DOM child. We must jump
+  // the scroll position to (routes.length - 1) * cardWidth so route0 is
+  // visible immediately. useLayoutEffect fires before the browser paints,
+  // preventing any visible left-to-right flash on mount.
+  useLayoutEffect(() => {
+    if (!carouselRef.current || routes.length <= 1) return;
+    const cardWidth = carouselRef.current.offsetWidth * 0.85 + 12;
+    const targetInitial = (routes.length - 1) * cardWidth;
+    // Only override if carousel is still at the default leftmost position
+    // to avoid fighting a scroll position the user has already set.
+    if (Math.abs(carouselRef.current.scrollLeft) < 10) {
+      carouselRef.current.scrollLeft = targetInitial;
+    }
+  // Re-run when routes count changes (new batch of routes loaded).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routes.length]);
 
   // Inject scrollbar-hide style once
   useEffect(() => {
@@ -129,36 +157,47 @@ export default function BottomJourneyContainer({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
-      <div className="pb-[85px] pointer-events-auto">
+      <div className="pointer-events-auto" style={{ paddingBottom: 'calc(max(85px, env(safe-area-inset-bottom, 0px) + 75px))' }}>
         <div
           ref={carouselRef}
+          dir="ltr"
           onScroll={handleScroll}
-          className="w-full overflow-x-auto snap-x snap-mandatory flex gap-3 pb-2 scrollbar-hide"
+          className="w-full overflow-x-auto snap-x snap-mandatory flex flex-row-reverse gap-3 pb-2 scrollbar-hide"
           style={{ paddingInlineStart: '16px', paddingInlineEnd: '40px', scrollBehavior: 'smooth' }}
         >
           {routes.map((route, index) => {
             const isActive = index === activeRouteIndex;
             const distFromUser   = route.distanceFromUser ?? 0;
             const isReachable    = route.isReachableWithoutCar ?? true;
-            const totalDistKm    = route.distance || 0;
-            const isGenerated    = route.id?.startsWith('generated');
+            // Show the full projected trip (walk-to-start + route + walk-home) when available;
+            // fall back to the stored route distance for AI-generated and nav routes.
+            const totalDistKm    = route.projectedDistance ?? route.distance ?? 0;
+            const isGenerated    = route.id?.startsWith('gen-') || route.id?.startsWith('generated');
             const isLoading      = loadingRouteIds?.has(route.id);
             const durationMin    = Math.round(route.duration || 0);
             const coverImage     = route.images?.[0] || null;
             const activityType   = route.activityType || route.type;
             const sourceName     = route.source?.name || (isGenerated ? 'מותאם אישית' : 'מסלול רשמי');
 
+            const isFocused = focusedRouteId === route.id;
             return (
               <div
                 key={route.id}
                 onClick={() => {
-                  if (onRouteFocus) onRouteFocus(route);
-                  if (onShowRouteDetail) onShowRouteDetail(route);
+                  // Two-step: 1st tap on a non-focused card → just focus.
+                  // 2nd tap on the already-focused card → open detail sheet.
+                  if (isFocused) {
+                    if (onShowRouteDetail) onShowRouteDetail(route);
+                  } else if (onRouteFocus) {
+                    onRouteFocus(route);
+                  }
                 }}
                 className={`w-[85vw] max-w-[340px] snap-center flex-shrink-0 bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
-                  isActive
-                    ? 'shadow-[0_0_0_2px_rgba(0,229,255,0.65),0_8px_24px_rgba(0,0,0,0.14)]'
-                    : 'shadow-md opacity-88 scale-[0.97]'
+                  isFocused
+                    ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_10px_28px_rgba(0,0,0,0.16)] scale-[1.02]'
+                    : isActive
+                      ? 'shadow-[0_0_0_2px_rgba(0,229,255,0.65),0_8px_24px_rgba(0,0,0,0.14)]'
+                      : 'shadow-md opacity-88 scale-[0.97]'
                 }`}
                 style={{ width: '85%', minWidth: '85%' }}
               >
@@ -247,6 +286,16 @@ export default function BottomJourneyContainer({
                         </span>
                       )}
                     </div>
+
+                    {/* Walk-to-route time — shown only on the focused card */}
+                    {isFocused && walkToRouteMinutes != null && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-400">🚶</span>
+                        <span className="text-[10px] font-bold text-gray-500">
+                          {walkToRouteMinutes} דק׳ הליכה למסלול
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

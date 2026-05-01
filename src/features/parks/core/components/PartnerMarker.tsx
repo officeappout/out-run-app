@@ -29,32 +29,36 @@ export default function PartnerMarker({
     .join('');
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      {/* Pulsing outer glow */}
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: size, height: size, opacity: isUser ? 1 : 0.72 }}
+    >
+      {/* Pulsing outer glow — very faint so it doesn't compete with the user marker */}
       <div
         className="absolute rounded-full animate-ping"
         style={{
           inset: -4,
-          background: `${color}30`,
-          animationDuration: isUser ? '2s' : '2.5s',
+          background: `${color}14`,
+          animationDuration: isUser ? '2s' : '3.5s',
         }}
       />
-      {/* Steady ring */}
+      {/* Steady ring — single-pixel accent */}
       <div
         className="absolute rounded-full"
         style={{
-          inset: -2,
-          border: `2px solid ${color}80`,
+          inset: -1,
+          border: `1.5px solid ${color}55`,
         }}
       />
-      {/* Lemur avatar */}
+      {/* Lemur avatar — neutral background, slight desaturation */}
       <div
-        className="rounded-full flex items-center justify-center overflow-hidden shadow-lg"
+        className="rounded-full flex items-center justify-center overflow-hidden shadow-sm"
         style={{
           width: size,
           height: size,
-          backgroundColor: color,
-          boxShadow: `0 2px 8px ${color}60`,
+          backgroundColor: '#64748b',
+          filter: isUser ? undefined : 'saturate(0.65)',
+          boxShadow: `0 1px 4px rgba(0,0,0,0.18)`,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}

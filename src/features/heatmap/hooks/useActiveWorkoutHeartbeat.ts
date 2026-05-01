@@ -32,12 +32,15 @@ interface UseActiveWorkoutHeartbeatParams {
   routeId?: string;
   /** Pass `false` to pause the heartbeat without unmounting. Defaults to `true`. */
   enabled?: boolean;
+  /** When provided, use this location instead of the device GPS. */
+  overrideLocation?: { lat: number; lng: number };
 }
 
 export function useActiveWorkoutHeartbeat({
   workoutType,
   routeId,
   enabled = true,
+  overrideLocation,
 }: UseActiveWorkoutHeartbeatParams) {
   const { profile } = useUserStore();
   const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -48,6 +51,31 @@ export function useActiveWorkoutHeartbeat({
     const userId = profile.id;
     const core = profile.core;
     if (!core) return;
+
+    // When an override is provided, seed the ref and skip GPS polling entirely.
+    if (overrideLocation) {
+      lastCoordsRef.current = overrideLocation;
+      const getPayload = (): ActiveWorkoutPayload | null => {
+        if (!lastCoordsRef.current) return null;
+        return {
+          uid: userId,
+          authorityId: core.authorityId ?? null,
+          neighborhoodId: core.authorityId ?? null,
+          workoutType,
+          lat: lastCoordsRef.current.lat,
+          lng: lastCoordsRef.current.lng,
+          gender: core.gender ?? 'other',
+          ageGroup: deriveAgeGroup(core.birthDate),
+          birthYear: deriveBirthYear(core.birthDate),
+          routeId,
+        };
+      };
+      startActiveWorkoutHeartbeat(getPayload);
+      return () => {
+        stopActiveWorkoutHeartbeat();
+        clearActiveWorkout(userId).catch(() => {});
+      };
+    }
 
     // Grab initial GPS position
     navigator.geolocation.getCurrentPosition(
@@ -100,5 +128,5 @@ export function useActiveWorkoutHeartbeat({
       clearActiveWorkout(userId).catch(() => {});
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, enabled]);
+  }, [profile?.id, enabled, overrideLocation?.lat, overrideLocation?.lng]);
 }

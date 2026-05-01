@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPreferencesModal';
 import { useMapLogic } from '@/features/parks';
+import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { Play, X } from 'lucide-react';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
@@ -13,6 +14,10 @@ interface BuilderLayerProps {
 }
 
 export default function BuilderLayer({ logic }: BuilderLayerProps) {
+  // Hide the global BottomNavbar — both the preferences modal and the
+  // route-picker card own the full bottom of the map.
+  useSuppressBottomNav();
+
   const { setMode } = useMapMode();
   const [showPrefs, setShowPrefs] = useState(true);
 

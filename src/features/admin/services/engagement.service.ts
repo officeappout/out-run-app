@@ -38,6 +38,27 @@ export interface ManagerNotification {
   actionTaken?: boolean; // Whether manager sent encouragement
 }
 
+/**
+ * Delivery channel — drives per-channel notification preference filtering
+ * inside the `sendPushFromQueue` Cloud Function (Sprint 3, Phase 4.6).
+ * `system` is treated as force-on by the function and bypasses user
+ * opt-out flags (security / compliance messages).
+ */
+export type PushChannel =
+  | 'encouragement'
+  | 'health_milestone'
+  | 'training_reminder'
+  | 'system';
+
+/**
+ * Status lifecycle written by the Cloud Function:
+ *   pending     — created by the admin panel, awaiting pickup
+ *   processing  — claimed by sendPushFromQueue (compare-and-set)
+ *   sent        — fanout completed (with deliveredCount/failedCount)
+ *   failed      — pre-flight validation or audience resolution failed
+ */
+export type PushMessageStatus = 'pending' | 'processing' | 'sent' | 'failed';
+
 export interface PushMessage {
   id: string;
   authorityId: string;
@@ -47,6 +68,26 @@ export interface PushMessage {
   sentBy: string; // Manager user ID
   sentAt: Date;
   targetAudience: 'all' | 'park_users' | 'active_users' | 'inactive_users';
+
+  // ── Sprint 3, Phase 4.6 — pipeline schema ─────────────────────────
+  /** Delivery channel; drives per-user pref filtering. */
+  channel?: PushChannel;
+  /** Pipeline lifecycle. */
+  status?: PushMessageStatus;
+  /** Successful FCM deliveries (set by the Cloud Function). */
+  deliveredCount?: number;
+  /** Failed deliveries — invalid tokens, throttled batches, etc. */
+  failedCount?: number;
+  /** Tokens removed from user docs after permanent-failure responses. */
+  tokensRemoved?: number;
+  /** Distinct uids the audience filter matched. */
+  recipientCount?: number;
+  /** Distinct device tokens the multicast addressed. */
+  tokenCount?: number;
+  /** Server-set timestamp when the function finished. */
+  processedAt?: Date;
+  /** Pipeline error message (only present when `status === 'failed'`). */
+  error?: string;
 }
 
 /**
@@ -145,7 +186,19 @@ export async function markNotificationAsRead(notificationId: string): Promise<vo
 }
 
 /**
- * Send encouragement push message to residents
+ * Send encouragement push message to residents.
+ *
+ * Writes a `push_messages` doc that carries the full Sprint 3 schema:
+ *   • status: 'pending'   — claimed by the Cloud Function via compare-
+ *                            and-set, prevents double-send on retry.
+ *   • channel             — drives per-user notification-pref filtering.
+ *   • zeroed counters     — deliveredCount / failedCount / tokensRemoved
+ *                            so admin dashboards don't have to handle
+ *                            `undefined`.
+ *
+ * The actual delivery happens server-side in `sendPushFromQueue`
+ * (functions/src/sendPushFromQueue.ts). The admin panel UI is unchanged
+ * — it still calls this function and the message reaches users' devices.
  */
 export async function sendEncouragementPush(
   authorityId: string,
@@ -155,6 +208,8 @@ export async function sendEncouragementPush(
     parkId?: string;
     targetAudience: 'all' | 'park_users' | 'active_users' | 'inactive_users';
     sentBy: { adminId: string; adminName: string };
+    /** Optional override; defaults to 'encouragement'. */
+    channel?: PushChannel;
   }
 ): Promise<string> {
   try {
@@ -166,6 +221,14 @@ export async function sendEncouragementPush(
       sentBy: data.sentBy.adminId,
       sentAt: serverTimestamp(),
       targetAudience: data.targetAudience,
+      // ── Sprint 3, Phase 4.6 — pipeline schema ───────────────────
+      channel: data.channel ?? 'encouragement',
+      status: 'pending' as PushMessageStatus,
+      deliveredCount: 0,
+      failedCount: 0,
+      tokensRemoved: 0,
+      recipientCount: 0,
+      tokenCount: 0,
     });
 
     // Mark related notification as action taken

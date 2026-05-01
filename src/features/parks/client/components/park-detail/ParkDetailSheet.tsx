@@ -96,6 +96,8 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
         level: 'beginner',
         startTime: today,
         privacyMode: 'squad',
+        lat: selectedPark.location?.lat ?? null,
+        lng: selectedPark.location?.lng ?? null,
       });
       setShowTimePicker(false);
       setJustPublished({ time: pickedTime, name: user.displayName ?? 'משתמש', photoURL: user.photoURL ?? undefined });
@@ -323,8 +325,13 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                     style={{ background: 'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)' }}
                   />
 
-                  {/* Top controls */}
-                  <div className={`absolute top-0 left-0 right-0 p-4 pt-14 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  {/* Top controls — safe-area-aware padding so the X button
+                      clears the iOS notch / Android status bar when the sheet
+                      is fully expanded. */}
+                  <div
+                    className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+                  >
                     <button onClick={onClose} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform">
                       <X size={20} />
                     </button>
@@ -491,7 +498,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                               <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
                                 {ev.avatars?.slice(0, 2).map((a, ai) => (
                                   <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => setProfileUser({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
-                                    {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" /> : a.name.charAt(0)}
+                                    {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : a.name.charAt(0)}
                                   </button>
                                 ))}
                               </div>
@@ -554,7 +561,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                             onClick={() => setExpandedPhoto(url)}
                             className="flex-shrink-0 w-[140px] h-[100px] rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 active:scale-95 transition-transform"
                           >
-                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                           </button>
                         ))}
                       </div>

@@ -207,12 +207,15 @@ export function useRouteFilter(
 
         return {
           ...route,
-          path: finalPath,
+          // Preserve original path and distance — RouteDetailSheet relies on them.
+          // displayPath is the rotated/user-prepended geometry for AppMap + camera.
+          // projectedDistance is the full trip estimate (walk-to-start + route + walk-home).
+          displayPath: finalPath,
+          projectedDistance: Number(totalProjectedDistance.toFixed(1)),
           calculatedScore: matchScore,
           score: estimatedCalories,
           distanceFromUser: distFromUser,
           isReachableWithoutCar: isLocalRoute,
-          distance: Number(totalProjectedDistance.toFixed(1)),
         };
       })
       .filter((r): r is RouteWithScore => r !== null)

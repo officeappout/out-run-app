@@ -20,8 +20,10 @@
  */
 
 import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
+import { initPushNotifications, unregisterPushNotifications } from './push';
 
 let installed = false;
+let pushAuthListenerAttached = false;
 
 function isNative(): boolean {
   if (typeof window === 'undefined') return false;
@@ -100,7 +102,58 @@ export async function initNativeShell(): Promise<void> {
         console.debug('[native] HealthBridge init skipped:', err);
       }
     }
+
+    // 4. Push notifications (Sprint 3, Phase 4.1).
+    //    Wait for an authenticated user before requesting the OS
+    //    permission prompt — anonymous browsers should never see the
+    //    iOS notification dialog. The auth listener fires once on
+    //    boot for already-signed-in users.
+    try {
+      await attachPushAuthBridge();
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[native] push auth bridge skipped:', err);
+      }
+    }
   } catch (err) {
     console.warn('[native] initNativeShell failed:', err);
   }
+}
+
+/**
+ * Bridge Firebase Auth → push registration. We can't import
+ * `firebase/auth` at the top of the file because that would defeat
+ * the dynamic-loading optimisation for the pure-web build. The
+ * subscription is installed exactly once per native shell session.
+ */
+async function attachPushAuthBridge(): Promise<void> {
+  if (pushAuthListenerAttached) return;
+  pushAuthListenerAttached = true;
+
+  let lastUid: string | null = null;
+  const { onAuthStateChanged } = await import('firebase/auth');
+  const { auth } = await import('@/lib/firebase');
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      // First sign-in OR auth state hand-off (e.g. after re-auth):
+      // ensure we have a fresh token for THIS uid.
+      lastUid = user.uid;
+      try {
+        await initPushNotifications(user.uid);
+      } catch (err) {
+        console.warn('[native] initPushNotifications failed:', err);
+      }
+    } else if (lastUid) {
+      // Sign-out: drop the previous owner's token from THEIR doc so a
+      // queued notification can't reach the next user of this device.
+      const previousUid = lastUid;
+      lastUid = null;
+      try {
+        await unregisterPushNotifications(previousUid);
+      } catch (err) {
+        console.warn('[native] unregisterPushNotifications failed:', err);
+      }
+    }
+  });
 }

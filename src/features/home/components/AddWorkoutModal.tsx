@@ -15,15 +15,20 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dumbbell, Timer, Tag, Clock, Star, CalendarDays } from 'lucide-react';
+import { X, Dumbbell, Timer, Tag, Clock, Star, CalendarDays, Users } from 'lucide-react';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSchedule.service';
 import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
 import { useUserStore } from '@/features/user';
+import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
+import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
+import { auth } from '@/lib/firebase';
+import { g } from '@/lib/utils/gendered-text';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import type { ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
+import type { ActivityType } from '@/features/parks/core/types/route.types';
 
 interface AddWorkoutModalProps {
   isOpen: boolean;
@@ -35,10 +40,10 @@ interface AddWorkoutModalProps {
 
 type WorkoutType = 'strength' | 'running' | 'other';
 
-const TYPE_OPTIONS: Array<{ value: WorkoutType; label: string; icon: string; activityCategory: ActivityCategory; scheduleCategory: ScheduleActivityCategory }> = [
-  { value: 'strength', label: 'כוח',  icon: '💪', activityCategory: 'strength', scheduleCategory: 'strength' },
-  { value: 'running',  label: 'ריצה', icon: '🏃', activityCategory: 'cardio',   scheduleCategory: 'cardio' },
-  { value: 'other',    label: 'אחר',  icon: '⚡', activityCategory: 'maintenance', scheduleCategory: 'maintenance' },
+const TYPE_OPTIONS: Array<{ value: WorkoutType; label: string; icon: string; activityCategory: ActivityCategory; scheduleCategory: ScheduleActivityCategory; activityType: ActivityType }> = [
+  { value: 'strength', label: 'כוח',  icon: '💪', activityCategory: 'strength', scheduleCategory: 'strength', activityType: 'workout' },
+  { value: 'running',  label: 'ריצה', icon: '🏃', activityCategory: 'cardio',   scheduleCategory: 'cardio',   activityType: 'running' },
+  { value: 'other',    label: 'אחר',  icon: '⚡', activityCategory: 'maintenance', scheduleCategory: 'maintenance', activityType: 'workout' },
 ];
 
 const DURATION_PRESETS = [15, 30, 45, 60, 90];
@@ -72,12 +77,18 @@ export default function AddWorkoutModal({
   const weeklySummary = useActivityStore((s) => s.weeklySummary);
   const logWorkout = useActivityStore((s) => s.logWorkout);
   const profile = useUserStore((s) => s.profile);
+  const gender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
 
   const [title, setTitle] = useState('');
   const [type, setType] = useState<WorkoutType>('strength');
   const [duration, setDuration] = useState(30);
   const [startTime, setStartTime] = useState(defaultTime);
   const [saving, setSaving] = useState(false);
+  const [shareWithCommunity, setShareWithCommunity] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setShareWithCommunity(false);
+  }, [isOpen]);
 
   const recommendedType = useMemo<WorkoutType | null>(() => {
     if (!weeklySummary) return null;
@@ -140,6 +151,52 @@ export default function AddWorkoutModal({
             ...scope,
           }).catch(() => {});
         }
+
+        // Partner Finder hook — create a discoverable planned session so
+        // others looking for a training partner can see this user on the map.
+        if (shareWithCommunity && auth.currentUser) {
+          try {
+            const [hh, mm] = (startTime || '00:00').split(':');
+            const startDate = new Date(`${dateForEntry}T00:00:00`);
+            startDate.setHours(parseInt(hh, 10) || 0, parseInt(mm, 10) || 0, 0, 0);
+            const activeProgram = useUserStore.getState()
+              .profile?.progression?.activePrograms?.[0];
+
+            // Best-effort GPS — if unavailable the session is created without coords.
+            let lat: number | null = null;
+            let lng: number | null = null;
+            try {
+              const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                  timeout: 3000,
+                  maximumAge: 60_000,
+                  enableHighAccuracy: false,
+                });
+              });
+              lat = pos.coords.latitude;
+              lng = pos.coords.longitude;
+            } catch {
+              // GPS denied or timed out — proceed without coordinates
+            }
+
+            await createPlannedSession({
+              userId: auth.currentUser.uid,
+              displayName: auth.currentUser.displayName
+                ?? auth.currentUser.email
+                ?? 'משתמש',
+              photoURL: auth.currentUser.photoURL,
+              routeId: '',
+              activityType: opt?.activityType ?? 'workout',
+              level: activeProgram ? 'intermediate' : 'beginner',
+              startTime: startDate,
+              privacyMode: usePrivacyStore.getState().mode,
+              lat,
+              lng,
+            });
+          } catch (err) {
+            console.error('[AddWorkoutModal] createPlannedSession failed:', err);
+          }
+        }
       } catch (err) {
         console.error('[AddWorkoutModal] Firestore write failed:', err);
       }
@@ -150,12 +207,13 @@ export default function AddWorkoutModal({
     setType('strength');
     setDuration(30);
     setStartTime(getNextFullHour());
+    setShareWithCommunity(false);
     setSaving(false);
 
     // Close modal, then trigger parent refresh so grid/agenda re-fetch instantly
     onClose();
     setTimeout(() => { onSaved?.(); }, writeOk ? 80 : 300);
-  }, [saving, title, type, duration, startTime, onClose, logWorkout, userId, targetDate, onSaved]);
+  }, [saving, title, type, duration, startTime, onClose, logWorkout, userId, targetDate, onSaved, profile, shareWithCommunity]);
 
   return (
     <AnimatePresence>
@@ -279,6 +337,41 @@ export default function AddWorkoutModal({
                   ))}
                 </div>
               </div>
+
+              {/* Share with community — Partner Finder entry point */}
+              <button
+                type="button"
+                onClick={() => setShareWithCommunity((v) => !v)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-right active:scale-[0.99] transition-all"
+                aria-pressed={shareWithCommunity}
+              >
+                <div className="flex-shrink-0">
+                  <Users size={16} color="#00ADEF" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-gray-900 leading-tight">
+                    {g(gender, 'שתף עם הקהילה', 'שתפי עם הקהילה')} — חפש שותף לאימון
+                  </div>
+                  <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                    {g(
+                      gender,
+                      'תופיע לאחרים שמחפשים שותף',
+                      'תופיעי לאחרים שמחפשים שותפה',
+                    )}
+                  </div>
+                </div>
+                <div
+                  className={`flex-shrink-0 w-9 h-5 rounded-full transition-colors relative ${
+                    shareWithCommunity ? 'bg-[#0CF2E3]' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
+                      shareWithCommunity ? 'left-0.5' : 'left-[18px]'
+                    }`}
+                  />
+                </div>
+              </button>
 
               {/* Save */}
               <button

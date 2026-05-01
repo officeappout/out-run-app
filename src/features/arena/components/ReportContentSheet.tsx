@@ -6,19 +6,55 @@ import { Flag, X, Loader2 } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 
+/**
+ * Reason taxonomy.
+ *
+ * Phase 7.2 expansion: when reporting a *user* (not a piece of content),
+ * the "ספאם" and "מידע מטעה" reasons make less sense as categories. We
+ * gate them in `reasonsForType()` so the UI shows the right subset for
+ * each target without duplicating the array.
+ */
 const REASONS = [
-  { id: 'spam',          label: 'ספאם / תוכן מסחרי' },
-  { id: 'inappropriate', label: 'תוכן לא ראוי' },
-  { id: 'harassment',   label: 'הטרדה או אלימות' },
-  { id: 'misinformation', label: 'מידע מטעה' },
-  { id: 'other',         label: 'אחר' },
+  { id: 'spam',           label: 'ספאם / תוכן מסחרי',  appliesTo: ['group', 'event', 'post'] as const },
+  { id: 'inappropriate',  label: 'תוכן לא ראוי',        appliesTo: ['group', 'event', 'post', 'user'] as const },
+  { id: 'harassment',     label: 'הטרדה או אלימות',    appliesTo: ['group', 'event', 'post', 'user'] as const },
+  { id: 'misinformation', label: 'מידע מטעה',           appliesTo: ['group', 'event', 'post'] as const },
+  { id: 'impersonation',  label: 'התחזות',              appliesTo: ['user'] as const },
+  { id: 'other',          label: 'אחר',                 appliesTo: ['group', 'event', 'post', 'user'] as const },
 ];
+
+/**
+ * Phase 7.2 — supported report targets. The Firestore `reports`
+ * collection rule is permissive on schema (`allow create: if
+ * request.auth != null`), so adding new target types here is sufficient
+ * — no security-rule change is required, and the admin reports
+ * dashboard already partitions by `targetType` value.
+ */
+export type ReportTargetType = 'group' | 'event' | 'post' | 'user';
+
+function reasonsForType(t: ReportTargetType) {
+  return REASONS.filter((r) => (r.appliesTo as readonly string[]).includes(t));
+}
+
+const TARGET_LABEL: Record<ReportTargetType, string> = {
+  group: 'הקבוצה',
+  event: 'האירוע',
+  post:  'הפוסט',
+  user:  'המשתמש',
+};
+
+const PROMPT_BY_TYPE: Record<ReportTargetType, string> = {
+  group: 'מדוע ברצונך לדווח על הקבוצה',
+  event: 'מדוע ברצונך לדווח על האירוע',
+  post:  'מדוע ברצונך לדווח על הפוסט של',
+  user:  'מדוע ברצונך לדווח על המשתמש',
+};
 
 interface ReportContentSheetProps {
   isOpen: boolean;
   onClose: () => void;
   targetId: string;
-  targetType: 'group' | 'event';
+  targetType: ReportTargetType;
   targetName: string;
   reporterId: string;
 }
@@ -60,6 +96,9 @@ export default function ReportContentSheet({
       setLoading(false);
     }
   };
+
+  const visibleReasons = reasonsForType(targetType);
+  const promptPrefix = PROMPT_BY_TYPE[targetType];
 
   const handleClose = () => {
     setSelectedReason(null);
@@ -117,15 +156,15 @@ export default function ReportContentSheet({
                   <div className="flex items-center gap-2 mb-1">
                     <Flag className="w-5 h-5 text-red-500" />
                     <h3 className="text-lg font-black text-gray-900 dark:text-white">
-                      דיווח על תוכן
+                      {`דיווח על ${TARGET_LABEL[targetType]}`}
                     </h3>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-                    מדוע ברצונך לדווח על &ldquo;{targetName}&rdquo;?
+                    {promptPrefix} &ldquo;{targetName}&rdquo;?
                   </p>
 
                   <div className="space-y-2 mb-6">
-                    {REASONS.map((r) => (
+                    {visibleReasons.map((r) => (
                       <button
                         key={r.id}
                         onClick={() => setSelectedReason(r.id)}

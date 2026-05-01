@@ -12,7 +12,7 @@ interface ActiveWorkoutLayerProps {
 
 export default function ActiveWorkoutLayer({ logic }: ActiveWorkoutLayerProps) {
   return (
-    <div className="absolute inset-0 z-20">
+    <div className="absolute inset-0 z-20 pointer-events-none">
       <ActiveDashboard />
     </div>
   );

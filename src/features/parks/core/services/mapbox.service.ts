@@ -77,10 +77,20 @@ const getSmartPath = async (
     const route = data.routes[0];
     console.log(`[MapboxService] ✅ Route Found! Duration: ${Math.round(route.duration / 60)}min, Distance: ${Math.round(route.distance)}m`);
 
+    // Flatten step list across all legs so callers (e.g. useWalkToRoute)
+    // can render a turn-by-turn timeline without re-walking the leg
+    // structure. We pass through the raw Mapbox shape so each consumer
+    // is free to compose its own instruction string from `maneuver.type`,
+    // `maneuver.modifier`, and `name` (street).
+    const steps = Array.isArray(route.legs)
+      ? route.legs.flatMap((leg: any) => Array.isArray(leg?.steps) ? leg.steps : [])
+      : [];
+
     return {
       path: route.geometry.coordinates as [number, number][], // המערך של קווי המתאר (הרחובות)
       distance: route.distance,
-      duration: route.duration
+      duration: route.duration,
+      steps,
     };
 
   } catch (error: any) {

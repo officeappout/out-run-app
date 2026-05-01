@@ -71,7 +71,9 @@ export default function StatsCarousel() {
         })}
       </motion.div>
 
-      {/* Pagination dots — white/cyan for dark glass background */}
+      {/* Pagination dots — light theme to match the white metrics panel.
+          Active dot uses the `out-cyan` token (#00ADEF), inactive uses a
+          soft black tint that's still visible on white. */}
       <div className="flex justify-center gap-2 mt-2 pb-3">
         {slides.map((_, index) => (
           <button
@@ -80,7 +82,7 @@ export default function StatsCarousel() {
             className="h-1.5 rounded-full transition-all"
             style={{
               width: index === currentSlide ? '1.5rem' : '0.375rem',
-              background: index === currentSlide ? '#00E5FF' : 'rgba(255,255,255,0.25)',
+              background: index === currentSlide ? '#00ADEF' : 'rgba(0, 0, 0, 0.18)',
             }}
           />
         ))}

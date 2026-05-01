@@ -35,13 +35,15 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Out" />
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
-        {/* Hebrew Font */}
+        {/* Material Icons Round — used by RunControls, EquipmentSelector, MapTabs,
+            and several other components. Preconnect hints reduce handshake latency. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        {/* English Font */}
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+        {/* Assistant, Rubik, and Inter are removed: Simpler Pro is self-hosted in
+            globals.css with font-display:swap and covers all UI text. Loading those
+            three families from Google Fonts was adding 3 render-blocking round-trips
+            for fonts that the browser never fell back to. */}
         {/* Mapbox DNS Prefetch for faster map loading */}
         <link rel="dns-prefetch" href="https://api.mapbox.com" />
         <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />

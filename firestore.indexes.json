@@ -274,6 +274,30 @@
         { "fieldPath": "mode", "order": "ASCENDING" },
         { "fieldPath": "tenantId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "workouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "street_segments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cityName", "order": "ASCENDING" },
+        { "fieldPath": "score", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

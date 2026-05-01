@@ -8,12 +8,19 @@ import {
     query,
     where,
     orderBy,
+    limit,
     updateDoc,
     serverTimestamp,
 } from 'firebase/firestore';
 import { Route } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
 import { getParksByAuthority } from './parks.service';
+import {
+    broadcastRouteToStreetSegments,
+    broadcastRoutesToStreetSegments,
+    deleteOfficialRouteSegments,
+    deleteOfficialRouteSegmentsForMany,
+} from './official-route-broadcaster';
 
 /** Summary of an import batch for the management UI */
 export interface ImportBatchSummary {
@@ -87,9 +94,24 @@ export function routePassesNearPoint(
 }
 
 let _officialCache: Route[] | null = null;
+
+/** Split an array into chunks of at most `size` elements. */
+function chunk<T>(arr: T[], size: number): T[][] {
+    const result: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+        result.push(arr.slice(i, i + size));
+    }
+    return result;
+}
+
 export async function getCachedOfficialRoutes(): Promise<Route[]> {
-    if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes();
+    if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes(undefined, true);
     return _officialCache;
+}
+
+/** Invalidate the in-memory official-routes cache so the next read re-fetches from Firestore. */
+export function invalidateOfficialRoutesCache(): void {
+    _officialCache = null;
 }
 
 export const InventoryService = {
@@ -160,6 +182,12 @@ export const InventoryService = {
             const routesRef = collection(db, 'official_routes');
             let saved = 0;
 
+            // Tracks the Firestore-assigned doc id for every successfully
+            // prepared route. Used downstream to broadcast each route to
+            // `street_segments` keyed by its REAL doc id (the in-memory
+            // `r.id` field is often empty / placeholder for fresh routes).
+            const persistedRoutes: Array<Route & { id: string }> = [];
+
             // Firestore batch limit is 500
             for (let i = 0; i < routes.length; i += 500) {
                 const batch = writeBatch(db);
@@ -190,6 +218,12 @@ export const InventoryService = {
                         });
 
                         batch.set(newDocRef, routeDoc);
+
+                        // Capture the route + its newly-assigned doc id with
+                        // the ORIGINAL [lng,lat] path (not the {lat,lng}
+                        // Firestore form) so the broadcaster can iterate
+                        // pairs without an additional shape transform.
+                        persistedRoutes.push({ ...r, id: newDocRef.id });
                     } catch (innerErr) {
                         console.error(`❌ Error preparing route #${i + idx} ("${r.name}"):`, innerErr, r);
                     }
@@ -200,6 +234,25 @@ export const InventoryService = {
             }
 
             console.log(`✅ Saved ${saved} routes to official_routes collection`);
+            invalidateOfficialRoutesCache();
+
+            // ── Broadcast to street_segments ────────────────────────────────
+            // Each saved route now becomes a top-priority waypoint corridor
+            // for the dynamic generator. Failure here is non-fatal — the
+            // primary save already succeeded, so we log and move on rather
+            // than rolling back the user's hard-won admin work. Fire and
+            // forget so the admin's UI doesn't wait on a multi-second
+            // segment-write storm before returning.
+            broadcastRoutesToStreetSegments(persistedRoutes)
+                .then(({ totalWritten, routesProcessed }) => {
+                    console.log(
+                        `📡 Broadcast ${totalWritten} segments across ${routesProcessed} routes to street_segments.`,
+                    );
+                })
+                .catch((err) => {
+                    console.warn('[InventoryService] Broadcast to street_segments failed (non-fatal):', err);
+                });
+
             return true;
         } catch (error) {
             console.error('❌ Error saving routes:', error);
@@ -215,55 +268,41 @@ export const InventoryService = {
      *                       Admin inventory passes false to see all routes including pending.
      */
     fetchOfficialRoutes: async (authorityIds?: string[], publishedOnly = false): Promise<Route[]> => {
+        const normalise = (docSnap: any): Route | null => {
+            const data = docSnap.data();
+            if (publishedOnly && data.published === false) return null;
+            const rawPath = data.path;
+            if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
+            const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+            return { ...data, id: docSnap.id, path } as Route;
+        };
+
         try {
-            let querySnapshot;
-            
             if (authorityIds && authorityIds.length > 0) {
-                // For authority_manager: fetch routes by filtering through park associations
-                // First, get all parks for the authority
-                const parksPromises = authorityIds.map(authId => getParksByAuthority(authId));
-                const parksArrays = await Promise.all(parksPromises);
-                const parks = parksArrays.flat();
-                const parkIds = parks.map(p => p.id);
-                
-                if (parkIds.length === 0) {
-                    // No parks found for this authority, return empty routes
-                    return [];
-                }
-                
-                // Fetch all routes
-                querySnapshot = await getDocs(collection(db, 'official_routes'));
-                
-                // Filter routes that are associated with parks in the authority
-                const filteredDocs = querySnapshot.docs.filter(doc => {
-                    const data = doc.data();
-                    const visitingParkId = data.visitingParkId;
-                    return visitingParkId && parkIds.includes(visitingParkId);
-                });
-                
-                const normalise = (docSnap: any): Route | null => {
-                    const data = docSnap.data();
-                    if (publishedOnly && data.published === false) return null;
-                    const rawPath = data.path;
-                    if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
-                    const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
-                    return { ...data, id: docSnap.id, path } as Route;
-                };
-
-                return filteredDocs.map(normalise).filter((r): r is Route => r !== null);
+                // Authority-manager path: only fetch routes belonging to their
+                // own authorities using Firestore `where('authorityId', 'in', …)`.
+                // Firestore limits 'in' to 30 values per query, so we batch.
+                const BATCH_SIZE = 30;
+                const snapshots = await Promise.all(
+                    chunk(authorityIds, BATCH_SIZE).map((batch) =>
+                        getDocs(
+                            query(
+                                collection(db, 'official_routes'),
+                                where('authorityId', 'in', batch),
+                            ),
+                        ),
+                    ),
+                );
+                return snapshots
+                    .flatMap((snap) => snap.docs)
+                    .map(normalise)
+                    .filter((r): r is Route => r !== null);
             } else {
-                // For super_admin/system_admin: fetch all routes
-                querySnapshot = await getDocs(collection(db, 'official_routes'));
-
-                const normalise = (docSnap: any): Route | null => {
-                    const data = docSnap.data();
-                    if (publishedOnly && data.published === false) return null;
-                    const rawPath = data.path;
-                    if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
-                    const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
-                    return { ...data, id: docSnap.id, path } as Route;
-                };
-
+                // Super-admin path: full collection, capped at 200 to avoid
+                // transferring unbounded geometry data in a single request.
+                const querySnapshot = await getDocs(
+                    query(collection(db, 'official_routes'), limit(200)),
+                );
                 return querySnapshot.docs.map(normalise).filter((r): r is Route => r !== null);
             }
         } catch (error) {
@@ -320,6 +359,11 @@ export const InventoryService = {
 
             if (snapshot.empty) return 0;
 
+            // Capture ids BEFORE the delete so the broadcast cleanup can
+            // still match by `officialRouteId == X` — once the docs are
+            // gone we'd lose the reference list.
+            const deletedIds = snapshot.docs.map((d) => d.id);
+
             // Firestore batch limit is 500, so chunk if needed
             const docs = snapshot.docs;
             let deleted = 0;
@@ -332,6 +376,11 @@ export const InventoryService = {
             }
 
             console.log(`✅ Deleted ${deleted} routes from batch "${batchId}"`);
+
+            deleteOfficialRouteSegmentsForMany(deletedIds).catch((err) => {
+                console.warn('[InventoryService] Batch-delete broadcast cleanup failed (non-fatal):', err);
+            });
+
             return deleted;
         } catch (error) {
             console.error('❌ Error deleting import batch:', error);
@@ -399,6 +448,11 @@ export const InventoryService = {
                 where('authorityId', '==', authorityId)
             );
             const officialSnap = await getDocs(officialQ);
+
+            // Capture ids first — broadcast cleanup needs them to match
+            // by `officialRouteId == X`, and these refs are about to die.
+            const deletedOfficialIds = officialSnap.docs.map((d) => d.id);
+
             for (let i = 0; i < officialSnap.docs.length; i += 500) {
                 const batch = writeBatch(db);
                 const chunk = officialSnap.docs.slice(i, i + 500);
@@ -422,6 +476,11 @@ export const InventoryService = {
             }
 
             console.log(`✅ Deleted ${totalDeleted} routes (official + curated) for authority "${authorityId}"`);
+
+            deleteOfficialRouteSegmentsForMany(deletedOfficialIds).catch((err) => {
+                console.warn('[InventoryService] Authority-wide broadcast cleanup failed (non-fatal):', err);
+            });
+
             return totalDeleted;
         } catch (error) {
             console.error('❌ Error deleting routes by authority:', error);
@@ -461,14 +520,39 @@ export const InventoryService = {
             }
 
             // 2️⃣ Also save to official_routes (so they appear in inventory)
+            // Capture each route's official_routes doc id so the broadcaster
+            // below uses the canonical Firestore id (consistent with what
+            // fetchOfficialRoutes returns to the client).
             const officialRef = collection(db, 'official_routes');
+            const persistedRoutes: Array<Route & { id: string }> = [];
             for (let i = 0; i < routes.length; i += 500) {
                 const batch = writeBatch(db);
-                routes.slice(i, i + 500).forEach(r => batch.set(doc(officialRef), buildDoc(r)));
+                routes.slice(i, i + 500).forEach(r => {
+                    const ref = doc(officialRef);
+                    batch.set(ref, buildDoc(r));
+                    persistedRoutes.push({ ...r, id: ref.id });
+                });
                 await batch.commit();
             }
 
             console.log(`✅ Saved ${routes.length} curated routes to both collections`);
+            invalidateOfficialRoutesCache();
+
+            // ── Broadcast curated routes to street_segments ─────────────────
+            // Curated routes are auto-published from the moment they land,
+            // so they go through the same broadcast path as super-admin saves
+            // (see saveRoutes for the full rationale). Fire-and-forget so the
+            // curated-generation flow doesn't block on segment writes.
+            broadcastRoutesToStreetSegments(persistedRoutes)
+                .then(({ totalWritten, routesProcessed }) => {
+                    console.log(
+                        `📡 Broadcast ${totalWritten} curated segments across ${routesProcessed} routes.`,
+                    );
+                })
+                .catch((err) => {
+                    console.warn('[InventoryService] Curated broadcast failed (non-fatal):', err);
+                });
+
             return true;
         } catch (error) {
             console.error('❌ Error saving curated routes:', error);
@@ -701,6 +785,25 @@ export const InventoryService = {
                 updatedAt: serverTimestamp(),
             };
             await updateDoc(doc(db, 'official_routes', routeId), payload);
+            invalidateOfficialRoutesCache();
+
+            // ── Broadcast on publish ───────────────────────────────────────
+            // Pending routes were SKIPPED by the broadcaster on save (the
+            // `published === false` guard). Now that the admin has approved
+            // them they need to enter the dynamic generator's pool. Fetch
+            // the freshly-published route and broadcast it.
+            const route = await InventoryService.getRouteById(routeId);
+            if (route) {
+                broadcastRouteToStreetSegments(route)
+                    .then((res) => {
+                        console.log(
+                            `📡 Approve broadcast: ${res.written} segments for route ${routeId} (${res.skipped ?? 'ok'}).`,
+                        );
+                    })
+                    .catch((err) => {
+                        console.warn('[InventoryService] Approve broadcast failed (non-fatal):', err);
+                    });
+            }
         } catch (error) {
             console.error('❌ Error approving route:', error);
             throw error;
@@ -716,6 +819,15 @@ export const InventoryService = {
                 published: false,
                 status: 'pending',
                 updatedAt: serverTimestamp(),
+            });
+            invalidateOfficialRoutesCache();
+
+            // ── Pull broadcast on reject ───────────────────────────────────
+            // Rejected routes must NOT keep feeding the dynamic generator.
+            // Best-effort delete; orphans are harmless (they just keep
+            // showing up as score-10 candidates) but worth cleaning up.
+            deleteOfficialRouteSegments(routeId).catch((err) => {
+                console.warn('[InventoryService] Reject cleanup failed (non-fatal):', err);
             });
         } catch (error) {
             console.error('❌ Error rejecting route:', error);
@@ -738,6 +850,15 @@ export const InventoryService = {
                 deleted += chunk.length;
             }
             console.log(`✅ Bulk-deleted ${deleted} routes`);
+
+            // Pull each deleted route's broadcast — fire-and-forget so the
+            // admin UI returns immediately. Each deleteOfficialRouteSegments
+            // is its own query+batch so a single bad id can't poison the
+            // whole bulk.
+            deleteOfficialRouteSegmentsForMany(routeIds).catch((err) => {
+                console.warn('[InventoryService] Bulk-delete broadcast cleanup failed (non-fatal):', err);
+            });
+
             return deleted;
         } catch (error) {
             console.error('❌ Error bulk-deleting routes:', error);
@@ -758,6 +879,9 @@ export const InventoryService = {
             const snapshot = await getDocs(q);
             if (snapshot.empty) return 0;
 
+            // Capture ids before deletion for broadcast cleanup.
+            const deletedIds = snapshot.docs.map((d) => d.id);
+
             let deleted = 0;
             for (let i = 0; i < snapshot.docs.length; i += 500) {
                 const batch = writeBatch(db);
@@ -767,6 +891,11 @@ export const InventoryService = {
                 deleted += chunk.length;
             }
             console.log(`✅ Deleted ${deleted} routes for city "${city}"`);
+
+            deleteOfficialRouteSegmentsForMany(deletedIds).catch((err) => {
+                console.warn('[InventoryService] City-wide broadcast cleanup failed (non-fatal):', err);
+            });
+
             return deleted;
         } catch (error) {
             console.error('❌ Error deleting routes by city:', error);

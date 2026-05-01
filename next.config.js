@@ -22,10 +22,11 @@ const nextConfig = {
     }
     return config;
   },
-  // Skip static generation for admin routes (they require auth)
-  generateBuildId: async () => {
-    return 'build-' + Date.now();
-  },
+  // Admin routes are protected by export const dynamic = 'force-dynamic' on each page.
+  // generateBuildId is intentionally omitted: Next.js derives a deterministic build ID
+  // from file-content hashes, which makes browser chunk caching stable across deploys
+  // where code hasn't changed. Using Date.now() here caused every deploy to invalidate
+  // ALL cached chunks in the browser, triggering ChunkLoadError on active sessions.
 };
 
 export default nextConfig;
