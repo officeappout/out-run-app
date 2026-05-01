@@ -64,11 +64,10 @@
  * and is INTENTIONALLY untouched by this refactor.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Map, List } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
 import RouteStoryBar from '../shared/RouteStoryBar';
 import AdaptiveMetricsWrapper from './AdaptiveMetricsWrapper';
 import RunLapsList from './RunLapsList';
@@ -78,14 +77,13 @@ import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 import { BOTTOM_NAV_HEIGHT_PX } from '../../hooks/useDraggableMetrics';
 
-// ── Story-bar header height ──────────────────────────────────────────────────
-// The white header strip that holds the RouteStoryBar sits above the
-// draggable metrics card. Its content below env(safe-area-inset-top) is:
-//   • Top info row (pulse dot + GPS pill): ~28 px
-//   • RouteStoryBar (pt-3 + labels row + 12 px bar + pb-2): ~52 px
-// Total: 80 px. This constant is fed into useDraggableMetrics so the
-// card's top snap sits flush below the header, never behind it.
-const STORY_BAR_HEADER_BELOW_SAFE_AREA_PX = 80;
+// ── Story-bar floating height ────────────────────────────────────────────────
+// The RouteStoryBar floats directly over the gradient at the top of the map.
+// Its content below env(safe-area-inset-top):
+//   • pt-3 (12 px) + labels row (~20 px) + 12 px bar + pb-2 (8 px) = ~52 px
+// A 4 px breathing gap brings it to 56 px. This constant is fed into
+// useDraggableMetrics so the card's top snap sits flush below the bar.
+const STORY_BAR_BELOW_SAFE_AREA_PX = 56;
 
 const PRIMARY = '#0EA5E9';
 const PRIMARY_DARK = '#0284C7';
@@ -160,10 +158,32 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Goal progress — drives the header story bar.
+  // Goal progress — drives the floating story bar.
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
+
+  // ── GPS status toast ────────────────────────────────────────────────────────
+  // Shows a brief pill toast when GPS degrades / recovers. Disappears after
+  // 4 s so it never becomes permanent chrome. No persistent indicator.
+  const [gpsToast, setGpsToast] = useState<string | null>(null);
+  const prevGpsStatusRef = useRef(gpsStatus);
+  useEffect(() => {
+    if (gpsStatus === prevGpsStatusRef.current) return;
+    prevGpsStatusRef.current = gpsStatus;
+    if (gpsStatus === 'searching') {
+      setGpsToast('מחפש GPS…');
+    } else if (gpsStatus === 'poor') {
+      setGpsToast('GPS חלש — ממשיך לחפש');
+    } else if (gpsStatus === 'good' || gpsStatus === 'perfect') {
+      setGpsToast('GPS תקין ✓');
+    }
+  }, [gpsStatus]);
+  useEffect(() => {
+    if (!gpsToast) return;
+    const t = setTimeout(() => setGpsToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [gpsToast]);
 
   // Force re-render each second to keep any timer-derived UI live.
   // (StatsCarousel reads from useSessionStore directly; this tick is for
@@ -185,49 +205,66 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
       role="region"
     >
-      {/* ── STORY BAR HEADER ─────────────────────────────────────────────────
-          Mirrors the `<header>` in PlannedRunActive exactly:
-            • z-40 — always above the draggable card (z-20)
-            • bg-white — same surface as the card so they merge when the
-              card is at its top snap, creating a seamless unified panel
-            • paddingTop: safe-area — respects the notch / Dynamic Island
-            • boxShadow — the same downward glow PlannedRunActive's stats
-              card uses; gives the "floating header" look without a hard edge
-          Contains:
-            • Info row (pulse dot left, GPS pill right) — visual HUD
-            • RouteStoryBar — goal progress, always visible for debugging
-              (gate on `goalProgress &&` once verified working)
-          pointer-events-none: the header is display-only; all taps pass
-          through to the map. */}
       {playerView === 'main' && (
-        <div
-          className="absolute top-0 left-0 right-0 z-40 bg-white pointer-events-none"
-          style={{
-            boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
-          }}
-        >
-          {/* Info row: pulse dot (left) + GPS (right) */}
+        <>
+          {/* ── TOP GRADIENT MASK ──────────────────────────────────────────────
+              Dark-to-transparent gradient that makes the floating story bar
+              readable against any map tile (light, dark, satellite).
+              Fades out over ~120 px so the transition into the map feels
+              organic — the "Fade-out" premium look requested by design.
+              z-30 keeps it below the floating bar (z-40) and draggable card
+              (z-20 — but card is always below 30 too, layering is fine). */}
           <div
-            className="flex items-center justify-between px-4"
-            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)', paddingBottom: 2 }}
+            className="absolute top-0 left-0 right-0 pointer-events-none"
+            style={{
+              height: 'calc(env(safe-area-inset-top, 0px) + 120px)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.12) 55%, transparent 100%)',
+              zIndex: 30,
+            }}
             aria-hidden="true"
+          />
+
+          {/* ── FLOATING STORY BAR ─────────────────────────────────────────────
+              No white background — sits directly on the gradient above.
+              `onMap` switches the bar to white text + glassmorphic track.
+              DEBUG: shown at 50 % fallback until goal-gate is restored. */}
+          <div
+            className="absolute top-0 left-0 right-0 z-40 pointer-events-none"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
-            <span
-              className="w-2.5 h-2.5 rounded-full animate-pulse"
-              style={{ background: PRIMARY, boxShadow: `0 0 10px ${PRIMARY}` }}
+            <RouteStoryBar
+              progress={goalProgress ? goalProgress.progress : 0.5}
+              isPaused={isPaused}
+              label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
+              valueText={goalProgress ? formatGoalValue(goalProgress) : '2.50 / 5.0 ק״מ'}
+              onMap
             />
-            <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
           </div>
 
-          {/* Goal progress bar — DEBUG: always shown at 50 % fallback.
-              Restore `goalProgress &&` gate after confirming it renders. */}
-          <RouteStoryBar
-            progress={goalProgress ? goalProgress.progress : 0.5}
-            isPaused={isPaused}
-            label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
-            valueText={goalProgress ? formatGoalValue(goalProgress) : '2.50 / 5.0 ק״מ'}
-          />
-        </div>
+          {/* ── GPS STATUS TOAST ───────────────────────────────────────────────
+              Temporary pill that appears for 4 s when GPS degrades or
+              recovers. No permanent indicator — keeps the top of the map
+              clean. Positioned just below the story bar. */}
+          {gpsToast && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
+            >
+              <div
+                className="px-4 py-1.5 rounded-full text-xs font-bold text-white"
+                style={{
+                  background: 'rgba(0,0,0,0.72)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  letterSpacing: '0.01em',
+                }}
+                dir="rtl"
+              >
+                {gpsToast}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── LAPS LIST — light overlay, scrollable. ───────────────────────── */}
@@ -248,7 +285,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         <AdaptiveMetricsWrapper
           isNavigationActive={isNavigationActive}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          topBarOffset={STORY_BAR_HEADER_BELOW_SAFE_AREA_PX}
+          topBarOffset={STORY_BAR_BELOW_SAFE_AREA_PX}
         />
       )}
 

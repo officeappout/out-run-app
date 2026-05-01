@@ -42,6 +42,14 @@ interface RouteStoryBarProps {
   label?: string;
   /** Live "current / target unit" text shown on the left side — e.g. "2.4 / 5.0 ק״מ". */
   valueText?: string;
+  /**
+   * When true the bar is floating directly over the map (on a dark
+   * gradient). Switches the value text to white and the empty track to
+   * a glassmorphic rgba-white surface so the bar reads against any
+   * map tile. Default: false (dark-surface / card mode — dark text,
+   * slate track).
+   */
+  onMap?: boolean;
 }
 
 const DEFAULT_COLOR = '#00ADEF';
@@ -68,6 +76,7 @@ export default function RouteStoryBar({
   isPaused = false,
   label,
   valueText,
+  onMap = false,
 }: RouteStoryBarProps) {
   // Inject shimmer keyframes on first mount (client-only).
   useEffect(() => { ensureShimmerKeyframes(); }, []);
@@ -143,7 +152,10 @@ export default function RouteStoryBar({
             <span
               className="text-[13px] font-black tabular-nums"
               dir="ltr"
-              style={{ color: 'rgba(0,0,0,0.75)', letterSpacing: '-0.01em' }}
+              style={{
+                color: onMap ? 'rgba(255,255,255,0.90)' : 'rgba(0,0,0,0.75)',
+                letterSpacing: '-0.01em',
+              }}
             >
               {valueText}
             </span>
@@ -153,18 +165,27 @@ export default function RouteStoryBar({
         </div>
       )}
 
-      {/* Track — visible on the white card surface. Previously used a
-          white rgba glassmorphism track which was invisible on white.
-          Switched to a slate-100 tint with a subtle inset shadow so the
-          bar has a clear "empty lane" even before any fill. The neon fill
-          and glow are the premium elements; the track just needs to be
-          readable. */}
+      {/* Track — two surface modes:
+          onMap=true  → glassmorphic rgba-white (matches the "frosted on dark
+                        gradient" story-mode look; the earlier glassmorphism
+                        bug was caused by this being on a WHITE card).
+          onMap=false → slate-900 @ 7% (visible on white card surfaces). */}
       <div
         className="relative w-full rounded-full overflow-hidden"
         style={{
-          height: 12, // 12 px — more substantial than h-1.5, readable at a glance
-          background: 'rgba(15, 23, 42, 0.07)',   // slate-900 at 7% — visible on white
-          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.10)',
+          height: 12,
+          ...(onMap
+            ? {
+                background: 'rgba(255,255,255,0.22)',
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                border: '1px solid rgba(255,255,255,0.30)',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.18)',
+              }
+            : {
+                background: 'rgba(15, 23, 42, 0.07)',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.10)',
+              }),
         }}
       >
         {/* Fill — neon glow + shimmer overlay. Grows from the RIGHT edge
