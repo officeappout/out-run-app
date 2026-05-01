@@ -36,9 +36,7 @@ import { motion } from 'framer-motion';
 import { Settings } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import StatsCarousel from './StatsCarousel';
-import RouteStoryBar from '../shared/RouteStoryBar';
 import { useDraggableMetrics } from '../../hooks/useDraggableMetrics';
-import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 
 const PRIMARY_DARK = '#0284C7';
 
@@ -64,11 +62,17 @@ interface AdaptiveMetricsWrapperProps {
    * also rendered by the parent (singleton mounted by FreeRunActive).
    */
   onOpenSettings: () => void;
+  /**
+   * Extra Y offset (px) so the card's top snap sits below a fixed
+   * header rendered by the parent (RouteStoryBar header). Default: 0.
+   */
+  topBarOffset?: number;
 }
 
 export default function AdaptiveMetricsWrapper({
   isNavigationActive,
   onOpenSettings,
+  topBarOffset = 0,
 }: AdaptiveMetricsWrapperProps) {
   // Drag + snap state machine — pure logic, no JSX. The hook also drives
   // `--session-bar-clearance` so SessionControlBar's bottom offset stays
@@ -83,20 +87,13 @@ export default function AdaptiveMetricsWrapper({
   } = useDraggableMetrics({
     defaultPosition: isNavigationActive ? 'bottom' : 'top',
     lockToBottom: isNavigationActive,
+    topBarOffset,
   });
 
   // Pill-only data. Pulled fresh per render so the pill stays in lockstep
   // with the StatsCarousel above (same store, same numbers).
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
-
-  // Goal progress for the single-segment story bar at the top of the
-  // card. `null` when the user didn't pick a goal in FreeRunDrawer →
-  // the bar is omitted (rather than painted at 0%) so the chrome stays
-  // honest about whether there's a target to chase.
-  const goalProgress = useSessionGoalProgress();
-  const sessionStatus = useSessionStore((s) => s.status);
-  const isPaused = sessionStatus === 'paused';
 
   return (
     <motion.div
@@ -171,20 +168,6 @@ export default function AdaptiveMetricsWrapper({
             aria-hidden="true"
           />
         </div>
-
-        {/* Story-style goal bar — high-end, single-segment progress
-            indicator. Only renders when the card is expanded (the pill
-            is the "I want max map" mode and stays clean).
-            DEBUG: bar is always shown at 50 % while we verify rendering.
-            Restore to `goalProgress && !isPill &&` after confirming. */}
-        {!isPill && (
-          <RouteStoryBar
-            progress={goalProgress ? goalProgress.progress : 0.5}
-            isPaused={isPaused}
-            label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
-            valueText={goalProgress ? formatGoalValue(goalProgress) : '2.50 / 5.0 ק״מ'}
-          />
-        )}
 
         {isPill ? (
           <PillContent
@@ -272,37 +255,3 @@ function formatDuration(totalSeconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Goal-bar formatters
-// Kept here (not exported) because RouteStoryBar is a generic component
-// and shouldn't know about Hebrew unit labels.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function goalLabel(type: 'distance' | 'time' | 'calories'): string {
-  switch (type) {
-    case 'distance': return 'מרחק';
-    case 'time':     return 'זמן';
-    case 'calories': return 'קלוריות';
-  }
-}
-
-/**
- * Render the live "current / target unit" pair next to the bar's label.
- * Distance: 1 decimal km, time: m:ss, calories: integer kcal — matches
- * the precision FreeRunDrawer uses to set the goal so the user reads the
- * SAME number they typed in.
- */
-function formatGoalValue(p: {
-  type: 'distance' | 'time' | 'calories';
-  currentValue: number;
-  targetValue: number;
-}): string {
-  switch (p.type) {
-    case 'distance':
-      return `${p.currentValue.toFixed(2)} / ${p.targetValue.toFixed(1)} ק״מ`;
-    case 'time':
-      return `${formatDuration(p.currentValue)} / ${formatDuration(p.targetValue)}`;
-    case 'calories':
-      return `${Math.round(p.currentValue)} / ${Math.round(p.targetValue)} קק״ל`;
-  }
-}

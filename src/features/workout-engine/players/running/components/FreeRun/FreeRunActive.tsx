@@ -67,16 +67,65 @@
 import { useEffect, useState } from 'react';
 import { Map, List } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
+import RouteStoryBar from '../shared/RouteStoryBar';
 import AdaptiveMetricsWrapper from './AdaptiveMetricsWrapper';
 import RunLapsList from './RunLapsList';
 import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
+import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 import { BOTTOM_NAV_HEIGHT_PX } from '../../hooks/useDraggableMetrics';
 
-const PRIMARY = '#0EA5E9';        // app primary blue (out-blue)
+// ── Story-bar header height ──────────────────────────────────────────────────
+// The white header strip that holds the RouteStoryBar sits above the
+// draggable metrics card. Its content below env(safe-area-inset-top) is:
+//   • Top info row (pulse dot + GPS pill): ~28 px
+//   • RouteStoryBar (pt-3 + labels row + 12 px bar + pb-2): ~52 px
+// Total: 80 px. This constant is fed into useDraggableMetrics so the
+// card's top snap sits flush below the header, never behind it.
+const STORY_BAR_HEADER_BELOW_SAFE_AREA_PX = 80;
+
+const PRIMARY = '#0EA5E9';
 const PRIMARY_DARK = '#0284C7';
+
+// ── Goal-bar formatters ──────────────────────────────────────────────────────
+// Kept here so RouteStoryBar stays a generic component with no Hebrew.
+
+function goalLabel(type: 'distance' | 'time' | 'calories'): string {
+  switch (type) {
+    case 'distance': return 'מרחק';
+    case 'time':     return 'זמן';
+    case 'calories': return 'קלוריות';
+  }
+}
+
+function formatDuration(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '00:00';
+  const hrs = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = Math.floor(totalSeconds % 60);
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatGoalValue(p: {
+  type: 'distance' | 'time' | 'calories';
+  currentValue: number;
+  targetValue: number;
+}): string {
+  switch (p.type) {
+    case 'distance':
+      return `${p.currentValue.toFixed(2)} / ${p.targetValue.toFixed(1)} ק״מ`;
+    case 'time':
+      return `${formatDuration(p.currentValue)} / ${formatDuration(p.targetValue)}`;
+    case 'calories':
+      return `${Math.round(p.currentValue)} / ${Math.round(p.targetValue)} קק״ל`;
+  }
+}
 
 interface FreeRunActiveProps {
   /**
@@ -111,6 +160,11 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Goal progress — drives the header story bar.
+  const goalProgress = useSessionGoalProgress();
+  const sessionStatus = useSessionStore((s) => s.status);
+  const isPaused = sessionStatus === 'paused';
+
   // Force re-render each second to keep any timer-derived UI live.
   // (StatsCarousel reads from useSessionStore directly; this tick is for
   // derived UI that hasn't been ported to a store yet — kept small to
@@ -131,36 +185,48 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
       role="region"
     >
-      {/* The Settings gear that used to live here as a floating
-          backdrop-blur button has moved INSIDE the metrics card (see
-          AdaptiveMetricsWrapper's top-right corner). The map is now
-          completely free of permanent floating controls. */}
-
-      {/* ── LIVE PULSE — tiny activity indicator, top-LEFT ────────────────
-          Used to live next to the title in the header; kept as a quiet
-          floating dot so the user gets a continuous "workout is recording"
-          signal without an opaque title bar. Anchored on the safe-area
-          like the Settings button on the right. */}
+      {/* ── STORY BAR HEADER ─────────────────────────────────────────────────
+          Mirrors the `<header>` in PlannedRunActive exactly:
+            • z-40 — always above the draggable card (z-20)
+            • bg-white — same surface as the card so they merge when the
+              card is at its top snap, creating a seamless unified panel
+            • paddingTop: safe-area — respects the notch / Dynamic Island
+            • boxShadow — the same downward glow PlannedRunActive's stats
+              card uses; gives the "floating header" look without a hard edge
+          Contains:
+            • Info row (pulse dot left, GPS pill right) — visual HUD
+            • RouteStoryBar — goal progress, always visible for debugging
+              (gate on `goalProgress &&` once verified working)
+          pointer-events-none: the header is display-only; all taps pass
+          through to the map. */}
       {playerView === 'main' && (
         <div
-          className="absolute z-30 left-4 flex items-center gap-2 pointer-events-none"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 18px)' }}
-          aria-hidden="true"
+          className="absolute top-0 left-0 right-0 z-40 bg-white pointer-events-none"
+          style={{
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
+          }}
         >
-          <span
-            className="w-2.5 h-2.5 rounded-full animate-pulse"
-            style={{ background: PRIMARY, boxShadow: `0 0 10px ${PRIMARY}` }}
+          {/* Info row: pulse dot (left) + GPS (right) */}
+          <div
+            className="flex items-center justify-between px-4"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)', paddingBottom: 2 }}
+            aria-hidden="true"
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full animate-pulse"
+              style={{ background: PRIMARY, boxShadow: `0 0 10px ${PRIMARY}` }}
+            />
+            <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
+          </div>
+
+          {/* Goal progress bar — DEBUG: always shown at 50 % fallback.
+              Restore `goalProgress &&` gate after confirming it renders. */}
+          <RouteStoryBar
+            progress={goalProgress ? goalProgress.progress : 0.5}
+            isPaused={isPaused}
+            label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
+            valueText={goalProgress ? formatGoalValue(goalProgress) : '2.50 / 5.0 ק״מ'}
           />
-        </div>
-      )}
-
-      {/* ── GPS accuracy pill — top-centred, below the safe area. ────────── */}
-      {playerView === 'main' && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}
-        >
-          <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
         </div>
       )}
 
@@ -182,6 +248,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         <AdaptiveMetricsWrapper
           isNavigationActive={isNavigationActive}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          topBarOffset={STORY_BAR_HEADER_BELOW_SAFE_AREA_PX}
         />
       )}
 
