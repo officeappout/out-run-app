@@ -1,30 +1,123 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Pause, RotateCcw, Map, List, Settings } from 'lucide-react';
-import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+/**
+ * FreeRunActive — orchestration shell
+ * -----------------------------------
+ * After the modularisation refactor + chrome de-clutter, this file does
+ * ONE thing: lay out the active-workout chrome (floating settings / GPS
+ * pill / map slot / bottom nav) and slot in the right view for the
+ * current player state. Everything else has its own home:
+ *
+ *   • Drag + snap state machine          → `useDraggableMetrics.ts`
+ *   • Metrics card layout + overlap fix  → `AdaptiveMetricsWrapper.tsx`
+ *   • Coordinate validation              → `src/utils/geoValidation.ts`
+ *   • Pause / Stop / Lap controls        → `<SessionControlBar />`
+ *                                          (mounted globally by MapShell)
+ *
+ * Chrome philosophy ("Maximise map visibility"):
+ *   The opaque white header that USED to occupy the top of this view
+ *   was removed in the de-clutter pass — the map now extends to the
+ *   very top of the screen (behind the status bar). The two top-bar
+ *   actions migrated as follows:
+ *
+ *     • Settings → MOVED INSIDE the metrics card (top-right corner of
+ *                  AdaptiveMetricsWrapper). Centralising the gear with
+ *                  the numbers it controls eliminates the floating-icon
+ *                  density on the map and keeps every mid-workout
+ *                  control on a single surface that the user can drag
+ *                  to either the top or the bottom of the screen.
+ *     • Back     → REMOVED. The user exits the workout via the global
+ *                  SessionControlBar's stop button (mounted by MapShell).
+ *                  Removing the duplicate eliminates a confusing UI
+ *                  fork ("which button leaves the workout?").
+ *
+ *   The `onBack` prop is kept on the component signature for back-compat
+ *   with FreeRunPaused (which still uses it) — it is intentionally
+ *   unused by this active view.
+ *
+ * Layout source of truth:
+ *   `isNavigationActive` is the SINGLE clean derived state that drives
+ *   every layout decision in this subtree. It fires the moment the user
+ *   has SELECTED a route (intent), not when the path finishes drawing,
+ *   so the metrics card is already at the bottom by the time the polyline
+ *   appears. Two-source check:
+ *
+ *     1. `guidedRouteId` — set by useWorkoutSession the instant the
+ *        focused route is bound to the workout. This is the EARLIEST
+ *        intent signal: it goes non-null BEFORE the path is published,
+ *        and stays non-null across deviation reroutes (the id refers to
+ *        the official route the user committed to).
+ *     2. `activeRoutePath.length >= 2` — fallback for the rare case
+ *        where the path is published without a route id (e.g. a purely
+ *        synthetic generated route during free-run mode).
+ *
+ *   OR-ing the two means: as soon as EITHER fires, the layout flips to
+ *   bottom. As long as EITHER stays true, the layout stays at bottom.
+ *
+ * Light theme only — solid white surfaces, black numbers, app-primary
+ * cyan/blue accents. With the Settings gear now living inside the
+ * metrics card, there are no permanent floating buttons on the map at
+ * all — only the live pulse dot (top-left), the GPS pill (top-centre),
+ * and the global SessionControlBar.
+ *
+ * `PlannedRunActive.tsx` is a separate component for guided workouts
+ * and is INTENTIONALLY untouched by this refactor.
+ */
+
+import { useEffect, useState } from 'react';
+import { Map, List } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import StatsCarousel from './StatsCarousel';
+import AdaptiveMetricsWrapper from './AdaptiveMetricsWrapper';
 import RunLapsList from './RunLapsList';
 import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
+import WorkoutControlCluster from './WorkoutControlCluster';
+import { BOTTOM_NAV_HEIGHT_PX } from '../../hooks/useDraggableMetrics';
 
-const CYAN = '#00E5FF';
+const PRIMARY = '#0EA5E9';        // app primary blue (out-blue)
+const PRIMARY_DARK = '#0284C7';
 
 interface FreeRunActiveProps {
+  /**
+   * Back-compat hook for FreeRunPaused (sibling view that DOES expose a
+   * "back to map" CTA). Intentionally unused by this active view — the
+   * top header was stripped to maximise map visibility, and the Stop
+   * action lives on the global SessionControlBar.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onBack: () => void;
 }
 
-export default function FreeRunActive({ onBack }: FreeRunActiveProps) {
-  const { pauseSession } = useSessionStore();
-  const { view: playerView, setView: setPlayerView, gpsAccuracy, gpsStatus } = useRunningPlayer();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
+  const playerView = useRunningPlayer((s) => s.view);
+  const setPlayerView = useRunningPlayer((s) => s.setView);
+  const gpsAccuracy = useRunningPlayer((s) => s.gpsAccuracy);
+  const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
+
+  // ── Single clean derived state for layout ────────────────────────────────
+  // Two-source intent check (see file-header docs). The OR catches the
+  // earliest possible signal — `guidedRouteId` flips first because
+  // useWorkoutSession sets it BEFORE setActiveRoutePath, eliminating the
+  // 150 ms race where the card used to flicker through 'top' before
+  // snapping down. Returns a primitive boolean so the component re-renders
+  // ONLY when the answer flips, not on every routeCoords push.
+  const isNavigationActive = useRunningPlayer(
+    (s) =>
+      !!s.guidedRouteId ||
+      (Array.isArray(s.activeRoutePath) && s.activeRoutePath.length >= 2),
+  );
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Force re-render each second to keep the timer display live
+  // Force re-render each second to keep any timer-derived UI live.
+  // (StatsCarousel reads from useSessionStore directly; this tick is for
+  // derived UI that hasn't been ported to a store yet — kept small to
+  // avoid waste.)
   const [, tick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => tick(n => n + 1), 1000);
+    const t = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
@@ -32,173 +125,126 @@ export default function FreeRunActive({ onBack }: FreeRunActiveProps) {
     <div
       className="absolute inset-0 z-20 overflow-hidden pointer-events-none"
       style={{ fontFamily: 'var(--font-simpler)' }}
+      // Title is now expressed semantically via the live region below
+      // since the visible header is gone — keeps screen readers informed
+      // about the current workout mode without taking pixels from the map.
+      aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
+      role="region"
     >
+      {/* The Settings gear that used to live here as a floating
+          backdrop-blur button has moved INSIDE the metrics card (see
+          AdaptiveMetricsWrapper's top-right corner). The map is now
+          completely free of permanent floating controls. */}
 
-      {/* ── GLASS HEADER ──────────────────────────────────────────────── */}
-      <header
-        className="absolute top-0 left-0 right-0 z-30 pointer-events-auto"
-        style={{ backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
-      >
-        <div className="h-14 bg-black/50 border-b border-white/10 flex items-center justify-between px-4">
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="relative flex items-center justify-center w-11 h-11 rounded-full active:bg-white/10 transition-colors"
-          >
-            <Settings size={22} className="text-white/85" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            {/* Pulsing live indicator */}
-            <span
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{ background: CYAN, boxShadow: `0 0 8px ${CYAN}88` }}
-            />
-            <h1 className="text-[15px] font-bold tracking-wider text-white">אימון חופשי</h1>
-          </div>
-
-          <button
-            onClick={onBack}
-            className="flex items-center justify-center w-11 h-11 rounded-full active:bg-white/10 transition-colors"
-          >
-            <ArrowLeft size={22} className="text-white/85" />
-          </button>
-        </div>
-      </header>
-
-      {/* ── GPS accuracy pill ─────────────────────────────────────────── */}
+      {/* ── LIVE PULSE — tiny activity indicator, top-LEFT ────────────────
+          Used to live next to the title in the header; kept as a quiet
+          floating dot so the user gets a continuous "workout is recording"
+          signal without an opaque title bar. Anchored on the safe-area
+          like the Settings button on the right. */}
       {playerView === 'main' && (
-        <div className="absolute top-[3.75rem] left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <div
+          className="absolute z-30 left-4 flex items-center gap-2 pointer-events-none"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 18px)' }}
+          aria-hidden="true"
+        >
+          <span
+            className="w-2.5 h-2.5 rounded-full animate-pulse"
+            style={{ background: PRIMARY, boxShadow: `0 0 10px ${PRIMARY}` }}
+          />
+        </div>
+      )}
+
+      {/* ── GPS accuracy pill — top-centred, below the safe area. ────────── */}
+      {playerView === 'main' && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}
+        >
           <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
         </div>
       )}
 
-      {/* ── LAPS LIST (dark overlay, scrollable) ─────────────────────── */}
+      {/* ── LAPS LIST — light overlay, scrollable. ───────────────────────── */}
       {playerView === 'laps' && (
         <div
-          className="absolute inset-0 z-10 pt-14 pointer-events-auto"
+          className="absolute inset-0 z-10 pointer-events-auto bg-white"
           style={{
-            paddingBottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))',
-            background: 'rgba(0, 0, 0, 0.80)',
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
+            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+            paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))`,
           }}
         >
           <RunLapsList />
         </div>
       )}
 
-      {/* ── MAP VIEW: FABs + glass metrics panel ─────────────────────── */}
+      {/* ── MAP VIEW: smart, draggable metrics card ──────────────────────── */}
       {playerView === 'main' && (
-        <>
-          {/* Floating action buttons — above the metrics panel */}
-          <div
-            className="absolute left-0 right-0 z-20 flex items-center justify-between px-6 pointer-events-auto"
-            dir="ltr"
-            style={{
-              bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px) + 180px + 12px)',
-            }}
-          >
-            {/* Pause */}
-            <button
-              onClick={pauseSession}
-              className="w-16 h-16 rounded-full flex items-center justify-center active:scale-95 transition-all"
-              style={{
-                background: '#FF8C00',
-                boxShadow: '0 8px 28px rgba(255,140,0,0.5)',
-              }}
-            >
-              <Pause size={30} fill="white" className="text-white" />
-            </button>
-
-            {/* Manual Lap — glass ghost button */}
-            <button
-              onClick={() => useRunningPlayer.getState().addManualLap()}
-              className="w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-all"
-              style={{
-                background: 'rgba(255,255,255,0.14)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                border: `1.5px solid rgba(0,229,255,0.35)`,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
-              }}
-            >
-              <RotateCcw size={22} className="text-white" />
-            </button>
-          </div>
-
-          {/* Glass metrics panel */}
-          <div
-            className="absolute left-0 right-0 z-20 px-3 pb-3 pointer-events-auto"
-            style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }}
-          >
-            <div
-              className="rounded-3xl overflow-hidden"
-              style={{
-                background: 'rgba(5, 8, 18, 0.75)',
-                backdropFilter: 'blur(22px)',
-                WebkitBackdropFilter: 'blur(22px)',
-                border: `1px solid rgba(0, 229, 255, 0.18)`,
-                boxShadow: '0 -8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-              }}
-            >
-              <StatsCarousel />
-            </div>
-          </div>
-        </>
+        <AdaptiveMetricsWrapper
+          isNavigationActive={isNavigationActive}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
       )}
 
-      {/* ── GLASS BOTTOM NAV ─────────────────────────────────────────── */}
+      {/* ── PRIMARY CONTROLS: circular Lap / Pause / Stop cluster ────────
+          Replaces the global SessionControlBar for free-run sessions
+          (suppressed in MapShell by `runMode !== 'free' && runMode !==
+          'my_routes'`). Long-press for Pause + Stop matches the
+          structured-workout language in PlannedRunActive so the user
+          builds one mental model for "destructive action = hold to
+          confirm". The Lap button stays single-tap (a missed lap is
+          cheap; a stopped workout is not). */}
+      {playerView === 'main' && <WorkoutControlCluster />}
+
+      {/* ── BOTTOM NAV — solid white, hairline divider ───────────────────── */}
       <nav
-        className="absolute bottom-0 left-0 right-0 z-30 flex pointer-events-auto"
+        className="absolute bottom-0 left-0 right-0 z-30 flex pointer-events-auto bg-white"
         style={{
-          minHeight: '4.5rem',
+          minHeight: `${BOTTOM_NAV_HEIGHT_PX}px`,
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          background: 'rgba(5, 8, 18, 0.88)',
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 -2px 20px rgba(0,0,0,0.45)',
+          borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+          boxShadow: '0 -2px 16px rgba(0, 0, 0, 0.06)',
         }}
       >
-        {/* Map tab */}
         <button
           onClick={() => setPlayerView('main')}
-          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-white/5 transition-colors"
+          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-black/5 transition-colors"
         >
           {playerView === 'main' && (
             <span
               className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
-              style={{ background: CYAN }}
+              style={{ background: PRIMARY }}
             />
           )}
-          <Map size={22} style={{ color: playerView === 'main' ? CYAN : 'rgba(255,255,255,0.38)' }} />
+          <Map
+            size={22}
+            style={{ color: playerView === 'main' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
+          />
           <span
             className="font-medium text-xs"
-            style={{ color: playerView === 'main' ? CYAN : 'rgba(255,255,255,0.38)' }}
+            style={{ color: playerView === 'main' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
           >
             מפה
           </span>
         </button>
 
-        {/* Laps tab */}
         <button
           onClick={() => setPlayerView('laps')}
-          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-white/5 transition-colors"
+          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-black/5 transition-colors"
         >
           {playerView === 'laps' && (
             <span
               className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
-              style={{ background: CYAN }}
+              style={{ background: PRIMARY }}
             />
           )}
           <List
             size={22}
             className="rotate-90"
-            style={{ color: playerView === 'laps' ? CYAN : 'rgba(255,255,255,0.38)' }}
+            style={{ color: playerView === 'laps' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
           />
           <span
             className="font-medium text-xs"
-            style={{ color: playerView === 'laps' ? CYAN : 'rgba(255,255,255,0.38)' }}
+            style={{ color: playerView === 'laps' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
           >
             הקפות
           </span>
@@ -207,7 +253,10 @@ export default function FreeRunActive({ onBack }: FreeRunActiveProps) {
 
       {/* Global overlays */}
       <LapSnapshotOverlay />
-      <WorkoutSettingsDrawer isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <WorkoutSettingsDrawer
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }

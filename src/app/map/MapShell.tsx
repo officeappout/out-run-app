@@ -22,7 +22,9 @@ import { useUserStore } from '@/features/user';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import ParticleBackground from '@/components/ParticleBackground';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
+import { SmartwatchPromptModal } from '@/features/user/onboarding/components/SmartwatchPromptModal';
 import { useFlyoverEntrance } from '@/features/safecity/hooks/useFlyoverEntrance';
+import { usePresenceLayer } from '@/features/safecity/hooks/usePresenceLayer';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -31,6 +33,8 @@ import { db } from '@/lib/firebase';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
 import { useGroupPresence } from '@/features/parks/core/hooks/useGroupPresence';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useRouteDeviationOrchestrator } from '@/features/parks/core/hooks/useRouteDeviationOrchestrator';
 import DiscoverLayer from './layers/DiscoverLayer';
 import BuilderLayer from './layers/BuilderLayer';
 import NavigateLayer from './layers/NavigateLayer';
@@ -38,7 +42,8 @@ import FreeRunLayer from './layers/FreeRunLayer';
 import PlannedPreviewLayer from './layers/PlannedPreviewLayer';
 import ActiveWorkoutLayer from './layers/ActiveWorkoutLayer';
 import SummaryLayer from './layers/SummaryLayer';
-import NavigationHUD from '@/features/parks/core/components/NavigationHUD';
+import TurnCarousel from '@/features/parks/core/components/TurnCarousel';
+import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import SessionControlBar from '@/features/parks/core/components/SessionControlBar';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
 
@@ -58,10 +63,18 @@ export default function MapShell({ spotFocus }: MapShellProps) {
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
+  const guidedRouteTurns = useRunningPlayer((s) => s.guidedRouteTurns);
+  const runMode = useRunningPlayer((s) => s.runMode);
   const devSim = useDevSimulation();
   const effectivePos = devSim.effectiveLocation(logic.currentUserPos);
+
+  // Presence heartbeat — uses effectivePos so mock location is broadcast
+  usePresenceLayer(effectivePos ?? null, true);
+
   const flyover = useFlyoverEntrance(effectivePos ?? null);
   const livePartnerPositions = useGroupPresence();
+  const partnerActivityFilter = useMapStore((s) => s.partnerActivityFilter);
+  const liveUsersVisible = useMapStore((s) => s.liveUsersVisible);
   const [mapProfileUser, setMapProfileUser] = useState<ProfileUser | null>(null);
 
   // Sync effective position to route generation — use layout-phase ref to avoid
@@ -108,13 +121,30 @@ export default function MapShell({ spotFocus }: MapShellProps) {
     return null;
   })();
 
-  // Heatmap heartbeat — strict intent: follows the user's selected activity
+  // Auto-rerouting on deviation. Subscribes to `useRunningPlayer.offRouteEventToken`
+  // and, on each new event, swaps `focusedRoute` for a freshly computed route
+  // sized to the user's remaining distance (with a direct-line fallback for
+  // sub-500m remainders). Hook has no UI of its own — see its top-of-file
+  // doc-block for the full state machine. Mounted here, alongside the other
+  // workout-lifecycle side effects, so it lives for the entire map session.
+  useRouteDeviationOrchestrator({
+    focusedRoute: logic.focusedRoute,
+    setFocusedRoute: logic.setFocusedRoute,
+    currentUserPos: effectivePos ?? null,
+    isWorkoutActive: logic.isWorkoutActive,
+  });
+
+  // Heatmap heartbeat — strict intent: follows the user's selected activity.
+  // routeId is forwarded only while a workout is active so the active_workouts
+  // doc carries the curated route binding (consumed by the admin heatmap).
   useActiveWorkoutHeartbeat({
     workoutType:
       contextActivity === 'walking' ? 'walking'
         : contextActivity === 'cycling' ? 'cycling'
         : 'running',
     enabled: logic.isWorkoutActive,
+    overrideLocation: effectivePos ?? undefined,
+    routeId: logic.isWorkoutActive ? logic.focusedRoute?.id : undefined,
   });
 
   // ══════ MODE SYNC EFFECTS ══════
@@ -215,10 +245,27 @@ export default function MapShell({ spotFocus }: MapShellProps) {
           isActiveWorkout={logic.isWorkoutActive}
           isNavigationMode={logic.isNavigationMode}
           onRouteSelect={(route) => {
-            if (logic.navState === 'navigating' && route?.id?.startsWith('nav-')) {
+            // Tap on empty map area: close the detail sheet if open, but keep
+            // any focused route highlighted (so the user can still see the
+            // carousel context they were exploring).
+            if (route === null || route === undefined) {
+              if (logic.selectedRoute) logic.setSelectedRoute(null);
+              return;
+            }
+
+            if (logic.navState === 'navigating' && route.id?.startsWith('nav-')) {
               logic.handleVariantSelect(route.id);
-            } else {
+              return;
+            }
+
+            // Two-step interaction:
+            //   1st tap on a NEW route  → focus only (carousel scrolls,
+            //                              camera fits, no sheet)
+            //   2nd tap on the FOCUSED route → open the RouteDetailSheet
+            if (logic.focusedRoute?.id === route.id) {
               logic.setSelectedRoute(route);
+            } else {
+              logic.setFocusedRoute(route);
             }
           }}
           selectedRoute={logic.selectedRoute}
@@ -228,23 +275,43 @@ export default function MapShell({ spotFocus }: MapShellProps) {
           isAutoFollowEnabled={isMapFollowEnabled}
           onUserPanDetected={() => setMapFollowEnabled(false)}
           onLongPress={devSim.isMockEnabled ? devSim.setMockLocation : undefined}
-          simulationActive={devSim.isMockEnabled}
+          simulationActive={devSim.isMockEnabled && devSim.isSimulating}
           speedKmH={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedSpeedKmH : undefined}
           partnerPositions={livePartnerPositions}
+          partnerActivityFilter={partnerActivityFilter}
+          liveUsersVisible={liveUsersVisible}
           userPersonaId={profile?.personaId}
           onPartnerClick={(p) => setMapProfileUser({ uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage })}
+          mapMode={mode}
         />
       </div>
 
-      {/* ══════ NAVIGATION HUD (turn-by-turn banner) ══════ */}
+      {/* ══════ TURN-BY-TURN CAROUSEL ══════
+           Single rendering path for every navigation case — guided routes,
+           park nav, free-run-with-route. The carousel handles its own
+           swipe + smart-zoom (flyTo to the swiped turn, see TurnCarousel).
+           When the running player has pre-computed turns (guided routes from
+           `my_routes`) we use them directly; otherwise compute turns from
+           the route geometry on-the-fly. The single-line NavigationHUD has
+           been retired — the carousel reads as a single card when only one
+           turn is left, so the HUD's compact form is preserved. */}
       {(logic.isNavigationMode || (isActiveMode && logic.focusedRoute)) &&
         effectivePos && logic.focusedRoute?.path && (
-        <NavigationHUD
-          routePath={logic.focusedRoute.path}
-          currentLocation={effectivePos}
-          userBearing={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedBearing : logic.userBearing}
-        />
-      )}
+          <TurnCarousel
+            // Prefer the store's pre-computed list (set in
+            // useWorkoutSession._doStartActiveWorkout for guided routes).
+            // Fall back to inline computation for nav-mode walks that don't
+            // hydrate the store.
+            turns={
+              guidedRouteTurns && guidedRouteTurns.length > 0
+                ? guidedRouteTurns
+                : computeRouteTurns(logic.focusedRoute.path)
+            }
+            routePath={logic.focusedRoute.path}
+            currentLocation={effectivePos}
+          />
+        )
+      }
 
       {/* ══════ RECENTER BUTTON ══════
            Shown when user manually panned the map during an active workout.
@@ -267,9 +334,12 @@ export default function MapShell({ spotFocus }: MapShellProps) {
               background: 'rgba(5, 8, 18, 0.82)',
               backdropFilter: 'blur(14px)',
               WebkitBackdropFilter: 'blur(14px)',
-              border: '1px solid rgba(0,229,255,0.4)',
-              color: '#00E5FF',
-              boxShadow: '0 4px 20px rgba(0,229,255,0.2), 0 2px 8px rgba(0,0,0,0.4)',
+              // Brand cyan token (`out-cyan` in tailwind.config.ts = #00ADEF).
+              // rgba() variants kept inline because Tailwind tokens can't be
+              // resolved inside style strings without a JIT class.
+              border: '1px solid rgba(0,173,239,0.4)',
+              color: '#00ADEF',
+              boxShadow: '0 4px 20px rgba(0,173,239,0.2), 0 2px 8px rgba(0,0,0,0.4)',
             }}
           >
             <LocateFixed size={16} />
@@ -287,8 +357,20 @@ export default function MapShell({ spotFocus }: MapShellProps) {
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}
 
-      {/* ══════ SESSION CONTROLS (Play/Pause, Stop, Lap) — z-40, above workout layers ══════ */}
-      {isActiveMode && <SessionControlBar />}
+      {/* ══════ SESSION CONTROLS (Play/Pause, Stop, Lap) — z-40, above workout layers ══════
+           Suppressed for ALL running modes because each one now owns its own controls:
+             • `plan`      → PlannedRunActive: LongPressPauseButton + cyan SkipForward FAB.
+             • `free`      → FreeRunActive: WorkoutControlCluster (Lap / Pause / Stop) ported
+                              from the structured-workout language. Long-press confirms
+                              destructive actions; Lap stays single-tap.
+             • `my_routes` → GuidedRouteView wraps FreeRun, so the same cluster applies.
+           This guard stays as an explicit allow-list rather than removing the mount entirely
+           so that any future non-running active mode (e.g. a calisthenics player) still
+           inherits the global bar by default. */}
+      {isActiveMode &&
+        runMode !== 'plan' &&
+        runMode !== 'free' &&
+        runMode !== 'my_routes' && <SessionControlBar />}
 
       {/* ══════ GLOBAL OVERLAYS ══════ */}
       <JITSetupModal
@@ -297,6 +379,18 @@ export default function MapShell({ spotFocus }: MapShellProps) {
         onComplete={logic.jitState.onComplete}
         onDismiss={logic.dismissJIT}
         onCancel={logic.cancelJIT}
+      />
+
+      {/* Smartwatch teaser — surfaces for first-time runners AFTER JIT
+          requirements clear and BEFORE the workout actually starts. The
+          modal calls back into useSmartwatchPrompt's onClose, which
+          trampolines _doStartActiveWorkout. The two pre-flight gates
+          can never be open at the same time (JIT runs first, smartwatch
+          opens only inside JIT's onComplete) so they share z-[90]
+          without visual collision. */}
+      <SmartwatchPromptModal
+        isOpen={logic.smartwatchPrompt.isOpen}
+        onClose={() => logic.smartwatchPrompt.onClose?.()}
       />
 
       <AnimatePresence>

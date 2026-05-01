@@ -8,6 +8,20 @@ import { Route } from '@/features/parks';
 import { Lap, GeoPoint } from '../../../core/types/session.types';
 import { watchPosition, clearWatch, calculateDistance } from '@/lib/services/location.service';
 import type RunWorkout from '../types/run-workout.type';
+import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
+import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
+
+// ── Route-deviation tuning constants ─────────────────────────────────────────
+// 40 m matches what consumer-grade GPS can reliably distinguish in urban
+// canyons (typical accuracy is 5–15 m, worst-case 25–30 m). Tighter and we
+// trip on noise; looser and we let the user wander an entire street width
+// before we react. Calibrated against per-spec request.
+const ROUTE_DEVIATION_THRESHOLD_M = 40;
+
+// 3 consecutive samples ≈ 3 seconds at 1 Hz watchPosition. Hysteresis: we
+// require sustained deviation, not a single spike. Drops false positives
+// from urban GPS multipathing to near zero in field testing.
+const ROUTE_DEVIATION_SAMPLE_THRESHOLD = 3;
 
 export interface WorkoutSettings {
   autoLapMode: 'distance' | 'time' | 'off';
@@ -15,6 +29,26 @@ export interface WorkoutSettings {
   enableAudio: boolean;
   enableAutoPause: boolean;
   enableCountdown: boolean;
+}
+
+/**
+ * The single goal a free-run session is targeting.
+ *
+ * Units are NORMALISED at write-time so every consumer (RouteStoryBar,
+ * progress hooks, future telemetry) can do simple division without
+ * worrying about minutes-vs-seconds or km-vs-meters mismatches:
+ *
+ *   - 'distance' → value in **kilometres** (matches `useSessionStore.totalDistance`)
+ *   - 'time'     → value in **seconds**    (matches `useSessionStore.totalDuration`)
+ *   - 'calories' → value in **kcal**       (matches `useRunningPlayer.totalCalories`)
+ *
+ * `null` = no goal set (e.g. a vanilla open-ended run). UI must treat
+ * the absence as "hide the goal-progress bar" rather than "0% progress".
+ */
+export type SessionGoalType = 'distance' | 'time' | 'calories';
+export interface SessionGoal {
+  type: SessionGoalType;
+  value: number;
 }
 
 interface RunningPlayerState {
@@ -33,6 +67,42 @@ interface RunningPlayerState {
   // Route Planning
   suggestedRoutes: Route[];
   activeRoutePath: number[][];
+
+  // ── Route Deviation (auto-rerouting) ─────────────────────────────────────
+  // Live distance from the user's last GPS sample to the nearest point on
+  // `activeRoutePath`, in metres. `null` when no comparable route is set.
+  routeDeviationMeters: number | null;
+  // How many consecutive samples have been over the threshold. Resets to 0
+  // the moment a sample comes back inside the threshold.
+  consecutiveOffRouteSamples: number;
+  // True once `consecutiveOffRouteSamples` reaches the spec'd threshold (3).
+  // Cleared by the orchestrator (useRouteDeviationOrchestrator) after it
+  // swaps in a freshly recomputed route — at which point the user is on the
+  // new path and the counter naturally restarts at 0.
+  isOffRoute: boolean;
+  // Monotonically incremented every time `isOffRoute` flips false→true.
+  // The orchestrator's effect depends on this token so each new deviation
+  // event triggers exactly one recalc, even if isOffRoute is cleared and
+  // re-asserted in quick succession.
+  offRouteEventToken: number;
+  // True while the orchestrator's recalc is in flight. `checkRouteDeviation`
+  // skips its work while this is set so we don't pile up redundant triggers.
+  isRecalculatingRoute: boolean;
+
+  // Guided Route Tracking
+  // Holds the official_routes document id when the user is running a curated route.
+  // Null when running a free-form / un-tagged session. Threaded into the saved
+  // workout document and used to increment route analytics on completion.
+  guidedRouteId: string | null;
+  // Display metadata for the in-progress guided route. Populated alongside
+  // guidedRouteId at workout-start so route-aware UI (GuidedRouteView /
+  // GuidedRouteProgressStrip) can render route name + % progress without
+  // re-reading the focusedRoute object from MapShell scope.
+  guidedRouteName: string | null;
+  guidedRouteDistanceKm: number | null;
+  // Pre-computed turn list used by TurnCarousel. Set once at workout-start
+  // and consumed as a static reference throughout the session.
+  guidedRouteTurns: RouteTurn[] | null;
   
   // Map View State
   view: 'main' | 'laps';
@@ -41,6 +111,20 @@ interface RunningPlayerState {
   // Snapshot State
   isSnapshotVisible: boolean;
   lastCompletedLap: Lap | null;
+
+  // Elevation tracking
+  /** Cumulative positive elevation gain in metres for this session. */
+  elevationGain: number;
+  /** Previous GPS altitude used to compute incremental gain. Null until first fix. */
+  lastAltitude: number | null;
+
+  /**
+   * The exact workout document that was persisted to Firestore at the end of this
+   * session. Set by finishWorkout after a successful save; null until then.
+   * Summary screens read from this snapshot to guarantee what is displayed
+   * matches what is in history — avoiding in-memory ghosts.
+   */
+  savedWorkoutSnapshot: WorkoutHistoryEntry | null;
 
   // Pace smoothing
   paceHistory: number[];
@@ -67,12 +151,39 @@ interface RunningPlayerState {
   blockElapsedMeters: number;
   blockSetNumber: number;
   totalBlockSets: number;
-  
+
+  // ── Free-Run Session Goal ────────────────────────────────────────
+  // Drives the single-segment story bar inside AdaptiveMetricsWrapper.
+  // Set by FreeRunDrawer at workout start, read by useSessionGoalProgress.
+  // See SessionGoal jsdoc for unit conventions.
+  sessionGoal: SessionGoal | null;
+
   // Actions
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
   setActivityType: (type: 'running' | 'walking') => void;
   setSuggestedRoutes: (routes: Route[]) => void;
   setActiveRoutePath: (path: number[][]) => void;
+  // ── Route Deviation actions ──────────────────────────────────────────────
+  /**
+   * Compares the supplied position to `activeRoutePath` and updates the
+   * deviation state machine. Designed to be called once per accepted GPS
+   * sample (real or simulated) — the throttling that filters jittery
+   * positions happens upstream in `startGPSTracking` / `injectSimPosition`.
+   */
+  checkRouteDeviation: (pos: { lat: number; lng: number }) => void;
+  /** Orchestrator-only: bracket the recalc to prevent re-entry during swap. */
+  setRecalculatingRoute: (v: boolean) => void;
+  /**
+   * Orchestrator-only: invoked after the new route has been swapped onto
+   * the map. Resets the deviation counter & flag so detection restarts
+   * cleanly against the new `activeRoutePath`.
+   */
+  clearOffRouteState: () => void;
+  setGuidedRouteId: (id: string | null) => void;
+  setGuidedRouteName: (name: string | null) => void;
+  setGuidedRouteDistanceKm: (km: number | null) => void;
+  setGuidedRouteTurns: (turns: RouteTurn[] | null) => void;
+  setSessionGoal: (goal: SessionGoal | null) => void;
   setView: (view: 'main' | 'laps') => void;
   setLastViewport: (vp: any) => void;
   
@@ -123,12 +234,24 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   totalCalories: 0, // Start with 0 calories
   suggestedRoutes: [],
   activeRoutePath: [],
+  routeDeviationMeters: null,
+  consecutiveOffRouteSamples: 0,
+  isOffRoute: false,
+  offRouteEventToken: 0,
+  isRecalculatingRoute: false,
+  guidedRouteId: null,
+  guidedRouteName: null,
+  guidedRouteDistanceKm: null,
+  guidedRouteTurns: null,
   view: 'main',
   lastViewport: { latitude: 32.0853, longitude: 34.7818, zoom: 15 },
   isSnapshotVisible: false,
   lastCompletedLap: null,
   paceHistory: [],
   isMapFollowEnabled: true,
+  elevationGain: 0,
+  lastAltitude: null,
+  savedWorkoutSnapshot: null,
   settings: {
     autoLapMode: 'off',
     autoLapValue: 1.0, // Default 1 km for distance mode
@@ -150,12 +273,90 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   blockElapsedMeters: 0,
   blockSetNumber: 1,
   totalBlockSets: 1,
-  
+
+  // Free-Run Session Goal — null until FreeRunDrawer pushes one.
+  sessionGoal: null,
+
   // Setters
   setRunMode: (mode) => set({ runMode: mode }),
   setActivityType: (type) => set({ activityType: type }),
   setSuggestedRoutes: (routes) => set({ suggestedRoutes: routes }),
-  setActiveRoutePath: (path) => set({ activeRoutePath: path }),
+  setActiveRoutePath: (path) => set({
+    activeRoutePath: path,
+    // Whenever the active route is swapped (workout start, deviation recalc,
+    // mid-workout reroute), reset the deviation counter so the next sample
+    // starts clean. The new path is, by construction, near the user.
+    routeDeviationMeters: null,
+    consecutiveOffRouteSamples: 0,
+    isOffRoute: false,
+  }),
+
+  checkRouteDeviation: (pos) => {
+    const {
+      activeRoutePath,
+      isRecalculatingRoute,
+      consecutiveOffRouteSamples,
+      isOffRoute,
+      offRouteEventToken,
+    } = get();
+
+    // No comparable route → nothing to detect. Workout is in free-form mode
+    // (no guided route) or activeRoutePath was cleared.
+    if (!activeRoutePath || activeRoutePath.length < 2) return;
+
+    // A recalc is in flight — its terminal `setActiveRoutePath` will reset
+    // counters and we'd just be racing it. Skip cleanly.
+    if (isRecalculatingRoute) return;
+
+    if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) return;
+
+    const distMeters = crossTrackDistanceMeters(pos, activeRoutePath);
+    if (!Number.isFinite(distMeters)) return;
+
+    if (distMeters > ROUTE_DEVIATION_THRESHOLD_M) {
+      const nextCount = consecutiveOffRouteSamples + 1;
+      const justTripped =
+        nextCount >= ROUTE_DEVIATION_SAMPLE_THRESHOLD && !isOffRoute;
+
+      set({
+        routeDeviationMeters: distMeters,
+        consecutiveOffRouteSamples: nextCount,
+        isOffRoute: isOffRoute || justTripped,
+        // Bump token only on the false→true edge so the orchestrator's
+        // useEffect fires exactly once per deviation event.
+        offRouteEventToken: justTripped
+          ? offRouteEventToken + 1
+          : offRouteEventToken,
+      });
+    } else {
+      // Within tolerance. Reset the counter & flag so a future deviation
+      // starts a fresh 3-sample countdown rather than tripping immediately.
+      if (consecutiveOffRouteSamples > 0 || isOffRoute) {
+        set({
+          routeDeviationMeters: distMeters,
+          consecutiveOffRouteSamples: 0,
+          isOffRoute: false,
+        });
+      } else {
+        // Cheap path: just refresh the live distance for any UI bound to it.
+        set({ routeDeviationMeters: distMeters });
+      }
+    }
+  },
+
+  setRecalculatingRoute: (v) => set({ isRecalculatingRoute: v }),
+
+  clearOffRouteState: () => set({
+    routeDeviationMeters: null,
+    consecutiveOffRouteSamples: 0,
+    isOffRoute: false,
+  }),
+
+  setGuidedRouteId: (id) => set({ guidedRouteId: id }),
+  setGuidedRouteName: (name) => set({ guidedRouteName: name }),
+  setGuidedRouteDistanceKm: (km) => set({ guidedRouteDistanceKm: km }),
+  setGuidedRouteTurns: (turns) => set({ guidedRouteTurns: turns }),
+  setSessionGoal: (goal) => set({ sessionGoal: goal }),
   setView: (view) => set({ view }),
   setLastViewport: (vp) => set({ lastViewport: vp }),
   
@@ -422,6 +623,22 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         if (get().isSimulationActive) return;
 
         const { lat, lng, accuracy } = location;
+
+        // Reject NaN / Infinity / 0,0 samples BEFORE they touch any state.
+        // The math helpers downstream (haversine, crossTrack, pace) all
+        // produce NaN cascades when fed a bad coord, which then propagates
+        // into routeCoords and breaks fitBounds in TurnCarousel/AppMap.
+        // Dropping the sample early keeps `lastPosition` pointing at the
+        // last KNOWN-GOOD fix — far better than NaN-poisoning the state.
+        if (
+          typeof lat !== 'number' || typeof lng !== 'number' ||
+          !Number.isFinite(lat) || !Number.isFinite(lng) ||
+          (lat === 0 && lng === 0)
+        ) {
+          console.warn('[useRunningPlayer] Dropping invalid GPS sample:', location);
+          return;
+        }
+
         const currentPos = { lat, lng };
 
         let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
@@ -466,10 +683,48 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
         lastPos = currentPos;
         set({ lastPosition: currentPos });
+
+        // ── Elevation gain accumulation ────────────────────────────────
+        // Only count ascents > 1 m between consecutive fixes to filter out
+        // the ±2–5 m vertical noise typical of consumer GPS chips.
+        const gpsAltitude = location.altitude;
+        if (gpsAltitude != null) {
+          const { lastAltitude } = get();
+          if (lastAltitude !== null) {
+            const delta = gpsAltitude - lastAltitude;
+            if (delta > 1) {
+              set((s) => ({ elevationGain: s.elevationGain + delta, lastAltitude: gpsAltitude }));
+            } else {
+              set({ lastAltitude: gpsAltitude });
+            }
+          } else {
+            set({ lastAltitude: gpsAltitude });
+          }
+        }
+
+        // Route-deviation pass — runs on EVERY accepted GPS sample, not only
+        // ones that beat the 5m DISTANCE_THRESHOLD above (the threshold gates
+        // distance/pace updates to avoid jitter, but a slow drift across the
+        // 40m boundary is still a deviation worth flagging).
+        get().checkRouteDeviation(currentPos);
       },
       (error) => {
         if (get().isSimulationActive) return; // ignore errors when sim took over
-        console.error('[useRunningPlayer] GPS error:', error.code, error.message);
+        // GeolocationPositionError codes:
+        //   1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT.
+        // Whatever the code, we deliberately DO NOT touch `lastPosition`
+        // or `routeCoords` here — the last-known-good fix is far more
+        // useful to the UI (TurnCarousel can still center the map on it,
+        // pace can still tick down, etc.) than wiping it to null and
+        // forcing every consumer through a degraded "GPS searching" path.
+        // We only flag the status pill so the user sees the chip is hunting.
+        if (error.code === 3) {
+          // Timeout is benign — fires every ~10s under bad sky cover. Quiet
+          // log so dev console isn't flooded during a long-press signal hunt.
+          console.warn('[useRunningPlayer] GPS timeout — keeping last known fix.');
+        } else {
+          console.error('[useRunningPlayer] GPS error:', error.code, error.message);
+        }
         set({ gpsStatus: 'searching', gpsAccuracy: null });
       },
       {
@@ -592,6 +847,15 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       routeCoords: [],
       routeZones: [],
       activeRoutePath: [],
+      elevationGain: 0,
+      lastAltitude: null,
+      savedWorkoutSnapshot: null,
+      // Reset deviation state at workout start so a previous session's
+      // counters cannot leak into the new one and trigger a phantom recalc.
+      routeDeviationMeters: null,
+      consecutiveOffRouteSamples: 0,
+      isOffRoute: false,
+      isRecalculatingRoute: false,
     });
   },
 
@@ -607,6 +871,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       routeCoords: [],
       routeZones: [],
       activeRoutePath: [],
+      elevationGain: 0,
+      lastAltitude: null,
+      savedWorkoutSnapshot: null,
+      // Same reset as initializeRunningData. We DON'T reset
+      // `offRouteEventToken` here — it's a monotonically-increasing event
+      // counter, and rewinding it could replay a stale orchestrator effect.
+      routeDeviationMeters: null,
+      consecutiveOffRouteSamples: 0,
+      isOffRoute: false,
+      isRecalculatingRoute: false,
+      guidedRouteId: null,
+      guidedRouteName: null,
+      guidedRouteDistanceKm: null,
+      guidedRouteTurns: null,
       isSnapshotVisible: false,
       lastCompletedLap: null,
       lastPosition: null,
@@ -618,14 +896,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       blockElapsedMeters: 0,
       blockSetNumber: 1,
       totalBlockSets: 1,
+      // Reset the goal so the next session starts blank — the next
+      // FreeRunDrawer.handleStartCta will push a fresh one.
+      sessionGoal: null,
     });
   },
 
-  // Finish workout - stop tracking, log analytics, award rewards, SAVE TO DB, and set status to finished
+  // ── finishWorkout ─────────────────────────────────────────────────────────
+  // SINGLE source-of-truth save. All data (laps, elevation, XP, park tag,
+  // social feed post) is written here. FreeRunSummary and WorkoutSummaryPage
+  // must NOT call saveWorkout() — they are display-only after this runs.
   finishWorkout: async () => {
-    const { stopGPSTracking, totalCalories, routeCoords, activityType, currentPace } = get();
+    const { stopGPSTracking, totalCalories, routeCoords, activityType, currentPace, guidedRouteId, laps, elevationGain } = get();
     
-    // Stop all timers and GPS tracking
+    // Stop all timers and GPS tracking first
     stopGPSTracking();
 
     // Immediately wipe active_workouts doc (heatmap cleanup)
@@ -639,7 +923,6 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       }).catch(() => {});
     }
     
-    // Get final stats from session store
     if (typeof window !== 'undefined') {
       try {
         const { useSessionStore } = await import('@/features/workout-engine/core/store/useSessionStore');
@@ -647,35 +930,53 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         const { auth } = await import('@/lib/firebase');
         const sessionState = useSessionStore.getState();
         
-        // Use the calculated calories from the store (real-time calculation)
         const finalCalories = totalCalories || 0;
-        
-        // Get current user ID - CRITICAL for saving
         const currentUser = auth.currentUser;
+
         if (!currentUser) {
           console.error('❌ [useRunningPlayer] Cannot save workout: No User ID found');
         } else {
-          // Ensure routePath is always an array (never undefined)
+          // ── Sanitise numeric values ──────────────────────────────────
           const safeRoutePath = Array.isArray(routeCoords) && routeCoords.length > 0
             ? routeCoords.map(coord => [coord[0], coord[1]] as [number, number])
             : [];
+          const safeDistance = Number.isFinite(sessionState.totalDistance) ? sessionState.totalDistance : 0;
+          const safeDuration = Number.isFinite(sessionState.totalDuration) ? sessionState.totalDuration : 0;
+          const safeCalories = Number.isFinite(finalCalories) ? finalCalories : 0;
+          const safePace = Number.isFinite(currentPace) ? currentPace : 0;
+          const safeElevation = Number.isFinite(elevationGain) && elevationGain > 0 ? Math.round(elevationGain) : undefined;
+          const durationMinutes = Math.max(Math.round(safeDuration / 60), 1);
 
-          // Validate and ensure numeric values are valid (not NaN or undefined)
-          const safeDistance = (typeof sessionState.totalDistance === 'number' && !isNaN(sessionState.totalDistance))
-            ? sessionState.totalDistance
-            : 0;
-          const safeDuration = (typeof sessionState.totalDuration === 'number' && !isNaN(sessionState.totalDuration))
-            ? sessionState.totalDuration
-            : 0;
-          const safeCalories = (typeof finalCalories === 'number' && !isNaN(finalCalories))
-            ? finalCalories
-            : 0;
-          const safePace = (typeof currentPace === 'number' && !isNaN(currentPace))
-            ? currentPace
-            : 0;
+          // ── XP calculation (must happen BEFORE save so xpEarned is on doc) ──
+          const { useProgressionStore } = await import('@/features/user/progression/store/useProgressionStore');
+          const { calculateRunningWorkoutXP } = await import('@/features/user/progression/services/xp.service');
+          const progressionState = useProgressionStore.getState();
+          const sessionXP = calculateRunningWorkoutXP({
+            durationMinutes,
+            distanceKm: safeDistance,
+            streak: progressionState.currentStreak,
+            activityType: (activityType as 'running' | 'walking') ?? 'running',
+          });
 
-          // Prepare workout data
-          const workoutData = {
+          // ── Coins (respect feature flag) ──────────────────────────────
+          const { IS_COIN_SYSTEM_ENABLED } = await import('@/config/feature-flags');
+          const earnedCoins = IS_COIN_SYSTEM_ENABLED ? Math.floor(safeCalories) : 0;
+
+          // ── Completed laps (strip the still-active lap if present) ────
+          const completedLaps = laps.filter(l => !l.isActive && l.distanceMeters > 0);
+
+          // ── Park detection (before save so parkId lands on the doc) ──
+          const lastCoord = safeRoutePath.length > 0 ? safeRoutePath[safeRoutePath.length - 1] : null;
+          let detectedPark: { parkId: string; parkName: string; authorityId?: string } | null = null;
+          if (lastCoord) {
+            try {
+              const { detectNearbyPark } = await import('@/features/workout-engine/services/park-detection.service');
+              detectedPark = await detectNearbyPark(lastCoord[1], lastCoord[0]);
+            } catch { /* non-fatal */ }
+          }
+
+          // ── Build the single authoritative workout document ───────────
+          const workoutPayload = {
             userId: currentUser.uid,
             activityType: activityType || 'running',
             workoutType: 'running' as const,
@@ -683,74 +984,134 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             duration: safeDuration,
             calories: safeCalories,
             pace: safePace,
-            routePath: safeRoutePath, // Always an array, never undefined
-            earnedCoins: safeCalories, // 1:1 ratio with calories
+            routePath: safeRoutePath,
+            earnedCoins,
+            xpEarned: sessionXP,
+            ...(completedLaps.length > 0 ? { laps: completedLaps } : {}),
+            ...(safeElevation !== undefined ? { elevationGain: safeElevation } : {}),
+            ...(guidedRouteId ? { routeId: guidedRouteId } : {}),
+            ...(detectedPark ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName } : {}),
           };
 
-          console.log('🚀 [useRunningPlayer] Attempting to save workout to DB...', workoutData);
+          console.log('🚀 [useRunningPlayer] Saving workout (single write)...', {
+            distance: safeDistance, duration: safeDuration, laps: completedLaps.length,
+            elevation: safeElevation, xp: sessionXP, park: detectedPark?.parkName ?? 'none',
+          });
 
-          // Save workout to Firestore - WAIT for completion BEFORE proceeding
+          let workoutSaved = false;
           try {
-            const success = await saveWorkout(workoutData);
+            const success = await saveWorkout(workoutPayload);
             if (success) {
-              console.log('✅ [useRunningPlayer] Workout saved successfully to Firestore');
+              workoutSaved = true;
+              // Store the confirmed snapshot so summary screens show exactly
+              // what was written, not in-memory approximations.
+              set({ savedWorkoutSnapshot: { ...workoutPayload, date: new Date() } });
+              console.log('✅ [useRunningPlayer] Workout saved successfully');
             } else {
-              console.error('❌ [useRunningPlayer] Failed to save workout (saveWorkout returned false)');
+              console.error('❌ [useRunningPlayer] saveWorkout returned false');
             }
           } catch (saveError) {
-            console.error('❌ [useRunningPlayer] Error saving workout to Firestore:', saveError);
+            console.error('❌ [useRunningPlayer] Save error:', saveError);
+          }
+
+          // ── Post-save side-effects (all best-effort) ──────────────────
+
+          // Guided route analytics
+          if (workoutSaved && guidedRouteId) {
+            import('@/lib/firebase').then(async ({ db }) => {
+              const { doc, updateDoc, increment, serverTimestamp } = await import('firebase/firestore');
+              updateDoc(doc(db, 'official_routes', guidedRouteId), {
+                'analytics.usageCount': increment(1),
+                'analytics.lastUsed': serverTimestamp(),
+              }).catch(() => {});
+            }).catch(() => {});
+          }
+
+          // Park sessions check-in
+          if (workoutSaved && detectedPark?.parkId) {
+            import('@/lib/firebase').then(async ({ auth: fbAuth, db }) => {
+              const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+              const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+              const authorityId = useUserStore.getState().profile?.core?.authorityId ?? detectedPark!.authorityId ?? null;
+              if (fbAuth.currentUser && authorityId) {
+                addDoc(collection(db, 'sessions'), {
+                  authorityId,
+                  parkId: detectedPark!.parkId,
+                  userId: fbAuth.currentUser.uid,
+                  date: serverTimestamp(),
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+
+          // Social feed post
+          if (workoutSaved) {
+            import('@/features/social/services/feed.service').then(async ({ createWorkoutPost }) => {
+              const { extractFeedScope } = await import('@/features/social/services/feed-scope.utils');
+              const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+              const userProfile = useUserStore.getState().profile;
+              if (userProfile?.core?.name) {
+                createWorkoutPost({
+                  authorUid: currentUser.uid,
+                  authorName: userProfile.core.name,
+                  activityCategory: 'cardio',
+                  durationMinutes,
+                  distanceKm: safeDistance > 0 ? safeDistance : undefined,
+                  paceMinPerKm: safePace > 0 ? safePace : undefined,
+                  ...extractFeedScope(userProfile),
+                  parkId: detectedPark?.parkId,
+                  parkName: detectedPark?.parkName,
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+
+          // Award XP via Guardian (authoritative server write)
+          progressionState.awardRunningXP({
+            durationMinutes,
+            distanceKm: safeDistance,
+            streak: progressionState.currentStreak,
+            activityType: (activityType as 'running' | 'walking') ?? 'running',
+          }).catch((e) => console.warn('[useRunningPlayer] awardRunningXP failed:', e));
+
+          // Coins
+          if (safeCalories > 0) {
+            progressionState.awardWorkoutCoins(safeCalories).catch((e) =>
+              console.error('[useRunningPlayer] awardWorkoutCoins error:', e)
+            );
           }
         }
-        
-        // Log workout complete event
-        const { Analytics } = await import('@/features/analytics/AnalyticsService');
-        const workoutId = `free-run-${Date.now()}`;
-        await Analytics.logWorkoutComplete(
-          workoutId,
-          sessionState.totalDuration,
-          finalCalories,
-          finalCalories // earnedCoins = calories (1:1 ratio)
-        ).catch((error) => {
-          console.error('[useRunningPlayer] Error logging workout complete:', error);
-        });
-        
-        // Award workout coins (coins = calories, 1:1 ratio)
-        const { useProgressionStore } = await import('@/features/user/progression/store/useProgressionStore');
-        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
-        const userState = useUserStore.getState();
-        const userId = userState.profile?.id;
-        
-        if (userId && finalCalories > 0) {
-          const progressionState = useProgressionStore.getState();
-          await progressionState.awardWorkoutCoins(finalCalories).catch((error) => {
-            console.error('[useRunningPlayer] Error awarding workout coins:', error);
-          });
-        }
 
-        // Unified completion sync: dailyActivity + dailyProgress + streaks + session flag
+        // Analytics event
+        import('@/features/analytics/AnalyticsService').then(async ({ Analytics }) => {
+          const { useSessionStore: SS } = await import('@/features/workout-engine/core/store/useSessionStore');
+          const s = SS.getState();
+          Analytics.logWorkoutComplete(`free-run-${Date.now()}`, s.totalDuration, totalCalories, totalCalories).catch(() => {});
+        }).catch(() => {});
+
+        // Unified completion sync
         const durationMinutes = Math.max(Math.round(sessionState.totalDuration / 60), 1);
         const { syncWorkoutCompletion } = await import('@/features/workout-engine/services/completion-sync.service');
-        const totalDistanceKm = sessionState.totalDistance ?? 0;
         await syncWorkoutCompletion({
           workoutType: 'running',
           durationMinutes,
           calories: finalCalories,
           activityCategory: 'cardio',
           displayIcon: 'run-fast',
-          distanceKm: totalDistanceKm,
-        }).catch((error) => {
-          console.error('[useRunningPlayer] Error in syncWorkoutCompletion:', error);
-        });
-        
-        // Set status to finished
+          distanceKm: sessionState.totalDistance ?? 0,
+        }).catch((e) => console.error('[useRunningPlayer] syncWorkoutCompletion error:', e));
+
+        // Transition status → finished (triggers FreeRunSummary to mount)
         sessionState.endSession();
+
       } catch (error) {
         console.error('[useRunningPlayer] Error finishing workout:', error);
-        // Still set status to finished even if analytics/rewards fail
         if (typeof window !== 'undefined') {
           const { useSessionStore } = await import('@/features/workout-engine/core/store/useSessionStore');
           useSessionStore.getState().endSession();
         }
+      } finally {
+        set({ guidedRouteId: null, guidedRouteName: null, guidedRouteDistanceKm: null, guidedRouteTurns: null });
       }
     }
   },
