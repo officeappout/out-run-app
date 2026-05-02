@@ -2,8 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
-import { CheckCircle, Save, Share2, Coins } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { CheckCircle, Save, Share2, Coins, Flag, Clock, Navigation as NavIcon, Sparkles } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -92,15 +92,33 @@ export default function FreeRunSummary({
   // Use calculated calories from store (real-time calculation)
   const calories = totalCalories || 0;
 
-  // Trigger confetti effect on mount (only for new workouts, not historical)
+  // Commute summary detection. Both `confirmedSource` (live finish) and
+  // `historySource` (re-opening from profile history) carry the
+  // `sessionKind` tag the workout engine wrote at save time. Anything
+  // missing the tag is treated as a regular workout — back-compat with
+  // every workout doc that pre-dated commute mode.
+  const sessionKind = (historySource as WorkoutHistoryEntry | null)?.sessionKind
+    ?? confirmedSource?.sessionKind
+    ?? 'workout';
+  const isCommute = sessionKind === 'commute';
+  const xpEarned = (historySource as WorkoutHistoryEntry | null)?.xpEarned
+    ?? confirmedSource?.xpEarned
+    ?? 0;
+  const commuteLabel = (historySource as WorkoutHistoryEntry | null)?.commuteLabel
+    ?? confirmedSource?.commuteLabel
+    ?? null;
+
+  // Trigger confetti effect on mount (only for new workouts, not
+  // historical, and never for commutes — daily commutes are calm,
+  // not celebratory).
   useEffect(() => {
-    if (!isReadOnly) {
+    if (!isReadOnly && !isCommute) {
       setShowConfetti(true);
       // Simple confetti effect using framer-motion
       const timer = setTimeout(() => setShowConfetti(false), 2000);
       return () => clearTimeout(timer);
     }
-  }, [isReadOnly]);
+  }, [isReadOnly, isCommute]);
 
   // Format time
   const formatTime = (seconds: number): string => {
@@ -161,6 +179,27 @@ export default function FreeRunSummary({
       router.push('/home');
     }
   };
+
+  // ── Commute slim summary ────────────────────────────────────────────────
+  // Daily-commute sessions are intentionally NOT celebrated like
+  // workouts. The product brief calls for an "arrival confirmation"
+  // surface — total time, total distance, +XP chip, dismiss — and
+  // nothing else. No confetti, no coin badge, no laps table, no
+  // route-rating CTA. Strength flows live in their own summary route
+  // and never reach this component, so the early return is safe.
+  if (isCommute) {
+    return (
+      <CommuteSlimSummary
+        totalDistance={totalDistance}
+        totalDuration={totalDuration}
+        xpEarned={xpEarned}
+        commuteLabel={commuteLabel}
+        routeCoords={routeCoords}
+        isReadOnly={isReadOnly}
+        onDismiss={handleSaveAndClose}
+      />
+    );
+  }
 
   return (
     <div
@@ -397,6 +436,187 @@ export default function FreeRunSummary({
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * CommuteSlimSummary
+ * ──────────────────
+ * The minimal "you arrived" surface rendered when a session was a
+ * commute. Three pieces of information, one CTA, no celebration:
+ *   • Hero: a Flag check-in icon + "הגעת ליעד" + the destination label
+ *     (when known).
+ *   • Stats row: total time + total distance.
+ *   • XP chip: "+{xp} XP" — quiet acknowledgment that the streak still
+ *     ticked. Skipped silently when the session XP rounded to zero.
+ *   • Single primary CTA: "סיום" / "סגור" → handleSaveAndClose.
+ *
+ * The map block at the top is intentionally smaller (28vh vs 40vh in
+ * the workout summary) — a commute summary is glance-sized, not
+ * scroll-sized.
+ */
+function CommuteSlimSummary({
+  totalDistance,
+  totalDuration,
+  xpEarned,
+  commuteLabel,
+  routeCoords,
+  isReadOnly,
+  onDismiss,
+}: {
+  totalDistance: number;
+  totalDuration: number;
+  xpEarned: number;
+  commuteLabel: string | null;
+  routeCoords: number[][];
+  isReadOnly: boolean;
+  onDismiss: () => void;
+}) {
+  const formatTime = (seconds: number): string => {
+    if (!seconds || seconds < 0 || !Number.isFinite(seconds)) return '00:00';
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const distanceText =
+    totalDistance < 1
+      ? `${Math.round(totalDistance * 1000)} מ׳`
+      : `${totalDistance.toFixed(2)} ק״מ`;
+
+  return (
+    <div
+      className="fixed inset-0 z-20 flex flex-col h-screen bg-gray-50 font-sans pointer-events-auto"
+      style={{ fontFamily: 'var(--font-simpler)' }}
+      dir="rtl"
+    >
+      {/* Compact map hero — 28vh keeps the focus on the arrival
+          confirmation card below rather than on the route shape. */}
+      <div className="relative w-full" style={{ height: '28vh' }}>
+        {routeCoords.length > 0 ? (
+          <RunMapBlock
+            routeCoords={routeCoords}
+            startCoord={routeCoords[0]}
+            endCoord={routeCoords[routeCoords.length - 1]}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-100" />
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto pointer-events-auto relative z-[30]">
+        <div className="bg-white rounded-t-[32px] shadow-2xl min-h-full">
+          <div className="px-6 pt-8 pb-24">
+            {/* Hero — arrival confirmation. Uses cyan (commute accent)
+                rather than the workout green-checkmark, so the visual
+                language stays consistent with the destination pin. */}
+            <motion.div
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+              className="flex flex-col items-center text-center mb-6"
+            >
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-white mb-3"
+                style={{
+                  background: 'linear-gradient(135deg, #00E5FF 0%, #00ADEF 100%)',
+                  boxShadow: '0 8px 22px rgba(0, 173, 239, 0.35)',
+                }}
+              >
+                <Flag size={28} fill="white" strokeWidth={2.4} />
+              </div>
+              <h1 className="text-2xl font-black tracking-wide text-gray-900">הגעת ליעד</h1>
+              {commuteLabel && (
+                <p className="mt-1 text-sm font-semibold text-gray-500 max-w-[280px] truncate">
+                  {commuteLabel}
+                </p>
+              )}
+            </motion.div>
+
+            {/* Compact stats row — time + distance only. */}
+            <motion.div
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.08 }}
+              className="grid grid-cols-2 rounded-2xl ring-1 ring-black/5 overflow-hidden bg-gray-50"
+            >
+              <SlimStat
+                icon={<Clock size={16} className="text-[#0284C7]" />}
+                label="זמן"
+                value={formatTime(totalDuration)}
+              />
+              <div className="border-r border-black/5">
+                <SlimStat
+                  icon={<NavIcon size={16} className="text-[#0284C7]" />}
+                  label="מרחק"
+                  value={distanceText}
+                />
+              </div>
+            </motion.div>
+
+            {/* XP chip — only when the session paid out a non-zero
+                amount. Kept deliberately small so it reads as
+                acknowledgement, not celebration. */}
+            {xpEarned > 0 && (
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.16, type: 'spring', stiffness: 280, damping: 22 }}
+                className="mt-4 flex items-center justify-center"
+              >
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-50 ring-1 ring-cyan-100">
+                  <Sparkles size={12} className="text-[#00ADEF]" />
+                  <span className="text-xs font-black text-[#0284C7] tabular-nums">
+                    +{xpEarned} XP
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Single primary CTA — sticky to the bottom of the card so
+                it's reachable without scrolling on small phones. */}
+            <div
+              className="sticky bottom-0 bg-white px-0 py-4 mt-8 flex"
+              style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+            >
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="w-full py-4 rounded-xl font-bold bg-[#00ADEF] text-white hover:bg-[#00D4EE] transition-all shadow-md min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto"
+              >
+                {isReadOnly ? 'סגור' : 'סיום'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SlimStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="px-4 py-4 text-center">
+      <div className="flex items-center justify-center gap-1.5 text-gray-500 mb-1">
+        {icon}
+        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="text-xl font-black text-gray-900 tabular-nums" dir="ltr">
+        {value}
       </div>
     </div>
   );

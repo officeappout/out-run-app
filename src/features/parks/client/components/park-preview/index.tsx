@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { Pencil, Star, Loader2, ChevronUp } from 'lucide-react';
+import { Pencil, Star, Loader2, ChevronUp, Navigation } from 'lucide-react';
 import { useMapStore } from '../../../core/store/useMapStore';
 import { useShelterProximity } from '../../../core/hooks/useShelterProximity';
 import { formatShelterTagLabel } from '../../../core/services/shelter-proximity.service';
@@ -19,6 +19,7 @@ interface ParkPreviewProps {
 
 export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const { selectedPark, setSelectedPark } = useMapStore();
+  const setPendingCommute = useMapStore((s) => s.setPendingCommute);
   const { profile } = useUserStore();
   const shelterDecision = useShelterProximity({ park: selectedPark as any });
   const [suggestEditOpen, setSuggestEditOpen] = useState(false);
@@ -34,6 +35,19 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
     const km = haversineKm(userLocation.lat, userLocation.lng, selectedPark.location.lat, selectedPark.location.lng);
     return distanceLabel(km);
   }, [userLocation, selectedPark?.location]);
+
+  // Wire the "נווט" button into the unified commute flow. We don't
+  // open the commute carousel ourselves — DiscoverLayer subscribes to
+  // `pendingCommute` and handles the mapMode flip + carousel mount.
+  // Closing the park card here lets that overlay take the bottom of
+  // the screen without the two cards visually colliding.
+  const handleNavigate = useCallback(() => {
+    if (!selectedPark?.location) return;
+    setPendingCommute({
+      coords: [selectedPark.location.lng, selectedPark.location.lat],
+      label: selectedPark.name,
+    });
+  }, [selectedPark, setPendingCommute]);
 
   const handleRatingSubmit = useCallback(async () => {
     if (!userRating || !selectedPark || !profile?.id) return;
@@ -131,7 +145,18 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             </div>
           )}
 
-          {/* Expand to full detail + actions */}
+          {/* Primary CTA — funnels into the unified commute flow.
+              Sits ABOVE the secondary actions row so the Navigate
+              affordance is the obvious next step after picking a park. */}
+          <button
+            onClick={handleNavigate}
+            className="flex w-full items-center justify-center gap-2 py-3 bg-cyan-500 text-white text-sm font-black active:bg-cyan-600 transition-colors border-t border-gray-100 dark:border-zinc-700"
+          >
+            <Navigation size={15} fill="currentColor" />
+            נווט לפארק
+          </button>
+
+          {/* Secondary actions row */}
           <div className="flex border-t border-gray-100 dark:border-zinc-700">
             <button
               onClick={() => setDetailOpen(true)}

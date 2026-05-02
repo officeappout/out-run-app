@@ -12,7 +12,7 @@
  * All mode-specific UI lives in the layer components.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamicImport from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LocateFixed } from 'lucide-react';
@@ -208,6 +208,28 @@ export default function MapShell({ spotFocus }: MapShellProps) {
   const isActiveMode = mode === 'active' || mode === 'free_run';
   const showLivePath = isActiveMode && logic.isWorkoutActive;
 
+  // Memoise navigationTurns so AppMap's `turnArrowGeoJSON` memo can stay
+  // stable across MapShell re-renders. computeRouteTurns() builds a new
+  // array on every call — without this memo every GPS sample / parent
+  // re-render produced a fresh `navigationTurns` reference, which the
+  // child's <Source data> diff treated as new data and re-uploaded the
+  // entire turn-arrow GeoJSON to the GPU. Combined with React's normal
+  // 60 Hz cadence that's a buffer overflow waiting to happen.
+  const navigationTurns = useMemo(() => {
+    const path = logic.focusedRoute?.path;
+    if (!path) return null;
+    if (guidedRouteTurns && guidedRouteTurns.length > 0) return guidedRouteTurns;
+    return computeRouteTurns(path);
+  }, [logic.focusedRoute?.path, guidedRouteTurns]);
+
+  // ── Free-run carousel routes — overrides the discover/idle pipeline ──
+  // Set by RouteCarousel as soon as `generateDynamicRoutes` resolves so the
+  // user sees ALL swipeable route polylines on the map (not just the
+  // focused one) and the camera can fitBounds on the active card. Cleared
+  // on RouteCarousel unmount, at which point we fall back to the standard
+  // mode-driven `routesToDisplay` source below.
+  const freeRunCarouselRoutes = useMapStore((s) => s.freeRunCarouselRoutes);
+
   const mapRoutes = (() => {
     if (showLivePath) return logic.focusedRoute ? [logic.focusedRoute] : [];
     if (logic.navState === 'navigating') {
@@ -216,6 +238,16 @@ export default function MapShell({ spotFocus }: MapShellProps) {
         .filter((r): r is Route => r !== null)
         .map(r => ({ ...r, isFocused: r.id === logic.focusedRoute?.id }));
       if (navRoutes.length > 0) return navRoutes;
+    }
+    // Free-run carousel takes precedence over discover-mode routes so the
+    // user can preview all 3 generated options on the map without us having
+    // to mutate the global `allRoutes` pipeline (which would leak into the
+    // discover carousel after they exit free-run).
+    if (freeRunCarouselRoutes && freeRunCarouselRoutes.length > 0) {
+      return freeRunCarouselRoutes.map((r) => ({
+        ...r,
+        isFocused: r.id === logic.focusedRoute?.id,
+      }));
     }
     // Gate: only show route lines when a route is focused (user is in discover mode).
     // This keeps the map clean in idle state.
@@ -283,6 +315,8 @@ export default function MapShell({ spotFocus }: MapShellProps) {
           userPersonaId={profile?.personaId}
           onPartnerClick={(p) => setMapProfileUser({ uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage })}
           mapMode={mode}
+          activityType={contextActivity}
+          navigationTurns={navigationTurns}
         />
       </div>
 

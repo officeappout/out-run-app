@@ -132,13 +132,18 @@ export default function RouteStoryBar({
       style={{ fontFamily: 'var(--font-simpler)' }}
       dir="rtl"
     >
-      {/* Stats row — Hebrew label on the right, numeric value on the left */}
+      {/* Stats row — Hebrew label on the right (RTL start), numeric
+          "current / target unit" on the left (RTL end). The value is
+          rendered larger and brighter than the label so the user can
+          glance at the bar mid-stride and immediately read what
+          they're aiming for ("1.2 / 5.0 ק״מ"), per the field-test
+          spec on goal-target visibility. */}
       {(label || valueText) && (
-        <div className="flex items-baseline justify-between mb-2">
+        <div className="flex items-baseline justify-between mb-1.5">
           {/* Label — right side (RTL start) */}
           {label ? (
             <span
-              className="text-[11px] font-black tracking-widest uppercase"
+              className="text-[10px] font-black tracking-[0.18em] uppercase opacity-80"
               style={{ color }}
             >
               {label}
@@ -147,13 +152,17 @@ export default function RouteStoryBar({
             <span />
           )}
 
-          {/* Value — left side (RTL end), always LTR numerics */}
+          {/* Value — left side (RTL end), always LTR numerics. Bumped
+              from text-[13px] → text-[14px] and given a tiny accent
+              "underline" via the opacity-100 colour so the target
+              after the slash reads clearly. The value is the primary
+              affordance here; the label is just a quiet caption. */}
           {valueText ? (
             <span
-              className="text-[13px] font-black tabular-nums"
+              className="text-[14px] font-black tabular-nums leading-none"
               dir="ltr"
               style={{
-                color: onMap ? 'rgba(255,255,255,0.90)' : 'rgba(0,0,0,0.75)',
+                color: onMap ? 'rgba(255,255,255,0.96)' : 'rgba(15,23,42,0.92)',
                 letterSpacing: '-0.01em',
               }}
             >

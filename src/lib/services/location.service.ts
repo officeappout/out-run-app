@@ -22,8 +22,17 @@ export interface LocationWatchOptions {
 const DEFAULT_OPTIONS: Required<LocationWatchOptions> = {
   enableHighAccuracy: true,
   maximumAge: 1000, // Accept cached positions up to 1 second old
-  timeout: 10000, // Wait up to 10 seconds for a position
-  accuracyThreshold: 25, // Only accept positions accurate to 25 meters or better
+  // Bumped 10s → 20s. `timeout` applies between successive fixes inside
+  // `watchPosition`: if the device can't get a sky-view fix for 10 s
+  // (subway entrance, indoor->outdoor transition, dense canopy) the
+  // browser fires `TIMEOUT` and the watch loses momentum. 20 s rides out
+  // those tunnels gracefully without changing steady-state behaviour.
+  timeout: 20000,
+  // Bumped 25 → 50 m: 25 m was rejecting too many samples in real-world
+  // urban tests (especially near tall buildings / partial sky cover) so
+  // pace and lap distance never updated. 50 m still rejects truly bad
+  // fixes (consumer GPS without sky view typically reports 100+ m).
+  accuracyThreshold: 50,
 };
 
 /**

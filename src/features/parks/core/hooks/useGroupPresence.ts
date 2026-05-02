@@ -88,17 +88,37 @@ export function useGroupPresence(
         const data = d.data();
         if (data.mode === 'ghost') return;
         if (data.uid === currentUid) return;
-        if (!data.activity?.status) return;
+
+        // INTENTIONALLY no `if (!data.activity?.status) return;` here.
+        // The map heartbeat in `usePresenceLayer.ts` writes presence
+        // WITHOUT an `activity` block whenever the user just has the
+        // map open and isn't running a workout. Filtering those out
+        // made every idle user invisible to every other idle user —
+        // i.e. "two logged-in users open the map and can't see each
+        // other". Idle pins still render (with `activityStatus: ''`),
+        // and the activity-based filter in AppMap (`partnerActivity
+        // Filter`) correctly drops them only when the user has
+        // explicitly narrowed the filter to a specific activity.
 
         if (groupSessionId && memberIds) {
           if (!memberIds.includes(data.uid)) return;
         }
 
+        // Drop docs with missing/non-finite coords. The previous `?? 0`
+        // fallback rescued the React <Marker> tier from a crash but
+        // pinned the partner to [0,0] (Gulf of Guinea) AND still leaked
+        // the null down to AppMap's GeoJSON sources where Mapbox throws
+        // "Expected value to be of type number, but found null instead".
+        const rawLat = data.lat;
+        const rawLng = data.lng;
+        if (typeof rawLat !== 'number' || typeof rawLng !== 'number') return;
+        if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return;
+
         results.push({
           uid: data.uid,
           name: data.name ?? '',
-          lat: data.lat ?? 0,
-          lng: data.lng ?? 0,
+          lat: rawLat,
+          lng: rawLng,
           color: getColor(data.uid),
           activityStatus: data.activity?.status ?? '',
           groupSessionId: data.groupSessionId,
@@ -108,7 +128,25 @@ export function useGroupPresence(
         });
       });
       setPositions(results);
-    }, () => {});
+    }, (err: any) => {
+      // Surface listener errors instead of swallowing. The most common
+      // cause in production is App Check rejecting the request when
+      // NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing — silently failing
+      // here is exactly why "Device B sees zero partners" was so hard
+      // to diagnose. Distinguish permission errors so devs know to
+      // check App Check / security rules first.
+      const code = err?.code ?? '(no code)';
+      if (code === 'permission-denied') {
+        console.error(
+          '[useGroupPresence] Firestore presence listener PERMISSION-DENIED. ' +
+            'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) and Firestore rules ' +
+            'on the `presence` collection. Partners will NOT render until this is fixed.',
+          err,
+        );
+      } else {
+        console.warn('[useGroupPresence] Firestore presence listener error:', code, err);
+      }
+    });
 
     return () => unsubRef.current?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -22,6 +22,18 @@ import {
 import { auth } from './firebase';
 
 /**
+ * localStorage key holding a "previously authenticated" hint. Read by
+ * the landing page (`src/app/page.tsx`) on first paint to decide
+ * whether to show the branded splash (returning user — Firebase is
+ * about to restore the session) or the marketing/login UI immediately
+ * (brand-new visitor). Written here on every positive auth emission;
+ * cleared explicitly in `signOutUser`. Never cleared during a
+ * transient null emit (e.g. token refresh) so the splash stays sticky
+ * across reloads.
+ */
+const SESSION_HINT_KEY = 'out:has-session';
+
+/**
  * Sign up a new user
  * Creates user profile with isApproved: false (pending approval)
  */
@@ -257,6 +269,11 @@ export async function signOutUser() {
     // still proceed — the cookie has a 1-hour TTL and the middleware
     // will reject it on next /admin/* access anyway.
     if (typeof window !== 'undefined') {
+      // Clear the splash-screen hint here (and ONLY here) — see the
+      // SESSION_HINT_KEY comment at the top of this file. Doing it
+      // before signOut() ensures a same-tick reload after logout
+      // shows the landing page immediately, never the splash.
+      try { window.localStorage.removeItem(SESSION_HINT_KEY); } catch { /* quota / private mode */ }
       try {
         await fetch('/api/auth/session', {
           method: 'DELETE',
@@ -285,6 +302,17 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   const retryDelay = 1000; // 1 second
 
   const wrappedCallback = async (user: User | null) => {
+    // Persist a "had a session" hint on every positive auth emission so
+    // the next cold-open of `/` knows to render the branded splash
+    // (instead of flashing the landing page) while Firebase restores.
+    // Only WRITE here — the hint is cleared exclusively in
+    // signOutUser(). This avoids wiping the hint during a transient
+    // null emit such as a token refresh, which would otherwise re-open
+    // the flicker we're trying to kill.
+    if (typeof window !== 'undefined' && user) {
+      try { window.localStorage.setItem(SESSION_HINT_KEY, '1'); } catch { /* quota / private mode */ }
+    }
+
     try {
       await callback(user);
       retryCount = 0; // Reset on success

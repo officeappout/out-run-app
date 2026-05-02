@@ -10,6 +10,11 @@ import { watchPosition, clearWatch, calculateDistance } from '@/lib/services/loc
 import type RunWorkout from '../types/run-workout.type';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
+// Direct sibling import — both stores live under workout-engine/* with no
+// circular concern (core never imports from players). Using a static import
+// instead of the previous `require()`-inside-try/catch eliminates the silent
+// failure path that left totalDistance stuck at 0 when bundler cache hiccuped.
+import { useSessionStore } from '../../../core/store/useSessionStore';
 
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
@@ -49,6 +54,37 @@ export type SessionGoalType = 'distance' | 'time' | 'calories';
 export interface SessionGoal {
   type: SessionGoalType;
   value: number;
+}
+
+/**
+ * The intent of the current running session.
+ *
+ *   'workout'  → traditional Free-Run loop session (default behaviour).
+ *                Awards running XP, full StatsCarousel HUD, full
+ *                celebratory summary.
+ *
+ *   'commute'  → A-to-B commute. Awards commute XP at a slimmer rate
+ *                (no distance bonus), HUD swaps to ETA-focused
+ *                CommuteStatsCarousel, summary collapses to a slim
+ *                "arrival confirmation" variant.
+ *
+ * Named `RunSessionIntent` (rather than the more obvious
+ * `SessionMode`) because the workout-engine core already exports a
+ * `SessionMode` union of activity types (running | walking | strength
+ * | hybrid | idle). Two different meanings for the same name across
+ * the engine would be a constant source of import confusion.
+ *
+ * Set by `setCommuteContext(ctx)` BEFORE `startActiveWorkout()` so the
+ * pre-flight chain (clearRunningData → initializeRunningData) does not
+ * race with the intent. Cleared by `finishWorkout` after the commute
+ * session is persisted.
+ */
+export type RunSessionIntent = 'workout' | 'commute';
+
+export interface CommuteContext {
+  destination: { lat: number; lng: number };
+  /** Optional human-readable label shown on the destination chip / summary. */
+  label?: string;
 }
 
 interface RunningPlayerState {
@@ -158,6 +194,26 @@ interface RunningPlayerState {
   // See SessionGoal jsdoc for unit conventions.
   sessionGoal: SessionGoal | null;
 
+  // ── Commute Mode (A-to-B navigation) ─────────────────────────────
+  // sessionMode is the SINGLE switch that all commute-vs-workout UI
+  // and reward branching reads from. It is intentionally separate from
+  // `runMode` (free | plan | my_routes), which describes WHICH route
+  // template a workout uses, while sessionMode describes WHY the user
+  // is moving (workout vs daily-life navigation).
+  //
+  // commuteContext carries the destination metadata (coordinates +
+  // label) so the post-workout summary and the commute HUD can
+  // reference where the user was heading without re-querying any
+  // cross-store state.
+  //
+  // Both are preserved across clearRunningData on purpose — they
+  // represent the ABOUT-TO-START session's intent, set BEFORE
+  // startActiveWorkout reaches the clear/initialise pre-flight. They
+  // are reset by `finishWorkout` (after persistence) and by
+  // `clearCommuteContext()` for the explicit user-cancel path.
+  sessionMode: RunSessionIntent;
+  commuteContext: CommuteContext | null;
+
   // Actions
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
   setActivityType: (type: 'running' | 'walking') => void;
@@ -184,6 +240,18 @@ interface RunningPlayerState {
   setGuidedRouteDistanceKm: (km: number | null) => void;
   setGuidedRouteTurns: (turns: RouteTurn[] | null) => void;
   setSessionGoal: (goal: SessionGoal | null) => void;
+  /**
+   * Stage a commute session. Sets sessionMode → 'commute' AND stashes
+   * the destination context. Must be called BEFORE startActiveWorkout
+   * so the upcoming session is born commute-flavoured.
+   */
+  setCommuteContext: (ctx: CommuteContext) => void;
+  /**
+   * Drop the commute intent (e.g. user cancels before starting, or
+   * after the commute summary is dismissed). Resets sessionMode →
+   * 'workout' and nulls the destination context.
+   */
+  clearCommuteContext: () => void;
   setView: (view: 'main' | 'laps') => void;
   setLastViewport: (vp: any) => void;
   
@@ -277,6 +345,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // Free-Run Session Goal — null until FreeRunDrawer pushes one.
   sessionGoal: null,
 
+  // Commute mode — defaults to 'workout' so existing flows are untouched.
+  sessionMode: 'workout',
+  commuteContext: null,
+
   // Setters
   setRunMode: (mode) => set({ runMode: mode }),
   setActivityType: (type) => set({ activityType: type }),
@@ -357,6 +429,22 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   setGuidedRouteDistanceKm: (km) => set({ guidedRouteDistanceKm: km }),
   setGuidedRouteTurns: (turns) => set({ guidedRouteTurns: turns }),
   setSessionGoal: (goal) => set({ sessionGoal: goal }),
+
+  setCommuteContext: (ctx) =>
+    set({
+      sessionMode: 'commute',
+      commuteContext: {
+        destination: { lat: ctx.destination.lat, lng: ctx.destination.lng },
+        label: ctx.label,
+      },
+    }),
+
+  clearCommuteContext: () =>
+    set({
+      sessionMode: 'workout',
+      commuteContext: null,
+    }),
+
   setView: (view) => set({ view }),
   setLastViewport: (vp) => set({ lastViewport: vp }),
   
@@ -568,10 +656,23 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     if (typeof window !== 'undefined') requestWakeLock();
 
     // ── Shared: duration ticker (runs in both real and sim modes) ──────
+    // SINGLE source of truth for "one second has elapsed". Drives BOTH:
+    //   • laps[active].durationSeconds  (consumed by LapMetrics)
+    //   • useSessionStore.totalDuration (consumed by MainMetrics)
+    // Previously these were ticked by two independent timers, which is how
+    // the time field could freeze on one slide while the other ticked. The
+    // session store self-gates on status==='active' so paused sessions stop
+    // accumulating totalDuration cleanly. (Lap-side gating is a separate
+    // concern handled at pause/resume; not addressed by this commit.)
     const durationInterval = setInterval(() => {
       const { laps, settings } = get();
       const activeLap = laps.find(l => l.isActive);
       if (!activeLap) return;
+
+      // Tick the universal session timer FIRST so MainMetrics' totalDuration
+      // and the lap-side counter advance on the same frame. tick() is a
+      // no-op while status !== 'active', so this is pause-safe.
+      useSessionStore.getState().tick();
 
       const newDuration = activeLap.durationSeconds + 1;
       let updatedLaps = laps.map(lap =>
@@ -613,9 +714,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
     let lastPos: { lat: number; lng: number } | null = null;
     let lastTimestamp: number | null = null;
-    const DISTANCE_THRESHOLD = 5;
-    const MIN_SPEED_MS = 0.5;
-    const MAX_PACE_MIN_KM = 15;
+    // ── Movement gate (TEMPORARILY relaxed for live-data verification) ───
+    // Was 5 m: a calibration point that suppressed urban GPS jitter at the
+    // cost of "nothing happening" feedback for the first 10–20 seconds.
+    // Lowered to 1 m so any non-trivial position update reaches the metrics
+    // card immediately. Expect noisier KM under stationary conditions until
+    // we restore the production value (5 m) once the data flow is verified.
+    const DISTANCE_THRESHOLD = 1;
+    // MIN_SPEED_MS / MAX_PACE_MIN_KM widened in tandem so a slow walk
+    // (≈1 m/s, which would otherwise compute as ~16.7 min/km and be
+    // rejected by the previous 15 cap) still produces a non-zero pace.
+    const MIN_SPEED_MS = 0.3;
+    const MAX_PACE_MIN_KM = 30;
 
     const watchId = watchPosition(
       (location) => {
@@ -655,10 +765,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             get().addCoord([lng, lat]);
             get().addBlockDistance(distanceDelta);
 
-            try {
-              const { useSessionStore } = require('@/features/workout-engine/core/store/useSessionStore');
-              useSessionStore.getState().updateDistance(distanceDelta / 1000);
-            } catch { /* session store unavailable */ }
+            // Direct, statically-imported call. The previous require()-in-
+            // try/catch silently swallowed module resolution errors and was
+            // the primary suspect for KM staying at 0.00 during a workout
+            // (Investigation Finding 1A).
+            useSessionStore.getState().updateDistance(distanceDelta / 1000);
 
             const now = Date.now();
             const timeDeltaSeconds = lastTimestamp ? (now - lastTimestamp) / 1000 : 0;
@@ -730,8 +841,15 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       {
         enableHighAccuracy: true,
         maximumAge: 1000,
-        timeout: 10000,
-        accuracyThreshold: 25,
+        // 20 s (was 10 s) — `timeout` between successive watchPosition
+        // fixes. 10 s was firing TIMEOUT errors in dense urban canyons
+        // and breaking the watch mid-run; 20 s rides out short
+        // sky-view gaps (tunnels, indoor-outdoor transitions) without
+        // affecting steady-state cadence.
+        timeout: 20000,
+        // Loosened 25 → 50 m so urban GPS samples pass through and
+        // distance / pace / lap stats actually update during testing.
+        accuracyThreshold: 50,
       }
     );
 
@@ -790,13 +908,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     const weightSum = weights.reduce((a, b) => a + b, 0);
     const smoothedPace = newHistory.reduce((sum, p, i) => sum + p * weights[i], 0) / weightSum;
 
-    let totalDistanceKm = 0;
-    if (typeof window !== 'undefined') {
-      try {
-        const { useSessionStore } = require('@/features/workout-engine/core/store/useSessionStore');
-        totalDistanceKm = useSessionStore.getState().totalDistance || 0;
-      } catch { totalDistanceKm = 0; }
-    }
+    // Direct read — same rationale as the GPS callback fix. The static
+    // import at the top of this file guarantees the store is reachable;
+    // the previous try/catch could mask bundler races and yield 0 calories.
+    const totalDistanceKm = useSessionStore.getState().totalDistance || 0;
 
     let userWeight = 70;
     if (typeof window !== 'undefined') {
@@ -841,8 +956,24 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   
   // Initialize running data (called when workout starts)
   initializeRunningData: () => {
+    const seedLap = {
+      id: '1',
+      lapNumber: 1,
+      distanceMeters: 0,
+      durationSeconds: 0,
+      splitPace: 0,
+      isActive: true,
+    };
+    // ── DEBUG: prove the first lap object is being seeded into the store
+    // at workout-start. If the user reports "slide 2 is empty during a
+    // workout", the absence of this log indicates `_doStartActiveWorkout`
+    // never ran — meaning the active-workout chrome rendered, but the
+    // session never actually transitioned to 'active'. Remove with the
+    // rest of the temporary debug instrumentation.
+    // eslint-disable-next-line no-console
+    console.log('[useRunningPlayer.initializeRunningData] seeding first lap', seedLap);
     set({
-      laps: [{ id: '1', lapNumber: 1, distanceMeters: 0, durationSeconds: 0, splitPace: 0, isActive: true }],
+      laps: [seedLap],
       currentPace: 0,
       routeCoords: [],
       routeZones: [],
@@ -907,7 +1038,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // social feed post) is written here. FreeRunSummary and WorkoutSummaryPage
   // must NOT call saveWorkout() — they are display-only after this runs.
   finishWorkout: async () => {
-    const { stopGPSTracking, totalCalories, routeCoords, activityType, currentPace, guidedRouteId, laps, elevationGain } = get();
+    const { stopGPSTracking, totalCalories, routeCoords, activityType, currentPace, guidedRouteId, laps, elevationGain, sessionMode, commuteContext } = get();
+    const isCommute = sessionMode === 'commute';
     
     // Stop all timers and GPS tracking first
     stopGPSTracking();
@@ -948,15 +1080,26 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           const durationMinutes = Math.max(Math.round(safeDuration / 60), 1);
 
           // ── XP calculation (must happen BEFORE save so xpEarned is on doc) ──
+          // Commute sessions use a slimmer formula (no distance bonus,
+          // gentler base rate) so that a 10-minute walk to work doesn't
+          // pay the same XP as a 10-minute training run. See
+          // calculateCommuteXP in xp.service.ts for the trade-off
+          // rationale and config in xp-rules.ts.
           const { useProgressionStore } = await import('@/features/user/progression/store/useProgressionStore');
-          const { calculateRunningWorkoutXP } = await import('@/features/user/progression/services/xp.service');
+          const { calculateRunningWorkoutXP, calculateCommuteXP } = await import('@/features/user/progression/services/xp.service');
           const progressionState = useProgressionStore.getState();
-          const sessionXP = calculateRunningWorkoutXP({
-            durationMinutes,
-            distanceKm: safeDistance,
-            streak: progressionState.currentStreak,
-            activityType: (activityType as 'running' | 'walking') ?? 'running',
-          });
+          const sessionXP = isCommute
+            ? calculateCommuteXP({
+                durationMinutes,
+                distanceKm: safeDistance,
+                streak: progressionState.currentStreak,
+              })
+            : calculateRunningWorkoutXP({
+                durationMinutes,
+                distanceKm: safeDistance,
+                streak: progressionState.currentStreak,
+                activityType: (activityType as 'running' | 'walking') ?? 'running',
+              });
 
           // ── Coins (respect feature flag) ──────────────────────────────
           const { IS_COIN_SYSTEM_ENABLED } = await import('@/config/feature-flags');
@@ -976,6 +1119,12 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           }
 
           // ── Build the single authoritative workout document ───────────
+          // Commute sessions are tagged via `sessionKind: 'commute'` plus
+          // the optional destination metadata. We deliberately do NOT
+          // change `workoutType` (which stays 'running') so existing
+          // history filters / category groupings still see the activity
+          // — the slim summary screen branches on `sessionKind` to
+          // hide celebratory chrome.
           const workoutPayload = {
             userId: currentUser.uid,
             activityType: activityType || 'running',
@@ -991,6 +1140,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             ...(safeElevation !== undefined ? { elevationGain: safeElevation } : {}),
             ...(guidedRouteId ? { routeId: guidedRouteId } : {}),
             ...(detectedPark ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName } : {}),
+            ...(isCommute
+              ? {
+                  sessionKind: 'commute' as const,
+                  ...(commuteContext
+                    ? {
+                        commuteDestination: [
+                          commuteContext.destination.lng,
+                          commuteContext.destination.lat,
+                        ] as [number, number],
+                        ...(commuteContext.label ? { commuteLabel: commuteContext.label } : {}),
+                      }
+                    : {}),
+                }
+              : {}),
           };
 
           console.log('🚀 [useRunningPlayer] Saving workout (single write)...', {
@@ -1044,8 +1207,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             }).catch(() => {});
           }
 
-          // Social feed post
-          if (workoutSaved) {
+          // Social feed post — skipped for commutes by design. Daily
+          // commutes are private by default (a school-run shouldn't
+          // become a public broadcast). When/if we add a "share my
+          // commute" toggle, gate this branch on that opt-in flag.
+          if (workoutSaved && !isCommute) {
             import('@/features/social/services/feed.service').then(async ({ createWorkoutPost }) => {
               const { extractFeedScope } = await import('@/features/social/services/feed-scope.utils');
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
@@ -1066,13 +1232,28 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             }).catch(() => {});
           }
 
-          // Award XP via Guardian (authoritative server write)
-          progressionState.awardRunningXP({
-            durationMinutes,
-            distanceKm: safeDistance,
-            streak: progressionState.currentStreak,
-            activityType: (activityType as 'running' | 'walking') ?? 'running',
-          }).catch((e) => console.warn('[useRunningPlayer] awardRunningXP failed:', e));
+          // Award XP via Guardian (authoritative server write).
+          // Commute and workout sessions go through the same Guardian
+          // Cloud Function (`awardWorkoutXP`) but with different
+          // `source` strings so the audit log can distinguish them.
+          if (isCommute) {
+            progressionState
+              .awardCommuteXP({
+                durationMinutes,
+                distanceKm: safeDistance,
+                streak: progressionState.currentStreak,
+              })
+              .catch((e) => console.warn('[useRunningPlayer] awardCommuteXP failed:', e));
+          } else {
+            progressionState
+              .awardRunningXP({
+                durationMinutes,
+                distanceKm: safeDistance,
+                streak: progressionState.currentStreak,
+                activityType: (activityType as 'running' | 'walking') ?? 'running',
+              })
+              .catch((e) => console.warn('[useRunningPlayer] awardRunningXP failed:', e));
+          }
 
           // Coins
           if (safeCalories > 0) {
@@ -1112,6 +1293,19 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         }
       } finally {
         set({ guidedRouteId: null, guidedRouteName: null, guidedRouteDistanceKm: null, guidedRouteTurns: null });
+        // Drop commute intent + map pin once the session is persisted.
+        // The slim FreeRunSummary reads the commute flag from
+        // `savedWorkoutSnapshot.sessionKind`, not from this in-memory
+        // context, so clearing here doesn't break the summary screen.
+        if (isCommute) {
+          set({ sessionMode: 'workout', commuteContext: null });
+          if (typeof window !== 'undefined') {
+            try {
+              const { useMapStore } = await import('@/features/parks/core/store/useMapStore');
+              useMapStore.getState().setCommuteDestination(null);
+            } catch { /* non-fatal */ }
+          }
+        }
       }
     }
   },

@@ -46,12 +46,20 @@ interface MapStore {
   /**
    * Master visibility toggle for live partner markers on the map. Distinct
    * from `partnerActivityFilter`: this controls whether ANY partner pins
-   * are drawn at all, regardless of which activity is selected. Default
-   * `false` so the base map stays clean for users who never open the
-   * partner finder. Flipped to `true` when:
+   * are drawn at all, regardless of which activity is selected.
+   *
+   * Default `true` so two logged-in users who both open the map can see
+   * each other immediately, without needing to discover the layers panel
+   * first. Previously defaulted to `false`, which combined with the
+   * `useGroupPresence` "no idle users" filter to make presence invisible
+   * by default — exactly the "Device A and Device B can't see each
+   * other" symptom we were fixing.
+   *
+   * Still flipped to `true` explicitly when:
    *   - The PartnerOverlay mounts (user explicitly opened the finder)
    *   - The "משתמשים פעילים" row in MapLayersControl applies a filter
-   * Never auto-resets — once enabled it stays on for the session.
+   * Users who want a clean map can toggle it off via the layers panel;
+   * once changed it stays for the session.
    */
   liveUsersVisible: boolean;
   /**
@@ -136,6 +144,94 @@ interface MapStore {
    */
   metricsCardPosition: 'top' | 'bottom';
   setMetricsCardPosition: (pos: 'top' | 'bottom') => void;
+  /**
+   * Rendered height (px) of TurnCarousel. Written by TurnCarousel via a
+   * ResizeObserver and reset to 0 on unmount. Used by useDraggableMetrics
+   * to position the metrics card's top snap dynamically below the nav card.
+   */
+  navCardHeight: number;
+  setNavCardHeight: (h: number) => void;
+  /**
+   * Rendered height (px) of the floating RouteStoryBar. Written by
+   * FreeRunActive via a ResizeObserver and reset to 0 on unmount. Used by
+   * TurnCarousel to position itself directly BELOW the bar so the bar is
+   * never occluded by the navigation cards.
+   */
+  storyBarHeight: number;
+  setStoryBarHeight: (h: number) => void;
+  /**
+   * Index of the currently-selected turn card in TurnCarousel. Written by
+   * TurnCarousel whenever the user swipes (or GPS auto-advances) to a new
+   * card. Read by AppMap to render the ground arrow icon ONLY at the
+   * active turn's coordinates, not for the whole route. -1 = no selection.
+   */
+  activeTurnIdx: number;
+  setActiveTurnIdx: (i: number) => void;
+  /**
+   * Generated routes currently displayed in the free-run RouteCarousel.
+   *
+   * Written by RouteCarousel as soon as `generateDynamicRoutes` resolves so
+   * MapShell can pipe the list into AppMap's `routes` prop and the user
+   * sees all swipeable polylines on the map (NOT just the focused one).
+   * Cleared on RouteCarousel unmount so the map returns to its default
+   * mode-based source after the user starts a workout, taps back to the
+   * config drawer, or exits free-run entirely.
+   *
+   * `null` = no override, MapShell uses its standard `routesToDisplay`
+   * pipeline; non-null array (even empty) = override the map source.
+   */
+  freeRunCarouselRoutes: Route[] | null;
+  setFreeRunCarouselRoutes: (routes: Route[] | null) => void;
+  /**
+   * Currently-active commute destination — set when the user picks a
+   * generic address from search (or taps a Home/Work shortcut) and the
+   * commute RouteCarousel mounts. Stored as `[lng, lat]` to match the
+   * Mapbox-native ordering used by SearchSuggestion / SavedPlace, so
+   * the data flows end-to-end without coordinate-order swaps.
+   *
+   * Cleared when the user backs out of the commute carousel or starts
+   * a workout. AppMap subscribes to this to render the premium
+   * destination pin (DestinationMarker) at the chosen point.
+   *
+   * `null` = no commute in flight; non-null = an A-to-B target is
+   * pinned and the destination marker should be visible.
+   */
+  commuteDestination: { coords: [number, number]; label?: string } | null;
+  setCommuteDestination: (
+    target: { coords: [number, number]; label?: string } | null,
+  ) => void;
+  /**
+   * One-shot commute request. Written by entity cards (ParkPreview /
+   * RouteDetailSheet "Navigate" buttons) when the user wants to commute
+   * to a park or route start. DiscoverLayer subscribes and consumes in
+   * a useEffect — same pattern as `pendingPartnerOverlay` /
+   * `pendingDeepLink` so the request can't get re-fired across renders.
+   *
+   * Decoupled via the store (rather than a prop callback) because
+   * entity cards are mounted globally — they don't have a parent that
+   * owns the local `mapMode` state.
+   */
+  pendingCommute: { coords: [number, number]; label?: string } | null;
+  setPendingCommute: (
+    target: { coords: [number, number]; label?: string } | null,
+  ) => void;
+  consumePendingCommute: () => { coords: [number, number]; label?: string } | null;
+  /**
+   * Monotonic counter that AppMap bumps whenever a click on the Mapbox
+   * canvas falls through every interactive layer (no park / route /
+   * pin / facility hit). Acts as a one-shot signal for "the user
+   * tapped empty map" without coupling AppMap to the route / commute
+   * state machines.
+   *
+   * Subscribers (e.g. DiscoverLayer's commute branch) react in a
+   * useEffect and decide what to do based on their local context —
+   * commute mode treats it as "exit and clear destination", other
+   * modes can ignore it. We use a counter rather than a boolean
+   * because two empty taps in a row would otherwise look identical
+   * to React and miss the second event.
+   */
+  mapEmptyTapTick: number;
+  bumpMapEmptyTapTick: () => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -147,7 +243,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
   globalSheet: null,
   bottomNavSuppressionCount: 0,
   partnerActivityFilter: 'all',
-  liveUsersVisible: false,
+  liveUsersVisible: true,
   pendingPartnerOverlay: null,
   walkToRouteMinutes: null,
   walkSteps: null,
@@ -189,4 +285,23 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setTurnFlyToTarget: (target) => set({ turnFlyToTarget: target }),
   metricsCardPosition: 'top',
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
+  navCardHeight: 0,
+  setNavCardHeight: (h) => set({ navCardHeight: h }),
+  storyBarHeight: 0,
+  setStoryBarHeight: (h) => set({ storyBarHeight: h }),
+  activeTurnIdx: -1,
+  setActiveTurnIdx: (i) => set({ activeTurnIdx: i }),
+  freeRunCarouselRoutes: null,
+  setFreeRunCarouselRoutes: (routes) => set({ freeRunCarouselRoutes: routes }),
+  commuteDestination: null,
+  setCommuteDestination: (target) => set({ commuteDestination: target }),
+  pendingCommute: null,
+  setPendingCommute: (target) => set({ pendingCommute: target }),
+  consumePendingCommute: () => {
+    const current = get().pendingCommute;
+    if (current) set({ pendingCommute: null });
+    return current;
+  },
+  mapEmptyTapTick: 0,
+  bumpMapEmptyTapTick: () => set((s) => ({ mapEmptyTapTick: s.mapEmptyTapTick + 1 })),
 }));

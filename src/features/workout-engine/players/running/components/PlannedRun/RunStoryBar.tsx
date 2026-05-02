@@ -79,7 +79,14 @@ export default function RunStoryBar({
               <div
                 className="absolute inset-y-0 right-0 rounded-full"
                 style={{
-                  width: `${fillProgress * 100}%`,
+                  // 1 % floor on the current block's fill — without it the
+                  // active segment paints at 0 px the moment a block starts,
+                  // making the bar look stalled until the first telemetry
+                  // tick lands. The sliver makes the HUD feel "live" the
+                  // instant the block begins. Mirrors the same floor used
+                  // on the FreeRun goal bar (see FreeRunActive.tsx) so both
+                  // active-workout HUDs share one progress contract.
+                  width: `${Math.max(1, fillProgress * 100)}%`,
                   backgroundColor: color,
                   boxShadow: `0 0 6px ${color}80`,
                   transition: isPaused ? 'none' : 'width 0.1s linear',

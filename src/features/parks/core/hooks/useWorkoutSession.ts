@@ -110,12 +110,19 @@ export function useWorkoutSession(
     }
   }, [isWorkoutActive, routeCoords]);
 
-  // Timer — keeps elapsedTime for the HUD and ticks the session store
+  // Timer — local HUD-only ticker for `elapsedTime` (wall-clock since start).
+  //
+  // The session store's `totalDuration` is now ticked by useRunningPlayer's
+  // `durationInterval` inside `startGPSTracking()` so MainMetrics +
+  // LapMetrics stay in lockstep with a single source of truth. Calling
+  // `tick()` here too would double-count, so it has been removed. This
+  // hook keeps its own interval purely to drive the local `elapsedTime`
+  // state used by HUD overlays that consume `runDistance`/`runPace` next
+  // to a wall-clock readout.
   useEffect(() => {
     if (!isWorkoutActive || isWorkoutPaused || !workoutStartTime) return;
     const interval = setInterval(() => {
       setElapsedTime(Math.floor((Date.now() - workoutStartTime) / 1000));
-      try { useSessionStore.getState().tick(); } catch { /* ignore */ }
     }, 1000);
     return () => clearInterval(interval);
   }, [isWorkoutActive, isWorkoutPaused, workoutStartTime]);

@@ -110,14 +110,25 @@ function docToMarker(data: Record<string, unknown>, id: string): PresenceMarker 
 
   if (Date.now() - updatedAt.getTime() > STALE_MS) return null;
 
+  // Coords MUST be finite numbers. The `as number` cast is a TypeScript
+  // assertion only — Firestore docs that landed mid-write (or were seeded
+  // before the heartbeat got a GPS fix) can carry literal `null`/missing
+  // lat/lng. Returning a marker with non-finite coords would propagate to
+  // Mapbox's GeoJSON validator as `Expected value to be of type number,
+  // but found null instead`. Drop the doc entirely instead.
+  const rawLat = data.lat;
+  const rawLng = data.lng;
+  if (typeof rawLat !== 'number' || typeof rawLng !== 'number') return null;
+  if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return null;
+
   return {
     uid: id,
     name: (data.name as string) ?? '',
     ageGroup: (data.ageGroup as 'minor' | 'adult') ?? 'adult',
     isVerified: (data.isVerified as boolean) ?? false,
     schoolName: (data.schoolName as string) ?? null,
-    lat: data.lat as number,
-    lng: data.lng as number,
+    lat: rawLat,
+    lng: rawLng,
     updatedAt,
     activity: data.activity as PresenceActivity | undefined,
     lemurStage: data.lemurStage as number | undefined,
@@ -202,6 +213,14 @@ export function usePresenceLayer(
     const getPayload = (): PresencePayload | null => {
       const s = stateRef.current;
       if (!currentLocation || !s.userId) return null;
+      // Hard guard against non-finite coords. `currentLocation` flows from
+      // upstream (effectivePos in MapShell) which can momentarily produce
+      // an object with null lat/lng during mock-location toggles, GPS
+      // permission flips, or simulated-mode swaps. Writing those raw
+      // would either trigger Firebase's "Expected number" assertion or
+      // pin the user to [0,0] in the Gulf of Guinea.
+      const { lat, lng } = currentLocation;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
       return {
         uid: s.userId,
         name: profile.core.name,
@@ -209,8 +228,8 @@ export function usePresenceLayer(
         isVerified: s.isVerified,
         schoolName: s.schoolName,
         mode: s.privacyMode,
-        lat: currentLocation.lat,
-        lng: currentLocation.lng,
+        lat,
+        lng,
         authorityId: s.authorityId,
         personaId: s.personaId,
         lemurStage: s.lemurStage,
@@ -266,8 +285,18 @@ export function usePresenceLayer(
             batchResults.forEach((v) => merged.push(...v));
             setRawMarkers(merged);
             setIsLoading(false);
-          }, (err) => {
-            console.warn('[PresenceLayer] friends batch listener error:', err?.code ?? err);
+          }, (err: any) => {
+            const code = err?.code ?? '(no code)';
+            if (code === 'permission-denied') {
+              console.error(
+                '[PresenceLayer] friends batch listener PERMISSION-DENIED. ' +
+                  'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) and Firestore rules ' +
+                  'on the `presence` collection.',
+                err,
+              );
+            } else {
+              console.warn('[PresenceLayer] friends batch listener error:', code, err);
+            }
             setIsLoading(false);
           });
           unsubscribers.push(unsub);
@@ -304,8 +333,18 @@ export function usePresenceLayer(
         });
         setRawMarkers(markers);
         setIsLoading(false);
-      }, (err) => {
-        console.warn('[PresenceLayer] discover listener error:', err?.code ?? err);
+      }, (err: any) => {
+        const code = err?.code ?? '(no code)';
+        if (code === 'permission-denied') {
+          console.error(
+            '[PresenceLayer] discover listener PERMISSION-DENIED. ' +
+              'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) and Firestore rules ' +
+              'on the `presence` collection. Discover-mode partners will NOT render until fixed.',
+            err,
+          );
+        } else {
+          console.warn('[PresenceLayer] discover listener error:', code, err);
+        }
         setIsLoading(false);
       });
     } catch (err) {

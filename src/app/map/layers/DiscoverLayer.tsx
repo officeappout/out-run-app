@@ -5,6 +5,10 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
+import ActivityCarousel from '@/features/parks/core/components/ActivityCarousel';
+import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
+import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
+import SavedPlacesQuickRow from '@/features/parks/core/components/SavedPlacesQuickRow';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
 import RouteGenerationLoader from '@/features/parks/core/components/RouteGenerationLoader';
 import { useMapLogic } from '@/features/parks';
@@ -14,8 +18,13 @@ import { ParkPreview } from '@/features/parks/client/components/park-preview';
 import RouteDetailSheet from '@/features/parks/client/components/route-preview/RouteDetailSheet';
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
 import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
+import SetSavedPlaceSheet from '@/features/user/places/components/SetSavedPlaceSheet';
+import type { SavedPlace, SavedPlaceKind } from '@/features/user/places/store/useSavedPlacesStore';
+import { useRecentSearchesStore } from '@/features/parks/core/store/useRecentSearchesStore';
+import type { ActivityType } from '@/features/parks/core/types/route.types';
 import {
   PartnerBubbles,
   PartnerOverlay,
@@ -27,8 +36,8 @@ import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimul
 import MockLocationPanel from '@/features/dev/components/MockLocationPanel';
 import { useCommunityEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import {
-  Search, Navigation, X,
-  Plus, Zap,
+  Navigation,
+  Plus, X, Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -80,6 +89,144 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('idle');
+
+  // ── Free-run flow state machine ────────────────────────────────────────────
+  // Once `mapMode === 'freeRun'`, the user passes through three stages:
+  //   1. 'activity' — floating ActivityCarousel over the map (pick run/walk/cycle)
+  //   2. 'config'   — FreeRunDrawer (mode + goal + start CTA)
+  //   3. 'route'    — floating RouteCarousel (3 generated route cards over
+  //                    the map) — only entered if the user picks "with route"
+  //                    mode in stage 2 and taps "Generate".
+  //
+  // Stage transitions:
+  //   carousel card tap          → activity → config
+  //   drawer "שנה פעילות" chip   → config   → activity
+  //   drawer "Generate"          → config   → route   (with carousel-config payload)
+  //   route carousel back chip   → route    → config
+  //   route carousel "Start"     → route    → idle (workout starts)
+  type FreeRunStep = 'activity' | 'config' | 'route';
+  const [freeRunStep, setFreeRunStep] = useState<FreeRunStep>('activity');
+
+  // Carousel-config payload — captured when the user taps "Generate" in the
+  // drawer so the floating RouteCarousel knows what targetKm to feed into
+  // `generateDynamicRoutes`. Stored in DiscoverLayer (not in the carousel
+  // itself) so a back-and-forth via the back chip preserves the previous
+  // generation context if the user re-enters route mode quickly.
+  const [routeCarouselConfig, setRouteCarouselConfig] = useState<{
+    targetKm: number;
+    includeStrength: boolean;
+    surface: 'road' | 'trail';
+  } | null>(null);
+
+  // Reset to the activity stage every time we re-enter free-run mode so a
+  // back-and-forth between modes doesn't strand the user mid-config.
+  useEffect(() => {
+    if (mapMode === 'freeRun') {
+      setFreeRunStep('activity');
+      setRouteCarouselConfig(null);
+    }
+  }, [mapMode]);
+
+  // ── Commute (A-to-B) flow state ───────────────────────────────────────────
+  // `commuteRouteConfig` mirrors `routeCarouselConfig` for the commute
+  // branch — it captures the destination + label needed to mount
+  // RouteCarousel in commute mode. Stored at the layer level (not in
+  // useMapStore) so a back-out gesture can clear it locally without
+  // racing against any other consumer.
+  const [commuteRouteConfig, setCommuteRouteConfig] = useState<{
+    destination: { lat: number; lng: number };
+    label?: string;
+  } | null>(null);
+
+  // ── Commute transport mode (per-session, NOT persisted) ────────────────
+  // Daily commutes are activity-agnostic — someone running for fitness
+  // in the morning might walk to work in the afternoon. We deliberately
+  // do NOT seed this from `useUserStore.preferences.activity` (the
+  // free-run default). Instead the commute always boots in 'walking',
+  // which is the safest assumption for a navigation flow, and the user
+  // taps the inline picker in RouteCarousel to swap mid-search. State
+  // lives at the layer level so an entity-card → commute handoff
+  // (Park "Navigate" button) starts on the same default and the user
+  // gets a consistent UX regardless of how the commute was entered.
+  const [commuteActivity, setCommuteActivity] = useState<ActivityType>('walking');
+
+  // Reset the picker to 'walking' whenever a fresh commute begins, so
+  // the previous session's choice doesn't bleed into the next one.
+  useEffect(() => {
+    if (commuteRouteConfig) setCommuteActivity('walking');
+  }, [commuteRouteConfig?.destination.lat, commuteRouteConfig?.destination.lng]);
+
+  // SetSavedPlaceSheet host state — null = closed, kind = open for that slot.
+  const [setPlaceSheetKind, setSetPlaceSheetKind] = useState<SavedPlaceKind | null>(null);
+
+  // Mirror the commute destination into useMapStore so AppMap can render
+  // the destination pin without prop-drilling. SET-ONLY here — the
+  // active session needs the pin to remain visible after the user
+  // taps a route (mapMode flips back to 'idle'), and the workout
+  // engine owns the canonical clear via `finishWorkout`. Explicit
+  // user-cancel paths (back button / setCommuteRouteConfig(null) on
+  // exit) clear the pin directly via setCommuteDestination(null) so
+  // the back-out feels instant.
+  useEffect(() => {
+    if (mapMode === 'commute' && commuteRouteConfig) {
+      useMapStore.getState().setCommuteDestination({
+        coords: [commuteRouteConfig.destination.lng, commuteRouteConfig.destination.lat],
+        label: commuteRouteConfig.label,
+      });
+    }
+  }, [mapMode, commuteRouteConfig]);
+
+  // ── Tap-empty-map → exit commute ──────────────────────────────────────
+  // Field-test feedback: once a destination was picked, the only way
+  // back was the small chevron in the carousel header. Users
+  // expected the universal Maps gesture — tap empty map to dismiss.
+  // AppMap bumps `mapEmptyTapTick` whenever a click misses every
+  // interactive feature; we subscribe here and treat the bump as
+  // "user is done, drop the commute". Other modes ignore the signal
+  // entirely (handled by the conditional inside the effect).
+  //
+  // Implementation note: we read the tick reactively (not via
+  // getState) so React re-runs the effect on every increment; the
+  // effect-internal mode check is the gate.
+  const mapEmptyTapTick = useMapStore((s) => s.mapEmptyTapTick);
+  const lastEmptyTapTickRef = useRef(mapEmptyTapTick);
+  useEffect(() => {
+    if (mapEmptyTapTick === lastEmptyTapTickRef.current) return;
+    lastEmptyTapTickRef.current = mapEmptyTapTick;
+    if (mapMode !== 'commute') return;
+    // Same teardown as the carousel's onBack — keeps the two exit
+    // paths bit-identical so the user never lands in a half-state.
+    logic.setFocusedRoute(null);
+    setCommuteRouteConfig(null);
+    useMapStore.getState().setCommuteDestination(null);
+    setMapMode('idle');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapEmptyTapTick, mapMode]);
+
+  // Pending-commute consumer. Entity cards (ParkPreview /
+  // RouteDetailSheet) write to `useMapStore.pendingCommute` when the
+  // user taps their Navigate button; we react here, kick off the
+  // commute flow, and consume the slot in one go so it can't re-fire
+  // on the next render. Same pattern as pendingPartnerOverlay /
+  // pendingDeepLink.
+  const pendingCommute = useMapStore((s) => s.pendingCommute);
+  useEffect(() => {
+    if (!pendingCommute) return;
+    const target = useMapStore.getState().consumePendingCommute();
+    if (!target) return;
+    // Close any open entity card so the new commute carousel owns the
+    // bottom of the screen (the carousel and entity card share the
+    // mid-bottom area and would visually collide otherwise).
+    useMapStore.getState().setSelectedPark(null);
+    logic.setSelectedRoute(null);
+    logic.setFocusedRoute(null);
+    setCommuteRouteConfig({
+      destination: { lat: target.coords[1], lng: target.coords[0] },
+      label: target.label,
+    });
+    setMapMode('commute');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCommute]);
 
   // ── Partner Finder state machine ──────────────────────────────────────────
   // Three exclusive screens once mapMode === 'partners':
@@ -210,32 +357,78 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
     return () => { document.body.style.overflow = ''; };
   }, [logic.navState]);
 
+  // ── Bridge into commute mode ──────────────────────────────────────────
+  // Funnel any "go to this destination" intent through a single helper so
+  // the three entry points stay consistent:
+  //   1. Generic Mapbox address picked from search.
+  //   2. Saved Home/Work shortcut tapped (synthesised as a 'mapbox' source).
+  //   3. (Phase 2) Park/Route entity card "Navigate" buttons.
+  //
+  // Always: clear the route selection slot, idle the search overlay,
+  // capture the destination, flip mapMode='commute' so RouteCarousel
+  // mounts. The carousel itself drives the rest.
+  const startCommute = useCallback(
+    (target: { coords: [number, number]; label?: string }) => {
+      const [lng, lat] = target.coords;
+      logic.setSelectedRoute(null);
+      logic.setFocusedRoute(null);
+      setCommuteRouteConfig({ destination: { lat, lng }, label: target.label });
+      setMapMode('commute');
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const handleAddressSelect = async (addr: any) => {
+    // Run the legacy hook first — it handles park / route / mapbox
+    // suggestion sources (clears search, opens entity cards, etc.).
     await logic.handleAddressSelect(addr);
+
+    // ── Recent-searches sync ──────────────────────────────────────
+    // Persist EVERY successful pick (park / route / mapbox / saved
+    // place) so the search overlay's "חיפושים אחרונים" list reflects
+    // the user's real history. The store dedups + caps internally so
+    // repeated taps on the same entry are safe. Saved-place picks
+    // are intentionally skipped here — they already live in the
+    // dedicated SavedPlacesQuickRow row above the search bar, and
+    // double-listing them as both shortcut + recent muddies the UX.
+    if (addr?._source !== 'savedPlace' && Array.isArray(addr?.coords) && addr?.text) {
+      const sourceForRecent: 'park' | 'route' | 'mapbox' =
+        addr._source === 'park' || addr._source === 'route' ? addr._source : 'mapbox';
+      useRecentSearchesStore.getState().pushRecent({
+        text: addr.text,
+        coords: addr.coords as [number, number],
+        source: sourceForRecent,
+      });
+    }
+
+    // Generic-address & savedPlace suggestions are the commute trigger.
+    // Park / route hits open their entity card via logic.handleAddressSelect
+    // and we MUST NOT re-fire commute on top of that. `recent` is also
+    // a commute trigger (replayed generic addresses).
+    const isCommuteTrigger =
+      addr?._source === 'mapbox' ||
+      addr?._source === 'savedPlace' ||
+      !addr?._source;
+    if (isCommuteTrigger && Array.isArray(addr?.coords)) {
+      startCommute({ coords: addr.coords as [number, number], label: addr.text });
+    }
   };
 
-  // NavigationHub props (shared between SEARCH and NAV screens)
+  // NavigationHub props — only the search-overlay slice is needed now.
+  // The legacy navigation-variant props (navigationVariants / selectedVariant
+  // / etc.) were dropped from the required prop set when NavigationHub's
+  // 'navigating' branch was removed. They're left out here on purpose.
   const navHubProps = {
     navState: logic.navState,
     onStateChange: logic.setNavState,
-    navigationVariants: logic.navigationVariants,
-    selectedVariant: logic.selectedVariant,
-    onVariantSelect: (v: any) => logic.handleVariantSelect(v),
-    navActivity: logic.navActivity,
-    onActivityChange: async (act: any) => {
-      logic.setNavActivity(act);
-      if (logic.selectedAddress) {
-        await logic.fetchNavigationVariants(logic.selectedAddress, act);
-      }
-    },
-    isLoading: logic.isGenerating,
-    onStart: logic.startActiveWorkout,
     searchQuery: logic.searchQuery,
     onSearchChange: logic.setSearchQuery,
     suggestions: logic.suggestions,
     onAddressSelect: handleAddressSelect,
     isSearching: logic.isSearching,
     inputRef: logic.searchInputRef,
+    onSetSavedPlace: (kind: SavedPlaceKind) => setSetPlaceSheetKind(kind),
   } as const;
 
   // ── Community enrichment — reactive via onSnapshot ──
@@ -294,51 +487,76 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
   };
 
   // ── THE LAW: SINGLE SCREEN STATE ──
-  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'DISCOVERY';
+  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'COMMUTE' | 'DISCOVERY';
   const screen: Screen = (() => {
     if (logic.navState === 'searching') return 'SEARCH';
+    // 'navigating' is now a no-op (NavigationHub returns null on this
+    // state). Kept in the union for backwards compat — falls through.
     if (logic.navState === 'navigating') return 'NAV';
     if (logic.selectedRoute) {
-      // A route card tap can arrive while a drawer mode (FreeRun / Partners) is open.
-      // Clear the local drawer mode so its overlay doesn't linger behind the sheet.
+      // A route card tap can arrive while a drawer mode (FreeRun /
+      // Partners / Commute) is open. Clear the local drawer mode so its
+      // overlay doesn't linger behind the sheet.
       if (mapMode !== 'idle' && mapMode !== 'discover') setMapMode('idle');
       return 'ROUTE_CARD';
     }
+    if (mapMode === 'commute' && commuteRouteConfig) return 'COMMUTE';
     return 'DISCOVERY';
   })();
 
-  // ── Shared top bar: Search + Mode Header ──
+  // ── Shared top bar: glassmorphic search + saved-places quick row + mode pills ──
   function renderTopBar() {
+    // Saved-place tap → start commute. Stamp `_source: 'savedPlace'` for
+    // analytics; the existing handleAddressSelect treats anything that
+    // isn't 'park' / 'route' as a commute trigger.
+    const handleSavedPlacePick = (place: SavedPlace) => {
+      startCommute({ coords: place.coords, label: place.address ?? place.label });
+    };
+
     return (
       <div className="absolute top-0 left-0 right-0 z-[70] pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pointer-events-none">
         <div className="max-w-md mx-auto w-full space-y-2">
-          {/* Search bar */}
-          <div className="pointer-events-auto">
-            <div className="bg-white rounded-2xl h-12 flex items-center px-2 border overflow-hidden shadow-lg border-gray-100">
-              <div className="flex-1 flex items-center h-full">
-                <Search className="text-gray-400 ms-2 shrink-0" size={20} />
-                <input
-                  ref={logic.searchInputRef}
-                  type="text"
-                  placeholder="חיפוש מסלול..."
-                  value={logic.searchQuery}
-                  onFocus={() => logic.setNavState('searching')}
-                  onChange={(e) => logic.setSearchQuery(e.target.value)}
-                  className="w-full h-full bg-transparent border-none outline-none text-sm text-gray-700 px-2 placeholder:text-gray-400 text-right font-bold"
-                />
-              </div>
-            </div>
-          </div>
+          {/* Premium glass search bar — focus opens NavigationHub overlay */}
+          <FloatingSearchBar
+            inputRef={logic.searchInputRef}
+            searchQuery={logic.searchQuery}
+            onSearchChange={logic.setSearchQuery}
+            onFocus={() => logic.setNavState('searching')}
+          />
 
-          {/* Mode header pills */}
-          <div className="pointer-events-auto">
-            <MapModeHeader
-              activeMode={mapMode}
-              onModeChange={handleMapModeChange}
-              hasNearbyRoutes={hasNearbyRoutes}
-              partnerCount={live.length}
-            />
-          </div>
+          {/* Saved Home / Work shortcuts.
+              Visibility rule (refinement pass — was permanently
+              visible everywhere except commute mode, which the
+              field-test flagged as map clutter):
+                • Show ONLY when the user is genuinely at the start
+                  of a navigation / discovery flow, i.e.
+                  `mapMode === 'idle'` (initial map view) OR
+                  `mapMode === 'discover'` (browsing nearby routes).
+                • Always hidden during freeRun / commute / partners
+                  modes — the user has already committed to a flow
+                  and the shortcuts would just compete with the
+                  active surface. */}
+          {(mapMode === 'idle' || mapMode === 'discover') && (
+            <div className="pointer-events-auto">
+              <SavedPlacesQuickRow
+                onPick={handleSavedPlacePick}
+                onSetRequest={(kind) => setSetPlaceSheetKind(kind)}
+              />
+            </div>
+          )}
+
+          {/* Mode header pills — also hidden in commute mode so the
+              top surface stays focused on the active navigation flow. */}
+          {mapMode !== 'commute' && (
+            <div className="pointer-events-auto">
+              <MapModeHeader
+                activeMode={mapMode}
+                onModeChange={handleMapModeChange}
+                hasNearbyRoutes={hasNearbyRoutes}
+                partnerCount={live.length}
+              />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -369,10 +587,90 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
                 logic.startActiveWorkout();
               }}
               onNavigate={(r) => {
-                logic.setFocusedRoute(r);
-                logic.setNavState('navigating');
+                // "Navigate to" on an entity card funnels into the
+                // commute flow instead of re-opening the legacy
+                // 3-variant drawer. We use the route's first path coord
+                // as the destination — that's where the user wants to
+                // arrive (the trailhead). The route card itself is
+                // dismissed so the commute carousel can take the bottom.
+                const startPoint = Array.isArray(r.path) && r.path.length > 0
+                  ? r.path[0]
+                  : null;
+                if (!startPoint) return;
+                logic.setSelectedRoute(null);
+                logic.setFocusedRoute(null);
+                startCommute({
+                  coords: [startPoint[0], startPoint[1]],
+                  label: r.name,
+                });
               }}
               devSim={devSim}
+            />
+          </>
+        );
+      }
+
+      case 'COMMUTE': {
+        // The unified RouteCarousel mounted in commute mode. Top bar
+        // stays visible (just the floating search) so the user can
+        // change their destination at any time.
+        if (!userLocation || !commuteRouteConfig) return null;
+        return (
+          <>
+            {renderTopBar()}
+
+            <RouteCarousel
+              userPosition={userLocation}
+              // ── Commute activity is per-session, NOT inherited ──
+              // We deliberately ignore `logic.preferences.activity`
+              // here — see the `commuteActivity` jsdoc above for why.
+              // The user picks via the inline picker chip group; the
+              // value re-triggers route generation through the
+              // RouteCarousel reset effect.
+              activity={commuteActivity}
+              onActivityChange={setCommuteActivity}
+              mode="commute"
+              destination={commuteRouteConfig.destination}
+              destinationLabel={commuteRouteConfig.label}
+              focusedRouteId={logic.focusedRoute?.id ?? null}
+              onFocusChange={(route) => logic.setFocusedRoute(route)}
+              onBack={() => {
+                // Drop the commute flow and clear the destination pin.
+                // The map returns to its default discover surface.
+                // setCommuteDestination(null) is called explicitly here
+                // because the mirror effect is set-only — see its
+                // jsdoc above for why.
+                logic.setFocusedRoute(null);
+                setCommuteRouteConfig(null);
+                useMapStore.getState().setCommuteDestination(null);
+                setMapMode('idle');
+              }}
+              onSelect={(route) => {
+                // Stage the commute intent on useRunningPlayer BEFORE
+                // startActiveWorkout fires. The pre-flight chain
+                // (clearRunningData → initializeRunningData) does not
+                // touch sessionMode / commuteContext, so the staged
+                // values survive into the active session and the HUD
+                // boots in commute flavour on first paint (no flash
+                // from the workout HUD to the commute HUD). See
+                // useRunningPlayer.SessionMode jsdoc for the contract.
+                useRunningPlayer.getState().setCommuteContext({
+                  destination: commuteRouteConfig.destination,
+                  label: commuteRouteConfig.label,
+                });
+                // Mirror the commute-picker activity into the user
+                // preferences right before starting so downstream
+                // running-player logic (UI accents, calorie formula)
+                // operates with the activity the user actually chose
+                // for this commute, not the stale "last free-run"
+                // activity. This is a write-only mirror; it stays
+                // local to this session start and isn't persisted.
+                logic.handleActivityChange(commuteActivity);
+                logic.setFocusedRoute(route);
+                setMapMode('idle');
+                setCommuteRouteConfig(null);
+                logic.startActiveWorkout();
+              }}
             />
           </>
         );
@@ -430,24 +728,85 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
               />
             )}
 
-            {mapMode === 'freeRun' && (
+            {/* ── Free-run flow — three stages, mutually exclusive ───────
+                Stage 1: ActivityCarousel (floating cards over the map).
+                Stage 2: FreeRunDrawer  (mode + goal + start CTA).
+                Stage 3: RouteCarousel  (floating route options over the map).
+                All guarded by `mapMode === 'freeRun'`; only one renders at
+                a time per the one-card-only UI rule. */}
+            {mapMode === 'freeRun' && freeRunStep === 'activity' && (
+              <ActivityCarousel
+                currentActivity={logic.preferences.activity}
+                onSelect={(activity) => {
+                  logic.handleActivityChange(activity);
+                  setFreeRunStep('config');
+                }}
+                onClose={() => setMapMode('idle')}
+              />
+            )}
+
+            {mapMode === 'freeRun' && freeRunStep === 'config' && (
               <FreeRunDrawer
                 currentActivity={logic.preferences.activity}
-                onActivityChange={logic.handleActivityChange}
+                onBackToActivity={() => setFreeRunStep('activity')}
                 onStartWorkout={logic.startActiveWorkout}
                 onClose={() => setMapMode('idle')}
                 userPosition={userLocation}
                 cityName={userCityName}
-                onStartWorkoutWithRoute={(route) => {
-                  // Pin the chosen route as the focus so the active-workout
-                  // overlay opens with it pre-selected, then drop the drawer
-                  // mode and kick off the same start path as discover-mode.
-                  logic.setFocusedRoute(route);
-                  setMapMode('idle');
-                  logic.startActiveWorkout();
+                onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
+                  // The user picked "with route" + tapped Generate in the
+                  // drawer. Capture the full config payload, drop the drawer,
+                  // and let the floating RouteCarousel run the radar +
+                  // generator + 3-card UI on the visible map.
+                  setRouteCarouselConfig({ targetKm, includeStrength, surface });
+                  setFreeRunStep('route');
                 }}
               />
             )}
+
+            {mapMode === 'freeRun' &&
+              freeRunStep === 'route' &&
+              userLocation &&
+              routeCarouselConfig && (
+                <RouteCarousel
+                  userPosition={userLocation}
+                  activity={logic.preferences.activity}
+                  targetKm={routeCarouselConfig.targetKm}
+                  includeStrength={routeCarouselConfig.includeStrength}
+                  surface={routeCarouselConfig.surface}
+                  cityName={userCityName}
+                  // Bidirectional sync: when the user taps a route line on
+                  // the map, the parent's focusedRoute updates and the
+                  // carousel scrolls to the matching card. The carousel
+                  // filters self-emitted ids via its own ref so this
+                  // doesn't create an echo loop with onFocusChange below.
+                  focusedRouteId={logic.focusedRoute?.id ?? null}
+                  onFocusChange={(route) => {
+                    // Sync the centered card to `focusedRoute` so the
+                    // camera fitBounds-debounce in useCameraController
+                    // reframes the map. Debounced inside the carousel so
+                    // a fast multi-card flick fires this exactly once at
+                    // the destination — not N times during the swipe.
+                    logic.setFocusedRoute(route);
+                  }}
+                  onBack={() => {
+                    // Drop the carousel and return to the config drawer.
+                    // Clearing `focusedRoute` keeps the map in its
+                    // pre-route state so the user doesn't see a stray
+                    // highlight on the empty map.
+                    logic.setFocusedRoute(null);
+                    setFreeRunStep('config');
+                  }}
+                  onSelect={(route) => {
+                    // Pin the chosen route as the focus so the active-workout
+                    // overlay opens with it pre-selected, then exit free-run
+                    // mode and kick off the same start path as discover.
+                    logic.setFocusedRoute(route);
+                    setMapMode('idle');
+                    logic.startActiveWorkout();
+                  }}
+                />
+              )}
 
             {/* ── Partner Finder flow ─────────────────────────────────
                 State machine: radar (transient) → overlay.
@@ -507,6 +866,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
         isOpen={reportOpen}
         onClose={() => setReportOpen(false)}
         userLocation={logic.currentUserPos ?? null}
+      />
+
+      {/* Saved-places editor — opened from the Quick Row tap-to-set
+          flow OR from the NavigationHub overlay's smart Home/Work
+          tile when the slot is empty. Self-closes on save / cancel. */}
+      <SetSavedPlaceSheet
+        openKind={setPlaceSheetKind}
+        onClose={() => setSetPlaceSheetKind(null)}
       />
     </>
   );

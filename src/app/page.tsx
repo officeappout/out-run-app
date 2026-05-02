@@ -8,6 +8,30 @@ import { signInWithGooglePopup, onAuthStateChange } from '@/lib/auth.service';
 import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import BrandedSplashScreen from '@/components/BrandedSplashScreen';
+
+// localStorage key written by `auth.service.ts` on every positive auth
+// emission and cleared in `signOutUser`. Read here on first paint to
+// decide whether to render the branded splash (returning user — Firebase
+// is about to restore the session) or the landing UI immediately
+// (brand-new visitor).
+const SESSION_HINT_KEY = 'out:has-session';
+
+/**
+ * Auth gate states for the landing page.
+ *
+ *   restoring    → Firebase is restoring (or about to restore) the
+ *                  session. Render the branded splash; the UI is
+ *                  intentionally invisible to prevent the half-second
+ *                  login flash that returning users used to see.
+ *   authenticated → onAuthStateChange resolved a user. The redirect to
+ *                  `/home` / `/onboarding-new` / `/gateway` is in
+ *                  flight; keep the splash visible until Next.js
+ *                  finishes the navigation.
+ *   guest        → Confirmed unauthenticated. Render the landing/login
+ *                  marketing UI.
+ */
+type AuthState = 'restoring' | 'authenticated' | 'guest';
 
 // ════════════════════════════════════════════════════════════════════
 // CAROUSEL IMAGES — High-quality outdoor fitness / park scenes
@@ -188,44 +212,89 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ── Auth gate ──
+  // Initial value is computed synchronously from the localStorage hint
+  // so the first paint matches the expected outcome:
+  //   • brand-new visitor (no hint)     → render landing UI immediately
+  //   • returning user (hint present)   → render branded splash, switch
+  //                                       to landing only if Firebase
+  //                                       confirms the session is gone
+  // SSR always falls into 'restoring' since localStorage is unavailable.
+  // The page is `dynamic = 'force-dynamic'` so the SSR branch is short-
+  // lived and immediately replaced by the client value on hydration.
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    if (typeof window === 'undefined') return 'restoring';
+    try {
+      return window.localStorage.getItem(SESSION_HINT_KEY) === '1'
+        ? 'restoring'
+        : 'guest';
+    } catch {
+      // Private mode / quota — pessimistic default to landing UI so the
+      // user can still attempt a manual login.
+      return 'guest';
+    }
+  });
+
   // ── Auto-redirect for already logged-in users ──
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
-      if (user) {
-        try {
-          const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
-          const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+      if (!user) {
+        // Confirmed unauthenticated — paint the landing UI. Note that
+        // we DO NOT clear SESSION_HINT_KEY here; only signOutUser does.
+        // A transient null emit during a token refresh shouldn't kick
+        // the user back to a landing flash on the next reload.
+        setAuthState('guest');
+        return;
+      }
 
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            const status = userData?.onboardingStatus;
-            const step = userData?.onboardingStep;
-            const path = userData?.onboardingPath;
+      // User is present — keep the splash visible during the redirect
+      // roundtrip so the carousel/login UI never paints. The router
+      // navigation below will swap the page out before this resolves.
+      setAuthState('authenticated');
 
-            if (status === 'IN_PROGRESS' && step === 'IDENTITY') {
-              router.push('/onboarding-new/profile');
-            } else if (status === 'IN_PROGRESS' && step === 'ASSESSMENT') {
-              // Route to visual assessment (replaces legacy dynamic questionnaire)
-              router.push('/onboarding-new/assessment-visual');
-            } else if (status === 'IN_PROGRESS' && step === 'VISUAL_ASSESSMENT_COMPLETE') {
-              // Assessment done — skip to health declaration
-              router.push('/onboarding-new/health');
-            } else if (status === 'IN_PROGRESS' && step === 'HEALTH') {
-              router.push('/onboarding-new/health');
-            } else if (status === 'PENDING_LIFESTYLE') {
-              router.push('/home');
-            } else if (status === 'COMPLETED' || userData?.onboardingComplete) {
-              router.push('/home');
-            } else if (path === 'MAP_ONLY' || status === 'MAP_ONLY') {
-              router.push('/explorer');
-            } else {
-              // Default: user exists but no clear status — let them choose a track
-              router.push('/gateway');
-            }
+      try {
+        const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+        const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const status = userData?.onboardingStatus;
+          const step = userData?.onboardingStep;
+          const path = userData?.onboardingPath;
+
+          if (status === 'IN_PROGRESS' && step === 'IDENTITY') {
+            router.push('/onboarding-new/profile');
+          } else if (status === 'IN_PROGRESS' && step === 'ASSESSMENT') {
+            // Route to visual assessment (replaces legacy dynamic questionnaire)
+            router.push('/onboarding-new/assessment-visual');
+          } else if (status === 'IN_PROGRESS' && step === 'VISUAL_ASSESSMENT_COMPLETE') {
+            // Assessment done — skip to health declaration
+            router.push('/onboarding-new/health');
+          } else if (status === 'IN_PROGRESS' && step === 'HEALTH') {
+            router.push('/onboarding-new/health');
+          } else if (status === 'PENDING_LIFESTYLE') {
+            router.push('/home');
+          } else if (status === 'COMPLETED' || userData?.onboardingComplete) {
+            router.push('/home');
+          } else if (path === 'MAP_ONLY' || status === 'MAP_ONLY') {
+            router.push('/explorer');
+          } else {
+            // Default: user exists but no clear status — let them choose a track
+            router.push('/gateway');
           }
-        } catch (e) {
-          console.error('[Landing] Error checking auth status:', e);
+        } else {
+          // Auth user exists but no Firestore profile yet — common for
+          // first-time Google sign-ins. Send to the gateway, which
+          // creates the profile. Without this branch the splash would
+          // hang forever for any user whose doc hasn't been written.
+          router.push('/gateway');
         }
+      } catch (e) {
+        console.error('[Landing] Error checking auth status:', e);
+        // Fall back to landing UI so the user can retry. Better to
+        // show them a recoverable login screen than to leave them
+        // stranded on the splash.
+        setAuthState('guest');
       }
     });
     return () => unsubscribe();
@@ -274,6 +343,15 @@ export default function LandingPage() {
     setLoading(false);
     setDrawerOpen(false);
   }, [router]);
+
+  // Splash gate: while Firebase restores the session OR while the
+  // post-restore redirect is in flight, render the branded splash.
+  // The marketing/login UI mounts ONLY when authState resolves to
+  // 'guest', which kills the half-second flash returning users used
+  // to see on every cold open.
+  if (authState !== 'guest') {
+    return <BrandedSplashScreen />;
+  }
 
   return (
     <div className="min-h-[100dvh] relative overflow-hidden flex flex-col">

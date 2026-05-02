@@ -118,10 +118,20 @@ export const FALLBACK_SAFE_AREA_TOP_PX = 44;
  *  the user instantly reads it as "minimised". */
 export const PILL_HEIGHT_PX = 56;
 
-/** During navigation we reserve the top of the screen for TurnCarousel.
- *  This is the carousel's bottom edge plus a 12 px safety gap. The card
- *  is forbidden from passing above this Y, eliminating overlap. */
+/**
+ * Static fallback used as the drag-ceiling during navigation when
+ * TurnCarousel has not yet reported its live height (i.e. on the very
+ * first render before the ResizeObserver fires). Once TurnCarousel
+ * publishes `navCardHeight > 0` via useMapStore, this value is replaced
+ * by `navCardHeight + NAV_CARD_GAP_PX` everywhere it was previously
+ * hard-coded. Do NOT reference this constant in snap math; use
+ * `navTopReservedPx` (derived inside the hook) instead.
+ */
 export const NAVIGATION_TOP_RESERVED_PX = 132;
+
+/** Vertical breathing gap (px) kept between the bottom of TurnCarousel
+ *  and the top edge of the metrics card when navigation is active. */
+const NAV_CARD_GAP_PX = 8;
 
 /**
  * Legacy alias for the top anchor inset. Previously hard-coded as
@@ -135,8 +145,12 @@ export const NAVIGATION_TOP_RESERVED_PX = 132;
  */
 export const HEADER_INSET_PX = STATUS_BAR_PADDING_PX + FALLBACK_SAFE_AREA_TOP_PX;
 
-/** Drag-end edge thresholds. Releasing within EDGE_PILL_FRAC of the
- *  top OR bottom edge snaps to a pill at that edge. */
+/**
+ * @deprecated No longer used in snap logic. The velocity-first two-snap
+ * algorithm replaced the edge-zone pill behaviour. Kept exported so any
+ * external consumer (e.g. tests, storybooks) that referenced it doesn't
+ * break at build time.
+ */
 export const EDGE_PILL_FRAC = 0.12;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -245,21 +259,38 @@ export function useDraggableMetrics({
     return () => window.removeEventListener('orientationchange', sync);
   }, []);
 
+  // ── Live TurnCarousel height (published by the carousel via ResizeObserver) ──
+  // Read from the store as early as possible so any downstream useMemo can
+  // depend on it without hitting a Temporal Dead Zone. 0 means "not mounted /
+  // not yet measured" — we fall back to the static NAVIGATION_TOP_RESERVED_PX
+  // constant in that case so the first render before the observer fires is
+  // still safe.
+  const navCardHeight = useMapStore((s) => s.navCardHeight);
+
+  /**
+   * Dynamic ceiling used during navigation. When TurnCarousel has
+   * published its live height, sit 8 px below its bottom edge. Before
+   * the first ResizeObserver tick use the static fallback so the very
+   * first render is still safe.
+   */
+  const navTopReservedPx = useMemo(
+    () =>
+      navCardHeight > 0
+        ? navCardHeight + NAV_CARD_GAP_PX
+        : NAVIGATION_TOP_RESERVED_PX,
+    [navCardHeight],
+  );
+
   /**
    * Single canonical "top anchor" Y, computed as
-   *   max(STATUS_BAR_PADDING_PX, safeAreaTop + 12)
+   *   max(STATUS_BAR_PADDING_PX, safeAreaTop + 12) + topBarOffset
    * so that:
-   *   • On non-notched devices the card sits 20 px below the screen top
-   *     (matches the spec's "y: 20 from the top" example).
-   *   • On notched devices the runtime branch wins and the card sits
-   *     12 px BELOW the notch — never behind it, never clipped.
-   *
-   * This is the SAME value for both `top-pill` and `top-expanded`
-   * states. Anchoring the pill to this single value is the fix for the
-   * "disappearing pill at the top" bug — the previous HEADER_INSET_PX
-   * (88) assumed a 56 px opaque header that no longer exists, which
-   * left an awkward gap above the pill on notched devices and a
-   * clipped pill above the GPS bubble on others.
+   *   • On non-notched devices the card sits 20 px below the screen top.
+   *   • On notched devices the runtime branch wins — card sits 12 px
+   *     BELOW the notch, never behind it.
+   *   • topBarOffset is now a live-measured height (RouteStoryBar ref)
+   *     rather than a hard-coded constant, so layout changes to the bar
+   *     are automatically reflected here.
    */
   const topAnchorPx = useMemo(
     () => Math.max(STATUS_BAR_PADDING_PX, safeAreaTop + 12) + topBarOffset,
@@ -342,28 +373,18 @@ export function useDraggableMetrics({
 
   const targetY = useMemo(() => {
     if (cardState.position === 'top') {
-      // During navigation the top anchor is below the carousel safety
-      // gap, NOT just below the status bar — that's how we guarantee
-      // no physical overlap with TurnCarousel.
-      //
-      // Outside navigation, the safe-area-aware `topAnchorPx` is the
-      // floor: the pill / expanded card sits 12 px below the notch (or
-      // 20 px below the screen top on non-notched devices). This is
-      // the fix for the "disappearing pill" bug — the value can never
-      // go negative or land behind the status bar.
-      return lockToBottom
-        ? NAVIGATION_TOP_RESERVED_PX
-        : topAnchorPx;
+      // During navigation the top anchor is directly below the carousel
+      // (navTopReservedPx = live carousel height + 8 px gap). Outside
+      // navigation, topAnchorPx clears the notch + story bar.
+      return lockToBottom ? navTopReservedPx : topAnchorPx;
     }
-    // Bottom anchor: card sits flush above the bottom-nav with a 16 px
-    // gap. Floor of `topAnchorPx` defends against degenerate viewports
-    // (split-screen, very short windows) where the bottom anchor
-    // calculation would otherwise overlap the top safe area.
+    // Bottom anchor: flush above the bottom-nav with a 16 px gap.
+    // Floor of topAnchorPx defends against degenerate viewports.
     return Math.max(
       topAnchorPx,
       viewportH - BOTTOM_NAV_HEIGHT_PX - CONTROL_BAR_GAP_PX - cardHeightForState,
     );
-  }, [cardState.position, viewportH, cardHeightForState, lockToBottom, topAnchorPx]);
+  }, [cardState.position, viewportH, cardHeightForState, lockToBottom, topAnchorPx, navTopReservedPx]);
 
   // ── Animation controls ───────────────────────────────────────────────────
   // useAnimation + drag="y" combo: we manually animate to the new anchor
@@ -387,49 +408,57 @@ export function useDraggableMetrics({
 
   // ── Drag end → snap decision ─────────────────────────────────────────────
   /**
-   * Algorithm:
-   *   • Released within EDGE_PILL_FRAC of the top edge → top-pill
-   *   • Released within EDGE_PILL_FRAC of the bottom edge → bottom-pill
-   *   • Otherwise: position = which half the gesture ended on; size
-   *     preserved (so dragging an expanded card top↔bottom doesn't
-   *     accidentally minimise it).
-   *   • If `lockToBottom`, every "top" snap target is remapped to its
-   *     bottom equivalent. The card BOUNCES BACK to the bottom rather
-   *     than escaping to overlap the carousel.
+   * Magnetic two-snap algorithm — exactly TWO resting positions:
+   *   • TOP   (expanded, anchored below story bar / nav card)
+   *   • BOTTOM (docked, anchored above the bottom nav)
    *
-   * `info.point.y` is the pointer's screen-Y at release. We use THAT
-   * instead of the card's translate Y because the pointer is what the
-   * user was thinking about; the card transform may include drag
-   * elasticity that would mislead the snap.
+   * Decision order:
+   *   1. VELOCITY wins: a fast flick (|velocity.y| > 500 px/s) snaps to
+   *      the direction of the throw regardless of where the finger is.
+   *      This gives the "flick to dismiss" feel David wants.
+   *   2. POSITION fallback: if the gesture was slow/deliberate, snap to
+   *      whichever anchor is closest to where the finger released
+   *      (simple viewport-midpoint cut).
+   *
+   * The old EDGE_PILL_FRAC zones (top/bottom 12% → force pill) are
+   * removed. They were the source of the "three-outcome" behaviour that
+   * made the card feel like it had a third floating state. Now every
+   * release resolves to exactly one of two anchors; size is preserved
+   * across the drag so expanding/collapsing the card is a separate
+   * deliberate gesture.
+   *
+   * lockToBottom remaps every "top" intent to "bottom" so the card can
+   * never escape above TurnCarousel during navigation.
    */
   const handleDragEnd = useCallback(
     (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      const releasedAt = info.point.y;
-      const topEdge = viewportH * EDGE_PILL_FRAC;
-      const bottomEdge = viewportH * (1 - EDGE_PILL_FRAC);
+      const vy = info.velocity.y;
 
-      // Edge-pill snaps.
-      if (releasedAt < topEdge) {
-        setCardState({
+      // Velocity-first: any deliberate flick wins, regardless of release Y.
+      // 250 px/s is below a casual scroll-flick but above accidental drift,
+      // so the gesture feels responsive without firing on stray touches.
+      if (vy > 250) {
+        setCardState((prev) => ({ ...prev, position: 'bottom' }));
+        return;
+      }
+      if (vy < -250) {
+        setCardState((prev) => ({
+          ...prev,
           position: lockToBottom ? 'bottom' : 'top',
-          size: 'pill',
-        });
-        return;
-      }
-      if (releasedAt > bottomEdge) {
-        setCardState({ position: 'bottom', size: 'pill' });
+        }));
         return;
       }
 
-      // Mid-screen → decide by half.
+      // Slow / deliberate drag: pick the closer anchor by pointer Y. Strictly
+      // two outcomes — there is no third "middle" snap. Y < midpoint → top,
+      // Y >= midpoint → bottom. lockToBottom remaps any "top" intent to
+      // "bottom" so navigation can never overlap the carousel.
       const wantPosition: CardPosition =
-        releasedAt < viewportH / 2 ? 'top' : 'bottom';
+        info.point.y < viewportH / 2 ? 'top' : 'bottom';
       const nextPosition: CardPosition = lockToBottom ? 'bottom' : wantPosition;
-      const nextSize: CardSize =
-        cardState.size === 'pill' ? 'expanded' : cardState.size;
-      setCardState({ position: nextPosition, size: nextSize });
+      setCardState((prev) => ({ ...prev, position: nextPosition }));
     },
-    [viewportH, lockToBottom, cardState.size],
+    [viewportH, lockToBottom],
   );
 
   // ── Drag constraints ─────────────────────────────────────────────────────
@@ -443,13 +472,15 @@ export function useDraggableMetrics({
   //     "disappeared" until release.)
   const dragConstraints = useMemo(
     () => ({
-      top: lockToBottom ? NAVIGATION_TOP_RESERVED_PX : topAnchorPx,
+      // During navigation: ceiling is the live bottom edge of TurnCarousel
+      // (navTopReservedPx). Otherwise: top anchor clears the notch + bar.
+      top: lockToBottom ? navTopReservedPx : topAnchorPx,
       bottom: Math.max(
         0,
         viewportH - cardHeightForState - BOTTOM_NAV_HEIGHT_PX,
       ),
     }),
-    [lockToBottom, viewportH, cardHeightForState, topAnchorPx],
+    [lockToBottom, navTopReservedPx, viewportH, cardHeightForState, topAnchorPx],
   );
 
   return {

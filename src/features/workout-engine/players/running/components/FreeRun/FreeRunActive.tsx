@@ -68,6 +68,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Map, List } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import RouteStoryBar from '../shared/RouteStoryBar';
 import AdaptiveMetricsWrapper from './AdaptiveMetricsWrapper';
 import RunLapsList from './RunLapsList';
@@ -78,12 +79,13 @@ import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 import { BOTTOM_NAV_HEIGHT_PX } from '../../hooks/useDraggableMetrics';
 
 // ── Story-bar floating height ────────────────────────────────────────────────
-// The RouteStoryBar floats directly over the gradient at the top of the map.
-// Its content below env(safe-area-inset-top):
-//   • pt-3 (12 px) + labels row (~20 px) + 12 px bar + pb-2 (8 px) = ~52 px
-// A 4 px breathing gap brings it to 56 px. This constant is fed into
-// useDraggableMetrics so the card's top snap sits flush below the bar.
-const STORY_BAR_BELOW_SAFE_AREA_PX = 56;
+// Previously this was a hardcoded constant (56 px). It is now measured at
+// runtime via a ResizeObserver on the inner RouteStoryBar wrapper so that any
+// future layout change to the bar is automatically reflected in the metrics
+// card's top snap position. The constant is kept as the initial/fallback value
+// for the first render (before the observer fires) so the snap is never wrong
+// by more than one frame.
+const STORY_BAR_FALLBACK_PX = 56;
 
 const PRIMARY = '#0EA5E9';
 const PRIMARY_DARK = '#0284C7';
@@ -163,6 +165,24 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
 
+  // ── Smart story-bar visibility ─────────────────────────────────────────
+  // Field-test feedback: a freshly-started Free Run with NO goal AND no
+  // pre-built route showed an empty progress bar at the top of the
+  // screen, which read as "stalled" to the user. The bar is now hidden
+  // entirely whenever there is nothing to track:
+  //
+  //   • goalProgress !== null → user picked a time/distance/calories
+  //                             goal in FreeRunDrawer.
+  //   • isNavigationActive    → there's a guided route or active path
+  //                             (commute, generated route, etc.) that
+  //                             gives the bar a meaningful target.
+  //
+  // If neither fires the chrome is fully suppressed — map extends to
+  // the very top edge, the user only sees the metrics card and the
+  // map. The same gate downstream short-circuits the ResizeObserver
+  // and the topBarOffset prop into AdaptiveMetricsWrapper.
+  const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
+
   // ── GPS status toast ────────────────────────────────────────────────────────
   // Shows a brief pill toast when GPS degrades / recovers. Disappears after
   // 4 s so it never becomes permanent chrome. No persistent indicator.
@@ -185,6 +205,34 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => clearTimeout(t);
   }, [gpsToast]);
 
+  // ── Dynamic story-bar height ─────────────────────────────────────────────
+  // Measure the actual rendered height of RouteStoryBar (below the safe-area
+  // padding) so the metrics card's top snap is always flush under it AND so
+  // TurnCarousel can position itself directly below the bar. The measured
+  // value is kept in local state for AdaptiveMetricsWrapper and ALSO mirrored
+  // into useMapStore so TurnCarousel (a different subtree) can read it.
+  const storyBarInnerRef = useRef<HTMLDivElement>(null);
+  const [storyBarHeight, setStoryBarHeight] = useState(STORY_BAR_FALLBACK_PX);
+  const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
+  useEffect(() => {
+    const node = storyBarInnerRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const h =
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      if (Number.isFinite(h) && h > 0) {
+        const rounded = Math.round(h);
+        setStoryBarHeight(rounded);
+        setStoreStoryBarHeight(rounded);
+      }
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      setStoreStoryBarHeight(0);
+    };
+  }, [setStoreStoryBarHeight]);
+
   // Force re-render each second to keep any timer-derived UI live.
   // (StatsCarousel reads from useSessionStore directly; this tick is for
   // derived UI that hasn't been ported to a store yet — kept small to
@@ -197,7 +245,12 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
 
   return (
     <div
-      className="absolute inset-0 z-20 overflow-hidden pointer-events-none"
+      // z-40 raises the entire active-workout subtree (story bar, metrics
+      // card, etc.) above the TurnCarousel (z-30, rendered as a sibling by
+      // MapShell).  Without this, AdaptiveMetricsWrapper's inner z-index
+      // would be clamped by this stacking context and the metrics card
+      // would paint behind the navigation cards.
+      className="absolute inset-0 z-40 overflow-hidden pointer-events-none"
       style={{ fontFamily: 'var(--font-simpler)' }}
       // Title is now expressed semantically via the live region below
       // since the visible header is gone — keeps screen readers informed
@@ -205,41 +258,74 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
       role="region"
     >
-      {playerView === 'main' && (
+      {playerView === 'main' && shouldShowStoryBar && (
         <>
-          {/* ── TOP GRADIENT MASK ──────────────────────────────────────────────
-              Dark-to-transparent gradient that makes the floating story bar
-              readable against any map tile (light, dark, satellite).
-              Fades out over ~120 px so the transition into the map feels
-              organic — the "Fade-out" premium look requested by design.
-              z-30 keeps it below the floating bar (z-40) and draggable card
-              (z-20 — but card is always below 30 too, layering is fine). */}
+          {/* ── STORY BAR HEADER ───────────────────────────────────────────────
+              Solid white container that wraps RouteStoryBar.  Provides a
+              clean, opaque surface for the goal-progress bar so dark text
+              reads on white instead of fighting a gradient.  Below the bar
+              a separate `aria-hidden` strip fades white → transparent over
+              16 px so the container blends smoothly into the map without a
+              hard horizontal seam.  z-50 keeps it as the top-most layer of
+              the active-workout chrome (above the metrics card at z-40).
+              Entire block is gated on `shouldShowStoryBar` so a goal-less
+              free run skips the chrome entirely and the map extends to
+              the top edge. */}
           <div
-            className="absolute top-0 left-0 right-0 pointer-events-none"
+            className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
             style={{
-              height: 'calc(env(safe-area-inset-top, 0px) + 120px)',
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.12) 55%, transparent 100%)',
-              zIndex: 30,
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              background: '#ffffff',
+            }}
+          >
+            <div ref={storyBarInnerRef}>
+              <RouteStoryBar
+                // ── Dynamic progress with a 1% floor ────────────────────
+                // `goalProgress.progress` is `currentValue / targetValue`
+                // already clamped to [0, 1] inside useSessionGoalProgress.
+                // We floor it at 0.01 (1 %) so the bar shows a tiny sliver
+                // the moment the workout starts — the user gets immediate
+                // visual feedback that the HUD is live, instead of staring
+                // at an empty track during the first few GPS samples.
+                // Equivalent to the spec form
+                //   Math.max(1, (currentDistance / targetDistance) * 100)
+                // expressed in the 0–1 fraction space the bar consumes.
+                //
+                // Without a session goal there is no current/target ratio
+                // to compute. We keep the bar visible at the 1 % minimum
+                // so the chrome doesn't pop in/out depending on whether
+                // the user set a goal.
+                progress={
+                  goalProgress
+                    ? Math.max(0.01, goalProgress.progress)
+                    : 0.01
+                }
+                isPaused={isPaused}
+                label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
+                // valueText is empty when no goal is set — the prior
+                // '2.50 / 5.0 ק״מ' was a layout placeholder for testing
+                // that read as live data and confused the user.
+                valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
+              />
+            </div>
+          </div>
+
+          {/* Bottom fade strip — sits IMMEDIATELY below the white container
+              so the white surface dissolves into the map.  Positioned
+              absolutely from the top using the live storyBarHeight + safe
+              area so the strip stays attached as the bar resizes
+              (orientation, dynamic-island devices, future layout changes).
+              Height 18 px is enough to read as a soft fade without
+              wasting prime map real-estate. */}
+          <div
+            className="absolute left-0 right-0 z-50 pointer-events-none"
+            style={{
+              top: `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`,
+              height: 18,
+              background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
             }}
             aria-hidden="true"
           />
-
-          {/* ── FLOATING STORY BAR ─────────────────────────────────────────────
-              No white background — sits directly on the gradient above.
-              `onMap` switches the bar to white text + glassmorphic track.
-              DEBUG: shown at 50 % fallback until goal-gate is restored. */}
-          <div
-            className="absolute top-0 left-0 right-0 z-40 pointer-events-none"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-          >
-            <RouteStoryBar
-              progress={goalProgress ? goalProgress.progress : 0.5}
-              isPaused={isPaused}
-              label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
-              valueText={goalProgress ? formatGoalValue(goalProgress) : '2.50 / 5.0 ק״מ'}
-              onMap
-            />
-          </div>
 
           {/* ── GPS STATUS TOAST ───────────────────────────────────────────────
               Temporary pill that appears for 4 s when GPS degrades or
@@ -280,12 +366,16 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         </div>
       )}
 
-      {/* ── MAP VIEW: smart, draggable metrics card ──────────────────────── */}
+      {/* ── MAP VIEW: smart, draggable metrics card ────────────────────────
+          `topBarOffset` collapses to 0 when the story bar is hidden so
+          the metrics card's top snap sits flush with the map edge —
+          otherwise the user would see a phantom 56 px gap reserved
+          for a header that never paints. */}
       {playerView === 'main' && (
         <AdaptiveMetricsWrapper
           isNavigationActive={isNavigationActive}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          topBarOffset={STORY_BAR_BELOW_SAFE_AREA_PX}
+          topBarOffset={shouldShowStoryBar ? storyBarHeight : 0}
         />
       )}
 

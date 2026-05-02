@@ -3,7 +3,21 @@
 import React from 'react';
 import { Map, Zap, Users } from 'lucide-react';
 
-export type MapMode = 'idle' | 'discover' | 'freeRun' | 'partners';
+/**
+ * Map UI top-level modes.
+ *
+ *   'idle'      — base map, no overlay drawer
+ *   'discover'  — official-routes carousel + journey container
+ *   'freeRun'   — three-step generated free-run flow
+ *   'partners'  — partner finder (radar → overlay)
+ *   'commute'   — A-to-B commute carousel (driven by RouteCarousel in
+ *                 commute mode). Triggered by picking a generic Mapbox
+ *                 address from search OR a Home/Work shortcut. The
+ *                 header doesn't render a pill for this mode — entry is
+ *                 always implicit (search/quick-action), exit is the
+ *                 carousel's back chip.
+ */
+export type MapMode = 'idle' | 'discover' | 'freeRun' | 'partners' | 'commute';
 
 interface MapModeHeaderProps {
   activeMode: MapMode;

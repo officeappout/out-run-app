@@ -13,8 +13,15 @@ const HEADER_COLOR = 'rgba(0, 0, 0, 0.45)';
 const DIVIDER_COLOR = 'rgba(0, 0, 0, 0.08)';
 
 export default function MainMetrics() {
-  const { totalDistance, totalDuration } = useSessionStore();
-  const { currentPace } = useRunningPlayer();
+  // Atomic selectors — each read subscribes to ONE field, so a coord push
+  // (which mutates routeCoords on every accepted GPS sample) doesn't force
+  // this component to re-render unless the value it actually shows changes.
+  // Both stores are now ticked by the same interval inside
+  // useRunningPlayer.startGPSTracking, so totalDuration + currentPace
+  // advance in lockstep with the lap-side fields LapMetrics consumes.
+  const totalDistance = useSessionStore((s) => s.totalDistance);
+  const totalDuration = useSessionStore((s) => s.totalDuration);
+  const currentPace = useRunningPlayer((s) => s.currentPace);
 
   const formatDuration = (totalSeconds: number): string => {
     if (!totalSeconds || totalSeconds <= 0) return '00:00';

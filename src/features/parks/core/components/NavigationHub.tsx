@@ -1,31 +1,29 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, useDragControls } from 'framer-motion';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
     MapPin,
     Footprints,
     Activity,
     Bike,
-    Play,
     X,
     Clock,
-    Star,
     Trees,
-    Droplets,
     Home,
     Briefcase,
     Bookmark,
     Search,
     Loader2,
     ChevronRight,
-    Gauge,
-    ChevronUp,
-    Users,
 } from 'lucide-react';
-import { Route, ActivityType } from '../types/route.types';
+import { ActivityType } from '../types/route.types';
 import type { NavVariants, RouteVariant, SearchSuggestion } from '../hooks/useSearchNavigation';
 import { Route as RouteIcon } from 'lucide-react';
+import {
+  useSavedPlacesStore,
+  type SavedPlaceKind,
+} from '@/features/user/places/store/useSavedPlacesStore';
+import { useRecentSearchesStore } from '../store/useRecentSearchesStore';
 
 export type NavHubState = 'idle' | 'searching' | 'navigating';
 
@@ -38,28 +36,37 @@ const SUGGESTION_ICON: Record<string, typeof MapPin> = {
 interface NavigationHubProps {
     navState: NavHubState;
     onStateChange: (state: NavHubState) => void;
-    navigationVariants: NavVariants;
-    selectedVariant: RouteVariant;
-    onVariantSelect: (v: RouteVariant) => void;
-    navActivity: ActivityType;
-    onActivityChange: (a: ActivityType) => void;
-    isLoading: boolean;
-    onStart: () => void;
+    /**
+     * Navigation variant slots — kept on the props surface for backwards
+     * compatibility with existing callers (DiscoverLayer still passes
+     * them). The variant-card UI was removed in the unified-RouteCarousel
+     * refactor: RouteCarousel now owns the 3-card commute selection
+     * surface and renders the chip badge per route. These props are
+     * effectively unused by NavigationHub today and can be deleted in a
+     * follow-up cleanup once all call sites stop spreading them.
+     */
+    navigationVariants?: NavVariants;
+    selectedVariant?: RouteVariant;
+    onVariantSelect?: (v: RouteVariant) => void;
+    navActivity?: ActivityType;
+    onActivityChange?: (a: ActivityType) => void;
+    isLoading?: boolean;
+    onStart?: () => void;
     searchQuery: string;
     onSearchChange: (q: string) => void;
     suggestions: SearchSuggestion[];
     onAddressSelect: (addr: SearchSuggestion) => void;
     isSearching?: boolean;
     inputRef?: React.RefObject<HTMLInputElement>;
-    groupAheadMeters?: number | null;
-    groupMemberCount?: number;
+    /**
+     * Fired when the user taps a Home / Work quick action whose slot is
+     * EMPTY. Parent should open SetSavedPlaceSheet for that kind. When
+     * the slot is set, the row instead behaves as an address pick (no
+     * callback needed — the suggestion is synthesised in-component and
+     * piped through `onAddressSelect`).
+     */
+    onSetSavedPlace?: (kind: SavedPlaceKind) => void;
 }
-
-const VARIANT_META: Record<RouteVariant, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-    recommended: { label: 'מומלץ', icon: Star, color: 'text-blue-600', bg: 'bg-blue-50' },
-    scenic: { label: 'ירוק', icon: Trees, color: 'text-green-600', bg: 'bg-green-50' },
-    facilityRich: { label: 'מתקנים', icon: Droplets, color: 'text-cyan-600', bg: 'bg-cyan-50' },
-};
 
 const ACTIVITY_META: Array<{ id: ActivityType; label: string; icon: React.ElementType }> = [
     { id: 'walking', label: 'הליכה', icon: Footprints },
@@ -67,40 +74,56 @@ const ACTIVITY_META: Array<{ id: ActivityType; label: string; icon: React.Elemen
     { id: 'cycling', label: 'רכיבה', icon: Bike },
 ];
 
-const QUICK_ACTIONS = [
-    { id: 'home', label: 'בית', icon: Home, color: 'text-cyan-500', bg: 'bg-cyan-50' },
-    { id: 'work', label: 'עבודה', icon: Briefcase, color: 'text-purple-500', bg: 'bg-purple-50' },
-    { id: 'saved', label: 'שמורים', icon: Bookmark, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { id: 'parks', label: 'פארקים', icon: Trees, color: 'text-green-500', bg: 'bg-green-50' },
+/**
+ * Quick action tiles inside the full-screen search overlay.
+ * `home` / `work` read from `useSavedPlacesStore` (smart shortcuts).
+ * `saved` / `parks` are still input-stuffing intents (no persistence).
+ */
+type QuickActionId = 'home' | 'work' | 'saved' | 'parks';
+const QUICK_ACTIONS: Array<{
+  id: QuickActionId;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+}> = [
+  { id: 'home', label: 'בית', icon: Home, color: 'text-cyan-500', bg: 'bg-cyan-50' },
+  { id: 'work', label: 'עבודה', icon: Briefcase, color: 'text-purple-500', bg: 'bg-purple-50' },
+  { id: 'saved', label: 'שמורים', icon: Bookmark, color: 'text-amber-500', bg: 'bg-amber-50' },
+  { id: 'parks', label: 'פארקים', icon: Trees, color: 'text-green-500', bg: 'bg-green-50' },
 ];
 
 export default function NavigationHub({
     navState,
     onStateChange,
-    navigationVariants,
-    selectedVariant,
-    onVariantSelect,
-    navActivity,
-    onActivityChange,
-    isLoading,
-    onStart,
     searchQuery,
     onSearchChange,
     suggestions,
     onAddressSelect,
     isSearching = false,
     inputRef,
-    groupAheadMeters = null,
-    groupMemberCount = 0,
+    onSetSavedPlace,
 }: NavigationHubProps) {
     const localInputRef = useRef<HTMLInputElement>(null);
     const actualInputRef = inputRef || localInputRef;
-    const [isDrawerExpanded, setIsDrawerExpanded] = useState(true);
-    const dragControls = useDragControls();
+    const savedPlaces = useSavedPlacesStore((s) => s.places);
+    const recents = useRecentSearchesStore((s) => s.recents);
+    const removeRecent = useRecentSearchesStore((s) => s.removeRecent);
+    const clearRecents = useRecentSearchesStore((s) => s.clearRecents);
 
-    useEffect(() => {
-        if (navState === 'navigating') setIsDrawerExpanded(true);
-    }, [navState]);
+    // Replay a stored RecentSearch through the same `onAddressSelect`
+    // pipeline as a fresh suggestion. Tagging the synthetic suggestion
+    // with the original `_source` keeps the downstream branching
+    // (commute vs. entity card) identical to the first-pick path —
+    // nothing in the consuming layers needs to know it came from
+    // history.
+    const handleRecentTap = useCallback((entry: typeof recents[number]) => {
+      onAddressSelect({
+        text: entry.text,
+        coords: entry.coords,
+        _source: entry.source,
+      });
+    }, [onAddressSelect]);
 
     useEffect(() => {
         if (navState === 'searching' && actualInputRef.current) {
@@ -108,32 +131,79 @@ export default function NavigationHub({
         }
     }, [navState, actualInputRef]);
 
+    const handleQuickActionTap = (id: QuickActionId, label: string) => {
+      // Smart Home/Work shortcuts:
+      //   - place set   → synthesise a savedPlace SearchSuggestion and
+      //                   pipe through `onAddressSelect` so the existing
+      //                   commute branch in handleAddressSelect picks
+      //                   it up. Same code path as a Mapbox hit.
+      //   - place unset → ask the parent to open SetSavedPlaceSheet via
+      //                   `onSetSavedPlace`. We close the search overlay
+      //                   first so the sheet doesn't stack on top of it.
+      if (id === 'home' || id === 'work') {
+        const slot = savedPlaces[id];
+        if (slot) {
+          onAddressSelect({
+            text: slot.address ?? slot.label,
+            coords: slot.coords,
+            _source: 'mapbox', // routes through the commute branch
+          });
+        } else if (onSetSavedPlace) {
+          onStateChange('idle');
+          onSetSavedPlace(id);
+        }
+        return;
+      }
+      // Generic intents (saved / parks) keep the legacy behaviour —
+      // they just stuff the search input.
+      onSearchChange(label);
+    };
+
     const displayItems = searchQuery.length >= 3 ? suggestions : [];
 
     if (navState === 'searching') {
         return (
-            <div className="fixed inset-0 z-[100] bg-white flex flex-col">
-                <div className="pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pb-3 border-b border-gray-100">
-                    <div className="bg-gray-100 rounded-2xl h-12 flex items-center px-3 gap-2">
-                        <Search size={18} className="text-gray-400 shrink-0" />
+            <div
+                className="fixed inset-0 z-[100] flex flex-col"
+                style={{
+                    // Glassmorphism backdrop — same recipe as
+                    // MapLoadingSkeleton, applied to a near-opaque white
+                    // base so the suggestion list stays legible. The
+                    // map underneath remains a soft hint visible at the
+                    // edges, anchoring the user spatially.
+                    backgroundColor: 'rgba(255,255,255,0.92)',
+                    backdropFilter: 'blur(24px) saturate(160%)',
+                    WebkitBackdropFilter: 'blur(24px) saturate(160%)',
+                }}
+            >
+                <div className="pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pb-3 border-b border-white/40">
+                    <div
+                        className="rounded-2xl h-12 flex items-center px-3 gap-2 ring-1 ring-black/5 shadow-[0_6px_18px_rgba(0,0,0,0.06)]"
+                        style={{
+                            backgroundColor: 'rgba(255,255,255,0.65)',
+                            backdropFilter: 'blur(12px) saturate(160%)',
+                            WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+                        }}
+                    >
+                        <Search size={18} className="text-gray-500 shrink-0" />
                         <input
                             ref={actualInputRef}
                             type="text"
                             placeholder="לאן רוצים להגיע?"
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800 text-right font-medium placeholder:text-gray-400"
+                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 text-right font-semibold placeholder:text-gray-500"
                             autoFocus
                         />
-                        {isSearching && <Loader2 size={16} className="text-blue-500 animate-spin shrink-0" />}
+                        {isSearching && <Loader2 size={16} className="text-cyan-500 animate-spin shrink-0" />}
                         {searchQuery && !isSearching && (
-                            <button onClick={() => onSearchChange('')} className="p-1 hover:bg-gray-200 rounded-full">
-                                <X size={14} className="text-gray-400" />
+                            <button onClick={() => onSearchChange('')} className="p-1 hover:bg-gray-100/60 rounded-full">
+                                <X size={14} className="text-gray-500" />
                             </button>
                         )}
                         <button
                             onClick={() => { onSearchChange(''); onStateChange('idle'); }}
-                            className="text-blue-600 text-xs font-bold mr-1"
+                            className="text-cyan-600 text-xs font-bold ms-1"
                         >
                             ביטול
                         </button>
@@ -142,40 +212,110 @@ export default function NavigationHub({
 
                 <div className="flex-1 overflow-y-auto">
                     {searchQuery.length < 3 ? (
-                        <div className="p-6" dir="rtl">
-                            <div className="grid grid-cols-2 gap-4 mb-8">
-                                {QUICK_ACTIONS.map(({ id, label, icon: Icon, color, bg }) => (
-                                    <button
-                                        key={id}
-                                        onClick={() => onSearchChange(label)}
-                                        className="flex flex-col items-center gap-3 py-6 bg-gray-50 hover:bg-gray-100 rounded-2xl transition-colors"
-                                    >
-                                        <div className={`w-14 h-14 rounded-full ${bg} flex items-center justify-center`}>
-                                            <Icon size={24} className={color} />
-                                        </div>
-                                        <span className="text-sm font-bold text-gray-700">{label}</span>
-                                    </button>
-                                ))}
+                        <div className="px-5 pt-5 pb-6" dir="rtl">
+                            {/* ── Quick action tiles ─────────────────────
+                                Compact 4-up grid (refinement pass — the
+                                old 2-col / py-5 / w-14 icon ring read
+                                as oversized on phone screens). The
+                                whole grid now fits in a single
+                                horizontal stripe for thumb-comfortable
+                                scanning. */}
+                            <div className="grid grid-cols-4 gap-2.5 mb-7">
+                                {QUICK_ACTIONS.map(({ id, label, icon: Icon, color, bg }) => {
+                                    const isSavedSlot = id === 'home' || id === 'work';
+                                    const slot = isSavedSlot ? savedPlaces[id as SavedPlaceKind] : null;
+                                    return (
+                                        <button
+                                            key={id}
+                                            onClick={() => handleQuickActionTap(id, label)}
+                                            className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-[0.97] ring-1 ring-black/5 shadow-[0_3px_10px_rgba(0,0,0,0.04)]"
+                                            style={{
+                                                backgroundColor: 'rgba(255,255,255,0.6)',
+                                                backdropFilter: 'blur(12px) saturate(160%)',
+                                                WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+                                            }}
+                                        >
+                                            <div className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center`}>
+                                                <Icon size={18} className={color} />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-gray-800 leading-none">
+                                                {label}
+                                            </span>
+                                            {isSavedSlot && !slot && (
+                                                <span className="text-[9px] text-gray-400 leading-none -mt-0.5">
+                                                    הקש להגדרה
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
 
-                            <div className="flex items-center gap-2 mb-4 px-1">
-                                <Clock size={12} className="text-gray-400" />
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">חיפושים אחרונים</span>
-                            </div>
-                            <div className="space-y-1">
-                                {['פארק ספורט שדרות', 'גינת כושר', 'מסלול ריצה'].map((item, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => onSearchChange(item)}
-                                        className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-50 transition-colors"
-                                    >
-                                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
-                                            <Clock size={14} className="text-gray-400" />
+                            {/* ── Recent searches ────────────────────────
+                                Reads from `useRecentSearchesStore` (real,
+                                persisted user history) — replaces the
+                                previous hard-coded stub. Tap → replay
+                                through the SAME onAddressSelect path
+                                as a fresh suggestion. Long-list cap is
+                                handled inside the store (MAX_ENTRIES).
+                                Empty state stays quiet — no header at
+                                all if the user hasn't searched yet. */}
+                            {recents.length > 0 && (
+                                <>
+                                    <div className="flex items-center justify-between mb-3 px-1">
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={12} className="text-gray-400" />
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                חיפושים אחרונים
+                                            </span>
                                         </div>
-                                        <span className="text-sm text-gray-700 font-medium">{item}</span>
-                                    </button>
-                                ))}
-                            </div>
+                                        <button
+                                            type="button"
+                                            onClick={clearRecents}
+                                            className="text-[10px] font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                                        >
+                                            נקה
+                                        </button>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        {recents.map((entry) => {
+                                            const SugIcon = SUGGESTION_ICON[entry.source] ?? MapPin;
+                                            const iconBg = entry.source === 'park'
+                                                ? 'bg-emerald-50 text-emerald-600'
+                                                : entry.source === 'route'
+                                                    ? 'bg-blue-50 text-blue-600'
+                                                    : 'bg-gray-100 text-gray-500';
+                                            return (
+                                                <div
+                                                    key={`recent-${entry.text}-${entry.pickedAt}`}
+                                                    className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl hover:bg-gray-50 transition-colors group"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRecentTap(entry)}
+                                                        className="flex-1 flex items-center gap-3 text-start"
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                                                            <SugIcon size={14} />
+                                                        </div>
+                                                        <span className="text-[13px] text-gray-700 font-medium truncate">
+                                                            {entry.text}
+                                                        </span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeRecent(entry.text)}
+                                                        className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100"
+                                                        aria-label={`הסר את ${entry.text} מההיסטוריה`}
+                                                    >
+                                                        <X size={11} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <div className="p-4" dir="rtl">
@@ -235,236 +375,16 @@ export default function NavigationHub({
         );
     }
 
-    // ── NAVIGATION DRAWER (Waze-style Bottom Sheet) ──
-    if (navState === 'navigating') {
-        const variantKeys: RouteVariant[] = ['recommended', 'scenic', 'facilityRich'];
-        const selectedRoute = navigationVariants[selectedVariant];
-        const selectedMeta = VARIANT_META[selectedVariant];
-        const SelectedIcon = selectedMeta.icon;
-
-        return (
-            <div className="fixed inset-0 z-[100] pointer-events-none">
-                {/* Transparent tap target — collapses drawer, map stays fully visible */}
-                {isDrawerExpanded && (
-                    <div
-                        className="absolute inset-0 pointer-events-auto"
-                        onClick={() => setIsDrawerExpanded(false)}
-                    />
-                )}
-
-                <motion.div
-                    drag="y"
-                    dragControls={dragControls}
-                    dragListener={false}
-                    dragConstraints={{ top: 0, bottom: 0 }}
-                    dragElastic={0.25}
-                    onDragEnd={(_, info) => {
-                        if (info.offset.y > 80 || info.velocity.y > 300) {
-                            setIsDrawerExpanded(false);
-                        } else if (info.offset.y < -80 || info.velocity.y < -300) {
-                            setIsDrawerExpanded(true);
-                        }
-                    }}
-                    initial={{ y: 400 }}
-                    animate={{ y: 0 }}
-                    exit={{ y: 400 }}
-                    transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                    className="absolute bottom-0 left-0 right-0 pointer-events-auto"
-                >
-                    <div className="bg-white rounded-t-3xl shadow-2xl overflow-hidden pb-[90px]">
-                        {/* Drag handle — swipe up/down to expand/collapse */}
-                        <div
-                            className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing"
-                            onPointerDown={(e) => dragControls.start(e)}
-                            style={{ touchAction: 'none' }}
-                        >
-                            <div className="w-10 h-1 bg-gray-300 rounded-full" />
-                        </div>
-
-                        {/* Header: title + close */}
-                        <div className="flex justify-between items-center px-5 mb-2" dir="rtl">
-                            <span className="text-sm font-bold text-gray-900">בחר מסלול</span>
-                            <button
-                                onClick={() => onStateChange('idle')}
-                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                            >
-                                <X size={16} className="text-gray-500" />
-                            </button>
-                        </div>
-
-                        {/* Activity Toggle */}
-                        <div className="flex justify-center gap-1.5 px-6 mb-3" dir="rtl">
-                            {ACTIVITY_META.map(({ id, label, icon: Icon }) => (
-                                <button
-                                    key={id}
-                                    onClick={() => onActivityChange(id)}
-                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all ${
-                                        navActivity === id
-                                            ? 'bg-gray-900 text-white shadow-sm'
-                                            : 'bg-white text-gray-500 shadow-sm border border-gray-100'
-                                    }`}
-                                >
-                                    <Icon size={12} />
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* ── Catch-Up Banner (active group session) ── */}
-                        {groupAheadMeters != null && groupAheadMeters > 0 && (
-                            <div
-                                className="mx-4 mb-3 flex items-center gap-2 px-3 py-2 bg-gradient-to-l from-cyan-50 to-emerald-50 border border-cyan-200 rounded-xl"
-                                dir="rtl"
-                            >
-                                <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center flex-shrink-0">
-                                    <Users size={16} className="text-cyan-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-black text-gray-900">
-                                        הקבוצה {groupAheadMeters < 1000
-                                            ? `${Math.round(groupAheadMeters)} מטר`
-                                            : `${(groupAheadMeters / 1000).toFixed(1)} ק"מ`} לפניך
-                                    </p>
-                                    <p className="text-[10px] text-gray-500 font-bold">
-                                        {groupMemberCount} חברי קבוצה פעילים
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-1 px-2 py-1 bg-cyan-500 rounded-lg flex-shrink-0">
-                                    <Gauge size={12} className="text-white" />
-                                    <span className="text-[10px] font-black text-white">דלק!</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ── EXPANDED: All 3 variant cards stacked vertically ── */}
-                        {isDrawerExpanded ? (
-                            <div className="px-4 space-y-2.5 pb-4">
-                                {variantKeys.map((key) => {
-                                    const route = navigationVariants[key];
-                                    const isActive = selectedVariant === key;
-                                    const meta = VARIANT_META[key];
-                                    const VIcon = meta.icon;
-
-                                    return (
-                                        <button
-                                            key={key}
-                                            onClick={() => onVariantSelect(key)}
-                                            className={`w-full rounded-2xl p-4 transition-all text-right border ${
-                                                isActive
-                                                    ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100'
-                                                    : 'bg-gray-50 border-gray-100 hover:bg-gray-100'
-                                            }`}
-                                            dir="rtl"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-10 h-10 rounded-xl ${meta.bg} flex items-center justify-center`}>
-                                                        <VIcon size={20} className={meta.color} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{meta.label}</div>
-                                                        <div className="text-sm font-bold text-gray-900 truncate max-w-[140px]">{route?.name || 'טוען...'}</div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-3">
-                                                    <div className="text-left">
-                                                        <div className="text-sm font-bold text-gray-900">
-                                                            {isLoading ? '...' : `${route?.distance?.toFixed(1) || '0.0'} ק"מ`}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            {isLoading ? '...' : `${route?.duration || 0} דק'`}
-                                                        </div>
-                                                    </div>
-                                                    <div
-                                                        role="button"
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation();
-                                                            onVariantSelect(key);
-                                                            if (typeof window !== 'undefined') {
-                                                                const { audioService } = await import('@/features/workout-engine/core/services/AudioService');
-                                                                audioService.unlock();
-                                                            }
-                                                            onStart();
-                                                        }}
-                                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
-                                                            isActive && route
-                                                                ? 'bg-blue-600 text-white shadow-md'
-                                                                : 'bg-gray-200 text-gray-400'
-                                                        }`}
-                                                    >
-                                                        <Play size={16} fill="currentColor" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            /* ── COLLAPSED: Selected variant only with expand hint ── */
-                            <div className="px-4 pb-4">
-                                <div
-                                    onClick={() => setIsDrawerExpanded(true)}
-                                    className="w-full rounded-2xl p-4 bg-blue-50 border border-blue-200 cursor-pointer"
-                                    dir="rtl"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-xl ${selectedMeta.bg} flex items-center justify-center`}>
-                                                <SelectedIcon size={20} className={selectedMeta.color} />
-                                            </div>
-                                            <div>
-                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{selectedMeta.label}</div>
-                                                <div className="text-sm font-bold text-gray-900">{selectedRoute?.name || 'טוען...'}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-left">
-                                                <div className="text-sm font-bold text-gray-900">
-                                                    {isLoading ? '...' : `${selectedRoute?.distance?.toFixed(1) || '0.0'} ק"מ`}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                    {isLoading ? '...' : `${selectedRoute?.duration || 0} דק'`}
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    if (typeof window !== 'undefined') {
-                                                        const { audioService } = await import('@/features/workout-engine/core/services/AudioService');
-                                                        audioService.unlock();
-                                                    }
-                                                    onStart();
-                                                }}
-                                                disabled={isLoading || !selectedRoute}
-                                                className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm flex items-center gap-2 shadow-md active:scale-95 transition-all disabled:opacity-50"
-                                            >
-                                                <Play size={14} fill="currentColor" />
-                                                התחל
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Expand hint */}
-                                <div className="flex justify-center mt-2">
-                                    <button
-                                        onClick={() => setIsDrawerExpanded(true)}
-                                        className="flex items-center gap-1 text-[11px] text-gray-400 font-medium"
-                                    >
-                                        <ChevronUp size={12} />
-                                        עוד 2 מסלולים
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </motion.div>
-            </div>
-        );
-    }
-
+    // ── 'navigating' state intentionally returns null ──
+    // The legacy 3-variant Waze-style bottom drawer used to live here,
+    // but the unified RouteCarousel now owns all route selection (loop
+    // AND commute). DiscoverLayer's `mapMode === 'commute'` branch
+    // mounts RouteCarousel directly when an address is picked, so this
+    // component is only responsible for the SEARCH overlay now.
+    //
+    // Backwards-compat: existing call sites still pass
+    // `navigationVariants` / `onVariantSelect` / `onStart` etc; those
+    // props are accepted but ignored. Cleanup ticket: drop them once
+    // useSearchNavigation is trimmed to just the suggestion pipeline.
     return null;
 }

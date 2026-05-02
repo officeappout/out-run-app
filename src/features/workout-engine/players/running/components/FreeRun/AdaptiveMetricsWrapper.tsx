@@ -33,9 +33,12 @@
  */
 
 import { motion } from 'framer-motion';
-import { Settings } from 'lucide-react';
+import { Settings, Flag } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { useRunningPlayer } from '../../store/useRunningPlayer';
 import StatsCarousel from './StatsCarousel';
+import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
+import { useCommuteEta } from '../Commute/useCommuteEta';
 import { useDraggableMetrics } from '../../hooks/useDraggableMetrics';
 
 const PRIMARY_DARK = '#0284C7';
@@ -85,7 +88,9 @@ export default function AdaptiveMetricsWrapper({
     dragConstraints,
     isPill,
   } = useDraggableMetrics({
-    defaultPosition: isNavigationActive ? 'bottom' : 'top',
+    // Workout always boots BOTTOM-DOCKED so the user sees the map first.
+    // The drag-to-top gesture remains available (unless lockToBottom is on).
+    defaultPosition: 'bottom',
     lockToBottom: isNavigationActive,
     topBarOffset,
   });
@@ -95,15 +100,23 @@ export default function AdaptiveMetricsWrapper({
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
 
+  // Commute-mode switch — drives the carousel + pill swap below.
+  // sessionMode is set by `setCommuteContext` in DiscoverLayer right
+  // before startActiveWorkout, so by the time this wrapper mounts the
+  // mode is already correct on first paint (no flash from workout HUD
+  // to commute HUD). See useRunningPlayer.SessionMode jsdoc.
+  const sessionMode = useRunningPlayer((s) => s.sessionMode);
+  const isCommute = sessionMode === 'commute';
+
   return (
     <motion.div
       drag="y"
       dragConstraints={dragConstraints}
-      dragElastic={0.12}
+      dragElastic={0}
       dragMomentum={false}
       onDragEnd={handleDragEnd}
       animate={controls}
-      className="absolute left-0 right-0 z-20 px-3 pointer-events-auto"
+      className="absolute left-0 right-0 z-40 px-3 pointer-events-auto"
       style={{ top: 0, touchAction: 'pan-y' }}
     >
       <div
@@ -170,10 +183,16 @@ export default function AdaptiveMetricsWrapper({
         </div>
 
         {isPill ? (
-          <PillContent
-            distanceKm={totalDistance}
-            durationSec={totalDuration}
-          />
+          isCommute ? (
+            <CommutePillContent />
+          ) : (
+            <PillContent
+              distanceKm={totalDistance}
+              durationSec={totalDuration}
+            />
+          )
+        ) : isCommute ? (
+          <CommuteStatsCarousel />
         ) : (
           <StatsCarousel />
         )}
@@ -233,6 +252,60 @@ function PillContent({
           style={{ color: PRIMARY_DARK }}
         >
           TIME
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Commute-mode pill — surfaces ETA + remaining distance instead of
+ * distance + time. Same chrome as the workout pill so the visual
+ * transition (carousel ↔ pill) is identical, only the numbers
+ * change. Reads from `useCommuteEta` so the pill stays in lockstep
+ * with the expanded `CommuteStatsCarousel` above.
+ */
+function CommutePillContent() {
+  const { distanceRemainingKm, etaSeconds, hasArrived } = useCommuteEta();
+
+  const etaText = hasArrived
+    ? '✓ הגעת'
+    : etaSeconds === null
+      ? '--'
+      : etaSeconds < 60
+        ? `${Math.max(1, Math.round(etaSeconds))}שנ׳`
+        : etaSeconds < 3600
+          ? `${Math.round(etaSeconds / 60)}דק׳`
+          : `${Math.floor(etaSeconds / 3600)}:${Math.round((etaSeconds % 3600) / 60).toString().padStart(2, '0')}`;
+
+  const remainingText =
+    distanceRemainingKm === null
+      ? '--'
+      : distanceRemainingKm < 1
+        ? `${Math.round(distanceRemainingKm * 1000)}מ׳`
+        : `${distanceRemainingKm.toFixed(distanceRemainingKm < 10 ? 2 : 1)}ק״מ`;
+
+  return (
+    <div className="flex items-center justify-around w-full px-4 h-full" dir="rtl">
+      <div className="flex items-center gap-2">
+        <Flag size={14} className="text-[#00ADEF]" fill="#00ADEF" strokeWidth={2.4} />
+        <span
+          className="text-xl font-black text-black tabular-nums leading-none"
+          dir="ltr"
+        >
+          {etaText}
+        </span>
+      </div>
+      <div className="w-px h-6" style={{ background: 'rgba(0,0,0,0.10)' }} />
+      <div className="flex items-baseline gap-1.5" dir="ltr">
+        <span className="text-xl font-black text-black tabular-nums leading-none">
+          {remainingText}
+        </span>
+        <span
+          className="text-[10px] font-bold uppercase tracking-wider"
+          style={{ color: PRIMARY_DARK }}
+        >
+          LEFT
         </span>
       </div>
     </div>

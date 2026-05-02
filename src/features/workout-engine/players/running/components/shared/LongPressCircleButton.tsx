@@ -102,8 +102,19 @@ export default function LongPressCircleButton({
   }, [cancel, tick]);
 
   const dashOffset = circumference * (1 - progress);
-  const effectiveRingColor = ringColor ?? color;
-  const effectiveRingBg = ringBackground ?? `${color}40`; // 25% opacity
+  // Premium "iOS / Apple Watch" fill recipe:
+  //   • The active progress stroke fills with a near-opaque white so it
+  //     reads cleanly on top of ANY button colour (orange Pause, red
+  //     Stop, emerald Resume, cyan Lap…). Previously the stroke matched
+  //     the button colour, which on darker palettes (orange/red) produced
+  //     the muddy "blue/dark noise" look the team flagged.
+  //   • The unfilled track is a soft 22% white tint. Together they read
+  //     as a clean monochromatic ring regardless of palette — same
+  //     language used in iOS confirmation rings.
+  // Callers can still override either via `ringColor` / `ringBackground`
+  // when a specific brand colour is required.
+  const effectiveRingColor = ringColor ?? 'rgba(255,255,255,0.92)';
+  const effectiveRingBg = ringBackground ?? 'rgba(255,255,255,0.22)';
 
   return (
     <button

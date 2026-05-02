@@ -29,6 +29,26 @@ export const STREAK_MULTIPLIER_MAX_DAYS = 30;
 export const XP_PER_MINUTE_RUNNING = 3;   // 3 XP per minute of cardio
 export const XP_PER_KM_BONUS = 10;        // +10 XP per km — rewards intensity & distance
 
+// Commute XP constants (A-to-B navigation, applied before streak multiplier)
+// Formula: FinalXP = round((Minutes × COMMUTE_BASE_XP_PER_MINUTE + Km × COMMUTE_BASE_XP_PER_KM) × StreakMultiplier)
+//
+// Trade-off intent (vs the workout running rate):
+//   • Per-minute is HALVED (3 → 1.5) — a school-run shouldn't pay
+//     out the same as a deliberate training session, but we still
+//     want movement to be rewarded so commuters stay engaged.
+//   • Per-km is REDUCED to 25% (10 → 2.5) — distance bonuses are a
+//     reward for athletic effort, not for "I drive 12 km to work";
+//     the per-minute term carries most of the commute reward weight.
+//   • Streak multiplier is SHARED with workouts on purpose — a daily
+//     commute IS a streak-builder, and that's exactly what we want
+//     to reinforce.
+//
+// Net effect: a brisk 15-min walk to work earns ≈ 25 XP at streak 1.
+// A 15-min training run earns ≈ 65 XP at streak 1. Same minutes,
+// very different pay-out — matching the differing effort profile.
+export const COMMUTE_BASE_XP_PER_MINUTE = 1.5;
+export const COMMUTE_BASE_XP_PER_KM = 2.5;
+
 // Goal bonus (flat XP, added after streak multiplier)
 // ADMIN OVERRIDE: These are compile-time fallbacks only.
 // The live values are stored in Firestore: app_config/xp_settings

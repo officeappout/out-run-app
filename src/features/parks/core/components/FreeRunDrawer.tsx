@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Play } from 'lucide-react';
-import { ActivityType, Route } from '../types/route.types';
+import { X, Play, ChevronRight, AlertCircle } from 'lucide-react';
+import { ActivityType } from '../types/route.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-import FreeRunRouteSelector from './FreeRunRouteSelector';
+import { useUserStore } from '@/features/user';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
@@ -19,30 +20,46 @@ interface ExtrasState {
   gymParks: boolean;
   benches: boolean;
   stairs: boolean;
+  trail: boolean;
 }
 
 interface FreeRunDrawerProps {
   currentActivity: ActivityType;
-  onActivityChange: (type: ActivityType) => void;
+  /**
+   * Optional: invoked when the user wants to go back and pick a different
+   * activity. When provided, a "← שנה פעילות" affordance is rendered in
+   * the drawer header; when omitted, the affordance is hidden and the
+   * activity is treated as locked for this session (legacy behaviour).
+   */
+  onBackToActivity?: () => void;
   /** Free-mode start (no pre-built route). Existing behaviour. */
   onStartWorkout: () => void;
   onClose: () => void;
   /**
-   * Route-mode start. Called after the user picks a card in
-   * FreeRunRouteSelector. Parent owns "set focused route + start workout".
-   * When omitted, the route-mode flow is disabled and the drawer behaves
-   * as if `withRoute` were always false.
+   * Route-mode start request. Called when the user picked "with route" mode
+   * and tapped the start CTA. The drawer hands off control with a
+   * pre-computed `targetKm` (derived from time/distance/calories goal) and
+   * unmounts itself; the parent is responsible for showing the floating
+   * RouteCarousel and routing the user back here on cancel. When omitted,
+   * the route-mode toggle silently degrades to free mode on tap.
    */
-  onStartWorkoutWithRoute?: (route: Route) => void;
+  onRequestRouteGeneration?: (config: {
+    targetKm: number;
+    includeStrength: boolean;
+    surface: 'road' | 'trail';
+  }) => void;
   /**
    * Required for the route-mode flow — the generator needs a starting
-   * GPS point. Free mode (no route) doesn't need this.
+   * GPS point. Free mode (no route) doesn't need this. Exposed so the
+   * drawer can disable the "with route" toggle when the user is offline /
+   * GPS-less rather than letting them tap a CTA that can't proceed.
    */
   userPosition?: { lat: number; lng: number } | null;
   /**
-   * Resolved city name for the user (from useUserCityName). Forwarded into
-   * the generator so it can pull scored waypoints from `street_segments`
-   * instead of falling back to random.
+   * Resolved city name for the user (from useUserCityName). Surfaced as a
+   * confirmation chip so the user knows which city the generator will
+   * query for scored street segments. Forwarded into the carousel via the
+   * parent — NOT consumed directly by the generator from here anymore.
    */
   cityName?: string;
 }
@@ -261,6 +278,12 @@ function ExtrasSheet({
                 value={extras.stairs}
                 onToggle={() => onToggle('stairs')}
               />
+              <ToggleRow
+                emoji="🌿"
+                label="שבילי עפר (Trail)"
+                value={extras.trail}
+                onToggle={() => onToggle('trail')}
+              />
             </div>
 
             {/* Close CTA */}
@@ -283,11 +306,17 @@ function ExtrasSheet({
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
-const ACTIVITIES: Array<{ id: ActivityType; label: string; emoji: string }> = [
-  { id: 'running', label: 'ריצה', emoji: '🏃' },
-  { id: 'walking', label: 'הליכה', emoji: '🚶' },
-  { id: 'cycling', label: 'רכיבה', emoji: '🚴' },
-];
+/**
+ * Activity metadata used to render the "selected activity" chip in the header.
+ * The full activity picker now lives in `ActivityCarousel.tsx`; this map is
+ * just a small lookup so the drawer can label the user's current choice.
+ */
+const ACTIVITY_LABELS: Record<ActivityType, { label: string; emoji: string }> = {
+  running: { label: 'ריצה', emoji: '🏃' },
+  walking: { label: 'הליכה', emoji: '🚶' },
+  cycling: { label: 'רכיבה', emoji: '🚴' },
+  workout: { label: 'אימון', emoji: '🏋️' },
+};
 
 const GOAL_PILLS: Array<{ id: GoalType | 'extras'; label: string; emoji: string }> = [
   { id: 'time', label: 'זמן', emoji: '⏱' },
@@ -300,13 +329,14 @@ const GOAL_PILLS: Array<{ id: GoalType | 'extras'; label: string; emoji: string 
 
 export default function FreeRunDrawer({
   currentActivity,
-  onActivityChange,
+  onBackToActivity,
   onStartWorkout,
   onClose,
-  onStartWorkoutWithRoute,
+  onRequestRouteGeneration,
   userPosition,
   cityName,
 }: FreeRunDrawerProps) {
+  const activityMeta = ACTIVITY_LABELS[currentActivity] ?? ACTIVITY_LABELS.walking;
   const dragControls = useDragControls();
 
   // Local UI state
@@ -321,12 +351,13 @@ export default function FreeRunDrawer({
     gymParks: false,
     benches: false,
     stairs: false,
+    trail: false,
   });
 
-  // Route-mode overlay — visible only when withRoute=true and the user
-  // has tapped the start CTA. The selector handles its own radar +
-  // generator + cards lifecycle and only calls back via onStartWorkoutWithRoute.
-  const [routeSelectorOpen, setRouteSelectorOpen] = useState(false);
+  // Weight check for calorie accuracy prompt
+  const userWeight = useUserStore((s) => s.profile?.core?.weight ?? null);
+  const isWeightDefault = !userWeight || userWeight === 70;
+  const router = useRouter();
 
   const toggleExtra = (key: keyof ExtrasState) =>
     setExtras((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -360,12 +391,13 @@ export default function FreeRunDrawer({
 
   /**
    * CTA handler. Free-mode = existing behaviour (parent's onStartWorkout).
-   * Route-mode = open the FreeRunRouteSelector overlay; the parent wires
-   * onStartWorkoutWithRoute for the actual workout start.
+   * Route-mode = compute targetKm and hand off to the parent via
+   * onRequestRouteGeneration; the parent unmounts this drawer and shows
+   * the floating RouteCarousel over the visible map.
    *
    * If route-mode is requested but the parent didn't supply the necessary
-   * props (userPosition + onStartWorkoutWithRoute), we silently degrade to
-   * free-mode rather than block the user.
+   * props (userPosition + onRequestRouteGeneration), we silently degrade
+   * to free-mode rather than block the user.
    */
   const handleStartCta = async () => {
     if (typeof window !== 'undefined') {
@@ -392,9 +424,13 @@ export default function FreeRunDrawer({
     }
 
     const canDoRouteMode =
-      withRoute && !!userPosition && !!onStartWorkoutWithRoute;
+      withRoute && !!userPosition && !!onRequestRouteGeneration;
     if (canDoRouteMode) {
-      setRouteSelectorOpen(true);
+      onRequestRouteGeneration({
+        targetKm: computeTargetKm(),
+        includeStrength: extras.gymParks,
+        surface: extras.trail ? 'trail' : 'road',
+      });
       return;
     }
     onStartWorkout();
@@ -438,38 +474,51 @@ export default function FreeRunDrawer({
               <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
             </div>
 
-            {/* ── Header ────────────────────────────────────────────────── */}
-            <div className="flex items-start justify-between px-5 pb-5">
-              <div>
-                <h2 className="text-base font-black text-gray-900">אירובי חופשי</h2>
-                <p className="text-sm text-gray-500 mt-0.5">בחר את סוג האימון שלך</p>
-              </div>
+            {/* ── Header ──────────────────────────────────────────────────
+                The activity pill is now the header centerpiece. The full
+                activity picker lives in ActivityCarousel (one stage earlier);
+                tapping the pill (when onBackToActivity is supplied) returns
+                the user to that picker. */}
+            <div className="flex items-center justify-between px-5 pb-5 gap-3">
+              <button
+                type="button"
+                onClick={onBackToActivity}
+                disabled={!onBackToActivity}
+                className="flex items-center gap-2 min-w-0 flex-1 text-start active:scale-[0.98] transition-transform disabled:active:scale-100 disabled:cursor-default"
+                aria-label={onBackToActivity ? 'שנה סוג פעילות' : undefined}
+              >
+                <span
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0"
+                  style={{ backgroundColor: `${ACCENT}1A` }}
+                  aria-hidden="true"
+                >
+                  {activityMeta.emoji}
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-base font-black text-gray-900 leading-tight truncate">
+                    אירובי חופשי · {activityMeta.label}
+                  </h2>
+                  {onBackToActivity ? (
+                    <p
+                      className="text-[12px] font-bold mt-0.5 flex items-center gap-0.5"
+                      style={{ color: ACCENT }}
+                    >
+                      <ChevronRight size={12} strokeWidth={3} />
+                      שנה פעילות
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500 mt-0.5">בחר את הגדרות האימון</p>
+                  )}
+                </div>
+              </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform shrink-0"
                 aria-label="סגור"
               >
                 <X size={14} className="text-gray-600" />
               </button>
-            </div>
-
-            {/* ── Section 1 — Activity type ─────────────────────────────── */}
-            <div className="px-5 mb-5">
-              <span className="text-[13px] font-black text-gray-800 block mb-2.5">
-                סוג פעילות
-              </span>
-              <div className="flex gap-2">
-                {ACTIVITIES.map(({ id, label, emoji }) => (
-                  <Pill
-                    key={id}
-                    active={currentActivity === id}
-                    onClick={() => onActivityChange(id)}
-                  >
-                    {emoji} {label}
-                  </Pill>
-                ))}
-              </div>
             </div>
 
             {/* ── Section 2 — Mode ──────────────────────────────────────── */}
@@ -581,6 +630,33 @@ export default function FreeRunDrawer({
                     onChange={setCaloriesValue}
                     formatLabel={(v) => `${v} קק״ל`}
                   />
+                  {/* Weight accuracy nudge — shown when weight is missing or is the
+                      onboarding default (70 kg). Non-blocking: the user can still
+                      start; this just surfaces the precision gap. */}
+                  {isWeightDefault && (
+                    <div
+                      className="mt-3 rounded-2xl px-3.5 py-3 flex items-start gap-2.5"
+                      style={{ backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}
+                    >
+                      <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: '#F97316' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-black text-gray-800 leading-tight">
+                          לחישוב קלוריות מדויק, הזן את משקלך
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-0.5 leading-tight">
+                          המשקל הנוכחי הוא ברירת מחדל (70 ק״ג)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => router.push('/profile')}
+                          className="mt-1.5 text-[11px] font-black"
+                          style={{ color: '#F97316', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                        >
+                          עדכן משקל בפרופיל
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -609,22 +685,10 @@ export default function FreeRunDrawer({
         onToggle={toggleExtra}
       />
 
-      {/* ── Route selector (z-[110] — covers the drawer entirely) ─────────
-          Mounted only when the user picked "עם מסלול" + tapped CTA AND the
-          parent supplied the required route-mode props. */}
-      {routeSelectorOpen && userPosition && onStartWorkoutWithRoute && (
-        <FreeRunRouteSelector
-          userPosition={userPosition}
-          activity={currentActivity}
-          targetKm={computeTargetKm()}
-          cityName={cityName}
-          onSelect={(route) => {
-            setRouteSelectorOpen(false);
-            onStartWorkoutWithRoute(route);
-          }}
-          onCancel={() => setRouteSelectorOpen(false)}
-        />
-      )}
+      {/* The route selector now lives at the parent level (DiscoverLayer)
+          as the floating RouteCarousel — a separate stage in the free-run
+          state machine that mounts AFTER this drawer unmounts. We only
+          surface the targetKm payload via `onRequestRouteGeneration`. */}
     </>
   );
 }

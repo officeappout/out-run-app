@@ -2,9 +2,10 @@
 
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Route, ActivityType } from '../types/route.types';
+import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
+import type { MapboxPathResult } from './mapbox.service';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -77,6 +78,25 @@ interface RouteGenerationOptions {
    * segments in the candidate pool carry that officialRouteId.
    */
   activeOfficialRouteId?: string;
+  /**
+   * A-to-B commute switch. When set, the generator skips the loop
+   * algorithm (waypoint pool → triangular combos → sequential Mapbox
+   * loop calls) and instead returns up to 3 commute variants:
+   *
+   *   1. fastest     — Mapbox primary route (shortest duration alternative).
+   *   2. alternative — A different alternative geometry from the same
+   *                    `getSmartPathAlternatives` call as fastest.
+   *                    No park bias, no scenic vias — pure Mapbox alt.
+   *   3. quiet       — Separate call with `exclude=motorway` (and `toll`
+   *                    for cycling). Falls back to the longest-duration
+   *                    alternative as a "quieter back-streets" heuristic
+   *                    when Mapbox returns nothing for the exclude query.
+   *
+   * `targetDistance`, `cityName`, `activeOfficialRouteId` and the
+   * `street_segments` waypoint pool are IGNORED on this branch — none
+   * of them apply to point-to-point navigation.
+   */
+  destination?: { lat: number; lng: number };
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -136,6 +156,35 @@ function segmentMidpoint(seg: StreetSegment): { lat: number; lng: number } | nul
     };
   }
   return null;
+}
+
+/**
+ * Soft shuffle: Fisher-Yates within each group of candidates whose scores are
+ * within 1 point of each other. The overall high-score-first order is preserved
+ * — only ties and near-ties are randomised. Uses a deterministic seed so the
+ * same shuffle plays out consistently within a session but changes across sessions.
+ */
+function softShuffleTiedGroups<T extends { score: number }>(sorted: T[], seed: number): T[] {
+  if (sorted.length === 0) return sorted;
+  const result: T[] = [];
+  let groupStart = 0;
+
+  for (let i = 1; i <= sorted.length; i++) {
+    const pastEnd = i === sorted.length;
+    const scoreGap = pastEnd ? Infinity : sorted[groupStart].score - sorted[i].score;
+
+    if (scoreGap > 1) {
+      // Shuffle this group in-place with a seeded PRNG
+      const group = sorted.slice(groupStart, i);
+      for (let k = group.length - 1; k > 0; k--) {
+        const j = Math.abs((seed * 1664525 + k * 22695477 + groupStart) % (k + 1));
+        [group[k], group[j]] = [group[j], group[k]];
+      }
+      result.push(...group);
+      groupStart = i;
+    }
+  }
+  return result;
 }
 
 /**
@@ -251,7 +300,7 @@ async function fetchScoredWaypoints(
     const searchRadiusKm = targetDistance / 2;
 
     let officialBiasApplied = 0;
-    const candidates = snap.docs
+    const scored = snap.docs
       .map((d) => {
         const seg = d.data() as StreetSegment;
         const point = segmentMidpoint(seg);
@@ -259,15 +308,23 @@ async function fetchScoredWaypoints(
         const distKm = getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng);
         if (distKm > searchRadiusKm) return null;
 
-        // Effective score = base × (5 if this segment belongs to the
-        // user's original official route AND we're in deviation-recovery
-        // mode, otherwise 1). The boost makes those segments dominate the
-        // sort below, biasing the triangular loop builder to weave back
-        // through the original corridor.
+        // Official segments (admin-created via the back-office) always get a
+        // minimum score of 10 — the maximum possible Firestore score value.
+        // This makes them dominate the top-12 candidate pool so any dynamic
+        // route "gravitates" toward pre-approved official corridors.
+        // Detection: `isOfficial: true` (set by official-route-broadcaster)
+        // OR `officialRouteId` is present (implies official lineage).
+        const isOfficialSegment = seg.isOfficial === true || seg.officialRouteId != null;
+        const rawScore = seg.score ?? 0;
+        const baseScore = isOfficialSegment ? Math.max(rawScore, 10) : rawScore;
+
+        // Deviation-recovery: 5× multiplier when the orchestrator has flagged
+        // a specific route the user should return to. Applied on top of the
+        // official-backbone floor, so an official segment in recovery mode
+        // scores 50 — guaranteed to dominate ALL other candidates.
         const matchesActiveRoute =
           activeOfficialRouteId !== undefined &&
           seg.officialRouteId === activeOfficialRouteId;
-        const baseScore = seg.score ?? 0;
         const effectiveScore = matchesActiveRoute
           ? baseScore * OFFICIAL_ROUTE_BIAS_MULTIPLIER
           : baseScore;
@@ -276,9 +333,28 @@ async function fetchScoredWaypoints(
         return { ...point, score: effectiveScore };
       })
       .filter((c): c is { lat: number; lng: number; score: number } => c !== null)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12);
+      .sort((a, b) => b.score - a.score);
 
+    // ── Soft Shuffle — vary daily variety without sacrificing quality ──────
+    // Groups of consecutive candidates whose scores are within 1 point of
+    // each other get Fisher-Yates shuffled using `activeOfficialRouteId`
+    // (deviation-recovery) or a timestamp-derived seed. This means: the
+    // top-10 cluster still wins, but their internal order rotates every
+    // session so the same 3 routes don't appear every day from the same spot.
+    const shuffleSeed =
+      activeOfficialRouteId != null
+        ? activeOfficialRouteId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+        : Math.floor(Date.now() / 86_400_000); // changes once per calendar day
+
+    const candidates = softShuffleTiedGroups(scored, shuffleSeed).slice(0, 12);
+
+    const officialBackboneCount = candidates.filter((c) => c.score >= 10).length;
+    if (officialBackboneCount > 0) {
+      console.log(
+        `[RouteGenerator] Official backbone: ${officialBackboneCount} segment(s) ` +
+          `scored to 10 (admin-approved corridors will dominate this generation).`,
+      );
+    }
     if (activeOfficialRouteId) {
       console.log(
         `[RouteGenerator] Deviation recovery: ${officialBiasApplied} segment(s) matched ` +
@@ -442,15 +518,38 @@ async function findFitnessAnchor(
 
 /**
  * MAIN GENERATOR FUNCTION
- * ✅ FIX #1: Sequential processing with 1.5s delays, require 50+ points, return 3+ routes
  *
- * Waypoint strategy (in priority order):
+ * Two modes, picked by the presence of `options.destination`:
+ *
+ *   • Loop mode (no destination) — original behaviour, untouched. Builds
+ *     up to 3 triangular loops back to `userLocation` using street_segments
+ *     waypoints (or random fallback) sequenced through Mapbox Directions.
+ *
+ *   • Commute mode (destination set) — returns up to 3 A-to-B variants
+ *     (fastest / alternative / quiet) for the same point pair. Single
+ *     Mapbox call with `alternatives=true` for fastest+alternative; a
+ *     separate `exclude=motorway` call for quiet. See `RouteGenerationOptions.destination`.
+ *
+ * The two branches share NOTHING beyond the function entry — commute
+ * mode does not touch the waypoint pool, the soft-shuffle, the
+ * triangular-combo builder, or the 1.5 s rate-limit delay loop. This
+ * separation is intentional: the loop pipeline has years of tuning
+ * baked in (MIN_PATH_POINTS, distance-window guards, deviation-recovery
+ * bias, etc.) and the commute pipeline has different needs.
+ *
+ * Waypoint strategy (loop mode, in priority order):
  *   1. Firestore street_segments (scored, city-specific) — via fetchScoredWaypoints()
  *   2. Random geometric fallback — via generateRandomWaypoints()
  */
 export async function generateDynamicRoutes(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
+  // Commute mode — destination provided, skip the entire loop pipeline.
+  // Returns immediately with up to 3 variant routes.
+  if (options.destination) {
+    return generateCommuteRoutes(options);
+  }
+
   const {
     userLocation,
     targetDistance,
@@ -522,9 +621,17 @@ export async function generateDynamicRoutes(
   // 3. Create route combinations (triangular loops)
   const routeCombinations: Array<{ waypoints: Array<WaypointCandidate>, score: number }> = [];
 
-  // Generate up to 5 combinations to ensure we get at least 3 valid routes
+  // Generate up to 5 combinations to ensure we get at least 3 valid routes.
+  // The starting offset is rotated by `routeGenerationIndex` so every shuffle /
+  // carousel mount picks a different triangle from the top-12 pool — this is the
+  // primary variety lever when street_segments are present and the soft-shuffle
+  // alone isn't enough to move waypoints across combination boundaries.
+  const baseOffset = topCandidates.length > 0
+    ? routeGenerationIndex % topCandidates.length
+    : 0;
+
   for (let i = 0; i < 5; i++) {
-    const offset = i * 2;
+    const offset = (baseOffset + i * 2) % Math.max(1, topCandidates.length);
     const wp1 = topCandidates[offset % topCandidates.length];
     const wp2 = topCandidates[(offset + 1) % topCandidates.length];
     const wp3 = topCandidates[(offset + 2) % topCandidates.length];
@@ -615,7 +722,7 @@ export async function generateDynamicRoutes(
 
       // Use Mapbox API duration (in seconds) as the single source of truth
       const durationMinutes = Math.round(result.duration / 60);
-      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 65));
+      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
       const hasGym = !!fitnessAnchor;
 
       const route: Route = {
@@ -668,4 +775,180 @@ export async function generateDynamicRoutes(
 
   console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid routes.`);
   return validRoutes;
+}
+
+// ── Commute (A-to-B) branch ────────────────────────────────────────────────
+//
+// Kept in this module (rather than a sibling commute-route.service) so the
+// public contract stays "one entry point, one return type" — callers don't
+// need to know which branch fires. The shared `Route` shape means the same
+// downstream pipeline (MapShell, AppMap polyline rendering, RouteCarousel
+// card UX) handles both modes without conditional code paths.
+
+/**
+ * Build a commute Route from a Mapbox path result and a variant tag.
+ * Mirrors the field set used by the loop branch so downstream consumers
+ * (carousel cards, map polyline renderer, workout starter) see a
+ * homogeneous Route — the only difference is the optional `variant` and
+ * `etaSeconds` metadata that flips on the variant chip in the UI.
+ */
+function buildCommuteRoute(
+  result: MapboxPathResult,
+  variant: CommuteVariant,
+  activity: ActivityType,
+  destination: { lat: number; lng: number },
+  index: number,
+): Route {
+  const km = parseFloat((result.distance / 1000).toFixed(2));
+  const durationMin = Math.max(1, Math.round(result.duration / 60));
+  const calories = Math.round(km * (activity === 'cycling' ? 25 : 65));
+
+  // Variant-specific name. Kept short so it fits the existing RouteCard
+  // title row without truncating; the chip badge carries the secondary
+  // semantic ("הכי מהיר" etc).
+  const nameByVariant: Record<CommuteVariant, string> = {
+    fastest: 'הכי מהיר',
+    alternative: 'מסלול חלופי',
+    quiet: 'רחובות שקטים',
+  };
+
+  return {
+    id: `commute-${variant}-${Date.now()}-${index}`,
+    name: nameByVariant[variant],
+    description: `ניווט ${activity === 'running' ? 'בריצה' : activity === 'cycling' ? 'באופניים' : 'בהליכה'} (${km.toFixed(1)} ק"מ)`,
+    distance: km,
+    duration: durationMin,
+    score: Math.round(km * 60),
+    rating: 5,
+    calories,
+    type: activity,
+    activityType: activity,
+    difficulty: 'easy',
+    path: result.path,
+    segments: [],
+    features: {
+      hasGym: false,
+      hasBenches: false,
+      lit: true,
+      // `scenic` is a legacy boolean on RouteFeatures; commute mode is
+      // practical-only (no greenery semantics) so we always set false.
+      // The variant chip — not this field — is what the UI surfaces.
+      scenic: false,
+      terrain: 'road',
+      environment: 'urban',
+      trafficLoad: variant === 'quiet' ? 'low' : 'medium',
+      surface: 'asphalt',
+    },
+    source: { type: 'system', name: 'OutRun Commute' },
+    variant,
+    etaSeconds: result.duration,
+  };
+}
+
+/**
+ * Pick the single most "different" alternative from a Mapbox alternatives
+ * array, given a baseline route. Difference is approximated by symmetric
+ * geometry hash distance — counting how many sampled coords differ at the
+ * 4-decimal-place truncation level (~11 m grid). Cheap and deterministic.
+ *
+ * Returns null when there is no usable second route (single result, or
+ * every alternative is geometrically identical to the baseline).
+ */
+function pickMostDifferent(
+  alternatives: MapboxPathResult[],
+  baseline: MapboxPathResult,
+): MapboxPathResult | null {
+  if (alternatives.length <= 1) return null;
+  const baselineKey = (p: [number, number]) => `${p[0].toFixed(4)},${p[1].toFixed(4)}`;
+  const baselineSet = new Set(baseline.path.map(baselineKey));
+
+  let best: { result: MapboxPathResult; diff: number } | null = null;
+  for (const alt of alternatives) {
+    if (alt === baseline) continue;
+    let diff = 0;
+    for (const pt of alt.path) {
+      if (!baselineSet.has(baselineKey(pt))) diff += 1;
+    }
+    if (!best || diff > best.diff) best = { result: alt, diff };
+  }
+  // Treat "essentially identical" alternatives as no alternative at all
+  // so the carousel falls back to a 2-card display rather than showing a
+  // duplicate. 5 distinct grid cells (~55 m of fresh geometry) is the
+  // empirical threshold below which the polylines visually overlap.
+  if (!best || best.diff < 5) return null;
+  return best.result;
+}
+
+async function generateCommuteRoutes(
+  options: RouteGenerationOptions,
+): Promise<Route[]> {
+  const { userLocation, destination, activity } = options;
+  if (!destination) return []; // narrowing — caller already checked, defensive
+
+  // Mapbox profile choice. The `walking` profile is also used for
+  // running because Mapbox doesn't have a dedicated runner profile and
+  // the road/path graph is identical.
+  const profile: 'walking' | 'cycling' = activity === 'cycling' ? 'cycling' : 'walking';
+
+  console.log(
+    `[RouteGenerator] Commute mode → ${activity}/${profile}, ` +
+      `from ${userLocation.lat.toFixed(4)},${userLocation.lng.toFixed(4)} ` +
+      `to ${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`,
+  );
+
+  // Fire BOTH calls in parallel — Mapbox happily handles 2 concurrent
+  // Directions requests and we save the round-trip latency. The 1.5 s
+  // anti-429 delay used by the loop branch is overkill here (we're
+  // making 2 calls total, not 5 sequential ones).
+  const [alternatives, quietRaw] = await Promise.all([
+    MapboxService.getSmartPathAlternatives(userLocation, destination, profile, []),
+    MapboxService.getSmartPath(
+      userLocation,
+      destination,
+      profile,
+      [],
+      { exclude: profile === 'cycling' ? 'motorway,toll' : 'motorway' },
+    ),
+  ]);
+
+  if (alternatives.length === 0) {
+    console.warn('[RouteGenerator] Commute: no alternatives returned by Mapbox.');
+    return [];
+  }
+
+  // Mapbox returns alternatives sorted by duration ascending, so [0] is
+  // the fastest by definition. Defensive sort in case the API ever
+  // changes (cheap — array length ≤ 3).
+  const sortedByDuration = [...alternatives].sort((a, b) => a.duration - b.duration);
+  const fastest = sortedByDuration[0];
+  const alternative = pickMostDifferent(sortedByDuration, fastest);
+
+  // Quiet preference: real `exclude=motorway` result first; otherwise
+  // fall back to the LONGEST-duration alternative as a cheap proxy
+  // ("longer routes tend to use back-streets to avoid the highway").
+  // Skip the fallback if it would be the same polyline as fastest or
+  // the alternative — better to omit the third card than show a
+  // visually-identical duplicate.
+  let quiet: MapboxPathResult | null = quietRaw;
+  if (!quiet && sortedByDuration.length >= 2) {
+    const longest = sortedByDuration[sortedByDuration.length - 1];
+    if (longest !== fastest && longest !== alternative) {
+      quiet = longest;
+    }
+  }
+
+  const out: Route[] = [];
+  out.push(buildCommuteRoute(fastest, 'fastest', activity, destination, 0));
+  if (alternative) {
+    out.push(buildCommuteRoute(alternative, 'alternative', activity, destination, 1));
+  }
+  if (quiet) {
+    out.push(buildCommuteRoute(quiet, 'quiet', activity, destination, 2));
+  }
+
+  console.log(
+    `[RouteGenerator] Commute: returning ${out.length} variants ` +
+      `(${out.map(r => r.variant).join(', ')}).`,
+  );
+  return out;
 }

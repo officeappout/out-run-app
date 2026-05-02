@@ -19,6 +19,8 @@ import {
   XP_PER_REP,
   XP_PER_MINUTE_RUNNING,
   XP_PER_KM_BONUS,
+  COMMUTE_BASE_XP_PER_MINUTE,
+  COMMUTE_BASE_XP_PER_KM,
   STREAK_MULTIPLIER_INCREMENT,
   STREAK_MULTIPLIER_MAX_DAYS,
   GLOBAL_LEVEL_THRESHOLDS,
@@ -285,6 +287,40 @@ export function calculateRunningWorkoutXP(params: RunningWorkoutXPParams): numbe
 
   const baseXP = Math.max(durationMinutes, 1) * XP_PER_MINUTE_RUNNING;
   const distanceBonus = Math.max(0, distanceKm) * XP_PER_KM_BONUS;
+  const streakMultiplier = 1 + Math.min(streak, STREAK_MULTIPLIER_MAX_DAYS) * STREAK_MULTIPLIER_INCREMENT;
+
+  const finalXP = Math.round((baseXP + distanceBonus) * streakMultiplier);
+  return Math.max(1, finalXP);
+}
+
+// ============================================================================
+// XP Calculation — Commute (A-to-B navigation)
+// ============================================================================
+
+export interface CommuteWorkoutXPParams {
+  /** Total commute duration in whole minutes */
+  durationMinutes: number;
+  /** Distance covered in kilometres */
+  distanceKm: number;
+  /** Current daily streak (days) — same multiplier curve as running */
+  streak: number;
+}
+
+/**
+ * Calculate XP for a commute (A-to-B navigation) session.
+ *
+ * FinalXP = round((Minutes × COMMUTE_BASE_XP_PER_MINUTE + Km × COMMUTE_BASE_XP_PER_KM) × StreakMultiplier)
+ *
+ * Intentionally lower-paying than `calculateRunningWorkoutXP` — see the
+ * tuning rationale in xp-rules.ts (`COMMUTE_BASE_XP_PER_MINUTE`).
+ * Streak multiplier is identical so daily commuters still benefit
+ * from consistency exactly like daily runners do.
+ */
+export function calculateCommuteXP(params: CommuteWorkoutXPParams): number {
+  const { durationMinutes, distanceKm, streak } = params;
+
+  const baseXP = Math.max(durationMinutes, 1) * COMMUTE_BASE_XP_PER_MINUTE;
+  const distanceBonus = Math.max(0, distanceKm) * COMMUTE_BASE_XP_PER_KM;
   const streakMultiplier = 1 + Math.min(streak, STREAK_MULTIPLIER_MAX_DAYS) * STREAK_MULTIPLIER_INCREMENT;
 
   const finalXP = Math.round((baseXP + distanceBonus) * streakMultiplier);

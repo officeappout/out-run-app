@@ -54,7 +54,18 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     profile,
   );
 
-  // Wire address/park/route select — handles all three suggestion sources
+  // Wire address/park/route select — branches on suggestion source.
+  //
+  //   park   → open the park entity card via setSelectedPark.
+  //              No commute flow, no route variants. Search closes.
+  //   route  → open the official route card via setSelectedRoute.
+  //              No commute flow, no route variants. Search closes.
+  //   mapbox → no entity to open. Closes search; the wrapping host
+  //              (DiscoverLayer) inspects the suggestion source on its
+  //              own wrapped handleAddressSelect and routes generic
+  //              addresses into commute mode + RouteCarousel. The
+  //              legacy 3-variant fetchNavigationVariants call is GONE
+  //              — RouteCarousel owns A-to-B route generation now.
   const handleAddressSelect = async (addr: SearchSuggestion) => {
     routes.setSelectedRoute(null);
     search.setSearchQuery('');
@@ -80,8 +91,10 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
       return;
     }
 
-    setNavState('navigating');
-    await search.fetchNavigationVariants(addr, search.navActivity);
+    // Generic address — close the search overlay. The host's wrapped
+    // handleAddressSelect runs the commute-mode branching after this
+    // returns (see DiscoverLayer for the full flow).
+    setNavState('idle');
   };
 
   // Wrap setNavState to clear navigation artifacts when returning to idle

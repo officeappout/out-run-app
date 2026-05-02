@@ -5,9 +5,14 @@
  * `presence/{uid}` Firestore document while a workout is active.
  *
  * Lifecycle:
- *   Mount  → immediate GPS fix + first heartbeat write
- *   Active → heartbeat every 30s (moving) or 60s (stationary)
- *   Unmount → clearPresence (delete the doc)
+ *   Mount  → request GPS fix; retry on failure with exponential backoff
+ *            (1s → 30s, ~6 attempts) until a finite coord is obtained.
+ *            First successful fix triggers an immediate out-of-band
+ *            heartbeat so partner sync starts ASAP.
+ *   Active → heartbeat every 30s (moving) or 60s (stationary). Heartbeat
+ *            payload returns null while coords are missing or non-finite;
+ *            the writer skips the tick rather than corrupting Firestore.
+ *   Unmount → cancel pending GPS retries, stop heartbeat, clearPresence.
  *
  * Respects Ghost privacy mode — no-ops entirely when ghost.
  */
@@ -20,6 +25,7 @@ import {
   startWorkoutHeartbeat,
   stopWorkoutHeartbeat,
   clearPresence,
+  updatePresence,
   type PresencePayload,
   type WorkoutActivityStatus,
 } from '@/features/safecity/services/presence.service';
@@ -55,16 +61,69 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
       (a) => a.type === 'school' || a.type === 'company',
     );
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lastCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      },
-      () => { /* GPS denied — heartbeat will skip if coords are null */ },
-      { enableHighAccuracy: false, timeout: 10_000 },
-    );
+    // GPS retry state — kept in closure so the cleanup can cancel pending
+    // retries. Without this, a denied/timeout fix at mount would never
+    // recover and the entire workout would publish zero heartbeats.
+    let gpsRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let gpsRetryAttempts = 0;
+    let cancelled = false;
+    const MAX_GPS_RETRY_ATTEMPTS = 6; // ~1 min total backoff before giving up
+    const GPS_RETRY_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000, 30_000];
+
+    /**
+     * Request a GPS fix. On success, store coords + immediately fire one
+     * heartbeat so Device B starts seeing this user without waiting for
+     * the next 30s/60s tick. On failure, retry with exponential backoff
+     * up to MAX_GPS_RETRY_ATTEMPTS — covers the common case where the
+     * user grants permission a few seconds after the workout begins.
+     */
+    const requestGpsFix = (isInitial: boolean) => {
+      if (cancelled) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (cancelled) return;
+          const wasMissingBefore = lastCoordsRef.current === null;
+          lastCoordsRef.current = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          };
+          gpsRetryAttempts = 0;
+          // First successful fix during initial wait — fire an immediate
+          // heartbeat so we don't lose up to a full interval of visibility.
+          if (wasMissingBefore && !isInitial) {
+            const payload = getPayload();
+            if (payload) {
+              updatePresence(payload).catch((err) =>
+                console.warn('[WorkoutPresence] post-recovery heartbeat failed:', err),
+              );
+            }
+          }
+        },
+        () => {
+          if (cancelled) return;
+          if (gpsRetryAttempts >= MAX_GPS_RETRY_ATTEMPTS) {
+            console.warn(
+              '[WorkoutPresence] GPS unavailable after retries — partner sync disabled for this session',
+            );
+            return;
+          }
+          const delay = GPS_RETRY_BACKOFF_MS[gpsRetryAttempts] ?? 30_000;
+          gpsRetryAttempts += 1;
+          gpsRetryTimeout = setTimeout(() => requestGpsFix(false), delay);
+        },
+        { enableHighAccuracy: false, timeout: 10_000, maximumAge: 30_000 },
+      );
+    };
+
+    requestGpsFix(true);
 
     const getPayload = (): PresencePayload | null => {
       if (!lastCoordsRef.current) return null;
+      // Defensive: even if we somehow stored a non-finite value (shouldn't
+      // happen via geolocation API, but mock injection paths exist), skip
+      // the write rather than poisoning Firestore with NaN/null.
+      const { lat, lng } = lastCoordsRef.current;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
       // Re-read profile + progression at heartbeat time so any mid-workout
       // level-up / program switch is reflected in the next tick rather than
@@ -119,13 +178,28 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
       };
     };
 
+    /**
+     * Periodic GPS refresh during the workout. On failure we kick the
+     * retry-with-backoff path back on so a brief signal loss (tunnel,
+     * elevator, gym basement) is recovered automatically rather than
+     * silently leaving stale coords on the doc.
+     */
     const refreshGpsAndTick = () => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          lastCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          if (cancelled) return;
+          lastCoordsRef.current = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          };
         },
-        () => {},
-        { enableHighAccuracy: activityStatus !== 'strength', timeout: 8_000 },
+        () => {
+          if (cancelled) return;
+          if (lastCoordsRef.current === null && gpsRetryAttempts === 0) {
+            requestGpsFix(false);
+          }
+        },
+        { enableHighAccuracy: activityStatus !== 'strength', timeout: 8_000, maximumAge: 30_000 },
       );
     };
 
@@ -134,6 +208,8 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
     startWorkoutHeartbeat(getPayload, activityStatus);
 
     return () => {
+      cancelled = true;
+      if (gpsRetryTimeout) clearTimeout(gpsRetryTimeout);
       clearInterval(gpsInterval);
       stopWorkoutHeartbeat();
       clearPresence(userId).catch(() => {});

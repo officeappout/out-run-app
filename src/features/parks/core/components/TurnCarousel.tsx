@@ -314,6 +314,36 @@ export default function TurnCarousel({
   }, [turns, routePath]);
 
   const setTurnFlyToTarget = useMapStore((s) => s.setTurnFlyToTarget);
+  const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
+  const setActiveTurnIdx = useMapStore((s) => s.setActiveTurnIdx);
+  const storyBarHeight = useMapStore((s) => s.storyBarHeight);
+
+  // Measure this component's rendered height and publish it to the store so
+  // useDraggableMetrics can position the metrics card's top snap directly
+  // below the carousel — no magic constants, real pixels.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const h =
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      if (Number.isFinite(h) && h > 0) setNavCardHeight(Math.round(h));
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      setNavCardHeight(0);
+    };
+  }, [setNavCardHeight]);
+
+  // Compose the top-offset CSS for the carousel root: stack BELOW the story
+  // bar (which itself sits below the safe-area inset). 8 px breathing gap
+  // keeps the bar's progress fill visually disconnected from the cards.
+  // Falls back to a 1rem top inset before the bar's height is published.
+  const stackedTop = storyBarHeight > 0
+    ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight + 8}px)`
+    : `max(1rem, env(safe-area-inset-top))`;
 
   // Refs to read live state from the camera effect without making it
   // re-fire on every GPS tick (the position object identity changes ~1Hz).
@@ -393,6 +423,17 @@ export default function TurnCarousel({
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount
+
+  // ── Publish active turn idx to store ─────────────────────────────────────
+  // AppMap reads this to render the ground arrow icon ONLY at the active
+  // turn's coordinates (not the whole route). On unmount we reset to -1 so
+  // the icon disappears instantly when navigation ends.
+  useEffect(() => {
+    setActiveTurnIdx(selectedIdx);
+  }, [selectedIdx, setActiveTurnIdx]);
+  useEffect(() => {
+    return () => setActiveTurnIdx(-1);
+  }, [setActiveTurnIdx]);
 
   // ── Auto-advance when GPS passes a turn ──────────────────────────────────
   useEffect(() => {
@@ -577,7 +618,15 @@ export default function TurnCarousel({
   // Render
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-0 right-0 z-[60]">
+    <div
+      ref={rootRef}
+      // z-30 sits below FreeRunActive's subtree (z-40) so the metrics card
+      // and story bar paint above the navigation cards. The story bar
+      // remains visible at all times because the TurnCarousel is positioned
+      // *below* it via `stackedTop` (storyBarHeight + safe-area + gap).
+      className="absolute left-0 right-0 z-30"
+      style={{ top: stackedTop }}
+    >
       {/* ── Carousel strip ── */}
       <div
         ref={scrollRef}

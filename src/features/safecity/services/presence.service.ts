@@ -125,6 +125,28 @@ export async function updatePresence(payload: PresencePayload): Promise<void> {
     return;
   }
 
+  // Last-line-of-defense coord validation. Upstream callers
+  // (`useWorkoutPresence`, `usePresenceLayer`, `ShareAsLiveToggle`)
+  // already guard against non-finite values, but anything that goes
+  // through this writer — including future mock/seeder paths and
+  // dev-tools — must not be able to corrupt `presence/{uid}` with
+  // null/NaN coords. A bad doc here breaks the Mapbox GeoJSON source
+  // for every other client subscribed to the collection.
+  if (
+    typeof payload.lat !== 'number' ||
+    typeof payload.lng !== 'number' ||
+    !Number.isFinite(payload.lat) ||
+    !Number.isFinite(payload.lng)
+  ) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[presence.service] Skipped updatePresence — non-finite coords:',
+        { lat: payload.lat, lng: payload.lng, uid: payload.uid },
+      );
+    }
+    return;
+  }
+
   const shouldFuzz = payload.ageGroup === 'minor';
   const coords = shouldFuzz
     ? fuzzLocation(payload.lat, payload.lng)

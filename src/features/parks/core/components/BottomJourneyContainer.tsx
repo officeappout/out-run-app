@@ -75,73 +75,115 @@ export default function BottomJourneyContainer({
 }: BottomJourneyContainerProps) {
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
-  const isProgrammaticScroll = useRef(false);
-  const programmaticScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Walk-time from useWalkToRoute (synced via useMapStore — no prop drilling needed).
   const walkToRouteMinutes = useMapStore((s) => s.walkToRouteMinutes);
 
-  // ── Sync carousel when focusedRouteId changes externally ──
+  // ── Scroll-engine refs (mirrors RouteCarousel "no-jitter" contract) ──────
+  // last route id we emitted to the parent — prevents echo loops when the
+  // parent re-passes the same id back via `focusedRouteId`.
+  const lastEmittedRouteIdRef = useRef<string | null>(null);
+  // True while a programmatic smooth-scroll is in flight; suppresses
+  // the debounced onRouteFocus emit so a map-tap doesn't echo back.
+  const isProgrammaticScrollRef = useRef(false);
+  // Debounce timer for the scroll-idle focus emit.
+  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Helper: which card is currently centred? ─────────────────────────────
+  // Reads each card's actual offsetLeft from the DOM rather than a derived
+  // containerWidth × 0.85 formula. This is correct even when max-w-[340px]
+  // clips the card width on tablet-sized viewports — the derived formula
+  // was the root cause of "snap drifts off the second card" on wide screens.
+  // In flex-row-reverse with dir="ltr": DOM child 0 = routes[0] = rightmost.
+  // The routes array index equals the DOM child index directly.
+  const findCenteredIndex = useCallback((): number => {
+    const container = carouselRef.current;
+    if (!container) return -1;
+    const cards = Array.from(container.children) as HTMLElement[];
+    if (cards.length === 0) return -1;
+    const containerCenter = container.scrollLeft + container.offsetWidth / 2;
+    let closestIdx = 0;
+    let minDist = Infinity;
+    cards.forEach((card, i) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const dist = Math.abs(cardCenter - containerCenter);
+      if (dist < minDist) { minDist = dist; closestIdx = i; }
+    });
+    return closestIdx;
+  }, []);
+
+  // ── Helper: scroll a card to centre programmatically ─────────────────────
+  const scrollCardToCentre = useCallback((domIdx: number) => {
+    const container = carouselRef.current;
+    if (!container) return;
+    const card = container.children[domIdx] as HTMLElement | undefined;
+    if (!card) return;
+    isProgrammaticScrollRef.current = true;
+    container.scrollTo({
+      left: card.offsetLeft + card.offsetWidth / 2 - container.offsetWidth / 2,
+      behavior: 'smooth',
+    });
+    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 600);
+  }, []);
+
+  // ── External focus → scroll the matching card into centre ────────────────
+  // Fires when the parent pushes a new focusedRouteId (e.g. a map-tap on a
+  // route polyline). Echo-guard prevents a loop: if the id matches what we
+  // last emitted, the parent is just reflecting our own value back.
   useEffect(() => {
     if (!focusedRouteId || routes.length === 0) return;
+    if (focusedRouteId === lastEmittedRouteIdRef.current) return;
     const index = routes.findIndex(r => r.id === focusedRouteId);
     if (index === -1) return;
-
+    lastEmittedRouteIdRef.current = focusedRouteId;
     if (index !== activeRouteIndex) setActiveRouteIndex(index);
-
-    if (carouselRef.current) {
-      const cardWidth = carouselRef.current.offsetWidth * 0.85 + 12;
-      // flex-row-reverse: route at arrayIndex occupies DOM position (routes.length-1-index)
-      // from the left, so its scroll position is (routes.length-1-index) * cardWidth.
-      const targetScroll = (routes.length - 1 - index) * cardWidth;
-      const currentScroll = carouselRef.current.scrollLeft;
-      if (Math.abs(currentScroll - targetScroll) > 20) {
-        isProgrammaticScroll.current = true;
-        if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
-        programmaticScrollTimer.current = setTimeout(() => { isProgrammaticScroll.current = false; }, 600);
-        carouselRef.current.scrollTo({ left: targetScroll, behavior: 'smooth' });
-      }
-    }
+    scrollCardToCentre(index);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedRouteId, routes]);
 
-  // ── Snap-to-focus on scroll ──
+  // ── Scroll handler — debounced 150 ms after the last scroll event ────────
+  // Same timing as RouteCarousel (Spotify/Instagram scroll-end pattern):
+  // emit fires once at the destination, not N times during a fast flick.
   const handleScroll = useCallback(() => {
-    if (isProgrammaticScroll.current) return;
-    if (!carouselRef.current) return;
-    const scrollLeft = carouselRef.current.scrollLeft;
-    const cardWidth = carouselRef.current.offsetWidth * 0.85 + 12;
-    // flex-row-reverse: DOM position k from the left = routes[routes.length-1-k].
-    // scrollLeft=0 → leftmost card (routes[n-1]); scrollLeft=(n-1)*cw → rightmost (routes[0]).
-    const k = Math.round(scrollLeft / cardWidth);
-    const newIndex = routes.length - 1 - k;
-    if (newIndex !== activeRouteIndex && newIndex >= 0 && newIndex < routes.length) {
-      setActiveRouteIndex(newIndex);
-      const route = routes[newIndex];
-      if (route && onRouteFocus && route.id !== focusedRouteId) onRouteFocus(route);
-    }
-  }, [activeRouteIndex, routes, onRouteFocus, focusedRouteId]);
+    const idx = findCenteredIndex();
+    if (idx < 0) return;
+    if (idx !== activeRouteIndex) setActiveRouteIndex(idx);
 
-  useEffect(() => {
-    return () => { if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current); };
+    if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current);
+    scrollIdleTimerRef.current = setTimeout(() => {
+      scrollIdleTimerRef.current = null;
+      if (isProgrammaticScrollRef.current) return; // triggered by map-tap, not user
+      const route = routes[idx];
+      if (!route) return;
+      if (route.id === lastEmittedRouteIdRef.current) return; // no echo
+      lastEmittedRouteIdRef.current = route.id;
+      if (onRouteFocus) onRouteFocus(route);
+    }, 150);
+  }, [activeRouteIndex, findCenteredIndex, routes, onRouteFocus]);
+
+  // Drop the programmatic-scroll lockout the instant the user touches the
+  // carousel so a swipe that interrupts an in-flight smooth-scroll wins.
+  const handleManualInteractionStart = useCallback(() => {
+    isProgrammaticScrollRef.current = false;
   }, []);
 
-  // ── Initial scroll — show route 0 on the RIGHT (RTL UX) ──
-  // The container uses dir="ltr" for positive scrollLeft math, and
-  // flex-row-reverse so route0 is the rightmost DOM child. We must jump
-  // the scroll position to (routes.length - 1) * cardWidth so route0 is
-  // visible immediately. useLayoutEffect fires before the browser paints,
-  // preventing any visible left-to-right flash on mount.
+  useEffect(() => {
+    return () => { if (scrollIdleTimerRef.current) clearTimeout(scrollIdleTimerRef.current); };
+  }, []);
+
+  // ── Initial scroll — show routes[0] on the RIGHT (RTL UX) ───────────────
+  // DOM child 0 = routes[0] = rightmost card in flex-row-reverse.
+  // We read its actual offsetLeft so the jump is pixel-perfect regardless
+  // of max-w-[340px] clipping on tablet/desktop viewports.
   useLayoutEffect(() => {
-    if (!carouselRef.current || routes.length <= 1) return;
-    const cardWidth = carouselRef.current.offsetWidth * 0.85 + 12;
-    const targetInitial = (routes.length - 1) * cardWidth;
-    // Only override if carousel is still at the default leftmost position
-    // to avoid fighting a scroll position the user has already set.
-    if (Math.abs(carouselRef.current.scrollLeft) < 10) {
-      carouselRef.current.scrollLeft = targetInitial;
+    const container = carouselRef.current;
+    if (!container || routes.length === 0) return;
+    const firstCard = container.children[0] as HTMLElement | undefined;
+    if (!firstCard) return;
+    if (Math.abs(container.scrollLeft) < 10) {
+      container.scrollLeft =
+        firstCard.offsetLeft + firstCard.offsetWidth / 2 - container.offsetWidth / 2;
     }
-  // Re-run when routes count changes (new batch of routes loaded).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routes.length]);
 
@@ -162,6 +204,9 @@ export default function BottomJourneyContainer({
           ref={carouselRef}
           dir="ltr"
           onScroll={handleScroll}
+          onTouchStart={handleManualInteractionStart}
+          onPointerDown={handleManualInteractionStart}
+          onWheel={handleManualInteractionStart}
           className="w-full overflow-x-auto snap-x snap-mandatory flex flex-row-reverse gap-3 pb-2 scrollbar-hide"
           style={{ paddingInlineStart: '16px', paddingInlineEnd: '40px', scrollBehavior: 'smooth' }}
         >
@@ -192,14 +237,13 @@ export default function BottomJourneyContainer({
                     onRouteFocus(route);
                   }
                 }}
-                className={`w-[85vw] max-w-[340px] snap-center flex-shrink-0 bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
+                className={`w-[85vw] max-w-[340px] snap-center snap-always flex-shrink-0 bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
                   isFocused
                     ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_10px_28px_rgba(0,0,0,0.16)] scale-[1.02]'
                     : isActive
                       ? 'shadow-[0_0_0_2px_rgba(0,229,255,0.65),0_8px_24px_rgba(0,0,0,0.14)]'
                       : 'shadow-md opacity-88 scale-[0.97]'
                 }`}
-                style={{ width: '85%', minWidth: '85%' }}
               >
                 {/* ── Horizontal content row ── */}
                 <div className="flex flex-row-reverse items-stretch min-h-[96px]" dir="rtl">

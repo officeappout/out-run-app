@@ -88,7 +88,21 @@ export default function ShareAsLiveToggle({
   }, []);
 
   const handleToggle = useCallback(async () => {
-    if (!auth.currentUser || !userLocation) {
+    // Tightened guard. The previous `!userLocation` check passed any
+    // truthy object, including `{ lat: null, lng: null }` produced by
+    // upstream callers that hadn't resolved GPS yet — which then wrote
+    // literal nulls into Firestore and triggered the Mapbox "Expected
+    // value to be of type number, but found null instead" assertion on
+    // every other client subscribed to the `presence` collection.
+    const lat = userLocation?.lat;
+    const lng = userLocation?.lng;
+    const hasValidLocation =
+      typeof lat === 'number' &&
+      typeof lng === 'number' &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng);
+
+    if (!auth.currentUser || !hasValidLocation) {
       // Still flip the visual state — preserves the existing fail-soft UX.
       setShareAsLive((v) => !v);
       return;
@@ -103,8 +117,8 @@ export default function ShareAsLiveToggle({
           uid: auth.currentUser.uid,
           name: auth.currentUser.displayName ?? '',
           mode: usePrivacyStore.getState().mode,
-          lat: userLocation.lat,
-          lng: userLocation.lng,
+          lat,
+          lng,
           ageGroup: profile?.core?.ageGroup ?? 'adult',
           isVerified: false,
           schoolName: null,

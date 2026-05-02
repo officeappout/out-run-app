@@ -9,8 +9,8 @@ import type { UserFullProfile } from '../../core/types/user.types';
 import { getLemurStage, recordActivity as recordLemurActivity } from '../services/lemur-evolution.service';
 import { awardCoins as awardCoinsToFirestore } from '../services/coin-calculator.service';
 import { checkAndUnlockAchievements } from '../services/achievement.service';
-import { calculateStrengthWorkoutXP, calculateRunningWorkoutXP, calculateLevelFromXP } from '../services/xp.service';
-import type { StrengthWorkoutXPParams, RunningWorkoutXPParams } from '../services/xp.service';
+import { calculateStrengthWorkoutXP, calculateRunningWorkoutXP, calculateCommuteXP, calculateLevelFromXP } from '../services/xp.service';
+import type { StrengthWorkoutXPParams, RunningWorkoutXPParams, CommuteWorkoutXPParams } from '../services/xp.service';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUserProgression } from '@/lib/firestore.service';
@@ -82,6 +82,8 @@ interface ProgressionState {
   awardWorkoutCoins: (calories: number) => Promise<void>;
   awardStrengthXP: (params: StrengthWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   awardRunningXP: (params: RunningWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
+  /** Award global XP for a commute (A-to-B navigation) session. Slimmer formula than awardRunningXP — see xp-rules.ts. */
+  awardCommuteXP: (params: CommuteWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   /** Award a flat XP bonus (e.g. for completing a LevelGoal). Uses atomic Firestore increment. */
   awardBonusXP: (xp: number, reason?: string) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => Promise<void>;
@@ -628,6 +630,58 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       return { xpEarned, newLevel, leveledUp };
     } catch (error) {
       console.error('[ProgressionStore] Error awarding running XP:', error);
+      return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
+    }
+  },
+
+  /**
+   * Award global XP after a commute (A-to-B) session.
+   *
+   * Mirrors awardRunningXP exactly — same optimistic-then-Guardian
+   * pattern, same recordActivity follow-up — but uses the slimmer
+   * `calculateCommuteXP` formula and tags the Guardian audit event
+   * with `source: 'workout:commute'` so admin tooling can split out
+   * commute XP when reporting on player progression.
+   *
+   * No "green route" or variant-based bonuses — the user's product
+   * brief explicitly removed greenery scoring; commute reward is
+   * purely a function of duration + distance + streak.
+   */
+  awardCommuteXP: async (params: CommuteWorkoutXPParams) => {
+    const state = get();
+    const previousLevel = state.globalLevel;
+
+    try {
+      const xpEarned = calculateCommuteXP(params);
+      const newTotalXP = state.globalXP + xpEarned;
+      const newLevel = calculateLevelFromXP(newTotalXP, []);
+      const leveledUp = newLevel > previousLevel;
+
+      // Optimistic local update
+      set({ globalXP: newTotalXP, globalLevel: newLevel });
+
+      if (typeof window !== 'undefined') {
+        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+        const userId = useUserStore.getState().profile?.id;
+        if (userId) {
+          await guardianAward({ xpDelta: xpEarned, source: 'workout:commute' });
+          // Record activity so daysActive / lemurStage update (idempotent per day).
+          // A daily commute SHOULD count toward the streak — that's the whole
+          // gamification hook for this feature.
+          get().recordActivity(userId).catch((e) =>
+            console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
+          );
+        }
+      }
+
+      console.log(
+        `[ProgressionStore] +${xpEarned} XP (commute) → total ${newTotalXP}, Level ${newLevel}` +
+        (leveledUp ? ` (LEVEL UP from ${previousLevel}!)` : ''),
+      );
+
+      return { xpEarned, newLevel, leveledUp };
+    } catch (error) {
+      console.error('[ProgressionStore] Error awarding commute XP:', error);
       return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
     }
   },

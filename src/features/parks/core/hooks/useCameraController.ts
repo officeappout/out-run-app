@@ -26,9 +26,11 @@
 import { useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import type { MapRef } from 'react-map-gl';
 import type { Route } from '../types/route.types';
-import { bearingBetween } from '../services/geoUtils';
-import { isFiniteLatLng } from '@/utils/geoValidation';
+import type { RouteTurn } from '../services/geoUtils';
+import { bearingBetween, haversineMeters } from '../services/geoUtils';
+import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 
 export type CameraOwner = 'user' | 'follow' | 'preview';
 
@@ -67,6 +69,13 @@ export interface CameraControllerParams {
    * Cleared automatically by useWalkToRoute once the user arrives.
    */
   walkToRouteTarget?: { lat: number; lng: number } | null;
+  /**
+   * Current navigation turn list. Used to compute the distance to the next
+   * maneuver point and switch the camera into "approaching turn" mode
+   * (higher pitch, tighter zoom) when within TURN_APPROACH_DIST_M metres.
+   * Pass null / undefined when no guided route is active.
+   */
+  navigationTurns?: RouteTurn[] | null;
 }
 
 export interface CameraControllerAPI {
@@ -75,12 +84,58 @@ export interface CameraControllerAPI {
   owner: CameraOwner;
 }
 
-// Fixed camera values for follow mode — speed-adaptive zoom/pitch removed.
-// FOLLOW_ZOOM lowered from 18 → 17 per UX feedback: 18 felt too tight for
-// runners who want to anticipate ~100 m of upcoming road. 17 keeps the
-// 45° pitch reading clearly while widening the visible coverage by ~2x.
+// ── Immersive navigation camera presets ─────────────────────────────────────
+//
+// Three states, each with its own pitch + zoom:
+//
+//   STRAIGHT — standard running view.  High 60° pitch keeps a Waze-style
+//              horizon; zoom 17 shows ~150 m of road ahead.
+//
+//   TURN     — activated when the nearest maneuver is ≤ TURN_APPROACH_DIST_M
+//              metres away.  Pitch rises to 75° so the junction fills the
+//              bottom of the screen.  Zoom tightens to 18.5 to put the
+//              corner front-and-centre.  Metrics card is already bottom-
+//              locked during navigation so it never occludes the junction.
+//
+//   STOPPED  — used when the workout session is paused.  Flatten to 45° /
+//              zoom 16 so the runner can see their surroundings while resting.
+//
+// Non-navigation follow (free run, sim-discover) keeps the legacy
+// FOLLOW_PITCH / FOLLOW_ZOOM values (45° / 17) so those modes are
+// unaffected by this change.
+const NAV_PITCH_STRAIGHT  = 60;
+const NAV_ZOOM_STRAIGHT   = 17;
+const NAV_PITCH_TURN      = 75;
+const NAV_ZOOM_TURN       = 18.5;
+const NAV_PITCH_STOPPED   = 45;
+const NAV_ZOOM_STOPPED    = 16;
+
+/** Distance (metres) at which the camera switches to "approaching turn" mode. */
+const TURN_APPROACH_DIST_M = 50;
+
+// Legacy follow values — kept for non-navigation contexts (free run with no
+// guided route, sim-discover follow, future modes). See preset table above.
 const FOLLOW_ZOOM = 17;
 const FOLLOW_PITCH = 45;
+
+/**
+ * Compute the straight-line distance (metres) from `location` to the nearest
+ * turn in `turns`. Returns null when location or turns are unavailable.
+ * Used to gate the "approaching turn" camera state.
+ */
+function getDistToNextTurnM(
+  location: { lat: number; lng: number } | null | undefined,
+  turns: RouteTurn[] | null | undefined,
+): number | null {
+  if (!isFiniteLatLng(location) || !turns?.length) return null;
+  let minDist = Infinity;
+  for (const t of turns) {
+    if (!isFiniteNum(t.lat) || !isFiniteNum(t.lng)) continue;
+    const d = haversineMeters(location.lat, location.lng, t.lat, t.lng);
+    if (d < minDist) minDist = d;
+  }
+  return Number.isFinite(minDist) ? minDist : null;
+}
 
 /**
  * Bearing EMA blend factor.
@@ -179,8 +234,18 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     isNavigationMode, isActiveWorkout, simulationActive,
     focusedRoute, routes, destinationMarker,
     skipInitialZoom, isAutoFollowEnabled, onUserPanDetected,
-    mapMode, walkToRouteTarget,
+    mapMode, walkToRouteTarget, navigationTurns,
   } = params;
+
+  // Session status: distinguishes 'paused' from 'active' so the camera can
+  // flatten to NAV_PITCH_STOPPED when the runner stops. Cross-feature read
+  // is permitted per the project's architecture rules.
+  const sessionStatus = useSessionStore((s) => s.status);
+
+  // Keep turns in a ref so the camera effect can read the latest value
+  // without turns changes triggering extra re-runs of the main effect.
+  const navigationTurnsRef = useRef(navigationTurns ?? null);
+  useEffect(() => { navigationTurnsRef.current = navigationTurns ?? null; }, [navigationTurns]);
 
   const ownerRef = useRef<CameraOwner>('preview');
   const hasInitialZoomed = useRef(false);
@@ -410,10 +475,18 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       ownerRef.current = 'follow';
       console.log('[Cam] sim-start snap');
       try {
+        // smoothedBearingRef is typically valid by sim-start time, but on
+        // the very first session it can be NaN until the first GPS sample
+        // lands. Mapbox treats NaN as `null` and throws "Expected value
+        // to be of type number, but found null". Clamp here so the
+        // sim-snap call is always finite-safe.
+        const safeBearing = Number.isFinite(smoothedBearingRef.current)
+          ? smoothedBearingRef.current
+          : 0;
         rawMap.jumpTo({
           center: [currentLocation.lng, currentLocation.lat],
-          zoom: FOLLOW_ZOOM, pitch: FOLLOW_PITCH,
-          bearing: smoothedBearingRef.current, padding: wazePadding,
+          zoom: NAV_ZOOM_STRAIGHT, pitch: NAV_PITCH_STRAIGHT,
+          bearing: safeBearing, padding: wazePadding,
         });
       } catch (err) {
         console.error('[Cam] sim-start jumpTo threw — ignored.', err);
@@ -445,10 +518,35 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       const safeSmoothedBearing = Number.isFinite(smoothedBearingRef.current)
         ? smoothedBearingRef.current
         : 0;
-      const bearing =
-        target && isFiniteLatLng(currentLocation)
-          ? bearingBetween(currentLocation.lat, currentLocation.lng, target.lat, target.lng)
+      // ── Nuclear target sanitiser ─────────────────────────────────
+      // Belt-and-braces: extract lat/lng with `?? 0` then re-check
+      // finiteness. The `?? 0` swap converts a `null` field into a
+      // finite `0` so the subsequent `bearingBetween` call NEVER feeds
+      // null into trigonometry (which would propagate NaN through every
+      // camera param). The validity flag below then SUPPRESSES the
+      // bearing computation entirely when the original data was bad —
+      // we don't want to point at "(0, 0) lng/lat" by accident, just
+      // make sure no null reaches Mapbox.
+      const targetLat = target?.lat ?? 0;
+      const targetLng = target?.lng ?? 0;
+      const targetIsFinite =
+        !!target &&
+        Number.isFinite(target.lat) &&
+        Number.isFinite(target.lng);
+
+      // Compute the desired bearing then ALWAYS clamp to a finite number.
+      // bearingBetween() returns NaN when the two points coincide (user
+      // standing exactly on the walk-to-route target) — passing NaN to
+      // Mapbox's easeTo throws "Expected number, found null/NaN" deep
+      // inside the camera animator. The clamp eliminates that class of
+      // crash regardless of upstream regressions.
+      const computedBearing =
+        targetIsFinite && isFiniteLatLng(currentLocation)
+          ? bearingBetween(currentLocation.lat, currentLocation.lng, targetLat, targetLng)
           : safeSmoothedBearing;
+      const bearing = Number.isFinite(computedBearing)
+        ? computedBearing
+        : safeSmoothedBearing;
 
       // ── P1: Follow (workout / navigation / sim-in-discover) ──
       // `isFiniteLatLng` is the SINGLE source of truth for "do I have a
@@ -457,44 +555,73 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       if (ownerRef.current === 'follow' && isFiniteLatLng(currentLocation)) {
         const center: [number, number] = [currentLocation.lng, currentLocation.lat];
 
-        if (isNavigationMode) {
-          console.log('[Cam] nav-follow');
-          try {
-            if (simulationActive) {
-              rm.jumpTo({
-                center, zoom: FOLLOW_ZOOM, pitch: FOLLOW_PITCH,
-                bearing, padding: wazePadding,
-              });
-            } else {
-              m.easeTo({
-                center, zoom: FOLLOW_ZOOM, pitch: FOLLOW_PITCH,
-                bearing, padding: wazePadding,
-                duration: 800, easing: (t: number) => t, essential: true,
-              });
-            }
-          } catch (err) {
-            console.error('[Cam] nav-follow camera call threw — ignored.', err);
-          }
-          return;
-        }
+        if (isNavigationMode || isActiveWorkout) {
+          // ── Immersive camera state machine ─────────────────────────────
+          // Selects pitch + zoom based on workout session state and
+          // proximity to the next turn maneuver.
+          const isSessionPaused = sessionStatus === 'paused';
+          const distToNextTurnM = getDistToNextTurnM(currentLocation, navigationTurnsRef.current);
 
-        if (isActiveWorkout) {
-          console.log('[Cam] workout-follow');
+          let targetPitch: number;
+          let targetZoom: number;
+
+          if (isSessionPaused) {
+            // Flatten the camera so the runner can see their surroundings.
+            targetPitch = NAV_PITCH_STOPPED;
+            targetZoom  = NAV_ZOOM_STOPPED;
+            console.log('[Cam] state=STOPPED (paused)');
+          } else if (distToNextTurnM !== null && distToNextTurnM < TURN_APPROACH_DIST_M) {
+            // Zoom into the junction — maximum pitch shows the corner detail.
+            targetPitch = NAV_PITCH_TURN;
+            targetZoom  = NAV_ZOOM_TURN;
+            console.log(`[Cam] state=TURN (${Math.round(distToNextTurnM)}m to next maneuver)`);
+          } else {
+            // Standard running view: high immersive pitch, road-ahead zoom.
+            targetPitch = NAV_PITCH_STRAIGHT;
+            targetZoom  = NAV_ZOOM_STRAIGHT;
+          }
+
+          // ── Adaptive duration ───────────────────────────────────────────
+          // When pitch or zoom need to change (state transition), use the
+          // 800 ms smooth duration so the camera glides between states.
+          // Routine bearing+centre updates use 200 ms for a snappy feel.
+          // getPitch/getZoom return null mid-style-load on rare occasions —
+          // fall back to the targets so isStateTransition resolves to false
+          // (a 200 ms ease) rather than throwing on Math.abs(null).
+          const currentMapPitch = rm.getPitch();
+          const currentMapZoom  = rm.getZoom();
+          const safeMapPitch = Number.isFinite(currentMapPitch) ? currentMapPitch : targetPitch;
+          const safeMapZoom  = Number.isFinite(currentMapZoom)  ? currentMapZoom  : targetZoom;
+          const isStateTransition =
+            Math.abs(safeMapPitch - targetPitch) > 2 ||
+            Math.abs(safeMapZoom  - targetZoom)  > 0.3;
+          const duration = isStateTransition ? 800 : 200;
+
+          const logTag = isNavigationMode ? 'nav-follow' : 'workout-follow';
+          console.log(`[Cam] ${logTag} pitch=${targetPitch} zoom=${targetZoom} dur=${duration}ms`);
+          // Final safety pass — every numeric param Mapbox will see must
+          // be finite. If anything regressed upstream, drop the call
+          // rather than crash the map tree.
+          if (
+            !Number.isFinite(center[0]) || !Number.isFinite(center[1]) ||
+            !Number.isFinite(targetZoom) || !Number.isFinite(targetPitch) ||
+            !Number.isFinite(bearing)
+          ) {
+            console.warn('[Cam] camera call skipped — non-finite param.', { center, targetZoom, targetPitch, bearing });
+            return;
+          }
           try {
             if (simulationActive) {
-              rm.jumpTo({
-                center, zoom: FOLLOW_ZOOM, pitch: FOLLOW_PITCH,
-                bearing, padding: wazePadding,
-              });
+              rm.jumpTo({ center, zoom: targetZoom, pitch: targetPitch, bearing, padding: wazePadding });
             } else {
               m.easeTo({
-                center, zoom: FOLLOW_ZOOM, pitch: FOLLOW_PITCH,
+                center, zoom: targetZoom, pitch: targetPitch,
                 bearing, padding: wazePadding,
-                duration: 800, easing: (t: number) => t * (2 - t), essential: true,
+                duration, easing: (t: number) => t * (2 - t), essential: true,
               });
             }
           } catch (err) {
-            console.error('[Cam] workout-follow camera call threw — ignored.', err);
+            console.error(`[Cam] ${logTag} camera call threw — ignored.`, err);
           }
           return;
         }
@@ -502,6 +629,19 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         // Sim in discover mode — follow with 3D perspective
         if (simulationActive) {
           console.log('[Cam] sim-discover-follow');
+          // Final safety pass — same recipe as the workout/nav branch
+          // above. FOLLOW_ZOOM / FOLLOW_PITCH are module constants so
+          // they're always finite, but `bearing` and `center` come from
+          // upstream signals that can briefly regress to NaN/null between
+          // GPS samples. Skip the call instead of crashing the map tree.
+          if (
+            !Number.isFinite(center[0]) || !Number.isFinite(center[1]) ||
+            !Number.isFinite(FOLLOW_ZOOM) || !Number.isFinite(FOLLOW_PITCH) ||
+            !Number.isFinite(bearing)
+          ) {
+            console.warn('[Cam] sim-discover camera call skipped — non-finite param.', { center, bearing });
+            return;
+          }
           try {
             rm.jumpTo({
               center, zoom: FOLLOW_ZOOM, pitch: FOLLOW_PITCH,
@@ -689,6 +829,8 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     skipInitialZoom, isAutoFollowEnabled,
     wazePadding, mapRef,
     mapMode,
+    // sessionStatus drives the STOPPED camera state (paused workout → flatten).
+    sessionStatus,
     // recenterTick: bumps when the idle-recenter timer fires OR when
     // recenter() is called manually. Listed here so the effect re-runs
     // and dispatches a follow-mode easeTo even when no other dep changed

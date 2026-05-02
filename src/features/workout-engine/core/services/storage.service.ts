@@ -51,6 +51,24 @@ export interface WorkoutHistoryEntry {
   setsCompleted?: number;
   /** Total sets planned for this strength session */
   setsPlanned?: number;
+
+  // ── Commute mode (A-to-B navigation) ──────────────────────────────────
+  /**
+   * Marks the session intent.
+   *   'workout' (default / undefined) → traditional Free-Run loop.
+   *   'commute' → A-to-B navigation. UI swaps to slim summary, awards
+   *               commute XP, and the social feed is skipped to keep
+   *               daily routes private.
+   *
+   * Stored alongside (rather than replacing) `workoutType` so existing
+   * filters that group by activity (running / walking / cycling) keep
+   * working unchanged. Treat the absence of this field as 'workout'.
+   */
+  sessionKind?: 'workout' | 'commute';
+  /** Mapbox-native [lng, lat] of the commute destination, when sessionKind === 'commute'. */
+  commuteDestination?: [number, number];
+  /** Human-readable destination label captured at start of the commute (e.g. saved place name or geocoder text). */
+  commuteLabel?: string;
 }
 
 /**

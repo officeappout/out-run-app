@@ -7,6 +7,25 @@ export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
 
 /**
+ * A-to-B commute variants returned by `generateDynamicRoutes` when called
+ * with a `destination`. The unified RouteCarousel reads `route.variant`
+ * to render the correct chip ("הכי מהיר" / "מסלול חלופי" / "שקט").
+ *
+ *   • fastest     — Mapbox's primary route (or the alternative with the
+ *                   shortest duration when `alternatives=true`).
+ *   • alternative — A different Mapbox alternative geometry (no park bias,
+ *                   no scenic routing — purely a different way to get there).
+ *   • quiet       — Calculated with `exclude=motorway` (and `toll` for
+ *                   cycling). Falls back to the longest-duration alternative
+ *                   when Mapbox returns nothing for the exclude query.
+ *
+ * Loop routes (the original generator branch) leave `variant` undefined,
+ * so the chip never renders for free-run cards. This is the single switch
+ * that tells the card what badge — if any — to show.
+ */
+export type CommuteVariant = 'fastest' | 'alternative' | 'quiet';
+
+/**
  * Enriched Exercise interface for WorkoutPlan
  * Contains all metadata needed for UI rendering - Single Source of Truth
  */
@@ -319,6 +338,25 @@ export interface Route {
    * The original `distance` field is never overwritten.
    */
   projectedDistance?: number;
+
+  // ── Commute (A-to-B) metadata ──────────────────────────────────────────
+  // Set ONLY when this Route was produced by the commute branch of
+  // `generateDynamicRoutes` (i.e. `destination` was passed). Loop routes
+  // leave both fields undefined.
+
+  /**
+   * Which of the three commute variants this is. Drives the chip badge
+   * rendered by the unified RouteCarousel's internal RouteCard.
+   */
+  variant?: CommuteVariant;
+
+  /**
+   * Mapbox `duration` (seconds) at the time the route was fetched. The
+   * `duration` field above is in MINUTES (rounded for display); this is
+   * the raw seconds value, kept for the live ETA HUD which needs sub-
+   * minute precision when computing arrival time vs current pace.
+   */
+  etaSeconds?: number;
 }
 
 // ── Hybrid Route Types ──────────────────────────────────────────────

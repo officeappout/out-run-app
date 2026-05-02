@@ -14,13 +14,23 @@ import { useWalkToRoute } from '../hooks/useWalkToRoute';
 import { Popup } from 'react-map-gl';
 import LemurMarker from '@/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
+import ParkPhotoMarker from './ParkPhotoMarker';
+import DestinationMarker from './DestinationMarker';
 
-import { registerPinImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
+import { registerPinImage, registerArrowTipImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { applyFitnessMapStyle } from './mapStyleConfig';
-import { segmentPathByZone } from '../services/geoUtils';
+import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
+import { segmentPathByZone, bearingBetween } from '../services/geoUtils';
+import type { RouteTurn } from '../services/geoUtils';
 import {
   isFiniteNum,
   isFiniteLngLat,
+  // Object-shape `{ lat, lng }` guard. Distinct from `isFiniteLngLat`
+  // (which validates the `[lng, lat]` tuple shape). The codebase carries
+  // both shapes — Marker placement props, Firestore park documents, GPS
+  // samples — so we need both validators. See `geoValidation.ts` for the
+  // rationale on keeping them separate.
+  isFiniteLatLng,
   isFiniteBounds,
   safeNumber,
 } from '@/utils/geoValidation';
@@ -41,6 +51,25 @@ if (typeof window !== 'undefined' && !mapboxgl.getRTLTextPluginStatus()) {
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
+// ── Session-scoped "skeleton already shown" gate ─────────────────────────
+// Module-level (NOT React state) on purpose — survives across React
+// remounts within a single JS session. Gates the AI-themed loading
+// skeleton so it only appears on COLD START (first AppMap mount in this
+// tab/session). Switching tabs (e.g. /map → /home → /map) re-mounts
+// AppMap but reuses the already-initialised Mapbox runtime + cached
+// tiles, so re-showing the skeleton would be visual noise.
+//
+// Reset semantics:
+//   • Hard browser reload    — module re-evaluates → flag resets to false → cold start.
+//   • Tab close + reopen     — same as above.
+//   • Soft client navigation — flag persists → no skeleton on map re-entry.
+//
+// If a future feature ever forces a style swap (`map.setStyle(...)`),
+// flip this back to `false` immediately before the swap so the
+// skeleton re-arms for the next mount. There is no current code path
+// that does this.
+let mapHasInitializedInSession = false;
 
 // All coordinate-finiteness rules live in `src/utils/geoValidation.ts`
 // so AppMap, TurnCarousel, and any future map consumer apply the same
@@ -138,6 +167,21 @@ interface AppMapProps {
   /** Current map mode — forwarded to the camera controller so it can run a
    * one-shot fit-all on first entry into discover mode. */
   mapMode?: string;
+  /**
+   * Active navigation turns. When provided, renders a ground arrow at each
+   * maneuver point (3D, ground-plane-aligned) and a billboard street-name
+   * bubble. Drives the camera controller's proximity-based pitch / zoom
+   * transitions. Pass null / undefined when no guided route is active.
+   */
+  navigationTurns?: RouteTurn[] | null;
+  /**
+   * User's selected activity. Drives the "Game Mode" park rendering:
+   *   • 'walking' + zoom ≥ 14 → ParkPhotoMarker (photo bubble + tail)
+   *   • 'running' / 'cycling' → existing SymbolLayer vector pins
+   * Falls through to vector pins when undefined so non-mode-aware callers
+   * keep their current behaviour.
+   */
+  activityType?: 'walking' | 'running' | 'cycling' | string;
 }
 
 export default function AppMap({
@@ -167,13 +211,44 @@ export default function AppMap({
   onPartnerClick,
   initialCenter,
   mapMode,
+  navigationTurns,
+  activityType,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  // ── Map paint readiness gate ──────────────────────────────────────────
+  // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
+  //   1. The Mapbox style has finished parsing (so the declutter pass
+  //      ran and the noisy POI / transit / minor-road labels are gone).
+  //   2. The first `idle` event has fired (so tiles for the current
+  //      viewport have rendered and no animation is in flight).
+  // Combined, this guarantees the skeleton dissolves into a clean,
+  // styled, settled map — never the raw streets-v12 default with a
+  // visible style swap mid-paint.
+  //
+  // The lazy initializer reads `mapHasInitializedInSession` (module
+  // scope) so warm re-mounts (tab switch back to /map) start with the
+  // skeleton already disabled. Cold starts initialise it to `false`,
+  // the skeleton renders, and `markReady` below flips both the React
+  // state AND the module flag together — so the very next remount in
+  // the same session skips the skeleton entirely.
+  const [isVisuallyReady, setIsVisuallyReady] = useState(() => mapHasInitializedInSession);
 
   const [parks, setParks] = useState<any[]>([]);
-  const { setSelectedPark, visibleLayers } = useMapStore();
+  const { setSelectedPark, visibleLayers, selectedPark } = useMapStore();
+  // Selected park id powers the cyan-ring highlight on ParkPhotoMarker so
+  // tapping a pin gives instant visual feedback BEFORE the preview sheet
+  // animates in. Stored as id (not the whole object) so equality checks
+  // stay cheap inside the marker map().
+  const selectedParkId = selectedPark?.id ?? null;
   const turnFlyToTarget = useMapStore((s) => s.turnFlyToTarget);
+  // Commute destination — drives the floating <DestinationMarker /> below.
+  // Set by DiscoverLayer (commute-mode entry) and cleared on commute exit.
+  const commuteDestination = useMapStore((s) => s.commuteDestination);
+  // Active turn idx published by TurnCarousel. -1 = no selection. Used to
+  // filter the ground-arrow GeoJSON to a SINGLE feature so the icon never
+  // appears on every turn at once.
+  const activeTurnIdx = useMapStore((s) => s.activeTurnIdx);
 
   // Consume TurnCarousel camera requests:
   //   • flyTo     → center the camera on a single turn vertex (peek-one-turn).
@@ -283,9 +358,12 @@ export default function AppMap({
         rawMap.fitBounds(turnFlyToTarget.bounds, {
           padding: fitPadding,
           bearing: safeBearing,
-          pitch: 45,
+          // Match the immersive "approaching turn" camera state so the
+          // swipe-preview lands at the same pitch the auto-camera would
+          // use if the runner were physically near this turn (75°).
+          pitch: 75,
           duration: 800,
-          maxZoom: 17.5,
+          maxZoom: 18.5,
         });
       } else {
         if (!isFiniteLngLat(turnFlyToTarget.center)) {
@@ -302,8 +380,12 @@ export default function AppMap({
         rawMap.flyTo({
           center: turnFlyToTarget.center,
           bearing: safeBearing,
-          zoom: 17,
-          pitch: 45,
+          // Carousel-camera link: swipe to a turn → camera dives in at
+          // the same zoom/pitch the auto-camera uses when the runner is
+          // approaching a maneuver. Eliminates the visual mismatch
+          // between user-driven and GPS-driven turn previews.
+          zoom: 18.5,
+          pitch: 75,
           duration: 800,
         });
       }
@@ -350,6 +432,7 @@ export default function AppMap({
     onUserPanDetected,
     mapMode,
     walkToRouteTarget: walkToRoute.targetEndpoint ?? null,
+    navigationTurns: navigationTurns ?? null,
   });
 
   const visibleRoutes = useMemo(() => {
@@ -426,6 +509,62 @@ export default function AppMap({
     fetchRealParks().then(setParks);
   }, []);
 
+  // ── "Destination Highlight" park photo pin gating ─────────────────────
+  // Earlier iteration mounted a photo bubble for EVERY park in walking
+  // mode, which blew through Mapbox's WebGL marker buffer once a city's
+  // worth of parks entered the viewport (each <Marker> child is a DOM
+  // node + image decode). Lesson: photo bubbles are an attention asset,
+  // not a density asset.
+  //
+  // New rule: ONE photo bubble at a time. The selected park "pops" out
+  // of its vector pin into a richer photo bubble — that becomes the
+  // destination-highlight visual. Every other park keeps its
+  // SymbolLayer vector pin so the map reads as a clean, fast field of
+  // points. Works for all activity types; walking just so happens to be
+  // where users dwell long enough to enjoy the highlight.
+  const showSelectedParkPhoto = currentZoom >= 13 && !!selectedPark;
+
+  // Cache the resolved selected park's photo URL & coordinates as a
+  // single derived object. Validating coords here means the JSX render
+  // stays simple (no second null-check) and we can short-circuit when
+  // the park record is malformed (older inventory entries).
+  const selectedParkPhotoData = useMemo(() => {
+    if (!selectedPark) return null;
+    const lat = Number(selectedPark.location?.lat);
+    const lng = Number(selectedPark.location?.lng);
+    if (!isFiniteLngLat([lng, lat])) return null;
+    const photoUrl: string | null =
+      selectedPark.imageUrl ||
+      selectedPark.image ||
+      (Array.isArray(selectedPark.images) ? selectedPark.images[0] : null) ||
+      null;
+    return {
+      id: selectedPark.id,
+      name: selectedPark.name || '',
+      lat,
+      lng,
+      photoUrl,
+    };
+  }, [selectedPark]);
+
+  // ── Memoized "skip selected park" filter for the park-pins Layer ──
+  // PARK_PINS.filter is `['all', ...clauses]`. We slice off the leading
+  // 'all' literal before spreading so the result is `['all', ...clauses,
+  // ['!=', ['get', 'id'], selectedParkId]]` — Mapbox rejects a doubled
+  // 'all'. Memoised on `selectedParkId` ONLY so the layer's filter prop
+  // keeps the same reference between unrelated re-renders (GPS ticks,
+  // zoom change, parks list refresh). Without this memo, react-map-gl's
+  // shallow diff sees a new filter array every frame and re-issues
+  // `setFilter` against the GL layer — measurable buffer churn.
+  const parkPinsFilter = useMemo(() => {
+    if (!selectedParkId) return PARK_PINS.filter as any;
+    return [
+      'all',
+      ...((PARK_PINS.filter as unknown as any[]).slice(1)),
+      ['!=', ['get', 'id'], selectedParkId],
+    ] as any;
+  }, [selectedParkId]);
+
   // ── Parks GeoJSON with clustering properties ──
   const parksGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',
@@ -489,6 +628,66 @@ export default function AppMap({
     };
   }, [isMapLoaded]);
 
+  // ── Skeleton dissolve trigger ─────────────────────────────────────────
+  // Flips `isVisuallyReady` true on the first Mapbox `idle` event after
+  // the style has loaded. By that point the declutter pass has already
+  // mutated the style (style.load fires before the first idle), tiles
+  // for the viewport are painted, and any in-flight camera animation
+  // has settled — so the skeleton's exit dissolve reveals a clean,
+  // final-state map instead of a half-rendered one.
+  //
+  // The 5 s timeout is a safety net that matches the watchdog's max
+  // attempts (20 × 250 ms). If a tile download stalls, the skeleton
+  // still clears so the user isn't stuck staring at the AI animation
+  // forever; they'll see whatever the map managed to render.
+  //
+  // Short-circuits entirely on warm mounts (already-initialised
+  // session) — see the `mapHasInitializedInSession` comment up top.
+  useEffect(() => {
+    if (!isMapLoaded || !mapRef.current) return;
+    if (mapHasInitializedInSession) return; // warm mount — skeleton stays hidden, no listener needed
+    const map = mapRef.current.getMap();
+    if (!map) return;
+
+    const markReady = () => {
+      // Persist the "ready" state at module scope so the next AppMap
+      // mount in this session (tab switch / soft nav) starts with the
+      // skeleton already disabled and skips this whole effect.
+      mapHasInitializedInSession = true;
+      setIsVisuallyReady(true);
+    };
+
+    // Field-test feedback: waiting for the full `idle` event added a
+    // perceptible 1-2s delay over slow tile downloads. We now flip
+    // the skeleton off as soon as the FIRST frame paints (`render` /
+    // `style.load`) — the user immediately gets an interactive map,
+    // and any straggler tiles fade in underneath the already-cleared
+    // skeleton. The safety timeout is also clamped to 1.8s so a
+    // genuinely-stuck pipeline still releases the UI promptly.
+    const armReadyListeners = () => {
+      // First render = first painted frame. Fires earlier than `idle`
+      // and is sufficient for the user to interact with the map.
+      map.once('render', markReady);
+      // Belt-and-braces — `idle` is a clean steady-state signal too.
+      map.once('idle', markReady);
+    };
+
+    if (map.isStyleLoaded()) {
+      armReadyListeners();
+    } else {
+      map.once('style.load', armReadyListeners);
+    }
+
+    const safetyTimeout = setTimeout(markReady, 1800);
+
+    return () => {
+      clearTimeout(safetyTimeout);
+      try { map.off('render', markReady); } catch { /* map may be gone */ }
+      try { map.off('idle', markReady); } catch { /* map may be gone */ }
+      try { map.off('style.load', armReadyListeners); } catch { /* */ }
+    };
+  }, [isMapLoaded]);
+
   // ── Register custom pin images once the map is loaded ──
   useEffect(() => {
     if (!isMapLoaded || !mapRef.current) return;
@@ -498,6 +697,9 @@ export default function AppMap({
     if (!map.hasImage('pin-functional')) registerPinImage(map, 'pin-functional', '#1e3a8a', drawPullUpBarIcon, ratio);
     if (!map.hasImage('pin-default')) registerPinImage(map, 'pin-default', '#00BAF7', drawDumbbellIcon, ratio);
     if (!map.hasImage('pin-minor')) registerPinImage(map, 'pin-minor', '#94a3b8', drawDotIcon, ratio);
+    // Sleek arrowhead used at the end of the navigation curve LineString.
+    // No badge / circle — just a clean white tip that lies on the road.
+    registerArrowTipImage(map, 'nav-arrow-tip', ratio);
   }, [isMapLoaded]);
 
   // ── Interactive cursor for clusters, pins & route lines ──
@@ -582,6 +784,11 @@ export default function AppMap({
 
     if (onRouteSelect && focusedRoute) onRouteSelect(null as any);
     setSelectedPark(null);
+    // Empty-tap signal — DiscoverLayer subscribes to this to clear the
+    // commute carousel when the user taps the map outside any feature.
+    // Bumped AFTER the local clears above so subscribers see a clean
+    // state on the same tick. See useMapStore.mapEmptyTapTick jsdoc.
+    useMapStore.getState().bumpMapEmptyTapTick();
   }, [parks, routes, setSelectedPark, onRouteSelect, focusedRoute]);
 
   // ── Long-press to set mock location ──
@@ -658,6 +865,74 @@ export default function AppMap({
     };
   }, [isActiveWorkout, focusedRoute, currentLocation]);
 
+  // ── Navigation turn arrow GeoJSON (curve-following) ──────────────────────
+  // Builds a short LineString that traces the actual route geometry around
+  // the active turn vertex (3 path-points before + the turn + 3 after, where
+  // available). A second Point feature sits at the END of that line so a
+  // sleek arrowhead can be placed there with rotation matching the line's
+  // last segment — together they read as a single elongated arrow that
+  // BENDS along the road instead of a static badge.
+  //
+  // Emits an empty collection when there is no active selection or the
+  // path slice would have fewer than 2 finite vertices.
+  const NAV_ARROW_PATH_RADIUS = 3;
+  const turnArrowGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
+    const turns = navigationTurns ?? [];
+    const path  = focusedRoute?.path ?? [];
+    if (
+      activeTurnIdx < 0 || activeTurnIdx >= turns.length ||
+      !Array.isArray(path) || path.length < 2
+    ) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    const t = turns[activeTurnIdx];
+    if (!isFiniteNum(t.lat) || !isFiniteNum(t.lng)) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    // pathIndex === turn vertex index in the original path array.
+    const idx = isFiniteNum(t.pathIndex) ? t.pathIndex : -1;
+    const startIdx = Math.max(0, idx - NAV_ARROW_PATH_RADIUS);
+    const endIdx   = Math.min(path.length - 1, idx + NAV_ARROW_PATH_RADIUS);
+    const slice = path
+      .slice(startIdx, endIdx + 1)
+      .filter(
+        (c): c is [number, number] =>
+          Array.isArray(c) && c.length === 2 &&
+          Number.isFinite(c[0]) && Number.isFinite(c[1]),
+      );
+    if (slice.length < 2) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    const tipCoord = slice[slice.length - 1];
+    const tipPrev  = slice[slice.length - 2];
+    const tipBearingRaw = bearingBetween(
+      tipPrev[1],  tipPrev[0],
+      tipCoord[1], tipCoord[0],
+    );
+    const tipBearing = Number.isFinite(tipBearingRaw) ? tipBearingRaw : 0;
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature' as const,
+          geometry: { type: 'LineString' as const, coordinates: slice },
+          properties: { kind: 'line', streetName: t.streetName ?? '' },
+        },
+        {
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: tipCoord },
+          properties: { kind: 'tip', bearing: tipBearing, streetName: t.streetName ?? '' },
+        },
+      ],
+    };
+    // Fine-grain deps: depend on `path` (the array reference is stable
+    // across unrelated route-object rebuilds) and `id` (so a route swap
+    // forces a recompute), NOT on the whole `focusedRoute` object. This
+    // is what stops the Source data prop from getting a new object every
+    // GPS tick — which used to push fresh tiles to the GPU on each
+    // sample and gradually fill Mapbox's WebGL buffer pool.
+  }, [navigationTurns, activeTurnIdx, focusedRoute?.id, focusedRoute?.path]);
+
   const handleMapLoad = (e: any) => {
     const rawMap = e?.target || mapRef.current?.getMap?.() || mapRef.current;
     if (!rawMap || typeof rawMap.getStyle !== 'function') return;
@@ -668,6 +943,9 @@ export default function AppMap({
       'park-clusters-glow', 'park-clusters', 'park-pins', 'park-minor-pins', 'park-cluster-count',
       'routes-background', 'routes-active-glow', 'routes-active-outline', 'routes-active',
       'live-path-trace', 'ghost-path-glow', 'ghost-path-line', 'sim-walk-trail',
+      // Navigation ground visuals (curve + tip) — exempt from the Hebrew
+      // label pass so it doesn't try to set text-field on a line/icon layer.
+      'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
     ]);
 
     let hebrewDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -778,6 +1056,58 @@ export default function AppMap({
           </>
         )}
 
+        {/* ── Navigation ground arrow — sleek line that follows the curve ────────
+            Replaces the previous circular badge entirely. The geometry is a
+            short slice of the actual route path around the active turn vertex,
+            so the arrow visibly bends through the maneuver — left turns lean
+            left, hairpins curl, slight bends barely tilt.
+            Three layers share one GeoJSON source (single render pass):
+              • nav-arrow-line-glow — soft outer halo for legibility on busy tiles
+              • nav-arrow-line      — clean white stroke
+              • nav-arrow-tip       — sleek triangular tip at the line's end,
+                                       rotated to the last-segment bearing,
+                                       map-pitched so it lies on the road. */}
+        {isNavigationMode && turnArrowGeoJSON.features.length > 0 && (
+          <Source id="nav-turn-arrow" type="geojson" data={turnArrowGeoJSON}>
+            <Layer
+              id="nav-arrow-line-glow"
+              type="line"
+              filter={['==', ['get', 'kind'], 'line']}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': '#ffffff',
+                'line-opacity': 0.35,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 15, 10, 18.5, 22],
+                'line-blur': 4,
+              }}
+            />
+            <Layer
+              id="nav-arrow-line"
+              type="line"
+              filter={['==', ['get', 'kind'], 'line']}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': '#ffffff',
+                'line-width': ['interpolate', ['linear'], ['zoom'], 15, 5, 18.5, 11],
+              }}
+            />
+            <Layer
+              id="nav-arrow-tip"
+              type="symbol"
+              filter={['==', ['get', 'kind'], 'tip']}
+              layout={{
+                'icon-image': 'nav-arrow-tip',
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.55, 18.5, 1.0],
+                'icon-rotate': ['get', 'bearing'],
+                'icon-rotation-alignment': 'map',
+                'icon-pitch-alignment': 'map',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
+          </Source>
+        )}
+
         {/* ── Walk-to-route: dashed cyan line from user → nearest route endpoint ──
             The hook controls visibility: loads in discover mode, persists
             during active workout until the user arrives at the route endpoint
@@ -815,17 +1145,94 @@ export default function AppMap({
           </Source>
         )}
 
-        {/* ── Parks: Clustered GeoJSON Source ── */}
+        {/* ── Parks: Clustered GeoJSON Source ──
+            All Layers stay always-on so map density is consistent across
+            zoom and activity. The `park-pins` Layer's filter is augmented
+            with a "skip selected" clause so the SymbolLayer pin for the
+            currently-highlighted park hides while the React photo bubble
+            takes over its slot — preventing a stacked vector-pin + photo
+            silhouette at the same coordinate. */}
         <Source id="parks-clustered" type="geojson" data={parksGeoJSON} cluster={true} clusterMaxZoom={14} clusterRadius={50}>
           <Layer id="park-clusters-glow" type="circle" filter={PARK_CLUSTERS_GLOW.filter} paint={PARK_CLUSTERS_GLOW.paint as any} />
           <Layer id="park-clusters" type="circle" filter={PARK_CLUSTERS.filter} paint={PARK_CLUSTERS.paint as any} />
-          <Layer id="park-pins" type="symbol" filter={PARK_PINS.filter} minzoom={PARK_PINS.minzoom} layout={PARK_PINS.layout as any} />
+          <Layer
+            id="park-pins"
+            type="symbol"
+            filter={parkPinsFilter}
+            minzoom={PARK_PINS.minzoom}
+            layout={PARK_PINS.layout as any}
+          />
           <Layer id="park-minor-pins" type="symbol" filter={PARK_MINOR_PINS.filter} minzoom={PARK_MINOR_PINS.minzoom} layout={PARK_MINOR_PINS.layout as any} />
           <Layer id="park-cluster-count" type="symbol" filter={PARK_CLUSTER_COUNT.filter} layout={PARK_CLUSTER_COUNT.layout as any} paint={PARK_CLUSTER_COUNT.paint as any} />
         </Source>
 
+        {/* ── Destination-highlight photo marker (single, selected park) ──
+            One <Marker> at a time = constant DOM/WebGL cost regardless
+            of city size. The vector pin for this park is filtered out of
+            `park-pins` above so we render a single clean silhouette.
+            Anchor="bottom" pins the tail tip exactly on the geographic
+            point. The marker auto-billboards (HTML overlay) so the
+            photo always faces the camera. */}
+        {showSelectedParkPhoto
+          && selectedParkPhotoData
+          && isFiniteLatLng({
+            lat: selectedParkPhotoData.lat,
+            lng: selectedParkPhotoData.lng,
+          }) && (
+          <Marker
+            key={selectedParkPhotoData.id}
+            longitude={selectedParkPhotoData.lng}
+            latitude={selectedParkPhotoData.lat}
+            anchor="bottom"
+          >
+            <ParkPhotoMarker
+              name={selectedParkPhotoData.name}
+              photoUrl={selectedParkPhotoData.photoUrl}
+              size={56}
+              isSelected
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                  navigator.vibrate(8);
+                }
+              }}
+            />
+          </Marker>
+        )}
+
+        {/* ── Commute destination pin (premium, glowing) ────────────────────
+            Rendered exclusively in commute mode. The pin is anchored at
+            its bottom tip on the destination lat/lng so the geographic
+            placement is exact. Hidden the moment commuteDestination
+            clears (i.e. the user backs out of commute or finishes the
+            session). Z-stacking sits inside Mapbox's <Marker> overlay
+            layer — same plane as ParkPhotoMarker — so it correctly
+            paints above tiles + parks but below the active-workout
+            chrome (z-40). */}
+        {commuteDestination
+          && Array.isArray(commuteDestination.coords)
+          && commuteDestination.coords.length === 2
+          && isFiniteLatLng({
+            lat: commuteDestination.coords[1],
+            lng: commuteDestination.coords[0],
+          }) && (
+          <Marker
+            key="commute-destination"
+            longitude={commuteDestination.coords[0]}
+            latitude={commuteDestination.coords[1]}
+            anchor="bottom"
+          >
+            <DestinationMarker label={commuteDestination.label} />
+          </Marker>
+        )}
+
         {/* ── User marker — Lemur avatar (zoom-scaled) ──────────────────── */}
-        {currentLocation && (() => {
+        {/* `isFiniteLatLng` (not bare truthy) is THE gate. A truthy gate
+            admits {lat: NaN, lng: NaN} which Mapbox's <Marker> internals
+            then convert through LngLat.convert() and throw "Expected
+            value to be of type number, but found null" — same crash
+            class the user is hitting. The finite gate stops it cold
+            before the React tree ever mounts the Marker. */}
+        {isFiniteLatLng(currentLocation) && (() => {
           // Scale the lemur based on zoom. CSS transform keeps the anchor point stable
           // (no DOM reflow) and the 0.2s transition makes the resize feel organic.
           // Below zoom 10 we replace the avatar with a compact blue pulse dot.
@@ -921,7 +1328,11 @@ export default function AppMap({
         })()}
 
         {/* ── Destination marker ── */}
-        {destinationMarker && (
+        {/* Same finite gate as the user marker — destinationMarker comes
+            in from external state (search result, community deep-link)
+            and may briefly be {lat: null, lng: null} during navigation
+            transitions. */}
+        {isFiniteLatLng(destinationMarker) && (
           <Marker longitude={destinationMarker.lng} latitude={destinationMarker.lat} anchor="bottom">
             <div className="flex flex-col items-center">
               <div className="bg-purple-600 p-2 rounded-full shadow-lg shadow-purple-500/50 animate-bounce border-2 border-white">
@@ -963,6 +1374,12 @@ export default function AppMap({
         {/* ── Facility markers (zoom 14+) ── */}
         {currentZoom >= 14 && facilities.map((f) => {
           if (!visibleLayers?.includes(f.type as LayerType)) return null;
+          // Facilities come from a Firestore source where (very rarely)
+          // location.lat / location.lng can land as null during a
+          // partial document update. Drop those silently — the heatmap
+          // tier still represents the same data, and reviving the
+          // Mapbox tree after an LngLat throw is expensive.
+          if (!isFiniteLatLng(f.location)) return null;
           const isPassive = ['water', 'toilet'].includes(f.type);
           return (
             <Marker key={f.id} longitude={f.location.lng} latitude={f.location.lat} anchor="center"
@@ -989,6 +1406,11 @@ export default function AppMap({
             ensures we never mount markers for partners off-screen, which
             keeps marker count bounded as the city scales. */}
         {currentZoom >= 15 && visiblePartners
+          // Two-stage filter: finite-coords gate FIRST (rejects partial
+          // presence docs with null lng/lat), THEN viewport bounds. The
+          // bounds check internally calls Mapbox's contains() which is
+          // safe with non-finite values but still wastes a call.
+          .filter((p) => isFiniteLngLat([p.lng, p.lat]))
           .filter((p) => !viewportBounds || viewportBounds.contains([p.lng, p.lat]))
           .map((p) => (
             <Marker key={p.uid} longitude={p.lng} latitude={p.lat} anchor="center">
@@ -1033,6 +1455,14 @@ export default function AppMap({
         </>
         )}
       </Map>
+
+      {/* ── AI-themed init skeleton — dissolves into the styled map ─────────
+          Sits at z-[50] inside AppMap's local stacking context (above the
+          admin button at z-20 and any in-canvas content). Driven by the
+          `isVisuallyReady` gate above; AnimatePresence handles the
+          scale + blur + fade exit so the user sees one continuous motion
+          from "AI is preparing your map" → final clean map. */}
+      <MapLoadingSkeleton visible={!isVisuallyReady} />
 
       {isAdmin && (
         <button
