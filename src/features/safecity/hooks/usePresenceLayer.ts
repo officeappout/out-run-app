@@ -208,11 +208,39 @@ export function usePresenceLayer(
 
   // ── Heartbeat (single writer) ─────────────────────────────────────────────
   useEffect(() => {
-    if (!userId || !profile?.core?.name) return;
+    if (!userId || !profile?.core?.name) {
+      // [DIAG] Heartbeat guarded — explains why nothing ever lands in
+      // /presence/{uid}. Common causes: profile still hydrating, user
+      // not signed in, or `core.name` empty (which shouldn't happen for
+      // a real account but does for malformed seed data).
+      console.log('[PresenceHeartbeat] mount SKIPPED', {
+        reason: !userId ? 'no userId' : 'no profile.core.name',
+        userId: userId ?? null,
+        hasProfile: !!profile,
+        coreName: profile?.core?.name ?? null,
+      });
+      return;
+    }
 
+    console.log('[PresenceHeartbeat] mount OK — heartbeat will tick now and every 2 min', {
+      userId,
+      currentLocation,
+      privacyMode: stateRef.current.privacyMode,
+      ageGroup: stateRef.current.ageGroup,
+    });
+
+    let tickCount = 0;
     const getPayload = (): PresencePayload | null => {
+      tickCount += 1;
       const s = stateRef.current;
-      if (!currentLocation || !s.userId) return null;
+      if (!currentLocation || !s.userId) {
+        console.log('[PresenceHeartbeat] tick SKIPPED', {
+          tickCount,
+          reason: !currentLocation ? 'no currentLocation (GPS pending?)' : 'no userId in stateRef',
+          currentLocation,
+        });
+        return null;
+      }
       // Hard guard against non-finite coords. `currentLocation` flows from
       // upstream (effectivePos in MapShell) which can momentarily produce
       // an object with null lat/lng during mock-location toggles, GPS
@@ -220,8 +248,16 @@ export function usePresenceLayer(
       // would either trigger Firebase's "Expected number" assertion or
       // pin the user to [0,0] in the Gulf of Guinea.
       const { lat, lng } = currentLocation;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-      return {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        console.log('[PresenceHeartbeat] tick SKIPPED', {
+          tickCount,
+          reason: 'non-finite coords',
+          lat,
+          lng,
+        });
+        return null;
+      }
+      const payload: PresencePayload = {
         uid: s.userId,
         name: profile.core.name,
         ageGroup: s.ageGroup,
@@ -236,10 +272,27 @@ export function usePresenceLayer(
         photoURL: s.photoURL,
         runningLevel: s.runningLevel,
       };
+      // [DIAG] This is the line that proves the heartbeat is firing AND
+      // shows the exact `mode` we're about to persist. If `mode` here is
+      // 'verified_global' but the Firestore doc shows 'squad' (or vice
+      // versa), the discrepancy is downstream in updatePresence /
+      // Firestore caching. If you don't see this log at all, the
+      // heartbeat never fired — check the SKIPPED reasons above.
+      console.log('[PresenceHeartbeat] tick WRITING presence', {
+        tickCount,
+        uid: payload.uid,
+        mode: payload.mode,
+        ageGroup: payload.ageGroup,
+        lat: payload.lat,
+        lng: payload.lng,
+        hasAuthorityId: !!payload.authorityId,
+      });
+      return payload;
     };
 
     startHeartbeat(getPayload);
     return () => {
+      console.log('[PresenceHeartbeat] unmount — stopping heartbeat + clearing presence', { userId });
       stopHeartbeat();
       if (userId) clearPresence(userId).catch(() => {});
     };

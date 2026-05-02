@@ -119,8 +119,16 @@ export interface PresencePayload {
 }
 
 export async function updatePresence(payload: PresencePayload): Promise<void> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    console.log('[Presence.updatePresence] SKIPPED — navigator.onLine === false', {
+      uid: payload.uid,
+    });
+    return;
+  }
   if (payload.mode === 'ghost') {
+    console.log('[Presence.updatePresence] mode=ghost → clearPresence (deleting doc)', {
+      uid: payload.uid,
+    });
     await clearPresence(payload.uid);
     return;
   }
@@ -186,7 +194,28 @@ export async function updatePresence(payload: PresencePayload): Promise<void> {
   if (payload.mockPace) data.mockPace = payload.mockPace;
   if (payload.gender) data.gender = payload.gender;
 
-  await setDoc(doc(db, 'presence', payload.uid), data, { merge: true });
+  try {
+    await setDoc(doc(db, 'presence', payload.uid), data, { merge: true });
+    // [DIAG] Confirms the Firestore write actually landed. If you see
+    // [PresenceHeartbeat] tick WRITING but never see this success log,
+    // the write is failing — check the next error log for the cause
+    // (App Check rejection, security rules, offline persistence, etc.).
+    console.log('[Presence.updatePresence] OK — wrote presence/' + payload.uid, {
+      mode: data.mode,
+      lat: data.lat,
+      lng: data.lng,
+      authorityId: data.authorityId ?? null,
+    });
+  } catch (err: any) {
+    console.error('[Presence.updatePresence] FAILED — Firestore write rejected', {
+      uid: payload.uid,
+      mode: payload.mode,
+      code: err?.code ?? '(no code)',
+      message: err?.message ?? String(err),
+      err,
+    });
+    throw err;
+  }
 }
 
 export async function clearPresence(uid: string): Promise<void> {

@@ -857,6 +857,28 @@ service cloud.firestore {
       allow read: if isAuthenticated()
                   && resource.data.type == 'group';
 
+      // Existence check on a non-existent chat doc.
+      //
+      // `getOrCreateChat` (src/features/social/services/chat.service.ts)
+      // probes `chats/{chatId}` with getDoc() before deciding whether to
+      // create a new DM. For a brand-new pair, the doc doesn't exist;
+      // both rules above dereference `resource.data` so they evaluate to
+      // false against a null resource and Firestore returns
+      // PERMISSION_DENIED instead of `snap.exists() === false`. That's
+      // the [useChatStore] openDM failure the user hit.
+      //
+      // Allowing authenticated reads on missing chat docs leaks nothing:
+      //   • No fields are returned (the doc has none).
+      //   • Chat IDs are deterministic from sorted participant UIDs, so
+      //     any caller who has both UIDs (e.g. via the partner finder
+      //     they just clicked) could already construct the same id.
+      //   • Existing-chat reads still require participant membership
+      //     (rule above), so message content stays private.
+      // Group-chat existence is already public via the type=='group'
+      // rule above, so this only changes behaviour for not-yet-created
+      // DM threads, which is exactly the path getOrCreateChat needs.
+      allow read: if isAuthenticated() && resource == null;
+
       // DM create: requesting user in participants, exactly 2 people.
       //
       // SECURITY (Compliance Phase 2.2 — Minor DM Block):

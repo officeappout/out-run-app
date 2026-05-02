@@ -80,6 +80,17 @@ export function useGroupPresence(
     unsubRef.current?.();
     const currentUid = auth.currentUser?.uid;
 
+    // [DIAG] Confirms the listener is being set up at all and shows
+    // who the requester is. If `currentUid` is undefined when this fires,
+    // either auth is still hydrating or the user is signed out — both
+    // would let unfiltered docs through (since the self-filter
+    // `data.uid === currentUid` becomes `data.uid === undefined`).
+    console.log('[useGroupPresence] subscribe', {
+      currentUid: currentUid ?? null,
+      groupSessionId: groupSessionId ?? null,
+      memberIdsLength: memberIds?.length ?? 0,
+    });
+
     // CRITICAL: must match the Firestore rule on /presence/{uid}.
     //
     // The rule allows cross-user reads only when the broadcaster's doc has
@@ -114,10 +125,29 @@ export function useGroupPresence(
 
     unsubRef.current = onSnapshot(q, (snap) => {
       const results: PartnerPosition[] = [];
+      // [DIAG] Per-snapshot diagnostics. Aggregate counters explain why
+      // a non-empty Firestore collection ends up rendering zero pins.
+      const dropReasons = {
+        ghost: 0,
+        self: 0,
+        notInGroup: 0,
+        nonFiniteCoords: 0,
+      };
+      const modeBreakdown: Record<string, number> = {};
+
       snap.forEach((d) => {
         const data = d.data();
-        if (data.mode === 'ghost') return;
-        if (data.uid === currentUid) return;
+        modeBreakdown[String(data.mode ?? 'undefined')] =
+          (modeBreakdown[String(data.mode ?? 'undefined')] ?? 0) + 1;
+
+        if (data.mode === 'ghost') {
+          dropReasons.ghost += 1;
+          return;
+        }
+        if (data.uid === currentUid) {
+          dropReasons.self += 1;
+          return;
+        }
 
         // INTENTIONALLY no `if (!data.activity?.status) return;` here.
         // The map heartbeat in `usePresenceLayer.ts` writes presence
@@ -131,7 +161,10 @@ export function useGroupPresence(
         // explicitly narrowed the filter to a specific activity.
 
         if (groupSessionId && memberIds) {
-          if (!memberIds.includes(data.uid)) return;
+          if (!memberIds.includes(data.uid)) {
+            dropReasons.notInGroup += 1;
+            return;
+          }
         }
 
         // Drop docs with missing/non-finite coords. The previous `?? 0`
@@ -141,8 +174,14 @@ export function useGroupPresence(
         // "Expected value to be of type number, but found null instead".
         const rawLat = data.lat;
         const rawLng = data.lng;
-        if (typeof rawLat !== 'number' || typeof rawLng !== 'number') return;
-        if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return;
+        if (typeof rawLat !== 'number' || typeof rawLng !== 'number') {
+          dropReasons.nonFiniteCoords += 1;
+          return;
+        }
+        if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) {
+          dropReasons.nonFiniteCoords += 1;
+          return;
+        }
 
         results.push({
           uid: data.uid,
@@ -157,6 +196,26 @@ export function useGroupPresence(
           lemurStage: typeof data.lemurStage === 'number' ? data.lemurStage : undefined,
         });
       });
+
+      // [DIAG] Single line per snapshot showing the full pipeline:
+      //   total       — how many docs the rules+query returned
+      //   modeBreakdown — by privacy mode (should be all 'verified_global'
+      //                  given our query filter)
+      //   dropReasons — why we filtered each one out client-side
+      //   rendered    — what we hand to React
+      //   fromCache   — true ⇒ Firestore is serving cached data, server
+      //                 may not be reachable (App Check / network / rules)
+      //   hasPendingWrites — local write hasn't reached server yet
+      console.log('[useGroupPresence] snapshot', {
+        total: snap.size,
+        modeBreakdown,
+        dropReasons,
+        rendered: results.length,
+        fromCache: snap.metadata.fromCache,
+        hasPendingWrites: snap.metadata.hasPendingWrites,
+        currentUid: currentUid ?? null,
+      });
+
       setPositions(results);
     }, (err: any) => {
       // Surface listener errors instead of swallowing. The most common
