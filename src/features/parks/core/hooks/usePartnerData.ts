@@ -481,7 +481,23 @@ export function usePartnerData(
   // ── Filter + transform live ──
   const live = useMemo<LivePartner[]>(() => {
     return rawLive
-      .filter((p) => p.mode !== 'ghost' && p.activity?.status && p.uid !== currentUid)
+      // INTENTIONALLY no `p.activity?.status` requirement here. The map
+      // heartbeat in `usePresenceLayer.ts` writes presence WITHOUT an
+      // `activity` block for users who just have the map open without a
+      // workout running — `activity` is only added later by
+      // `useWorkoutPresence`. Requiring it would filter out every idle
+      // user, exactly the bug we already fixed in `useGroupPresence`:
+      // "map shows N partners, partner finder shows 0". Idle users
+      // surface here with `activityStatus: ''`; downstream filters in
+      // `PartnerOverlay.filteredLive` (`liveActivityMatches`,
+      // `levelRange`, `paceRange`, `genderFilter`) already pass through
+      // missing status / pace / level / gender, so empty fields don't
+      // accidentally hide them. The activity-pill UI ('הכל' / 'כוח' /
+      // 'ריצה' / 'הליכה') still narrows correctly when the user explicitly
+      // picks one — `liveActivityMatches('', 'running')` returns true
+      // (pass-through), but the bucket-specific narrowers below still
+      // run and only act when the value is present.
+      .filter((p) => p.mode !== 'ghost' && p.uid !== currentUid)
       .map((p) => {
         // When userPos is unavailable (mock location not yet set, GPS pending),
         // default distanceKm to 0 so the distance filter does not hide everyone.
