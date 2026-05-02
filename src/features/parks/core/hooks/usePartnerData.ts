@@ -333,14 +333,47 @@ export function usePartnerData(
       return;
     }
 
-    const q = query(collection(db, 'presence'));
+    // CRITICAL: Firestore rule on /presence/{uid} requires the query to
+    // be statically satisfiable. The rule allows cross-user reads only
+    // when `resource.data.mode == 'verified_global'` (public) or when the
+    // requester is in `connections/{userId}.followers` (squad). A bare
+    // `collection(db, 'presence')` query with no filters cannot be proven
+    // safe and is rejected with PERMISSION_DENIED — that was the symptom
+    // users hit when opening the partner finder.
+    //
+    // We constrain to the public tier here so the rules engine can match
+    // the `mode == 'verified_global'` clause. Followers-only ('squad')
+    // partners are intentionally excluded from stranger discovery; they
+    // surface via the friends-batch listener in `usePresenceLayer.ts`,
+    // which queries `where('uid', 'in', followers)` and falls under the
+    // rule's squad branch.
+    const q = query(
+      collection(db, 'presence'),
+      where('mode', '==', 'verified_global'),
+    );
 
     unsubLive.current = onSnapshot(
       q,
       (snap) => {
         setRawLive(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
       },
-      () => {},
+      (err: any) => {
+        // Surface PERMISSION_DENIED specifically — silently swallowing
+        // (the previous `() => {}` handler) made this exact bug invisible
+        // and forced developers to dig through hooks to find why the
+        // partner finder was empty. Other errors stay quiet to avoid
+        // spamming the console on flaky-network hiccups.
+        if (err?.code === 'permission-denied') {
+          console.error(
+            '[usePartnerData] live presence listener PERMISSION-DENIED. ' +
+              'Verify Firestore rules on /presence still permit ' +
+              "`mode == 'verified_global'` reads for authenticated users, " +
+              'and that App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) is set ' +
+              'on this client. Partner finder will be empty until fixed.',
+            err,
+          );
+        }
+      },
     );
 
     return () => unsubLive.current?.();

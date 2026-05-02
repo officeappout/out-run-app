@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 
 /**
@@ -80,7 +80,37 @@ export function useGroupPresence(
     unsubRef.current?.();
     const currentUid = auth.currentUser?.uid;
 
-    const q = query(collection(db, 'presence'));
+    // CRITICAL: must match the Firestore rule on /presence/{uid}.
+    //
+    // The rule allows cross-user reads only when the broadcaster's doc has
+    // `mode == 'verified_global'` (public tier) or when the requester is
+    // already in their `connections.followers` list (squad tier). Firestore
+    // refuses any collection query whose results cannot be statically
+    // proven readable, so a bare `collection(db, 'presence')` listener
+    // fails with PERMISSION_DENIED — that's the error users were seeing
+    // when they opened the partner finder.
+    //
+    // Two query shapes:
+    //   • Group session   → `where('uid', 'in', memberIds)` — bounded set
+    //                        (≤30) so the rule engine can evaluate the
+    //                        squad/verified branches per-doc. Works for
+    //                        squad-mode group members too, AS LONG AS the
+    //                        requester is in their followers list (group
+    //                        membership doesn't override Firestore rules).
+    //   • Stranger discovery → `where('mode', '==', 'verified_global')`,
+    //                        which is statically satisfiable against the
+    //                        public-tier read rule. Squad-mode broadcasters
+    //                        are intentionally excluded here; the
+    //                        friends-only listener in `usePresenceLayer.ts`
+    //                        is the channel that surfaces them to people
+    //                        they've allowed.
+    const memberIdsForQuery =
+      groupSessionId && memberIds && memberIds.length > 0
+        ? memberIds.slice(0, 30) // Firestore `in` cap = 30
+        : null;
+    const q = memberIdsForQuery
+      ? query(collection(db, 'presence'), where('uid', 'in', memberIdsForQuery))
+      : query(collection(db, 'presence'), where('mode', '==', 'verified_global'));
 
     unsubRef.current = onSnapshot(q, (snap) => {
       const results: PartnerPosition[] = [];
