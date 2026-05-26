@@ -53,8 +53,7 @@ import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import AppHeader from '@/components/ui/AppHeader';
-import { useSettingsStore } from '@/features/home/store/useSettingsStore';
-import { requestHealthPermissions } from '@/lib/healthBridge/init';
+
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -228,53 +227,9 @@ function StepsCard() {
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const barPct = goal > 0 ? Math.min(100, (stepsToday / goal) * 100) : 0;
 
-  // Permission state — optimistic from settings store (set when the user
-  // previously granted and the store was hydrated from Capacitor Prefs).
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
-  const patchSettings = useSettingsStore((s) => s.patch);
-
-  // Inline toast state (hint shown when permission is denied/pending).
-  const [hint, setHint] = useState<string | null>(null);
-  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showHint = (msg: string) => {
-    if (hintTimer.current) clearTimeout(hintTimer.current);
-    setHint(msg);
-    hintTimer.current = setTimeout(() => setHint(null), 4000);
-  };
-
-  useEffect(() => () => { if (hintTimer.current) clearTimeout(hintTimer.current); }, []);
-
-  const handlePress = useCallback(async () => {
-    // If permission was previously confirmed, go straight to the detail page.
-    if (healthBridgeEnabled) {
-      router.push('/activity/steps');
-      return;
-    }
-
-    // On web/non-native: navigate directly (no permission needed).
-    const isNative =
-      typeof window !== 'undefined' &&
-      Boolean((window as any).Capacitor?.isNativePlatform?.());
-
-    if (!isNative) {
-      router.push('/activity/steps');
-      return;
-    }
-
-    // Native Android/iOS: request Health Connect / HealthKit permissions.
-    try {
-      const { granted } = await requestHealthPermissions();
-      if (granted) {
-        patchSettings({ healthBridgeEnabled: true });
-        router.push('/activity/steps');
-      } else {
-        showHint('כדי לראות את הצעדים שלך, אפשר גישה לבריאות בהגדרות');
-      }
-    } catch {
-      showHint('לא ניתן לגשת לנתוני הבריאות כרגע');
-    }
-  }, [healthBridgeEnabled, patchSettings, router]);
+  const handlePress = useCallback(() => {
+    router.push('/activity/steps');
+  }, [router]);
 
   return (
     <div
@@ -315,25 +270,6 @@ function StepsCard() {
         </div>
       </div>
 
-      {/* Inline permission hint toast */}
-      <AnimatePresence>
-        {hint && (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-x-0 bottom-0 px-2 pb-2"
-          >
-            <div
-              className="text-[10px] font-medium text-center text-white rounded-xl px-2 py-1.5 leading-snug"
-              style={{ background: 'rgba(0,0,0,0.72)' }}
-            >
-              {hint}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

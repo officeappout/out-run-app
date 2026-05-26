@@ -23,8 +23,6 @@ import type { ActivityCategory } from '@/features/activity/types/activity.types'
 import SideBySideRow from './SideBySideRow';
 import SectionHeader from './SectionHeader';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
-import { useSettingsStore } from '@/features/home/store/useSettingsStore';
-import { requestHealthPermissions } from '@/lib/healthBridge/init';
 
 const WHO_TARGET = 150;
 const FALLBACK_STEPS_GOAL = 10_000;
@@ -60,33 +58,14 @@ function WhoTile() {
 function StepsTile() {
   const router = useRouter();
   const { stepsToday, todayActivity } = useLiveDailyActivity();
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
-  const patchSettings = useSettingsStore((s) => s.patch);
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage = goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
 
-  const handlePress = useCallback(async () => {
-    if (healthBridgeEnabled) {
-      router.push('/activity/steps');
-      return;
-    }
-    const isNative =
-      typeof window !== 'undefined' &&
-      Boolean((window as any).Capacitor?.isNativePlatform?.());
-    if (!isNative) {
-      router.push('/activity/steps');
-      return;
-    }
-    try {
-      const { granted } = await requestHealthPermissions();
-      if (granted) {
-        patchSettings({ healthBridgeEnabled: true });
-        router.push('/activity/steps');
-      }
-    } catch {
-      // Plugin unavailable or dialog dismissed — no-op.
-    }
-  }, [healthBridgeEnabled, patchSettings, router]);
+  // This tile navigates to the steps detail page only.
+  // Permission requests are handled exclusively by StepsSummaryCard and SettingsModal.
+  const handlePress = useCallback(() => {
+    router.push('/activity/steps');
+  }, [router]);
 
   return (
     <CompactMetricTile

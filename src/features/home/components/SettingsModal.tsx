@@ -18,7 +18,9 @@ import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardi
 import { useSettingsStore } from '../store/useSettingsStore';
 import { usePrivacyStore, type PrivacyMode } from '@/features/safecity/store/usePrivacyStore';
 import { validateAccessCode } from '@/features/user/onboarding/services/access-code.service';
-import { requestHealthPermissions, disconnectHealth } from '@/lib/healthBridge/init';
+import { disconnectHealth } from '@/lib/healthBridge/init';
+import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 import EquipmentFilterSheet from '@/features/content/exercises/client/components/EquipmentFilterSheet';
 import { useToast } from '@/components/ui/Toast';
@@ -258,6 +260,26 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const store = useSettingsStore();
   const { mode: privacyMode, setMode: setPrivacyMode } = usePrivacyStore();
 
+  // ── Health Connect disclosure (shown before OS permission dialog) ──────────
+  const { triggerHealthPermission, disclosureProps, isRequesting: healthDisclosureRequesting } =
+    useHealthWithDisclosure({
+      onGranted: async () => {
+        store.patch({ healthBridgeEnabled: true });
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          try {
+            await updateDoc(doc(db, 'users', uid), { 'settings.healthBridgeEnabled': true });
+          } catch (err) {
+            console.error('[Settings][Firestore] ✗ healthBridgeEnabled write failed:', err);
+          }
+        }
+      },
+      onDenied: () => {
+        store.patch({ healthBridgeEnabled: false });
+        showToast('error', 'לא ניתן לקבל גישה לנתוני הבריאות');
+      },
+    });
+
   // ── Derived ──────────────────────────────────────────────────────────────
   const userId = profile?.id ?? auth.currentUser?.uid ?? null;
   const userName = profile?.core?.name ?? 'משתמש';
@@ -320,7 +342,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [cameraStatus, setCameraStatus]     = useState<PermStatus>('loading');
   const [locationRequesting, setLocationRequesting] = useState(false);
   const [cameraRequesting,   setCameraRequesting]   = useState(false);
-  const [healthRequesting,   setHealthRequesting]   = useState(false);
 
   // ── Debounce ref ─────────────────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -586,38 +607,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     scheduleSave({ 'settings.units': v });
   }, [store, scheduleSave]);
 
-  // ── HealthKit toggle ─────────────────────────────────────────────────────
+  // ── HealthKit disconnect (connect path is handled by useHealthWithDisclosure) ──
 
-  const handleHealthBridgeToggle = useCallback(async (v: boolean) => {
-    store.patch({ healthBridgeEnabled: v });
+  const handleHealthDisconnect = useCallback(async () => {
+    await disconnectHealth();
+    store.patch({ healthBridgeEnabled: false });
     const uid = auth.currentUser?.uid;
-    if (v) {
-      console.log('[Settings][HealthBridge] → calling requestHealthPermissions()');
-      const { granted } = await requestHealthPermissions();
-      console.log('[Settings][HealthBridge] ✓ granted =', granted);
-      store.patch({ healthBridgeEnabled: granted });
-      if (granted && uid) {
-        // Persist to Firestore in addition to Capacitor Preferences
-        console.log('[Settings][Firestore] → settings.healthBridgeEnabled = true');
-        try {
-          await updateDoc(doc(db, 'users', uid), { 'settings.healthBridgeEnabled': true });
-          console.log('[Settings][Firestore] ✓ settings.healthBridgeEnabled saved');
-        } catch (err) { console.error('[Settings][Firestore] ✗ healthBridgeEnabled write failed:', err); }
-      }
-      if (!granted) showToast('error', 'לא ניתן לקבל גישה לנתוני הבריאות');
-    } else {
-      console.log('[Settings][HealthBridge] → calling disconnectHealth()');
-      await disconnectHealth();
-      console.log('[Settings][HealthBridge] ✓ disconnected');
-      if (uid) {
-        console.log('[Settings][Firestore] → settings.healthBridgeEnabled = false');
-        try {
-          await updateDoc(doc(db, 'users', uid), { 'settings.healthBridgeEnabled': false });
-          console.log('[Settings][Firestore] ✓ settings.healthBridgeEnabled saved');
-        } catch (err) { console.error('[Settings][Firestore] ✗ healthBridgeEnabled write failed:', err); }
+    if (uid) {
+      try {
+        await updateDoc(doc(db, 'users', uid), { 'settings.healthBridgeEnabled': false });
+      } catch (err) {
+        console.error('[Settings][Firestore] ✗ healthBridgeEnabled write failed:', err);
       }
     }
-  }, [store, showToast]);
+  }, [store]);
 
   // ── Analytics opt-out (immediate — same pattern as existing) ────────────
 
@@ -753,10 +756,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   /**
    * Health row click.
    * • Web: informational toast.
-   * • Native, not granted: calls the existing requestHealthPermissions flow.
+   * • Native, not granted: opens the disclosure modal → then OS dialog.
    * • Native, granted: confirm → OS app-settings (user revokes there).
    */
-  const handleHealthPermission = useCallback(async () => {
+  const handleHealthPermission = useCallback(() => {
     if (!isNativeApp()) {
       showToast('error', 'הרשאות בריאות זמינות באפליקציה הנייטיב בלבד');
       return;
@@ -767,17 +770,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
       return;
     }
-    // try/finally guarantees the spinner clears even if the underlying
-    // promise rejects, hangs past its internal 45 s timeout, or the
-    // Android PluginCall is parked and never resumed. Without this the
-    // spinner would persist indefinitely on edge-case failures.
-    setHealthRequesting(true);
-    try {
-      await handleHealthBridgeToggle(true);
-    } finally {
-      setHealthRequesting(false);
-    }
-  }, [store.healthBridgeEnabled, handleHealthBridgeToggle, showToast]);
+    triggerHealthPermission();
+  }, [store.healthBridgeEnabled, triggerHealthPermission, showToast]);
 
   // ── Reminders ────────────────────────────────────────────────────────────
 
@@ -1357,11 +1351,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         : 'סנכרן צעדים, קלוריות ודקות פעילות'
                     }
                     onClick={handleHealthPermission}
-                    disabled={healthRequesting}
+                    disabled={healthDisclosureRequesting}
                     right={
                       <PermissionStatusBadge
                         status={store.healthBridgeEnabled ? 'granted' : 'prompt'}
-                        requesting={healthRequesting}
+                        requesting={healthDisclosureRequesting}
                       />
                     }
                   />
@@ -1542,6 +1536,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       {/* ── Legal modals ──────────────────────────────────────────────────── */}
       <LegalDocModal type="terms"   isOpen={showTermsModal}   onClose={() => setShowTermsModal(false)} />
       <LegalDocModal type="privacy" isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
+
+      {/* ── Health Connect disclosure (required before OS permission dialog) ── */}
+      <HealthConnectDisclosureModal {...disclosureProps} />
 
       {/* ── Delete confirmation overlay ───────────────────────────────────── */}
       <AnimatePresence>

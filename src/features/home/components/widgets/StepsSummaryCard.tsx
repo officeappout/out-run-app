@@ -15,13 +15,13 @@
  * appear instantly via the in-memory overlay (Native Phase, Apr 2026).
  */
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Footprints, ChevronLeft } from 'lucide-react';
 import CircularProgress from '@/components/CircularProgress';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
-import { useSettingsStore } from '@/features/home/store/useSettingsStore';
-import { requestHealthPermissions } from '@/lib/healthBridge/init';
+import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 
 const FALLBACK_STEPS_GOAL = 10_000;
 
@@ -40,136 +40,119 @@ interface StepsSummaryCardProps {
 export default function StepsSummaryCard({ className = '', variant = 'default' }: StepsSummaryCardProps) {
   const router = useRouter();
   const { stepsToday, todayActivity } = useLiveDailyActivity();
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
-  const patchSettings = useSettingsStore((s) => s.patch);
 
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage =
     goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
 
-  const handleOpen = useCallback(async () => {
-    // If permissions are already granted, go straight to the analytics page.
-    if (healthBridgeEnabled) {
-      router.push('/activity/steps');
-      return;
-    }
-    // On web / desktop we can't trigger the native dialog — just navigate.
-    const isNative =
-      typeof window !== 'undefined' &&
-      Boolean((window as any).Capacitor?.isNativePlatform?.());
-    if (!isNative) {
-      router.push('/activity/steps');
-      return;
-    }
-    // Native path: show the Android Health Connect permission dialog first.
-    try {
-      const { granted } = await requestHealthPermissions();
-      if (granted) {
-        patchSettings({ healthBridgeEnabled: true });
-        router.push('/activity/steps');
-      }
-      // Permission denied — stay on current screen silently.
-    } catch {
-      // Plugin unavailable or dialog dismissed — no-op.
-    }
-  }, [healthBridgeEnabled, patchSettings, router]);
+  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
+    onGranted: () => router.push('/activity/steps'),
+  });
+
+  const handleOpen = triggerHealthPermission;
 
   const ariaLabel = `פתח ניתוח צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`;
 
   if (variant === 'compact') {
     return (
+      <>
+        <button
+          type="button"
+          onClick={handleOpen}
+          aria-label={ariaLabel}
+          dir="rtl"
+          className={[
+            'w-full h-full text-center',
+            'bg-white dark:bg-[#1E1E1E]',
+            'flex flex-col items-center justify-center gap-2',
+            'active:scale-[0.99] transition-transform',
+            className,
+          ].join(' ')}
+          style={{
+            borderRadius: 12,
+            padding: 16,
+            border: '0.5px solid #E0E9FF',
+            boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
+          }}
+        >
+          <CircularProgress percentage={percentage} size={64} strokeWidth={5}>
+            <Footprints
+              className="w-5 h-5 text-primary -scale-x-100"
+              aria-hidden="true"
+            />
+          </CircularProgress>
+          <div className="flex flex-col items-center leading-tight">
+            <span
+              className="text-[18px] font-black text-gray-900 dark:text-white tabular-nums"
+              dir="ltr"
+            >
+              {stepsToday.toLocaleString('he-IL')}
+            </span>
+            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-0.5">
+              / {goal.toLocaleString('he-IL')} צעדים
+            </span>
+          </div>
+        </button>
+        <HealthConnectDisclosureModal {...disclosureProps} />
+      </>
+    );
+  }
+
+  return (
+    <>
       <button
         type="button"
         onClick={handleOpen}
         aria-label={ariaLabel}
         dir="rtl"
         className={[
-          'w-full h-full text-center',
+          'w-full text-start',
           'bg-white dark:bg-[#1E1E1E]',
-          'flex flex-col items-center justify-center gap-2',
+          'rounded-2xl shadow-card border border-gray-100 dark:border-gray-800',
+          'px-4 py-3.5',
+          'flex items-center gap-4',
           'active:scale-[0.99] transition-transform',
+          'hover:shadow-floating',
           className,
         ].join(' ')}
-        style={{
-          borderRadius: 12,
-          padding: 16,
-          border: '0.5px solid #E0E9FF',
-          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
-        }}
       >
-        <CircularProgress percentage={percentage} size={64} strokeWidth={5}>
-          <Footprints
-            className="w-5 h-5 text-primary -scale-x-100"
-            aria-hidden="true"
-          />
-        </CircularProgress>
-        <div className="flex flex-col items-center leading-tight">
-          <span
-            className="text-[18px] font-black text-gray-900 dark:text-white tabular-nums"
+        <div className="shrink-0">
+          <CircularProgress
+            percentage={percentage}
+            size={56}
+            strokeWidth={5}
+          >
+            <Footprints
+              className="w-5 h-5 text-primary -scale-x-100"
+              aria-hidden="true"
+            />
+          </CircularProgress>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+            צעדים היום
+          </p>
+          <p
+            className="text-[22px] font-black text-gray-900 dark:text-white leading-none tabular-nums"
             dir="ltr"
           >
             {stepsToday.toLocaleString('he-IL')}
-          </span>
-          <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-0.5">
-            / {goal.toLocaleString('he-IL')} צעדים
-          </span>
+          </p>
+          <p
+            className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-none"
+            dir="ltr"
+          >
+            / {goal.toLocaleString('he-IL')} steps
+          </p>
         </div>
+
+        <ChevronLeft
+          className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
+          aria-hidden="true"
+        />
       </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleOpen}
-      aria-label={ariaLabel}
-      dir="rtl"
-      className={[
-        'w-full text-start',
-        'bg-white dark:bg-[#1E1E1E]',
-        'rounded-2xl shadow-card border border-gray-100 dark:border-gray-800',
-        'px-4 py-3.5',
-        'flex items-center gap-4',
-        'active:scale-[0.99] transition-transform',
-        'hover:shadow-floating',
-        className,
-      ].join(' ')}
-    >
-      <div className="shrink-0">
-        <CircularProgress
-          percentage={percentage}
-          size={56}
-          strokeWidth={5}
-        >
-          <Footprints
-            className="w-5 h-5 text-primary -scale-x-100"
-            aria-hidden="true"
-          />
-        </CircularProgress>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-          צעדים היום
-        </p>
-        <p
-          className="text-[22px] font-black text-gray-900 dark:text-white leading-none tabular-nums"
-          dir="ltr"
-        >
-          {stepsToday.toLocaleString('he-IL')}
-        </p>
-        <p
-          className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-none"
-          dir="ltr"
-        >
-          / {goal.toLocaleString('he-IL')} steps
-        </p>
-      </div>
-
-      <ChevronLeft
-        className="w-5 h-5 text-gray-300 dark:text-gray-600 shrink-0"
-        aria-hidden="true"
-      />
-    </button>
+      <HealthConnectDisclosureModal {...disclosureProps} />
+    </>
   );
 }
