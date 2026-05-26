@@ -39,7 +39,40 @@ import {
   ChildDomainGain,
 } from '../../core/types/progression.types';
 import { Program } from '@/features/content/programs';
-import { getProgram, getAllPrograms } from '@/features/content/programs';
+import { getProgram, getAllPrograms, getProgramByTemplateId, MASTER_PROGRAM_SLUG_TO_ID, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs';
+
+/**
+ * Resolve a programId against the `programs` Firestore collection BEFORE
+ * we persist it into `progression.activePrograms[].templateId`. Mirrors
+ * the validation in `onboarding-sync.service.ts` — see that file for
+ * the full rationale (the legendary "פ" templateId bug). Centralised
+ * locally rather than imported to avoid a new client→client coupling.
+ *
+ * Returns false on:
+ *   • non-string / empty input
+ *   • slug-shape mismatch (catches single-character / non-ASCII junk
+ *     before spending a Firestore read)
+ *   • getProgramByTemplateId returns null (id doesn't resolve)
+ *   • getProgramByTemplateId throws (network / permission error)
+ */
+async function isValidProgramTemplateId(templateId: unknown): Promise<boolean> {
+  if (typeof templateId !== 'string' || templateId.trim() === '') {
+    return false;
+  }
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(templateId)) {
+    return false;
+  }
+  try {
+    const program = await getProgramByTemplateId(templateId);
+    return program !== null;
+  } catch (err) {
+    console.warn(
+      '[Progression] programId validation threw — treating as invalid:',
+      templateId, err,
+    );
+    return false;
+  }
+}
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
@@ -61,7 +94,7 @@ const READY_FOR_SPLIT_PROGRAMS = ['full_body'];
  * activeProgramId is a slug like "full_body" but the Firestore document
  * was created with an auto-generated ID via addDoc).
  */
-const KNOWN_MASTER_PROGRAMS: Record<string, string[]> = {
+export const KNOWN_MASTER_PROGRAMS: Record<string, string[]> = {
   full_body: ['push', 'pull', 'legs', 'core'],
   upper_body: ['push', 'pull'],
   lower_body: ['legs', 'core'],
@@ -327,16 +360,34 @@ export async function calculateSessionProgress(
  * @param userId - User ID
  * @param masterProgramId - Master program ID (e.g., "full_body")
  * @param _programCache - (internal) avoid re-fetching the same program
+ * @param _slugMap - (internal) pre-built slug map; built once at top level and
+ *   passed down to recursive calls to avoid repeated getAllPrograms() fetches
  * @returns Promise<MasterProgramProgress | null>
  */
 export async function getMasterProgramProgress(
   userId: string,
   masterProgramId: string,
   _programCache?: Map<string, Program | null>,
+  _slugMap?: ProgramSlugMap | null,
 ): Promise<MasterProgramProgress | null> {
   const programCache = _programCache ?? new Map<string, Program | null>();
 
   try {
+    // ── Defense A: build a definitive hash→slug map once per call chain ────
+    // processBottomUpMasterCompletion already uses buildProgramSlugMap() for
+    // child classification. Injecting it here gives getMasterProgramProgress
+    // the same reliable ID→slug resolution so that skill programs stored under
+    // Firestore hash IDs in `subPrograms[]` are correctly mapped to the slug
+    // keys ('planche', 'front_lever', …) used by `progression.tracks`.
+    let slugMap: ProgramSlugMap | null = _slugMap ?? null;
+    if (slugMap === null && _slugMap === undefined) {
+      try {
+        slugMap = await buildProgramSlugMap();
+      } catch (e) {
+        console.warn('[Progression] getMasterProgramProgress: slug map build failed — falling back to field-based resolution:', e);
+      }
+    }
+
     // Fetch master program (use cache to prevent N+1 in recursive calls)
     let masterProgram = programCache.get(masterProgramId);
     if (masterProgram === undefined) {
@@ -363,6 +414,20 @@ export async function getMasterProgramProgress(
     // Ensure tracks are initialized
     ensureTracksInitialized(progression);
 
+    // ── Defense B (prep): read current master level BEFORE overwriting it ──
+    // Extracted here from the already-loaded user doc so recalculateMasterLevel
+    // can apply a monotonic floor without a second Firestore round-trip.
+    const masterSlugForPrior =
+      masterProgram?.slug ||
+      masterProgram?.movementPattern ||
+      MASTER_PROGRAM_ID_TO_SLUG[masterProgramId] ||
+      masterProgramId;
+    const priorMasterRawTrack =
+      progression.tracks?.[masterProgramId] ??
+      progression.tracks?.[masterSlugForPrior];
+    const priorMasterLevel =
+      (priorMasterRawTrack as { currentLevel?: number } | undefined)?.currentLevel ?? 0;
+
     // Get sub-programs
     const subProgramIds = masterProgram.subPrograms || [];
     if (subProgramIds.length === 0) {
@@ -375,6 +440,16 @@ export async function getMasterProgramProgress(
     let totalLevel = 0;
     let totalPercent = 0;
 
+    // Track which child slugs/IDs have real questionnaire data so unconfigured
+    // children (level === 0 or absent track) are excluded from both the
+    // numerator AND denominator when computing the master average.
+    //
+    // Without this guard a pull-only user (pull=L16, push=absent) would produce:
+    //   upper_body = avg(pull=16, push=1_default) = 8   ← wrong
+    // With this guard:
+    //   upper_body = avg(pull=16) / 1               = 16  ← correct
+    const configuredChildIds = new Set<string>();
+
     for (const subProgramId of subProgramIds) {
       // Check if the sub-program is itself a master (multi-level hierarchy)
       let childProgram = programCache.get(subProgramId);
@@ -384,37 +459,196 @@ export async function getMasterProgramProgress(
       }
 
       if (childProgram?.isMaster) {
-        // Recursive: calculate the child-master's aggregated level
-        const childMasterProgress = await getMasterProgramProgress(userId, subProgramId, programCache);
-        const level = childMasterProgress?.displayLevel ?? 1;
+        // Recursive: calculate the child-master's aggregated level.
+        // displayLevel > 0 only when at least one leaf within the child master
+        // is configured; treat 0 as "unconfigured" and exclude from average.
+        // Pass slugMap and programCache down to avoid rebuilding them.
+        const childMasterProgress = await getMasterProgramProgress(userId, subProgramId, programCache, slugMap);
+        const level = childMasterProgress?.displayLevel ?? 0;
         const percent = childMasterProgress?.displayPercent ?? 0;
         subPrograms.push({ programId: subProgramId, level, percent });
         totalLevel += level;
         totalPercent += percent;
+        if (level > 0) configuredChildIds.add(subProgramId);
       } else {
-        // Leaf child — read directly from tracks
-        const track = progression.tracks?.[subProgramId] || getDefaultTrackProgress();
+        // Leaf child — resolve hash ID → slug before reading tracks.
+        // Workout completion writes child tracks under slug keys ('push', 'pull', etc.)
+        // not Firestore hash IDs, so we must look up by slug first.
+        //
+        // ── Defense A: slug resolution priority order ─────────────────────
+        //   1. buildProgramSlugMap() idToSlug (most reliable — iterates all
+        //      Firestore program docs; covers slug, movementPattern, name).
+        //      This eliminates Mode A/B/C routing gaps where skill programs
+        //      stored under hash IDs collapsed to their movementPattern
+        //      ('push'/'pull') instead of their skill slug ('planche').
+        //   2. subProgramId directly, IF the user already has a granular track
+        //      keyed to that ID (e.g. progression.tracks['planche'] = L7).
+        //   3. childProgram?.slug (admin-set canonical slug field)
+        //   4. MASTER_PROGRAM_ID_TO_SLUG static map (Firestore hash → slug)
+        //   5. childProgram?.movementPattern (foundational programs without slug)
+        //   6. subProgramId as-is (last resort)
+        const mapResolvedSlug = slugMap?.idToSlug.get(subProgramId);
+        const hasOwnTrack =
+          progression.tracks?.[subProgramId] != null &&
+          ((progression.tracks[subProgramId] as { currentLevel?: number })?.currentLevel ?? 0) > 0;
+        const childSlug =
+          mapResolvedSlug ||
+          (hasOwnTrack ? subProgramId : undefined) ||
+          childProgram?.slug ||
+          MASTER_PROGRAM_ID_TO_SLUG[subProgramId] ||
+          childProgram?.movementPattern ||
+          subProgramId;
+        const rawTrack = progression.tracks?.[childSlug] ?? progression.tracks?.[subProgramId];
+        // A child is "configured" when its track exists AND carries a real level
+        // (level > 0).  An absent track or a track at level 0 means the user
+        // never assessed this domain — it must NOT contribute to the average.
+        const isConfigured = rawTrack != null && (rawTrack.currentLevel ?? 0) > 0;
+        const track = rawTrack ?? getDefaultTrackProgress();
         subPrograms.push({
-          programId: subProgramId,
+          programId: childSlug, // use slug so EXCLUDED_FROM_AVG comparison works
           level: track.currentLevel,
           percent: track.percent,
         });
         totalLevel += track.currentLevel;
         totalPercent += track.percent;
+        if (isConfigured) configuredChildIds.add(childSlug);
       }
     }
 
-    // Master level = Avg of child tracks, with per-master exclusions and caps.
-    // full_body: Avg(push, pull, legs) — core excluded, capped at 15.
+    // Master level = Avg of CONFIGURED child tracks, with per-master exclusions
+    // and caps.  full_body: Avg(push, pull, legs) — core excluded, capped at 15.
+    //
+    // "Configured" = child has a real track with level > 0 (assessed by the user).
+    // Unconfigured children are excluded from both the sum and the denominator so
+    // a pull-only user (pull=L16, push=absent) gets upper_body=L16 rather than
+    // upper_body=avg(16, 1_ghost)/2=L8.
+    //
+    // masterProgramId may arrive as a Firestore hash — normalise to slug so the
+    // map lookups below work regardless of which form the caller used.
+    const masterSlug =
+      masterProgram?.slug ||
+      masterProgram?.movementPattern ||
+      MASTER_PROGRAM_ID_TO_SLUG[masterProgramId] ||
+      masterProgramId;
+
     const EXCLUDED_FROM_AVG: Record<string, string[]> = { full_body: ['core'] };
     const MASTER_CAP: Record<string, number> = { full_body: 15 };
 
-    const excluded = EXCLUDED_FROM_AVG[masterProgramId] ?? [];
-    const avgChildren = subPrograms.filter(sp => !excluded.includes(sp.programId));
+    // ── calisthenics_upper: restrict averaging to assessed skill tracks ──────
+    //
+    // Derived foundational tracks (push=L16, pull=L16) are written by the
+    // SKILL_TO_FOUNDATION_OFFSET formula in onboarding-sync and can appear as
+    // "configured" children, inflating the master level to L12 instead of L7.
+    //
+    // Three-tier resolution to determine which child IDs to include:
+    //
+    //   Tier 1 — progression.skillFocusIds (written by onboarding-sync for
+    //             multi-skill users).  Most precise: exactly the skills the
+    //             user assessed (e.g. ['planche', 'front_lever']).
+    //
+    //   Tier 2 — activePrograms[calisthenics_upper].focusDomains (also written
+    //             by onboarding-sync; present even when skillFocusIds is absent
+    //             on legacy user documents).
+    //
+    //   Tier 3 — Exclude any child whose programId is a known foundational
+    //             domain slug.  This safety net catches push/pull/legs/core
+    //             entries regardless of how they arrived in configuredChildIds,
+    //             and is active whenever Tier 1 and Tier 2 are both absent.
+    //
+    // None of these tiers affect full_body / upper_body / lower_body averaging
+    // — the guard only fires when masterSlug === 'calisthenics_upper'.
+
+    // Foundational slugs that must NEVER contribute to a skill-master average.
+    const SKILL_MASTER_FOUNDATIONAL_EXCLUDE = new Set([
+      'push', 'pull', 'legs', 'core',
+      'upper_body', 'lower_body', 'full_body',
+    ]);
+
+    let skillFocusIds: string[] | undefined;
+    if (masterSlug === 'calisthenics_upper') {
+      // Tier 1: direct skillFocusIds on progression
+      const fromProgression = userData.progression?.skillFocusIds as string[] | undefined;
+      if (fromProgression && fromProgression.length > 0) {
+        // ── Defense A (supplement): normalize skillFocusIds through slug map ──
+        // Legacy onboarding paths may have written Firestore hash IDs into
+        // skillFocusIds (e.g. 'J0fLpmJhG0KDN2tQouxh') instead of slugs.
+        // Normalise through the slug map so skillFocusIds.includes(childSlug)
+        // comparisons work correctly regardless of the storage format.
+        skillFocusIds = slugMap
+          ? fromProgression.map(id => slugMap.idToSlug.get(id) ?? id)
+          : fromProgression;
+        console.log(`[Progression] calisthenics_upper averaging: Tier 1 skillFocusIds → [${skillFocusIds.join(', ')}]`);
+      } else {
+        // Tier 2: focusDomains on the calisthenics_upper activePrograms entry
+        const calUpEntry = (userData.progression?.activePrograms ?? []).find(
+          (ap: { templateId?: string; id?: string }) =>
+            ap.templateId === 'calisthenics_upper' || ap.id === 'calisthenics_upper',
+        );
+        const fromFocusDomains = (calUpEntry as { focusDomains?: string[] } | undefined)
+          ?.focusDomains;
+        if (fromFocusDomains && fromFocusDomains.length > 0) {
+          skillFocusIds = slugMap
+            ? fromFocusDomains.map(id => slugMap.idToSlug.get(id) ?? id)
+            : fromFocusDomains;
+          console.log(`[Progression] calisthenics_upper averaging: Tier 2 focusDomains → [${skillFocusIds.join(', ')}]`);
+        } else {
+          console.log('[Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent)');
+        }
+      }
+    }
+
+    const excluded = EXCLUDED_FROM_AVG[masterSlug] ?? [];
+    const avgChildren = subPrograms.filter(sp => {
+      if (excluded.includes(sp.programId)) return false;
+      if (!configuredChildIds.has(sp.programId)) return false;
+      if (masterSlug === 'calisthenics_upper') {
+        // Tier 1 / 2: explicit focus list → include ONLY these skill IDs.
+        if (skillFocusIds && skillFocusIds.length > 0) {
+          return skillFocusIds.includes(sp.programId);
+        }
+        // Tier 3 safety net: exclude all foundational domain slugs so the
+        // average is computed from actual skill tracks only.
+        return !SKILL_MASTER_FOUNDATIONAL_EXCLUDE.has(sp.programId);
+      }
+      return true;
+    });
+
+    // ── Defense C: Empty-set abort ────────────────────────────────────────
+    // If the filter rejected every child BUT at least one child is genuinely
+    // configured (level > 0), this is a routing/config mismatch — NOT a
+    // legitimate "brand-new user with no assessed tracks" state.
+    //
+    // Returning routingEmptySkip=true tells recalculateMasterLevel to abort the
+    // Firestore write entirely, preserving whatever level was already stored.
+    //
+    // The distinction:
+    //   configuredChildIds.size === 0  → user has no assessed children → L0 write is correct
+    //   configuredChildIds.size > 0    → children exist but all were filtered out → abort
+    if (avgChildren.length === 0 && configuredChildIds.size > 0) {
+      console.warn(
+        `[Progression] getMasterProgramProgress: empty filter for master "${masterSlug}" ` +
+        `(id: "${masterProgramId}") — ${configuredChildIds.size} configured ` +
+        `${configuredChildIds.size === 1 ? 'child' : 'children'} ` +
+        `[${[...configuredChildIds].join(', ')}] were ALL rejected by the averaging filter. ` +
+        `skillFocusIds: [${skillFocusIds?.join(', ') ?? 'none'}]. ` +
+        `Aborting recalculation to prevent level wipeout (routingEmptySkip=true).`,
+      );
+      return {
+        displayLevel: 0,
+        displayPercent: 0,
+        subPrograms,
+        priorMasterLevel,
+        routingEmptySkip: true,
+      };
+    }
+
+    // avgCount falls back to 1 to avoid division-by-zero when no children are
+    // configured yet (brand-new user who hasn't completed any assessment for
+    // this master's domain).  In that case avgLevel = 0, displayLevel = 0.
     const avgCount = avgChildren.length || 1;
     const avgLevel = avgChildren.reduce((sum, sp) => sum + sp.level, 0) / avgCount;
     const avgPercent = avgChildren.reduce((sum, sp) => sum + sp.percent, 0) / avgCount;
-    const cap = MASTER_CAP[masterProgramId] ?? Infinity;
+    const cap = MASTER_CAP[masterSlug] ?? Infinity;
     const displayLevel = Math.min(cap, Math.round(avgLevel));
     const displayPercent = avgPercent;
 
@@ -422,6 +656,7 @@ export async function getMasterProgramProgress(
       displayLevel,
       displayPercent: Math.round(displayPercent * 100) / 100,
       subPrograms,
+      priorMasterLevel,
     };
   } catch (error) {
     console.error('Error getting master program progress:', error);
@@ -435,6 +670,15 @@ export async function getMasterProgramProgress(
  * to keep the master-level view in sync.
  *
  * The result is written to `progression.tracks[masterProgramId]`.
+ *
+ * Safety guarantees (three-defense model):
+ *   A. Slug routing  — getMasterProgramProgress uses buildProgramSlugMap() so
+ *      Firestore hash IDs are reliably resolved to canonical slug keys.
+ *   B. Monotonic floor — the persisted level is always Math.max(computed, prior),
+ *      so a master track can only climb or hold; it can never drop on a save hook.
+ *   C. Empty-set abort — if getMasterProgramProgress detected that all configured
+ *      children were rejected by the averaging filter (routingEmptySkip=true),
+ *      this function skips the Firestore write entirely and returns null.
  */
 export async function recalculateMasterLevel(
   userId: string,
@@ -443,22 +687,69 @@ export async function recalculateMasterLevel(
   const progress = await getMasterProgramProgress(userId, masterProgramId);
   if (!progress) return null;
 
-  // Persist the aggregated level into the master program's own track
-  // AND mirror to progression.domains so the dashboard reads consistent data
-  const userDocRef = doc(db, USERS_COLLECTION, userId);
-  await updateDoc(userDocRef, {
-    [`progression.tracks.${masterProgramId}.currentLevel`]: progress.displayLevel,
-    [`progression.tracks.${masterProgramId}.percent`]: progress.displayPercent,
-    [`progression.domains.${masterProgramId}.currentLevel`]: progress.displayLevel,
-    updatedAt: serverTimestamp(),
-  });
+  const masterSlug = MASTER_PROGRAM_ID_TO_SLUG[masterProgramId] ?? masterProgramId;
 
+  // ── Defense C: Empty-set abort ────────────────────────────────────────────
+  // getMasterProgramProgress sets routingEmptySkip when configured children
+  // exist but were all rejected by the filter — a routing/config gap, not a
+  // legitimate L0 user.  Persisting displayLevel=0 in this state would wipe
+  // the user's earned master progression, so we abort unconditionally.
+  if (progress.routingEmptySkip) {
+    console.warn(
+      `[Progression] recalculateMasterLevel: ABORTED write for master "${masterProgramId}" ` +
+      `(slug: "${masterSlug}") — routingEmptySkip flag set by getMasterProgramProgress. ` +
+      `Existing level ${progress.priorMasterLevel ?? 0} preserved. ` +
+      `Check slug map coverage for skill program hashes in subPrograms[].`,
+    );
+    return null;
+  }
+
+  // ── Defense B: Monotonic safety floor ────────────────────────────────────
+  // A master track may NEVER drop below its previously-persisted level.
+  // priorMasterLevel is extracted from the same user-doc read inside
+  // getMasterProgramProgress — no additional Firestore round-trip required.
+  //
+  // safeLevel = max(computed average, previously stored master level)
+  // This means:
+  //   • Legitimate progression: safeLevel = computed (computed ≥ prior)
+  //   • Transient child-routing glitch producing a lower average: safeLevel = prior (floor kicks in)
+  //   • Brand-new user (prior = 0): safeLevel = computed (no-op floor)
+  const priorLevel = progress.priorMasterLevel ?? 0;
+  const safeLevel = Math.max(progress.displayLevel, priorLevel);
+  // Master percent is a derived average across children — always use the current
+  // computed value. The monotonic guarantee is on the level, not the percent.
+  const safePercent = progress.displayPercent;
+
+  // Persist the aggregated level into the master program's own track.
+  // Dual-write: once under the Firestore hash key (e.g. 'H2279XsRGDg9G370J7S9')
+  // and once under the canonical slug key (e.g. 'full_body') so every reader
+  // (admin panel, workout engine, dashboard) finds the correct value regardless
+  // of which key format it uses.
+  const firestoreWrites: Record<string, unknown> = {
+    [`progression.tracks.${masterProgramId}.currentLevel`]: safeLevel,
+    [`progression.tracks.${masterProgramId}.percent`]:      safePercent,
+    [`progression.domains.${masterProgramId}.currentLevel`]: safeLevel,
+    updatedAt: serverTimestamp(),
+  };
+  if (masterSlug !== masterProgramId) {
+    firestoreWrites[`progression.tracks.${masterSlug}.currentLevel`] = safeLevel;
+    firestoreWrites[`progression.tracks.${masterSlug}.percent`]      = safePercent;
+    firestoreWrites[`progression.domains.${masterSlug}.currentLevel`] = safeLevel;
+  }
+
+  const userDocRef = doc(db, USERS_COLLECTION, userId);
+  await updateDoc(userDocRef, firestoreWrites);
+
+  const floorApplied = safeLevel > progress.displayLevel;
   console.log(
-    `[Progression] Master "${masterProgramId}" recalculated → Level ${progress.displayLevel}, ${progress.displayPercent}%` +
-    ` (from ${progress.subPrograms.length} children)`,
+    `[Progression] Master "${masterProgramId}" (slug: "${masterSlug}") recalculated → ` +
+    `Level ${safeLevel}, ${safePercent.toFixed(2)}%` +
+    ` (from ${progress.subPrograms.length} children` +
+    (floorApplied ? `, monotonic floor: computed=${progress.displayLevel} < prior=${priorLevel} → clamped to ${safeLevel}` : '') +
+    `)`,
   );
 
-  return { level: progress.displayLevel, percent: progress.displayPercent };
+  return { level: safeLevel, percent: safePercent };
 }
 
 /**
@@ -469,6 +760,17 @@ export async function recalculateAncestorMasters(
   userId: string,
   childProgramId: string,
 ): Promise<void> {
+  // Virtual aliases (e.g. 'lower_body') are not real Firestore program documents.
+  // Expand them to their leaf children and recurse, then return early.
+  // This prevents noisy "no match for lower_body" warnings on every workout completion.
+  const virtualChildren = KNOWN_MASTER_PROGRAMS[childProgramId];
+  if (virtualChildren) {
+    for (const leafId of virtualChildren) {
+      await recalculateAncestorMasters(userId, leafId);
+    }
+    return;
+  }
+
   try {
     // Fetch all programs that list this child in subPrograms
     const q = query(
@@ -478,8 +780,31 @@ export async function recalculateAncestorMasters(
     const snapshot = await getDocs(q);
     const masterPrograms = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
 
+    // subPrograms in Firestore stores Firestore hash IDs (e.g. 'J0fLpmJhG0KDN2tQouxh').
+    // childProgramId arrives here as a slug (e.g. 'push') from processBottomUpMasterCompletion.
+    // Resolve the slug to its Firestore hash so .includes() matches correctly.
+    //
+    // MASTER_PROGRAM_SLUG_TO_ID only covers master programs — leaf domain programs
+    // (push, pull, legs, core) are absent from that map. For those we look up the
+    // program document via getProgramByTemplateId to get the real Firestore doc ID.
+    let childHash = MASTER_PROGRAM_SLUG_TO_ID[childProgramId] ?? childProgramId;
+    if (childHash === childProgramId) {
+      // childProgramId is a slug that isn't a known master slug → leaf domain.
+      // Fetch the program document to get its Firestore hash ID.
+      try {
+        const childDoc = await getProgramByTemplateId(childProgramId);
+        if (childDoc?.id) childHash = childDoc.id;
+      } catch {
+        // Non-blocking — fall through with slug, the extra includes() check below
+        // will still catch cases where subPrograms was written with slugs.
+      }
+    }
+
     for (const master of masterPrograms) {
-      if (master.subPrograms?.includes(childProgramId)) {
+      if (
+        master.subPrograms?.includes(childHash) ||
+        master.subPrograms?.includes(childProgramId)
+      ) {
         await recalculateMasterLevel(userId, master.id);
         // Recurse upward in case this master is itself a child of a grand-master
         await recalculateAncestorMasters(userId, master.id);
@@ -575,22 +900,36 @@ export async function applyLevelEquivalences(
         updates[`progression.tracks.${rule.targetProgramId}.currentLevel`] = rule.targetLevel;
         updates[`progression.tracks.${rule.targetProgramId}.percent`] = rule.targetPercent ?? 0;
 
-        // Add to activePrograms if requested and not already present
+        // Add to activePrograms if requested and not already present.
+        // Validate the rule's `targetProgramId` resolves to a real
+        // Program first — equivalence rules are admin-edited Firestore
+        // docs and a single typo in the admin form (or a stale id
+        // pointing at a deleted program) would otherwise propagate the
+        // corrupt slug into every user's activePrograms next time they
+        // level up. Mirrors the safety net in onboarding-sync.
         if (rule.addToActivePrograms) {
           const alreadyActive = updatedActivePrograms.some(
             (p: any) => p.id === rule.targetProgramId || p.templateId === rule.targetProgramId,
           );
           if (!alreadyActive) {
-            updatedActivePrograms.push({
-              id: rule.targetProgramId,
-              templateId: rule.targetProgramId,
-              name: rule.targetProgramId.replace(/_/g, ' '),
-              startDate: new Date().toISOString(),
-              durationWeeks: 52,
-              currentWeek: 1,
-              focusDomains: [rule.targetProgramId] as any,
-            });
-            activeUpdated = true;
+            if (!(await isValidProgramTemplateId(rule.targetProgramId))) {
+              console.warn(
+                '🚨 [LevelEquivalence] Rejecting activePrograms push — rule ' +
+                `${rule.id} has an unresolvable targetProgramId:`,
+                JSON.stringify(rule.targetProgramId),
+              );
+            } else {
+              updatedActivePrograms.push({
+                id: rule.targetProgramId,
+                templateId: rule.targetProgramId,
+                name: rule.targetProgramId.replace(/_/g, ' '),
+                startDate: new Date().toISOString(),
+                durationWeeks: 52,
+                currentWeek: 1,
+                focusDomains: [rule.targetProgramId] as any,
+              });
+              activeUpdated = true;
+            }
           }
         }
 
@@ -1482,6 +1821,9 @@ async function processBottomUpMasterCompletion(
       baseGain: masterBaseGain,
       bonusGain: masterBonusGain,
       goalBonusGain: 0,
+      // Master programs aggregate child contributions; mastery is awarded
+      // at the leaf-program level only (where the skill ID is concrete).
+      masteryBonusGain: 0,
       totalGain: masterTotalGain,
       newPercent: masterLeveledUp ? masterNewPercent - 100 : masterNewPercent,
       leveledUp: masterLeveledUp,
@@ -1677,7 +2019,77 @@ export async function processWorkoutCompletion(
       console.error('[Progression] Failed to evaluate goal bonus (non-blocking):', e);
     }
 
-    const totalGain = baseGain + bonusGain + goalBonusGain;
+    // ── SKILL MASTERY BONUS ────────────────────────────────────────────────
+    // Awards a one-time +17.5% bonus when the user achieves a physiological
+    // mastery threshold inside a Skill program. Skills are technique-driven
+    // movements (planche, front lever, muscle-up, handstand) where 5 reps or
+    // 10s of clean execution represents a genuine mastery moment that
+    // deserves accelerated progression — independent from the standard
+    // base/bonus/goal pipeline.
+    //
+    // Evaluation:
+    //   - bilateral skill (rep-based) → bestSet ≥ 5 reps
+    //   - isometric skill (time-based) → totalHold ≥ 10 seconds
+    //
+    // Only fires once per session (we break on the first qualifying exercise)
+    // because mastery is a session-level event, not a per-exercise reward.
+    const SKILL_PROGRAMS = new Set([
+      'front_lever',
+      'planche',
+      'muscle_up',
+      'handstand',
+      'hspu',
+      'back_lever',
+      'human_flag',
+      'one_arm_pullup',
+      'one_arm_pushup',
+    ]);
+    const SKILL_REP_THRESHOLD = 5;     // 5 clean bilateral reps
+    const SKILL_HOLD_THRESHOLD = 10;   // 10s isometric hold
+    const SKILL_MASTERY_BONUS = 17.5;  // midpoint of the agreed 15-20% band
+    const ISOMETRIC_HEURISTIC_REPS = 5; // any single "rep" ≥ 5 implies a hold log
+
+    let masteryBonusGain = 0;
+    let masteryTriggerExercise: string | null = null;
+
+    if (SKILL_PROGRAMS.has(activeProgramId)) {
+      for (const ex of exercises) {
+        if (ex.repsPerSet.length === 0) continue;
+
+        // Heuristic: holds (time-based) typically log values >= 5 across all
+        // sets (since 5s is the minimum meaningful hold), while bodyweight
+        // skill reps cluster around 1-5. We treat a set whose every value
+        // is >= 5 as a hold log.
+        const isLikelyHold = ex.repsPerSet.every(r => r >= ISOMETRIC_HEURISTIC_REPS);
+        if (isLikelyHold) {
+          const totalHold = ex.repsPerSet.reduce((s, r) => s + r, 0);
+          if (totalHold >= SKILL_HOLD_THRESHOLD) {
+            masteryBonusGain = SKILL_MASTERY_BONUS;
+            masteryTriggerExercise = `${ex.exerciseName} (${totalHold}s hold)`;
+            break;
+          }
+        } else {
+          const bestSet = Math.max(...ex.repsPerSet, 0);
+          if (bestSet >= SKILL_REP_THRESHOLD) {
+            masteryBonusGain = SKILL_MASTERY_BONUS;
+            masteryTriggerExercise = `${ex.exerciseName} (${bestSet} reps)`;
+            break;
+          }
+        }
+      }
+
+      if (masteryBonusGain > 0 && masteryTriggerExercise) {
+        console.log(
+          `[Progression] 🏆 SKILL MASTERY in "${activeProgramId}": +${masteryBonusGain}% from ${masteryTriggerExercise}`,
+        );
+      } else {
+        console.log(
+          `[Progression] Skill mastery threshold not met for "${activeProgramId}" this session`,
+        );
+      }
+    }
+
+    const totalGain = baseGain + bonusGain + goalBonusGain + masteryBonusGain;
     
     // Update active program track
     const updatedTracks = { ...progression.tracks };
@@ -1777,8 +2189,10 @@ export async function processWorkoutCompletion(
     // When the active program is a MASTER (e.g., full_body), distribute
     // proportional gains to its child tracks (push, pull, legs, core)
     // based on which movement groups the exercises belong to.
+    // Use getProgramByTemplateId (not getProgram) so that slug-based IDs
+    // like 'full_body' resolve correctly via Strategy 4.
     try {
-      const masterProgram = await getProgram(activeProgramId);
+      const masterProgram = await getProgramByTemplateId(activeProgramId);
       if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
         const childProgramIds = masterProgram.subPrograms;
 
@@ -2034,6 +2448,7 @@ export async function processWorkoutCompletion(
         baseGain,
         bonusGain,
         goalBonusGain,
+        masteryBonusGain,
         totalGain,
         newPercent: leveledUp ? newPercent - 100 : newPercent,
         leveledUp,
@@ -2058,6 +2473,7 @@ export async function processWorkoutCompletion(
         baseGain: 0,
         bonusGain: 0,
         goalBonusGain: 0,
+        masteryBonusGain: 0,
         totalGain: 0,
         newPercent: 0,
         leveledUp: false,

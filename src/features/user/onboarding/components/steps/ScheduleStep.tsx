@@ -1,17 +1,37 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Coins, Check, Calendar, Clock, ChevronDown, Lightbulb, Bell, RefreshCw,
+  Coins, Check, Calendar, Clock, ChevronDown, Lightbulb, RefreshCw,
   Sofa, Footprints, Flame, Building2, TreePine, Dumbbell, Home as HomeIcon,
-  Bike, Sparkles, Heart, Zap,
+  Bike, Sparkles, Heart, Zap, AlertTriangle, Moon, X,
 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import StickyActionButton from '@/components/ui/StickyActionButton';
+import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import {
+  buildDefaultTemplate,
+  validateSchedule,
+  partitionWarnings,
+} from '@/features/schedule/engine/scheduleRules';
+import {
+  type DayOfWeek,
+  type PrioritizedSkill,
+  type ProgramId,
+  type ScheduleDay,
+  type ScheduleItemId,
+  type SkillId,
+  ALL_SKILL_IDS,
+  ALL_PROGRAM_IDS,
+  MOVEMENT_OF,
+  MIN_REST_HOURS,
+  SKILL_DISPLAY,
+} from '@/features/schedule/types/smartSchedule.types';
 
 interface ScheduleStepProps {
   onNext: () => void;
@@ -79,9 +99,187 @@ function CoinFly({
 }
 
 
+// ── Smart Schedule v1.3 — Wizard catalog ─────────────────────────────────
+// The popover lets users pick from a curated v1.3 menu. These IDs match
+// SkillId / ProgramId verbatim and are written into recurringTemplate as-is.
+type WizardOption = {
+  id: ScheduleItemId;
+  kind: 'program' | 'skill';
+  labelHe: string;
+  labelEn: string;
+};
+
+const WIZARD_OPTIONS: WizardOption[] = [
+  { id: 'UPPER_BODY', kind: 'program', labelHe: 'פלג גוף עליון', labelEn: 'Upper Body' },
+  { id: 'FULL_BODY', kind: 'program', labelHe: 'כל הגוף', labelEn: 'Full Body' },
+  { id: 'PLANCHE', kind: 'skill', labelHe: "פלאנץ׳", labelEn: 'Planche' },
+  { id: 'FRONT_LEVER', kind: 'skill', labelHe: 'פרונט לבר', labelEn: 'Front Lever' },
+  { id: 'HSPU', kind: 'skill', labelHe: 'HSPU', labelEn: 'HSPU' },
+  { id: 'OAPU', kind: 'skill', labelHe: 'מתח יד אחת', labelEn: 'OAPU' },
+  { id: 'MUSCLE_UP', kind: 'skill', labelHe: 'עליית כוח', labelEn: 'Muscle-Up' },
+  { id: 'HANDSTAND', kind: 'skill', labelHe: 'עמידת ידיים', labelEn: 'Handstand' },
+];
+
+// ── Active-program → ScheduleItemId resolver ─────────────────────────────
+// Maps a Firestore UserActiveProgram's name or templateId to our internal
+// SkillId / ProgramId taxonomy. This is the bridge between what Firestore
+// stores and what the rule engine understands.
+
+// Maps every slug that can appear in sessionStorage `onboarding_skill_focus`
+// or in UserActiveProgram.templateId to our internal ScheduleItemId taxonomy.
+const SLUG_TO_SCHEDULE_ID: Record<string, ScheduleItemId> = {
+  // ── Skills (exact slugs from program-path/page.tsx SKILL_PROGRAMS) ──
+  planche: 'PLANCHE',
+  front_lever: 'FRONT_LEVER',
+  hspu: 'HSPU',
+  oapu: 'OAPU',
+  one_arm_pullup: 'OAPU',       // program-path slug
+  muscle_up: 'MUSCLE_UP',
+  handstand: 'HANDSTAND',
+  // ── Programs ──
+  calisthenics_upper: 'UPPER_CALISTHENICS',  // master chip in program-path
+  upper_calisthenics: 'UPPER_CALISTHENICS',
+  full_body: 'FULL_BODY',
+  upper_body: 'UPPER_BODY',
+};
+
+function resolveScheduleId(name: string, templateId: string): ScheduleItemId | null {
+  // 1. Exact slug match (covers both sessionStorage slugs and templateId)
+  const slug = templateId.toLowerCase().replace(/-/g, '_');
+  const slugMatch = SLUG_TO_SCHEDULE_ID[slug];
+  if (slugMatch) return slugMatch;
+
+  // 2. Substring name matching (Hebrew + English) for legacy UserActiveProgram.name
+  const n = name.toLowerCase();
+  if (n.includes('פלאנץ') || n.includes('planche')) return 'PLANCHE';
+  if (n.includes('פרונט') || n.includes('front lever') || n.includes('front_lever')) return 'FRONT_LEVER';
+  if (n.includes('hspu') || n.includes('handstand push')) return 'HSPU';
+  if (n.includes('מתח יד אחת') || n.includes('oapu') || n.includes('one arm')) return 'OAPU';
+  if (n.includes('עליית כוח') || n.includes('muscle up') || n.includes('muscle-up')) return 'MUSCLE_UP';
+  if (n.includes('עמידת ידיים') || n.includes('handstand')) return 'HANDSTAND';
+  if (n.includes('כל הגוף') || n.includes('full body') || n.includes('full_body')) return 'FULL_BODY';
+  if (n.includes('עליון') || n.includes('upper body') || n.includes('upper_body')) return 'UPPER_BODY';
+  if (n.includes('קליסטניקס') || n.includes('calisthenics')) return 'UPPER_CALISTHENICS';
+  return null;
+}
+
+// Default seed — only used if user has zero active programs
+const DEFAULT_SEED_PROGRAMS: ProgramId[] = ['UPPER_BODY'];
+const DEFAULT_SEED_SKILLS: PrioritizedSkill[] = [];
+
 export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStepProps) {
+  // Focus mode — suppress global bottom navbar while wizard is active.
+  useSuppressBottomNav();
+
   const { updateData, data, claimReward, hasClaimedReward, coins } = useOnboardingStore();
-  
+
+  // ── Derive active programs/skills for template seeding + popover filter ───
+  //
+  // Data-source priority (first non-empty wins):
+  //   1. sessionStorage `onboarding_skill_focus`  — set by program-path/page.tsx
+  //      during FRESH onboarding. Contains lowercase slugs like ['planche', 'front_lever'].
+  //   2. sessionStorage `onboarding_program_path` — fallback when no skills chosen
+  //      (health → FULL_BODY, body_focus → UPPER_BODY).
+  //   3. useUserStore activePrograms              — existing user re-entering LifestyleWizard.
+  //   4. DEFAULT_SEED_PROGRAMS                    — absolute last resort.
+  const userProfile = useUserStore((s) => s.profile);
+
+  const { activeWizardOptions, seedPrograms, seedSkills } = useMemo(() => {
+    const resolved: Array<{ id: ScheduleItemId; source: 'skill' | 'program'; name: string }> = [];
+    const seen = new Set<ScheduleItemId>();
+
+    const addId = (id: ScheduleItemId) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const source = (ALL_SKILL_IDS as readonly string[]).includes(id) ? 'skill' : 'program';
+      const label = SKILL_DISPLAY[id]?.shortName ?? id;
+      resolved.push({ id, source, name: label });
+    };
+
+    // ── Source 1: sessionStorage onboarding_skill_focus ─────────────────────
+    if (typeof window !== 'undefined') {
+      try {
+        const rawSkills = sessionStorage.getItem('onboarding_skill_focus');
+        if (rawSkills) {
+          const slugs: string[] = JSON.parse(rawSkills);
+          slugs.forEach((s) => {
+            const id = SLUG_TO_SCHEDULE_ID[s.toLowerCase()];
+            if (id) addId(id);
+          });
+        }
+      } catch { /* ignore parse errors */ }
+
+      // ── Source 2: onboarding_program_path fallback ────────────────────────
+      if (resolved.length === 0) {
+        try {
+          const programPath = sessionStorage.getItem('onboarding_program_path');
+          if (programPath === 'health') addId('FULL_BODY');
+          else if (programPath === 'body_focus') addId('UPPER_BODY');
+        } catch { /* ignore */ }
+      }
+    }
+
+    // ── Source 3: existing user's Firestore active programs ─────────────────
+    if (resolved.length === 0) {
+      for (const ap of userProfile?.progression?.activePrograms ?? []) {
+        const id = resolveScheduleId(ap.name ?? '', ap.templateId ?? '');
+        if (id) addId(id);
+      }
+    }
+
+    // ── Build wizard option list (respects selection order) ─────────────────
+    const options: WizardOption[] = resolved.map((r) => {
+      const baseOption = WIZARD_OPTIONS.find((o) => o.id === r.id);
+      return baseOption ?? {
+        id: r.id,
+        kind: r.source,
+        labelHe: SKILL_DISPLAY[r.id]?.shortName ?? r.name,
+        labelEn: r.id,
+      };
+    });
+
+    // ── Hybrid option (§4.3): inject UPPER_CALISTHENICS when 2+ hard skills ──
+    // `buildDefaultTemplate` auto-fills overflow days with UPPER_CALISTHENICS.
+    // The popover must include it as a selectable/deselectable row so the user
+    // can see and manage that auto-filled state on Thursday (and any overflow day).
+    const hardSkillCount = resolved.filter((r) =>
+      (ALL_SKILL_IDS as readonly string[]).includes(r.id) && r.id !== 'HANDSTAND',
+    ).length;
+    const hybridAlreadyPresent = options.some((o) => o.id === 'UPPER_CALISTHENICS');
+    if (hardSkillCount >= 2 && !hybridAlreadyPresent) {
+      options.push(
+        WIZARD_OPTIONS.find((o) => o.id === 'UPPER_CALISTHENICS') ?? {
+          id: 'UPPER_CALISTHENICS',
+          kind: 'program',
+          labelHe: 'קליסט. עליון',
+          labelEn: 'Upper Calisthenics',
+        },
+      );
+    }
+
+    // ── Typed seeds for the rule engine ──────────────────────────────────────
+    const programs: ProgramId[] = resolved
+      .filter((r) => (ALL_PROGRAM_IDS as readonly string[]).includes(r.id))
+      .map((r) => r.id as ProgramId);
+
+    const skills: PrioritizedSkill[] = resolved
+      .filter((r) => (ALL_SKILL_IDS as readonly string[]).includes(r.id))
+      .map((r, idx) => ({
+        id: r.id as SkillId,
+        priority: idx + 1,
+        movementType: (MOVEMENT_OF[r.id] === 'MIXED' ? 'DYNAMIC' : MOVEMENT_OF[r.id]) as any,
+        isFreeSlot: r.id === 'HANDSTAND',
+        minRestHours: MIN_REST_HOURS[r.id] ?? 24,
+        countsTowardCap: r.id !== 'HANDSTAND',
+      }));
+
+    return {
+      activeWizardOptions: options.length > 0 ? options : WIZARD_OPTIONS,
+      seedPrograms: programs.length > 0 ? programs : DEFAULT_SEED_PROGRAMS,
+      seedSkills: skills,
+    };
+  }, [userProfile]);
+
   // Get current language
   const savedLanguage = typeof window !== 'undefined'
     ? (sessionStorage.getItem('onboarding_language') || 'he') as OnboardingLanguage
@@ -141,21 +339,70 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
 
   // Recommended frequency (default 3, can be based on goal)
   const RECOMMENDED_FREQUENCY = 3;
-  
+
   // State - Default to recommended frequency
   const [frequency, setFrequency] = useState<number>(data.trainingDays || RECOMMENDED_FREQUENCY);
-  const [selectedDays, setSelectedDays] = useState<number[]>(() => {
-    if (data.scheduleDayIndices && data.scheduleDayIndices.length > 0) {
-      return data.scheduleDayIndices;
+
+  // ── [Smart Schedule v1.3] Schedule grid state ───────────────────────────
+  // Source of truth for the per-day plan. Replaces the legacy `selectedDays`
+  // numeric array. `selectedDays` is now derived for downstream gating
+  // (canContinue, reward animation triggers) so the rest of the file does
+  // not need to know about the new data shape.
+  const initialFrequency = data.trainingDays || RECOMMENDED_FREQUENCY;
+  const [scheduleGrid, setScheduleGrid] = useState<ScheduleDay[]>(() => {
+    // If returning to the step, rehydrate from prior selections.
+    if (data.scheduleGridSessions && data.scheduleGridSessions.length === 7) {
+      return data.scheduleGridSessions.map((entry) => ({
+        dayOfWeek: entry.dayOfWeek as DayOfWeek,
+        sessions: entry.skillIds.map((skillId) => ({
+          skillId: skillId as ScheduleItemId,
+          volumePercent: 100,
+          sessionType: 'FULL' as const,
+        })),
+        isRestDay: entry.skillIds.length === 0,
+        warnings: [],
+      }));
     }
-    // Pre-select smart default days for recommended frequency
-    return [0, 2, 4]; // Sun, Tue, Thu for 3 days
+    if (data.scheduleDayIndices && data.scheduleDayIndices.length > 0) {
+      // Legacy shape — translate to grid by placing the default seed item
+      // on each previously-selected day.
+      return Array.from({ length: 7 }, (_, dow) => {
+        const isPicked = data.scheduleDayIndices?.includes(dow) ?? false;
+        return {
+          dayOfWeek: dow as DayOfWeek,
+          sessions: isPicked
+            ? [{ skillId: 'UPPER_BODY' as ScheduleItemId, volumePercent: 100, sessionType: 'FULL' as const }]
+            : [],
+          isRestDay: !isPicked,
+          warnings: [],
+        };
+      });
+    }
+    // Use the resolved seeds so the template reflects the user's actual programs.
+    return buildDefaultTemplate(seedPrograms, seedSkills, initialFrequency);
   });
+
+  // Derived: which day indices currently have at least one session.
+  const selectedDays = useMemo(
+    () => scheduleGrid.filter((d) => d.sessions.length > 0).map((d) => d.dayOfWeek as number),
+    [scheduleGrid],
+  );
+
+  // Live validation — re-runs whenever the grid mutates.
+  const liveWarnings = useMemo(() => validateSchedule(scheduleGrid), [scheduleGrid]);
+  const { errors: liveErrors, warns: liveWarns } = useMemo(
+    () => partitionWarnings(liveWarnings),
+    [liveWarnings],
+  );
+
+  // Popover state — which day card has its bubble open (-1 = closed).
+  const [openPopoverDay, setOpenPopoverDay] = useState<number>(-1);
   const [time, setTime] = useState<string>(data.trainingTime || '18:00');
-  // Initialize toggle states - BOTH ON by default for recommended experience
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
-    return (data as any).notificationsEnabled ?? true;
-  });
+  // Notification permission is now handled exclusively by the dedicated
+  // "notifications" step in LifestyleWizard (which invokes the native
+  // FCM pipeline via initPushNotifications + saveNotificationPrefs).
+  // The legacy inline Web Notification.requestPermission toggle was
+  // removed here to eliminate the dual-API conflict.
   const [calendarSyncEnabled, setCalendarSyncEnabled] = useState<boolean>(() => {
     return (data as any).calendarSyncEnabled ?? true; // ON by default
   });
@@ -176,7 +423,6 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   const frequencyBadgeRef = useRef<HTMLDivElement>(null);
   const daysBadgeRef = useRef<HTMLDivElement>(null);
   const timeBadgeRef = useRef<HTMLDivElement>(null);
-  const notificationBadgeRef = useRef<HTMLButtonElement>(null);
   const coinTargetPos = useRef<{ x: number; y: number }>({ x: 50, y: 50 });
   
   useEffect(() => {
@@ -203,31 +449,12 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
 
   const [hours, minutes] = time.split(':').map(Number);
 
-  // Smart default day selection
-  const getSmartDefaultDays = (freq: number): number[] => {
-    switch (freq) {
-      case 2: return [0, 3];
-      case 3: return [0, 2, 4];
-      case 4: return [0, 1, 3, 4];
-      case 5: return [0, 1, 2, 4, 5];
-      case 6: return [0, 1, 2, 3, 4, 5];
-      default: return Array.from({ length: Math.min(freq, 7) }, (_, i) => i);
-    }
-  };
-
   // Strict Progressive Disclosure - Auto-reveal Days section after 800ms on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowDaysSection(true);
     }, 800);
     return () => clearTimeout(timer);
-  }, []);
-  
-  // Initialize selectedDays if empty
-  useEffect(() => {
-    if (selectedDays.length === 0 && frequency > 0) {
-      setSelectedDays(getSmartDefaultDays(frequency));
-    }
   }, []);
 
   // Show time section with staggered delay after days section appears
@@ -248,13 +475,14 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
 
   const handleFrequencySelect = (value: number) => {
     setFrequency(value);
-    if (selectedDays.length !== value) {
-      setSelectedDays(getSmartDefaultDays(value));
-      // Trigger pulse animation on Days section
-      setDaysPulse(true);
-      setTimeout(() => setDaysPulse(false), 500);
-    }
-    if (showTimeSection && selectedDays.length !== value) {
+    // Regenerate the schedule grid via the rule engine when frequency changes,
+    // using the user's real active programs so the auto-fill is correct.
+    setScheduleGrid(buildDefaultTemplate(seedPrograms, seedSkills, value));
+    setOpenPopoverDay(-1);
+    // Trigger pulse animation on Days section
+    setDaysPulse(true);
+    setTimeout(() => setDaysPulse(false), 500);
+    if (showTimeSection) {
       setShowTimeSection(false);
     }
     if (!hasClaimedReward('SCHEDULE_FREQUENCY_REWARD')) {
@@ -263,43 +491,88 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     }
   };
 
-  const handleDayToggle = (dayIndex: number) => {
-    let newSelectedDays: number[];
-    
-    if (selectedDays.includes(dayIndex)) {
-      if (selectedDays.length <= 1) return;
-      newSelectedDays = selectedDays.filter((i) => i !== dayIndex);
-    } else {
-      if (selectedDays.length >= frequency) {
-        newSelectedDays = [...selectedDays.slice(0, -1), dayIndex];
-      } else {
-        newSelectedDays = [...selectedDays, dayIndex];
-      }
-    }
-    
-    setSelectedDays(newSelectedDays);
-    
-    if (newSelectedDays.length === frequency && !hasClaimedReward('SCHEDULE_DAYS_REWARD')) {
+  // ── Day card / popover handlers ──────────────────────────────────────
+  const handleDayCardClick = (dayIndex: number) => {
+    setOpenPopoverDay((prev) => (prev === dayIndex ? -1 : dayIndex));
+  };
+
+  const handleClosePopover = () => setOpenPopoverDay(-1);
+
+  // Toggle a single program/skill on a given day. Maintains the
+  // sessions[] array shape and the isRestDay flag.
+  const handleSessionToggle = (dayIndex: number, optionId: ScheduleItemId) => {
+    setScheduleGrid((prev) =>
+      prev.map((day) => {
+        if (day.dayOfWeek !== dayIndex) return day;
+        const exists = day.sessions.some((s) => s.skillId === optionId);
+        const nextSessions = exists
+          ? day.sessions.filter((s) => s.skillId !== optionId)
+          : [
+              ...day.sessions,
+              { skillId: optionId, volumePercent: 100, sessionType: 'FULL' as const },
+            ];
+        return {
+          ...day,
+          sessions: nextSessions,
+          isRestDay: nextSessions.length === 0,
+        };
+      }),
+    );
+    if (
+      selectedDays.length + 1 === frequency &&
+      !hasClaimedReward('SCHEDULE_DAYS_REWARD')
+    ) {
       const wasClaimed = claimReward('SCHEDULE_DAYS_REWARD', 30);
       if (wasClaimed) triggerCoinFly(daysBadgeRef, 30);
     }
   };
 
+  // Mark the day as a rest day — clears all sessions.
+  const handleSetRestDay = (dayIndex: number) => {
+    setScheduleGrid((prev) =>
+      prev.map((day) =>
+        day.dayOfWeek === dayIndex
+          ? { ...day, sessions: [], isRestDay: true }
+          : day,
+      ),
+    );
+  };
+
   const handleContinue = async () => {
-    if (selectedDays.length !== frequency) return;
+    if (selectedDays.length === 0) return;
 
     const dayMap = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-    const scheduleDays = selectedDays.map(index => dayMap[index]).sort();
+    const scheduleDays = selectedDays.map((index) => dayMap[index]).sort();
+
+    // ── [Smart Schedule v1.3] UTS Bridge — build recurringTemplate ───────
+    // Maps Hebrew day letter → array of program/skill IDs for that day.
+    // This is what the UTS hydrator reads to seed userSchedule documents,
+    // achieving parity with the running onboarding flow.
+    const recurringTemplate: Record<string, string[]> = {};
+    const scheduleGridSessions = scheduleGrid.map((d) => ({
+      dayOfWeek: d.dayOfWeek as number,
+      skillIds: d.sessions.map((s) => s.skillId as string),
+    }));
+    for (const day of scheduleGrid) {
+      if (day.sessions.length === 0) continue;
+      const letter = dayMap[day.dayOfWeek];
+      // Only the persisted program/skill IDs go into the template.
+      // HANDSTAND is intentionally retained as a valid template entry —
+      // upstream UTS treats unknown program IDs as opaque pass-through
+      // and falls back to lifestyle.scheduleDays when no program matches.
+      recurringTemplate[letter] = day.sessions.map((s) => s.skillId as string);
+    }
 
     updateData({
       trainingDays: frequency,
       trainingTime: time,
       scheduleDayIndices: selectedDays,
       scheduleDays: scheduleDays,
+      recurringTemplate,
+      scheduleGridSessions,
       historyFrequency: historyFreq,
       historyLocations: historyLocs,
       historySports: historySpts,
-      ...(notificationsEnabled && { notificationsEnabled: true } as any),
       ...(calendarSyncEnabled && { calendarSyncEnabled: true } as any),
     });
 
@@ -307,10 +580,13 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     onNext();
   };
 
-  // Can continue when frequency and days are set - time is pre-selected, no need to wait for reward
-  const canContinue = 
-    frequency > 0 && 
-    selectedDays.length === frequency;
+  // Can continue when at least one training day is set and there are no
+  // hard ERR-level violations from the rule engine. Soft warnings do NOT
+  // block — the user is informed but can proceed.
+  const canContinue =
+    frequency > 0 &&
+    selectedDays.length > 0 &&
+    liveErrors.length === 0;
 
   // Recommendation logic — uses the local historyFreq state (synced to store)
   const showRecommendationA = historyFreq === 'none' && frequency >= 3;
@@ -654,33 +930,269 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
         <p className={`text-xs font-bold mb-2 ${
           selectedDays.length === frequency ? 'text-green-600' : 'text-orange-500'
         }`}>
-          {isHebrew 
+          {isHebrew
             ? `נבחרו ${selectedDays.length} מתוך ${frequency} ימים`
-            : `${selectedDays.length} of ${frequency} days selected`
-          }
+            : `${selectedDays.length} of ${frequency} days selected`}
         </p>
-        
-        <div className="flex flex-wrap justify-center gap-2">
-          {DAYS_HEBREW.map((day, index) => {
-            const isSelected = selectedDays.includes(index);
+
+        {/* ── [Smart Schedule v1.3] Horizontal 7-day grid ─────────────── */}
+        {/* Each column = day capsule (letter) + skill icons below, all one tap target */}
+        <div className="grid grid-cols-7 gap-1 relative">
+          {DAYS_HEBREW.map((dayLabel, index) => {
+            const day = scheduleGrid[index];
+            const isRest = day.sessions.length === 0;
+            const isSaturday = index === 6;
+            const isPopoverOpen = openPopoverDay === index;
+            const hasWarningOnDay = liveWarnings.some((w) =>
+              w.affectedDays.includes(index),
+            );
+
             return (
-              <motion.button
-                key={index}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => handleDayToggle(index)}
-                className={`w-11 h-11 flex items-center justify-center rounded-xl text-lg transition-all duration-200 ${
-                  isSelected
-                    ? 'bg-[#5BC2F2] text-white shadow-[0_4px_12px_rgba(91,194,242,0.2)]'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-                }`}
-                style={{ fontFamily: 'var(--font-simpler)', fontWeight: isSelected ? 700 : 500 }}
-              >
-                {day}
-              </motion.button>
+              <div key={index} className="relative">
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => handleDayCardClick(index)}
+                  className={`w-full flex flex-col items-center gap-1 py-2 px-0.5 rounded-xl transition-all duration-200 border ${
+                    isRest
+                      ? isSaturday
+                        ? 'bg-slate-50 border-slate-100'
+                        : 'bg-white border-slate-200'
+                      : 'bg-[#5BC2F2]/6 border-[#5BC2F2]/35 shadow-[0_2px_6px_rgba(91,194,242,0.10)]'
+                  } ${isPopoverOpen ? 'ring-2 ring-[#5BC2F2] ring-offset-1' : ''}`}
+                  aria-label={`${dayLabel} — ${isRest ? 'יום מנוחה' : `${day.sessions.length} סשנים`}`}
+                >
+                  {/* ── Day Capsule — independent rounded chip ── */}
+                  <span
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                      isRest
+                        ? 'bg-slate-100 text-slate-500'
+                        : 'bg-[#5BC2F2]/15 text-[#5BC2F2]'
+                    } ${isPopoverOpen ? 'bg-[#5BC2F2] text-white' : ''}`}
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {dayLabel}
+                  </span>
+
+                  {/* ── Icons below capsule — emoji only, no text ── */}
+                  {isRest ? (
+                    <Moon size={15} className="text-slate-300 mt-0.5" strokeWidth={1.8} />
+                  ) : (
+                    <div className="flex flex-col items-center gap-0.5">
+                      {day.sessions.slice(0, 2).map((session, si) => {
+                        const display = SKILL_DISPLAY[session.skillId];
+                        if (!display) return null;
+                        return (
+                          <div
+                            key={si}
+                            className={`w-7 h-7 rounded-full ${display.tint} flex items-center justify-center overflow-hidden`}
+                            aria-hidden
+                            title={display.shortName}
+                          >
+                            <img
+                              src={display.iconPath}
+                              alt={display.shortName}
+                              className="w-4 h-4 object-contain"
+                              onError={(e) => {
+                                // Fallback: hide broken img and show emoji sibling
+                                e.currentTarget.style.display = 'none';
+                                const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                                if (next) next.style.display = '';
+                              }}
+                            />
+                            <span className="hidden text-sm leading-none">{display.icon}</span>
+                          </div>
+                        );
+                      })}
+                      {day.sessions.length > 2 && (
+                        <span className="text-[9px] text-slate-400 font-bold leading-none">
+                          +{day.sessions.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Warning dot */}
+                  {hasWarningOnDay && !isPopoverOpen && (
+                    <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  )}
+                </motion.button>
+              </div>
             );
           })}
         </div>
+
+        {/* ── DayPopover — anchored beneath the grid (full-width sheet) ─ */}
+        <AnimatePresence>
+          {openPopoverDay !== -1 && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+              className="mt-3 rounded-2xl bg-white border border-slate-200 shadow-[0_12px_32px_rgba(15,23,42,0.12)] overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+                <h4
+                  className="text-sm font-bold text-slate-800"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  {isHebrew
+                    ? `מה מתאמנים ביום ${DAYS_HEBREW[openPopoverDay]}׳?`
+                    : `Day ${DAYS_HEBREW[openPopoverDay]} — pick programs`}
+                </h4>
+                <button
+                  onClick={handleClosePopover}
+                  className="p-1 rounded-full hover:bg-slate-100 transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={16} className="text-slate-500" />
+                </button>
+              </div>
+              <div className="max-h-[280px] overflow-y-auto p-2 space-y-1">
+                {activeWizardOptions.map((opt) => {
+                  const day = scheduleGrid[openPopoverDay];
+                  const isPicked = day.sessions.some((s) => s.skillId === opt.id);
+                  const display = SKILL_DISPLAY[opt.id];
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleSessionToggle(openPopoverDay, opt.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
+                        isPicked
+                          ? 'bg-[#5BC2F2]/10 border border-[#5BC2F2]/40'
+                          : 'bg-white border border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full ${display.tint} flex items-center justify-center overflow-hidden shrink-0`}
+                      >
+                        <img
+                          src={display.iconPath}
+                          alt={display.shortName}
+                          className="w-5 h-5 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (next) next.style.display = '';
+                          }}
+                        />
+                        <span className="hidden text-base leading-none">{display.icon}</span>
+                      </div>
+                      <span
+                        className={`flex-1 text-right text-sm ${
+                          isPicked ? 'font-bold text-slate-900' : 'font-medium text-slate-600'
+                        }`}
+                        style={{ fontFamily: 'var(--font-simpler)' }}
+                      >
+                        {isHebrew ? opt.labelHe : opt.labelEn}
+                      </span>
+                      <div
+                        className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
+                          isPicked ? 'bg-[#5BC2F2]' : 'bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        {isPicked && <Check size={12} className="text-white" strokeWidth={3} />}
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* Rest day toggle */}
+                <button
+                  onClick={() => {
+                    handleSetRestDay(openPopoverDay);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all mt-1 ${
+                    scheduleGrid[openPopoverDay]?.sessions.length === 0
+                      ? 'bg-slate-100 border border-slate-200'
+                      : 'bg-white border border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Moon size={16} className="text-slate-500" />
+                  </div>
+                  <span
+                    className="flex-1 text-right text-sm font-medium text-slate-700"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {isHebrew ? 'יום מנוחה' : 'Rest day'}
+                  </span>
+                </button>
+              </div>
+              <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={handleClosePopover}
+                  className="text-xs font-bold text-[#5BC2F2] hover:text-[#3BA4D8] transition-colors"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  {isHebrew ? 'סיימתי' : 'Done'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Floating Dynamic Warning Box ─────────────────────────────── */}
+        <AnimatePresence>
+          {(liveErrors.length > 0 || liveWarns.length > 0) && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              className="mt-3 space-y-2"
+            >
+              {liveErrors.length > 0 && (
+                <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle size={14} className="text-red-600" strokeWidth={2.5} />
+                    <span
+                      className="text-xs font-bold text-red-700"
+                      style={{ fontFamily: 'var(--font-simpler)' }}
+                    >
+                      {isHebrew ? 'שגיאות חובה לתקן' : 'Errors to resolve'}
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {liveErrors.map((w) => (
+                      <li
+                        key={w.code}
+                        className="text-xs text-red-700"
+                        style={{ fontFamily: 'var(--font-simpler)' }}
+                      >
+                        {w.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {liveWarns.length > 0 && (
+                <div className="rounded-xl bg-orange-50 border border-orange-200 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertTriangle size={14} className="text-orange-600" strokeWidth={2.5} />
+                    <span
+                      className="text-xs font-bold text-orange-700"
+                      style={{ fontFamily: 'var(--font-simpler)' }}
+                    >
+                      {isHebrew ? 'אזהרות מהמנוע החכם' : 'Smart engine warnings'}
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {liveWarns.map((w, i) => (
+                      <li
+                        key={`${w.code}-${i}`}
+                        className="text-xs text-orange-800"
+                        style={{ fontFamily: 'var(--font-simpler)' }}
+                      >
+                        {w.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.section>
         )}
       </AnimatePresence>
@@ -695,102 +1207,34 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             className="mb-5 text-right overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-3">
-              {/* Right side: Title with coin badge */}
+            <div className="flex items-center gap-2 mb-3">
+              {IS_COIN_SYSTEM_ENABLED && (
+                <div className="relative" ref={timeBadgeRef}>
+                  <motion.div
+                    initial={false}
+                    animate={{ opacity: hasClaimedReward('SCHEDULE_TIME_REWARD') ? 1 : 0.4 }}
+                    className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
+                      hasClaimedReward('SCHEDULE_TIME_REWARD')
+                        ? 'bg-amber-100 text-amber-700 border-amber-200'
+                        : 'bg-gray-100 text-gray-400 border-gray-200'
+                    }`}
+                  >
+                    <Coins size={14} strokeWidth={2.5} />
+                    <span className="text-xs font-bold font-simpler">
+                      {hasClaimedReward('SCHEDULE_TIME_REWARD') ? '20 🪙' : '+20'}
+                    </span>
+                  </motion.div>
+                </div>
+              )}
               <div className="flex items-center gap-2">
-                {IS_COIN_SYSTEM_ENABLED && (
-                  <div className="relative" ref={timeBadgeRef}>
-                    <motion.div
-                      initial={false}
-                      animate={{ opacity: hasClaimedReward('SCHEDULE_TIME_REWARD') ? 1 : 0.4 }}
-                      className={`flex items-center gap-1 rounded-full px-2 py-1 shadow-sm border transition-colors ${
-                        hasClaimedReward('SCHEDULE_TIME_REWARD')
-                          ? 'bg-amber-100 text-amber-700 border-amber-200' 
-                          : 'bg-gray-100 text-gray-400 border-gray-200'
-                      }`}
-                    >
-                      <Coins size={14} strokeWidth={2.5} />
-                      <span className="text-xs font-bold font-simpler">
-                        {hasClaimedReward('SCHEDULE_TIME_REWARD') ? '20 🪙' : '+20'}
-                      </span>
-                    </motion.div>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-[#5BC2F2]" />
-                  <h3 className="text-base font-bold text-slate-900">
-                    {isHebrew 
-                      ? t('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?')
-                      : 'What time do you train?'
-                    }
-                  </h3>
-                </div>
+                <Clock size={16} className="text-[#5BC2F2]" />
+                <h3 className="text-base font-bold text-slate-900">
+                  {isHebrew
+                    ? t('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?')
+                    : 'What time do you train?'
+                  }
+                </h3>
               </div>
-              
-              {/* Left side: Reminders Toggle (inline) - Delicate styling */}
-              <button
-                onClick={async () => {
-                  if (notificationsEnabled) {
-                    setNotificationsEnabled(false);
-                    // Sync to store immediately
-                    updateData({ notificationsEnabled: false } as any);
-                    return;
-                  }
-                  
-                  if ('Notification' in window && window.Notification) {
-                    try {
-                      let permission = Notification.permission;
-                      if (permission === 'default') {
-                        try {
-                          permission = await Notification.requestPermission();
-                        } catch {
-                          setNotificationsEnabled(true);
-                          updateData({ notificationsEnabled: true } as any);
-                          return;
-                        }
-                      }
-                      
-                      if (permission === 'granted') {
-                        setNotificationsEnabled(true);
-                        updateData({ notificationsEnabled: true } as any);
-                        if (!hasClaimedReward('SCHEDULE_NOTIFICATION_REWARD')) {
-                          const wasClaimed = claimReward('SCHEDULE_NOTIFICATION_REWARD', 100);
-                          if (wasClaimed) triggerCoinFly(notificationBadgeRef, 100);
-                        }
-                      } else if (permission === 'denied') {
-                        setNotificationsEnabled(false);
-                        updateData({ notificationsEnabled: false } as any);
-                      } else {
-                        setNotificationsEnabled(true);
-                        updateData({ notificationsEnabled: true } as any);
-                      }
-                    } catch {
-                      setNotificationsEnabled(true);
-                      updateData({ notificationsEnabled: true } as any);
-                    }
-                  } else {
-                    setNotificationsEnabled(true);
-                    updateData({ notificationsEnabled: true } as any);
-                  }
-                }}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
-                  notificationsEnabled 
-                    ? 'bg-amber-50 text-amber-700' 
-                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                }`}
-                ref={notificationBadgeRef}
-              >
-                <Bell size={10} strokeWidth={1.5} className={notificationsEnabled ? 'text-amber-600' : 'text-slate-400'} />
-                <span className="text-[11px] font-medium">{isHebrew ? 'תזכורת' : 'Reminder'}</span>
-                {/* Subtle check mark indicator */}
-                <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
-                  notificationsEnabled 
-                    ? 'bg-amber-500' 
-                    : 'bg-slate-200'
-                }`}>
-                  {notificationsEnabled && <Check size={7} className="text-white" strokeWidth={2.5} />}
-                </div>
-              </button>
             </div>
             
             {/* Time Picker - Fixed: HH : MM (Hours LEFT, Minutes RIGHT) */}
@@ -879,11 +1323,12 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
       <div className="flex-grow"></div>
 
       <StickyActionButton
+        variant="premium"
         label={isJIT
           ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
           : isLastStep
             ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
-            : locale.common.continue}
+            : (savedLanguage === 'he' ? t('המשך', 'המשיכי') : locale.common.continue)}
         successLabel={isJIT
           ? (savedLanguage === 'he' ? 'הלו״ז עודכן!' : 'Schedule Updated!')
           : undefined}

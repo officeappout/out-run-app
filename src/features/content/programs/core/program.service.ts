@@ -22,6 +22,29 @@ import { Program } from './program.types';
 const PROGRAMS_COLLECTION = 'programs';
 
 /**
+ * Static slug → Firestore document ID map for master programs that have
+ * Hebrew names and no `movementPattern` field — none of strategies 1–3 can
+ * resolve them. These doc IDs are permanent (auto-generated, never change).
+ *
+ * Extend this map when new master programs are added to Firestore.
+ */
+export const MASTER_PROGRAM_SLUG_TO_ID: Record<string, string> = {
+  full_body:          'H2279XsRGDg9G370J7S9',
+  upper_body:         '47smw26hUyG5ZbE1bhr3',
+  calisthenics_upper: 'JCac76p48XGZ5MVahLI2',
+  muscle_up:          'fTLWzjP9gH2VNpamyCZF',
+};
+
+/**
+ * Inverse of MASTER_PROGRAM_SLUG_TO_ID.
+ * Used by the admin panel and other writers to convert a program's Firestore
+ * doc ID back to its semantic slug before writing to `domains` / `tracks`.
+ */
+export const MASTER_PROGRAM_ID_TO_SLUG: Record<string, string> = Object.fromEntries(
+  Object.entries(MASTER_PROGRAM_SLUG_TO_ID).map(([slug, id]) => [id, slug]),
+);
+
+/**
  * Strip undefined values from an object before writing to Firestore.
  * Firebase throws if any field value is `undefined`.
  */
@@ -102,8 +125,9 @@ export async function getProgram(programId: string): Promise<Program | null> {
  * Resolve a program from a semantic templateId (e.g. 'full_body', 'calisthenics_upper').
  *
  * Strategy (in order):
- *   1. Try getDoc(programs/{templateId}) — works when admin used setDoc with a semantic ID.
- *   2. Query where('slug', '==', templateId) — works when admin saved a slug field.
+ *   1. Try getDoc(programs/{templateId}) — works when the doc ID is a semantic slug.
+ *   2. Query where('movementPattern', '==', templateId) — finds programs created via the
+ *      admin UI (which use auto-generated hash IDs). Covers 'push', 'pull', 'legs', 'core'.
  *   3. Query where('name', '==', humanized) — last resort: 'full_body' → 'full body'.
  *
  * Returns null only when all three strategies fail (program truly not in Firestore).
@@ -119,11 +143,15 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
     // not found or permission error — continue
   }
 
-  // ── Strategy 2: slug field ──────────────────────────────────────────────
+  // ── Strategy 2: movementPattern field ─────────────────────────────────
+  // Programs created via the admin UI use auto-generated Firestore IDs (hashes),
+  // not semantic slugs as their doc ID. The 'movementPattern' field stores the
+  // semantic value ('push', 'pull', 'legs', 'core') and is the correct field
+  // to query when strategy 1 (direct doc ID lookup) fails.
   try {
     const q = query(
       collection(db, PROGRAMS_COLLECTION),
-      where('slug', '==', templateId),
+      where('movementPattern', '==', templateId),
       limit(1),
     );
     const snap = await getDocs(q);
@@ -132,7 +160,7 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
       return { id: d.id, ...d.data(), createdAt: toDate(d.data().createdAt), updatedAt: toDate(d.data().updatedAt) } as Program;
     }
   } catch {
-    // no slug field — continue
+    // movementPattern query failed — continue
   }
 
   // ── Strategy 3: humanised name ──────────────────────────────────────────
@@ -147,6 +175,49 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
     }
   } catch {
     // collection read failed
+  }
+
+  // ── Strategy 4: static slug → hash for master programs ────────────────
+  // Master programs (full_body, upper_body, calisthenics_upper) have Hebrew
+  // names and no movementPattern — strategies 1–3 all fail for them.
+  // This map provides a zero-read fast path for the known master slugs.
+  const knownHash = MASTER_PROGRAM_SLUG_TO_ID[templateId];
+  if (knownHash) {
+    try {
+      const byHash = await getProgram(knownHash);
+      if (byHash) return byHash;
+    } catch {
+      // hash lookup failed — fall through
+    }
+  }
+
+  // ── Strategy 5: canonical `slug` field ─────────────────────────────────
+  // Skill programs (front_lever, planche, handstand, hspu, one_arm_pullup)
+  // are created via the admin UI with auto-generated Firestore hash IDs.
+  // The Program type includes an optional `slug` field (program.types.ts)
+  // which, when set, is the canonical user-facing identifier. Strategies
+  // 1–4 all miss these programs when the doc ID is a hash and movementPattern
+  // stores a biomechanical category ('horizontal_pull') rather than the
+  // skill slug.  This query directly matches the `slug` field, making
+  // getProgramByTemplateId() a complete resolver for the full program taxonomy.
+  try {
+    const q = query(
+      collection(db, PROGRAMS_COLLECTION),
+      where('slug', '==', templateId),
+      limit(1),
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      return {
+        id: d.id,
+        ...d.data(),
+        createdAt: toDate(d.data().createdAt),
+        updatedAt: toDate(d.data().updatedAt),
+      } as Program;
+    }
+  } catch {
+    // slug field query failed — fall through
   }
 
   console.warn(`[Programs] getProgramByTemplateId: no match for "${templateId}"`);

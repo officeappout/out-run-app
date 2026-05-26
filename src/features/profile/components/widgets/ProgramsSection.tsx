@@ -1,0 +1,260 @@
+'use client';
+
+/**
+ * ProgramsSection — profile Block 5.
+ *
+ * Shows two groups:
+ *   1. "תוכנית פעילה"  — the master program card (same ProgramProgressCard as Home)
+ *   2. "תוכניות בנות"  — one card per child slug from MASTER_PROGRAM_CHILDREN
+ *
+ * Tapping any card opens ProgramDrawer with per-program metadata + stats.
+ */
+
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
+import {
+  useProgramProgress,
+  MASTER_PROGRAM_CHILDREN,
+  MASTER_LEVEL_CAP,
+} from '@/features/home/hooks/useProgramProgress';
+import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
+import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
+import ProgramDrawer, { type ProgramDrawerData } from './ProgramDrawer';
+import type { Program } from '@/features/content/programs/core/program.types';
+
+// ── Types ──────────────────────────────────────────────────────────
+
+interface ChildCardData {
+  slug: string;
+  name: string;
+  currentLevel: number;
+  maxLevel: number;
+  percent: number;
+  totalWorkoutsCompleted: number;
+  description?: string;
+  iconKey?: string;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+/** Resolve a program template and pull out display fields. */
+async function fetchProgramMeta(templateId: string): Promise<Program | null> {
+  try {
+    return await getProgramByTemplateId(templateId);
+  } catch {
+    return null;
+  }
+}
+
+// ── Component ──────────────────────────────────────────────────────
+
+export default function ProgramsSection() {
+  const router = useRouter();
+  const profile = useUserStore((s) => s.profile);
+  const progressData = useProgramProgress();
+
+  const tracks = (profile?.progression?.tracks ?? {}) as Record<
+    string,
+    { currentLevel?: number; percent?: number; totalWorkoutsCompleted?: number; maxLevel?: number }
+  >;
+
+  // Resolved metadata for child programs (description, iconKey, maxLevels)
+  const [childMeta, setChildMeta] = useState<Record<string, Program>>({});
+  const [masterMeta, setMasterMeta] = useState<Program | null>(null);
+
+  // Drawer state
+  const [drawerProgram, setDrawerProgram] = useState<ProgramDrawerData | null>(null);
+  const closeDrawer = useCallback(() => setDrawerProgram(null), []);
+
+  // Resolve the master program templateId
+  const masterTemplateId =
+    profile?.progression?.activePrograms?.[0]?.templateId ?? null;
+
+  // Derived children for this master
+  const childSlugs: readonly string[] = masterTemplateId
+    ? (MASTER_PROGRAM_CHILDREN[masterTemplateId] ?? [])
+    : [];
+
+  // Fetch master metadata once
+  useEffect(() => {
+    if (!masterTemplateId) return;
+    let cancelled = false;
+    fetchProgramMeta(masterTemplateId).then((meta) => {
+      if (!cancelled && meta) setMasterMeta(meta);
+    });
+    return () => { cancelled = true; };
+  }, [masterTemplateId]);
+
+  // Fetch child program metadata for description / iconKey / maxLevels
+  useEffect(() => {
+    if (childSlugs.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      childSlugs.map(async (slug) => {
+        const meta = await fetchProgramMeta(slug);
+        return { slug, meta };
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const map: Record<string, Program> = {};
+      for (const { slug, meta } of results) {
+        if (meta) map[slug] = meta;
+      }
+      setChildMeta(map);
+    });
+    return () => { cancelled = true; };
+  }, [childSlugs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Master-derived level / percent for the master card ─────────
+  // useProgramProgress already derives this correctly and returns 0-100.
+  // Cap at 100 defensively in case child floats average above 1.
+  const masterLevel = progressData?.currentLevel ?? 1;
+  const masterPercent = Math.min(100, progressData?.progressPercent ?? 0);
+  const masterMaxLevel = progressData?.maxLevel ?? MASTER_LEVEL_CAP;
+  const masterName = progressData?.programName ?? (masterTemplateId ? PROGRAM_NAME_HE[masterTemplateId] ?? masterTemplateId : 'תוכנית אימון');
+  const masterIconKey = progressData?.iconKey;
+
+  // ── Open drawer for the master program ─────────────────────────
+  const openMasterDrawer = useCallback(() => {
+    if (!masterTemplateId) return;
+    setDrawerProgram({
+      templateId: masterTemplateId,
+      name: masterName,
+      description: masterMeta?.description,
+      currentLevel: masterLevel,
+      maxLevel: masterMaxLevel,
+      percent: masterPercent,
+      totalWorkoutsCompleted: tracks[masterTemplateId]?.totalWorkoutsCompleted ?? 0,
+      iconKey: masterIconKey ?? masterMeta?.iconKey,
+    });
+  }, [masterTemplateId, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks]);
+
+  // ── Open drawer for a child program ────────────────────────────
+  const openChildDrawer = useCallback(
+    (slug: string, card: ChildCardData) => {
+      setDrawerProgram({
+        templateId: slug,
+        name: card.name,
+        description: card.description,
+        currentLevel: card.currentLevel,
+        maxLevel: card.maxLevel,
+        percent: card.percent,
+        totalWorkoutsCompleted: card.totalWorkoutsCompleted,
+        iconKey: card.iconKey,
+      });
+    },
+    [],
+  );
+
+  // ── Build child card data ───────────────────────────────────────
+  const childCards: ChildCardData[] = childSlugs.map((slug) => {
+    const track = tracks[slug];
+    const meta = childMeta[slug];
+    const pct = Math.min(100, Math.round(track?.percent ?? 0));
+    return {
+      slug,
+      name: meta?.name ?? PROGRAM_NAME_HE[slug] ?? slug,
+      currentLevel: track?.currentLevel ?? 1,
+      maxLevel: meta?.maxLevels ?? track?.maxLevel ?? 25,
+      percent: pct,
+      totalWorkoutsCompleted: track?.totalWorkoutsCompleted ?? 0,
+      description: meta?.description,
+      iconKey: meta?.iconKey ?? slug,
+    };
+  });
+
+  // Don't render if no program at all
+  if (!masterTemplateId && childSlugs.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
+        </div>
+        <div className="flex flex-col items-center justify-center py-6 gap-3">
+          <span className="text-3xl">📋</span>
+          <p className="text-sm font-bold text-gray-500 text-center leading-snug">
+            עדיין לא בחרת תוכנית אימון.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/home')}
+            className="mt-1 px-5 py-2 bg-[#00C9F2] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+          >
+            בחר תוכנית
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-5" dir="rtl">
+        {/* Section header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
+          <button
+            type="button"
+            onClick={() => router.push('/home')}
+            className="text-xs font-semibold text-[#00C9F2] active:opacity-70"
+          >
+            ניהול
+          </button>
+        </div>
+
+        {/* Group 1 — Master program */}
+        {masterTemplateId && progressData && (
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-gray-400 tracking-wide">תוכנית פעילה</p>
+            <button
+              type="button"
+              className="w-full text-right active:opacity-80 transition-opacity"
+              onClick={openMasterDrawer}
+            >
+              <ProgramProgressCard
+                programName={masterName}
+                iconKey={masterIconKey}
+                currentLevel={masterLevel}
+                maxLevel={masterMaxLevel}
+                progressPercent={masterPercent}
+                className="!max-w-none pointer-events-none"
+              />
+            </button>
+          </div>
+        )}
+
+        {/* Group 2 — Child programs */}
+        {childCards.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+              {childCards.map((card) => (
+                <button
+                  key={card.slug}
+                  type="button"
+                  className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+                  onClick={() => openChildDrawer(card.slug, card)}
+                >
+                  <ProgramProgressCard
+                    programName={card.name}
+                    iconKey={card.iconKey}
+                    currentLevel={card.currentLevel}
+                    maxLevel={card.maxLevel}
+                    progressPercent={Math.round(card.percent)}
+                    programCount={childCards.length}
+                    className="pointer-events-none"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Drawer — portalled outside the card */}
+      <ProgramDrawer program={drawerProgram} onClose={closeDrawer} />
+    </>
+  );
+}

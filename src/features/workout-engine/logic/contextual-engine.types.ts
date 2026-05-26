@@ -132,6 +132,17 @@ export interface ContextualFilterContext {
    * the wrong level from a different program.
    */
   activeDomains?: string[];
+
+  /**
+   * Primary active program template ID (e.g. `planche`, `front_lever`,
+   * `full_body`).  When provided, `resolveExerciseLevelForDomains` returns
+   * the matching `targetPrograms` entry for this id unconditionally — so
+   * multi-assigned exercises like פלאנץ׳ בטאק (tagged both
+   * `{push, L5}` and `{planche, L7}`) resolve to the skill-level entry
+   * instead of being hijacked by the foundational baseline simply because
+   * it indexed first in `targetPrograms` or `activeDomains`.
+   */
+  activeProgramId?: string;
 }
 
 /**
@@ -156,6 +167,11 @@ export interface FilterStageCounts {
   excluded_program_filter: number;
   excluded_level_tolerance: number;
   excluded_skill_gate: number;
+  /** Exercises dropped because they belong exclusively to an inactive gated skill domain. */
+  excluded_exclusive_skill_gate: number;
+  /** Exercises dropped because their balanceScore exceeds the freestanding-handstand threshold
+   *  and the user has no active handstand / hspu program in this session. */
+  excluded_balance_gate: number;
   excluded_injury_shield: number;
   excluded_48h_muscle: number;
   excluded_field_mode: number;

@@ -11,6 +11,7 @@ import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboard
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { Coins } from 'lucide-react';
+import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 
 export default function OnboardingIntroPage() {
   const router = useRouter();
@@ -21,14 +22,11 @@ export default function OnboardingIntroPage() {
   
   // Local language state (supports 'ru' which store doesn't yet)
   const [selectedLanguage, setSelectedLanguage] = useState<OnboardingLanguage>(() => {
-    // Initialize from sessionStorage or store, default to 'he'
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('onboarding_language') as OnboardingLanguage | null;
-      if (saved && (saved === 'he' || saved === 'en' || saved === 'ru')) {
-        return saved;
-      }
+    // Initialize from onboardingPrefs (durable across hard close), then store, then 'he'.
+    const saved = getOnboardingPref('onboarding_language') as OnboardingLanguage | null;
+    if (saved && (saved === 'he' || saved === 'en' || saved === 'ru')) {
+      return saved;
     }
-    // Fallback to store language or 'he'
     return (storeLanguage === 'he' || storeLanguage === 'en') ? storeLanguage : 'he';
   });
   
@@ -41,8 +39,8 @@ export default function OnboardingIntroPage() {
     if (lang === 'he' || lang === 'en') {
       setStoreLanguage(lang);
     }
-    // Always save to sessionStorage for onboarding flow
-    sessionStorage.setItem('onboarding_language', lang);
+    // Persist via onboardingPrefs — survives hard close on iOS.
+    setOnboardingPref('onboarding_language', lang);
   };
 
   // נתונים עבור הסליידר (תמונות וטקסטים משתנים)

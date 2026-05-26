@@ -51,6 +51,14 @@ export default function HorizontalPicker({
   const isTouching = useRef(false);
   const hasTouched = useRef(false);
   const revealTs = useRef(0);
+  /**
+   * Set to true for 300ms whenever the `value` prop changes externally
+   * (e.g. A↔B superset swap) so that the resulting programmatic scroll
+   * animation cannot fire emitValue and log incorrect reps.
+   * Cleared after the window expires; user gesture immediately overrides.
+   */
+  const ignoreAutoScrollEmit = useRef(false);
+  const ignoreAutoScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const visibleCount = unitType === 'time' ? 3 : 5;
 
@@ -212,7 +220,13 @@ export default function HorizontalPicker({
     applyVisuals(el);
   }, [itemW]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Timer sync: if value prop changes after mount, scroll to it smoothly.
+  // External value sync: if the value prop changes after mount (e.g. superset
+  // A↔B swap, timer update), silently re-scroll the picker to the new position.
+  // We must NOT call onChange here — this is a programmatic update, not a user
+  // gesture.  We also arm ignoreAutoScrollEmit for 300ms so that any scroll
+  // events triggered by the animation cannot fire emitValue accidentally.
+  // A real touch by the user will immediately clear the guard via the touch
+  // handlers, so legitimate interaction is never suppressed.
   useEffect(() => {
     if (!ready || !itemW) return;
     if (value === 0 || value == null) return;
@@ -220,6 +234,13 @@ export default function HorizontalPicker({
     if (!el) return;
 
     if (value > 0 && value !== lastEmittedValue.current) {
+      // Arm the 300ms ignore window before the scroll animation starts
+      if (ignoreAutoScrollTimer.current) clearTimeout(ignoreAutoScrollTimer.current);
+      ignoreAutoScrollEmit.current = true;
+      ignoreAutoScrollTimer.current = setTimeout(() => {
+        ignoreAutoScrollEmit.current = false;
+      }, 300);
+
       const idx = indexOfValue(value);
       el.style.scrollSnapType = 'none';
       el.scrollTo({ left: idx * itemW, behavior: 'smooth' });
@@ -227,7 +248,8 @@ export default function HorizontalPicker({
         if (scrollRef.current) scrollRef.current.style.scrollSnapType = 'x mandatory';
       });
       lastEmittedValue.current = value;
-      onChange(value);
+      // Intentionally NOT calling onChange(value) — this is a silent reposition,
+      // not a user-initiated selection.
     }
   }, [value, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -279,6 +301,13 @@ export default function HorizontalPicker({
     if (v <= 0) return;
     if (!mountScrollDone.current || !isVisible) {
       console.log(`[Picker emitValue] BLOCKED v=${v} — mountDone=${mountScrollDone.current}, isVisible=${isVisible}`);
+      return;
+    }
+    // Block any scroll-snap emit during the 300ms window that follows an
+    // external value-prop change (e.g. superset A↔B swap).  A real user
+    // touch clears ignoreAutoScrollEmit immediately via the touch handlers.
+    if (ignoreAutoScrollEmit.current) {
+      console.log(`[Picker emitValue] BLOCKED v=${v} — ignoreAutoScrollEmit active (external prop update in progress)`);
       return;
     }
     const userIsInteracting = isTouching.current || isDragging.current;
@@ -424,7 +453,13 @@ export default function HorizontalPicker({
         ref={scrollRef}
         className="relative z-10 flex h-full w-full items-center overflow-x-scroll pointer-events-auto scrollbar-hide"
         onMouseDown={handleMouseDown}
-        onTouchStart={() => { isTouching.current = true; hasTouched.current = true; }}
+        onTouchStart={() => {
+          isTouching.current = true;
+          hasTouched.current = true;
+          // Real gesture — immediately cancel any external-scroll silence window
+          if (ignoreAutoScrollTimer.current) clearTimeout(ignoreAutoScrollTimer.current);
+          ignoreAutoScrollEmit.current = false;
+        }}
         onTouchEnd={() => { isTouching.current = false; }}
         dir="ltr"
         style={{

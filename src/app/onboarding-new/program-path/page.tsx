@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ChevronLeft, Check, UserCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, CheckCircle2, UserCircle } from 'lucide-react';
 import {
-  MUSCLE_GROUP_LABELS,
   type MuscleGroup,
 } from '@/features/content/exercises/core/exercise.types';
-import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 
-/** Muscle group ID → SVG path (public/assets/icons/muscles/ or fallback to public/icons/muscles/) */
+/** Muscle icon paths — used inside chips */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
   chest: '/assets/icons/muscles/chest.svg',
   back: '/assets/icons/muscles/back.svg',
@@ -24,15 +22,47 @@ const MUSCLE_ICON_PATHS: Record<string, string> = {
   core: '/assets/icons/muscles/abs.svg',
 };
 
-/** Hardcoded 6 skill programs (Firestore IDs) — no fetch required */
+/** Hebrew chip labels for each muscle group ID */
+const MUSCLE_CHIP_LABELS: Record<string, string> = {
+  chest: 'חזה',
+  back: 'גב',
+  shoulders: 'כתפיים',
+  biceps: 'יד קדמית',
+  triceps: 'יד אחורית',
+  legs: 'רגליים',
+  core: 'בטן וליבה',
+};
+
+/** Calisthenics skill programs — slug matches Firestore program IDs.
+ *  'calisthenics_upper' is the master chip and rendered separately as full-width. */
+const SKILL_MASTER_ID = 'calisthenics_upper';
+
 const SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
-  { id: 'oap', nameHe: 'מתח יד אחת' },
-  { id: 'muscle_up', nameHe: 'עליית כוח' },
-  { id: 'handstand', nameHe: 'עמידת ידיים' },
-  { id: 'planche', nameHe: 'פלאנץ׳' },
-  { id: 'front_lever', nameHe: 'פרונט ליבר' },
-  { id: 'hspu', nameHe: 'שכיבות סמיכה בעמידת ידיים' },
+  { id: 'calisthenics_upper', nameHe: 'קליסטניקס עליון (כל האלמנטים)' },
+  { id: 'front_lever',        nameHe: 'פרונט לבר' },
+  { id: 'muscle_up',          nameHe: 'עליית כוח' },
+  { id: 'planche',            nameHe: 'פלאנץ׳' },
+  { id: 'handstand',          nameHe: 'עמידת ידיים' },
+  { id: 'hspu',               nameHe: 'שכיבות סמיכה בעמידת ידיים' },
+  { id: 'one_arm_pullup',     nameHe: 'מתח יד אחת' },
 ];
+
+/** Movement-pattern classification for the Orange Flow balance heuristic.
+ *  SKILL_MASTER_ID ('calisthenics_upper') already covers both axes and is
+ *  intentionally exempt from the recommendation engine. */
+const PUSH_SKILLS: ReadonlySet<string> = new Set(['planche', 'hspu', 'handstand']);
+const PULL_SKILLS: ReadonlySet<string> = new Set(['front_lever', 'one_arm_pullup', 'muscle_up']);
+
+/** Icon paths per skill — hidden via onError when file is absent */
+const SKILL_ICON_PATHS: Record<string, string> = {
+  calisthenics_upper: '/icons/programs/calisthenics_upper.svg',
+  front_lever:        '/icons/programs/front_lever.svg',
+  muscle_up:          '/icons/programs/muscle_up_bar.svg',
+  planche:            '/icons/programs/planche.svg',
+  handstand:          '/icons/programs/handstand.svg',
+  hspu:               '/icons/programs/hspu.svg',
+  one_arm_pullup:     '/icons/programs/one_arm_pullup.svg',
+};
 
 const MUSCLE_FOCUS_IDS: MuscleGroup[] = [
   'chest',
@@ -62,6 +92,7 @@ export default function ProgramPathPage() {
   // user is NOT on the running track. Without this, the strength selector
   // flashes for one frame before the useEffect redirect fires.
   const [isReady, setIsReady] = useState(false);
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -70,12 +101,36 @@ export default function ProgramPathPage() {
       router.replace('/onboarding-new/dynamic');
       return;
     }
+    const g = sessionStorage.getItem('onboarding_personal_gender') as 'male' | 'female' | 'other' | null;
+    setGender(g);
     setIsReady(true);
   }, [router]);
+
+  const isFemale = gender === 'female';
+
+  // Refs for each card — used for auto-center scroll on expansion
+  const healthCardRef  = useRef<HTMLDivElement>(null);
+  const muscleCardRef  = useRef<HTMLDivElement>(null);
+  const skillsCardRef  = useRef<HTMLDivElement>(null);
+
+  /** Smoothly scrolls the given card to just below the story bar.
+   *  The 150 ms delay lets Framer Motion begin its height reflow first. */
+  const scrollCardIntoView = useCallback((ref: React.RefObject<HTMLDivElement>) => {
+    setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  }, []);
 
   const [path, setPath] = useState<ProgramPathType>(null);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+
+  // ── Orange Flow: complementary-skill recommendation state ──
+  // showRecommendation: the inline amber tip + orange-highlighted chips are visible.
+  // hasIgnoredRecommendation: user already saw the tip once and chose "המשך בכל זאת",
+  //   so subsequent Continue clicks should NOT re-prompt them.
+  const [showRecommendation, setShowRecommendation] = useState(false);
+  const [hasIgnoredRecommendation, setHasIgnoredRecommendation] = useState(false);
 
   const FULL_BODY_ID = 'full_body';
 
@@ -96,10 +151,16 @@ export default function ProgramPathPage() {
 
   const toggleSkill = useCallback((id: string) => {
     setSelectedSkills((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((s) => s !== id);
+      // Master chip — selecting it clears all individual picks and vice-versa
+      if (id === SKILL_MASTER_ID) {
+        return prev.includes(SKILL_MASTER_ID) ? [] : [SKILL_MASTER_ID];
       }
-      return [...prev, id];
+      // Selecting an individual skill deselects the master
+      const withoutMaster = prev.filter((s) => s !== SKILL_MASTER_ID);
+      if (withoutMaster.includes(id)) {
+        return withoutMaster.filter((s) => s !== id);
+      }
+      return [...withoutMaster, id];
     });
   }, []);
 
@@ -113,6 +174,29 @@ export default function ProgramPathPage() {
 
   const isFullBodySelected = selectedMuscles.includes(FULL_BODY_ID);
 
+  // ── Derived balance signal ───────────────────────────────────
+  // `missingCategory` is the axis the user is currently NOT covering.
+  // null  → no mismatch (both present, or neither because master is selected
+  //         or nothing was picked yet).
+  // 'push' → user has only pull skills; push chips should glow.
+  // 'pull' → user has only push skills; pull chips should glow.
+  const hasPushSelected = selectedSkills.some((id) => PUSH_SKILLS.has(id));
+  const hasPullSelected = selectedSkills.some((id) => PULL_SKILLS.has(id));
+  const missingCategory: 'push' | 'pull' | null =
+    hasPushSelected && !hasPullSelected
+      ? 'pull'
+      : hasPullSelected && !hasPushSelected
+        ? 'push'
+        : null;
+
+  // Auto-dismiss the recommendation the moment the user resolves the imbalance
+  // (either by adding the complementary skill, or by switching to master/none).
+  useEffect(() => {
+    if (showRecommendation && missingCategory === null) {
+      setShowRecommendation(false);
+    }
+  }, [missingCategory, showRecommendation]);
+
   const canContinue =
     path !== null &&
     (path === 'health' ||
@@ -121,6 +205,26 @@ export default function ProgramPathPage() {
 
   const handleContinue = () => {
     if (!canContinue) return;
+
+    // ── Orange Flow gate (skills path only) ────────────────────
+    // Master chip ('calisthenics_upper') is inherently balanced — bypass.
+    // Once the user has explicitly dismissed the tip, never re-prompt.
+    const masterSelected = selectedSkills.includes(SKILL_MASTER_ID);
+    if (path === 'skills' && !masterSelected && !hasIgnoredRecommendation) {
+      if (missingCategory !== null) {
+        if (!showRecommendation) {
+          // First press with a mismatch → surface the coach tip + glow,
+          // do NOT navigate. The CTA copy will flip to "המשך בכל זאת".
+          setShowRecommendation(true);
+          return;
+        }
+        // Second press with the tip still visible → user is consciously
+        // overriding the suggestion. Lock the override and fall through
+        // to the standard persist + navigate flow.
+        setHasIgnoredRecommendation(true);
+      }
+    }
+
     const toPersist =
       selectedMuscles.includes(FULL_BODY_ID)
         ? ['push', 'pull', 'legs', 'core']
@@ -142,20 +246,36 @@ export default function ProgramPathPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="h-[100dvh] flex flex-col overflow-hidden"
       style={{ backgroundColor: '#F4FAFD' }}
       dir="rtl"
     >
-      {/* Shared story bar */}
-      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      {/* Story bar — layout-locked, never scrolls */}
+      <div
+        className="relative flex-shrink-0 bg-white/80"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
         <OnboardingStoryBar
           totalPhases={STRENGTH_PHASES.TOTAL}
           currentPhase={STRENGTH_PHASES.PROGRAM_PATH}
           phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROGRAM_PATH]}
           onPhaseComplete={firePhaseConfetti}
         />
+        {/* Back button — returns to profile page */}
+        <button
+          onClick={() => {
+            const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
+            if (hasHistory) router.back();
+            else router.push('/onboarding-new/profile');
+          }}
+          className="absolute right-3 top-0 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-white/70 shadow-sm active:scale-95 transition-transform"
+          style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
+          aria-label="חזרה"
+        >
+          <ChevronRight size={22} className="text-slate-600" />
+        </button>
       </div>
-      <div className="w-full max-w-md mx-auto px-4 py-6 pb-8 flex flex-col flex-1">
+      <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-md mx-auto px-4 py-6 pb-8 flex flex-col">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -169,94 +289,126 @@ export default function ProgramPathPage() {
             איזה מסלול מתאים לך?
           </h1>
           <p className="text-sm text-slate-500">
-            בחר את הכיוון שתרצה להתמקד בו
+            {isFemale ? 'בחרי את הכיוון שתרצי להתמקד בו' : 'בחר את הכיוון שתרצה להתמקד בו'}
           </p>
         </motion.div>
 
-        {/* Option A: Health */}
-        <motion.button
+        {/* Option A: Health & Lifestyle */}
+        <motion.div
+          ref={healthCardRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0 }}
-          onClick={() => {
-            setPath('health');
-            setSelectedMuscles([]);
-            setSelectedSkills([]);
-          }}
-          className={`w-full bg-white p-5 rounded-3xl transition-all duration-300 min-h-[88px] flex items-center gap-4 shadow-md hover:shadow-lg ${
+          className={`scroll-mt-24 bg-white rounded-[24px] shadow-sm transition-colors duration-300 ${
             path === 'health'
-              ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
-              : 'border-2 border-transparent hover:border-slate-200'
-          }`}
-        >
-          <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-              path === 'health' ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
-            }`}
-          >
-            <Heart
-              size={28}
-              className={path === 'health' ? 'text-[#5BC2F2]' : 'text-slate-500'}
-            />
-          </div>
-          <div className="flex-1 text-right">
-            <p
-              className={`text-base font-bold ${
-                path === 'health' ? 'text-[#182236]' : 'text-slate-700'
-              }`}
-            >
-              מסלול בריאות
-            </p>
-            <p className="text-sm text-slate-500">
-              אורח חיים בריא והרגלים טובים
-            </p>
-          </div>
-          {path === 'health' && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shrink-0"
-            >
-              <Check size={14} className="text-white" strokeWidth={3} />
-            </motion.div>
-          )}
-        </motion.button>
-
-        {/* Option B: Muscle Focus */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className={`mt-4 bg-white rounded-3xl transition-all duration-300 overflow-hidden shadow-md ${
-            path === 'body_focus' || selectedMuscles.length > 0
-              ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
-              : 'border-2 border-transparent'
+              ? 'border border-[#00BAF7]'
+              : 'border border-[#E0E9FF]'
           }`}
         >
           <button
             onClick={() => {
-              setPath('body_focus');
+              const isOpening = path !== 'health';
+              setPath('health');
+              setSelectedMuscles([]);
               setSelectedSkills([]);
+              if (isOpening) scrollCardIntoView(healthCardRef);
             }}
             className="w-full p-5 min-h-[88px] flex items-center gap-4"
           >
-            <div
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-                path === 'body_focus' || selectedMuscles.length > 0
-                  ? 'bg-[#5BC2F2]/15'
-                  : 'bg-slate-100'
-              }`}
-            >
-              <span
-                className={`text-2xl ${
-                  path === 'body_focus' || selectedMuscles.length > 0
-                    ? 'text-[#5BC2F2]'
-                    : 'text-slate-500'
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/lemur/lemur-avatar.png"
+              alt=""
+              className="w-[88px] h-[88px] object-contain shrink-0"
+            />
+            <div className="flex-1 text-right">
+              <p
+                className={`text-base font-bold ${
+                  path === 'health' ? 'text-[#182236]' : 'text-slate-700'
                 }`}
               >
-                💪
-              </span>
+                אורח חיים ובריאות
+              </p>
+              <p className="text-sm text-slate-500">
+                {path === 'health' ? 'בסיס בריאותי מקיף לגוף ולנפש' : 'בניית בסיס, בריאות ואנרגיה יומית'}
+              </p>
             </div>
+            {path === 'health' && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center shrink-0"
+              >
+                <Check size={14} className="text-white" strokeWidth={3} />
+              </motion.div>
+            )}
+          </button>
+
+          {/* Expanded checklist — shown only when selected */}
+          <AnimatePresence>
+            {path === 'health' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.28 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="px-5 pb-6">
+                  <p className="text-[13px] text-slate-500 text-right mb-3 leading-relaxed">
+                    מסלול מקיף לשמירה על חיוניות, תנועה נכונה ואנרגיה גבוהה.
+                  </p>
+                  <ul className="space-y-2">
+                    {[
+                      'אימוני כוח לכל הגוף (Full Body) לבניית בסיס איתן',
+                      'שילוב מסלולי הליכה מותאמים ויעדי ספירת צעדים יומית',
+                      'דגש על שיפור טווחי תנועה, גמישות ויציבה',
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-2.5 text-right">
+                        <CheckCircle2
+                          size={16}
+                          className="text-[#5BC2F2] shrink-0 mt-0.5"
+                          strokeWidth={2.5}
+                        />
+                        <span className="text-[13px] font-medium text-slate-700 leading-snug flex-1 text-right">
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Option B: Muscle Focus */}
+        <motion.div
+          ref={muscleCardRef}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className={`scroll-mt-24 mt-4 bg-white rounded-[24px] shadow-sm transition-colors duration-300 ${
+            path === 'body_focus' || selectedMuscles.length > 0
+              ? 'border border-[#00BAF7]'
+              : 'border border-[#E0E9FF]'
+          }`}
+        >
+          <button
+            onClick={() => {
+              const isOpening = path !== 'body_focus';
+              setPath('body_focus');
+              setSelectedSkills([]);
+              if (isOpening) scrollCardIntoView(muscleCardRef);
+            }}
+            className="w-full p-5 min-h-[88px] flex items-center gap-4"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/lemur/lemur-avatar.png"
+              alt=""
+              className="w-[88px] h-[88px] object-contain shrink-0"
+            />
             <div className="flex-1 text-right">
               <p
                 className={`text-base font-bold ${
@@ -265,14 +417,16 @@ export default function ProgramPathPage() {
                     : 'text-slate-700'
                 }`}
               >
-                מיקוד שרירים
+                מיקוד שרירים וחיטוב
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 leading-snug">
                 {isFullBodySelected
                   ? 'כל הגוף נבחר'
                   : selectedMuscles.length > 0
-                    ? `${selectedMuscles.length} שרירים נבחרו`
-                    : 'בחר שרירים להתמקד בהם'}
+                    ? `${selectedMuscles.length} אזורים נבחרו`
+                    : isFemale
+                      ? 'חיטוב וחיזוק הגוף, הגברת האנרגיה ומיקוד באזורים המועדפים עלייך.'
+                      : 'בניית מסת שריר, עבודה על עומסים ומיקוד בקבוצות השרירים המועדפות עליך.'}
               </p>
             </div>
             {(path === 'body_focus' || selectedMuscles.length > 0) && (
@@ -292,81 +446,64 @@ export default function ProgramPathPage() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden px-5 pb-5"
+                transition={{ duration: 0.28 }}
+                style={{ overflow: 'hidden' }}
               >
-                <p className="text-slate-600 text-sm mb-4 text-center">
-                  בחר שרירים להתמקד בהם
-                </p>
-                {/* Full Body card — top of grid */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => toggleMuscle(FULL_BODY_ID)}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all h-14 mb-3 ${
-                    isFullBodySelected
-                      ? 'bg-[#5BC2F2]/10 border-2 border-[#5BC2F2] shadow-[0_4px_15px_rgba(91,194,242,0.15)]'
-                      : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
-                  }`}
-                >
-                  <span
-                    className={`text-sm font-medium ${
-                      isFullBodySelected ? 'font-bold text-[#5BC2F2]' : 'text-slate-700'
-                    }`}
-                  >
-                    כל הגוף
-                  </span>
-                  <UserCircle
-                    size={24}
-                    className={isFullBodySelected ? 'text-[#5BC2F2]' : 'text-slate-400'}
-                  />
-                </motion.button>
-                <div className="grid grid-cols-2 gap-3">
-                  {MUSCLE_FOCUS_IDS.map((id) => {
-                    const label = MUSCLE_GROUP_LABELS[id]?.he ?? id;
-                    const isSelected = selectedMuscles.includes(id);
-                    const iconSrc = MUSCLE_ICON_PATHS[id] ?? MUSCLE_ICON_PATHS.chest;
-                    return (
-                      <motion.button
-                        key={id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => toggleMuscle(id)}
-                        className={`flex items-center justify-between p-3 rounded-2xl transition-all h-14 ${
-                          isSelected
-                            ? 'bg-[#5BC2F2]/10 border-2 border-[#5BC2F2] shadow-[0_4px_15px_rgba(91,194,242,0.15)]'
-                            : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
-                        }`}
-                      >
-                        <span
-                          className={`text-sm ${
+                <div className="px-5 pb-8">
+                  <p className="text-[13px] text-slate-500 text-right mb-3">
+                    {isFemale ? 'בחרי את האזורים שתרצי לפתח' : 'בחר את האזורים שתרצה לפתח'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 w-full" dir="rtl">
+                    {/* "כל הגוף" — full-width anchor */}
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => toggleMuscle(FULL_BODY_ID)}
+                      className={`col-span-2 flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
+                        isFullBodySelected
+                          ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
+                          : 'bg-white border-[#E0E9FF] font-medium'
+                      }`}
+                    >
+                      {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
+                      <UserCircle
+                        size={22}
+                        className={isFullBodySelected ? 'text-[#00BAF7]' : 'text-slate-400'}
+                        strokeWidth={1.5}
+                      />
+                      <span className="text-[14px] text-slate-800">כל הגוף</span>
+                    </motion.button>
+
+                    {/* Individual muscle items */}
+                    {MUSCLE_FOCUS_IDS.map((id) => {
+                      const label = MUSCLE_CHIP_LABELS[id] ?? id;
+                      const isSelected = selectedMuscles.includes(id);
+                      const iconSrc = MUSCLE_ICON_PATHS[id];
+                      return (
+                        <motion.button
+                          key={id}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => toggleMuscle(id)}
+                          className={`flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
                             isSelected
-                              ? 'font-bold text-[#5BC2F2]'
-                              : 'font-medium text-slate-700'
+                              ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
+                              : 'bg-white border-[#E0E9FF] font-medium'
                           }`}
                         >
-                          {label}
-                        </span>
-                        <img
-                          src={iconSrc}
-                          alt=""
-                          className={`w-5 h-5 object-contain ${
-                            isSelected ? 'opacity-100' : 'opacity-60'
-                          }`}
-                          onError={(e) => {
-                            const el = e.target as HTMLImageElement;
-                            const fallback = iconSrc.replace('/assets/icons/muscles/', '/icons/muscles/');
-                            if (fallback !== iconSrc) {
-                              el.src = fallback;
-                              el.onerror = null;
-                            } else {
-                              el.style.display = 'none';
-                            }
-                          }}
-                        />
-                      </motion.button>
-                    );
-                  })}
+                          {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={iconSrc}
+                            alt=""
+                            className={`w-7 h-7 object-contain shrink-0 transition-all ${
+                              isSelected ? 'opacity-100' : 'opacity-55'
+                            }`}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <span className="text-[14px] text-slate-800">{label}</span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -375,39 +512,31 @@ export default function ProgramPathPage() {
 
         {/* Option C: Skills */}
         <motion.div
+          ref={skillsCardRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className={`mt-4 bg-white rounded-3xl transition-all duration-300 overflow-hidden shadow-md ${
+          className={`scroll-mt-24 mt-4 bg-white rounded-[24px] shadow-sm transition-colors duration-300 ${
             path === 'skills' || selectedSkills.length > 0
-              ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
-              : 'border-2 border-transparent'
+              ? 'border border-[#00BAF7]'
+              : 'border border-[#E0E9FF]'
           }`}
         >
           <button
             onClick={() => {
+              const isOpening = path !== 'skills';
               setPath('skills');
               setSelectedMuscles([]);
+              if (isOpening) scrollCardIntoView(skillsCardRef);
             }}
             className="w-full p-5 min-h-[88px] flex items-center gap-4"
           >
-            <div
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-                path === 'skills' || selectedSkills.length > 0
-                  ? 'bg-[#5BC2F2]/15'
-                  : 'bg-slate-100'
-              }`}
-            >
-              <span
-                className={`text-2xl ${
-                  path === 'skills' || selectedSkills.length > 0
-                    ? 'text-[#5BC2F2]'
-                    : 'text-slate-500'
-                }`}
-              >
-                🤸
-              </span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/lemur/lemur-avatar.png"
+              alt=""
+              className="w-[88px] h-[88px] object-contain shrink-0"
+            />
             <div className="flex-1 text-right">
               <p
                 className={`text-base font-bold ${
@@ -418,10 +547,12 @@ export default function ProgramPathPage() {
               >
                 קליסטניקס וסקילים
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 leading-snug">
                 {selectedSkills.length > 0
-                  ? `${selectedSkills.length} תוכניות נבחרו (לפי עדיפות)`
-                  : 'בחר תוכניות לפי סדר עדיפות'}
+                  ? `${selectedSkills.length} אלמנטים נבחרו (לפי עדיפות)`
+                  : isFemale
+                    ? 'פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שמתאימים לך.'
+                    : 'פיתוח כוח יחסי מטורף, שליטה מלאה במשקל הגוף ופתיחת אלמנטים מתקדמים שתרצה להשיג.'}
               </p>
             </div>
             {(path === 'skills' || selectedSkills.length > 0) && (
@@ -441,56 +572,91 @@ export default function ProgramPathPage() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden px-5 pb-5"
+                transition={{ duration: 0.28 }}
+                style={{ overflow: 'hidden' }}
               >
-                <p className="text-slate-600 text-sm mb-4 text-center">
-                  בחר תוכניות לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {SKILL_PROGRAMS.map((skill) => {
-                    const isSelected = selectedSkills.includes(skill.id);
-                    const order = getSkillOrder(skill.id);
-                    const iconKey = resolveIconKey(undefined, skill.id);
-                    return (
-                      <motion.button
-                        key={skill.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => toggleSkill(skill.id)}
-                        className={`relative flex items-center justify-between p-3 rounded-2xl transition-all h-14 ${
-                          isSelected
-                            ? 'bg-[#5BC2F2]/10 border-2 border-[#5BC2F2] shadow-[0_4px_15px_rgba(91,194,242,0.15)]'
-                            : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
-                        }`}
+                <div className="px-5 pb-8">
+                  <p className="text-[13px] text-slate-500 text-right mb-3">
+                    {isFemale
+                      ? 'בחרי אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)'
+                      : 'בחר אלמנטים לפי סדר עדיפות (לחיצה ראשונה = עדיפות 1)'}
+                  </p>
+
+                  {/* ── Orange Flow: complementary-skill coach tip ── */}
+                  <AnimatePresence>
+                    {showRecommendation && (
+                      <motion.div
+                        key="orange-flow-tip"
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className="mb-3 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 px-3.5 py-3 text-right shadow-sm"
+                        role="status"
+                        aria-live="polite"
                       >
-                        {order !== null && (
-                          <span
-                            className="absolute top-2 start-2 w-5 h-5 rounded-full bg-[#5BC2F2] text-white text-xs font-bold flex items-center justify-center"
-                            style={{ fontSize: 10 }}
-                          >
-                            {order}
-                          </span>
-                        )}
-                        <span
-                          className={`text-sm truncate max-w-[70%] ${
+                        <p className="text-[13px] font-semibold leading-relaxed">
+                          בחרת בסקיל עוצמתי! כדי למנוע פציעות כתפיים ולפתח כוח סימטרי, קלי המאמן הווירטואלי ממליץ לך לסמן לפחות אלמנט משלים אחד מהקבוצה המודגשת בכתום (דחיפה/משיכה).
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="grid grid-cols-2 gap-3 w-full" dir="rtl">
+                    {SKILL_PROGRAMS.map((skill) => {
+                      const isMaster = skill.id === SKILL_MASTER_ID;
+                      const isSelected = selectedSkills.includes(skill.id);
+                      const order = !isMaster ? getSkillOrder(skill.id) : null;
+                      const iconSrc = SKILL_ICON_PATHS[skill.id];
+                      // Orange Flow: glow if this chip belongs to the missing
+                      // movement pattern and the tip is currently visible.
+                      const isRecommended =
+                        showRecommendation &&
+                        !isSelected &&
+                        !isMaster &&
+                        ((missingCategory === 'push' && PUSH_SKILLS.has(skill.id)) ||
+                          (missingCategory === 'pull' && PULL_SKILLS.has(skill.id)));
+                      return (
+                        <motion.button
+                          key={skill.id}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => toggleSkill(skill.id)}
+                          className={`${isMaster ? 'col-span-2' : ''} flex items-center justify-between p-3.5 h-12 w-full rounded-xl border transition-all text-right cursor-pointer ${
                             isSelected
-                              ? 'font-bold text-[#5BC2F2]'
-                              : 'font-medium text-slate-700'
+                              ? 'bg-[#00BAF7]/[0.06] border-[#00BAF7] font-semibold'
+                              : isRecommended
+                                ? 'bg-orange-50/50 border-orange-400 shadow-sm animate-pulse font-medium'
+                                : 'bg-white border-[#E0E9FF] font-medium'
                           }`}
                         >
-                          {skill.nameHe}
-                        </span>
-                        <span
-                          className={
-                            isSelected ? 'text-[#5BC2F2]' : 'text-slate-400'
-                          }
-                        >
-                          {getProgramIcon(iconKey, 'w-5 h-5')}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
+                          {/* Icon first in DOM = RIGHT edge in dir="rtl" flex */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={iconSrc}
+                            alt=""
+                            className={`w-8 h-8 object-contain shrink-0 transition-all ${
+                              isSelected ? 'opacity-100' : 'opacity-55'
+                            }`}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          {/* Text + optional priority badge LEFT (second in RTL) */}
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+                            <span className="text-[13px] text-slate-800 leading-tight truncate">
+                              {skill.nameHe}
+                            </span>
+                            {order !== null && (
+                              <span
+                                className="w-4 h-4 rounded-full bg-[#182236] text-white flex items-center justify-center font-bold shrink-0"
+                                style={{ fontSize: 9 }}
+                              >
+                                {order}
+                              </span>
+                            )}
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -515,7 +681,15 @@ export default function ProgramPathPage() {
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
           >
-            <span>המשך</span>
+            <span>
+              {showRecommendation
+                ? isFemale
+                  ? 'המשיכי בכל זאת'
+                  : 'המשך בכל זאת'
+                : isFemale
+                  ? 'המשכי'
+                  : 'המשך'}
+            </span>
             <ChevronLeft size={20} />
           </button>
         </motion.div>

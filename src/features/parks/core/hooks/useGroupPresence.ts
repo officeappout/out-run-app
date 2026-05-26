@@ -20,16 +20,16 @@ import { db, auth } from '@/lib/firebase';
  * Fallback to king-lemur for unknown persona IDs.
  */
 export const PERSONA_IMAGES: Record<string, string> = {
-  athlete:       '/assets/lemur/smart-lemur.png',
+  athlete:       '/assets/lemur/lemur-avatar.png',
   parent:        '/assets/lemur/lemur-avatar.png',
   office_worker: '/assets/lemur/king-lemur.png',
-  student:       '/assets/lemur/smart-lemur.png',
+  student:       '/assets/lemur/lemur-avatar.png',
   senior:        '/assets/lemur/lemur-avatar.png',
   reservist:     '/assets/lemur/king-lemur.png',
   soldier:       '/assets/lemur/king-lemur.png',
-  pupil:         '/assets/lemur/smart-lemur.png',
-  young_pro:     '/assets/lemur/smart-lemur.png',
-  pro_athlete:   '/assets/lemur/smart-lemur.png',
+  pupil:         '/assets/lemur/lemur-avatar.png',
+  young_pro:     '/assets/lemur/lemur-avatar.png',
+  pro_athlete:   '/assets/lemur/lemur-avatar.png',
   vatikim:       '/assets/lemur/lemur-avatar.png',
 };
 
@@ -60,6 +60,19 @@ const GROUP_COLORS = [
   '#7EA88A', '#C49A7A', '#7E9DB0', '#B898A8', '#A4B87A',
   '#7AAEC0', '#B0AC84',
 ];
+
+/**
+ * Drop presence docs whose `updatedAt` is older than this threshold.
+ *
+ * The map heartbeat ticks every 2 minutes (`HEARTBEAT_INTERVAL_MS` in
+ * `presence.service.ts`); the workout heartbeat is faster (30s moving,
+ * 60s static). 5 minutes leaves room for one missed beat plus network
+ * jitter without falsely hiding still-active users — but is short
+ * enough to clean up after orphaned docs (closed tabs, crashed apps,
+ * failed unmount cleanups in `ShareAsLiveToggle`) within the same
+ * session.
+ */
+const STALE_PRESENCE_MS = 5 * 60 * 1000;
 
 export function useGroupPresence(
   groupSessionId?: string | null,
@@ -132,8 +145,10 @@ export function useGroupPresence(
         self: 0,
         notInGroup: 0,
         nonFiniteCoords: 0,
+        stale: 0,
       };
       const modeBreakdown: Record<string, number> = {};
+      const now = Date.now();
 
       snap.forEach((d) => {
         const data = d.data();
@@ -146,6 +161,25 @@ export function useGroupPresence(
         }
         if (data.uid === currentUid) {
           dropReasons.self += 1;
+          return;
+        }
+
+        // Drop stale presence docs whose heartbeat hasn't fired in
+        // STALE_PRESENCE_MS. Without this, an orphaned doc (closed tab,
+        // failed unmount cleanup in ShareAsLiveToggle, app crash) leaves
+        // a "live" pin on the map indefinitely until another user
+        // happens to overwrite it. We tolerate docs without `updatedAt`
+        // (legacy data, in-flight writes that haven't materialised the
+        // server timestamp yet) — those are passed through unchanged.
+        const updatedAt = data.updatedAt;
+        const updatedMs =
+          updatedAt && typeof updatedAt.toMillis === 'function'
+            ? updatedAt.toMillis()
+            : typeof updatedAt === 'number'
+              ? updatedAt
+              : 0;
+        if (updatedMs > 0 && now - updatedMs > STALE_PRESENCE_MS) {
+          dropReasons.stale += 1;
           return;
         }
 

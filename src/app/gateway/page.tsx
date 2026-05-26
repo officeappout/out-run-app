@@ -9,10 +9,11 @@ import { signInGuest, onAuthStateChange } from '@/lib/auth.service';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Loader2, Dumbbell, Footprints } from 'lucide-react';
+import { MapPin, Loader2, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
@@ -160,7 +161,10 @@ export default function GatewayPage() {
         setShowGuestTransition(false);
         return;
       }
-      try { sessionStorage.setItem('gateway_uid', user.uid); } catch {}
+      // gateway_uid persists via onboardingPrefs so the profile page can
+      // resolve the uid even if Firebase auth restoration is slow after
+      // a hard close on iOS.
+      setOnboardingPref('gateway_uid', user.uid);
 
       // Fire-and-forget: write user doc & detect city in parallel, don't block redirect
       setDoc(doc(db, 'users', user.uid), {
@@ -230,7 +234,7 @@ export default function GatewayPage() {
         localStorage.removeItem('pending_group_id');
         localStorage.removeItem('pending_invite_code');
         setTimeout(() => {
-          router.push(`/feed?groupId=${pendingGroupId}`);
+          router.push(`/community?groupId=${pendingGroupId}`);
         }, 1200);
         return;
       }
@@ -257,10 +261,11 @@ export default function GatewayPage() {
         setLoading(false);
         return;
       }
-      try {
-        sessionStorage.setItem('gateway_uid', user.uid);
-        sessionStorage.setItem('gateway_track', track);
-      } catch {}
+      // Persist via onboardingPrefs (localStorage + native @capacitor/preferences)
+      // so a hard close mid-onboarding preserves both the uid and the chosen
+      // STRENGTH/RUNNING track for the profile page to pick up.
+      setOnboardingPref('gateway_uid', user.uid);
+      setOnboardingPref('gateway_track', track);
 
       const referrerUid = getStoredReferrer();
       if (referrerUid && referrerUid !== user.uid) {
@@ -280,7 +285,7 @@ export default function GatewayPage() {
       if (pendingGroupId) {
         localStorage.removeItem('pending_group_id');
         localStorage.removeItem('pending_invite_code');
-        router.push(`/feed?groupId=${pendingGroupId}`);
+        router.push(`/community?groupId=${pendingGroupId}`);
         return;
       }
 
@@ -332,7 +337,10 @@ export default function GatewayPage() {
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            transition={{
+              default: { duration: 0.5, delay: 0.1 },
+              scale: { type: 'spring', stiffness: 400, damping: 17 },
+            }}
             whileTap={{ scale: isBusy ? 1 : 0.97 }}
             onClick={handleExploreMap}
             disabled={isBusy}
@@ -342,7 +350,7 @@ export default function GatewayPage() {
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
               style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=1200&auto=format&fit=crop')`,
+                backgroundImage: `url('/images/gateway/card-map.png')`,
               }}
             />
 
@@ -364,14 +372,15 @@ export default function GatewayPage() {
                   className="text-xl font-bold text-slate-900"
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  גלה את המפה
+                  גלו את המפה
                 </h2>
               </div>
               <p
-                className="text-sm text-slate-500 font-normal"
+                className="text-sm text-slate-900 font-medium"
                 style={{ fontFamily: 'var(--font-simpler)' }}
+                dir="rtl"
               >
-                כניסה מהירה ללא הרשמה
+                כניסה מהירה ללא הרשמה למציאת מסלולי ריצה, גינות כושר קרובות ומתאמנים סביבכם בלייב.
               </p>
             </div>
           </motion.button>
@@ -417,16 +426,19 @@ export default function GatewayPage() {
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: flags.enableRunningPrograms ? 0.3 : 0.2 }}
+            transition={{
+              default: { duration: 0.5, delay: flags.enableRunningPrograms ? 0.3 : 0.2 },
+              scale: { type: 'spring', stiffness: 400, damping: 17 },
+            }}
             whileTap={{ scale: isBusy ? 1 : 0.97 }}
             onClick={() => handleGetProgram('STRENGTH')}
             disabled={isBusy}
-            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-44 text-right disabled:opacity-60 group"
+            className="w-full relative overflow-hidden rounded-[24px] shadow-lg h-48 text-right disabled:opacity-60 group"
           >
             <div
               className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
               style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1200&auto=format&fit=crop')`,
+                backgroundImage: `url('/images/gateway/card-strength.png')`,
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
@@ -437,12 +449,18 @@ export default function GatewayPage() {
             )}
             <div className="absolute bottom-0 right-0 left-0 p-5 flex flex-col items-start">
               <div className="flex items-center gap-2 mb-1.5">
-                <Dumbbell size={18} className="text-[#5BC2F2]" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/icons/programs/muscle.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="w-[18px] h-[18px] object-contain"
+                />
                 <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
                   תוכנית כוח
                 </h2>
               </div>
-              <p className="text-sm text-slate-500 font-normal" style={{ fontFamily: 'var(--font-simpler)' }}>
+              <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }} dir="rtl">
                 אימון מותאם אישית למטרות שלך
               </p>
             </div>

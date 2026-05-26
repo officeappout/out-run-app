@@ -33,94 +33,158 @@ interface UserState {
 
 // ==========================================
 // Storage מותאם אישית לטיפול ב-Date objects
+//
+// Dual-write strategy:
+//   • localStorage  — primary, synchronous, the source of truth for the
+//                     current session. All Date serialization logic
+//                     happens here exactly as before.
+//   • @capacitor/preferences (native only)
+//                   — durable backup that survives WKWebView storage
+//                     eviction on iOS hard close. On `getItem` we fall
+//                     back to Preferences when localStorage is empty,
+//                     and re-prime localStorage with the recovered value
+//                     so subsequent sync reads hit the fast cache.
+//                     On `setItem`/`removeItem` we mirror asynchronously
+//                     (fire-and-forget).
 // ==========================================
+const BACKUP_KEY_SUFFIX = '_backup';
+
+function isNativePlatform(): boolean {
+  if (typeof window === 'undefined') return false;
+  const cap = (window as unknown as {
+    Capacitor?: { isNativePlatform?: () => boolean };
+  }).Capacitor;
+  return Boolean(cap?.isNativePlatform?.());
+}
+
+/** Restore Date objects from their serialized form in a parsed persist payload. */
+function reviveDates(state: any): any {
+  if (!state?.profile) return state;
+
+  if (state.profile.core?.birthDate) {
+    const raw = state.profile.core.birthDate;
+    if (typeof raw === 'object' && raw !== null && typeof raw.seconds === 'number') {
+      state.profile.core.birthDate = new Date(raw.seconds * 1000);
+    } else {
+      const d = new Date(raw);
+      state.profile.core.birthDate = isNaN(d.getTime()) ? undefined : d;
+    }
+  }
+
+  if (state.profile.progression?.activePrograms) {
+    state.profile.progression.activePrograms =
+      state.profile.progression.activePrograms.map((program: any) => ({
+        ...program,
+        startDate: new Date(program.startDate),
+      }));
+  }
+
+  if (state.profile.running?.activeProgram?.startDate) {
+    state.profile.running.activeProgram.startDate = new Date(
+      state.profile.running.activeProgram.startDate
+    );
+  }
+
+  if (state.profile.running?.paceProfile?.qualityWorkoutsHistory) {
+    state.profile.running.paceProfile.qualityWorkoutsHistory =
+      state.profile.running.paceProfile.qualityWorkoutsHistory.map(
+        (workout: any) => ({
+          ...workout,
+          date: new Date(workout.date),
+        })
+      );
+  }
+
+  return state;
+}
+
+/** Apply the Date-revival pass and re-serialize. Returns the original string on failure. */
+function reviveStored(str: string): string {
+  try {
+    const parsed = JSON.parse(str);
+    const state = reviveDates(parsed?.state);
+    if (!state) return str;
+    return JSON.stringify({ state, version: parsed.version });
+  } catch {
+    return str;
+  }
+}
+
 const customStorage = {
   getItem: (name: string): string | null => {
     if (typeof window === 'undefined') return null;
     const str = localStorage.getItem(name);
-    if (!str) return null;
-    
-    try {
-      const parsed = JSON.parse(str);
-      const state = parsed?.state;
-      
-      if (!state?.profile) return str;
-      
-      // המרת birthDate חזרה ל-Date — handles ISO string, serialized Timestamp { seconds, nanoseconds }, etc.
-      if (state.profile.core?.birthDate) {
-        const raw = state.profile.core.birthDate;
-        if (typeof raw === 'object' && raw !== null && typeof raw.seconds === 'number') {
-          state.profile.core.birthDate = new Date(raw.seconds * 1000);
-        } else {
-          const d = new Date(raw);
-          state.profile.core.birthDate = isNaN(d.getTime()) ? undefined : d;
+    if (str) return reviveStored(str);
+
+    // Cache miss — let Zustand initialize empty for now, and kick off a
+    // best-effort restore from @capacitor/preferences. When it returns
+    // we re-prime localStorage and trigger a manual rehydrate so the
+    // profile reappears within a few hundred ms on cold launch.
+    if (isNativePlatform()) {
+      void (async () => {
+        try {
+          const { Preferences } = await import('@capacitor/preferences');
+          const { value } = await Preferences.get({ key: name + BACKUP_KEY_SUFFIX });
+          if (!value) return;
+          try { localStorage.setItem(name, value); } catch { /* quota */ }
+          // Re-hydrate Zustand so the freshly recovered profile reaches
+          // the UI without a full reload. The hook is loaded lazily to
+          // avoid a circular dependency through this module.
+          try {
+            const mod = await import('./useUserStore');
+            await (mod.useUserStore as any).persist?.rehydrate?.();
+          } catch {
+            /* hook missing in test/SSR — non-fatal */
+          }
+        } catch {
+          /* plugin / I/O failure */
         }
-      }
-      
-      // המרת תאריכים ב-activePrograms
-      if (state.profile.progression?.activePrograms) {
-        state.profile.progression.activePrograms =
-          state.profile.progression.activePrograms.map((program: any) => ({
-            ...program,
-            startDate: new Date(program.startDate),
-          }));
-      }
-      
-      // המרת תאריכים ב-running profile
-      if (state.profile.running?.activeProgram?.startDate) {
-        state.profile.running.activeProgram.startDate = new Date(
-          state.profile.running.activeProgram.startDate
-        );
-      }
-      
-      if (state.profile.running?.paceProfile?.qualityWorkoutsHistory) {
-        state.profile.running.paceProfile.qualityWorkoutsHistory =
-          state.profile.running.paceProfile.qualityWorkoutsHistory.map(
-            (workout: any) => ({
-              ...workout,
-              date: new Date(workout.date),
-            })
-          );
-      }
-      
-      return JSON.stringify({ state, version: parsed.version });
-    } catch {
-      return str;
+      })();
     }
+    return null;
   },
-  
+
   setItem: (name: string, value: string): void => {
     if (typeof window === 'undefined') return;
+    let serialized = value;
     try {
       const parsed = JSON.parse(value);
       const state = parsed?.state;
-      
       if (state?.profile) {
-        // המרת Date objects ל-ISO strings לפני שמירה
         const serializedState = JSON.parse(
-          JSON.stringify(state, (key, val) => {
-            if (val instanceof Date) {
-              return val.toISOString();
-            }
-            return val;
-          })
+          JSON.stringify(state, (_k, val) =>
+            val instanceof Date ? val.toISOString() : val,
+          ),
         );
-        
-        localStorage.setItem(
-          name,
-          JSON.stringify({ state: serializedState, version: parsed.version })
-        );
-      } else {
-        localStorage.setItem(name, value);
+        serialized = JSON.stringify({ state: serializedState, version: parsed.version });
       }
     } catch {
-      localStorage.setItem(name, value);
+      /* keep original value */
+    }
+    try { localStorage.setItem(name, serialized); } catch { /* quota */ }
+
+    if (isNativePlatform()) {
+      // Fire-and-forget mirror to Preferences. Profile JSON is ~2-5 KB
+      // typically — well within NSUserDefaults' soft limits.
+      void import('@capacitor/preferences')
+        .then(({ Preferences }) =>
+          Preferences.set({ key: name + BACKUP_KEY_SUFFIX, value: serialized }),
+        )
+        .catch(() => { /* non-fatal */ });
     }
   },
-  
+
   removeItem: (name: string): void => {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem(name);
+    try { localStorage.removeItem(name); } catch { /* quota */ }
+
+    if (isNativePlatform()) {
+      void import('@capacitor/preferences')
+        .then(({ Preferences }) =>
+          Preferences.remove({ key: name + BACKUP_KEY_SUFFIX }),
+        )
+        .catch(() => { /* non-fatal */ });
+    }
   },
 };
 

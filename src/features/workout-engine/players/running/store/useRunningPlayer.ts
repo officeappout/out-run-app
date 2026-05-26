@@ -10,11 +10,20 @@ import { watchPosition, clearWatch, calculateDistance } from '@/lib/services/loc
 import type RunWorkout from '../types/run-workout.type';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
+import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
 // Direct sibling import — both stores live under workout-engine/* with no
 // circular concern (core never imports from players). Using a static import
 // instead of the previous `require()`-inside-try/catch eliminates the silent
 // failure path that left totalDistance stuck at 0 when bundler cache hiccuped.
 import { useSessionStore } from '../../../core/store/useSessionStore';
+
+// ── Module-level coordinate buffers ──────────────────────────────────────────
+// Accumulate GPS samples in a flat buffer and flush to Zustand every
+// FLUSH_EVERY points. This replaces the per-sample [...state.routeCoords, coord]
+// spread that caused O(n²) allocations on long runs.
+let _coordBuffer: number[][] = [];
+let _zoneBuffer: (string | null)[] = [];
+const FLUSH_EVERY = 10;
 
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
@@ -714,16 +723,12 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
     let lastPos: { lat: number; lng: number } | null = null;
     let lastTimestamp: number | null = null;
-    // ── Movement gate (TEMPORARILY relaxed for live-data verification) ───
-    // Was 5 m: a calibration point that suppressed urban GPS jitter at the
-    // cost of "nothing happening" feedback for the first 10–20 seconds.
-    // Lowered to 1 m so any non-trivial position update reaches the metrics
-    // card immediately. Expect noisier KM under stationary conditions until
-    // we restore the production value (5 m) once the data flow is verified.
-    const DISTANCE_THRESHOLD = 1;
-    // MIN_SPEED_MS / MAX_PACE_MIN_KM widened in tandem so a slow walk
-    // (≈1 m/s, which would otherwise compute as ~16.7 min/km and be
-    // rejected by the previous 15 cap) still produces a non-zero pace.
+    // Movement gate: 5 m suppresses urban GPS jitter while still responding
+    // to slow walking. Satellite jumps > MAX_JUMP_M are discarded entirely.
+    const DISTANCE_THRESHOLD = 5;
+    const MAX_JUMP_M = 200;
+    // MIN_SPEED_MS / MAX_PACE_MIN_KM widened so a slow walk (≈1 m/s) still
+    // produces a non-zero pace.
     const MIN_SPEED_MS = 0.3;
     const MAX_PACE_MIN_KM = 30;
 
@@ -760,6 +765,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
         if (lastPos) {
           const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
+
+          // Discard satellite jump artefacts — a single sample > 200 m from the
+          // last known-good position is almost always a GPS cold-start glitch or
+          // multipath canyon spike, not real movement.
+          if (distanceDelta > MAX_JUMP_M) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn(`[useRunningPlayer] GPS jump rejected: ${Math.round(distanceDelta)} m`);
+            }
+            lastPos = currentPos;
+            set({ lastPosition: currentPos });
+            return;
+          }
 
           if (distanceDelta > DISTANCE_THRESHOLD) {
             get().addCoord([lng, lat]);
@@ -882,14 +899,23 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     });
   },
   
-  // Add GPS coordinate, tagged with the current block's zoneType if in planned run
+  // Add GPS coordinate — buffered for O(1) amortised cost.
+  // Pushes into module-level buffers and flushes to Zustand every FLUSH_EVERY
+  // samples, replacing the previous [...state.routeCoords, coord] spread that
+  // allocated a new array on every GPS tick (O(n²) over a long run).
   addCoord: (coord) => {
     const { currentWorkout, currentBlockIndex } = get();
     const zoneType = currentWorkout?.blocks?.[currentBlockIndex]?.zoneType ?? null;
-    set((state) => ({
-      routeCoords: [...state.routeCoords, coord],
-      routeZones: [...state.routeZones, zoneType],
-    }));
+    _coordBuffer.push(coord);
+    _zoneBuffer.push(zoneType);
+    if (_coordBuffer.length >= FLUSH_EVERY) {
+      const flushedCoords = _coordBuffer.splice(0);
+      const flushedZones  = _zoneBuffer.splice(0);
+      set((state) => ({
+        routeCoords: [...state.routeCoords, ...flushedCoords],
+        routeZones:  [...state.routeZones,  ...flushedZones],
+      }));
+    }
   },
   
   // Update pace
@@ -972,6 +998,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // rest of the temporary debug instrumentation.
     // eslint-disable-next-line no-console
     console.log('[useRunningPlayer.initializeRunningData] seeding first lap', seedLap);
+    _coordBuffer = [];
+    _zoneBuffer  = [];
     set({
       laps: [seedLap],
       currentPace: 0,
@@ -994,7 +1022,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   clearRunningData: () => {
     const { stopGPSTracking } = get();
     stopGPSTracking();
-    
+    _coordBuffer = [];
+    _zoneBuffer  = [];
     set({
       laps: [],
       currentPace: 0,
@@ -1038,6 +1067,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // social feed post) is written here. FreeRunSummary and WorkoutSummaryPage
   // must NOT call saveWorkout() — they are display-only after this runs.
   finishWorkout: async () => {
+    // Flush any GPS samples that accumulated in the buffer since the last
+    // FLUSH_EVERY threshold — guarantees the final segment is not lost.
+    if (_coordBuffer.length > 0) {
+      const flushedCoords = _coordBuffer.splice(0);
+      const flushedZones  = _zoneBuffer.splice(0);
+      set((state) => ({
+        routeCoords: [...state.routeCoords, ...flushedCoords],
+        routeZones:  [...state.routeZones,  ...flushedZones],
+      }));
+    }
+
     const { stopGPSTracking, totalCalories, routeCoords, activityType, currentPace, guidedRouteId, laps, elevationGain, sessionMode, commuteContext } = get();
     const isCommute = sessionMode === 'commute';
     
@@ -1068,10 +1108,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         if (!currentUser) {
           console.error('❌ [useRunningPlayer] Cannot save workout: No User ID found');
         } else {
-          // ── Sanitise numeric values ──────────────────────────────────
-          const safeRoutePath = Array.isArray(routeCoords) && routeCoords.length > 0
+          // ── Sanitise + compress route path ───────────────────────────
+          // RDP simplification cuts a typical 2 000-point run to ~150–200
+          // points (>90 % reduction). truncatePrecision clips to 6 decimal
+          // places (~0.1 m) — removing the extra 9 digits that raw IEEE 754
+          // GPS output carries but Firestore pays to store.
+          const rawRoutePath = Array.isArray(routeCoords) && routeCoords.length > 0
             ? routeCoords.map(coord => [coord[0], coord[1]] as [number, number])
             : [];
+          const safeRoutePath = rawRoutePath.length >= 2
+            ? truncatePrecision(rdpSimplify(rawRoutePath))
+            : rawRoutePath;
           const safeDistance = Number.isFinite(sessionState.totalDistance) ? sessionState.totalDistance : 0;
           const safeDuration = Number.isFinite(sessionState.totalDuration) ? sessionState.totalDuration : 0;
           const safeCalories = Number.isFinite(finalCalories) ? finalCalories : 0;
@@ -1213,10 +1260,22 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           // commute" toggle, gate this branch on that opt-in flag.
           if (workoutSaved && !isCommute) {
             import('@/features/social/services/feed.service').then(async ({ createWorkoutPost }) => {
-              const { extractFeedScope } = await import('@/features/social/services/feed-scope.utils');
+              const { extractFeedScope, extractGroupIds } = await import('@/features/social/services/feed-scope.utils');
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
               const userProfile = useUserStore.getState().profile;
               if (userProfile?.core?.name) {
+                // Determine completed distance bracket
+                const runSegment: '3k' | '5k' | '10k' | null =
+                  safeDistance >= 10 ? '10k' :
+                  safeDistance >= 5  ? '5k'  :
+                  safeDistance >= 3  ? '3k'  : null;
+
+                // Average pace in seconds per km (more precise than durationMinutes-based calc)
+                const paceSecPerKm =
+                  safeDistance > 0 && safeDuration > 0
+                    ? Math.round(safeDuration / safeDistance)
+                    : undefined;
+
                 createWorkoutPost({
                   authorUid: currentUser.uid,
                   authorName: userProfile.core.name,
@@ -1224,7 +1283,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   durationMinutes,
                   distanceKm: safeDistance > 0 ? safeDistance : undefined,
                   paceMinPerKm: safePace > 0 ? safePace : undefined,
+                  paceSecPerKm,
+                  runSegment,
                   ...extractFeedScope(userProfile),
+                  groupIds: extractGroupIds(userProfile),
                   parkId: detectedPark?.parkId,
                   parkName: detectedPark?.parkName,
                 }).catch(() => {});

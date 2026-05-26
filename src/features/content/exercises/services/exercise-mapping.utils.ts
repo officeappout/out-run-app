@@ -712,6 +712,27 @@ export function sanitizeExerciseData(data: ExerciseFormData | Partial<ExerciseFo
     sanitized.fieldReady = !!data.fieldReady;
   }
 
+  // =========================================================================
+  // RECOVERY / REINFORCEMENT FIELDS
+  // =========================================================================
+
+  // showOnRestDays: Boolean flag
+  if ((data as any).showOnRestDays !== undefined) {
+    sanitized.showOnRestDays = !!(data as any).showOnRestDays;
+  }
+
+  // restDayProgramIds: Array of program ID strings
+  if ((data as any).restDayProgramIds !== undefined) {
+    sanitized.restDayProgramIds = Array.isArray((data as any).restDayProgramIds)
+      ? (data as any).restDayProgramIds.filter((id: unknown) => typeof id === 'string' && (id as string).trim() !== '')
+      : [];
+  }
+
+  // isFinisherVideo: Boolean flag
+  if ((data as any).isFinisherVideo !== undefined) {
+    sanitized.isFinisherVideo = !!(data as any).isFinisherVideo;
+  }
+
   // Sanitize execution_methods - ensure methodName is always a string, not an object
   if (data.execution_methods !== undefined && Array.isArray(data.execution_methods)) {
     sanitized.execution_methods = data.execution_methods.map(sanitizeExecutionMethodForSave);
@@ -885,6 +906,11 @@ export function normalizeExercise(docId: string, data: any): Exercise {
 
     // === i18n ===
     supportedLangs: Array.isArray(data.supportedLangs) ? data.supportedLangs : undefined,
+
+    // === RECOVERY / REINFORCEMENT ===
+    showOnRestDays: typeof data.showOnRestDays === 'boolean' ? data.showOnRestDays : undefined,
+    restDayProgramIds: Array.isArray(data.restDayProgramIds) ? data.restDayProgramIds : undefined,
+    isFinisherVideo: typeof data.isFinisherVideo === 'boolean' ? data.isFinisherVideo : undefined,
   };
 
   // Silenced: previously logged per-exercise when base_movement_id was missing.

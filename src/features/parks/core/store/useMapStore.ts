@@ -232,6 +232,27 @@ interface MapStore {
    */
   mapEmptyTapTick: number;
   bumpMapEmptyTapTick: () => void;
+
+  /**
+   * Camera ownership signal shared between TurnCarousel and useCameraController.
+   *
+   *   'follow_user'  — useCameraController owns the camera; the GPS follow-mode
+   *                    easeTo fires normally on every GPS tick.
+   *
+   *   'preview_step' — TurnCarousel owns the camera while the user is peeking at
+   *                    an upcoming turn. useCameraController must stand down and
+   *                    NOT fire the follow easeTo, preventing the aggressive
+   *                    snap-back jitter that occurs because TurnCarousel swipe
+   *                    events never touch the Mapbox canvas DOM — so the existing
+   *                    `ownerRef` / `breakFollow` mechanism never fires.
+   *
+   * Set to 'preview_step' in the same synchronous tick as setTurnFlyToTarget so
+   * the guard in useCameraController is in place before the next GPS tick.
+   * Reset to 'follow_user' on TurnCarousel unmount, handleResumeFollow, and
+   * auto-resume (userHasManuallySelected → false).
+   */
+  cameraMode: 'follow_user' | 'preview_step';
+  setCameraMode: (mode: 'follow_user' | 'preview_step') => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -304,4 +325,6 @@ export const useMapStore = create<MapStore>((set, get) => ({
   },
   mapEmptyTapTick: 0,
   bumpMapEmptyTapTick: () => set((s) => ({ mapEmptyTapTick: s.mapEmptyTapTick + 1 })),
+  cameraMode: 'follow_user',
+  setCameraMode: (mode) => set({ cameraMode: mode }),
 }));

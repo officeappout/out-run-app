@@ -68,7 +68,7 @@ export default function FloatingSearchBar({
         value={searchQuery}
         onFocus={onFocus}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="flex-1 bg-transparent border-none outline-none text-sm font-semibold text-gray-900 placeholder:text-gray-500 text-right"
+        className="flex-1 bg-transparent border-none outline-none text-[16px] font-semibold text-gray-900 placeholder:text-gray-500 text-right"
       />
     </div>
   );

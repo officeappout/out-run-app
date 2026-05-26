@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
@@ -39,15 +40,21 @@ export default function LoaderScreen({ onComplete }: LoaderScreenProps) {
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-6" dir="rtl">
 
-      {/* --- לוגו ואנימציה ראשית --- */}
-      <div className="mb-12 relative">
-        {/* לוגו מהבהב */}
-        <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center animate-pulse">
-          <span className="text-3xl font-black text-[#4FB4F7]">OUT</span>
-        </div>
-
-        {/* טבעת מסתובבת סביב הלוגו */}
-        <div className="absolute inset-0 border-4 border-[#4FB4F7]/20 border-t-[#4FB4F7] rounded-full w-24 h-24 animate-spin"></div>
+      {/* --- Official logo with breathing pulse --- */}
+      <div className="mb-12 relative flex items-center justify-center">
+        <div
+          className="absolute inset-0 -m-6 rounded-full blur-2xl animate-pulse"
+          style={{
+            background: 'radial-gradient(circle, rgba(0,229,255,0.28) 0%, transparent 70%)',
+            animationDuration: '2s',
+          }}
+        />
+        <img
+          src="/assets/logo/Kind=logotype.svg"
+          alt="OUT"
+          className="relative h-14 brightness-0 opacity-80 animate-pulse"
+          style={{ animationDuration: '2s' }}
+        />
       </div>
 
       {/* --- רשימת המשימות --- */}

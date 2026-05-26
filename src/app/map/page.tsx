@@ -1,21 +1,25 @@
 /**
  * /map — Server Component entry point.
  *
- * Reads searchParams on the server and hands them down as props
- * so the client tree has the workoutId from millisecond zero —
- * no hydration mismatch, no useEffect patch.
+ * Reads searchParams on the server and hands them down as props so the
+ * client tree has the workoutId from millisecond zero — no hydration
+ * mismatch, no useEffect patch.
+ *
+ * Single dynamic boundary: page.tsx → MapShell (client chunk that includes
+ * Mapbox via its own next/dynamic split for AppMap). The old intermediate
+ * FullMapView chunk has been folded into MapShell, eliminating one
+ * sequential JS download before the Mapbox canvas can initialise.
  */
 
 import React, { Suspense } from 'react';
 import dynamicImport from 'next/dynamic';
 
-const FullMapView = dynamicImport(
-  () => import('./FullMapView'),
+const MapShellEntry = dynamicImport(
+  () => import('./MapShell'),
   {
-    // Map-toned skeleton — matches the placeholder colour the actual Mapbox
-    // canvas paints while tiles load (`#f3f4f6`). Replaces the previous
-    // centered "טוען מפה..." text so the very first paint already feels
-    // like the map background instead of a distinct loading screen.
+    // Map-toned skeleton — matches the `#f3f4f6` background that Mapbox
+    // paints during tile load, so the chunk-download placeholder and the
+    // canvas feel like one continuous frame rather than a distinct flash.
     loading: () => <div className="h-[100dvh] w-full bg-[#f3f4f6]" aria-busy="true" />,
     ssr: false,
   }
@@ -37,13 +41,8 @@ export default async function MapPage({ searchParams }: MapPageProps) {
       : null;
 
   return (
-    // Same map-toned skeleton as the dynamic-import fallback above so the
-    // outer Suspense boundary, the dynamic-import boundary, and the map's
-    // own pre-tile background all look like a single continuous frame.
-    // Three matching frames feel like "the map is loading", not three
-    // different loading screens flashing in sequence.
     <Suspense fallback={<div className="h-[100dvh] w-full bg-[#f3f4f6]" aria-busy="true" />}>
-      <FullMapView
+      <MapShellEntry
         initialWorkoutId={initialWorkoutId}
         initialContext={initialContext}
         spotFocus={spotFocus}

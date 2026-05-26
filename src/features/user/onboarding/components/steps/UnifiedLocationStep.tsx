@@ -393,6 +393,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
             city: result.displayName,
             location: { lat: latitude, lng: longitude, city: result.displayName },
           });
+          // Mirror the step-completion marker used by manual city/neighborhood
+          // selection (handleCitySelect) so both GPS and manual paths update
+          // the progress bar in sync.
+          setMajorRoadmapStep(2);
           
           try {
             const { Analytics } = await import('@/features/analytics/AnalyticsService');
@@ -578,6 +582,11 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
         city: city.displayName,
         location: { lat: snapLat, lng: snapLng, city: city.displayName },
       });
+      // Advance the progress bar immediately on city selection — same marker
+      // that handleConfirm fires so the step tracker never lags behind the
+      // user's intent. handleConfirm calling setMajorRoadmapStep(2) again is
+      // a safe no-op.
+      setMajorRoadmapStep(2);
     }
     
     setShowRadar(true);
@@ -605,7 +614,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // ══════════════════════════════════════════════════════════════════
 
   return (
-    <div dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-[#F8FAFC] z-50">
+    <div dir="rtl" className="fixed inset-0 w-full h-screen overflow-hidden bg-white z-[90]">
       {/* Map Container */}
       <div 
         className="absolute inset-0 overflow-hidden transition-all duration-300"

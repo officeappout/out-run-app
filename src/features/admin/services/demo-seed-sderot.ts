@@ -1,9 +1,9 @@
 /**
  * Sderot Demo Seed Tool
  *
- * Creates 60 realistic mock users with full data across 9 Firestore
- * collections, making every metric in the Sderot admin dashboard show
- * non-zero values.
+ * Creates 10 realistic mock users (tagged [דמו] with isMockData: true) with
+ * full data across 9 Firestore collections per authority, making every metric
+ * in the admin dashboard show non-zero values.
  *
  * Doc-ID convention: every mock document either uses an explicit
  * `sderot-mock-...` prefix or stores the user reference in a field
@@ -27,8 +27,6 @@ import {
 import { db } from '@/lib/firebase';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const SDEROT_AUTHORITY_ID = 'CdiRk1QP5UrUGSbGjCkU';
 
 const NEIGHBORHOOD_IDS = {
   shikma:    'HfPYNONzqDzJB2sJnKg9', // נאות השקמה
@@ -134,7 +132,8 @@ interface MockUser {
   displayName: string;
   gender: 'female' | 'male';
   birthDate: Date;
-  authorityId: string;            // neighborhood ID
+  authorityId: string;            // neighborhood ID (coordinate jitter only)
+  cityAuthorityId: string;        // the active authority passed at seed time
   neighborhoodCenter: { lat: number; lng: number };
   onboardingPath: 'FULL_PROGRAM' | 'RUNNING' | 'MAP_ONLY';
   personaId: string;
@@ -376,55 +375,62 @@ interface PlannedAssignment {
   trainingTime: '07:00' | '18:30';
 }
 
+// ── Mock user count per authority ────────────────────────────────────────────
+// Keeping this at 10 balances a competitive leaderboard spread against
+// Firestore write quota across many authorities in the same run.
+const MOCK_USER_COUNT = 10;
+
 function buildAssignments(): PlannedAssignment[] {
-  const TOTAL = 60;
+  const TOTAL = MOCK_USER_COUNT;
 
-  // Gender: 60% female (36) / 40% male (24)
+  // Gender: 60% female / 40% male (rounded to TOTAL)
   const genders: Array<'female' | 'male'> = [
-    ...Array<'female'>(36).fill('female'),
-    ...Array<'male'>(24).fill('male'),
+    ...Array<'female'>(6).fill('female'),
+    ...Array<'male'>(4).fill('male'),
   ];
 
-  // Age buckets — totals 60.
-  // 36-45: 33% (20), 26-35: 17% (10), 46-55: 25% (15), 18-25: 8% (5), 56+: 17% (10)
-  const ages: number[] = [];
-  for (let i = 0; i < 20; i++) ages.push(randInt(36, 45));
-  for (let i = 0; i < 10; i++) ages.push(randInt(26, 35));
-  for (let i = 0; i < 15; i++) ages.push(randInt(46, 55));
-  for (let i = 0; i < 5;  i++) ages.push(randInt(18, 25));
-  for (let i = 0; i < 10; i++) ages.push(randInt(56, 65));
+  // Age buckets — one representative from each important bracket keeps the
+  // leaderboard filter realistic across ageGroup 'adult' / 'minor'.
+  const ages: number[] = [
+    randInt(36, 45), randInt(36, 45), randInt(36, 45), // 3 mid-career (peak bracket)
+    randInt(26, 35), randInt(26, 35),                  // 2 young adult
+    randInt(46, 55), randInt(46, 55),                  // 2 pre-senior
+    randInt(18, 25),                                    // 1 young
+    randInt(56, 65), randInt(56, 65),                  // 2 senior (total = TOTAL)
+  ];
 
-  // Neighborhoods — 15 each.
-  const authorities: string[] = [];
-  for (const n of NEIGHBORHOODS) {
-    for (let i = 0; i < 15; i++) authorities.push(n.id);
-  }
+  // Neighborhoods — spread across all 4 for coordinate diversity.
+  const authorities: string[] = [
+    NEIGHBORHOOD_IDS.shikma,   NEIGHBORHOOD_IDS.shikma,   NEIGHBORHOOD_IDS.shikma,
+    NEIGHBORHOOD_IDS.bapark,   NEIGHBORHOOD_IDS.bapark,   NEIGHBORHOOD_IDS.bapark,
+    NEIGHBORHOOD_IDS.dekel,    NEIGHBORHOOD_IDS.dekel,
+    NEIGHBORHOOD_IDS.meysadim, NEIGHBORHOOD_IDS.meysadim,
+  ];
 
-  // Onboarding path — 36 / 12 / 12.
+  // Onboarding paths — 6 FULL_PROGRAM keeps strength leaderboard populated,
+  // 2 RUNNING and 2 MAP_ONLY keep cardio competitive.
   const paths: Array<'FULL_PROGRAM' | 'RUNNING' | 'MAP_ONLY'> = [
-    ...Array<'FULL_PROGRAM'>(36).fill('FULL_PROGRAM'),
-    ...Array<'RUNNING'>(12).fill('RUNNING'),
-    ...Array<'MAP_ONLY'>(12).fill('MAP_ONLY'),
+    ...Array<'FULL_PROGRAM'>(6).fill('FULL_PROGRAM'),
+    ...Array<'RUNNING'>(2).fill('RUNNING'),
+    ...Array<'MAP_ONLY'>(2).fill('MAP_ONLY'),
   ];
 
-  // Personas — distributed proportionally to total 60.
-  // Original spec sums to 70; rescaled: mothers(21), wellness_seekers(17),
-  // runners(9), gym_goers(7), seniors(6).
+  // Personas — all 5 types represented for dashboard metric variety.
   const personas: string[] = [
-    ...Array<string>(21).fill('mothers'),
-    ...Array<string>(17).fill('wellness_seekers'),
-    ...Array<string>(9).fill('runners'),
-    ...Array<string>(7).fill('gym_goers'),
-    ...Array<string>(6).fill('seniors'),
+    'mothers', 'mothers', 'mothers',
+    'wellness_seekers', 'wellness_seekers',
+    'runners', 'runners',
+    'gym_goers',
+    'seniors', 'seniors',
   ];
 
-  // Training times — 60% morning, 40% evening.
+  // Training times — 60% morning / 40% evening.
   const trainingTimes: Array<'07:00' | '18:30'> = [
-    ...Array<'07:00'>(36).fill('07:00'),
-    ...Array<'18:30'>(24).fill('18:30'),
+    ...Array<'07:00'>(6).fill('07:00'),
+    ...Array<'18:30'>(4).fill('18:30'),
   ];
 
-  // Shuffle each list independently (Fisher-Yates) so distributions cross.
+  // Fisher-Yates shuffle.
   const shuffle = <T,>(arr: T[]): T[] => {
     const out = arr.slice();
     for (let i = out.length - 1; i > 0; i--) {
@@ -435,29 +441,20 @@ function buildAssignments(): PlannedAssignment[] {
   };
 
   const sGenders = shuffle(genders);
-  const sAges = shuffle(ages);
-  const sAuth = shuffle(authorities);
-  const sPaths = shuffle(paths);
+  const sAges    = shuffle(ages);
+  const sAuth    = shuffle(authorities);
+  const sPaths   = shuffle(paths);
   const sPersonas = shuffle(personas);
-  const sTimes = shuffle(trainingTimes);
+  const sTimes   = shuffle(trainingTimes);
 
-  // Program templates for FULL_PROGRAM users (36 total).
-  // full_body(15), push(10), pull(11)
+  // Program templates for FULL_PROGRAM users (6 total) — 2 per template.
   const fullProgramTemplates: typeof PROGRAM_TEMPLATE_IDS[number][] = [
-    ...Array<'full_body'>(15).fill('full_body'),
-    ...Array<'push'>(10).fill('push'),
-    ...Array<'pull'>(11).fill('pull'),
+    'full_body', 'full_body', 'push', 'push', 'pull', 'pull',
   ];
   const sFullProgramTemplates = shuffle(fullProgramTemplates);
 
-  // Running targets for RUNNING users (12 total).
-  // 5k(5), 3k(4), 10k(2), maintenance(1)
-  const runningTargets: Array<'3k' | '5k' | '10k' | 'maintenance'> = [
-    ...Array<'5k'>(5).fill('5k'),
-    ...Array<'3k'>(4).fill('3k'),
-    ...Array<'10k'>(2).fill('10k'),
-    'maintenance',
-  ];
+  // Running targets for RUNNING users (2 total).
+  const runningTargets: Array<'3k' | '5k' | '10k' | 'maintenance'> = ['5k', '3k'];
   const sRunningTargets = shuffle(runningTargets);
 
   let fpIdx = 0;
@@ -480,8 +477,8 @@ function buildAssignments(): PlannedAssignment[] {
   return out;
 }
 
-async function step2_createUsers(progress: ProgressFn): Promise<MockUser[]> {
-  progress({ step: 'users', status: 'running', message: 'יוצר 60 משתמשי דמו…' });
+async function step2_createUsers(progress: ProgressFn, currentAuthorityId: string): Promise<MockUser[]> {
+  progress({ step: 'users', status: 'running', message: `יוצר ${MOCK_USER_COUNT} משתמשי דמו…` });
 
   const assignments = buildAssignments();
   const users: MockUser[] = [];
@@ -493,7 +490,7 @@ async function step2_createUsers(progress: ProgressFn): Promise<MockUser[]> {
       ? randItem(FEMALE_FIRST_NAMES)
       : randItem(MALE_FIRST_NAMES);
     const lastName = randItem(LAST_NAMES);
-    const displayName = `${firstName} ${lastName}`;
+    const displayName = `${firstName} ${lastName} [דמו]`;
     const birthDate = birthDateForAge(a.age);
     const neighborhoodCenter = NEIGHBORHOODS.find((n) => n.id === a.authorityId)!;
 
@@ -508,6 +505,7 @@ async function step2_createUsers(progress: ProgressFn): Promise<MockUser[]> {
       gender: a.gender,
       birthDate,
       authorityId: a.authorityId,
+      cityAuthorityId: currentAuthorityId,
       neighborhoodCenter: { lat: neighborhoodCenter.lat, lng: neighborhoodCenter.lng },
       onboardingPath: a.onboardingPath,
       personaId: a.personaId,
@@ -519,16 +517,17 @@ async function step2_createUsers(progress: ProgressFn): Promise<MockUser[]> {
 
     // Build the user document.
     const docData: Record<string, unknown> = {
+      isMockData: true,
       core: {
         displayName,
         name: displayName,
-        email: `${id}@sderot-demo.local`,
+        email: `${id}@demo.local`,
         gender: a.gender,
         birthDate: Timestamp.fromDate(birthDate),
-        authorityId: a.authorityId,
-        city: 'שדרות',
+        authorityId: currentAuthorityId,
         isApproved: false,
         isSuperAdmin: false,
+        isMockData: true,
         onboardingStatus: 'COMPLETED',
         accessLevel: 'free',
         loginCount: randInt(5, 60),
@@ -592,16 +591,16 @@ async function step2_createUsers(progress: ProgressFn): Promise<MockUser[]> {
     writes.push((b) => b.set(doc(db, 'users', id), docData));
   }
 
-  // Update Sderot authority userCount.
+  // Update authority userCount to the actual number of seeded bots.
   writes.push((b) =>
-    b.update(doc(db, 'authorities', SDEROT_AUTHORITY_ID), {
-      userCount: 60,
+    b.update(doc(db, 'authorities', currentAuthorityId), {
+      userCount: users.length,
       updatedAt: serverTimestamp(),
     }),
   );
 
   await commitBatched(writes);
-  progress({ step: 'users', status: 'done', message: `נוצרו 60 משתמשים`, count: 60 });
+  progress({ step: 'users', status: 'done', message: `נוצרו ${users.length} משתמשים`, count: users.length });
   return users;
 }
 
@@ -643,7 +642,7 @@ function buildWorkoutDoc(
     category, // dual-write for compatibility with WorkoutHistoryEntry
     hour: date.getHours(),
     dayOfWeek: date.getDay(),
-    authorityId: SDEROT_AUTHORITY_ID,
+    authorityId: user.cityAuthorityId,
     createdAt: Timestamp.fromDate(date),
   };
 
@@ -749,19 +748,23 @@ interface PresenceUser {
   lng: number;
 }
 
-async function step4_createPresence(users: MockUser[], progress: ProgressFn): Promise<PresenceUser[]> {
-  progress({ step: 'presence', status: 'running', message: 'יוצר 20 נוכחויות חיות…' });
+async function step4_createPresence(users: MockUser[], progress: ProgressFn, currentAuthorityId: string): Promise<PresenceUser[]> {
+  // Cap presence at 70 % of users (floor 1) so the "active right now" ratio is realistic.
+  const presenceCount = Math.max(1, Math.floor(users.length * 0.7));
+  progress({ step: 'presence', status: 'running', message: `יוצר ${presenceCount} נוכחויות חיות…` });
 
   const shuffled = [...users].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, 20);
+  const selected = shuffled.slice(0, presenceCount);
 
-  // 10 strength, 7 running, 3 walking
+  // Activity mix: ~50% strength, ~30% running, ~20% walking
+  const strengthCount = Math.max(1, Math.round(presenceCount * 0.5));
+  const runningCount  = Math.max(1, Math.round(presenceCount * 0.3));
+  const walkingCount  = Math.max(0, presenceCount - strengthCount - runningCount);
   const statuses: Array<'strength' | 'running' | 'walking'> = [
-    ...Array<'strength'>(10).fill('strength'),
-    ...Array<'running'>(7).fill('running'),
-    ...Array<'walking'>(3).fill('walking'),
+    ...Array<'strength'>(strengthCount).fill('strength'),
+    ...Array<'running'>(runningCount).fill('running'),
+    ...Array<'walking'>(walkingCount).fill('walking'),
   ];
-  // Shuffle status assignment so it's not strictly correlated with order.
   for (let i = statuses.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [statuses[i], statuses[j]] = [statuses[j], statuses[i]];
@@ -783,7 +786,7 @@ async function step4_createPresence(users: MockUser[], progress: ProgressFn): Pr
       name: user.displayName,
       lat,
       lng,
-      authorityId: SDEROT_AUTHORITY_ID,
+      authorityId: currentAuthorityId,
       mode: 'verified_global',
       activity: {
         status,
@@ -811,23 +814,25 @@ async function step4_createPresence(users: MockUser[], progress: ProgressFn): Pr
   }
 
   await commitBatched(writes);
-  progress({ step: 'presence', status: 'done', message: `נוצרו 20 נוכחויות`, count: 20 });
+  progress({ step: 'presence', status: 'done', message: `נוצרו ${presenceUsers.length} נוכחויות`, count: presenceUsers.length });
   return presenceUsers;
 }
 
-// ── Step 5: Create active_workouts (10 docs) ─────────────────────────────────
+// ── Step 5: Create active_workouts ───────────────────────────────────────────
 
-async function step5_createActiveWorkouts(presenceUsers: PresenceUser[], progress: ProgressFn): Promise<number> {
-  progress({ step: 'active_workouts', status: 'running', message: 'יוצר 10 אימונים פעילים…' });
+async function step5_createActiveWorkouts(presenceUsers: PresenceUser[], progress: ProgressFn, currentAuthorityId: string): Promise<number> {
+  // Active workouts = half of presence users (min 1).
+  const activeCount = Math.max(1, Math.floor(presenceUsers.length / 2));
+  progress({ step: 'active_workouts', status: 'running', message: `יוצר ${activeCount} אימונים פעילים…` });
 
-  const selected = presenceUsers.slice(0, 10);
+  const selected = presenceUsers.slice(0, activeCount);
   const writes: Array<(b: WriteBatch) => void> = [];
 
   for (const p of selected) {
     const birthYear = p.user.birthDate.getFullYear();
     const ageGroup = ageGroupBucket(p.user.birthDate);
     const docData: Record<string, unknown> = {
-      authorityId: SDEROT_AUTHORITY_ID,
+      authorityId: currentAuthorityId,
       neighborhoodId: p.user.authorityId,
       workoutType: p.status,
       location: { lat: p.lat, lng: p.lng },
@@ -843,8 +848,8 @@ async function step5_createActiveWorkouts(presenceUsers: PresenceUser[], progres
   }
 
   await commitBatched(writes);
-  progress({ step: 'active_workouts', status: 'done', message: `נוצרו 10 אימונים פעילים`, count: 10 });
-  return 10;
+  progress({ step: 'active_workouts', status: 'done', message: `נוצרו ${selected.length} אימונים פעילים`, count: selected.length });
+  return selected.length;
 }
 
 // ── Step 6: Create sessions (popular parks) ──────────────────────────────────
@@ -864,7 +869,7 @@ const PARK_SESSION_TIERS: Record<string, { min: number; max: number }> = {
   'MMrrLVFaWzxS6Vs9S6C1': { min: 15, max: 30 },
 };
 
-async function step6_createSessions(users: MockUser[], progress: ProgressFn): Promise<number> {
+async function step6_createSessions(users: MockUser[], progress: ProgressFn, currentAuthorityId: string): Promise<number> {
   progress({ step: 'sessions', status: 'running', message: 'יוצר ביקורים בפארקים…' });
 
   const writes: Array<(b: WriteBatch) => void> = [];
@@ -879,7 +884,7 @@ async function step6_createSessions(users: MockUser[], progress: ProgressFn): Pr
       const date = new Date(Date.now() - daysAgo * 86_400_000);
       date.setHours(randInt(6, 21), randInt(0, 59), 0, 0);
       const docData: Record<string, unknown> = {
-        authorityId: SDEROT_AUTHORITY_ID,
+        authorityId: currentAuthorityId,
         parkId,
         userId: user.id,
         date: Timestamp.fromDate(date),
@@ -896,7 +901,7 @@ async function step6_createSessions(users: MockUser[], progress: ProgressFn): Pr
 
 // ── Step 7: Create feed_posts (leaderboard) ──────────────────────────────────
 
-async function step7_createFeedPosts(users: MockUser[], progress: ProgressFn): Promise<number> {
+async function step7_createFeedPosts(users: MockUser[], progress: ProgressFn, currentAuthorityId: string): Promise<number> {
   progress({ step: 'feed_posts', status: 'running', message: 'יוצר פוסטים בפיד…' });
 
   const writes: Array<(b: WriteBatch) => void> = [];
@@ -904,18 +909,39 @@ async function step7_createFeedPosts(users: MockUser[], progress: ProgressFn): P
 
   for (const user of users) {
     const postCount = randInt(3, 8);
-    const category: 'strength' | 'cardio' = user.primaryActivity === 'strength' ? 'strength' : 'cardio';
+    const baseCategory: 'strength' | 'cardio' =
+      user.primaryActivity === 'strength' ? 'strength' : 'cardio';
+    const isMinor = ageFromBirthDate(user.birthDate) < 18;
+    const ageGroup: 'minor' | 'adult' = isMinor ? 'minor' : 'adult';
+
     for (let i = 0; i < postCount; i++) {
       const daysAgo = randInt(0, 30);
       const date = new Date(Date.now() - daysAgo * 86_400_000);
       date.setHours(randInt(6, 22), randInt(0, 59), 0, 0);
+
+      // 15 % chance to cross-category so both cardio + strength appear in the leaderboard
+      const postCategory: 'strength' | 'cardio' =
+        Math.random() < 0.15
+          ? baseCategory === 'strength' ? 'cardio' : 'strength'
+          : baseCategory;
+
+      const activityCredit = randInt(50, 500);
+
+      // Realistic XP scaled to category difficulty (mirrors xp.service ranges)
+      const durationMinutes = randInt(30, 75);
+      const xpAwarded = postCategory === 'strength'
+        ? Math.round(durationMinutes * randItem([1.2, 1.5, 1.8]) + randInt(0, 50))
+        : Math.round(durationMinutes * randItem([1.0, 1.2]) + randInt(0, 30));
+
       const docData: Record<string, unknown> = {
         authorUid: user.id,
         authorName: user.displayName,
-        authorityId: SDEROT_AUTHORITY_ID,
-        ageGroup: 'adult',
-        activityCredit: randInt(50, 500),
-        activityCategory: category,
+        authorityId: currentAuthorityId,
+        ageGroup,
+        gender: user.gender,
+        activityCredit,
+        activityCategory: postCategory,
+        xpAwarded,
         type: 'workout',
         createdAt: Timestamp.fromDate(date),
       };
@@ -973,7 +999,7 @@ async function step8_fixCommunityGroups(progress: ProgressFn): Promise<number> {
 
 // ── Step 9: Manager notifications (3 docs) ───────────────────────────────────
 
-async function step9_managerNotifications(progress: ProgressFn): Promise<number> {
+async function step9_managerNotifications(progress: ProgressFn, currentAuthorityId: string): Promise<number> {
   progress({ step: 'manager_notifications', status: 'running', message: 'יוצר התראות מנהל…' });
 
   const notifications: Array<{ title: string; message: string; savings: number }> = [
@@ -999,7 +1025,7 @@ async function step9_managerNotifications(progress: ProgressFn): Promise<number>
     const id = `${MOCK_PREFIX}notif-${pad3(i + 1)}`;
     writes.push((b) =>
       b.set(doc(db, 'manager_notifications', id), {
-        authorityId: SDEROT_AUTHORITY_ID,
+        authorityId: currentAuthorityId,
         type: 'health_milestone',
         title: n.title,
         message: n.message,
@@ -1024,13 +1050,13 @@ async function step9_managerNotifications(progress: ProgressFn): Promise<number>
  * everything else gets a light/cold tier. Re-running the seed simply
  * overwrites the previous values with fresh randoms in the same tier.
  */
-async function step10_updateRouteAnalytics(progress: ProgressFn): Promise<number> {
+async function step10_updateRouteAnalytics(progress: ProgressFn, currentAuthorityId: string): Promise<number> {
   progress({ step: 'route_analytics', status: 'running', message: 'מעדכן נתוני שימוש למסלולים…' });
 
   const snap = await getDocs(
     query(
       collection(db, 'official_routes'),
-      where('authorityId', '==', SDEROT_AUTHORITY_ID),
+      where('authorityId', '==', currentAuthorityId),
       orderBy('__name__'),
     ),
   );
@@ -1098,26 +1124,26 @@ async function step10_updateRouteAnalytics(progress: ProgressFn): Promise<number
 
 // ── Main runner ──────────────────────────────────────────────────────────────
 
-export async function runSderotDemoSeed(progress: ProgressFn): Promise<SeedResult> {
+export async function runSderotDemoSeed(progress: ProgressFn, currentAuthorityId: string): Promise<SeedResult> {
   const counts: Record<string, number> = {};
   const errors: string[] = [];
 
   try {
     counts['cleanup_legacy'] = await step1_cleanupOld(progress);
-    const users = await step2_createUsers(progress);
+    const users = await step2_createUsers(progress, currentAuthorityId);
     counts['users'] = users.length;
 
     counts['workouts'] = await step3_createWorkouts(users, progress);
 
-    const presenceUsers = await step4_createPresence(users, progress);
+    const presenceUsers = await step4_createPresence(users, progress, currentAuthorityId);
     counts['presence'] = presenceUsers.length;
 
-    counts['active_workouts'] = await step5_createActiveWorkouts(presenceUsers, progress);
-    counts['sessions'] = await step6_createSessions(users, progress);
-    counts['feed_posts'] = await step7_createFeedPosts(users, progress);
+    counts['active_workouts'] = await step5_createActiveWorkouts(presenceUsers, progress, currentAuthorityId);
+    counts['sessions'] = await step6_createSessions(users, progress, currentAuthorityId);
+    counts['feed_posts'] = await step7_createFeedPosts(users, progress, currentAuthorityId);
     counts['community_groups'] = await step8_fixCommunityGroups(progress);
-    counts['manager_notifications'] = await step9_managerNotifications(progress);
-    counts['route_analytics'] = await step10_updateRouteAnalytics(progress);
+    counts['manager_notifications'] = await step9_managerNotifications(progress, currentAuthorityId);
+    counts['route_analytics'] = await step10_updateRouteAnalytics(progress, currentAuthorityId);
 
     return { success: true, counts, errors };
   } catch (err: unknown) {
@@ -1129,7 +1155,7 @@ export async function runSderotDemoSeed(progress: ProgressFn): Promise<SeedResul
 
 // ── Cleanup runner ───────────────────────────────────────────────────────────
 
-export async function cleanSderotMockData(progress: ProgressFn): Promise<CleanResult> {
+export async function cleanSderotMockData(progress: ProgressFn, currentAuthorityId: string): Promise<CleanResult> {
   const deleted: Record<string, number> = {};
   const errors: string[] = [];
 
@@ -1228,10 +1254,10 @@ export async function cleanSderotMockData(progress: ProgressFn): Promise<CleanRe
     return COMMUNITY_GROUPS_TO_FIX.length + attSnap.size;
   });
 
-  // 9. Reset Sderot authority userCount.
+  // 9. Reset authority userCount.
   await safeDelete('authority_userCount_reset', async () => {
     const batch = writeBatch(db);
-    batch.update(doc(db, 'authorities', SDEROT_AUTHORITY_ID), {
+    batch.update(doc(db, 'authorities', currentAuthorityId), {
       userCount: 0,
       updatedAt: serverTimestamp(),
     });
@@ -1239,14 +1265,14 @@ export async function cleanSderotMockData(progress: ProgressFn): Promise<CleanRe
     return 1;
   });
 
-  // 10. Reset analytics on every Sderot official route to a zero baseline.
+  // 10. Reset analytics on every official route for this authority to a zero baseline.
   //     We re-write the full `analytics` object (rather than deleteField) so the
   //     schema remains consistent with the route-overlay/PopularRoutes consumers.
   await safeDelete('route_analytics_reset', async () => {
     const snap = await getDocs(
       query(
         collection(db, 'official_routes'),
-        where('authorityId', '==', SDEROT_AUTHORITY_ID),
+        where('authorityId', '==', currentAuthorityId),
       ),
     );
     if (snap.empty) return 0;

@@ -8,7 +8,6 @@ import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
 import ActivityCarousel from '@/features/parks/core/components/ActivityCarousel';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
-import SavedPlacesQuickRow from '@/features/parks/core/components/SavedPlacesQuickRow';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
 import RouteGenerationLoader from '@/features/parks/core/components/RouteGenerationLoader';
 import { useMapLogic } from '@/features/parks';
@@ -20,9 +19,10 @@ import { MapLayersControl } from '@/features/parks/core/components/MapLayersCont
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
+import { useUserStore } from '@/features/user';
 import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
 import SetSavedPlaceSheet from '@/features/user/places/components/SetSavedPlaceSheet';
-import type { SavedPlace, SavedPlaceKind } from '@/features/user/places/store/useSavedPlacesStore';
+import type { SavedPlaceKind } from '@/features/user/places/store/useSavedPlacesStore';
 import { useRecentSearchesStore } from '@/features/parks/core/store/useRecentSearchesStore';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import {
@@ -255,6 +255,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
   // their profile (the most common gap for non-gateway entry points).
   const userCityName = useUserCityName(userLocation);
 
+  const { profile } = useUserStore();
+  const myGroupIds = profile?.social?.groupIds ?? [];
+
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 
   // Reset the effective radius whenever the user explicitly changes the
@@ -263,7 +266,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
     setEffectiveRadius(requestedDistanceKm);
   }, [requestedDistanceKm]);
 
-  const { live, scheduled, isLoading } = usePartnerData(userLocation, effectiveRadius);
+  const { live, scheduled, isLoading } = usePartnerData(userLocation, effectiveRadius, myGroupIds);
 
   useEffect(() => {
     const total = live.length + scheduled.length;
@@ -385,13 +388,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
     await logic.handleAddressSelect(addr);
 
     // ── Recent-searches sync ──────────────────────────────────────
-    // Persist EVERY successful pick (park / route / mapbox / saved
-    // place) so the search overlay's "חיפושים אחרונים" list reflects
-    // the user's real history. The store dedups + caps internally so
-    // repeated taps on the same entry are safe. Saved-place picks
-    // are intentionally skipped here — they already live in the
-    // dedicated SavedPlacesQuickRow row above the search bar, and
-    // double-listing them as both shortcut + recent muddies the UX.
+    // Persist EVERY successful pick (park / route / mapbox) so the
+    // search overlay's "חיפושים אחרונים" list reflects the user's real
+    // history. The store dedups + caps internally so repeated taps on
+    // the same entry are safe. Saved-place picks route through the
+    // NavigationHub's own Quick Actions grid and are not double-listed
+    // here to keep the recents list uncluttered.
     if (addr?._source !== 'savedPlace' && Array.isArray(addr?.coords) && addr?.text) {
       const sourceForRecent: 'park' | 'route' | 'mapbox' =
         addr._source === 'park' || addr._source === 'route' ? addr._source : 'mapbox';
@@ -506,44 +508,22 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
 
   // ── Shared top bar: glassmorphic search + saved-places quick row + mode pills ──
   function renderTopBar() {
-    // Saved-place tap → start commute. Stamp `_source: 'savedPlace'` for
-    // analytics; the existing handleAddressSelect treats anything that
-    // isn't 'park' / 'route' as a commute trigger.
-    const handleSavedPlacePick = (place: SavedPlace) => {
-      startCommute({ coords: place.coords, label: place.address ?? place.label });
-    };
-
     return (
-      <div className="absolute top-0 left-0 right-0 z-[70] pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pointer-events-none">
+      <div
+        className="absolute left-0 right-0 z-[70] px-4 pointer-events-none"
+        style={{ top: 'calc(52px + env(safe-area-inset-top, 0px))', paddingTop: '0.75rem' }}
+      >
         <div className="max-w-md mx-auto w-full space-y-2">
-          {/* Premium glass search bar — focus opens NavigationHub overlay */}
+          {/* Premium glass search bar — focus opens NavigationHub overlay.
+              Home / Work saved-place shortcuts are surfaced inside the
+              NavigationHub full-screen overlay (Quick Actions grid) so
+              the map canvas stays uncluttered. */}
           <FloatingSearchBar
             inputRef={logic.searchInputRef}
             searchQuery={logic.searchQuery}
             onSearchChange={logic.setSearchQuery}
             onFocus={() => logic.setNavState('searching')}
           />
-
-          {/* Saved Home / Work shortcuts.
-              Visibility rule (refinement pass — was permanently
-              visible everywhere except commute mode, which the
-              field-test flagged as map clutter):
-                • Show ONLY when the user is genuinely at the start
-                  of a navigation / discovery flow, i.e.
-                  `mapMode === 'idle'` (initial map view) OR
-                  `mapMode === 'discover'` (browsing nearby routes).
-                • Always hidden during freeRun / commute / partners
-                  modes — the user has already committed to a flow
-                  and the shortcuts would just compete with the
-                  active surface. */}
-          {(mapMode === 'idle' || mapMode === 'discover') && (
-            <div className="pointer-events-auto">
-              <SavedPlacesQuickRow
-                onPick={handleSavedPlacePick}
-                onSetRequest={(kind) => setSetPlaceSheetKind(kind)}
-              />
-            </div>
-          )}
 
           {/* Mode header pills — also hidden in commute mode so the
               top surface stays focused on the active navigation flow. */}
@@ -691,7 +671,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
                 doesn't visually attach itself to the partners pill area —
                 the overlay owns the top-right slot in that mode. */}
             {partnerTab === null && (
-              <div className="absolute right-4 z-[50] pointer-events-none" style={{ top: 'calc(max(1.5rem, env(safe-area-inset-top)) + 116px)' }}>
+              <div className="absolute right-4 z-[50] pointer-events-none" style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}>
                 <MapLayersControl liveCount={live.length} />
               </div>
             )}

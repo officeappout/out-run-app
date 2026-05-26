@@ -121,7 +121,7 @@ export default function ProgressPage() {
   return (
     <div
       className="min-h-[100dvh] bg-[#F8FAFC]"
-      style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+      style={{ paddingBottom: '5rem' }}
     >
       {/* ── Sticky Header — pad below status bar. ── */}
       <header

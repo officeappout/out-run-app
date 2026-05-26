@@ -43,5 +43,5 @@ export type {
 } from './hooks/useWorkoutStateMachine';
 export { useWorkoutTimers } from './hooks/useWorkoutTimers';
 export type { UseWorkoutTimersResult } from './hooks/useWorkoutTimers';
-export { useWorkoutPersistence } from './hooks/useWorkoutPersistence';
+export { useWorkoutPersistence, clearWorkoutCheckpoint } from './hooks/useWorkoutPersistence';
 export type { WorkoutCheckpoint, UseWorkoutPersistenceResult } from './hooks/useWorkoutPersistence';

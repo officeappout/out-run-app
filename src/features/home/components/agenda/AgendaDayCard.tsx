@@ -10,12 +10,36 @@
  * Displays actual workout names, categories, and completion status.
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Plus, GripVertical, Footprints, Check, Zap, Timer, TrendingUp, Mountain } from 'lucide-react';
-import { getScheduleEntry, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { motion, useDragControls, useMotionValue, animate, type PanInfo } from 'framer-motion';
+import { Plus, GripVertical, Footprints, Check, Zap, Timer, TrendingUp, Mountain, Users, Trash2, Pencil } from 'lucide-react';
+import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import type { UserScheduleEntry, RecurringTemplate, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import { getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
+import { COMMUNITY_CATEGORY_COLORS } from '@/features/home/utils/day-display.utils';
+import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
+import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
+
+// ── Skill-aware helpers ────────────────────────────────────────────────────
+
+/**
+ * Resolves a human-readable Hebrew workout title from a schedule entry's
+ * `programIds` array. Falls back to "אימון כוח" for unknown IDs.
+ */
+function resolveStrengthTitle(programIds: string[] | undefined): string {
+  const primary = programIds?.[0];
+  if (!primary) return 'אימון כוח';
+
+  // Premium edge-case: combined hybrid session
+  if (primary === 'UPPER_CALISTHENICS') return 'אימון קליסטניקס משולב';
+
+  const display = SKILL_DISPLAY[primary as keyof typeof SKILL_DISPLAY];
+  if (display) return `אימון ${display.shortName}`;
+
+  return 'אימון כוח';
+}
+
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,9 +51,28 @@ interface AgendaDayCardProps {
   onSelect: () => void;
   userId: string;
   recurringTemplate?: RecurringTemplate;
-  onStartWorkout?: () => void;
+  /** Receives the ISO date of the tapped workout card so parents can synchronously update selectedDate. */
+  onStartWorkout?: (date: string) => void;
   onAddWorkout?: (date: string) => void;
-  onDragToDate?: (...args: unknown[]) => void;
+  /** Called when a long-press drag activates on any card in this row. */
+  onDragStart?: () => void;
+  /**
+   * Called on drag release. Parent hitTests `releaseY` against the day cards
+   * to determine the target date and shows the confirmation sheet.
+   *
+   * `entryId` identifies which entry is being moved.  It is `undefined` for
+   * synthesized recurring cards that have no Firestore record yet — in that
+   * case the parent must supply a `fallbackEntry` to `moveScheduleEntry`.
+   */
+  onCardDragEnd?: (entryId: string | undefined, releaseY: number) => void;
+  /** Called after the user confirms deletion of a persisted entry. */
+  onDeleteEntry?: (entryId: string, date: string) => void;
+  /** Called when the edit button (swipe-left) is tapped on a persisted personal entry. */
+  onEditEntry?: (entry: UserScheduleEntry) => void;
+  /** Called when a personal card is tapped — fires before onStartWorkout. */
+  onPreviewEntry?: (entry: UserScheduleEntry) => void;
+  /** Called when a community entry is tapped — opens a drawer instead of navigating. */
+  onCommunityTap?: (groupId: string, groupName: string) => void;
   refreshKey?: number;
   rowRef?: (el: HTMLDivElement | null) => void;
 }
@@ -58,10 +101,34 @@ const CATEGORY_LABELS_HE: Record<string, string> = {
   strides: 'סטריידים', recovery: 'התאוששות',
 };
 
-const CATEGORY_EMOJI: Record<ScheduleActivityCategory, string> = {
-  strength: '💪',
-  cardio: '🏃',
-  maintenance: '⚡',
+// ── Strength card constants ─────────────────────────────────────────────────
+// Uses BRAND_CYAN (#00C9F2) — same as CATEGORY_COLORS.strength in day-display.utils.
+const CATEGORY_ACCENT: Record<ScheduleActivityCategory, string> = {
+  strength: '#00C9F2',
+  cardio: '#84CC16',
+  maintenance: '#A855F7',
+};
+const CATEGORY_PILL_LABEL: Record<ScheduleActivityCategory, string> = {
+  strength: 'כוח',
+  cardio: 'קרדיו',
+  maintenance: 'תחזוקה',
+};
+const STRENGTH_DURATION_ESTIMATE = '30–45 דק׳';
+
+// ── Run card per-category colors (accent bar + border/bg tint) ─────────────
+const RUN_CARD_COLORS: Record<string, string> = {
+  easy_run:           '#4CAF50',
+  long_run:           '#2E7D32',
+  short_intervals:    '#E11D48',
+  long_intervals:     '#0D9488',
+  fartlek_easy:       '#CE93D8',
+  fartlek_structured: '#AB47BC',
+  tempo:              '#9C27B0',
+  hill_long:          '#FF7043',
+  hill_short:         '#EF6C00',
+  hill_sprints:       '#DC2626',
+  strides:            '#00BAF7',
+  recovery:           '#B0BEC5',
 };
 
 function getCategoryIcon(category: string | undefined) {
@@ -141,6 +208,413 @@ function resolveRunningEntry(
   };
 }
 
+// ── Community title mapping ────────────────────────────────────────────────
+//
+// `scheduledCategories[0]` on a community entry stores the **group's**
+// category (walking / running / yoga / calisthenics / cycling / other).
+// This is force-cast through `ScheduleActivityCategory` at write time in
+// `communitySchedule.service.ts` (line ~112), so at runtime the value is a
+// plain string — we widen through `string` here to handle every group
+// category, not just the three strict `ScheduleActivityCategory` values.
+
+const COMMUNITY_TITLE_BY_CATEGORY: Record<string, string> = {
+  walking: 'קבוצת הליכה',
+  running: 'קבוצת ריצה',
+  yoga: 'קבוצת יוגה',
+  calisthenics: 'קבוצת קליסטניקס',
+  cycling: 'קבוצת רכיבה',
+  other: 'אימון קבוצתי',
+};
+
+function getCommunityTitle(entry: UserScheduleEntry): string {
+  const cat = entry.scheduledCategories?.[0] as string | undefined;
+  if (!cat) return 'אימון קבוצתי';
+  return COMMUNITY_TITLE_BY_CATEGORY[cat] ?? 'אימון קבוצתי';
+}
+
+const COMMUNITY_CARD_ICON: Record<string, React.FC<{ className?: string }>> = {
+  walking: WalkingIcon,
+  running: RunIcon,
+};
+
+// ── StrengthCard sub-component ─────────────────────────────────────────────
+//
+// Each card on a row owns its own `useDragControls` and long-press timer so
+// multiple cards can drag independently.  React doesn't allow `useDragControls`
+// inside a `.map()` callback, hence this dedicated component.
+//
+// When `entry.source === 'community'`, a small group-icon badge is rendered in
+// the bottom-left corner of the card (consistent with existing pill patterns
+// in this file like "הושלם" / "היום").
+
+interface StrengthCardProps {
+  /** The schedule entry — its `source` drives the community badge. */
+  entry: UserScheduleEntry;
+  /** Show "completed" styling: strikethrough title + green accent bar. */
+  isCompleted: boolean;
+  /** Show "today" styling: cyan-tinted card border. */
+  isToday: boolean;
+  /** Past-day cards are not draggable and not tappable. */
+  baseMode: CardMode;
+  /**
+   * When the card sits next to a sibling, both share the row 50/50
+   * (`flex: 1`).  When it's alone, it owns half the row (`width: 50%`).
+   */
+  isShared: boolean;
+  /** False on past/empty/loading/running rows. */
+  isDraggable: boolean;
+  /**
+   * Override accent bar color.  Pass `COMMUNITY_CATEGORY_COLORS[category]`
+   * for community entries; omit (or pass `undefined`) for personal strength
+   * cards, which default to brand cyan `#00C9F2`.
+   */
+  accentColor?: string;
+  /**
+   * Tap handler — typically opens the workout preview. Skipped for past days.
+   * Receives the ISO date string of the tapped entry so callers can update
+   * their selected-date state synchronously before opening the preview.
+   */
+  onTap?: (date: string) => void;
+  /** Fires when long-press → drag activates so the parent can lift z-index. */
+  onDragStart?: () => void;
+  /** Fires on drag release with the absolute Y of the release event. */
+  onDragEnd: (releaseY: number) => void;
+  /**
+   * Called when the red delete button (revealed by swipe-left) is tapped.
+   * Only fired for persisted entries (entryId is defined) that are not
+   * community entries and not on past days.
+   */
+  onDeleteRequest?: (entryId: string) => void;
+  /**
+   * Called when the blue edit button (revealed by swipe-left) is tapped.
+   * Only fired for persisted personal entries on non-past days.
+   */
+  onEditRequest?: (entryId: string) => void;
+  /**
+   * Called when the card is tapped (non-community, non-past).
+   * Fires before onTap so parents can capture the entry context.
+   */
+  onPreviewEntry?: (entry: UserScheduleEntry) => void;
+  /** Called when a community entry is tapped — opens a drawer instead of navigating. */
+  onCommunityTap?: (groupId: string, groupName: string) => void;
+}
+
+const DRAG_LONG_PRESS_MS = 500;
+
+function StrengthCard({
+  entry,
+  isCompleted,
+  isToday,
+  baseMode,
+  isShared,
+  isDraggable,
+  accentColor,
+  onTap,
+  onCommunityTap,
+  onDragStart,
+  onDragEnd,
+  onDeleteRequest,
+  onEditRequest,
+  onPreviewEntry,
+}: StrengthCardProps) {
+  const dragControls = useDragControls();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Swipe-to-reveal (x-axis) ──────────────────────────────────────────────
+  const swipeX = useMotionValue(0);
+  // Swipe is only available for persisted personal entries on non-past days.
+  const canSwipe = !!(entry.entryId) && entry.source !== 'community' && baseMode !== 'past';
+
+  // Measure the container to derive the correct snap point so the card
+  // never slides fully off screen. We always leave ≥16px of the card visible.
+  const PANEL_WIDTH = 160;
+  const MIN_VISIBLE = 16;
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
+  const [openX, setOpenX] = useState(-PANEL_WIDTH);
+
+  useLayoutEffect(() => {
+    if (!canSwipe) return;
+    const el = swipeContainerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.offsetWidth;
+      // Snap at most PANEL_WIDTH left, but always leave MIN_VISIBLE px of card
+      setOpenX(-Math.min(PANEL_WIDTH, w - MIN_VISIBLE));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [canSwipe]);
+
+  const SNAP_SPRING = { type: 'spring' as const, stiffness: 300, damping: 30 };
+
+  const handleSwipeDragEnd = useCallback(
+    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      if (info.offset.x < -50) {
+        animate(swipeX, openX, SNAP_SPRING);
+      } else {
+        animate(swipeX, 0, SNAP_SPRING);
+      }
+    },
+    [swipeX, openX],
+  );
+
+  const closeSwipe = useCallback(() => {
+    animate(swipeX, 0, SNAP_SPRING);
+  }, [swipeX]);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const handleGripDown = useCallback((e: React.PointerEvent) => {
+    if (baseMode === 'past') return;
+    e.stopPropagation();
+    // Close swipe first if open before starting a y-drag.
+    closeSwipe();
+    const ev = e;
+    timerRef.current = setTimeout(() => {
+      onDragStart?.();
+      dragControls.start(ev);
+    }, DRAG_LONG_PRESS_MS);
+  }, [baseMode, dragControls, onDragStart, closeSwipe]);
+
+  const handleGripUp = useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  }, []);
+
+  const handleYDragEnd = useCallback(
+    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => onDragEnd(info.point.y),
+    [onDragEnd],
+  );
+
+  const isCommunity = entry.source === 'community';
+
+  /**
+   * Community cards navigate to the group drawer; personal cards call the
+   * workout-preview `onTap`.  Past-day taps are suppressed in both cases.
+   * If the card is swiped open, a tap closes the swipe instead.
+   */
+  const activate = useCallback(() => {
+    if (baseMode === 'past') return;
+    if (swipeX.get() < -10) { closeSwipe(); return; }
+    if (isCommunity) {
+      onCommunityTap?.(entry.groupId ?? '', entry.groupName ?? '');
+      return;
+    }
+    onPreviewEntry?.(entry);
+    onTap?.(entry.date);
+  }, [baseMode, isCommunity, entry.groupId, entry.groupName, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, entry]);
+
+  const handleTap = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    activate();
+  }, [activate]);
+
+  const handleKey = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.stopPropagation();
+    activate();
+  }, [activate]);
+
+  const handleDeleteTap = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeSwipe();
+    if (entry.entryId) onDeleteRequest?.(entry.entryId);
+  }, [closeSwipe, entry.entryId, onDeleteRequest]);
+
+  const handleEditTap = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeSwipe();
+    if (entry.entryId) onEditRequest?.(entry.entryId);
+  }, [closeSwipe, entry.entryId, onEditRequest]);
+
+  const barColor = isCompleted ? '#1D9E75' : (accentColor ?? '#00C9F2');
+  const title = isCommunity
+    ? getCommunityTitle(entry)
+    : resolveStrengthTitle(entry.programIds);
+  const CommunityIcon: React.FC<{ className?: string }> | undefined = isCommunity
+    ? COMMUNITY_CARD_ICON[entry.scheduledCategories?.[0] as string ?? '']
+    : undefined;
+  const personalIconKey = isCommunity
+    ? undefined
+    : resolveIconKey(entry.programIds?.[0], entry.scheduledCategories?.[0]);
+
+  return (
+    <motion.div
+      drag={isDraggable ? 'y' : false}
+      dragControls={dragControls}
+      dragListener={false}
+      dragConstraints={{ top: -3000, bottom: 3000 }}
+      dragElastic={0}
+      dragMomentum={false}
+      dragSnapToOrigin
+      onDragEnd={handleYDragEnd}
+      style={{
+        position: 'relative',
+        minWidth: 0,
+        ...(isShared ? { flex: 1 } : { width: '50%' }),
+      }}
+      whileDrag={{
+        scale: 1.02,
+        boxShadow: '0 8px 30px rgba(0,0,0,0.14)',
+        zIndex: 100,
+        borderRadius: 8,
+        backgroundColor: '#ffffff',
+      }}
+    >
+      {/* Swipe-and-reveal container — clips the sliding card and exposes the action panel */}
+      <div ref={swipeContainerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
+
+        {/* Action panel — revealed on swipe-left: edit (blue) + delete (red) */}
+        {canSwipe && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0, bottom: 0, right: 0,
+              width: 160,
+              display: 'flex',
+            }}
+          >
+            {/* Edit button (left half of panel) */}
+            <div
+              style={{
+                flex: 1,
+                background: '#3B82F6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <button
+                onClick={handleEditTap}
+                className="flex flex-col items-center gap-0.5 text-white active:opacity-70 transition-opacity"
+                aria-label="ערוך אימון"
+              >
+                <Pencil className="w-4 h-4" />
+                <span className="text-[10px] font-bold">ערוך</span>
+              </button>
+            </div>
+            {/* Delete button (right half of panel) */}
+            <div
+              style={{
+                flex: 1,
+                background: '#EF4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <button
+                onClick={handleDeleteTap}
+                className="flex flex-col items-center gap-0.5 text-white active:opacity-70 transition-opacity"
+                aria-label="מחק אימון"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-[10px] font-bold">מחק</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* X-draggable card layer */}
+        <motion.div
+          drag={canSwipe ? 'x' : false}
+          style={{ x: swipeX, touchAction: 'pan-y', opacity: 1 }}
+          dragConstraints={{ left: openX, right: 0 }}
+          dragElastic={0}
+          dragMomentum={false}
+          onDragEnd={handleSwipeDragEnd}
+        >
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={handleTap}
+            onKeyDown={handleKey}
+            className="min-w-0 flex items-stretch cursor-pointer"
+            style={{
+              position: 'relative',
+              width: '100%',
+              border: `0.5px solid ${isToday ? '#00C9F240' : '#E0E9FF'}`,
+              background: 'var(--color-background-primary, #ffffff)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              minHeight: 36,
+            }}
+          >
+            {/* 4px accent bar on the RIGHT (first child in RTL flex = visual right) */}
+            <div
+              className="flex-shrink-0"
+              style={{ width: 4, backgroundColor: barColor }}
+            />
+
+            {/* Card body */}
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '6px 8px', color: barColor }}>
+              {isCommunity
+                ? (CommunityIcon && <CommunityIcon className="w-4 h-4 flex-shrink-0" />)
+                : (() => {
+                    const primaryId = entry.programIds?.[0];
+                    const skillDisplay = primaryId
+                      ? SKILL_DISPLAY[primaryId as keyof typeof SKILL_DISPLAY]
+                      : null;
+                    return skillDisplay
+                      ? (
+                        <img
+                          src={skillDisplay.iconPath}
+                          alt={skillDisplay.shortName}
+                          className="w-4 h-4 object-contain flex-shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      )
+                      : getProgramIcon(personalIconKey, 'w-4 h-4 flex-shrink-0');
+                  })()
+              }
+              <p className={`text-[13px] font-medium leading-tight truncate ${
+                isCompleted ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'
+              }`}>
+                {title}
+              </p>
+            </div>
+
+            {/* Grip handle */}
+            {isDraggable && (
+              <div
+                className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing flex items-center flex-shrink-0"
+                style={{ touchAction: 'none', padding: '4px 2px' }}
+                onPointerDown={handleGripDown}
+                onPointerUp={handleGripUp}
+                onPointerCancel={handleGripUp}
+              >
+                <GripVertical className="w-3.5 h-3.5" />
+              </div>
+            )}
+
+            {/* Community badge — bottom-left corner of the card */}
+            {isCommunity && (
+              <div
+                className="absolute flex items-center justify-center"
+                style={{
+                  bottom: 3,
+                  left: 3,
+                  padding: '1px 3px',
+                  borderRadius: 3,
+                  background: '#E8F4FE',
+                }}
+                aria-label={entry.groupName ? `קבוצה: ${entry.groupName}` : 'אימון קהילתי'}
+                title={entry.groupName ?? 'אימון קהילתי'}
+              >
+                <Users className="w-2.5 h-2.5" style={{ color: '#3B82F6' }} />
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function AgendaDayCard({
@@ -149,13 +623,27 @@ export default function AgendaDayCard({
   onSelect,
   userId,
   recurringTemplate,
+  onStartWorkout,
   onAddWorkout,
-  onDragToDate,
+  onDragStart,
+  onCardDragEnd,
+  onDeleteEntry,
+  onEditEntry,
+  onPreviewEntry,
+  onCommunityTap,
   refreshKey,
   rowRef,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
-  const [entry, setEntry] = useState<UserScheduleEntry | null | undefined>(undefined);
+  /**
+   * `undefined` while the initial fetch is in flight, then a (possibly empty)
+   * array.  The first element after migration plays the role of the legacy
+   * "primary" entry; subsequent elements are additional workouts on the same
+   * day (formerly written as `_2` Firestore docs).
+   */
+  const [entries, setEntries] = useState<UserScheduleEntry[] | undefined>(undefined);
+  /** entryId pending delete-confirmation; null when the sheet is hidden. */
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const baseMode = resolveCardMode(date);
   const d = new Date(date + 'T00:00:00');
   const dayLetter = getHebrewDayLetter(d);
@@ -179,53 +667,122 @@ export default function AgendaDayCard({
   const runCompleted = runningWorkout?.status === 'completed';
 
   useEffect(() => {
-    // Skip Firestore lookup if we already have running schedule data for this day
-    if (hasRunning) { setEntry(null); return; }
-    if (!userId) { setEntry(null); return; }
+    // Reset to loading state on every re-run so the destination card
+    // always re-renders after a drag move (not stuck showing stale data).
+    setEntries(undefined);
+    if (hasRunning) { setEntries([]); return; }
+    if (!userId) { setEntries([]); return; }
     let cancelled = false;
     async function load() {
       try {
-        let e = await getScheduleEntry(userId, date);
-        if (!e && recurringTemplate) {
-          e = await hydrateFromTemplate(userId, date, recurringTemplate);
+        // Single round-trip — getScheduleEntries returns the full entries[] for the day.
+        let result = await getScheduleEntries(userId, date);
+
+        // Recurring-template fallback — only if Firestore returned nothing.
+        if (result.length === 0 && recurringTemplate) {
+          const hydrated = await hydrateFromTemplate(userId, date, recurringTemplate);
+          if (hydrated) result = [hydrated];
         }
-        if (!cancelled) setEntry(e);
+
+        // scheduleDays fallback — synthesize a recurring strength entry without
+        // writing to Firestore.  Makes strength users' scheduled days visible
+        // without requiring a recurringTemplate (which is only written for
+        // running users).
+        if (result.length === 0) {
+          const letter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
+          const scheduleDays = profile?.lifestyle?.scheduleDays as string[] | undefined;
+          if (scheduleDays?.includes(letter)) {
+            result = [{
+              userId,
+              date,
+              programIds: (profile?.progression?.activePrograms as any[] | undefined)
+                ?.map((p: any) => p.templateId).filter(Boolean) ?? [],
+              type: 'training',
+              source: 'recurring',
+              completed: false,
+              scheduledCategories: ['strength'],
+            } as UserScheduleEntry];
+          }
+        }
+
+        if (!cancelled) setEntries(result);
       } catch {
-        if (!cancelled) setEntry(null);
+        if (!cancelled) setEntries([]);
       }
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, hasRunning]);
+  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onAddWorkout?.(date);
   }, [onAddWorkout, date]);
 
-  const isLoading = entry === undefined && !hasRunning;
-  const isRest = !hasRunning && (entry === null || entry?.type === 'rest');
-  const isCompleted = runCompleted || (entry?.completed ?? false);
+  // ── Derived day-level state (uses the priority-picked primary entry) ──────
+  //
+  // The "primary" entry is what drives day-level UI: timeline-dot color, day-
+  // number color, isCompleted strikethrough.  We mirror the legacy
+  // `getScheduleEntry` priority — first non-community training, then any
+  // training, then any entry — so behavior is unchanged on single-entry days.
+  const primaryEntry: UserScheduleEntry | null = entries === undefined
+    ? null
+    : (entries.find((e) => e.type === 'training' && e.source !== 'community')
+       ?? entries.find((e) => e.type === 'training')
+       ?? entries[0]
+       ?? null);
+
+  // Training entries get rendered as cards.  Rest-override entries (type:'rest'
+  // with source:'manual') are filtered out so they don't appear as cards but
+  // still drive `isRest` below.
+  const trainingEntries = (entries ?? []).filter((e) => e.type === 'training');
+  const trainingCount   = trainingEntries.length;
+
+  const isLoading = entries === undefined && !hasRunning;
+  const isEmpty   = !hasRunning && !isLoading && entries !== undefined && entries.length === 0 && baseMode === 'future';
+  const isMissedPast = baseMode === 'past' && primaryEntry?.type === 'training' && primaryEntry?.completed === false;
+  const isRest    = !hasRunning && !isEmpty && (!primaryEntry || primaryEntry?.type === 'rest' || isMissedPast);
+  const isCompleted = runCompleted || (primaryEntry?.completed ?? false);
   const mode: CardMode = isRest ? 'rest' : baseMode;
-  const timeLabel = formatTime(entry?.startTime);
-  const showAdd = onAddWorkout && !hasRunning && (mode === 'future' || mode === 'rest' || (mode === 'today' && !isCompleted));
-  const isDraggable = !!onDragToDate && !isRest && !isLoading;
+  const timeLabel = formatTime(primaryEntry?.startTime);
+  const hasContent = !isLoading && (primaryEntry !== null || hasRunning || isRest);
+  const showAddButton = !!onAddWorkout && hasContent && !isEmpty && baseMode !== 'past';
+  const isDraggable = !!onCardDragEnd && !isRest && !isEmpty && !isLoading && !hasRunning;
+
+  /**
+   * Per-card drag handlers live inside `StrengthCard`.  Each card forwards
+   * its `entryId` (or `undefined` for synthesized recurring fallbacks) so the
+   * parent can identify exactly which entry is being moved.
+   */
+  const handleCardDragRelease = useCallback(
+    (entryId: string | undefined, y: number) => onCardDragEnd?.(entryId, y),
+    [onCardDragEnd],
+  );
 
   const cats: ScheduleActivityCategory[] = hasRunning
     ? ['cardio']
-    : entry?.scheduledCategories && entry.scheduledCategories.length > 0
-      ? entry.scheduledCategories
+    : primaryEntry?.scheduledCategories && primaryEntry.scheduledCategories.length > 0
+      ? primaryEntry.scheduledCategories
       : (isRest ? [] : ['strength']);
 
-  // ── Visual styling ────────────────────────────────────────────────────
+  // ── Derived styling helpers ──────────────────────────────────────────────
 
   const isToday = mode === 'today';
   const isFutureRest = isRest && baseMode === 'future';
   const isPastRest = isRest && baseMode === 'past';
 
+  // Dominant accent color for strength/cardio/maintenance workout cards
+  const dominantCat = cats.includes('strength') ? 'strength'
+    : cats.includes('cardio') ? 'cardio'
+    : cats[0] ?? 'strength';
+  const accentColor: string = CATEGORY_ACCENT[dominantCat as ScheduleActivityCategory] ?? '#00C9F2';
+
+  // Per-type color for running cards
+  const runColor: string = RUN_CARD_COLORS[runningWorkout?.category ?? ''] ?? '#4CAF50';
+
   return (
     <div ref={rowRef} data-date={date}>
-      {/* role="button" instead of <button> to allow a real <button> child (Add workout) */}
+      {/* role="button" instead of <button> to allow real <button> children */}
       <div
         role="button"
         tabIndex={0}
@@ -233,7 +790,7 @@ export default function AgendaDayCard({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
         className={`
           w-full flex items-center gap-1.5 px-1 text-right transition-colors cursor-pointer
-          ${isRest ? 'h-[36px]' : 'h-[44px]'}
+          ${(isRest || isEmpty) ? 'h-[46px]' : 'h-[56px]'}
           ${isSelected ? 'bg-cyan-50/60 dark:bg-cyan-950/20' : 'bg-transparent'}
           active:bg-gray-50 dark:active:bg-gray-800/40
         `}
@@ -251,7 +808,7 @@ export default function AgendaDayCard({
               ? 'text-base font-black text-cyan-600 dark:text-cyan-400'
               : isCompleted
                 ? 'text-base font-black text-emerald-600 dark:text-emerald-400'
-                : isRest
+                : (isRest || isEmpty)
                   ? 'text-sm font-semibold text-gray-500 dark:text-gray-400'
                   : 'text-base font-black text-gray-900 dark:text-gray-100'
           }`}>
@@ -261,7 +818,7 @@ export default function AgendaDayCard({
 
         {/* ── Timeline dot ── */}
         <div className="flex flex-col items-center self-stretch py-2 flex-shrink-0">
-          {(isFutureRest || isPastRest) ? (
+          {(isFutureRest || isPastRest || isEmpty) ? (
             <div className="w-1.5 h-1.5 flex-shrink-0" />
           ) : (
             <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -270,86 +827,201 @@ export default function AgendaDayCard({
               : 'bg-gray-200 dark:bg-gray-700'
             }`} />
           )}
-          <div className="w-px flex-1 mt-0.5 bg-gray-100 dark:bg-gray-800" />
+          <div className="w-px flex-1 mt-0.5" style={{ backgroundColor: 'rgba(100,116,139,0.4)' }} />
         </div>
 
-        {/* ── CENTER: Activity name + status ── */}
+        {/* ── CENTER: Activity content ── */}
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
           {isLoading ? (
+            /* Loading skeleton */
             <div className="h-2.5 w-16 bg-gray-100 dark:bg-gray-800 rounded-full animate-pulse" />
-          ) : mode === 'rest' ? (
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">🛌 מנוחה</span>
-          ) : isCompleted ? (
-            <div className="flex items-center gap-1.5 min-w-0">
-              {hasRunning ? (
-                <span className="text-cyan-500">{getCategoryIcon(runningWorkout?.category)}</span>
-              ) : (
-                cats.map((cat) => (
-                  <span key={cat} className="text-xs flex-shrink-0">{CATEGORY_EMOJI[cat]}</span>
-                ))
-              )}
-              <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 truncate">
-                {hasRunning ? runningWorkout!.name : 'אימון'}
-              </span>
-              <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-emerald-50 dark:bg-emerald-900/20 flex-shrink-0">
-                <Check className="w-2.5 h-2.5 text-emerald-500" />
-                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">הושלם</span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 min-w-0">
-              {hasRunning ? (
-                <span className={isToday ? 'text-cyan-500' : 'text-gray-400'}>
-                  {getCategoryIcon(runningWorkout?.category)}
-                </span>
-              ) : (
-                cats.map((cat) => (
-                  <span key={cat} className="text-xs flex-shrink-0">{CATEGORY_EMOJI[cat]}</span>
-                ))
-              )}
-              {hasRunning ? (
-                <span className={`text-[10px] font-semibold truncate ${
-                  isToday ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'
-                }`}>
-                  {runningWorkout!.name}
-                </span>
-              ) : (
-                <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">מתוכנן</span>
-              )}
-              {isToday && (
-                <div className="flex items-center gap-1 px-1.5 py-px rounded-md bg-cyan-50 dark:bg-cyan-900/20 flex-shrink-0">
-                  <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse" />
-                  <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400">היום</span>
-                </div>
-              )}
-              {timeLabel && (
-                <span className={`text-[10px] font-bold tabular-nums flex-shrink-0 ${
-                  isToday ? 'text-cyan-500' : 'text-gray-600 dark:text-gray-300'
-                }`}>{timeLabel}</span>
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* ── LEFT: Add button + drag handle ── */}
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          {showAdd && (
+          ) : isEmpty ? (
+            /* ── Empty future day: plain + הוסף אימון text ── */
             <button
               onClick={handleAddClick}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 active:scale-90 transition-all text-gray-400 hover:text-cyan-500"
+              className="flex items-center gap-1.5 transition-colors active:scale-95"
+              style={{ color: '#64748B' }}
               aria-label="הוסף אימון ליום זה"
             >
               <Plus className="w-3 h-3" strokeWidth={2.5} />
-              <span className="text-[10px] font-bold">הוסף</span>
+              <span className="text-[10px] font-semibold">הוסף אימון</span>
             </button>
-          )}
-          {isDraggable && (
-            <div className="text-gray-200 dark:text-gray-700 cursor-grab active:cursor-grabbing">
-              <GripVertical className="w-3 h-3" />
+
+          ) : mode === 'rest' ? (
+            /* ── Rest day ── */
+            (baseMode !== 'past' && !!onAddWorkout) ? (
+              <button
+                onClick={handleAddClick}
+                className="flex items-center gap-1.5 transition-colors active:scale-95"
+                style={{ color: '#64748B' }}
+                aria-label="הוסף אימון ליום זה"
+              >
+                <Plus className="w-3 h-3" strokeWidth={2.5} />
+                <span className="text-[10px] font-semibold">הוסף אימון</span>
+              </button>
+            ) : (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">🛌 מנוחה</span>
+            )
+
+          ) : hasRunning ? (
+            /* ── Running workout — styled card with per-type accent bar ── */
+            <div className="flex items-center flex-1 min-w-0" style={{ gap: 4 }}>
+              <div
+                className="min-w-0 flex items-stretch flex-shrink-0"
+                style={{
+                  width: '50%',
+                  border: `0.5px solid ${isCompleted ? '#1D9E7540' : `${runColor}26`}`,
+                  background: isCompleted ? 'var(--color-background-primary, #ffffff)' : `${runColor}0D`,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  minHeight: 36,
+                }}
+              >
+                {/* Accent bar */}
+                <div className="flex-shrink-0" style={{ width: 4, backgroundColor: isCompleted ? '#1D9E75' : runColor }} />
+
+                {/* Card body */}
+                <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '5px 10px' }}>
+                  <span style={{ color: isCompleted ? '#1D9E75' : runColor, flexShrink: 0 }}>
+                    {getCategoryIcon(runningWorkout?.category)}
+                  </span>
+                  <span className={`text-[11px] font-semibold truncate flex-1 min-w-0 ${
+                    isCompleted ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {runningWorkout!.name}
+                  </span>
+                  {isCompleted ? (
+                    <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-emerald-50 dark:bg-emerald-900/20 flex-shrink-0">
+                      <Check className="w-2.5 h-2.5 text-emerald-500" />
+                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">הושלם</span>
+                    </div>
+                  ) : isToday ? (
+                    <div className="flex items-center gap-1 px-1.5 py-px rounded-md flex-shrink-0" style={{ background: `${runColor}20` }}>
+                      <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: runColor }} />
+                      <span className="text-[9px] font-bold" style={{ color: runColor }}>היום</span>
+                    </div>
+                  ) : timeLabel ? (
+                    <span className="text-[10px] font-bold tabular-nums flex-shrink-0" style={{ color: runColor }}>{timeLabel}</span>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Inline + button */}
+              {showAddButton && (
+                <button
+                  onClick={handleAddClick}
+                  className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-all"
+                  style={{ color: '#64748B' }}
+                  aria-label="הוסף אימון ליום זה"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </button>
+              )}
             </div>
-          )}
+
+          ) : trainingCount > 0 ? (
+            /* ── Strength / cardio / maintenance workout cards + inline + button ── */
+            <div className="flex items-center flex-1 min-w-0" style={{ gap: 4 }}>
+              {trainingEntries.map((e, idx) => (
+                <StrengthCard
+                  key={e.entryId ?? `${date}-${idx}`}
+                  entry={e}
+                  isCompleted={e.completed}
+                  isToday={isToday}
+                  baseMode={baseMode}
+                  isShared={trainingCount > 1}
+                  isDraggable={isDraggable}
+                  accentColor={
+                    e.source === 'community'
+                      ? (COMMUNITY_CATEGORY_COLORS[e.scheduledCategories?.[0] as string ?? ''] ?? '#9CA3AF')
+                      : undefined
+                  }
+                  onTap={onStartWorkout}
+                  onCommunityTap={onCommunityTap}
+                  onDragStart={onDragStart}
+                  onDragEnd={(y) => handleCardDragRelease(e.entryId, y)}
+                  onDeleteRequest={onDeleteEntry ? (id) => setDeleteEntryId(id) : undefined}
+                  onEditRequest={onEditEntry ? (id) => {
+                    const found = entries?.find(x => x.entryId === id);
+                    if (found) onEditEntry(found);
+                  } : undefined}
+                  onPreviewEntry={onPreviewEntry}
+                />
+              ))}
+
+              {/* Inline + icon — no border, 4px gap is set on parent */}
+              {showAddButton && (
+                <button
+                  onClick={handleAddClick}
+                  className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-all"
+                  style={{ color: '#64748B' }}
+                  aria-label="הוסף אימון ליום זה"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          ) : null}
         </div>
+
       </div>
+
+      {/* ── Delete confirmation bottom sheet ──────────────────────────────── */}
+      {/* Backdrop */}
+      <motion.div
+        className="fixed inset-0 bg-black/40"
+        style={{ zIndex: 300, pointerEvents: deleteEntryId ? 'auto' : 'none' }}
+        animate={{ opacity: deleteEntryId ? 1 : 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={() => setDeleteEntryId(null)}
+      />
+      {/* Sheet */}
+      <motion.div
+        className="fixed bottom-0 inset-x-0 bg-white rounded-t-2xl"
+        style={{
+          zIndex: 301,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+        }}
+        initial={{ y: '100%' }}
+        animate={{ y: deleteEntryId ? 0 : '100%' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        dir="rtl"
+      >
+        {/* Handle bar */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
+        {/* Title */}
+        <div className="px-5 pt-3 pb-4 border-b border-gray-100">
+          <h2 className="text-base font-black text-gray-900">מחיקת אימון?</h2>
+          <p className="text-xs text-gray-500 mt-1">האימון יוסר מהלוח השבועי</p>
+        </div>
+        {/* Buttons */}
+        <div className="px-5 py-4 space-y-3">
+          <button
+            type="button"
+            className="w-full py-3.5 rounded-xl text-sm font-black text-white active:scale-[0.98] transition-transform"
+            style={{ background: '#EF4444' }}
+            onClick={() => {
+              if (deleteEntryId) {
+                onDeleteEntry?.(deleteEntryId, date);
+              }
+              setDeleteEntryId(null);
+            }}
+          >
+            מחק
+          </button>
+          <button
+            type="button"
+            className="w-full py-2 text-sm text-gray-400 active:scale-[0.98] transition-transform"
+            onClick={() => setDeleteEntryId(null)}
+          >
+            ביטול
+          </button>
+        </div>
+      </motion.div>
+
     </div>
   );
 }

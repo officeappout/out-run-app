@@ -12,24 +12,20 @@
  */
 
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Dumbbell, Footprints, Sparkles, Clock, Target, TrendingUp, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { toISODate, HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
-import { getScheduleEntry, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
+import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
-import type { UserScheduleEntry, RecurringTemplate, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
-import {
-  ACTIVITY_COLORS,
-  ACTIVITY_LABELS,
-  type ActivityCategory,
-} from '@/features/activity/types/activity.types';
+import { useDayStatus, useDateKey } from '@/features/activity';
+import type { UserScheduleEntry, RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
 import {
   DayIconCell,
   resolveDayDisplayProps,
   type DayDisplayInput,
 } from '@/features/home/utils/day-display.utils';
+import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,12 +39,14 @@ export type GridViewMode =
 interface MonthlyCalendarGridProps {
   selectedDate: string;
   onDaySelect: (iso: string) => void;
+  /** Called when a cell with a training entry is tapped — opens WorkoutPreviewDrawer. */
+  onEntryTap?: (entry: UserScheduleEntry) => void;
   viewMode: GridViewMode;
   userId: string;
   recurringTemplate?: RecurringTemplate;
   scheduleDays?: string[];
   programIconKey?: string;
-  /** Override default cell height (40px) — used for expanded planner mode */
+  /** Override default cell height (52px) — used for expanded planner mode */
   cellHeight?: number;
   /** Override default ring size (30px) — used for expanded planner mode */
   ringSize?: number;
@@ -56,6 +54,11 @@ interface MonthlyCalendarGridProps {
   ringStroke?: number;
   /** Bump to force re-fetch of schedule data after mutations */
   refreshKey?: number;
+  /**
+   * When true, only the 7-cell row containing today is rendered.
+   * Month navigation is hidden. Used by the collapsible planner header.
+   */
+  collapsed?: boolean;
 }
 
 interface MonthCell {
@@ -73,16 +76,7 @@ const HEBREW_MONTH_NAMES = [
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ];
 
-// Minimum cell height: day-number (9 px) + gap (4 px) + DayIconCell (32 px) + dot row (7 px) ≈ 52 px.
-const DEFAULT_CELL_HEIGHT = 52;
-
-const ALL_CATEGORIES: ActivityCategory[] = ['strength', 'cardio', 'maintenance'];
-
-const DOT_COLORS = {
-  strength: ACTIVITY_COLORS.strength.hex,
-  cardio: ACTIVITY_COLORS.cardio.hex,
-  maintenance: ACTIVITY_COLORS.maintenance.hex,
-} as const;
+const DEFAULT_CELL_HEIGHT = 72;
 
 // ── Month cell builder ─────────────────────────────────────────────────────
 
@@ -91,8 +85,10 @@ function buildMonthCells(year: number, month: number): MonthCell[] {
   const firstDay = new Date(year, month, 1);
   const startOffset = firstDay.getDay();
 
+  // Build exactly 35 cells (5 rows × 7 days). Any 6th-row overflow is cut;
+  // any rare 4-row month is padded to 35 with next-month filler cells.
   const cells: MonthCell[] = [];
-  for (let i = 0; i < 42; i++) {
+  for (let i = 0; i < 35; i++) {
     const d = new Date(year, month, 1 - startOffset + i);
     const iso = toISODate(d);
     cells.push({
@@ -106,34 +102,25 @@ function buildMonthCells(year: number, month: number): MonthCell[] {
   return cells;
 }
 
-// ── Category icon mapping — used only in the Peek Card ────────────────────
-
-const CATEGORY_ICONS_PEEK: Record<ScheduleActivityCategory, React.FC<{ className?: string }>> = {
-  strength: Dumbbell,
-  cardio: Footprints,
-  maintenance: Sparkles,
-};
-
-const CATEGORY_ICON_COLORS_PEEK: Record<ScheduleActivityCategory, string> = {
-  strength: 'text-cyan-500',
-  cardio: 'text-lime-500',
-  maintenance: 'text-purple-400',
-};
-
-// ── Cell props builder — maps UserScheduleEntry → DayDisplayInput ──────────
+// ── Cell props builder — maps UserScheduleEntry[] → DayDisplayInput ────────
 /**
- * Converts a calendar cell + its Firestore schedule entry into a `DayDisplayInput`
+ * Converts a calendar cell + its Firestore day-entries into a `DayDisplayInput`
  * for `resolveDayDisplayProps`. This is the single mapping point that ensures
  * MonthlyCalendarGrid uses the exact same visual engine as SmartWeeklySchedule.
+ *
+ * Multi-entry days pick a "primary" entry to drive cell state (rest/missed/
+ * completed/dominant category) using the same priority as the legacy
+ * `getScheduleEntry` façade: first non-community training, then any training,
+ * then any entry. This keeps single-entry days behaving identically to before.
  *
  * `todayCompletedOverride` bridges the two completion signals for today's cell:
  *   • activityStore → ≥10 min logged
  *   • dailyProgress → workoutCompleted flag (set by the "Done" button)
- * For all other cells, `entry.completed` from the schedule is used.
+ * For all other cells, the primary entry's `completed` flag is used.
  */
 function buildCellProps(
   cell: MonthCell,
-  entry: UserScheduleEntry | null,
+  entries: UserScheduleEntry[],
   scheduleDays: string[] | undefined,
   programIconKey: string | undefined,
   isSelected: boolean,
@@ -147,18 +134,25 @@ function buildCellProps(
 ): DayDisplayInput {
   const dayLetter = HEBREW_DAYS[new Date(cell.iso + 'T00:00:00').getDay()];
   const isTraining = scheduleDays?.includes(dayLetter) ?? false;
-  const isRest = entry?.type === 'rest' || (!entry && !isTraining);
+
+  const primary: UserScheduleEntry | null =
+    entries.find((e) => e.type === 'training' && e.source !== 'community') ??
+    entries.find((e) => e.type === 'training') ??
+    entries[0] ??
+    null;
+
+  const isRest = primary?.type === 'rest' || (entries.length === 0 && !isTraining);
   // Completion priority:
   //   today → bridged override (minutes OR workoutCompleted flag)
-  //   past  → schedule entry flag OR dailyProgress.workoutCompleted
+  //   past  → primary entry flag OR dailyProgress.workoutCompleted
   // This prevents flames from disappearing when a day rolls from today to past.
   const isCompleted = cell.isToday
-    ? (todayCompletedOverride ?? entry?.completed ?? false)
-    : (entry?.completed || pastProgressCompleted || false);
+    ? (todayCompletedOverride ?? primary?.completed ?? false)
+    : (primary?.completed || pastProgressCompleted || false);
   const isMissed = cell.isPast && !cell.isToday && !isRest && !isCompleted;
   const state: DayDisplayInput['state'] = cell.isToday ? 'today' : cell.isPast ? 'past' : 'future';
-  // Map the first scheduled category → dominantCategory for the engine
-  const cats = entry?.scheduledCategories ?? [];
+  // Map the primary's first scheduled category → dominantCategory for the engine
+  const cats = primary?.scheduledCategories ?? [];
   const dominantCategory = cats.length > 0
     ? (cats[0] as 'strength' | 'cardio' | 'maintenance')
     : null;
@@ -166,6 +160,7 @@ function buildCellProps(
   return {
     state,
     isSelected,
+    suppressIconSelectableChrome: true,
     isRest,
     isMissed,
     isCompleted,
@@ -173,7 +168,7 @@ function buildCellProps(
     isSuper: false,
     stepGoalMet: false,
     dominantCategory,
-    programIconKey: programIconKey ?? null,
+    programIconKey: resolveIconKey(primary?.programIds?.[0] ?? primary?.scheduledCategories?.[0]) ?? programIconKey ?? null,
   };
 }
 
@@ -182,6 +177,7 @@ function buildCellProps(
 export default function MonthlyCalendarGrid({
   selectedDate,
   onDaySelect,
+  onEntryTap,
   viewMode,
   userId,
   recurringTemplate,
@@ -193,6 +189,7 @@ export default function MonthlyCalendarGrid({
   ringSize: _ringSize,
   ringStroke: _ringStroke,
   refreshKey,
+  collapsed = false,
 }: MonthlyCalendarGridProps) {
   // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
   const effectiveCellHeight = cellHeightProp ?? DEFAULT_CELL_HEIGHT;
@@ -209,8 +206,12 @@ export default function MonthlyCalendarGrid({
   const todayDate = useMemo(() => new Date(), []);
   const [displayMonth, setDisplayMonth] = useState(todayDate.getMonth());
   const [displayYear, setDisplayYear] = useState(todayDate.getFullYear());
-  const [scheduleMap, setScheduleMap] = useState<Map<string, UserScheduleEntry>>(new Map());
-  const [peekEntry, setPeekEntry] = useState<{ iso: string; entry: UserScheduleEntry } | null>(null);
+  /**
+   * ISO date → array of every entry on that day. Multi-workout days carry
+   * more than one element; community-only days carry their `source: 'community'`
+   * entries.  Empty / missing keys denote a day without any Firestore entry.
+   */
+  const [scheduleMap, setScheduleMap] = useState<Map<string, UserScheduleEntry[]>>(new Map());
 
   /**
    * Map of ISO date → true for past days where `dailyProgress.workoutCompleted`
@@ -219,8 +220,6 @@ export default function MonthlyCalendarGrid({
    * `userSchedule.completed` field was never back-filled.
    */
   const [pastProgressMap, setPastProgressMap] = useState<Map<string, boolean>>(new Map());
-
-  const { summary: weeklySummary } = useWeeklyProgress();
 
   // useDayStatus encapsulates the Completion Bridge (≥10 min OR workoutCompleted)
   // for both today and any past days still in weekActivities.
@@ -238,24 +237,47 @@ export default function MonthlyCalendarGrid({
     [displayYear, displayMonth, dateKey],
   );
 
+  // When collapsing, snap back to today's month so the week strip
+  // always shows the current week and not some navigated-away month.
+  useEffect(() => {
+    if (collapsed) {
+      setDisplayMonth(todayDate.getMonth());
+      setDisplayYear(todayDate.getFullYear());
+    }
+  }, [collapsed, todayDate]);
+
+  // In collapsed mode only render the 7-cell row that contains today.
+  const displayCells = useMemo(() => {
+    if (!collapsed) return cells;
+    const todayISO = toISODate(new Date());
+    const todayIdx = cells.findIndex((c) => c.iso === todayISO);
+    const rowStart = todayIdx >= 0 ? Math.floor(todayIdx / 7) * 7 : 0;
+    return cells.slice(rowStart, rowStart + 7);
+  }, [cells, collapsed]);
+
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
 
     async function fetchAll() {
       const isos = cells.filter(c => c.isCurrentMonth).map(c => c.iso);
-      const entries = await Promise.all(
+      const fetched = await Promise.all(
         isos.map(async (iso) => {
-          let entry = await getScheduleEntry(userId, iso);
-          if (!entry && recurringTemplate) {
-            entry = await hydrateFromTemplate(userId, iso, recurringTemplate);
+          let dayEntries = await getScheduleEntries(userId, iso);
+          // Hydrate fallback — only when Firestore has no entries on this day
+          // AND the user has a recurringTemplate covering this weekday.
+          if (dayEntries.length === 0 && recurringTemplate) {
+            const hydrated = await hydrateFromTemplate(userId, iso, recurringTemplate);
+            if (hydrated) dayEntries = [hydrated];
           }
-          return { iso, entry };
+          return { iso, dayEntries };
         }),
       );
       if (cancelled) return;
-      const map = new Map<string, UserScheduleEntry>();
-      entries.forEach(({ iso, entry }) => { if (entry) map.set(iso, entry); });
+      const map = new Map<string, UserScheduleEntry[]>();
+      fetched.forEach(({ iso, dayEntries }) => {
+        if (dayEntries.length > 0) map.set(iso, dayEntries);
+      });
       setScheduleMap(map);
     }
 
@@ -326,18 +348,20 @@ export default function MonthlyCalendarGrid({
       transition={{ duration: 0.25, ease: 'easeInOut' }}
       className="overflow-hidden"
     >
-      {/* Month header */}
-      <div className="flex items-center justify-between mb-2 px-1">
-        <button onClick={goToNextMonth} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all">
-          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-        </button>
-        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tabular-nums">
-          {HEBREW_MONTH_NAMES[displayMonth]} {displayYear}
-        </span>
-        <button onClick={goToPrevMonth} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all">
-          <ChevronLeft className="w-3.5 h-3.5 text-gray-400" />
-        </button>
-      </div>
+      {/* Month header — hidden in collapsed (week-strip) mode */}
+      {!collapsed && (
+        <div className="flex items-center justify-between mb-2 px-1">
+          <button onClick={goToNextMonth} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all">
+            <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+          </button>
+          <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tabular-nums">
+            {HEBREW_MONTH_NAMES[displayMonth]} {displayYear}
+          </span>
+          <button onClick={goToPrevMonth} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all">
+            <ChevronLeft className="w-3.5 h-3.5 text-gray-400" />
+          </button>
+        </div>
+      )}
 
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 gap-0 mb-0.5">
@@ -348,12 +372,32 @@ export default function MonthlyCalendarGrid({
         ))}
       </div>
 
-      {/* 6 x 7 grid */}
-      <div className="grid grid-cols-7 gap-0 relative">
-        {cells.map((cell) => {
+      {/* 5 × 7 grid (or 1 × 7 in collapsed week-strip mode).
+          Height is set explicitly to rows × cellHeight so the last row is
+          never clipped and there is no leftover whitespace below it. */}
+      <div className="relative">
+        <div
+          className="grid grid-cols-7 gap-0"
+          style={{ height: Math.ceil(displayCells.length / 7) * effectiveCellHeight }}
+        >
+        {displayCells.map((cell) => {
           const isSelected = cell.iso === selectedDate;
-          const entry = scheduleMap.get(cell.iso) ?? null;
-          const hasTraining = entry?.type === 'training';
+          const dayEntries = scheduleMap.get(cell.iso) ?? [];
+          // Primary entry priority — see buildCellProps for the same logic.
+          const primaryEntry: UserScheduleEntry | null =
+            dayEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
+            dayEntries.find((e) => e.type === 'training') ??
+            dayEntries[0] ??
+            null;
+          const hasTraining = dayEntries.some((e) => e.type === 'training');
+          // Community-mix indicator — show only when the day has BOTH a personal
+          // training entry AND a community entry.  Community-only days are
+          // visually carried by the regular DayIconCell already.
+          const hasPersonalTraining = dayEntries.some(
+            (e) => e.type === 'training' && e.source !== 'community',
+          );
+          const hasCommunity = dayEntries.some((e) => e.source === 'community');
+          const showCommunityMixDot = hasPersonalTraining && hasCommunity;
 
           return (
             <button
@@ -361,43 +405,60 @@ export default function MonthlyCalendarGrid({
               onClick={() => {
                 if (!cell.isCurrentMonth) return;
                 onDaySelect(cell.iso);
-                // Peek card opens on any training day — no longer gated to icons viewMode
-                if (hasTraining) {
-                  setPeekEntry(prev => prev?.iso === cell.iso ? null : { iso: cell.iso, entry });
-                } else {
-                  setPeekEntry(null);
+                if (hasTraining && primaryEntry) {
+                  onEntryTap?.(primaryEntry);
                 }
               }}
               className={[
-                'flex flex-col items-center justify-center gap-1 rounded-lg transition-all',
+                'flex flex-col items-center justify-start pt-1 pb-2 gap-0 rounded-lg transition-all',
                 cell.isCurrentMonth ? 'active:scale-90' : 'pointer-events-none',
               ].join(' ')}
               style={{ height: effectiveCellHeight }}
             >
-              {/* Day number */}
+              {/* Day number — today: bold cyan text; selected: absolute circle
+                  behind the number so layout flow is unaffected; other: plain. */}
               {cell.isCurrentMonth ? (
-                <span className={[
-                  'text-[9px] leading-none tabular-nums',
-                  cell.isToday ? 'font-extrabold text-cyan-500' :
-                  isSelected ? 'font-bold text-cyan-500' :
-                  cell.isPast ? 'font-medium text-gray-700 dark:text-gray-400' :
-                  'font-medium text-gray-800 dark:text-gray-300',
-                ].join(' ')}>
-                  {cell.dayOfMonth}
-                </span>
+                <div className="relative flex items-center justify-center w-[26px] h-[20px] shrink-0">
+                  {isSelected && !cell.isToday && (
+                    <span
+                      className="absolute rounded-full bg-cyan-100 dark:bg-cyan-900/45"
+                      style={{ width: 26, height: 26, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                    />
+                  )}
+                  <span className={[
+                    'relative text-sm leading-none tabular-nums z-10',
+                    cell.isToday
+                      ? 'font-extrabold text-cyan-500'
+                      : isSelected
+                        ? 'font-bold text-cyan-700 dark:text-cyan-300'
+                        : cell.isPast
+                          ? 'font-medium text-gray-700 dark:text-gray-400'
+                          : 'font-medium text-gray-800 dark:text-gray-300',
+                  ].join(' ')}>
+                    {cell.dayOfMonth}
+                  </span>
+                </div>
               ) : (
-                <span className="text-[9px] leading-none text-gray-300 dark:text-gray-600 tabular-nums">
+                <span className="text-sm leading-none text-gray-300 dark:text-gray-600 tabular-nums">
                   {cell.dayOfMonth}
                 </span>
               )}
 
-              {/* DayIconCell — same engine as home screen weekly strip */}
+              {/* DayIconCell — icon never gets month «selection» chrome; that
+                  stays on the day number. Today: 40 px rounded-xl badge, 24 px
+                  glyph, proportional to the 72 px cell height. */}
               {cell.isCurrentMonth && (
-                <div className="relative">
+                <div className="relative flex justify-center -mt-0.5">
                   <DayIconCell
+                    hideDots
+                    sizeOverride={
+                      cell.isToday
+                        ? { sizePx: 40, radiusPx: 12, innerSlotPx: 24, imgIconPx: 24 }
+                        : undefined
+                    }
                     props={resolveDayDisplayProps(
                       buildCellProps(
-                        cell, entry, scheduleDays, programIconKey, isSelected,
+                        cell, dayEntries, scheduleDays, programIconKey, isSelected,
                         // Today: use useDayStatus for the unified Completion Bridge
                         // (≥10 min logged OR workoutCompleted flag).
                         cell.isToday ? getDayStatus(cell.iso).isCompleted : undefined,
@@ -408,8 +469,8 @@ export default function MonthlyCalendarGrid({
                       )
                     )}
                   />
-                  {/* Community dot — tiny teal badge when day has both personal + community */}
-                  {(entry?.communitySessions?.length ?? 0) > 0 && (entry?.programIds?.length ?? 0) > 0 && (
+                  {/* Community-mix dot — teal badge when day has both personal + community */}
+                  {showCommunityMixDot && (
                     <div
                       className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-slate-900"
                       style={{ background: '#14B8A6' }}
@@ -420,88 +481,7 @@ export default function MonthlyCalendarGrid({
             </button>
           );
         })}
-
-        {/* Floating Peek Card — Glassmorphism popover with schedule summary */}
-        <AnimatePresence>
-          {peekEntry && (() => {
-            const cats = peekEntry.entry.scheduledCategories ?? [];
-            const peekDate = new Date(peekEntry.iso + 'T00:00:00');
-            const isFuture = peekDate > new Date(new Date().setHours(0, 0, 0, 0));
-
-            return (
-              <motion.div
-                key={peekEntry.iso}
-                initial={{ opacity: 0, scale: 0.92, y: 6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: 6 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 pointer-events-auto"
-                dir="rtl"
-                onClick={() => setPeekEntry(null)}
-              >
-                <div className="bg-white/75 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-slate-700/50 px-4 py-3 min-w-[180px]">
-                  {/* Header: category icons + label */}
-                  <div className="flex items-center gap-2 mb-2">
-                    {cats.map(cat => {
-                      const Icon = CATEGORY_ICONS_PEEK[cat as ScheduleActivityCategory] ?? Dumbbell;
-                      const color = CATEGORY_ICON_COLORS_PEEK[cat as ScheduleActivityCategory] ?? 'text-cyan-500';
-                      return <Icon key={cat} className={`w-4 h-4 ${color}`} />;
-                    })}
-                    <span className="text-[11px] font-black text-gray-800 dark:text-gray-100">
-                      {cats.map(cat => ACTIVITY_LABELS[cat as ActivityCategory]?.he ?? cat).join(' + ')}
-                    </span>
-                  </div>
-
-                  {/* Time row */}
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 tabular-nums">
-                      {peekEntry.entry.startTime ?? 'שעה לא נקבעה'}
-                    </span>
-                  </div>
-
-                  {/* Gap Summary — mini progress bars per category */}
-                  {weeklySummary && (
-                    <div className="space-y-1.5 pt-1.5 border-t border-gray-200/40 dark:border-gray-700/40">
-                      <div className="flex items-center gap-1 mb-1">
-                        {isFuture ? (
-                          <Target className="w-3 h-3 text-amber-500" />
-                        ) : (
-                          <TrendingUp className="w-3 h-3 text-emerald-500" />
-                        )}
-                        <span className="text-[9px] font-bold text-gray-400">
-                          {isFuture ? 'נשאר השבוע' : 'סיכום שבועי'}
-                        </span>
-                      </div>
-                      {ALL_CATEGORIES.map(cat => {
-                        const spent = weeklySummary.categoryTotals[cat] ?? 0;
-                        const goal = weeklySummary.categoryGoals[cat] ?? 1;
-                        const remaining = Math.max(0, goal - spent);
-                        const pct = Math.min((spent / goal) * 100, 100);
-                        const color = ACTIVITY_COLORS[cat].hex;
-                        return (
-                          <div key={cat} className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                            <div className="flex-1 h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-                            </div>
-                            <span className="text-[8px] font-bold text-gray-400 tabular-nums w-8 text-left">
-                              {isFuture ? `-${remaining}` : `${Math.round(spent)}`}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                {/* Arrow */}
-                <div className="flex justify-center">
-                  <div className="w-2.5 h-2.5 bg-white/75 dark:bg-slate-900/80 backdrop-blur-xl border-b border-r border-white/30 dark:border-slate-700/50 rotate-45 -mt-1.5" />
-                </div>
-              </motion.div>
-            );
-          })()}
-        </AnimatePresence>
+        </div>
       </div>
     </motion.div>
   );

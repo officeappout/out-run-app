@@ -60,5 +60,6 @@ plugins/**/node_modules/
 *.keystore
 *.jks
 *-release-key.*
+android/keystore.properties
 google-services*.json
-GoogleService-Info.plist
+# GoogleService-Info.plist is intentionally committed so CI/TestFlight builds work.

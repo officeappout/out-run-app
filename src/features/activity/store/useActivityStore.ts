@@ -18,7 +18,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { 
   doc, 
   getDoc, 
-  setDoc, 
+  setDoc,
+  updateDoc,
   collection, 
   query, 
   where, 
@@ -43,6 +44,7 @@ import {
   ACTIVITY_COLORS,
 } from '../types/activity.types';
 import { activityPriorityService } from '../services/ActivityPriorityService';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 // ============================================================================
 // FIRESTORE HELPERS
@@ -106,6 +108,10 @@ interface ActivityState {
   // Streak tracking
   currentStreak: number;
   longestStreak: number;
+  /** 'YYYY-MM-DD' of the last day the streak threshold was crossed.
+   *  Persisted to localStorage so logWorkout can detect missed days
+   *  even when loadFromServer hasn't completed yet. */
+  lastStreakDate: string;
   
   // Dominant color for path visualization
   dominantActivityColor: string;
@@ -329,6 +335,7 @@ export const useActivityStore = create<ActivityStore>()(
       userProgram: 'full_body',
       currentStreak: 0,
       longestStreak: 0,
+      lastStreakDate: '',
       dominantActivityColor: ACTIVITY_COLORS.strength.hex,
       lastSyncTimestamp: null,
       _hasHydrated: false,
@@ -455,16 +462,52 @@ export const useActivityStore = create<ActivityStore>()(
           [category]: updatedMetrics,
         };
         
-        // Update streak - workout counts as activity
+        // Streak logic:
+        // - Only increments the FIRST time the daily threshold is crossed (prevTotal guard)
+        // - Resets to 1 (instead of N+1) when the persisted lastStreakDate shows a gap > 1 day,
+        //   preventing stale localStorage cache from silently continuing a broken streak
+        //   before loadFromServer has had a chance to validate against Firestore.
+        const prevTotalMinutes = Object.values(state.today.categories)
+          .reduce((sum, cat) => sum + cat.minutes, 0);
         const totalMinutes = Object.values(updatedCategories)
           .reduce((sum, cat) => sum + cat.minutes, 0);
-        
+
         let newStreak = state.currentStreak;
-        if (totalMinutes >= STREAK_MINIMUM_MINUTES && state.currentStreak === 0) {
-          // First activity of the day that meets threshold
-          newStreak = state.currentStreak + 1;
+        let newLastStreakDate = state.lastStreakDate;
+
+        const justCrossedThreshold =
+          prevTotalMinutes < STREAK_MINIMUM_MINUTES &&
+          totalMinutes >= STREAK_MINIMUM_MINUTES;
+
+        if (justCrossedThreshold) {
+          const todayStr = getTodayString();
+
+          if (newLastStreakDate === todayStr) {
+            // Already counted today — no-op (safety net; prevTotal guard above
+            // normally prevents reaching here, but belt-and-suspenders)
+          } else if (newLastStreakDate) {
+            const daysDiff = Math.floor(
+              (new Date(todayStr).getTime() - new Date(newLastStreakDate).getTime())
+              / (1000 * 60 * 60 * 24),
+            );
+            if (daysDiff > 1) {
+              // Missed at least one day → reset streak to 1 rather than N+1
+              newStreak = 1;
+              console.log(
+                `[ActivityStore] Streak reset to 1 (${daysDiff} day gap since ${newLastStreakDate})`,
+              );
+            } else {
+              // Yesterday was active → continue the streak
+              newStreak = state.currentStreak + 1;
+            }
+          } else {
+            // No prior streak date on record → start fresh
+            newStreak = 1;
+          }
+
+          newLastStreakDate = todayStr;
         }
-        
+
         set({
           today: {
             ...state.today,
@@ -474,6 +517,7 @@ export const useActivityStore = create<ActivityStore>()(
           },
           currentStreak: newStreak,
           longestStreak: Math.max(state.longestStreak, newStreak),
+          lastStreakDate: newLastStreakDate,
         });
         
         get().recalculate();
@@ -575,19 +619,43 @@ export const useActivityStore = create<ActivityStore>()(
           const docId = getDailyActivityDocId(state.today.userId, state.today.date);
           const docRef = doc(db, COLLECTION_DAILY_ACTIVITY, docId);
           
-          // Save daily activity
-          await setDoc(docRef, toFirestoreFormat(state.today), { merge: true });
+          // Save daily activity — include scope fields for step leaderboard queries
+          const userProfile = useUserStore.getState().profile;
+          const activityScopeExtra: Record<string, unknown> = {};
+          if (userProfile?.core?.authorityId) activityScopeExtra.authorityId = userProfile.core.authorityId;
+          if (userProfile?.core?.name) activityScopeExtra.displayName = userProfile.core.name;
+          await setDoc(docRef, { ...toFirestoreFormat(state.today), ...activityScopeExtra }, { merge: true });
           
-          // Update streak document
+          // Update streak document — include scope fields for leaderboard queries
           const streakRef = doc(db, COLLECTION_STREAK, state.today.userId);
           await setDoc(streakRef, {
             userId: state.today.userId,
             currentStreak: state.currentStreak,
             longestStreak: state.longestStreak,
             lastActivityDate: state.today.date,
+            ...(userProfile?.core?.authorityId ? { authorityId: userProfile.core.authorityId } : {}),
+            ...(userProfile?.core?.name ? { displayName: userProfile.core.name } : {}),
             updatedAt: serverTimestamp(),
           }, { merge: true });
-          
+
+          // Mirror streak into users/{uid}.progression.currentStreak so that
+          // useProgressionStore (which reads from the users doc) stays in sync.
+          // This closes the two-system divergence: streaks/{uid} and
+          // users/{uid}.progression.currentStreak previously lived in separate
+          // Firestore paths that were never written together.
+          // Best-effort: a failure here is non-critical — the streak was already
+          // saved to streaks/{uid} above, and the next hydrateFromFirestore call
+          // will reconcile via the forwardOrKeep listener.
+          try {
+            const userDocRef = doc(db, 'users', state.today.userId);
+            await updateDoc(userDocRef, {
+              'progression.currentStreak': state.currentStreak,
+              'progression.longestStreak': Math.max(state.longestStreak, state.currentStreak),
+            });
+          } catch (mirrorErr) {
+            console.warn('[ActivityStore] Non-critical: failed to mirror streak to users doc:', mirrorErr);
+          }
+
           set({ lastSyncTimestamp: Date.now() });
           console.log('[ActivityStore] Synced to Firestore successfully');
         } catch (error) {
@@ -623,22 +691,25 @@ export const useActivityStore = create<ActivityStore>()(
           let currentStreak = 0;
           let longestStreak = 0;
           
+          let restoredLastStreakDate = '';
+
           if (streakSnap.exists()) {
             const streakData = streakSnap.data();
             currentStreak = streakData.currentStreak || 0;
             longestStreak = streakData.longestStreak || 0;
-            
+            restoredLastStreakDate = streakData.lastActivityDate || '';
+
             // Check if streak is still valid (last activity was yesterday or today)
-            const lastActivityDate = streakData.lastActivityDate;
-            if (lastActivityDate) {
+            if (restoredLastStreakDate) {
               const daysDiff = Math.floor(
-                (new Date(targetDate).getTime() - new Date(lastActivityDate).getTime()) 
-                / (1000 * 60 * 60 * 24)
+                (new Date(targetDate).getTime() - new Date(restoredLastStreakDate).getTime())
+                / (1000 * 60 * 60 * 24),
               );
-              
+
               if (daysDiff > 1) {
-                // Streak broken (missed more than 1 day)
+                // Streak broken — also clear the local date so logWorkout starts fresh
                 currentStreak = 0;
+                restoredLastStreakDate = '';
                 console.log('[ActivityStore] Streak broken - missed days');
               }
             }
@@ -742,6 +813,7 @@ export const useActivityStore = create<ActivityStore>()(
             weekActivities,
             currentStreak,
             longestStreak: Math.max(longestStreak, currentStreak),
+            lastStreakDate: restoredLastStreakDate,
             userProgram: state.userProgram,
           });
           
@@ -852,6 +924,8 @@ export const useActivityStore = create<ActivityStore>()(
                   set({
                     currentStreak: data.currentStreak,
                     longestStreak: Math.max(state.longestStreak, data.longestStreak || 0),
+                    // Keep lastStreakDate in sync with the authoritative server value
+                    lastStreakDate: data.lastActivityDate || state.lastStreakDate,
                   });
                   console.log('[ActivityStore] Streak updated from Firestore:', data.currentStreak);
                 }
@@ -880,6 +954,7 @@ export const useActivityStore = create<ActivityStore>()(
         userProgram: state.userProgram,
         currentStreak: state.currentStreak,
         longestStreak: state.longestStreak,
+        lastStreakDate: state.lastStreakDate,
         lastSyncTimestamp: state.lastSyncTimestamp,
       }),
       onRehydrateStorage: () => (state) => {

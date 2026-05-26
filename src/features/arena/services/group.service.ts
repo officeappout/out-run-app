@@ -48,9 +48,13 @@ export interface CreateGroupInput {
   description: string;
   category: CommunityGroup['category'];
   groupType: CommunityGroupType;
-  scopeId: string;
-  authorityId: string;
+  /** null for social groups (friends/family) that are not city-scoped */
+  scopeId: string | null;
+  /** Omitted for social groups that are not bound to any authority */
+  authorityId?: string;
   isPublic: boolean;
+  /** When true, non-members may submit a join request (ignored when isPublic is true) */
+  allowJoinRequests?: boolean;
   schedule?: CommunityGroup['schedule'];
   scheduleSlots?: CommunityGroup['scheduleSlots'];
   meetingLocation?: CommunityGroup['meetingLocation'];
@@ -98,16 +102,18 @@ function stripUndefined<T extends object>(obj: T): T {
  * Creates a new community group, writes the creator as the first member,
  * and initializes a group chat thread in the chats collection.
  *
- * Returns the new group's Firestore document ID.
+ * Returns the new group's Firestore document ID and generated invite code.
  */
 export async function createGroup(
   creatorUid: string,
   creatorName: string,
   input: CreateGroupInput,
-): Promise<string> {
+): Promise<{ groupId: string; inviteCode: string }> {
   const groupsRef = collection(db, 'community_groups');
 
   const minimumMembers = 1;
+  // Generate code locally so we can return it without an extra Firestore read.
+  const inviteCode = generateInviteCode();
 
   const newGroup = {
     authorityId: input.authorityId,
@@ -117,6 +123,7 @@ export async function createGroup(
     groupType: input.groupType,
     scopeId: input.scopeId,
     isPublic: input.isPublic,
+    allowJoinRequests: input.allowJoinRequests ?? false,
     ageRestriction: input.ageRestriction ?? 'all',
     schedule: input.schedule ?? null,
     scheduleSlots: input.scheduleSlots ?? [],
@@ -130,8 +137,7 @@ export async function createGroup(
     memberCount: 1,
     minimumMembers,
     isActive: minimumMembers <= 1,
-    // Always generate an invite code so share links work for all groups
-    inviteCode: generateInviteCode(),
+    inviteCode,
 
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
@@ -149,21 +155,40 @@ export async function createGroup(
     role: 'admin',
   });
 
-  // Mirror groupId in user's social.groupIds array
-  await updateDoc(doc(db, 'users', creatorUid), {
-    'social.groupIds': arrayUnion(groupId),
-  });
+  // Mirror groupId in user's social.groupIds array (non-fatal: rules may restrict
+  // this field on first-write or the social sub-map may not exist yet)
+  try {
+    await updateDoc(doc(db, 'users', creatorUid), {
+      'social.groupIds': arrayUnion(groupId),
+    });
+  } catch (userErr) {
+    console.warn('[createGroup] user social.groupIds update failed (non-fatal):', userErr);
+  }
 
-  // Auto-create group chat thread so it appears in Messages/Inbox
-  await createGroupChat(groupId, input.name, creatorUid, creatorName);
+  // Auto-create group chat thread so it appears in Messages/Inbox (non-fatal:
+  // Capacitor Android can throw PERMISSION_DENIED on chats collection writes
+  // depending on the auth state at the moment of the first write — the group
+  // document is already committed above, so we must not let this kill the flow)
+  try {
+    await createGroupChat(groupId, input.name, creatorUid, creatorName);
+  } catch (chatErr) {
+    console.warn('[createGroup] chat creation failed (non-fatal):', chatErr);
+  }
 
-  return groupId;
+  return { groupId, inviteCode };
 }
 
 // ─── joinGroup ────────────────────────────────────────────────────────────────
 
 export interface JoinGroupOptions {
   addToPlanner?: boolean;
+  /**
+   * Invite code entered by the user.  When provided and the target group is
+   * private (`isPublic === false`), the service validates the code before
+   * writing the membership document.  Throws `Error('invalid-invite-code')`
+   * on mismatch.
+   */
+  providedCode?: string;
 }
 
 export async function joinGroup(
@@ -172,6 +197,19 @@ export async function joinGroup(
   name: string,
   options?: JoinGroupOptions,
 ): Promise<void> {
+  // Validate invite code when the caller supplies one (private-group gate)
+  if (options?.providedCode !== undefined) {
+    const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
+    if (!groupSnap.exists()) throw new Error('group-not-found');
+    const data = groupSnap.data();
+    if (data.isPublic === false) {
+      const expected = ((data.inviteCode as string | undefined) ?? '').toUpperCase();
+      if (options.providedCode.toUpperCase() !== expected) {
+        throw new Error('invalid-invite-code');
+      }
+    }
+  }
+
   // Step 1 (critical): write member document
   await setDoc(doc(db, 'community_groups', groupId, 'members', uid), {
     uid,
@@ -330,6 +368,7 @@ export interface UpdateGroupInput {
   scheduleSlots?: CommunityGroup['scheduleSlots'];
   meetingLocation?: CommunityGroup['meetingLocation'];
   isPublic?: boolean;
+  allowJoinRequests?: boolean;
   rules?: string | null;
   images?: string[];
 }

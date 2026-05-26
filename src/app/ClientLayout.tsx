@@ -9,6 +9,8 @@ import { useSessionStore } from "@/features/workout-engine/core/store/useSession
 import GlobalDetailOverlay from "@/features/parks/core/components/GlobalDetailOverlay";
 import ChatInbox from "@/features/social/components/ChatInbox";
 import { useChatStore } from "@/features/social/store/useChatStore";
+import ActivityPanel from "@/features/social/components/ActivityPanel";
+import { useActivityPanelStore } from "@/features/social/store/useActivityPanelStore";
 import { ToastProvider } from "@/components/ui/Toast";
 import OfflineBanner from "@/components/ui/OfflineBanner";
 import { useMidnightRefresh } from "@/features/activity";
@@ -46,6 +48,10 @@ export default function ClientLayout({
   const chatActiveThread = useChatStore((s) => s.activeThread);
   const chatClose = useChatStore((s) => s.close);
 
+  // Global activity (notifications) panel — opened from AppHeader's bell icon.
+  const activityPanelOpen = useActivityPanelStore((s) => s.isOpen);
+  const activityPanelClose = useActivityPanelStore((s) => s.close);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -74,10 +80,14 @@ export default function ClientLayout({
               // min-h-[44px] = 46px, rounded up to 3rem (48px) for breathing
               // room. Plus the device's bottom safe-area inset. Map route
               // intentionally lets the BottomNavbar float over the canvas.
-              paddingBottom:
-                shouldShowBottomNav && !isMapRoute
+              // On all non-map routes (even hidden-nav ones like onboarding)
+              // we always reserve at least env(safe-area-inset-bottom) so the
+              // home indicator strip never shows the white body background.
+              paddingBottom: isMapRoute
+                ? undefined
+                : shouldShowBottomNav
                   ? 'calc(3rem + env(safe-area-inset-bottom, 0px))'
-                  : undefined,
+                  : 'env(safe-area-inset-bottom, 0px)',
             }}
           >
             {children}
@@ -90,6 +100,7 @@ export default function ClientLayout({
             onClose={chatClose}
             initialThread={chatActiveThread}
           />
+          <ActivityPanel isOpen={activityPanelOpen} onClose={activityPanelClose} />
           <OfflineBanner />
           <MidnightClock />
         </LazyMotion>

@@ -15,6 +15,7 @@
  */
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // ============================================================================
 // TYPES
@@ -234,7 +235,7 @@ const initialActiveMinutes: WeeklyActiveMinutes = {
 // STORE
 // ============================================================================
 
-export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
+export const useWeeklyVolumeStore = create<WeeklyVolumeState>()(persist((set, get) => ({
   userId: '',
   weekStartDate: getCurrentWeekStart(),
   strength: { ...initialStrength },
@@ -409,7 +410,7 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
     const currentWeek = getCurrentWeekStart();
     const state = get();
 
-    // Only reset when the calendar week actually changed
+    // Calendar week rolled over → always full reset regardless of user.
     if (state.weekStartDate !== currentWeek) {
       console.log(
         `[WeeklyVolume] New week detected (${state.weekStartDate} → ${currentWeek}). Resetting.`,
@@ -418,8 +419,22 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
       return;
     }
 
-    // First load or user switch — initialize without wiping existing same-week data
-    if (!state.isInitialized || state.userId !== userId) {
+    // Different user logged in (e.g. post-onboarding first home visit, or account
+    // switch). Carrying over another user's totalSetsCompleted into getRemainingBudget()
+    // can produce a stale small number that falsely triggers the Budget Floor guard
+    // in generateHomeWorkoutTrio (remainingWeeklyBudget < 6 → 3 recovery cards).
+    // Full reset is safe: the new user has no completed sets yet this week.
+    if (state.userId && state.userId !== userId) {
+      console.log(
+        `[WeeklyVolume] User switch detected (${state.userId} → ${userId}). Full reset.`,
+      );
+      get().initializeWeek(userId, weeklyBudget, weeklyMinutesGoal);
+      return;
+    }
+
+    // Same user, same week — first initialization (e.g. fresh install or store
+    // hydration). Preserve existing session data; only update the budget cap.
+    if (!state.isInitialized) {
       set({
         userId,
         strength: { ...state.strength, weeklyBudget },
@@ -491,4 +506,21 @@ export const useWeeklyVolumeStore = create<WeeklyVolumeState>((set, get) => ({
       isInitialized: false,
     });
   },
+}),
+{
+  name: 'out-weekly-volume',
+  storage: createJSONStorage(() => localStorage),
+  // Persist only the fields needed to reconstruct weekly volume after a
+  // restart.  The workout generator reads domainSetsCompleted, totalSetsCompleted,
+  // weeklyBudget, and sessionLogs (for the variety guard).
+  // Running / activeMinutes are re-derived from ActivityStore on hydration.
+  partialize: (state) => ({
+    userId: state.userId,
+    weekStartDate: state.weekStartDate,
+    strength: state.strength,
+    // Keep the last 20 session logs to power the variety guard across restarts
+    sessionLogs: state.sessionLogs.slice(-20),
+    lastUpdated: state.lastUpdated,
+    isInitialized: state.isInitialized,
+  }),
 }));

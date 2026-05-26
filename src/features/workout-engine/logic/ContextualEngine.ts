@@ -11,7 +11,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { normalizeGearId, ESSENTIAL_PARK_GEAR, isGearOptional } from '../shared/utils/gear-mapping.utils';
+import { normalizeGearId, isGearOptional, satisfiesGearRequirement } from '../shared/utils/gear-mapping.utils';
 import {
   Exercise,
   ExecutionLocation,
@@ -67,6 +67,17 @@ export {
  */
 const MAX_STRAIGHT_ARM_PER_SESSION = 2;
 
+// ── Exclusive Skill Domain Gate ───────────────────────────────────────────────
+// Technique-heavy skill tracks that must NOT appear in general strength sessions
+// unless the user has explicitly scheduled that skill as their active program.
+// Extend this array when new advanced skill tracks are introduced.
+const GATED_SKILL_DOMAINS = ['muscle_up'] as const;
+
+// Baseline strength domains: exercises shared with any of these always pass
+// the gate even if they also belong to a gated skill track (e.g. an exercise
+// in both muscle_up and pull is a legitimate pull-session exercise).
+const BASELINE_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
+
 /**
  * Blast mode rest time (seconds)
  */
@@ -110,6 +121,8 @@ export class ContextualEngine {
       excluded_program_filter: 0,
       excluded_level_tolerance: 0,
       excluded_skill_gate: 0,
+      excluded_exclusive_skill_gate: 0,
+      excluded_balance_gate: 0,
       excluded_injury_shield: 0,
       excluded_48h_muscle: 0,
       excluded_field_mode: 0,
@@ -137,7 +150,14 @@ export class ContextualEngine {
 
       // Domain-aware level resolution: resolve programLevel from the
       // targetPrograms entry matching the active domains, not [0].
-      const resolved = resolveExerciseLevelForDomains(exercise, activeDomains);
+      // The primary active program (e.g. `planche`) is forwarded so that
+      // multi-assigned exercises resolve to the skill-level entry instead
+      // of being hijacked by a baseline foundational entry indexed earlier.
+      const resolved = resolveExerciseLevelForDomains(
+        exercise,
+        activeDomains,
+        context.activeProgramId,
+      );
       programLevel = resolved.level;
 
       // Level tolerance filter: exercise must be within ±tolerance of user's domain level
@@ -148,6 +168,66 @@ export class ContextualEngine {
         excludedCount++;
         fCounts.excluded_level_tolerance++;
         continue;
+      }
+
+      // ── Exclusive Skill Domain Gate ────────────────────────────────────────
+      // An exercise is "exclusively gated" when ALL of its targetPrograms belong
+      // to gated skill tracks and NONE overlap with baseline domains.
+      // Such exercises are only included when the relevant skill track is active
+      // in the current session (present in activeDomains or activeProgramFilters).
+      //
+      // Decision matrix:
+      //   [muscle_up] only, skill inactive  → excluded
+      //   [muscle_up] only, skill active    → passes
+      //   [muscle_up, pull]                 → passes (shared with baseline 'pull')
+      //   [push] only                       → passes (pure baseline)
+      const hasGatedDomain = (GATED_SKILL_DOMAINS as readonly string[]).some(
+        d => exerciseMatchesProgram(exercise, d),
+      );
+      if (hasGatedDomain) {
+        const hasBaselineDomain = (BASELINE_DOMAINS as readonly string[]).some(
+          d => exerciseMatchesProgram(exercise, d),
+        );
+        if (!hasBaselineDomain) {
+          // Exercise is 100% exclusive to a gated skill track.
+          // Allow it only when the specific skill domain is active in this session.
+          const activeDomainsSet = new Set(activeDomains ?? []);
+          const skillDomainIsActive = (GATED_SKILL_DOMAINS as readonly string[]).some(
+            d => exerciseMatchesProgram(exercise, d) && activeDomainsSet.has(d),
+          );
+          if (!skillDomainIsActive) {
+            excludedCount++;
+            fCounts.excluded_exclusive_skill_gate++;
+            continue;
+          }
+        }
+        // hasBaselineDomain === true → shared exercise → pass through unconditionally
+      }
+
+      // ── Balance Score Gate ─────────────────────────────────────────────────
+      // Exercises with a balanceScore > 10 on the 1-15 Handstand Triad scale are
+      // freestanding / balance-dominant handstand skills that require deliberate
+      // technique practice.  They must NOT leak into general Push sessions.
+      // Exercises with no balanceScore, or balanceScore ≤ 10 (wall handstands,
+      // pike push-ups, crow holds, etc.) pass freely in any Push context.
+      //
+      // The gate fires only when the user has NOT selected a handstand/hspu
+      // program for the current session (checked via activeDomains).
+      {
+        const BALANCE_GATE_THRESHOLD = 10;
+        const maxBalanceScore = Math.max(
+          0,
+          ...(exercise.targetPrograms ?? []).map(tp => (tp as any).balanceScore ?? 0),
+        );
+        if (maxBalanceScore > BALANCE_GATE_THRESHOLD) {
+          const HANDSTAND_DOMAINS = new Set(['handstand', 'hspu']);
+          const handstandIsActive = (activeDomains ?? []).some(d => HANDSTAND_DOMAINS.has(d));
+          if (!handstandIsActive) {
+            excludedCount++;
+            fCounts.excluded_balance_gate++;
+            continue;
+          }
+        }
       }
 
       // Skill Gate: uses the domain-resolved level, not .some() across all targetPrograms
@@ -450,77 +530,131 @@ export class ContextualEngine {
       return raw.filter(Boolean).map(normalizeGearId);
     };
 
+    // Tier 1 middleware (`InputSanitizerMiddleware.normalizeEquipmentArray`)
+    // guarantees `context.availableEquipment` is non-empty and contains the
+    // canonical gear IDs for the session, including the ESSENTIAL_PARK_GEAR
+    // catastrophic fallback when no real park inventory was resolved.  The
+    // local fallback that previously fired here is therefore obsolete.
     const normalizedAvailable = context.availableEquipment.map(normalizeGearId);
+
+    // Gear that every park/outdoor location effectively provides:
+    // floor surface replaces a mat, walls exist everywhere.
+    const SURFACE_GEAR_AT_PARK = new Set(['mat', 'yoga_mat', 'wall', 'chair']);
+
+    // ── Park equipment gating ─────────────────────────────────────────────────
+    // satisfiesGearRequirement (imported from gear-mapping.utils.ts) is the
+    // single source of truth for unidirectional rules such as:
+    //   parallettes → satisfied by 'parallettes' OR 'dip_station'
+    //   dip_station → satisfied by 'dip_station' ONLY
+    // Both `applyParkGating` and `requiresOnlyAvailableGear` route through it
+    // so the rule is enforced consistently across the entire engine.
 
     const applyParkGating = (list: ExecutionMethod[]): ExecutionMethod[] => {
       if (!constraints.bypassLimits || context.location !== 'park') return list;
       return list.filter(m => {
         const allIds = collectMethodGear(m);
         if (allIds.length === 0) return true;
-        if (allIds.every(id => ESSENTIAL_PARK_GEAR.has(id) || id === 'bodyweight' || id === 'none')) return true;
-        const requiredIds = allIds.filter(id => !isGearOptional(id));
+        const requiredIds = allIds.filter(
+          id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id) && !isGearOptional(id),
+        );
         if (requiredIds.length === 0) return true;
-        return requiredIds.some(id => normalizedAvailable.includes(id));
+        return requiredIds.every(reqId => satisfiesGearRequirement(reqId, normalizedAvailable));
       });
     };
 
     const isBodyweight = (m: ExecutionMethod): boolean => {
-      return collectMethodGear(m).length === 0;
+      const ids = collectMethodGear(m);
+      return ids.length === 0 ||
+        ids.every(id => id === 'bodyweight' || id === 'none');
     };
 
-    const requiresOnlyEssentialGear = (m: ExecutionMethod): boolean => {
+    // Priority 2.5 helper: a method qualifies if all its required gear is in the
+    // resolved available set (which already contains ESSENTIAL_PARK_GEAR IDs when
+    // the catastrophic fallback is active, so this works correctly in both modes).
+    const requiresOnlyAvailableGear = (m: ExecutionMethod): boolean => {
       const allIds = collectMethodGear(m);
       if (allIds.length === 0) return false;
-      return allIds.every(id => ESSENTIAL_PARK_GEAR.has(id) || id === 'bodyweight' || id === 'none');
+      const requiredIds = allIds.filter(
+        id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id) && !isGearOptional(id),
+      );
+      if (requiredIds.length === 0) return false;
+      return requiredIds.every(reqId => satisfiesGearRequirement(reqId, normalizedAvailable));
     };
 
-    // ── Priority 1: Exact primary location match ──────────────────────
-    let candidates = methods.filter(m => m.location === context.location);
-    // Also check locationMapping
-    if (candidates.length === 0) {
-      candidates = methods.filter(m =>
-        m.locationMapping?.includes(context.location)
+    // ── PARK: Strict location enforcement ────────────────────────────────
+    // At a park, only methods explicitly tagged for park/outdoor are considered.
+    // If park methods exist but ALL fail equipment gating, the exercise is
+    // hard-rejected — there is NO fallback to home or generic gear paths.
+    // This prevents location mixing: a TRX-dependent "home" method must never
+    // be selected just because TRX happens to be available at this park.
+    //
+    // The only non-park-tagged methods that survive are purely bodyweight/surface
+    // methods, which have no equipment requirement and are universally outdoor-
+    // compatible (e.g. a push-up with no gearId).
+    if (context.location === 'park') {
+      const parkCandidates = methods.filter(m =>
+        m.location === 'park' || m.locationMapping?.includes('park' as any),
       );
-    }
-    if (candidates.length > 0) {
-      const gated = applyParkGating(candidates);
-      if (gated.length > 0) return preferMedia(gated);
-      if (context.location === 'park' && candidates.length > gated.length) {
-        const filtered = candidates.filter(c => !gated.includes(c));
-        const filteredGear = filtered.map(f => ({
-          name: f.methodName,
-          gear: collectMethodGear(f),
-        }));
-        const exName = typeof exercise.name === 'string' ? exercise.name : (exercise.name?.he || exercise.name?.en || exercise.id);
-        console.warn(`[ParkGating] "${exName}" — ${candidates.length} candidates filtered to ${gated.length}. Lost:`, filteredGear, 'Available:', context.availableEquipment.slice(0, 20));
+
+      if (parkCandidates.length > 0) {
+        const gated = applyParkGating(parkCandidates);
+        if (gated.length > 0) return preferMedia(gated);
+
+        // Park methods exist but ALL failed equipment gating → strict rejection.
+        // Do not fall through to home, available-gear, or bodyweight paths.
+        const exName = typeof exercise.name === 'string'
+          ? exercise.name
+          : (exercise.name?.he || exercise.name?.en || exercise.id);
+        console.warn(
+          `[ParkGating] "${exName}" — ${parkCandidates.length} park method(s) all gated → exercise excluded`,
+          'Required gear not in park inventory:',
+          parkCandidates.map(m => ({ method: m.methodName, gear: collectMethodGear(m) })),
+          'Available:', context.availableEquipment.slice(0, 20),
+        );
+        return null;
       }
+
+      // No park-tagged methods at all → only pure bodyweight/surface methods survive.
+      // Home-tagged methods are NOT used even if their gear happens to be available.
+      const BODYWEIGHT_PASS = new Set(['bodyweight', 'none', ...Array.from(SURFACE_GEAR_AT_PARK)]);
+      const bwCandidates = methods.filter(m => {
+        const ids = collectMethodGear(m);
+        return ids.length === 0 || ids.every(id => BODYWEIGHT_PASS.has(id));
+      });
+      return bwCandidates.length > 0 ? preferMedia(bwCandidates) : null;
     }
 
-    // ── Priority 2: Home fallback (with improvised equipment) ─────────
+    // ── Priority 1: Exact primary location match (non-park locations) ─────
+    const candidates = methods.filter(m =>
+      m.location === context.location ||
+      m.locationMapping?.includes(context.location),
+    );
+    if (candidates.length > 0) return preferMedia(candidates);
+
+    // ── Priority 2: Home fallback (non-park, non-home locations) ──────────
     if (context.location !== 'home') {
       const homeCandidates = methods.filter(
-        m => m.location === 'home' || m.locationMapping?.includes('home')
+        m => m.location === 'home' || m.locationMapping?.includes('home'),
       );
-      if (homeCandidates.length > 0) {
-        return preferMedia(homeCandidates);
-      }
+      if (homeCandidates.length > 0) return preferMedia(homeCandidates);
     }
 
-    // ── Priority 2.5: Methods requiring only essential gear ───────────
-    // Pull-up bars and dip bars are always available, so exercises
-    // tagged for 'park' that only need bars should be selectable anywhere.
-    const essentialGearCandidates = methods.filter(requiresOnlyEssentialGear);
-    if (essentialGearCandidates.length > 0) {
-      return preferMedia(essentialGearCandidates);
-    }
+    // ── Priority 2.5: Methods requiring only available gear (non-park) ────
+    const availableGearCandidates = methods.filter(requiresOnlyAvailableGear);
+    if (availableGearCandidates.length > 0) return preferMedia(availableGearCandidates);
 
-    // ── Priority 3: Bodyweight-only (any method with no equipment) ────
-    const bodyweightCandidates = methods.filter(isBodyweight);
-    if (bodyweightCandidates.length > 0) {
-      return preferMedia(bodyweightCandidates);
-    }
+    // ── Priority 3: Bodyweight-only (non-park, any method, no equipment) ──
+    const PASSTHROUGH_GEAR = new Set([
+      'bodyweight', 'none',
+      ...Array.from(SURFACE_GEAR_AT_PARK),
+    ]);
+    const bodyweightCandidates = methods.filter(m => {
+      const ids = collectMethodGear(m);
+      return ids.length === 0 || ids.every(id => PASSTHROUGH_GEAR.has(id));
+    });
+    if (bodyweightCandidates.length > 0) return preferMedia(bodyweightCandidates);
 
-    // ── No viable method found ────────────────────────────────────────
+    // ── No viable method found ─────────────────────────────────────────────
     return null;
   }
   
@@ -545,8 +679,15 @@ export class ContextualEngine {
     }
     
     // 2. Level Proximity: +3 points for exact match, -1 per level difference
-    //    Uses domain-aware level resolution + Shadow Tracking callback
-    const { level: exerciseLevel, resolvedDomain } = resolveExerciseLevelForDomains(exercise, activeDomains);
+    //    Uses domain-aware level resolution + Shadow Tracking callback.
+    //    The primary `activeProgramId` is forwarded so multi-assigned
+    //    exercises resolve to the skill-level entry (e.g. planche L7) rather
+    //    than the baseline (push L5) when the user is training that skill.
+    const { level: exerciseLevel, resolvedDomain } = resolveExerciseLevelForDomains(
+      exercise,
+      activeDomains,
+      context.activeProgramId,
+    );
     const userEffectiveLevel = context.getUserLevelForExercise(exercise);
     const levelDiff = Math.abs(exerciseLevel - userEffectiveLevel);
     const levelScore = Math.max(0, 3 - levelDiff);
@@ -554,7 +695,11 @@ export class ContextualEngine {
     const exerciseName = typeof exercise.name === 'string'
       ? exercise.name : (exercise.name as any)?.he || exercise.id;
     reasoning.push(`קרבת רמה: +${levelScore} (הפרש ${levelDiff}, רמה אפקטיבית ${userEffectiveLevel})`);
-    reasoning.push(`[LevelResolution] ${exerciseName} → L${exerciseLevel} via ${resolvedDomain ?? 'fallback'}`);
+    // NOTE: userDomainLevel is the DOMAIN-SPECIFIC user level (e.g. push-L22
+    // for a full_body master user). This is the level used for BOTH scoring
+    // and tier classification. The format "userDomainL=X" distinguishes it
+    // clearly from the global userLevel so logs are never misleading.
+    reasoning.push(`[LevelResolution] ${exerciseName} → L${exerciseLevel} via ${resolvedDomain ?? 'fallback'} | userDomainL=${userEffectiveLevel}`);
     
     // 3. Blast Mode: Prioritize compound/hybrid
     if (context.intentMode === 'blast') {

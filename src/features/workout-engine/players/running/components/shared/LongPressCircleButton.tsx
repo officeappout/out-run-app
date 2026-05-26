@@ -88,7 +88,8 @@ export default function LongPressCircleButton({
       onConfirm();
       // Settle the visual back to 0 so a follow-up press starts clean.
       // We don't call cancel() here because the parent may unmount the
-      // button (e.g. status flips to 'paused' → FreeRunPaused renders).
+      // button on confirm (e.g. WorkoutControlCluster swaps the Stop
+      // button out of the DOM the instant `finishWorkout` resolves).
       setProgress(0);
       return;
     }

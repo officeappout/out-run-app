@@ -52,7 +52,7 @@ export default function JoinPage() {
     const unsub = onAuthStateChange((user) => {
       unsub();
       if (user) {
-        router.push(`/feed?groupId=${group.id}`);
+        router.push(`/community?groupId=${group.id}`);
       } else {
         router.push('/gateway');
       }
@@ -76,7 +76,7 @@ export default function JoinPage() {
           ייתכן שהקבוצה הוסרה או שהקישור פג תוקפו.
         </p>
         <button
-          onClick={() => router.push('/feed')}
+          onClick={() => router.push('/community')}
           className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black shadow-lg shadow-cyan-500/30"
         >
           גלה קבוצות אחרות

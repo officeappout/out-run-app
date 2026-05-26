@@ -14,6 +14,12 @@ import { Exercise, getLocalizedText } from '@/features/content/exercises/core/ex
 import { ScoredExercise, IntentMode, LifestylePersona, LIFESTYLE_LABELS } from './ContextualEngine';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
+import {
+  MG_TO_DOMAIN,
+  collectMethodGear,
+  isWithinBolt1Window,
+} from '../shared/constants/domain-mapping.constants';
+import { resolveEffectiveDifficulty } from '../core/middleware/InputSanitizerMiddleware';
 
 // Re-export all types so external consumers keep importing from this file
 export type {
@@ -29,10 +35,10 @@ export type {
   BlastModeDetails,
   MechanicalBalanceSummary,
   WorkoutGenerationContext,
+  PyramidStep,
 } from './workout-generator.types';
 
 export { TIER_TABLE, resolveTier, restSafetyFloor } from './workout-generator.types';
-import { HORIZONTAL_MOVEMENT_GROUPS } from './workout-generator.types';
 
 import type {
   DifficultyLevel,
@@ -54,26 +60,127 @@ import {
   selectExercisesWithDomainQuotas,
   selectExercisesWithDominance,
   applySABASelectionBias,
-  resolveExerciseLevelForDomains,
 } from './workout-selection.utils';
 
 // Budgeting utils
 import {
   getExerciseCountForDuration,
   calculateVolumeAdjustment,
-  assignVolume,
-  applySmartSetCap,
   calculateEstimatedDuration,
   calculateWorkoutStats,
   isTimeBasedExercise,
+  applySmartSetCap,
 } from './workout-budgeting.utils';
 
 // Sorting utils
 import {
   applyPhysiologicalSort,
-  applyAntagonistPairing,
   deduplicateExercises,
 } from './workout-sorting.utils';
+
+// Protocol registry — dispatcher replaces hard-coded protocol if-tree
+import { findProcessor } from './protocols/protocol-processor.registry';
+
+// StructureDirector — declarative session topology + strategy detection
+import { createStructureDirector } from '../core/pipeline/StructureDirector';
+
+// PoolFactory — findLevelAppropriateSubstitute migrated here (Phase 5)
+import {
+  findLevelAppropriateSubstitute,
+  type LevelSubstituteResult,
+} from '../core/pipeline/PoolFactory';
+
+// BudgetDistributor — Tier-2 volume + cap math owner (Phase 3a)
+import { createBudgetDistributor } from '../core/pipeline/BudgetDistributor';
+
+// GuaranteePassRunner — Tier-2 coverage guarantees (Phase 3b)
+import { runAllGuarantees } from '../core/pipeline/GuaranteePassRunner';
+
+// ============================================================================
+// PYRAMID TARGET SELECTION
+// ============================================================================
+
+/**
+ * Movement groups that count as dominant upper-body compound / skill work
+ * — the natural home for a pyramid stamp.  Anything outside this set is
+ * eligible only as a fallback when no upper compound is present in the
+ * workout (e.g. pure legs day or core-only sessions).
+ */
+const PYRAMID_UPPER_COMPOUND_MGS = new Set<string>([
+  'vertical_push',  'horizontal_push',
+  'vertical_pull',  'horizontal_pull',
+  'muscle_up',
+  'handstand_pushup',
+  'planche',
+]);
+
+/**
+ * Pick EXACTLY ONE exercise to receive the pyramid protocol stamp.
+ *
+ * CNS Protection Rule (Hard Cap = 1):
+ *   A pyramid is a neurological overload protocol.  Stamping two pyramids
+ *   on a single session — even on different movement groups — fries the
+ *   user's nervous system because both protocols ramp toward a peak / wave
+ *   apex on the same day.  The previous 50/50 random roll between 1 and 2
+ *   pyramids occasionally produced two simultaneous CNS overloads in one
+ *   workout; this is now strictly prohibited.
+ *
+ *   If a session needs broader skill volume, the engine should add
+ *   straight-set skill work — NOT a second pyramid.
+ *
+ * Selection algorithm:
+ *   1. From all main exercises, collect upper-body compound/skill candidates
+ *      (movement group in `PYRAMID_UPPER_COMPOUND_MGS`).
+ *   2. If found, sort them by score (desc) and take exactly ONE — the
+ *      single pyramid headliner of the session.
+ *   3. If NO upper compound exists, fall back to the highest-scored main
+ *      exercise regardless of movement group — legs / core can host the
+ *      single pyramid when they are the standalone focus, but they will
+ *      never get pulled in alongside an upper compound.
+ *
+ * Returns the same `WorkoutExercise` reference that exists in the input
+ * array (so mutations inside the processor propagate back automatically).
+ */
+function selectPyramidTargets(
+  exercises: WorkoutExercise[],
+  context: WorkoutGenerationContext,
+): WorkoutExercise[] {
+  const mainEx = exercises.filter((e) => (e.exerciseRole ?? 'main') === 'main');
+  if (mainEx.length === 0) return [];
+
+  const upperCompounds = mainEx.filter((e) => {
+    const mg = e.exercise.movementGroup ?? '';
+    if (!PYRAMID_UPPER_COMPOUND_MGS.has(mg)) return false;
+    return e.priority === 'compound' || e.priority === 'skill';
+  });
+
+  const pool = upperCompounds.length > 0 ? upperCompounds : mainEx;
+
+  // Resolve the effective user level for level-proximity tie-breaking.
+  // Prefer the domain-specific level when available so a planche user
+  // (planche=L7, push=absent) anchors to their skill level, not a
+  // globalLevel average that might be lower or unrelated.
+  const userLevel = context.userLevel ?? 1;
+
+  // Sort primary: score descending.
+  // Tie-break: level proximity to userLevel ascending — the exercise
+  // closest to the user's actual capability anchors the pyramid so the
+  // D3 shape (-2, 0, +2) targets the correct level range.
+  const ranked = pool.slice().sort((a, b) => {
+    const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    const aGap = Math.abs((a.programLevel ?? 0) - userLevel);
+    const bGap = Math.abs((b.programLevel ?? 0) - userLevel);
+    return aGap - bGap;
+  });
+
+  // CNS Protection Rule: exactly ONE pyramid per workout, never two.
+  // The legacy `Math.random() < 0.5 ? 1 : 2` roll has been removed — see
+  // function header for rationale.
+  const desired = 1;
+  const take = Math.min(desired, ranked.length);
+  return ranked.slice(0, take);
+}
 
 // ============================================================================
 // CONSTANTS (Title / Description templates — kept here, orchestrator-specific)
@@ -176,21 +283,17 @@ const DESCRIPTION_TEMPLATES: Record<string, string[]> = {
 // ============================================================================
 // LEVEL-AWARE SUBSTITUTE HELPER
 // ============================================================================
+// findLevelAppropriateSubstitute and LevelSubstituteResult are now imported
+// from PoolFactory (Phase 5 migration). The implementations remain identical.
+// ============================================================================
 
-interface LevelSubstituteResult {
-  exercise: Exercise;
-  level: number;
-  gap: number;
-  radius: number;
-}
-
-// Movement-group → logical domain mapping (shared by guarantee steps)
-const MG_TO_OWN_DOMAIN: Record<string, string> = {
-  vertical_pull:    'pull',  horizontal_pull:  'pull',
-  vertical_push:    'push',  horizontal_push:  'push',
-  squat:            'legs',  hinge:            'legs', lunge: 'legs',
-  core:             'core',  anti_extension:   'core', anti_rotation: 'core',
-};
+// Movement-group → logical domain mapping is imported from
+// `../shared/constants/domain-mapping.constants` as `MG_TO_DOMAIN` —
+// the single source of truth shared by the guarantee steps, the David
+// Rule rescue scan, the synergy bonus engine, and the protocol
+// processors.  Foundational MGs map to their parent domain
+// ('push'/'pull'/'legs'/'core'); skill MGs map to their own canonical
+// program slug (e.g. 'planche', 'muscle_up').
 
 /**
  * Resolve the correct programLevel for an INJECTED exercise.
@@ -207,12 +310,12 @@ const MG_TO_OWN_DOMAIN: Record<string, string> = {
  *   2. Find an entry whose slug contains ownDomain keyword (loose match)
  *   3. Fall back to the entry closest to domainLevel
  */
-function resolveInjectedLevel(
+export function resolveInjectedLevel(
   exercise: Exercise,
   movementGroup: string,
   domainLevel: number,
 ): number {
-  const ownDomain = MG_TO_OWN_DOMAIN[movementGroup] ?? movementGroup;
+  const ownDomain = MG_TO_DOMAIN[movementGroup] ?? movementGroup;
   const tps = exercise.targetPrograms ?? [];
   if (tps.length === 0) return domainLevel;
 
@@ -246,69 +349,6 @@ function resolveInjectedLevel(
   return domainLevel;
 }
 
-/**
- * Progressive-radius search for a level-appropriate exercise.
- *
- * Searches globalExercisePool for exercises matching `targetGroup`
- * using expanding search radii (±2 → ±4 → ±6).  Within each radius
- * candidates are sorted by level proximity first, score second.
- *
- * Returns null if nothing is found within ±6 — callers must NOT
- * inject a low-level exercise in that case.
- */
-function findLevelAppropriateSubstitute(
-  pool: Exercise[],
-  targetGroup: string,
-  domainLevel: number,
-  usedIds: Set<string>,
-  _userLevelsMap: Map<string, number> | undefined,
-  domain: string | undefined,
-): LevelSubstituteResult | null {
-  const RADII = [2, 4, 6] as const;
-
-  const groupCandidates = pool.filter(
-    ex => ex.movementGroup === targetGroup && !usedIds.has(ex.id),
-  );
-
-  if (groupCandidates.length === 0) return null;
-
-  type Flat = { exercise: Exercise; level: number; gap: number };
-
-  // Gap is ALWAYS computed against domainLevel (the user's actual level
-  // for this movement category).  Never against a per-program level that
-  // can silently resolve to L1.
-  const flatten = (ex: Exercise): Flat[] =>
-    (ex.targetPrograms ?? []).map(tp => ({
-      exercise: ex,
-      level: tp.level,
-      gap: Math.abs(tp.level - domainLevel),
-    }));
-
-  const allFlat: Flat[] = groupCandidates.flatMap(flatten);
-
-  for (const radius of RADII) {
-    const inRange = allFlat.filter(c => c.gap <= radius);
-    if (inRange.length === 0) continue;
-
-    inRange.sort((a, b) => {
-      if (a.gap !== b.gap) return a.gap - b.gap;
-      return b.level - a.level;
-    });
-
-    const best = inRange[0];
-    console.log(
-      `[findLevelSub] ✅ ${targetGroup}: picked "${getLocalizedText(best.exercise.name)}" ` +
-      `L${best.level} (gap=${best.gap}, radius=±${radius}, domain=${domain ?? '?'} L${domainLevel})`,
-    );
-    return { exercise: best.exercise, level: best.level, gap: best.gap, radius };
-  }
-
-  console.warn(
-    `[findLevelSub] ❌ ${targetGroup}: no candidate within ±6 of L${domainLevel} ` +
-    `(${groupCandidates.length} candidates checked, domain=${domain ?? '?'})`,
-  );
-  return null;
-}
 
 // ============================================================================
 // SUBSTITUTION HELPER
@@ -325,7 +365,7 @@ function findLevelAppropriateSubstitute(
 const SUBST_PUSH_PULL = new Set(['vertical_pull', 'horizontal_pull', 'vertical_push', 'horizontal_push']);
 const SUBST_LEGS      = new Set(['squat', 'hinge', 'lunge']);
 
-function substituteExercise(
+export function substituteExercise(
   target: WorkoutExercise,
   newEx: Exercise,
   newMethod: any,
@@ -392,12 +432,17 @@ export class WorkoutGenerator {
     pipelineLog.push(`scored_pool: ${scoredExercises.length}`);
 
     // ── Difficulty Resolution ──
-    let difficulty: DifficultyLevel = context.difficulty || 2;
-    if (context.isFirstSessionInProgram) difficulty = 1;
-    if (context.detrainingLock && difficulty === 3) {
-      difficulty = 2;
-      console.log('[WorkoutGenerator] Detraining lock active — Intense downgraded to Challenging');
-    }
+    // Tier 1 middleware applies the periodization clock + detraining lock +
+    // first-session guard.  After this returns, `difficulty` is final and
+    // must not be re-derived anywhere downstream in this method.
+    const difficulty: DifficultyLevel = resolveEffectiveDifficulty(
+      context.difficulty,
+      {
+        detrainingLock: context.detrainingLock ?? false,
+        periodizationWeek: context.periodizationWeek ?? 1,
+      },
+      context.isFirstSessionInProgram,
+    );
 
     const isRecovery = context.isRecoveryDay === true;
 
@@ -444,121 +489,315 @@ export class WorkoutGenerator {
     const synergyExercises = this.applySynergyBonuses(jitteredExercises, context);
 
     // Step 2: Difficulty filter
-    const filteredExercises = applyDifficultyFilter(synergyExercises, context, difficulty);
-    pipelineLog.push(`after_difficulty_filter: ${filteredExercises.length}`);
+    const annotatedExercises = applyDifficultyFilter(synergyExercises, context, difficulty);
+    pipelineLog.push(`after_difficulty_filter: ${annotatedExercises.length}`);
+
+    // ── Bolt-2 Narrow Level Ceiling ───────────────────────────────────────
+    // Bolt 2 (Normal / Challenging) is the volume + mastery zone — the user
+    // works at or near their current SKILL level to consolidate strength
+    // and accumulate quality reps.  Above-level exposures of +2 / +3 belong
+    // exclusively to Bolt 3 (Intense); D2 admits at most +1.
+    //
+    // Per-domain ceiling (replaces the previous global-max approach):
+    //   When domainBudgets is populated (master sessions — full_body or
+    //   calisthenics_upper), each exercise is evaluated against the ceiling
+    //   of ITS OWN domain rather than the single max across all domains.
+    //
+    //   Example — calisthenics_upper with planche=L5, pull=L14:
+    //     Old: bolt2Ceiling = max(5,14)+1 = 15 → all exercises ≤L15 pass
+    //          (planche L12 incorrectly admitted even though user is L5).
+    //     Old (before parent domains were added): bolt2Ceiling = max(5)+1 = 6
+    //          → all pull exercises at L14 excluded (39 candidates dropped).
+    //     New: planche exercises use ceiling L6, pull exercises use ceiling L15.
+    //          Planche L12 → excluded ✓   Pull L14 → admitted ✓
+    //
+    // Unleveled exercises (programLevel === 0 — typically warmup / mobility
+    // / accessory MGs) are always admitted.
+    let filteredExercises = annotatedExercises;
+    if (difficulty === 2) {
+      // Build per-domain ceiling map from domainBudgets when available.
+      const bolt2DomainCeilingMap = new Map<string, number>();
+      let bolt2FallbackLevel: number;
+
+      if (context.domainBudgets?.length) {
+        for (const db of context.domainBudgets) {
+          bolt2DomainCeilingMap.set(db.domain, db.level + 1);
+        }
+        bolt2FallbackLevel = Math.max(...context.domainBudgets.map(d => d.level)) + 1;
+      } else if (context.activeProgramId) {
+        const skillLevel =
+          context.userProgramLevels?.get(context.activeProgramId) ??
+          context.userProgramLevels?.get(context.activeProgramId.toLowerCase());
+        bolt2FallbackLevel = (skillLevel != null && skillLevel > 0 ? skillLevel : (context.userLevel ?? 1)) + 1;
+      } else {
+        bolt2FallbackLevel = (context.userLevel ?? 1) + 1;
+      }
+
+      const beforeCount = annotatedExercises.length;
+      filteredExercises = annotatedExercises.filter(ex => {
+        const level = ex.programLevel ?? 0;
+        if (level === 0) return true; // unleveled (warmup / mobility) — always pass
+
+        if (bolt2DomainCeilingMap.size === 0) return level <= bolt2FallbackLevel;
+
+        // Pass 1: movement group → domain ceiling
+        const mgDomain = MG_TO_DOMAIN[ex.exercise?.movementGroup ?? ''];
+        if (mgDomain) {
+          const ceiling = bolt2DomainCeilingMap.get(mgDomain);
+          if (ceiling !== undefined) return level <= ceiling;
+        }
+
+        // Pass 2: targetPrograms → slug domain ceiling
+        for (const tp of ex.exercise?.targetPrograms ?? []) {
+          const slug = resolveToSlug(tp.programId);
+          const ceiling = bolt2DomainCeilingMap.get(slug) ?? bolt2DomainCeilingMap.get(tp.programId);
+          if (ceiling !== undefined) return level <= ceiling;
+        }
+
+        // No domain match — use global fallback ceiling
+        return level <= bolt2FallbackLevel;
+      });
+      const droppedCount = beforeCount - filteredExercises.length;
+      if (droppedCount > 0) {
+        const ceilingStr = bolt2DomainCeilingMap.size > 0
+          ? `per-domain [${Array.from(bolt2DomainCeilingMap.entries()).map(([d, c]) => `${d}→L${c}`).join(', ')}]`
+          : `L${bolt2FallbackLevel}`;
+        console.log(
+          `[Bolt2Cap] ${ceilingStr} ` +
+          `(activeProgram=${context.activeProgramId ?? 'none'}): ` +
+          `filtered out ${droppedCount} above-ceiling exercise(s). ` +
+          `Pool: ${beforeCount} → ${filteredExercises.length}`,
+        );
+        pipelineLog.push(
+          `bolt2_cap: dropped ${droppedCount} exercises above per-domain ceilings ` +
+          `(activeProgramId=${context.activeProgramId ?? 'none'})`,
+        );
+      }
+    }
+
+    // ── Bolt-1 Regression Ceiling ─────────────────────────────────────────
+    // Bolt 1 (Recovery/Flow) keeps exercises within [ref−3, ref−1] of the
+    // user's SKILL program level — not the global baseUserLevel maximum.
+    //
+    // Per-domain window (mirrors Bolt-2 per-domain logic):
+    //   When domainBudgets is available, each exercise is evaluated inside
+    //   the recovery window anchored to ITS OWN domain's reference level.
+    //   A calisthenics_upper recovery session with planche=L5 / pull=L14
+    //   produces two independent windows:
+    //     planche domain → window [L2, L4]
+    //     pull domain    → window [L11, L13]
+    //   — so planche recovery exercises (L2–L4) and pull recovery exercises
+    //   (L11–L13) are both admitted simultaneously without either window
+    //   excluding the other domain's appropriate level range.
+    //
+    // Only fires for sessions where the maximum domain reference > 4.
+    const bolt1DomainRefMap = new Map<string, number>();
+    let bolt1FallbackRef: number;
+
+    if (context.domainBudgets?.length) {
+      for (const db of context.domainBudgets) {
+        bolt1DomainRefMap.set(db.domain, db.level);
+      }
+      bolt1FallbackRef = Math.max(...context.domainBudgets.map(d => d.level));
+    } else if (context.activeProgramId) {
+      const skillLevel =
+        context.userProgramLevels?.get(context.activeProgramId) ??
+        context.userProgramLevels?.get(context.activeProgramId.toLowerCase());
+      bolt1FallbackRef = (skillLevel != null && skillLevel > 0) ? skillLevel : (context.userLevel ?? 1);
+    } else {
+      bolt1FallbackRef = context.userLevel ?? 1;
+    }
+
+    // Guard threshold: use the maximum reference level so the block fires
+    // whenever ANY domain requires a recovery window.
+    const bolt1ReferenceLevel = bolt1FallbackRef;
+
+    if (difficulty === 1 && bolt1ReferenceLevel > 4) {
+      // Flexible recovery window: keep exercises whose level falls inside
+      // [ref − 3, ref − 1] of their own domain's reference.
+      // Unleveled (level === 0) exercises are always admitted so warmup /
+      // mobility / accessory MGs are not collateral-pruned.
+      const windowLow  = Math.max(1, bolt1ReferenceLevel - 3);
+      const windowHigh = Math.max(1, bolt1ReferenceLevel - 1);
+      const beforeCount = filteredExercises.length;
+      filteredExercises = filteredExercises.filter(ex => {
+        const level = ex.programLevel ?? 0;
+        if (level === 0) return true;
+
+        if (bolt1DomainRefMap.size === 0) return isWithinBolt1Window(level, bolt1FallbackRef);
+
+        // Pass 1: movement group → domain reference
+        const mgDomain = MG_TO_DOMAIN[ex.exercise?.movementGroup ?? ''];
+        if (mgDomain) {
+          const domainRef = bolt1DomainRefMap.get(mgDomain);
+          if (domainRef !== undefined) return isWithinBolt1Window(level, domainRef);
+        }
+
+        // Pass 2: targetPrograms → slug domain reference
+        for (const tp of ex.exercise?.targetPrograms ?? []) {
+          const slug = resolveToSlug(tp.programId);
+          const domainRef = bolt1DomainRefMap.get(slug) ?? bolt1DomainRefMap.get(tp.programId);
+          if (domainRef !== undefined) return isWithinBolt1Window(level, domainRef);
+        }
+
+        // No domain match — use fallback reference
+        return isWithinBolt1Window(level, bolt1FallbackRef);
+      });
+      const droppedCount = beforeCount - filteredExercises.length;
+      if (droppedCount > 0) {
+        const windowStr = bolt1DomainRefMap.size > 0
+          ? `per-domain [${Array.from(bolt1DomainRefMap.entries()).map(([d, r]) => `${d}→[L${Math.max(1,r-3)}-L${Math.max(1,r-1)}]`).join(', ')}]`
+          : `L${windowLow}–L${windowHigh}`;
+        console.log(
+          `[Bolt1Cap] Recovery window ${windowStr} ` +
+          `(activeProgram=${context.activeProgramId ?? 'none'}): ` +
+          `filtered out ${droppedCount} out-of-window exercise(s). ` +
+          `Pool: ${beforeCount} → ${filteredExercises.length}`,
+        );
+        pipelineLog.push(
+          `bolt1_recovery_window: dropped ${droppedCount} exercises outside per-domain windows ` +
+          `(activeProgramId=${context.activeProgramId ?? 'none'})`,
+        );
+      }
+    }
 
     // Step 3: Select exercises
     const rawSelected = this.selectExercises(filteredExercises, exerciseCount, includeAccessories, context, difficulty);
     pipelineLog.push(`after_bolt_selection(bolt=${difficulty}): ${rawSelected.length}`);
 
+    // Detect single-domain sessions (e.g. Pull-only, Push-only tracks).
+    // In this mode the entire pool shares the same movement groups by definition,
+    // so the strict MG cap would displace valid exercises with nothing to backfill,
+    // collapsing the workout to 1-2 exercises.
+    const blueprint = createStructureDirector().plan(context, difficulty);
+    const isSingleDomain = blueprint.strategy === 'single_domain';
+
     // Step 3b: Movement Group Diversity Pass
     //
-    // Prevent the same pull/push movement group from claiming multiple slots.
-    // Example: With Pull L19, Muscle-up, Ring Muscle-up and Weighted Pull-up
-    // all score highly, but including all three would create a "Muscle-up fest".
-    // Rule: max 1 exercise per primary movement group (vertical/horizontal pull/push).
+    // Multi-domain: max 1 exercise per primary movement group (vertical/horizontal
+    // pull/push). Prevents a "Muscle-up fest" when all top scorers share one group.
     // Displaced slots are backfilled from the filtered pool with different groups.
+    //
+    // Single-domain (e.g. Pull-only, Push-only): enforcing the MG cap is harmful
+    // because every exercise in the pool belongs to the same 1-2 movement groups.
+    // In this mode we only prevent true duplicates — the exact same exercise ID
+    // appearing more than once — so the workout can include wide-grip, close-grip,
+    // and ring pull-ups as distinct slots rather than collapsing to one.
     const STRICT_MG_MAX = 1;
     const STRICT_MG_GROUPS = new Set([
       'vertical_pull', 'horizontal_pull',
       'vertical_push', 'horizontal_push',
     ]);
-    const mgUsage = new Map<string, number>();
     const diversePrimary: (typeof rawSelected)[number][] = [];
     const usedIdsDiversity = new Set<string>();
 
-    // Process highest-scored first so top exercises claim their MG slot.
-    // Foundation exercises always win their MG slot over Skill exercises —
-    // a Muscle-up (skill) must not displace a Pull-up (foundation) from
-    // the vertical_pull slot.
-    for (const ex of [...rawSelected].sort((a, b) => {
-      const aIsFoundation = classifyPriority(a.exercise) === 'foundation' ? 1 : 0;
-      const bIsFoundation = classifyPriority(b.exercise) === 'foundation' ? 1 : 0;
-      if (aIsFoundation !== bIsFoundation) return bIsFoundation - aIsFoundation;
-      return b.score - a.score;
-    })) {
-      const mg = ex.exercise.movementGroup ?? 'none';
-      const isStrict = STRICT_MG_GROUPS.has(mg);
-      const used = mgUsage.get(mg) ?? 0;
-      if (!isStrict || used < STRICT_MG_MAX) {
-        diversePrimary.push(ex);
-        mgUsage.set(mg, used + 1);
-        usedIdsDiversity.add(ex.exercise.id);
+    if (isSingleDomain) {
+      // Slug-based dedup only: allow multiple exercises from the same movement
+      // group; only block the exact same exercise ID appearing more than once.
+      for (const ex of rawSelected) {
+        if (!usedIdsDiversity.has(ex.exercise.id)) {
+          diversePrimary.push(ex);
+          usedIdsDiversity.add(ex.exercise.id);
+        }
       }
-      // else: exercise displaced — backfilled below
-    }
+      // Backfill remaining slots with additional slug-unique exercises from the pool.
+      const slotsNeeded = rawSelected.length - diversePrimary.length;
+      if (slotsNeeded > 0) {
+        const backfill = filteredExercises
+          .filter(e => !usedIdsDiversity.has(e.exercise.id))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, slotsNeeded);
+        for (const ex of backfill) {
+          diversePrimary.push(ex);
+          usedIdsDiversity.add(ex.exercise.id);
+        }
+        pipelineLog.push(`mg_diversity(single-domain): slug-dedup only, backfilled ${backfill.length}`);
+        console.log(`[MGDiversity] Single-domain mode: slug-dedup only, backfilled ${backfill.length} (pool had ${filteredExercises.length} candidates)`);
+      } else {
+        pipelineLog.push(`mg_diversity(single-domain): slug-dedup only, no slots displaced`);
+        console.log(`[MGDiversity] Single-domain mode: slug-dedup only, all ${rawSelected.length} exercises kept`);
+      }
+    } else {
+      const mgUsage = new Map<string, number>();
 
-    // Backfill displaced slots with highest-scored alternatives from filtered pool
-    const slotsNeeded = rawSelected.length - diversePrimary.length;
-    if (slotsNeeded > 0) {
-      const backfill = filteredExercises
-        .filter(e => {
-          if (usedIdsDiversity.has(e.exercise.id)) return false;
-          const mg = e.exercise.movementGroup ?? 'none';
-          if (!STRICT_MG_GROUPS.has(mg)) return true;
-          return (mgUsage.get(mg) ?? 0) < STRICT_MG_MAX;
-        })
-        .sort((a, b) => b.score - a.score)
-        .slice(0, slotsNeeded);
-
-      for (const ex of backfill) {
-        diversePrimary.push(ex);
-        usedIdsDiversity.add(ex.exercise.id);
+      // Process highest-scored first so top exercises claim their MG slot.
+      // Foundation exercises always win their MG slot over Skill exercises —
+      // a Muscle-up (skill) must not displace a Pull-up (foundation) from
+      // the vertical_pull slot.
+      for (const ex of [...rawSelected].sort((a, b) => {
+        const aIsFoundation = classifyPriority(a.exercise) === 'foundation' ? 1 : 0;
+        const bIsFoundation = classifyPriority(b.exercise) === 'foundation' ? 1 : 0;
+        if (aIsFoundation !== bIsFoundation) return bIsFoundation - aIsFoundation;
+        return b.score - a.score;
+      })) {
         const mg = ex.exercise.movementGroup ?? 'none';
-        mgUsage.set(mg, (mgUsage.get(mg) ?? 0) + 1);
+        const isStrict = STRICT_MG_GROUPS.has(mg);
+        const used = mgUsage.get(mg) ?? 0;
+        if (!isStrict || used < STRICT_MG_MAX) {
+          diversePrimary.push(ex);
+          mgUsage.set(mg, used + 1);
+          usedIdsDiversity.add(ex.exercise.id);
+        }
+        // else: exercise displaced — backfilled below
       }
 
-      pipelineLog.push(`mg_diversity: displaced ${slotsNeeded} duplicate-group exercises, backfilled ${backfill.length}`);
-      console.log(`[MGDiversity] Displaced ${slotsNeeded} same-group duplicates → backfilled ${backfill.length} (pool had ${filteredExercises.length} candidates)`);
+      // Backfill displaced slots with highest-scored alternatives from filtered pool
+      const slotsNeeded = rawSelected.length - diversePrimary.length;
+      if (slotsNeeded > 0) {
+        const backfill = filteredExercises
+          .filter(e => {
+            if (usedIdsDiversity.has(e.exercise.id)) return false;
+            const mg = e.exercise.movementGroup ?? 'none';
+            if (!STRICT_MG_GROUPS.has(mg)) return true;
+            return (mgUsage.get(mg) ?? 0) < STRICT_MG_MAX;
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, slotsNeeded);
+
+        for (const ex of backfill) {
+          diversePrimary.push(ex);
+          usedIdsDiversity.add(ex.exercise.id);
+          const mg = ex.exercise.movementGroup ?? 'none';
+          mgUsage.set(mg, (mgUsage.get(mg) ?? 0) + 1);
+        }
+
+        pipelineLog.push(`mg_diversity: displaced ${slotsNeeded} duplicate-group exercises, backfilled ${backfill.length}`);
+        console.log(`[MGDiversity] Displaced ${slotsNeeded} same-group duplicates → backfilled ${backfill.length} (pool had ${filteredExercises.length} candidates)`);
+      }
     }
 
     // Use the diversity-enforced list for all downstream steps
     const selectedExercises = diversePrimary;
 
-    // Step 4: Volume
+    // ── Step 4: Volume + Budget Distribution (Tier-2 BudgetDistributor) ──────
+    //
+    // BudgetDistributor.distribute() owns the entire volume math chain in one
+    // call:  assignVolume → maxSets cap → weeklyBudget cap → dailyBudget cap →
+    //        set rebalance → skill cluster cap.
+    //
+    // Migration: replaces the legacy Steps 4b/4c/4c-prime cap loops + Step 5g
+    // (set rebalance) + Step 5h (skill cluster cap) that previously lived
+    // inline here, gated by !context.useModularPipeline.  The modular path
+    // is now the only path.
     const volumeAdjustment = calculateVolumeAdjustment(context, difficulty);
-    let workoutExercises = assignVolume(selectedExercises, context, volumeAdjustment, difficulty);
-
-    // Step 4b: Smart set cap
-    const maxCap = context.maxSets != null && context.maxSets > 0 ? context.maxSets : Infinity;
-    const domainCount = context.requiredDomains?.length;
-    const setsBeforeCap = workoutExercises.reduce((s, e) => s + e.sets, 0);
-    workoutExercises = applySmartSetCap(workoutExercises, maxCap, domainCount);
-    const setsAfterCap = workoutExercises.reduce((s, e) => s + e.sets, 0);
-    if (setsAfterCap < setsBeforeCap) {
-      pipelineLog.push(`set_cap_applied: ${setsBeforeCap} → ${setsAfterCap} (daily=${context.dailySetBudget ?? 'n/a'}, max=${maxCap === Infinity ? 'none' : maxCap})`);
-    }
-
-    // Step 4c: Global budget guardrail
     const weeklyBudget = context.remainingWeeklyBudget;
-    if (
-      weeklyBudget != null &&
-      weeklyBudget > 0 &&
-      weeklyBudget < workoutExercises.reduce((s, e) => s + e.sets, 0)
-    ) {
-      const plannedBefore = workoutExercises.reduce((s, e) => s + e.sets, 0);
-      workoutExercises = applySmartSetCap(workoutExercises, weeklyBudget, domainCount);
-      pipelineLog.push(`weekly_guard: ${plannedBefore} → ${workoutExercises.reduce((s, e) => s + e.sets, 0)} (remaining=${weeklyBudget})`);
-    }
     pipelineLog.push(`weekly_budget: ${weeklyBudget ?? 'n/a'}, used_so_far: ${weeklyBudget != null ? 'see_store' : 'n/a'}, daily_budget: ${context.dailySetBudget ?? 'n/a'}`);
 
-    // Step 4c-prime: Hard Daily Budget Cap
-    //
-    // The dailySetBudget is the authoritative per-session set limit derived
-    // from the Lead Program service.  Apply it AFTER the weekly guard so both
-    // constraints are respected.  Prevents the engine from overshooting when
-    // domain budgets or exercise counts naturally accumulate too many sets.
-    if (context.dailySetBudget != null && context.dailySetBudget > 0) {
-      const preCap = workoutExercises.reduce((s, e) => s + e.sets, 0);
-      if (preCap > context.dailySetBudget) {
-        workoutExercises = applySmartSetCap(workoutExercises, context.dailySetBudget, domainCount);
-        const postCap = workoutExercises.reduce((s, e) => s + e.sets, 0);
-        pipelineLog.push(`daily_budget_cap: ${preCap} → ${postCap} sets (cap=${context.dailySetBudget})`);
-        console.log(`[WorkoutGenerator] 🚦 Daily budget cap: ${preCap} → ${postCap} sets (cap=${context.dailySetBudget})`);
-      }
-    }
+    const budgetDistributor = createBudgetDistributor();
+    const distResult = budgetDistributor.distribute(
+      selectedExercises,
+      context,
+      difficulty,
+      blueprint.budgetConstraints,
+    );
+    let workoutExercises = distResult.exercises;
+    pipelineLog.push(...distResult.log);
 
-    // Step 4d: "David Rule" — Relative Gap Guard
+    // ── Step 4d: "David Rule" — Relative Gap Guard ───────────────────────────
+    //
+    // Quality-rescue substitution pass (NOT a budget cap).  Stays in
+    // WorkoutGenerator because it operates on the post-distribute
+    // WorkoutExercise[] using findLevelAppropriateSubstitute.
     //
     // Two tiers of protection:
     //   Tier 1 (original): userLevel > 5  → rescue any L1 exercise
@@ -570,13 +809,6 @@ export class WorkoutGenerator {
     // the under-level exercise stays (better than nothing).
     if (context.userLevel > 5 && context.globalExercisePool?.length) {
       const MAX_GAP = 6;
-
-      const MG_TO_DOMAIN: Record<string, string> = {
-        vertical_pull: 'pull', horizontal_pull: 'pull',
-        vertical_push: 'push', horizontal_push: 'push',
-        squat: 'legs', hinge: 'legs', lunge: 'legs',
-        core: 'core', anti_extension: 'core', anti_rotation: 'core',
-      };
 
       const rescueIndices: number[] = [];
       const userLevels = context.userProgramLevels;
@@ -603,7 +835,6 @@ export class WorkoutGenerator {
 
       if (rescueIndices.length > 0) {
         console.group(`[DavidRule] 🚨 ${rescueIndices.length} under-level exercise(s) for L${context.userLevel} user — Rescue Re-scan`);
-        const usedIds = new Set(workoutExercises.map(we => we.exercise.id));
 
         for (const idx of rescueIndices) {
           const victim = workoutExercises[idx];
@@ -616,16 +847,60 @@ export class WorkoutGenerator {
             continue;
           }
 
+          // ── Anti-Duplication Law (Strict In-Workout ID Tracking) ────────
+          // Rebuild the exclusion set FRESH at every iteration so any
+          // substitutions performed in previous iterations are reflected
+          // immediately.  The earlier "build-once-then-incrementally-add"
+          // pattern was correct in theory but brittle: if any code path
+          // mutated `workoutExercises` between iterations (e.g., an
+          // intermediate guarantee pass running on a copied reference, a
+          // trio-modifier pass on the same array, or a stale `usedIds`
+          // scope crossed boundaries), the static `usedIds` set could
+          // diverge from the actual workout state and admit duplicates
+          // such as the live-log "שכיבות סמיכה פלאנץ׳ טאק" appearing twice.
+          //
+          // Rebuilding from `workoutExercises` per-iteration guarantees
+          // the exclusion set is always THE source of truth for currently
+          // selected exercise IDs, regardless of any upstream mutations.
+          const currentWorkoutIds = new Set<string>();
+          for (const we of workoutExercises) {
+            const id = we?.exercise?.id;
+            if (id) currentWorkoutIds.add(id);
+          }
+
           const targetDomain = MG_TO_DOMAIN[mg];
           const domainLevel = targetDomain
             ? (userLevels?.get(targetDomain) ?? context.userLevel)
             : context.userLevel;
 
+          const targetOffset = difficulty === 1 ? -2 : difficulty === 2 ? -1 : 1;
+          const targetLevel = Math.max(1, domainLevel + targetOffset);
           const sub = findLevelAppropriateSubstitute(
-            context.globalExercisePool, mg, domainLevel, usedIds, userLevels, targetDomain,
+            context.globalExercisePool, mg, targetLevel, currentWorkoutIds, userLevels, targetDomain, difficulty,
           );
 
           if (sub) {
+            // Defensive double-check: even with the exclusion filter,
+            // refuse to apply a substitute whose id already exists in
+            // the current workout list.  This is the absolute last line
+            // of defense — if PoolFactory's filter drifts in the future,
+            // or the substitute search returns a falsely "fresh" id (data
+            // corruption / mis-keyed Firestore docs), the rescue swap is
+            // skipped rather than admitting a duplicate that would corrupt
+            // the user's session with conflicting rep ranges.
+            if (currentWorkoutIds.has(sub.exercise.id)) {
+              const dupName = getLocalizedText(sub.exercise.name);
+              console.warn(
+                `[DavidRule] ⚠️ Anti-Duplication: substitute "${dupName}" ` +
+                `(L${sub.level}) already present in workout — leaving ` +
+                `"${victimName}" (L${victimLevel}) unrescued rather than admit a duplicate.`,
+              );
+              pipelineLog.push(
+                `david_rule: dedup_skip_"${dupName}"_for_"${victimName}"(L${victimLevel},mg=${mg})`,
+              );
+              continue;
+            }
+
             workoutExercises[idx] = {
               ...workoutExercises[idx],
               ...substituteExercise(workoutExercises[idx], sub.exercise, sub.exercise.executionMethods?.[0]),
@@ -634,16 +909,15 @@ export class WorkoutGenerator {
               levelDelta: sub.level - domainLevel,
               reasoning: [
                 ...workoutExercises[idx].reasoning,
-                `david_rule:rescued(L${victimLevel}→L${sub.level},mg=${mg},gap=${domainLevel - victimLevel},radius=±${sub.radius})`,
+                `david_rule:rescued(L${victimLevel}→L${sub.level},mg=${mg},target=L${targetLevel}(D${difficulty}),radius=±${sub.radius})`,
               ],
             };
 
-            usedIds.add(sub.exercise.id);
             const repName = getLocalizedText(sub.exercise.name);
             pipelineLog.push(`david_rule: "${victimName}" (L${victimLevel}) → "${repName}" (L${sub.level}) [${mg}]`);
-            console.log(`[DavidRule] ✅ "${victimName}" (L${victimLevel}) → "${repName}" (L${sub.level}) [${mg}, domain=${targetDomain} L${domainLevel}, gap=${domainLevel - victimLevel}, radius=±${sub.radius}]`);
+            console.log(`[DavidRule] ✅ "${victimName}" (L${victimLevel}) → "${repName}" (L${sub.level}) [${mg}, domain=${targetDomain} L${domainLevel}, target=L${targetLevel}(D${difficulty}), radius=±${sub.radius}]`);
           } else {
-            console.warn(`[DavidRule] ❌ No rescue candidate for "${victimName}" (L${victimLevel}, mg=${mg}, domain=${targetDomain} L${domainLevel})`);
+            console.warn(`[DavidRule] ❌ No rescue candidate for "${victimName}" (L${victimLevel}, mg=${mg}, domain=${targetDomain} L${domainLevel}, target=L${targetLevel}(D${difficulty})`);
             pipelineLog.push(`david_rule: no_rescue_for_"${victimName}"(L${victimLevel},mg=${mg})`);
           }
         }
@@ -655,359 +929,140 @@ export class WorkoutGenerator {
     const protocolResult = this.selectProtocol(difficulty, context);
 
     // Step 5: Physiological sort
-    workoutExercises = applyPhysiologicalSort(workoutExercises);
+    // Female full_body users get legs first (Tier 0) — more approachable ordering
+    const isFemaleFullBody =
+      context.gender === 'female' && blueprint.strategy === 'full_body';
+    workoutExercises = applyPhysiologicalSort(workoutExercises, { femaleFullBody: isFemaleFullBody });
 
-    // Step 5b: Antagonist pairing
-    if (protocolResult.setType === 'antagonist_pair') {
-      workoutExercises = applyAntagonistPairing(workoutExercises);
+    // Step 5b: Protocol processor dispatch
+    // Replaces the hard-coded if-tree.  Add new protocols by registering them
+    // in `protocols/protocol-processor.registry.ts` — no changes here.
+    //
+    // PYRAMID SPECIAL CASE — surgical, not blanket
+    //   When the rolled protocol is 'pyramid', we do NOT pyramidize the
+    //   entire exercise list.  Instead we pick 1-2 dominant upper-body
+    //   compound/skill exercises (push / pull / muscle_up / HSPU /
+    //   planche) and pass only that subset to the processor.  The other
+    //   exercises stay as standard straight sets / antagonist pairs.
+    //
+    //   Pyramid targets are mutated in place by the processor, so the
+    //   references already inside `workoutExercises` pick up the
+    //   pyramidSequence / repsSequence fields without us re-assigning.
+    //
+    //   If no upper compound candidate exists (e.g. pure legs day), the
+    //   fallback selects the top-scored main exercise regardless of
+    //   movement group — legs / core CAN host a pyramid when they are
+    //   the standalone focus, but are NEVER forced into one alongside
+    //   an upper compound.
+    const processor = findProcessor(protocolResult.setType);
+    if (processor) {
+      if (protocolResult.setType === 'pyramid') {
+        const pyramidTargets = selectPyramidTargets(workoutExercises, context);
+        if (pyramidTargets.length === 0) {
+          console.log(
+            '[WorkoutGenerator] Pyramid rolled but no main exercises to target — ' +
+            'reverting to straight sets',
+          );
+          protocolResult.setType = 'straight';
+        } else {
+          console.log(
+            `[WorkoutGenerator] Pyramid applied to ${pyramidTargets.length}/` +
+            `${workoutExercises.filter((e) => (e.exerciseRole ?? 'main') === 'main').length} ` +
+            `main exercise(s): ${pyramidTargets
+              .map((t) => (t.exercise.name as any)?.he ?? t.exercise.id)
+              .join(', ')}`,
+          );
+          processor.process(pyramidTargets, context);
+        }
+      } else {
+        workoutExercises = processor.process(workoutExercises, context);
+      }
+      if (processor.mutateStructure) {
+        protocolResult.structure = processor.mutateStructure(protocolResult.structure);
+      }
     }
 
     // Step 5c: Deduplicate
     workoutExercises = deduplicateExercises(workoutExercises);
 
-    // Step 5d: Level-Aware Horizontal Guarantee (full_body workouts only)
+    // ── Step 5d / 5d-prime / 5e: Coverage Guarantees (Tier-2 GuaranteePassRunner) ──
     //
-    // Ensures at least one horizontal_push and one horizontal_pull among
-    // main exercises.  Unlike the old logic (which sorted by score only),
-    // this uses findLevelAppropriateSubstitute — a progressive-radius
-    // search over globalExercisePool that prioritises level proximity:
-    //   Priority 1: ±2 of domainLevel
-    //   Priority 2: ±4
-    //   Priority 3: ±6
-    //   Hard limit:  gap > 6 → skip (better unbalanced than irrelevant)
+    // GuaranteePassRunner.runAllGuarantees() owns the 3 coverage guarantee
+    // passes that previously lived inline here as Steps 5d, 5d-prime, 5e
+    // (~380 lines):
     //
-    if (context.requiredDomains && context.requiredDomains.length >= 3) {
-      // MG_TO_OWN_DOMAIN is defined at module level — reuse it here
-      const mainEx = workoutExercises.filter(e => e.exerciseRole === 'main');
-      const usedIds = new Set(workoutExercises.map(we => we.exercise.id));
-      const userLevelsMap = context.userProgramLevels;
-      const pool = context.globalExercisePool ?? [];
+    //   1. Horizontal Guarantee        — at least 1 horizontal_push +
+    //                                    1 horizontal_pull in full_body sessions
+    //   2. Vertical Foundation Guard   — foundation movement in
+    //                                    vertical_pull / vertical_push slots
+    //   3. Full-Body Domain Guarantee  — push + pull + legs presence
+    //
+    // Migrated verbatim — no behavioural changes.  The runner mutates
+    // `workoutExercises` indices in place (preserving the original semantics)
+    // but always returns the WorkoutExercise[] reference for the chain.
+    workoutExercises = runAllGuarantees(
+      workoutExercises,
+      context,
+      blueprint,
+      difficulty,
+      pipelineLog,
+    );
 
-      const tryLevelAwareSwap = (targetGroup: string) => {
-        const domain = MG_TO_OWN_DOMAIN[targetGroup];
-        const domainLevel = domain
-          ? (userLevelsMap?.get(domain) ?? context.userLevel)
-          : context.userLevel;
+    // Step 5e-bis: Legs Cap for Full-Body sessions
+    //
+    // In a Full Body workout the legs slot is a balance anchor — it provides
+    // the lower-body stimulus for the session.  More than 2 leg exercises
+    // dilutes push/pull volume and over-extends the workout.
+    //
+    // Rule: If more than MAX_LEGS_FULL_BODY main exercises resolve to the
+    // 'legs' domain (squat/hinge/lunge MGs), remove the excess — lowest-scored
+    // leg exercise first — UNLESS the removed exercise is the ONLY legs
+    // exercise in the workout (the guarantee below always ensures at least 1).
+    // Only fires when StructureDirector resolves a full_body session so
+    // single-track Legs programs are never affected.
+    const MAX_LEGS_FULL_BODY = 2;
+    const LEGS_MG_SET = new Set(['squat', 'hinge', 'lunge']);
+    const isFullBodySession = blueprint.strategy === 'full_body';
 
-        const substitute = findLevelAppropriateSubstitute(
-          pool, targetGroup, domainLevel, usedIds, userLevelsMap, domain,
+    if (isFullBodySession) {
+      const legExercises = workoutExercises
+        .filter(e => e.exerciseRole === 'main' && LEGS_MG_SET.has(e.exercise.movementGroup ?? ''));
+
+      if (legExercises.length > MAX_LEGS_FULL_BODY) {
+        // Sort by score ascending — drop weakest legs exercises first
+        const sorted = [...legExercises].sort((a, b) => a.score - b.score);
+        const toRemove = sorted.slice(0, legExercises.length - MAX_LEGS_FULL_BODY);
+        const removeIds = new Set(toRemove.map(e => e.exercise.id));
+        const beforeCount = workoutExercises.length;
+        workoutExercises = workoutExercises.filter(e => !removeIds.has(e.exercise.id));
+        const removed = beforeCount - workoutExercises.length;
+        console.log(
+          `[LegsCapGuard] Full Body — removed ${removed} excess leg exercise(s) ` +
+          `(was ${legExercises.length}, cap=${MAX_LEGS_FULL_BODY}): ` +
+          `[${toRemove.map(e => getLocalizedText(e.exercise.name)).join(', ')}]`,
         );
-
-        if (!substitute) {
-          console.log(`[HorizontalGuarantee] skipped ${targetGroup} — no candidate within ±6 of L${domainLevel}`);
-          pipelineLog.push(`horizontal_guarantee: SKIPPED ${targetGroup} (no candidate ≤ gap 6, L${domainLevel})`);
-          return;
-        }
-
-        const repName  = getLocalizedText(substitute.exercise.name);
-        // Always derive the program level from the injected exercise's OWN domain
-        // (horizontal_push → push), not from the search result which could inherit
-        // the wrong domain level (e.g., L19 full_body instead of L12 push).
-        const repLevel = resolveInjectedLevel(substitute.exercise, targetGroup, domainLevel);
-        const gap      = Math.abs(repLevel - domainLevel);
-
-        // Check domain budget: if the domain already has enough sets (>3),
-        // ADD the horizontal exercise instead of replacing the vertical one.
-        // David (L19) needs BOTH pull-ups AND back levers in the same session.
-        const domainSets = mainEx
-          .filter(e => domain && MG_TO_OWN_DOMAIN[e.exercise.movementGroup ?? ''] === domain)
-          .reduce((s, e) => s + (e.sets ?? 3), 0);
-
-        const verticalCounterpart = targetGroup === 'horizontal_pull' ? 'vertical_pull'
-          : targetGroup === 'horizontal_push' ? 'vertical_push'
-          : null;
-
-        const hasVertical = verticalCounterpart
-          && mainEx.some(e => e.exercise.movementGroup === verticalCounterpart);
-
-        if (domainSets > 3 && hasVertical) {
-          // Domain has rich budget AND a vertical exercise → ADD the horizontal
-          // by replacing the lowest-scoring NON-domain exercise (accessory/core/legs)
-          const otherDomainEx = mainEx
-            .filter(e => {
-              const eMg = e.exercise.movementGroup ?? '';
-              const eDomain = MG_TO_OWN_DOMAIN[eMg];
-              return eDomain !== domain && !HORIZONTAL_MOVEMENT_GROUPS.has(eMg);
-            })
-            .sort((a, b) => a.score - b.score);
-
-          const victim = otherDomainEx[0];
-          if (victim) {
-            const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
-            if (idx >= 0) {
-              const victimName = getLocalizedText(victim.exercise.name);
-              const victimMg   = victim.exercise.movementGroup ?? '?';
-
-              workoutExercises[idx] = {
-                ...workoutExercises[idx],
-                ...substituteExercise(workoutExercises[idx], substitute.exercise, substitute.exercise.executionMethods?.[0]),
-                programLevel: repLevel,
-                isOverLevel: repLevel > domainLevel,
-                levelDelta: repLevel - domainLevel,
-                reasoning: [
-                  ...workoutExercises[idx].reasoning,
-                  `horizontal_guarantee:added(L${repLevel},gap=${gap},mg=${targetGroup},replaced_accessory=${victimMg})`,
-                ],
-              };
-
-              usedIds.add(substitute.exercise.id);
-              pipelineLog.push(`horizontal_guarantee: ADDED "${repName}"(L${repLevel}) replacing accessory "${victimName}"(${victimMg}) — preserved vertical [${targetGroup}]`);
-              console.log(`[HorizontalGuarantee] ✅ ADDED "${repName}"(L${repLevel}) replacing accessory "${victimName}"(${victimMg}) — preserved ${verticalCounterpart} [domain=${domain} L${domainLevel}, budget=${domainSets} sets]`);
-              return;
-            }
-          }
-        }
-
-        // Standard path: replace lowest-scored same-domain exercise
-        const sameDomainVertical = mainEx
-          .filter(e => verticalCounterpart && e.exercise.movementGroup === verticalCounterpart)
-          .sort((a, b) => a.score - b.score);
-
-        const sameDomainAny = mainEx
-          .filter(e => {
-            const eMg = e.exercise.movementGroup ?? '';
-            if (HORIZONTAL_MOVEMENT_GROUPS.has(eMg)) return false;
-            return domain && MG_TO_OWN_DOMAIN[eMg] === domain;
-          })
-          .sort((a, b) => a.score - b.score);
-
-        const anyNonHorizontal = mainEx
-          .filter(e => !HORIZONTAL_MOVEMENT_GROUPS.has(e.exercise.movementGroup ?? ''))
-          .sort((a, b) => a.score - b.score);
-
-        const victim = sameDomainVertical[0] ?? sameDomainAny[0] ?? anyNonHorizontal[0];
-        if (!victim) return;
-        const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
-        if (idx < 0) return;
-
-        const victimName = getLocalizedText(victim.exercise.name);
-        const victimMg   = victim.exercise.movementGroup ?? '?';
-
-        workoutExercises[idx] = {
-          ...workoutExercises[idx],
-          ...substituteExercise(workoutExercises[idx], substitute.exercise, substitute.exercise.executionMethods?.[0]),
-          programLevel: repLevel,
-          isOverLevel: repLevel > domainLevel,
-          levelDelta: repLevel - domainLevel,
-          reasoning: [
-            ...workoutExercises[idx].reasoning,
-            `horizontal_guarantee:swapped(L${repLevel},gap=${gap},mg=${targetGroup},replaced=${victimMg})`,
-          ],
-        };
-
-        usedIds.add(substitute.exercise.id);
-        pipelineLog.push(`horizontal_guarantee: "${victimName}"(${victimMg}) → "${repName}" (L${repLevel}, gap=${gap}) [${targetGroup}]`);
-        console.log(`[HorizontalGuarantee] ✅ "${victimName}"(${victimMg}) → "${repName}" (L${repLevel}, domain=${domain} L${domainLevel}, gap=${gap}) [${targetGroup}]`);
-      };
-
-      const hasHPush = mainEx.some(e => e.exercise.movementGroup === 'horizontal_push');
-      const hasHPull = mainEx.some(e => e.exercise.movementGroup === 'horizontal_pull');
-      if (!hasHPush) tryLevelAwareSwap('horizontal_push');
-      if (!hasHPull) tryLevelAwareSwap('horizontal_pull');
-    }
-
-    // Step 5d-prime: Vertical Foundation Guarantee
-    //
-    // A workout MUST include at least one 'foundation' exercise from
-    // vertical_pull (Pull-ups) and one from vertical_push (Dips).
-    // If the MG slot was claimed by a skill exercise, inject a foundation
-    // exercise by replacing the lowest-scored non-foundation exercise.
-    if (context.globalExercisePool?.length) {
-      const VERTICAL_FOUNDATION_GROUPS = ['vertical_pull', 'vertical_push'] as const;
-      const mainVFG = workoutExercises.filter(e => e.exerciseRole === 'main');
-      const usedIdsVFG = new Set(workoutExercises.map(we => we.exercise.id));
-      const poolVFG = context.globalExercisePool;
-      const userLevelsVFG = context.userProgramLevels;
-
-      for (const targetMg of VERTICAL_FOUNDATION_GROUPS) {
-        const hasFoundationInMg = mainVFG.some(
-          e => e.exercise.movementGroup === targetMg && classifyPriority(e.exercise) === 'foundation',
-        );
-        if (hasFoundationInMg) continue;
-
-        const targetDomain = MG_TO_OWN_DOMAIN[targetMg];
-        const domainLevel = targetDomain
-          ? (userLevelsVFG?.get(targetDomain) ?? context.userLevel)
-          : context.userLevel;
-
-        const foundationCandidates = poolVFG
-          .filter(ex => {
-            if (usedIdsVFG.has(ex.id)) return false;
-            if (ex.movementGroup !== targetMg) return false;
-            if (classifyPriority(ex) !== 'foundation') return false;
-            const lvl = resolveExerciseLevelForDomains(ex, targetDomain ? [targetDomain] : []).level;
-            return Math.abs(lvl - domainLevel) <= 6;
-          })
-          .map(ex => {
-            const lvl = resolveExerciseLevelForDomains(ex, targetDomain ? [targetDomain] : []).level;
-            return { exercise: ex, level: lvl, gap: Math.abs(lvl - domainLevel) };
-          })
-          .sort((a, b) => a.gap - b.gap);
-
-        const sub = foundationCandidates[0];
-        if (!sub) {
-          console.warn(`[VerticalFoundation] ⚠️ No foundation candidate for ${targetMg} within ±6 of L${domainLevel}`);
-          pipelineLog.push(`vertical_foundation: SKIPPED ${targetMg} — no foundation within ±6`);
-          continue;
-        }
-
-        // Find victim — priority order:
-        // 1. A skill exercise occupying the SAME MG slot (ideal swap)
-        // 2. Any skill exercise in the workout (skills are optional accessories)
-        // 3. Lowest-scored non-foundation exercise from a non-sole domain
-        const skillInSlot = workoutExercises.find(
-          e => e.exerciseRole === 'main' &&
-               e.exercise.movementGroup === targetMg &&
-               classifyPriority(e.exercise) === 'skill',
-        );
-
-        const anySkill = !skillInSlot
-          ? workoutExercises
-              .filter(e => e.exerciseRole === 'main' && classifyPriority(e.exercise) === 'skill')
-              .sort((a, b) => a.score - b.score)[0]
-          : undefined;
-
-        const lowestNonFoundation = workoutExercises
-          .filter(e => {
-            if (e.exerciseRole !== 'main') return false;
-            if (classifyPriority(e.exercise) === 'foundation') return false;
-            return true;
-          })
-          .sort((a, b) => a.score - b.score)[0];
-
-        const victim = skillInSlot ?? anySkill ?? lowestNonFoundation;
-        if (!victim) continue;
-
-        const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
-        if (idx < 0) continue;
-
-        const repName = getLocalizedText(sub.exercise.name);
-        const victimName = getLocalizedText(victim.exercise.name);
-        const repLevel = resolveInjectedLevel(sub.exercise, targetMg, domainLevel);
-
-        workoutExercises[idx] = {
-          ...workoutExercises[idx],
-          ...substituteExercise(workoutExercises[idx], sub.exercise, sub.exercise.executionMethods?.[0]),
-          programLevel: repLevel,
-          isOverLevel: repLevel > domainLevel,
-          levelDelta: repLevel - domainLevel,
-          reasoning: [
-            ...workoutExercises[idx].reasoning,
-            `vertical_foundation:injected(L${repLevel},gap=${sub.gap},mg=${targetMg},replaced=${victim.exercise.movementGroup ?? '?'})`,
-          ],
-        };
-
-        usedIdsVFG.add(sub.exercise.id);
-        pipelineLog.push(`vertical_foundation: "${victimName}" → "${repName}" (L${repLevel}) [${targetMg}]`);
-        console.log(`[VerticalFoundation] ✅ "${victimName}"(${classifyPriority(victim.exercise)}) → "${repName}"(foundation, L${repLevel}) [${targetMg}, domain=${targetDomain} L${domainLevel}]`);
-      }
-    }
-
-    // Step 5e: Strict Full-Body Domain Guarantee
-    //
-    // Every full_body workout MUST contain at least one exercise from each
-    // primary domain: [push, pull, legs].  This fires after Step 5d so the
-    // Horizontal Guarantee has already run and we won't double-inject.
-    //
-    // Strategy: for each missing domain, iterate through its representative
-    // movement groups and use findLevelAppropriateSubstitute (progressive ±2→±6)
-    // to find a level-appropriate exercise.  The lowest-scored exercise that is
-    // NOT the sole representative of another primary domain is replaced.
-    if (
-      context.requiredDomains &&
-      context.requiredDomains.length >= 3 &&
-      context.globalExercisePool?.length
-    ) {
-      const DOMAIN_MG_CANDIDATES: Record<string, string[]> = {
-        push: ['vertical_push', 'horizontal_push'],
-        pull: ['vertical_pull', 'horizontal_pull'],
-        legs: ['squat', 'hinge', 'lunge'],
-      };
-
-      // MG_TO_OWN_DOMAIN is defined at module level — reuse it here
-      const PRIMARY_DOMAINS = new Set(['push', 'pull', 'legs']);
-
-      const mainExFB = workoutExercises.filter(e => e.exerciseRole === 'main');
-      const usedIdsFB = new Set(workoutExercises.map(we => we.exercise.id));
-      const userLevelsMapFB = context.userProgramLevels;
-      const poolFB = context.globalExercisePool;
-
-      for (const [domain, mgList] of Object.entries(DOMAIN_MG_CANDIDATES)) {
-        const hasDomain = mainExFB.some(e => MG_TO_OWN_DOMAIN[e.exercise.movementGroup ?? ''] === domain);
-        if (hasDomain) continue;
-
-        let injected = false;
-        const domainLevel = userLevelsMapFB?.get(domain) ?? context.userLevel;
-
-        for (const mg of mgList) {
-          const sub = findLevelAppropriateSubstitute(poolFB, mg, domainLevel, usedIdsFB, userLevelsMapFB, domain);
-          if (!sub) continue;
-
-          // Replace the lowest-scored exercise that is not the sole member of another primary domain
-          const domainCounts = new Map<string, number>();
-          for (const e of mainExFB) {
-            const d = MG_TO_OWN_DOMAIN[e.exercise.movementGroup ?? ''];
-            if (d) domainCounts.set(d, (domainCounts.get(d) ?? 0) + 1);
-          }
-
-          const victim = workoutExercises
-            .filter(e => {
-              if (e.exerciseRole !== 'main') return false;
-              // Never replace a foundation exercise (Pull-ups, Dips, etc.)
-              if (classifyPriority(e.exercise) === 'foundation') return false;
-              const eMg   = e.exercise.movementGroup ?? '';
-              const eDomain = MG_TO_OWN_DOMAIN[eMg];
-              // Never steal the last exercise of another required domain
-              if (PRIMARY_DOMAINS.has(eDomain ?? '') && (domainCounts.get(eDomain!) ?? 0) <= 1) return false;
-              return true;
-            })
-            .sort((a, b) => a.score - b.score)[0];
-
-          if (!victim) {
-            pipelineLog.push(`full_body_guarantee: ${domain} missing but no safe victim to replace`);
-            break;
-          }
-
-          const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
-          if (idx < 0) break;
-
-          const repName    = getLocalizedText(sub.exercise.name);
-          const victimName = getLocalizedText(victim.exercise.name);
-          // Resolve level from the injected exercise's OWN movement domain,
-          // not from the search result (which could pick a full_body level instead).
-          const injectedLevel = resolveInjectedLevel(sub.exercise, mg, domainLevel);
-
-          workoutExercises[idx] = {
-            ...workoutExercises[idx],
-            ...substituteExercise(workoutExercises[idx], sub.exercise, sub.exercise.executionMethods?.[0]),
-            programLevel:  injectedLevel,
-            isOverLevel:   injectedLevel > domainLevel,
-            levelDelta:    injectedLevel - domainLevel,
-            reasoning: [
-              ...workoutExercises[idx].reasoning,
-              `full_body_guarantee:${domain}(L${injectedLevel},gap=${sub.gap},mg=${mg},replaced=${victim.exercise.movementGroup ?? '?'})`,
-            ],
-          };
-
-          usedIdsFB.add(sub.exercise.id);
-          // Refresh mainExFB counts for next domain iteration
-          mainExFB.splice(0, mainExFB.length, ...workoutExercises.filter(e => e.exerciseRole === 'main'));
-
-          pipelineLog.push(`full_body_guarantee: "${victimName}" → "${repName}" (L${injectedLevel}) [domain=${domain}, mg=${mg}]`);
-          console.log(`[FullBodyGuarantee] ✅ ${domain} missing → "${repName}"(L${injectedLevel}) replacing "${victimName}" [mg=${mg}, gap=${sub.gap}]`);
-          injected = true;
-          break;
-        }
-
-        if (!injected) {
-          console.warn(`[FullBodyGuarantee] ⚠️ Could not guarantee ${domain} domain — no candidate within ±6 of L${domainLevel}`);
-          pipelineLog.push(`full_body_guarantee: SKIPPED ${domain} — no candidate within ±6 of L${domainLevel}`);
-        }
+        pipelineLog.push(`legs_cap: removed ${removed} excess leg(s) (was ${legExercises.length})`);
       }
     }
 
     // Step 5f: Final physiological sort — anchors guarantee-injected exercises in correct tier
-    workoutExercises = applyPhysiologicalSort(workoutExercises);
+    workoutExercises = applyPhysiologicalSort(workoutExercises, { femaleFullBody: isFemaleFullBody });
+
+    // NOTE: The Strict Domain-Priority Sort (upper=1, legs=2, core/iso=3)
+    // does NOT run here.  It is the FINAL operation in the pipeline and
+    // lives in `home-workout.service.ts` AFTER VolumeGuard pruning and
+    // antagonist-pair re-application — see `applyDomainPrioritySort()`.
+    // Running it earlier would let VolumeGuard's per-exercise removals
+    // re-shuffle legs above push/pull (the bug we fixed in Phase 2.5+).
+
+    // ── Steps 5g + 5h removed in Phase 3 ─────────────────────────────────────
+    //
+    // BudgetDistributor.distribute() (Phase 3a) is now the single owner of:
+    //   • Step 5g — Set Re-Balancing  (`_rebalanceSets()`)
+    //   • Step 5h — Skill / Strength Cluster Cap  (`_skillClusterCap()`)
+    //
+    // The legacy inline blocks were guarded by !context.useModularPipeline and
+    // are no longer reachable now that the modular pipeline is the only path.
 
     // Step 6: Title/description/cue
     const title = this.generateTitle(context, difficulty);
@@ -1016,6 +1071,59 @@ export class WorkoutGenerator {
 
     // Step 7: Duration
     const estimatedDuration = calculateEstimatedDuration(workoutExercises);
+
+    // ── Time-Volume Feedback Loop ─────────────────────────────────────────
+    // If the assembled workout runs longer than `availableTime` by more than
+    // 3 minutes, iteratively shave sets (accessories / isolations first, then
+    // skill, then compound — via the priority order inside applySmartSetCap)
+    // until the re-estimated duration fits within the ceiling.
+    //
+    // Safety bounds:
+    //   • Only fires when context.availableTime is a positive number.
+    //   • Each iteration reduces the total set count by at least 1.  If a full
+    //     pass produces no reduction (everything is at its floor), the loop
+    //     breaks to prevent infinite iteration.
+    //   • Max 20 iterations — in practice the inner cap is reached in ≤ 5 passes.
+    //   • applySmartSetCap is a pure function; no mutation of the input array.
+    if (context.availableTime > 0) {
+      const TIME_TOLERANCE_MINUTES = 3;
+      let compressedExercises = workoutExercises;
+      let currentDuration = estimatedDuration;
+      const maxIterations = 20;
+      let iterations = 0;
+
+      while (
+        currentDuration > context.availableTime + TIME_TOLERANCE_MINUTES &&
+        iterations < maxIterations
+      ) {
+        const totalSetsBefore = compressedExercises.reduce((s, e) => s + e.sets, 0);
+        // Reduce the global set cap by 1 on each pass so applySmartSetCap
+        // has a strictly tighter ceiling to trim towards.
+        const newCap = Math.max(1, totalSetsBefore - 1);
+        const candidate = applySmartSetCap(
+          compressedExercises,
+          newCap,
+          compressedExercises.length,
+        );
+        const totalSetsAfter = candidate.reduce((s, e) => s + e.sets, 0);
+        // Guard: if nothing was trimmed the floor has been reached — stop.
+        if (totalSetsAfter >= totalSetsBefore) break;
+        compressedExercises = candidate;
+        currentDuration = calculateEstimatedDuration(compressedExercises);
+        iterations++;
+      }
+
+      if (iterations > 0) {
+        console.log(
+          `[TimeVolumeFeedback] ${iterations} compression pass(es): ` +
+          `${estimatedDuration} min → ${currentDuration} min ` +
+          `(ceiling=${context.availableTime} min, tolerance=3 min)`,
+        );
+        workoutExercises = compressedExercises;
+      }
+    }
+    // Re-derive final duration after any compression so Step 10 stats are accurate.
+    const finalEstimatedDuration = calculateEstimatedDuration(workoutExercises);
 
     // Step 8: Structure
     let structure = this.determineStructure(context, workoutExercises);
@@ -1028,7 +1136,7 @@ export class WorkoutGenerator {
     const mechanicalBalance = this.calculateMechanicalBalance(workoutExercises);
 
     // Step 10: Stats
-    const stats = calculateWorkoutStats(workoutExercises, difficulty, estimatedDuration, context.userWeight);
+    const stats = calculateWorkoutStats(workoutExercises, difficulty, finalEstimatedDuration, context.userWeight);
     const totalPlannedSets = workoutExercises.reduce((sum, ex) => sum + ex.sets, 0);
 
     // ── WHY LOGGER: Per-exercise score breakdown ──
@@ -1073,7 +1181,7 @@ export class WorkoutGenerator {
       description,
       aiCue,
       exercises: workoutExercises,
-      estimatedDuration,
+      estimatedDuration: finalEstimatedDuration,
       structure,
       difficulty,
       volumeAdjustment: volumeAdjustment.reductionPercent > 0 ? volumeAdjustment : undefined,
@@ -1082,6 +1190,7 @@ export class WorkoutGenerator {
       stats,
       isRecovery,
       totalPlannedSets,
+      appliedProtocol: protocolResult.setType !== 'straight' ? protocolResult.setType : undefined,
       pipelineLog,
     };
   }
@@ -1107,13 +1216,24 @@ export class WorkoutGenerator {
 
     // ── Option 1 Level Regression Setup ───────────────────────────────────
     // When generating the 1-bolt (recovery/flow) option, exercises at
-    // userLevel - 2 are the sweet spot.  An L19 user should be picking
-    // L17 exercises, not L19.  We boost exercises near the regression target
-    // and penalise over-level exercises so the SELECTION (not just post-
-    // processing) naturally favours the right level.
+    // skillLevel - 2 are the sweet spot.  A Planche L7 user should pick
+    // L5 exercises, not L14 (the Push-domain-biased (16 - 2) target).
+    //
+    // Use the active skill program level from userProgramLevels instead of
+    // the global baseUserLevel so the boost/penalty window is anchored to
+    // the user's SKILL floor, not the highest cross-domain level.
     const isRecoveryOption = (context.difficulty ?? 2) === 1;
+    const synergyReferenceLevel: number = (() => {
+      if (context.activeProgramId) {
+        const skillLevel =
+          context.userProgramLevels?.get(context.activeProgramId) ??
+          context.userProgramLevels?.get(context.activeProgramId.toLowerCase());
+        if (skillLevel != null && skillLevel > 0) return skillLevel;
+      }
+      return context.userLevel ?? 1;
+    })();
     const regressionTarget = isRecoveryOption
-      ? Math.max(1, (context.userLevel ?? 1) - 2)
+      ? Math.max(1, synergyReferenceLevel - 2)
       : null;
 
     // ── SA Deprioritisation Setup ──────────────────────────────────────────
@@ -1133,14 +1253,10 @@ export class WorkoutGenerator {
     const topN = exercises.slice().sort((a, b) => b.score - a.score).slice(0, 10);
     const gearFrequency: Record<string, number> = {};
     for (const ex of topN) {
-      const methodAny = ex.method as { gearIds?: string[]; gearId?: string; equipmentIds?: string[]; equipmentId?: string } | undefined;
-      const gPart = methodAny?.gearIds ?? (methodAny?.gearId ? [methodAny.gearId] : []);
-      const ePart = methodAny?.equipmentIds ?? (methodAny?.equipmentId ? [methodAny.equipmentId] : []);
-      for (const g of [...gPart, ...ePart]) {
-        if (g) {
-          const norm = normalizeGearId(g);
-          gearFrequency[norm] = (gearFrequency[norm] ?? 0) + 1;
-        }
+      const rawGear = collectMethodGear(ex.method as any);
+      for (const g of rawGear) {
+        const norm = normalizeGearId(g);
+        gearFrequency[norm] = (gearFrequency[norm] ?? 0) + 1;
       }
     }
     let dominantGear: string | undefined;
@@ -1219,10 +1335,7 @@ export class WorkoutGenerator {
         reasoning.push('variety_guard:-40');
       }
 
-      const methodAny = ex.method as { gearIds?: string[]; gearId?: string; equipmentIds?: string[]; equipmentId?: string } | undefined;
-      const gearPart = methodAny?.gearIds ?? (methodAny?.gearId ? [methodAny.gearId] : []);
-      const eqPart = methodAny?.equipmentIds ?? (methodAny?.equipmentId ? [methodAny.equipmentId] : []);
-      const allGear = [...gearPart, ...eqPart].filter(Boolean).map(normalizeGearId);
+      const allGear = collectMethodGear(ex.method as any).map(normalizeGearId);
       const isNaked = allGear.length === 0
         || allGear.every(g => g === 'bodyweight' || g === 'none');
       if (isNaked) {
@@ -1408,7 +1521,16 @@ export class WorkoutGenerator {
     difficulty: DifficultyLevel,
     context: WorkoutGenerationContext,
   ): { structure: WorkoutStructure; setType: string } {
+    // ── DIAGNOSTIC: always print what the engine received ────────────────
+    console.log(
+      `[WorkoutGenerator][selectProtocol] difficulty=${difficulty} | ` +
+      `adminProtocols=${JSON.stringify(context.preferredProtocols ?? null)} | ` +
+      `adminProbability=${context.protocolProbability ?? 'undefined'} | ` +
+      `periodizationWeek=${context.periodizationWeek ?? 'n/a'}`,
+    );
+
     if (difficulty === 1) {
+      console.log('[WorkoutGenerator][selectProtocol] Bolt 1 → always straight sets');
       return { structure: 'standard', setType: 'straight' };
     }
 
@@ -1417,18 +1539,36 @@ export class WorkoutGenerator {
 
     if (!adminProtocols?.length) {
       if (adminProbability != null && adminProbability > 0) {
-        console.log('[WorkoutGenerator] Admin set probability but no protocols — defaulting to standard');
+        console.log('[WorkoutGenerator][selectProtocol] ⚠️  Probability set but no protocols list — check Firestore lookup');
+      } else {
+        console.log('[WorkoutGenerator][selectProtocol] No protocols configured — straight sets');
       }
       return { structure: 'standard', setType: 'straight' };
     }
 
     const probability = adminProbability ?? 0;
-    if (probability <= 0 || Math.random() > probability) {
+    if (probability <= 0) {
+      console.log(
+        '[WorkoutGenerator][selectProtocol] ⛔ Protocol probability = 0 ' +
+        '(Deload/Rebuild week or protocolMultiplier killed it) — straight sets',
+      );
+      return { structure: 'standard', setType: 'straight' };
+    }
+
+    const roll = Math.random();
+    if (roll > probability) {
+      console.log(
+        `[WorkoutGenerator][selectProtocol] Random roll ${roll.toFixed(3)} > p=${probability} — ` +
+        `protocol did NOT fire this session (expected ~${Math.round((1 - probability) * 100)}% of the time)`,
+      );
       return { structure: 'standard', setType: 'straight' };
     }
 
     const selected = adminProtocols[Math.floor(Math.random() * adminProtocols.length)];
-    console.log(`[WorkoutGenerator] Admin protocol injected: ${selected} (p=${probability})`);
+    console.log(
+      `[WorkoutGenerator][selectProtocol] ✅ Protocol injected: "${selected}" ` +
+      `(roll=${roll.toFixed(3)} ≤ p=${probability}, options=[${adminProtocols.join(', ')}])`,
+    );
 
     if (selected === 'emom') {
       return { structure: 'emom', setType: 'straight' };

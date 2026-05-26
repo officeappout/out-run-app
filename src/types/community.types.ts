@@ -4,7 +4,7 @@
  */
 
 // Scope of a community group (maps to affiliation types)
-export type CommunityGroupType = 'neighborhood' | 'work' | 'university' | 'park';
+export type CommunityGroupType = 'neighborhood' | 'work' | 'university' | 'park' | 'friends' | 'family' | 'school' | 'military';
 
 export type TargetGender = 'male' | 'female' | 'all';
 
@@ -125,6 +125,8 @@ export interface CommunityGroup {
   rules?: string;
 
   // ── Access Control ───────────────────────────────────────────────────
+  /** When true, non-members can submit a join request (private groups only) */
+  allowJoinRequests?: boolean;
   /** When true, users must provide a valid access code to join */
   isLocked?: boolean;
   /** Links this group to a specific tenant / organization */
@@ -261,17 +263,58 @@ export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
 
 /**
  * Firestore: planned_sessions/{sessionId}
- * Lightweight spontaneous "I'm heading to this route" declarations.
+ * Lightweight spontaneous "I'm heading to this route/park" declarations.
+ *
+ * `routeId` and `parkId` are mutually exclusive — exactly one is set
+ * depending on whether the user is announcing arrival at a route start
+ * (RouteDetailSheet) or at a park (ParkDetailSheet). Consumers query by
+ * the field that matches their context (e.g. useParkEvents queries by
+ * `parkId == X`, partner-finder queries by `routeId in [...]`), so a
+ * doc with the wrong field would simply not surface in the wrong UI.
  */
 export interface PlannedSession {
   id: string;
   userId: string;
   displayName: string;
   photoURL: string | null;
-  routeId: string;
+  /** FK → routes (when announcing arrival at a route start). */
+  routeId?: string;
+  /** FK → parks (when announcing arrival at a park). */
+  parkId?: string;
+  /**
+   * Denormalised display name of the park (only when `parkId` is set) —
+   * persisted at write time so partner-finder cards can render the
+   * arrival's location ("📍 פארק הלל") without a per-card Firestore
+   * lookup. Optional for backwards compatibility with sessions written
+   * before this field existed.
+   */
+  parkName?: string;
+  /**
+   * Denormalised display name of the route (only when `routeId` is set).
+   * Same rationale as `parkName` — avoids N+1 reads in the partner UI.
+   */
+  routeName?: string;
+  /**
+   * Denormalised active strength program metadata captured from the
+   * publisher's profile at write time. Mirrors the
+   * `programName`/`programLevel` fields the live `presence/{uid}`
+   * heartbeat persists, so scheduled cards can show the same
+   * "🎯 program · רמה N" line live cards already render.
+   */
+  programName?: string;
+  programLevel?: number;
   activityType: ActivityType;
   level: FitnessLevel;
   startTime: Date;
+  /**
+   * End of the announced arrival window. Replaces the single-point
+   * "I'll be there at 18:00" model with a range ("18:00–20:00")
+   * surfaced via the dual-handle time slider in ParkDetailSheet.
+   * Older docs without this field fall back to `startTime + 1h` at
+   * read-time inside `planned-sessions.service` — consumers can
+   * therefore treat it as effectively required.
+   */
+  endTime: Date;
   expiresAt: Date;
   status: PlannedSessionStatus;
   privacyMode: PrivacyMode;

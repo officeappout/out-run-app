@@ -30,8 +30,54 @@ import { auth } from './firebase';
  * cleared explicitly in `signOutUser`. Never cleared during a
  * transient null emit (e.g. token refresh) so the splash stays sticky
  * across reloads.
+ *
+ * On native (iOS/Android) the hint is ALSO mirrored into
+ * @capacitor/preferences (NSUserDefaults / SharedPreferences) so it
+ * survives WKWebView storage eviction.  `initNativeShell` copies it
+ * back into localStorage on every `appStateChange: active` so the
+ * landing page always reads it from the fast synchronous localStorage.
  */
 const SESSION_HINT_KEY = 'out:has-session';
+
+/** Key used in @capacitor/preferences for the native mirror. */
+const SESSION_HINT_NATIVE_KEY = 'out_has_session_native';
+
+/** Detect Capacitor native platform without importing the full package at module scope. */
+function isNativePlatform(): boolean {
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
+  return Boolean(w.Capacitor?.isNativePlatform?.());
+}
+
+/**
+ * Write the session hint to localStorage AND — on native — to
+ * @capacitor/preferences so it survives WebView storage eviction.
+ */
+async function setSessionHint(): Promise<void> {
+  try { window.localStorage.setItem(SESSION_HINT_KEY, '1'); } catch { /* quota / private mode */ }
+  if (isNativePlatform()) {
+    try {
+      const { Preferences } = await import('@capacitor/preferences');
+      await Preferences.set({ key: SESSION_HINT_NATIVE_KEY, value: '1' });
+    } catch { /* non-fatal */ }
+  }
+}
+
+/**
+ * Clear the session hint from localStorage AND — on native — from
+ * @capacitor/preferences.  Called exclusively from `signOutUser`.
+ */
+async function clearSessionHint(): Promise<void> {
+  try { window.localStorage.removeItem(SESSION_HINT_KEY); } catch { /* quota / private mode */ }
+  if (isNativePlatform()) {
+    try {
+      const { Preferences } = await import('@capacitor/preferences');
+      await Preferences.remove({ key: SESSION_HINT_NATIVE_KEY });
+    } catch { /* non-fatal */ }
+  }
+}
+
+export { SESSION_HINT_NATIVE_KEY };
 
 /**
  * Sign up a new user
@@ -273,7 +319,7 @@ export async function signOutUser() {
       // SESSION_HINT_KEY comment at the top of this file. Doing it
       // before signOut() ensures a same-tick reload after logout
       // shows the landing page immediately, never the splash.
-      try { window.localStorage.removeItem(SESSION_HINT_KEY); } catch { /* quota / private mode */ }
+      await clearSessionHint();
       try {
         await fetch('/api/auth/session', {
           method: 'DELETE',
@@ -310,7 +356,7 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
     // null emit such as a token refresh, which would otherwise re-open
     // the flicker we're trying to kill.
     if (typeof window !== 'undefined' && user) {
-      try { window.localStorage.setItem(SESSION_HINT_KEY, '1'); } catch { /* quota / private mode */ }
+      void setSessionHint();
     }
 
     try {

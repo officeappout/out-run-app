@@ -82,6 +82,28 @@ const STORAGE_KEY = 'outrun_active_workout';
 const MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — stale checkpoints are discarded
 
 // ============================================================================
+// STANDALONE UTILITY
+// ============================================================================
+
+/**
+ * Remove the stored workout checkpoint without needing a hook instance.
+ *
+ * Call this from the page-level completion handler (e.g. handleSummaryFinish
+ * in active/page.tsx) AFTER a successful Firestore save.  The resume-offer
+ * dialog checks this key on next launch — only clear it on the happy path so
+ * a failed save still offers the user a chance to resume.
+ */
+export function clearWorkoutCheckpoint(): void {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // Private browsing / storage quota — silently ignore
+  }
+}
+
+// ============================================================================
 // HOOK
 // ============================================================================
 

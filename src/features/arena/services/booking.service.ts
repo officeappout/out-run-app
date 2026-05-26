@@ -12,10 +12,12 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   arrayRemove,
   increment,
   serverTimestamp,
+  Timestamp,
   collection,
   query,
   where,
@@ -44,6 +46,91 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
 /** Safe profile object — never contains undefined values. */
 function safeProfile(name?: string, photo?: string | null) {
   return { name: name || 'משתמש', photoURL: photo ?? null };
+}
+
+/**
+ * Stable doc ID for the planned_session presence doc tied to a booking.
+ * Format: {uid}_{groupId}_{date}_{time-colons-replaced}
+ */
+function plannedSessionDocId(uid: string, groupId: string, date: string, time: string): string {
+  return `${uid}_${groupId}_${date}_${time.replace(':', '-')}`;
+}
+
+/**
+ * Constructs a Date from an ISO date string ("YYYY-MM-DD") and time ("HH:mm").
+ */
+function sessionToDate(date: string, time: string): Date {
+  const [h, m] = time.split(':').map(Number);
+  // Parse date parts directly to avoid UTC-offset ambiguity with new Date(string)
+  const [yyyy, mm, dd] = date.split('-').map(Number);
+  const d = new Date(yyyy, mm - 1, dd, h, m, 0, 0);
+  return d;
+}
+
+/**
+ * After a successful booking, write a lightweight planned_session doc so the
+ * user appears in "מי מתכנן" for group members (or everyone if the group is public).
+ * Non-blocking — failure is logged but does not fail the booking.
+ */
+async function upsertBookingPresence(
+  uid: string,
+  groupId: string,
+  date: string,
+  time: string,
+  userName?: string,
+  photoURL?: string | null,
+): Promise<void> {
+  try {
+    const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
+    const gd = groupSnap.data() ?? {};
+    const isPublic = gd.isPublic !== false; // unset = public
+    const sessionDt = sessionToDate(date, time);
+    const sessionTs = Timestamp.fromDate(sessionDt);
+    const expiresTs = Timestamp.fromDate(new Date(sessionDt.getTime() + 2 * 60 * 60 * 1000));
+
+    const psRef = doc(db, 'planned_sessions', plannedSessionDocId(uid, groupId, date, time));
+    await setDoc(
+      psRef,
+      stripUndefined({
+        userId: uid,
+        displayName: userName || 'משתמש',
+        photoURL: photoURL ?? null,
+        groupId,
+        groupName: gd.name ?? groupId,
+        isPublic,
+        privacyMode: isPublic ? 'verified_global' : 'squad',
+        startTime: sessionTs,
+        endTime: expiresTs,
+        expiresAt: expiresTs,
+        status: 'planned',
+        activityType: gd.category ?? 'running',
+        lat: gd.meetingLocation?.location?.lat ?? null,
+        lng: gd.meetingLocation?.location?.lng ?? null,
+        authorityId: gd.authorityId ?? null,
+        createdAt: serverTimestamp(),
+      } as Record<string, unknown>),
+      { merge: true },
+    );
+  } catch (err) {
+    console.warn('[bookSession] planned_session upsert failed (non-fatal):', err);
+  }
+}
+
+/**
+ * On cancel/leave, remove the booking presence doc from planned_sessions.
+ * Non-blocking.
+ */
+async function removeBookingPresence(
+  uid: string,
+  groupId: string,
+  date: string,
+  time: string,
+): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'planned_sessions', plannedSessionDocId(uid, groupId, date, time)));
+  } catch {
+    // Non-fatal — doc may already be expired/deleted.
+  }
 }
 
 /**
@@ -105,6 +192,9 @@ export async function bookSession(
       });
       await setDoc(ref, newDoc);
     }
+
+    // Mirror this booking as a planned_session so the user appears in "מי מתכנן"
+    await upsertBookingPresence(uid, groupId, date, time, userName, photoURL);
 
     return { success: true };
   } catch (err) {
@@ -172,6 +262,9 @@ export async function cancelBooking(
         [`attendeeProfiles.${promoted}`]: promotedProfile ?? { name: 'User', photoURL: null },
       });
     }
+
+    // Remove the booking presence doc — user no longer appears in "מי מתכנן"
+    await removeBookingPresence(uid, groupId, date, time);
 
     return true;
   } catch (err) {

@@ -33,7 +33,7 @@
  */
 
 import React from 'react';
-import { Sparkles, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface GhostUpsellProps {
   /** Fired when the user taps the upsell card */
@@ -121,9 +121,11 @@ export function GhostUpsell({
         className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur-[1px] rounded-xl px-3"
         aria-label={label}
       >
-        <span className="w-10 h-10 rounded-full bg-[#5BC2F2]/10 flex items-center justify-center">
-          {icon ?? <Sparkles size={20} className="text-[#5BC2F2]" />}
-        </span>
+        {icon && (
+          <span className="w-10 h-10 rounded-full bg-[#5BC2F2]/10 flex items-center justify-center">
+            {icon}
+          </span>
+        )}
         {label && (
           <span className="text-sm font-bold text-slate-800 dark:text-white text-center leading-snug">
             {label}

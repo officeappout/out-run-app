@@ -66,6 +66,13 @@ export interface Program {
   trainingType?: 'strength' | 'cardio';
 
   /**
+   * Canonical slug used for slug↔ID resolution (e.g. 'push', 'full_body', 'planche').
+   * Stored in Firestore so the engine can map exercise targetPrograms IDs to domain slugs.
+   * Takes priority over movementPattern and name-derived slugs in buildIdToSlugMapFromPrograms.
+   */
+  slug?: string;
+
+  /**
    * Icon key for UI display (program cards, dashboard circles).
    * Maps to a visual icon in the app. Examples: 'muscle', 'pullup', 'leg', 'shoe', 'core'.
    */

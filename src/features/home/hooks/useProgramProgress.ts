@@ -38,10 +38,10 @@ const EMERGENCY_MAX_LEVEL_FALLBACK = 25;
  * This avoids the "push/pull/legs are L3/L4 but full_body shows L1" desync that happens
  * when `recalculateMasterLevel` hasn't run since the children leveled up.
  */
-const MASTER_PROGRAM_CHILDREN: Record<string, readonly string[]> = {
+export const MASTER_PROGRAM_CHILDREN: Record<string, readonly string[]> = {
   full_body: ['push', 'pull', 'legs'],
 };
-const MASTER_LEVEL_CAP = 15;
+export const MASTER_LEVEL_CAP = 15;
 
 export interface ProgramProgressData {
   /** Hebrew program name resolved from Firestore (or falls back to the ID alias). */

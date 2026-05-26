@@ -187,7 +187,7 @@ export default function SummaryReveal({
           className="relative w-48 h-56 flex items-center justify-center"
         >
           <Image
-            src="/assets/lemur/smart-lemur.png"
+            src="/assets/lemur/lemur-avatar.png"
             alt="Smart Lemur"
             width={192}
             height={224}

@@ -20,9 +20,7 @@ import { useRouter } from 'next/navigation';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 import { GhostUpsell } from './GhostUpsell';
-import { Dumbbell } from 'lucide-react';
-
-const STRENGTH_ONBOARDING_HREF = '/onboarding-new/program-path?track=strength';
+const STRENGTH_ONBOARDING_HREF = '/onboarding-new/profile';
 
 /**
  * `!max-w-none` (Tailwind important modifier) overrides the internal
@@ -40,9 +38,8 @@ export function ProgramProgressRow() {
     return (
       <GhostUpsell
         onClick={() => router.push(STRENGTH_ONBOARDING_HREF)}
-        label="השלם סקר כוח"
-        ctaText="להתחיל →"
-        icon={<Dumbbell size={20} className="text-[#5BC2F2]" />}
+        label="בואו נראה מאיפה מתחילים"
+        ctaText="לחצו כאן "
       >
         {/* Real ProgramProgressCard rendered with neutral defaults so the
             blurred surface keeps the card silhouette + height. */}

@@ -176,7 +176,7 @@ export default function NavigationHub({
                     WebkitBackdropFilter: 'blur(24px) saturate(160%)',
                 }}
             >
-                <div className="pt-[max(1.5rem,env(safe-area-inset-top))] px-4 pb-3 border-b border-white/40">
+                <div className="px-4 pb-3 border-b border-white/40" style={{ paddingTop: 'calc(52px + max(1rem, env(safe-area-inset-top, 0px)))' }}>
                     <div
                         className="rounded-2xl h-12 flex items-center px-3 gap-2 ring-1 ring-black/5 shadow-[0_6px_18px_rgba(0,0,0,0.06)]"
                         style={{
@@ -192,7 +192,7 @@ export default function NavigationHub({
                             placeholder="לאן רוצים להגיע?"
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 text-right font-semibold placeholder:text-gray-500"
+                            className="flex-1 bg-transparent border-none outline-none text-[16px] text-gray-900 text-right font-semibold placeholder:text-gray-500"
                             autoFocus
                         />
                         {isSearching && <Loader2 size={16} className="text-cyan-500 animate-spin shrink-0" />}

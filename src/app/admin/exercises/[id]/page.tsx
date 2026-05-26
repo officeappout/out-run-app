@@ -90,7 +90,12 @@ export default function EditExercisePage() {
       // === ROLE & BEHAVIOR (was missing!) ===
       exerciseRole: exercise.exerciseRole,
       isFollowAlong: exercise.isFollowAlong,
-      
+
+      // === RECOVERY / REINFORCEMENT (was missing — caused silent data loss on edit save) ===
+      showOnRestDays: exercise.showOnRestDays,
+      restDayProgramIds: exercise.restDayProgramIds ? [...exercise.restDayProgramIds] : [],
+      isFinisherVideo: exercise.isFinisherVideo,
+
       // === CONTENT ===
       media: exercise.media,
       content: {

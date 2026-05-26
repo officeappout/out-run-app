@@ -117,6 +117,13 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick }: 
           </span>
         </div>
       )}
+
+      {/* XP reward — only meaningful in goal mode (real target exists) */}
+      {!isFallback && (
+        <p className="text-[10px] font-bold text-amber-500 text-center mt-1">
+          +150 XP בהשלמה
+        </p>
+      )}
     </button>
   );
 }

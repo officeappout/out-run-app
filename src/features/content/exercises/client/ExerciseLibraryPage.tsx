@@ -3,16 +3,23 @@
 /**
  * ExerciseLibraryPage — main client component for /library.
  *
- * Layout (RTL, top → bottom):
- *   1. Sticky header: back button + title + search field + 4 filter pills
- *   2. Result counter: 'נמצאו {count} תרגילים' (live, debounced w/ filters)
- *   3. Result list — paginated (LIBRARY_PAGE_SIZE batches) with an
- *      IntersectionObserver sentinel that calls loadMore() near the bottom
- *      → effectively infinite scroll.
- *   4. Bottom drawers (FilterSheet — managed by FilterPills; ExerciseDetailSheet)
+ * Two exports:
+ *   • default (`ExerciseLibraryPage`)   — standalone full-page surface with
+ *     its own sticky header (back button + title + search field). Used by
+ *     the `/library` route.
+ *   • named  (`ExerciseLibraryContent`) — header-less, search-input-less
+ *     embed. Used by `/search` so the unified search page can render the
+ *     library inside its own AppHeader + shared search field. The caller
+ *     drives the corpus by writing to `useExerciseLibraryStore.setQuery`
+ *     directly.
  *
- * Desktop polish: every horizontal block is centered in a max-w-[450px]
- * column so the app reads like a native mobile shell on large screens.
+ * Both renderers share `ExerciseLibraryBody` which owns the heavy logic:
+ *   • Filter pills row
+ *   • Live result counter
+ *   • Paginated list (`LIBRARY_PAGE_SIZE` batches) with an
+ *     IntersectionObserver sentinel that triggers loadMore() near the bottom
+ *   • Skeleton shimmer + empty/error states
+ *   • ExerciseDetailSheet
  *
  * Perceived performance:
  *   • First paint shows skeleton shimmer cards while the corpus loads.
@@ -59,21 +66,33 @@ function SkeletonCard() {
   );
 }
 
-export default function ExerciseLibraryPage() {
-  const router = useRouter();
-  const query = useExerciseLibraryStore((s) => s.filters.query);
-  const setQuery = useExerciseLibraryStore((s) => s.setQuery);
+// ────────────────────────────────────────────────────────────────────────────
+// Shared body — pills row + counter + list + detail sheet.
+// Renders WITHOUT any sticky header or search input so it can be embedded
+// inside another page's chrome (e.g. /search).
+// ────────────────────────────────────────────────────────────────────────────
+
+interface ExerciseLibraryBodyProps {
+  /** When true (default), render the FilterPills row above the result list. */
+  showFilterPills?: boolean;
+  /** Top padding above the counter row. Defaults to `pt-3` for full page;
+   *  callers embedding the library inside their own scroll container can
+   *  override (e.g. `pt-0`) so the counter sits flush. */
+  topPadding?: string;
+}
+
+function ExerciseLibraryBody({
+  showFilterPills = true,
+  topPadding = 'pt-3',
+}: ExerciseLibraryBodyProps) {
   const openDetail = useExerciseLibraryStore((s) => s.openDetail);
   const resetFilters = useExerciseLibraryStore((s) => s.resetFilters);
 
-  // Fresh start on every visit. The Zustand store is a module singleton so
+  // Fresh start on every mount. The Zustand store is a module singleton so
   // any filter the user applied in a previous session would otherwise
   // survive a navigate-away-and-back and silently empty the list.
   useEffect(() => {
     resetFilters();
-    // Warm the gear label caches so resolveEquipmentLabel() can resolve
-    // raw Firestore document IDs (e.g. VQoqHLfhHGhPsaz2zsQO) to Hebrew
-    // labels without showing 'ציוד לא מזוהה' in the detail sheet.
     void ensureEquipmentCachesLoaded();
     // Mount-only — stable refs from Zustand / module-level singleton.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,18 +111,11 @@ export default function ExerciseLibraryPage() {
   // ── Infinite-scroll sentinel ──────────────────────────────────────────
   // CRITICAL: the effect must depend on `paginated.length` — NOT just
   // `hasMore` — so the observer is re-created after every loadMore() call.
-  //
-  // Why: IntersectionObserver only fires when the intersection STATE
-  // changes (not-intersecting → intersecting). If the sentinel is already
-  // inside the rootMargin zone when `loadMore` adds items (common when the
-  // list is short), the IO sees no state change and never fires again.
   // Re-creating the observer forces a fresh initial-observation, which
   // fires unconditionally and immediately if the sentinel is still visible.
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef(loadMore);
   loadMoreRef.current = loadMore;
-  // Ref so the IO callback always reads the latest value without being
-  // listed as a dep (avoids recreating the observer on every render).
   const hasMoreRef = useRef(hasMore);
   hasMoreRef.current = hasMore;
 
@@ -113,23 +125,132 @@ export default function ExerciseLibraryPage() {
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          // eslint-disable-next-line no-console
-          console.log('[Library] Sentinel Intersecting:', entry.isIntersecting, '| hasMore:', hasMoreRef.current);
           if (entry.isIntersecting && hasMoreRef.current) {
             loadMoreRef.current();
           }
         }
       },
-      // 400px look-ahead so the next batch is in the DOM before the user
-      // reaches the sentinel — eliminates any visible "pop-in" of new rows.
       { rootMargin: '400px 0px' },
     );
     io.observe(el);
     return () => io.disconnect();
-    // Re-observe after every batch so the IO fires again if the sentinel
-    // is still in the detection zone after new items mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paginated.length]);
+
+  return (
+    <>
+      {showFilterPills && (
+        <div className={`${COLUMN} px-4 pt-3`}>
+          <div className="-mx-4">
+            <FilterPills />
+          </div>
+        </div>
+      )}
+
+      {/* ── Result Counter ── live with filter changes */}
+      <div className={`${COLUMN} px-4 ${topPadding} pb-1`}>
+        <p className="text-[12px] font-semibold text-gray-500" dir="rtl">
+          {isLoading ? (
+            'טוען תרגילים...'
+          ) : loadError ? (
+            <span className="text-red-600">שגיאה בטעינה</span>
+          ) : (
+            <>
+              נמצאו{' '}
+              <span className="text-gray-900 font-bold tabular-nums">
+                {visibleCount}
+              </span>{' '}
+              תרגילים
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* ── List ── */}
+      <main className={`${COLUMN} px-4 pt-2 pb-8`}>
+        {loadError ? (
+          <div className="mt-12 text-center">
+            <p className="text-sm text-red-600 font-semibold">
+              שגיאה בטעינת התרגילים
+            </p>
+            <p className="text-xs text-gray-500 mt-1 break-all">{loadError}</p>
+            <p className="text-[11px] text-gray-400 mt-3">
+              בדוק חיבור לאינטרנט והרשאות Firestore. הפרטים המלאים מודפסים ב-Console.
+            </p>
+          </div>
+        ) : isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : totalCount === 0 ? (
+          <div className="mt-16 text-center">
+            <p className="text-sm font-semibold text-gray-700">
+              לא נטענו תרגילים מהשרת
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              ייתכן שאין חיבור ל-Firestore או שהאוסף ריק. בדוק את ה-Console.
+            </p>
+          </div>
+        ) : paginated.length === 0 ? (
+          <div className="mt-16 text-center">
+            <p className="text-sm font-semibold text-gray-700">לא נמצאו תרגילים</p>
+            <p className="text-xs text-gray-500 mt-1">נסה להסיר חלק מהמסננים</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {paginated.map((ex) => (
+              <ExerciseLibraryCard
+                key={ex.id}
+                exercise={ex}
+                onClick={() => openDetail(ex)}
+              />
+            ))}
+
+            {/* Sentinel is ALWAYS rendered so sentinelRef.current is never
+                null when the effect runs. The IO callback gates loadMore()
+                via hasMoreRef, so it is safe to observe even when the list
+                is fully loaded — it simply won't call loadMore. */}
+            <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+
+            {hasMore && (
+              <div className="space-y-2">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      <ExerciseDetailSheet />
+    </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Embed export — header-less, search-input-less. The host page is expected
+// to render its own search input and write to `useExerciseLibraryStore`
+// directly via `setQuery`.
+// ────────────────────────────────────────────────────────────────────────────
+
+export function ExerciseLibraryContent(props: ExerciseLibraryBodyProps) {
+  return (
+    <div className="bg-background-light" dir="rtl">
+      <ExerciseLibraryBody {...props} />
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Default export — standalone /library page with its own sticky header.
+// ────────────────────────────────────────────────────────────────────────────
+
+export default function ExerciseLibraryPage() {
+  const router = useRouter();
+  const query = useExerciseLibraryStore((s) => s.filters.query);
+  const setQuery = useExerciseLibraryStore((s) => s.setQuery);
 
   const handleQueryChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value),
@@ -177,99 +298,10 @@ export default function ExerciseLibraryPage() {
               </button>
             )}
           </div>
-
-          {/* Filter pills — edge-to-edge scroll row, 8px breathing room below search */}
-          <div className="mt-2 -mx-4">
-            <FilterPills />
-          </div>
         </div>
       </header>
 
-      {/* ── Result Counter ── live with filter changes */}
-      <div className={`${COLUMN} px-4 pt-3 pb-1`}>
-        <p className="text-[12px] font-semibold text-gray-500" dir="rtl">
-          {isLoading ? (
-            'טוען תרגילים...'
-          ) : loadError ? (
-            <span className="text-red-600">שגיאה בטעינה</span>
-          ) : (
-            <>
-              נמצאו{' '}
-              <span className="text-gray-900 font-bold tabular-nums">
-                {visibleCount}
-              </span>{' '}
-              תרגילים
-            </>
-          )}
-        </p>
-      </div>
-
-      {/* ── List ── */}
-      <main className={`${COLUMN} px-4 pt-2 pb-8`}>
-        {loadError ? (
-          <div className="mt-12 text-center">
-            <p className="text-sm text-red-600 font-semibold">
-              שגיאה בטעינת התרגילים
-            </p>
-            <p className="text-xs text-gray-500 mt-1 break-all">{loadError}</p>
-            <p className="text-[11px] text-gray-400 mt-3">
-              בדוק חיבור לאינטרנט והרשאות Firestore. הפרטים המלאים מודפסים ב-Console.
-            </p>
-          </div>
-        ) : isLoading ? (
-          // First-paint shimmer — 8 placeholder rows feels "loaded" instantly
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : totalCount === 0 ? (
-          // Fetch returned an empty collection (no Firestore exception, no
-          // documents). This is a different failure than "filters too narrow"
-          // — usually wrong project, missing collection, or rules denying the
-          // listAll. Tell the user clearly so it doesn't get confused with
-          // "no results".
-          <div className="mt-16 text-center">
-            <p className="text-sm font-semibold text-gray-700">
-              לא נטענו תרגילים מהשרת
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              ייתכן שאין חיבור ל-Firestore או שהאוסף ריק. בדוק את ה-Console.
-            </p>
-          </div>
-        ) : paginated.length === 0 ? (
-          <div className="mt-16 text-center">
-            <p className="text-sm font-semibold text-gray-700">לא נמצאו תרגילים</p>
-            <p className="text-xs text-gray-500 mt-1">נסה להסיר חלק מהמסננים</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {paginated.map((ex) => (
-              <ExerciseLibraryCard
-                key={ex.id}
-                exercise={ex}
-                onClick={() => openDetail(ex)}
-              />
-            ))}
-
-            {/* Sentinel is ALWAYS rendered so sentinelRef.current is never
-                null when the effect runs. The IO callback gates loadMore()
-                via hasMoreRef, so it is safe to observe even when the list
-                is fully loaded — it simply won't call loadMore. */}
-            <div ref={sentinelRef} aria-hidden className="h-px w-full" />
-
-            {/* Skeleton rows appear only while more items are expected. */}
-            {hasMore && (
-              <div className="space-y-2">
-                <SkeletonCard />
-                <SkeletonCard />
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      <ExerciseDetailSheet />
+      <ExerciseLibraryBody />
     </div>
   );
 }

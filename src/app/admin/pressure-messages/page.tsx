@@ -26,8 +26,17 @@ import {
 } from '@/types/message-template.types';
 
 const CATEGORY_COLORS: Record<MessageCategory, string> = {
-  city_pressure: 'bg-amber-100 text-amber-700 border-amber-200',
-  school_outreach: 'bg-purple-100 text-purple-700 border-purple-200',
+  city_pressure:       'bg-amber-100 text-amber-700 border-amber-200',
+  school_outreach:     'bg-purple-100 text-purple-700 border-purple-200',
+  access_code_request: 'bg-blue-100 text-blue-700 border-blue-200',
+  military_outreach:   'bg-green-100 text-green-700 border-green-200',
+};
+
+const CATEGORY_ICONS: Record<MessageCategory, string> = {
+  city_pressure:       '🏛️',
+  school_outreach:     '🏫',
+  access_code_request: '🔑',
+  military_outreach:   '🛡️',
 };
 
 const TAG_COLORS: Record<PsychologyTag, string> = {
@@ -133,7 +142,7 @@ function TemplateFormModal({
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
-                    {val === 'city_pressure' ? '🏛️' : '🏫'} {label}
+                    {CATEGORY_ICONS[val]} {label}
                   </button>
                 ),
               )}
@@ -328,7 +337,7 @@ export default function PressureMessagesPage() {
 
       {/* Filter pills */}
       <div className="flex gap-2">
-        {(['all', 'city_pressure', 'school_outreach'] as const).map((f) => (
+        {(['all', 'city_pressure', 'school_outreach', 'military_outreach', 'access_code_request'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}

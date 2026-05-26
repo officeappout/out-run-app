@@ -6,21 +6,35 @@ import { auth } from '@/lib/firebase';
 import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
 import {
   getLeaderboard,
+  getStreakLeaderboard,
+  getStepsLeaderboard,
+  getSegmentLeaderboard,
+  getLeagueLeaderboard,
   type LeaderboardScope,
   type LeaderboardCategory,
   type LeaderboardTimeWindow,
+  type LeaderboardGenderFilter,
   type LeaderboardResult,
+  type RunSegmentFilter,
 } from '@/features/arena/services/ranking.service';
+
+export type LeaderboardDataMode = 'credit' | 'streak' | 'steps' | 'segment';
 
 export interface UseLeaderboardOptions {
   scope: LeaderboardScope;
   scopeId: string | null;
   category: LeaderboardCategory;
   timeWindow: LeaderboardTimeWindow;
+  genderFilter?: LeaderboardGenderFilter;
+  programId?: string | null;
+  /** 'streak' → streaks collection; 'steps' → dailyActivity; 'segment' → feed_posts by runSegment; 'credit' (default) → feed_posts activityCredit */
+  dataMode?: LeaderboardDataMode;
+  /** Required when dataMode === 'segment' */
+  runSegment?: RunSegmentFilter;
 }
 
 export function useLeaderboard(options: UseLeaderboardOptions) {
-  const { scope, scopeId, category, timeWindow } = options;
+  const { scope, scopeId, category, timeWindow, genderFilter = 'all', programId, dataMode = 'credit', runSegment } = options;
   const { profile } = useUserStore();
 
   const [result, setResult] = useState<LeaderboardResult>({
@@ -34,27 +48,67 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchLeaderboard = useCallback(async () => {
-    if (!scopeId) {
+    if (!scopeId && scope !== 'global') {
       setIsLoading(false);
       return;
     }
-
     setIsLoading(true);
     setError(null);
 
     try {
       const uid = auth.currentUser?.uid ?? '';
-      const feedScope = extractFeedScope(profile);
 
-      const data = await getLeaderboard({
-        scope,
-        scopeId,
-        category,
-        timeWindow,
-        ageGroup: feedScope.ageGroup ?? 'minor',
-        currentUid: uid,
-        currentName: profile?.core?.name,
-      });
+      let data: LeaderboardResult;
+
+      if (scope === 'league' && scopeId) {
+        // Group leaderboard — scopeId is the community group ID
+        data = await getLeagueLeaderboard({
+          groupId: scopeId,
+          category,
+          timeWindow,
+          genderFilter,
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      } else if (dataMode === 'streak') {
+        data = await getStreakLeaderboard({
+          scope,
+          scopeId,
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      } else if (dataMode === 'steps') {
+        data = await getStepsLeaderboard({
+          scope,
+          scopeId,
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      } else if (dataMode === 'segment' && runSegment) {
+        const feedScope = extractFeedScope(profile);
+        data = await getSegmentLeaderboard({
+          scope,
+          scopeId,
+          runSegment,
+          ageGroup: feedScope.ageGroup ?? 'adult',
+          genderFilter,
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      } else {
+        const feedScope = extractFeedScope(profile);
+        data = await getLeaderboard({
+          scope,
+          scopeId,
+          category,
+          timeWindow,
+          ageGroup: feedScope.ageGroup ?? 'adult',
+          genderFilter,
+          programId,
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      }
 
       setResult(data);
     } catch (err) {
@@ -63,7 +117,7 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
     } finally {
       setIsLoading(false);
     }
-  }, [scope, scopeId, category, timeWindow, profile]);
+  }, [scope, scopeId, category, timeWindow, genderFilter, programId, dataMode, runSegment, profile]);
 
   useEffect(() => {
     fetchLeaderboard();

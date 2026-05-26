@@ -7,10 +7,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/StrengthRunner';
+import { clearWorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
 import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import type { ExecutionMethod } from '@/features/content/exercises';
 import { 
@@ -28,11 +30,12 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
-import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
+import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
+import { MASTER_PROGRAM_CHILDREN, MASTER_LEVEL_CAP } from '@/features/home/hooks/useProgramProgress';
 import { useWorkoutPresence } from '@/features/workout-engine/hooks/useWorkoutPresence';
 import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
 import { useKudosInbox } from '@/features/safecity/hooks/useKudosInbox';
@@ -342,57 +345,90 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
 }
 
 /**
- * Map WorkoutPlan exercises to CompletedExercise format for summary.
- * When a real exerciseLog is available (from StrengthRunner's RepetitionPicker),
- * those confirmed reps are used instead of fabricated values.
+ * Map performed exercises to CompletedExercise format for the summary screen.
+ *
+ * Log-driven architecture (Block 4): the primary pass iterates the live
+ * exerciseLog rather than the WorkoutPlan so that exercises swapped in the
+ * preview layer appear in the summary with their real confirmed reps instead
+ * of showing 0 sets under the old plan ID.  A secondary pass appends any
+ * plan exercises that were never logged (skipped / warmup bypassed) so the
+ * summary list stays complete without inflating the rep totals.
  */
 function mapToCompletedExercises(
   workoutPlan: WorkoutPlan,
   exerciseLog?: ExerciseResultLog[],
 ): CompletedExercise[] {
-  const completedExercises: CompletedExercise[] = [];
-
-  // Build a lookup from the real log for O(1) access
+  // ── 1. Log map — O(1) lookup for the secondary (unlogged) pass ──────────
   const logMap = new Map<string, ExerciseResultLog>();
   if (exerciseLog) {
-    for (const entry of exerciseLog) {
-      logMap.set(entry.exerciseId, entry);
-    }
+    for (const entry of exerciseLog) logMap.set(entry.exerciseId, entry);
   }
-  
+
+  // ── 2. Plan map — name + category for log entries that have a plan twin,
+  //    and as the source list for the secondary unlogged pass.
+  //    Category detection mirrors the old plan-driven logic exactly so the
+  //    StrengthSummaryPage grouping stays identical.
+  const planMap = new Map<string, { name: string; category: CompletedExercise['category'] }>();
   for (const segment of workoutPlan.segments) {
     if (!segment.exercises) continue;
-    
-    // Determine category based on segment title/id
-    let category: CompletedExercise['category'] = 'main';
-    if (segment.id.includes('warmup') || segment.title?.includes('חימום')) {
-      category = 'warmup';
-    } else if (segment.id.includes('cooldown') || segment.title?.includes('קירור') || segment.title?.includes('מתיחות')) {
-      category = 'stretch';
-    } else if (segment.title?.includes('סופר') || segment.exercises.length >= 2) {
-      category = 'superset';
-    }
-    
+
+    const isWarmup =
+      segment.id.includes('warmup') || !!segment.title?.includes('חימום');
+    const isCooldown =
+      segment.id.includes('cooldown') ||
+      !!segment.title?.includes('קירור') ||
+      !!segment.title?.includes('מתיחות');
+    const isSuperset =
+      !!segment.title?.includes('סופר') || segment.exercises.length >= 2;
+
+    // Strict mapping to CompletedExercise['category'] union:
+    // 'warmup' | 'superset' | 'stretch' | 'main'
+    const category: CompletedExercise['category'] = isWarmup
+      ? 'warmup'
+      : isCooldown
+        ? 'stretch'
+        : isSuperset
+          ? 'superset'
+          : 'main';
+
     for (const ex of segment.exercises) {
-      const logged = logMap.get(ex.id);
+      planMap.set(ex.id, { name: ex.name, category });
+    }
+  }
 
-      const sets = logged && logged.confirmedReps.length > 0
-        ? logged.confirmedReps
-        : []; // Not performed — no fake fill
+  const completedExercises: CompletedExercise[] = [];
 
-      const totalReps = sets.reduce((a, b) => a + b, 0);
-      
+  // ── 3. Primary pass — iterate the actual performed log ───────────────────
+  // This captures swapped-in exercises by their real exerciseId so the
+  // summary shows the variant the user actually trained, not the plan ghost.
+  for (const entry of exerciseLog ?? []) {
+    const planInfo = planMap.get(entry.exerciseId);
+    completedExercises.push({
+      id: entry.exerciseId,
+      name: entry.exerciseName,
+      category: planInfo?.category ?? 'main',
+      sets: entry.confirmedReps,
+      totalReps: entry.confirmedReps.reduce((a, b) => a + b, 0),
+      isPersonalRecord: false,
+    });
+  }
+
+  // ── 4. Secondary pass — append unlogged plan exercises with empty sets ───
+  // Preserves full summary list for exercises that were skipped or stripped
+  // (e.g. warmup bypass) without fabricating rep counts.
+  for (const [planId, info] of planMap) {
+    if (!logMap.has(planId)) {
       completedExercises.push({
-        id: ex.id,
-        name: ex.name,
-        category,
-        sets,
-        totalReps,
+        id: planId,
+        name: info.name,
+        category: info.category,
+        sets: [],
+        totalReps: 0,
         isPersonalRecord: false,
       });
     }
   }
-  
+
   return completedExercises;
 }
 
@@ -472,7 +508,6 @@ export default function ActiveWorkoutPage() {
 
   const userProgression = useMemo(() => {
     const prog = profile?.progression;
-    // Determine the active program ID
     const activeProgramId =
       prog?.activePrograms?.[0]?.id ||
       (profile as any)?.currentProgramId ||
@@ -483,11 +518,35 @@ export default function ActiveWorkoutPage() {
       ? (prog.domains as Record<string, any>)[activeProgramId]
       : null;
 
+    // For master programs (e.g. full_body), derive level + percent from child tracks
+    // so preWorkoutPercentRef captures the real value, not the stale stored one.
+    const masterChildren = MASTER_PROGRAM_CHILDREN[activeProgramId];
+    let currentLevel: number;
+    let percent: number;
+
+    if (masterChildren && prog?.tracks) {
+      const childData = masterChildren
+        .map((id) => (prog.tracks as Record<string, { currentLevel: number; percent?: number }>)[id])
+        .filter((t): t is NonNullable<typeof t> => !!t && typeof t.currentLevel === 'number');
+      if (childData.length > 0) {
+        const avgLevel = childData.reduce((s, t) => s + t.currentLevel, 0) / childData.length;
+        const avgPercent = childData.reduce((s, t) => s + (t.percent ?? 0), 0) / childData.length;
+        currentLevel = Math.min(MASTER_LEVEL_CAP, Math.round(avgLevel));
+        percent = Math.round(avgPercent);
+      } else {
+        currentLevel = track?.currentLevel ?? domain?.currentLevel ?? 1;
+        percent = track?.percent ?? 0;
+      }
+    } else {
+      currentLevel = track?.currentLevel ?? domain?.currentLevel ?? 1;
+      percent = track?.percent ?? 0;
+    }
+
     return {
       programId: activeProgramId,
-      currentLevel: track?.currentLevel ?? domain?.currentLevel ?? 1,
+      currentLevel,
       maxLevel: domain?.maxLevel ?? 25,
-      percent: track?.percent ?? 0,
+      percent,
       streak: prog?.globalStreak ?? 0,
     };
   }, [profile]);
@@ -520,13 +579,30 @@ export default function ActiveWorkoutPage() {
       }
 
       // ── Priority 1: Full generated workout data from home page ──
-      // This contains the exact workout the user previewed, with all metadata
+      // This contains the exact workout the user previewed, with all metadata.
+      // NOTE: active_workout_data is written by home/page.tsx at generation
+      // time and is still present in sessionStorage when the user navigates
+      // here from WorkoutPreviewDrawer (which writes to currentWorkoutPlan).
+      // The isWarmupActive filter MUST live here too, otherwise the Priority-2
+      // filter is never reached and warmup skip has no effect.
       const activeWorkoutRaw = sessionStorage.getItem('active_workout_data');
       if (activeWorkoutRaw) {
         try {
           const parsed = JSON.parse(activeWorkoutRaw) as WorkoutPlan;
           if (parsed && parsed.segments && parsed.segments.length > 0) {
-            console.log('[ActiveWorkoutPage] Loaded full workout from active_workout_data');
+            // Block 1 (Priority-1 mirror) — strip warmup when the preview
+            // toggle was set to "דלג" before tapping "התחלת אימון".
+            if (parsed.isWarmupActive === false) {
+              parsed.segments = parsed.segments.filter(
+                (s) =>
+                  s.id !== 'warmup-segment' &&
+                  s.id !== 'joints-segment' &&
+                  !s.title?.includes('חימום') &&
+                  !s.title?.includes('מפרקים'),
+              );
+              console.log('[ActiveWorkoutPage] Full warmup & joint segments stripped (Priority-1 path).');
+            }
+
             setWorkoutPlan({ ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' });
 
             // Fetch per-exercise history in the background for smart target selection
@@ -548,7 +624,7 @@ export default function ActiveWorkoutPage() {
         }
       }
 
-      // ── Priority 2: Legacy sessionStorage format ──
+      // ── Priority 2: Legacy sessionStorage format (WorkoutPreviewDrawer path) ──
       const storedPlanId = sessionStorage.getItem('currentWorkoutPlanId');
       const stored = sessionStorage.getItem('currentWorkoutPlan');
       
@@ -556,6 +632,18 @@ export default function ActiveWorkoutPage() {
         try {
           const parsed = JSON.parse(stored) as WorkoutPlan;
           if (parsed && parsed.segments && parsed.segments.length > 0) {
+            // Block 1 — Strip the warmup segment when the user toggled it off
+            // in the WorkoutPreviewDrawer before starting the session.
+            if (parsed.isWarmupActive === false) {
+              parsed.segments = parsed.segments.filter(
+                (s) =>
+                  s.id !== 'warmup-segment' &&
+                  s.id !== 'joints-segment' &&
+                  !s.title?.includes('חימום') &&
+                  !s.title?.includes('מפרקים'),
+              );
+              console.log('[ActiveWorkoutPage] Full warmup & joint segments stripped (Priority-2 path).');
+            }
             sessionStorage.removeItem('currentWorkoutPlan');
             sessionStorage.removeItem('currentWorkoutPlanId');
             console.log('[ActiveWorkoutPage] Loaded workout from legacy sessionStorage');
@@ -620,7 +708,17 @@ export default function ActiveWorkoutPage() {
       workoutPlan.difficulty === 'easy' ? 'easy' :
       workoutPlan.difficulty === 'hard' ? 'hard' : 'medium';
 
-    // Phase 3: Compute per-domain set counts from segment exercises + log
+    // Phase 3 + 4: Compute per-domain set counts from segment exercises + log.
+    // Two concurrent writes per exercise:
+    //   Pass A (anatomical / coarse): MUSCLE_TO_DOMAIN → 'push' | 'pull' | 'legs' | 'core'
+    //   Pass B (skill-track / granular): programIds resolved to canonical slugs →
+    //           'planche' | 'front_lever' | 'muscle_up' | 'back_lever' | 'handstand' | 'handstand_pushup'
+    // Both passes write into the same domainSets dict.  The store merges any
+    // incoming string keys natively, so no store changes are required.
+    const SKILL_PROGRAM_SLUGS = new Set([
+      'planche', 'front_lever', 'muscle_up', 'back_lever',
+      'handstand', 'handstand_pushup',
+    ]);
     const domainSets: Record<string, number> = {};
     const logMap = new Map<string, number>();
     if (exerciseLog) {
@@ -633,10 +731,24 @@ export default function ActiveWorkoutPage() {
       for (const ex of segment.exercises) {
         const setsCount = logMap.get(ex.id) ?? ex.sets ?? 0;
         if (setsCount === 0) continue;
+
+        // ── Pass A: anatomical domain (unchanged legacy path) ──────────
         const muscle = ex.muscleGroups?.[0]?.toLowerCase();
         const domain = muscle ? MUSCLE_TO_DOMAIN[muscle] : undefined;
         if (domain) {
           domainSets[domain] = (domainSets[domain] ?? 0) + setsCount;
+        }
+
+        // ── Pass B: skill-track slug (Phase 4 dual-key write) ──────────
+        // Iterates every programId on the plan exercise (populated at generation
+        // time from the source exercise's targetPrograms + programIds).
+        // resolveToSlug normalises Firestore hash IDs to canonical slugs so
+        // exercises stored with hash IDs still credit the correct track.
+        for (const pid of ex.programIds ?? []) {
+          const slug = resolveToSlug(pid) || pid;
+          if (SKILL_PROGRAM_SLUGS.has(slug)) {
+            domainSets[slug] = (domainSets[slug] ?? 0) + setsCount;
+          }
         }
       }
     }
@@ -669,22 +781,64 @@ export default function ActiveWorkoutPage() {
 
     progressionComputedRef.current = true;
 
+    // Signal to StrengthSummaryPage that progression is in-flight or done so it
+    // never double-writes even if it mounts before this async chain resolves.
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('progression_failed_this_session');
+      sessionStorage.setItem('progression_started_this_session', 'true');
+    }
+
     const run = async () => {
       try {
         const uid = auth.currentUser?.uid;
         if (!uid) return;
 
-        const exerciseResults: WorkoutExerciseResult[] = rawLog.map(entry => ({
-          exerciseId: entry.exerciseId,
-          exerciseName: entry.exerciseName,
-          programLevels: {} as Record<string, number>,
-          setsCompleted: entry.confirmedReps.length,
-          repsPerSet: entry.confirmedReps,
-          targetReps: entry.targetReps,
-          isCompound: false,
-          ...(entry.confirmedRepsRight && { repsPerSetRight: entry.confirmedRepsRight }),
-          ...(entry.confirmedRepsLeft && { repsPerSetLeft: entry.confirmedRepsLeft }),
-        }));
+        // ── Build exerciseId → programIds[] lookup from the loaded plan ──
+        // The exercise's `programIds` are populated at workout generation time
+        // (see src/app/home/page.tsx, where they are spread from the source
+        // exercise's targetPrograms + programIds). This unlocks
+        // detectLinkedProgramsFromExercises in progression.service.ts so
+        // cross-program credit (e.g. Pull session → Front Lever progress)
+        // is awarded automatically.
+        const exerciseProgramLookup = new Map<string, string[]>();
+        if (workoutPlan?.segments) {
+          for (const seg of workoutPlan.segments) {
+            if (!seg.exercises) continue;
+            for (const ex of seg.exercises) {
+              if (ex.programIds && ex.programIds.length > 0) {
+                exerciseProgramLookup.set(ex.id, ex.programIds);
+              }
+            }
+          }
+        }
+        const linkedExerciseCount = Array.from(exerciseProgramLookup.values())
+          .reduce((sum, ids) => sum + ids.length, 0);
+        console.log(
+          `[ActiveWorkoutPage] Built exerciseProgramLookup: ${exerciseProgramLookup.size} exercises ` +
+          `with ${linkedExerciseCount} cross-program associations`,
+        );
+
+        const exerciseResults: WorkoutExerciseResult[] = rawLog.map(entry => {
+          const linkedProgramIds = exerciseProgramLookup.get(entry.exerciseId) ?? [];
+          // Value 1 is a presence-marker — detectLinkedProgramsFromExercises
+          // only checks `!== undefined`, so the actual numeric value is unused
+          // by the cross-program detection path. Keeping it stable as 1 also
+          // prevents accidental tier confusion in any future readers.
+          const programLevels: Record<string, number> = {};
+          for (const pid of linkedProgramIds) programLevels[pid] = 1;
+
+          return {
+            exerciseId: entry.exerciseId,
+            exerciseName: entry.exerciseName,
+            programLevels,
+            setsCompleted: entry.confirmedReps.length,
+            repsPerSet: entry.confirmedReps,
+            targetReps: entry.targetReps,
+            isCompound: false,
+            ...(entry.confirmedRepsRight && { repsPerSetRight: entry.confirmedRepsRight }),
+            ...(entry.confirmedRepsLeft && { repsPerSetLeft: entry.confirmedRepsLeft }),
+          };
+        });
 
         const result = await processWorkoutCompletion({
           userId: uid,
@@ -711,6 +865,10 @@ export default function ActiveWorkoutPage() {
         }
       } catch (e) {
         console.error('[ActiveWorkoutPage] processWorkoutCompletion failed:', e);
+        // Mark as failed so StrengthSummaryPage's fallback is allowed to re-run
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('progression_failed_this_session', 'true');
+        }
       }
     };
 
@@ -797,7 +955,13 @@ export default function ActiveWorkoutPage() {
    * Handle summary completion — save workout to history, publish feed post,
    * clean up sessionStorage, refresh profile, navigate home.
    */
-  const handleSummaryFinish = useCallback(async () => {
+  const handleSummaryFinish = useCallback(async ({
+    xpEarned: awardedXP,
+    xpStatus: xpAwardStatus,
+  }: {
+    xpEarned: number;
+    xpStatus: 'pending' | 'awarded' | 'failed';
+  }) => {
     const currentUser = auth.currentUser;
     const durationSec = workoutStats.duration;
     const durationMin = Math.max(1, Math.round(durationSec / 60));
@@ -834,13 +998,25 @@ export default function ActiveWorkoutPage() {
         const totalSetsCount = workoutStats.completedExercises.reduce(
           (acc, ex) => acc + ex.sets.length, 0,
         );
+        // sessionXP (streak:0) is used only as a fallback when the Cloud Function
+        // hasn't resolved yet.  The authoritative value comes from StrengthSummaryPage
+        // via the onFinish callback, which captures what the Guardian CF actually persisted.
         const sessionXP = calculateStrengthWorkoutXP({
           durationMinutes: durationMin,
           difficultyBolts: bolts,
           totalSets: totalSetsCount,
           totalReps: workoutStats.totalReps,
-          streak: 0, // streak multiplier applied separately by awardStrengthXP
+          streak: 0,
         });
+
+        // xpAwardStatus from StrengthSummaryPage.runAwardXP:
+        //   'awarded'  → CF succeeded, awardedXP is exact
+        //   'pending'  → user tapped finish before CF resolved; use sessionXP (close enough)
+        //   'failed'   → CF failed and was rolled back; store 0 and flag for recovery
+        const xpToStore =
+          xpAwardStatus === 'awarded' ? awardedXP
+          : xpAwardStatus === 'pending' ? sessionXP
+          : 0;
 
         saved = await saveWorkout({
           userId: currentUser.uid,
@@ -850,7 +1026,8 @@ export default function ActiveWorkoutPage() {
           calories: 0,
           pace: 0,
           earnedCoins: 0,
-          xpEarned: sessionXP,
+          xpEarned: xpToStore,
+          ...(xpAwardStatus === 'failed' ? { xpAwardFailed: true } : {}),
           workoutType: 'STRENGTH',
           category: 'strength',
           displayIcon: 'dumbbell',
@@ -888,6 +1065,11 @@ export default function ActiveWorkoutPage() {
         workoutStats.difficulty === 'hard' ? 'גבוהה' : 'בינונית';
       const scope = extractFeedScope(profile);
 
+      const activeProgramId =
+        profile?.progression?.activePrograms?.[0]?.id ||
+        (profile?.progression as Record<string, unknown>)?.currentProgram as string | undefined ||
+        undefined;
+
       createWorkoutPost({
         authorUid: currentUser.uid,
         authorName: profile.core.name,
@@ -895,7 +1077,9 @@ export default function ActiveWorkoutPage() {
         durationMinutes: durationMin,
         intensityLevel: diffLabel,
         title: stableWorkoutPlan?.name || undefined,
+        programId: activeProgramId,
         ...scope,
+        groupIds: extractGroupIds(profile),
         ...(detectedPark
           ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
           : {}),
@@ -903,10 +1087,18 @@ export default function ActiveWorkoutPage() {
     }
 
     // 3. Clean up stored workout data
+    // Clear the crash-recovery checkpoint ONLY on a successful Firestore save.
+    // If saveWorkout threw, `saved` stays false and the checkpoint is preserved
+    // so the resume-offer dialog can protect the user's progress on next launch.
+    if (saved) {
+      clearWorkoutCheckpoint();
+    }
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('active_workout_data');
       sessionStorage.removeItem('currentWorkoutPlanId');
       sessionStorage.removeItem('generatedExerciseRanges');
+      sessionStorage.removeItem('progression_started_this_session');
+      sessionStorage.removeItem('progression_failed_this_session');
     }
     try {
       await refreshProfile();
@@ -953,7 +1145,16 @@ export default function ActiveWorkoutPage() {
 
   /**
    * Called by ExerciseReplacementModal when the user confirms a replacement.
-   * Converts the new Firestore Exercise to a WorkoutExercise and mutates the plan.
+   *
+   * Context-Preserving Mutation — three guarantees:
+   *   1. Volume preservation: sets / reps / repsRange / restSeconds / duration
+   *      are copied verbatim from the OLD exercise so the set counter never
+   *      collapses back to Firestore defaults (typically 1-2 sets).
+   *   2. Superset linkage: the old exercise's `pairedWith` string is forwarded
+   *      onto the new exercise node so it stays bound to its partner.
+   *   3. Bi-directional re-link: the partner exercise's `pairedWith` pointer
+   *      is updated from the OLD exercise ID to the NEW exercise ID so the
+   *      mutual link remains intact and section-grouping keeps the pair card.
    */
   const handleReplaceExercise = useCallback(
     (newExercise: FirestoreExercise, executionMethod: ExecutionMethod) => {
@@ -963,19 +1164,70 @@ export default function ActiveWorkoutPage() {
       const segment = workoutPlan.segments[segIdx];
       if (!segment) return;
 
-      // Re-use the enrichExercise helper already in this file
-      const newWorkoutExercise = enrichExercise(
+      // ── Step 1: Snapshot session context from the OLD exercise ──────────
+      const oldExercise = segment.exercises?.[exIdx];
+      const inheritedSets        = oldExercise?.sets;
+      const inheritedReps        = oldExercise?.reps;
+      const inheritedDuration    = oldExercise?.duration;
+      const inheritedRepsRange   = oldExercise?.repsRange;
+      const inheritedRestSeconds = (oldExercise as any)?.restSeconds as number | undefined;
+      const inheritedPairedWith  = (oldExercise as any)?.pairedWith as string | null | undefined;
+
+      // Re-use the enrichExercise helper already in this file (resolves media,
+      // goal text, equipment from the new Firestore document + location)
+      const enriched = enrichExercise(
         newExercise,
         (segment as any).segmentRole ?? 'main',
         segment.target,
         workoutLocation,
       );
 
-      // Deep-clone segments array, replace the target exercise
+      // ── Step 2: Overlay preserved volume + superset binding ─────────────
+      const newWorkoutExercise = {
+        ...enriched,
+        // Volume preservation — engine-assigned budget survives the swap
+        ...(inheritedSets        != null && { sets: inheritedSets }),
+        ...(inheritedReps        != null && { reps: inheritedReps }),
+        ...(inheritedDuration    != null && { duration: inheritedDuration }),
+        ...(inheritedRepsRange   != null && { repsRange: inheritedRepsRange }),
+        ...(inheritedRestSeconds != null && { restSeconds: inheritedRestSeconds }),
+        // Superset linkage — carry the old pairedWith string forward
+        pairedWith: inheritedPairedWith ?? null,
+        wasSwapped: true,
+      };
+
+      // ── Step 3: Deep-clone segments, replace target + re-link partner ───
       const newSegments = workoutPlan.segments.map((seg, si) => {
         if (si !== segIdx) return seg;
+
         const exercises = [...(seg.exercises ?? [])];
-        exercises[exIdx] = { ...newWorkoutExercise, wasSwapped: true };
+        exercises[exIdx] = newWorkoutExercise as any;
+
+        // Bi-directional binding update: redirect the superset partner's
+        // pairedWith from the OLD exercise ID to the NEW exercise ID so
+        // section-grouping still sees a mutual pair.
+        if (inheritedPairedWith) {
+          const partnerIdx = exercises.findIndex(
+            (e, i) => i !== exIdx && e.id === inheritedPairedWith,
+          );
+          if (partnerIdx !== -1) {
+            exercises[partnerIdx] = {
+              ...exercises[partnerIdx],
+              pairedWith: newExercise.id,
+            } as any;
+            console.log(
+              `[ActiveWorkoutPage] Superset re-link: partner "${exercises[partnerIdx].name}" ` +
+              `pairedWith updated "${oldExercise?.id}" → "${newExercise.id}"`,
+            );
+          } else {
+            console.warn(
+              `[ActiveWorkoutPage] Superset partner id="${inheritedPairedWith}" not found ` +
+              `in segment ${segIdx} — pairedWith forwarded on new exercise but partner ` +
+              `pointer not updated (possible cross-segment split).`,
+            );
+          }
+        }
+
         return { ...seg, exercises };
       });
 
@@ -983,7 +1235,8 @@ export default function ActiveWorkoutPage() {
       setWorkoutVersion((v) => v + 1);
 
       console.log(
-        `[ActiveWorkoutPage] Swapped exercise at [${segIdx}][${exIdx}]: ${newExercise.id}`,
+        `[ActiveWorkoutPage] Swapped [${segIdx}][${exIdx}]: "${oldExercise?.name}" → "${newExercise.id}"` +
+        (inheritedPairedWith ? ` | superset pair preserved` : ''),
       );
 
       // Clean up modal state
@@ -1033,11 +1286,8 @@ export default function ActiveWorkoutPage() {
   if (flowState === 'active') {
     return (
       <div
-        className="w-full overflow-hidden"
-        style={{
-          height: '100dvh',
-          overscrollBehavior: 'none',
-        }}
+        className="fixed inset-0 w-full h-[100dvh] overflow-hidden flex flex-col"
+        style={{ overscrollBehavior: 'none' }}
       >
         <StrengthRunner
           workout={stableWorkoutPlan}

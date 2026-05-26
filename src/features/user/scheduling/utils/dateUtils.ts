@@ -77,9 +77,14 @@ export function addDays(isoDate: string, n: number): string {
  *
  * During the day (before 20:00) we are always flexible — no condensing.
  */
-export function isLateNightPivot(trainingTime: string | undefined): boolean {
-  if (!trainingTime) return false;
-  const now = new Date();
-  const currentHour = now.getHours();
-  return currentHour >= 20;
+export function isLateNightPivot(_trainingTime: string | undefined): boolean {
+  // DEACTIVATED: Late-Night Pivot is paused while the Bolt-specific duration
+  // caps (30 / 45 / 60 min) replace the old 15-min condensed path.
+  // Original logic is preserved below and can be re-enabled once the new
+  // duration model is validated in production.
+  //
+  // if (!_trainingTime) return false;
+  // const currentHour = new Date().getHours();
+  // return currentHour >= 20;
+  return false;
 }

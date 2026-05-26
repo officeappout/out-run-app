@@ -3,6 +3,8 @@
  * Running, walking, and cycling routes
  */
 
+import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
 
@@ -72,6 +74,26 @@ export interface Exercise {
   sets?: number;
   /** Exercise symmetry — unilateral exercises require per-side logging */
   symmetry?: 'bilateral' | 'unilateral';
+  /**
+   * Firestore program IDs this exercise belongs to (resolved from
+   * `targetPrograms` at generation time). Used for cross-program
+   * progression tracking — see `processWorkoutCompletion`'s linked
+   * program detection.
+   */
+  programIds?: string[];
+  /**
+   * Per-set rep ladder for Repetition Pyramid workouts (D1 fallback).
+   * Example: [12, 10, 8, 6] — the runner advances through this array
+   * as the user completes each set.  Undefined for standard sets.
+   */
+  repsSequence?: number[];
+  /**
+   * Per-set exercise variants for the Mechanical Leverage Pyramid.
+   * When populated, each set displays a different progression of the
+   * same movement group (e.g., Tuck → Adv Tuck → Straddle → Full).
+   * Undefined for standard sets and Repetition Pyramids.
+   */
+  pyramidSequence?: PyramidStep[];
 }
 
 export interface RouteSegment {
@@ -118,6 +140,35 @@ export interface WorkoutPlan {
   aiCue?: string;
   /** Workout execution location — used for location-aware equipment icons */
   workoutLocation?: 'home' | 'park' | 'gym' | 'street' | 'office' | string;
+
+  /**
+   * Protocol applied by the engine for this workout.
+   * Undefined = standard straight sets (default behavior).
+   * The active workout runner may use this hint to switch execution flows
+   * (e.g., alternating supersets, EMOM clock, pyramid rep sequence).
+   */
+  appliedProtocol?: 'antagonist_pair' | 'emom' | 'pyramid' | 'compound_superset';
+  /**
+   * EMOM / AMRAP block configuration for blast-mode workouts.
+   * Carried through from GeneratedWorkout.blastMode so the runner has
+   * timer parameters available without re-querying the engine.
+   */
+  blastMode?: {
+    type: 'emom';
+    workSeconds: number;
+    restSeconds: number;
+    durationMinutes: number;
+  };
+  /**
+   * Warmup inclusion flag set by `WorkoutPreviewDrawer` when the user
+   * toggles the "דלג / פעיל" warmup pill before starting the session.
+   * When `false`, the active runner strips the warmup segment from
+   * `segments` before mounting so the session starts directly on the
+   * first main exercise.  Defaults to `true` (warmup included) when
+   * the field is absent or when the plan originates from a path that
+   * does not serialise this flag (e.g. Firestore fallback).
+   */
+  isWarmupActive?: boolean;
 }
 
 export interface PlannedRoute {

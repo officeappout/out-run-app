@@ -1,25 +1,34 @@
 'use client';
 
 /**
- * MapShell — Thin orchestrator.
+ * MapShell — Map entry point + thin orchestrator.
  *
- * Renders ONLY:
- *   1. Base AppMap
- *   2. Layer Router (switch on mode)
- *   3. Global overlays (JIT modal, referral toast, ParticleBackground)
- *   4. Mode-sync effects
+ * This file owns the full map boot sequence (previously split across
+ * FullMapView.tsx and MapShell.tsx):
  *
- * All mode-specific UI lives in the layer components.
+ *   1. Location Gate (overlay, NOT a tree gate — map warms up in background)
+ *   2. MapModeProvider context
+ *   3. Base AppMap (dynamically imported so Mapbox is its own chunk)
+ *   4. Layer Router (switch on mode)
+ *   5. Global overlays (JIT modal, referral toast, ParticleBackground)
+ *   6. Mode-sync effects
+ *
+ * The gate renders as a high z-[80] fixed overlay so the Mapbox canvas
+ * initialises and downloads tiles concurrently. By the time the user
+ * completes their anchor selection the map is already warm.
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LocateFixed } from 'lucide-react';
 import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
+import { syncLocationToFirestore } from '@/lib/firestore.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import ParticleBackground from '@/components/ParticleBackground';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
 import { SmartwatchPromptModal } from '@/features/user/onboarding/components/SmartwatchPromptModal';
@@ -29,8 +38,9 @@ import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { MapPurpose } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-types';
 
-import { useMapMode } from '@/features/parks/core/context/MapModeContext';
+import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
 import { useGroupPresence } from '@/features/parks/core/hooks/useGroupPresence';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -46,18 +56,31 @@ import TurnCarousel from '@/features/parks/core/components/TurnCarousel';
 import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import SessionControlBar from '@/features/parks/core/components/SessionControlBar';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
+import AppHeader from '@/components/ui/AppHeader';
+
+const UnifiedLocationStep = lazy(
+  () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
+);
 
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
   loading: () => <div className="h-full w-full bg-[#f3f4f6]" />,
   ssr: false,
 });
 
-interface MapShellProps {
+// ── Outer entry-point props (forwarded from page.tsx) ────────────────────────
+export interface MapShellProps {
+  initialWorkoutId?: string | null;
+  initialContext?: string | null;
   /** If set, flyTo this coordinate on map-ready (community navigation) */
   spotFocus?: { lat: number; lng: number } | null;
 }
 
-export default function MapShell({ spotFocus }: MapShellProps) {
+// ── Inner orchestrator (requires MapModeProvider in tree) ─────────────────────
+interface MapShellInnerProps {
+  spotFocus?: { lat: number; lng: number } | null;
+}
+
+function MapShellInner({ spotFocus }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
   const routeZones = useRunningPlayer((s) => s.routeZones);
@@ -65,8 +88,18 @@ export default function MapShell({ spotFocus }: MapShellProps) {
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
   const guidedRouteTurns = useRunningPlayer((s) => s.guidedRouteTurns);
   const runMode = useRunningPlayer((s) => s.runMode);
+  // Read the authoritative session status so the turn-carousel guard
+  // below can hide the card as soon as the workout transitions to
+  // 'finished' — regardless of whether the `mode` enum has been
+  // updated to 'summary'. The pure free-run flow mounts
+  // FreeRunSummary off of `sessionStatus === 'finished'` without
+  // ever routing through `logic.showSummary`, so relying on `mode`
+  // alone leaves the carousel visible on the summary / expanded-map
+  // overlay.
+  const sessionStatus = useSessionStore((s) => s.status);
   const devSim = useDevSimulation();
   const effectivePos = devSim.effectiveLocation(logic.currentUserPos);
+  const storyBarHeight = useMapStore((s) => s.storyBarHeight);
 
   // Presence heartbeat — uses effectivePos so mock location is broadcast
   usePresenceLayer(effectivePos ?? null, true);
@@ -77,13 +110,16 @@ export default function MapShell({ spotFocus }: MapShellProps) {
   const liveUsersVisible = useMapStore((s) => s.liveUsersVisible);
   const [mapProfileUser, setMapProfileUser] = useState<ProfileUser | null>(null);
 
-  // Sync effective position to route generation — use layout-phase ref to avoid
-  // extra render cycle delay when dragging the simulation marker.
+  // Sync effective position to route generation in the layout phase so the
+  // update lands before the browser paints — avoids the one-frame lag that
+  // occurred when this ran during render (setState-in-render anti-pattern).
   const prevEffectiveRef = useRef(effectivePos);
-  if (effectivePos !== prevEffectiveRef.current) {
-    prevEffectiveRef.current = effectivePos;
-    logic.setEffectiveUserPos(effectivePos);
-  }
+  useLayoutEffect(() => {
+    if (effectivePos !== prevEffectiveRef.current) {
+      prevEffectiveRef.current = effectivePos;
+      logic.setEffectiveUserPos(effectivePos);
+    }
+  });
 
   // When simulation toggles:
   //  1. Tell useGPS to kill/restart its own watcher
@@ -230,7 +266,17 @@ export default function MapShell({ spotFocus }: MapShellProps) {
   // mode-driven `routesToDisplay` source below.
   const freeRunCarouselRoutes = useMapStore((s) => s.freeRunCarouselRoutes);
 
-  const mapRoutes = (() => {
+  // Memoised so the `routes` prop passed to <AppMap> keeps a stable
+  // identity across unrelated MapShell re-renders. The previous IIFE
+  // returned a brand-new array on every render — including the 1 Hz
+  // GPS-driven re-renders during active workouts. That fresh reference
+  // hit useCameraController's main effect dep array, which then queued
+  // and reset a debounced easeTo on every tick. Net effect on iOS was
+  // continuous GPU command allocation and visible camera jitter; on
+  // memory-constrained WKWebView it accelerated the OOM kill. With
+  // useMemo, the array only changes when the underlying inputs actually
+  // change (route focus, nav state, free-run carousel population, etc.).
+  const mapRoutes = useMemo<Route[]>(() => {
     if (showLivePath) return logic.focusedRoute ? [logic.focusedRoute] : [];
     if (logic.navState === 'navigating') {
       const { recommended, scenic, facilityRich } = logic.navigationVariants;
@@ -253,10 +299,24 @@ export default function MapShell({ spotFocus }: MapShellProps) {
     // This keeps the map clean in idle state.
     if (!logic.focusedRoute) return [];
     return logic.routesToDisplay || [];
-  })();
+  }, [
+    showLivePath,
+    logic.focusedRoute,
+    logic.navState,
+    logic.navigationVariants,
+    freeRunCarouselRoutes,
+    logic.routesToDisplay,
+  ]);
 
   return (
     <main className="relative h-[100dvh] w-full bg-[#f3f4f6] overflow-hidden font-sans" style={{ height: '100dvh' }}>
+      {/* ══════ BRAND HEADER ══════
+           Suppressed during active workouts: the story bar + TurnCarousel
+           already occupy the top chrome, and the header's z-[75] layer
+           would compound the overlap with the turn cards and GPS pill.
+           In all other modes (discover, navigate, etc.) it floats above
+           the Mapbox canvas identically to the Home and Feed pages. */}
+      {!isActiveMode && <AppHeader asOverlay />}
       {/* Background particles (hidden during active workouts) */}
       {!isActiveMode && (
         <div className="absolute inset-0 z-[-1] pointer-events-none">
@@ -328,8 +388,23 @@ export default function MapShell({ spotFocus }: MapShellProps) {
            `my_routes`) we use them directly; otherwise compute turns from
            the route geometry on-the-fly. The single-line NavigationHUD has
            been retired — the carousel reads as a single card when only one
-           turn is left, so the HUD's compact form is preserved. */}
-      {(logic.isNavigationMode || (isActiveMode && logic.focusedRoute)) &&
+           turn is left, so the HUD's compact form is preserved.
+
+           Visibility guard has two mutually-redundant hurdles:
+             • `mode !== 'summary'` — covers flows that route through
+               `logic.showSummary` and flip the mode enum.
+             • `sessionStatus !== 'finished'` — covers the pure
+               free-run flow (FreeRun/index.tsx) that mounts its
+               summary screen straight off `useSessionStore.status`
+               without touching the mode enum at all.
+           Either signal turning off is enough to hide the carousel.
+           Without the status check the turn card ships at z-30 and
+           visibly bleeds through on top of FreeRunSummary (z-20 base,
+           z-50 expanded-map overlay) for any workout that finished
+           while a focused route was still attached. */}
+      {mode !== 'summary' &&
+        sessionStatus !== 'finished' &&
+        (logic.isNavigationMode || (isActiveMode && logic.focusedRoute)) &&
         effectivePos && logic.focusedRoute?.path && (
           <TurnCarousel
             // Prefer the store's pre-computed list (set in
@@ -363,7 +438,9 @@ export default function MapShell({ spotFocus }: MapShellProps) {
             className="absolute z-40 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm"
             dir="rtl"
             style={{
-              top: '8rem',
+              top: storyBarHeight > 0
+                ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight + 12}px)`
+                : 'calc(env(safe-area-inset-top, 0px) + 8rem)',
               right: '1rem',
               background: 'rgba(5, 8, 18, 0.82)',
               backdropFilter: 'blur(14px)',
@@ -450,5 +527,107 @@ export default function MapShell({ spotFocus }: MapShellProps) {
         user={mapProfileUser}
       />
     </main>
+  );
+}
+
+// ── Map entry point ───────────────────────────────────────────────────────────
+// Owns the full boot sequence: location gate (as a warm overlay, not a tree
+// gate), MapModeProvider context, then MapShellInner.
+//
+// KEY ARCHITECTURE CHANGE vs the previous FullMapView pattern:
+//   Before: needsLocationGate returned <UnifiedLocationStep> INSTEAD of the
+//           map tree, meaning Mapbox never mounted until the gate cleared.
+//   Now:    MapShellInner (and therefore AppMap) always mounts immediately
+//           so Mapbox downloads its style + tiles while the gate is visible.
+//           The gate is a z-[80] fixed overlay — the user still can't interact
+//           with the map, but by the time they complete the anchor step the
+//           canvas is already warm and the map appears instantly.
+export default function MapShell({ initialWorkoutId, initialContext, spotFocus }: MapShellProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
+
+  const fromExplorer = searchParams.get('fromExplorer') === 'true';
+
+  const profile = useUserStore((s) => s.profile);
+  const hasHydrated = useUserStore((s) => s._hasHydrated);
+  const refreshProfile = useUserStore((s) => s.refreshProfile);
+
+  const [manuallyCleared, setManuallyCleared] = useState(false);
+
+  const needsLocationGate = useMemo(() => {
+    if (fromExplorer) return false;
+    if (manuallyCleared) return false;
+    if (!hasHydrated) return false;
+    if (!profile) return false;
+    if (profile.core?.authorityId) return false;
+    if (profile.onboardingPath === 'MAP_ONLY') return false;
+    return true;
+  }, [fromExplorer, manuallyCleared, hasHydrated, profile]);
+
+  // fromExplorer bypass: clean URL and sync location to Firestore
+  useEffect(() => {
+    if (!fromExplorer) return;
+    router.replace('/map');
+    if (typeof window === 'undefined') return;
+    const authorityId = sessionStorage.getItem('selected_authority_id');
+    const lat = sessionStorage.getItem('selected_anchor_lat');
+    const lng = sessionStorage.getItem('selected_anchor_lng');
+    sessionStorage.removeItem('selected_anchor_lat');
+    sessionStorage.removeItem('selected_anchor_lng');
+    sessionStorage.removeItem('selected_authority_id');
+    const hasData = authorityId || lat || lng;
+    if (hasData) {
+      syncLocationToFirestore({
+        authorityId: authorityId || undefined,
+        anchorLat: lat ? parseFloat(lat) : undefined,
+        anchorLng: lng ? parseFloat(lng) : undefined,
+      }).then(() => refreshProfile());
+    }
+  }, [fromExplorer, router, refreshProfile]);
+
+  const handleLocationGateComplete = async () => {
+    if (typeof window !== 'undefined') {
+      const authorityId = sessionStorage.getItem('selected_authority_id');
+      const lat = sessionStorage.getItem('selected_anchor_lat');
+      const lng = sessionStorage.getItem('selected_anchor_lng');
+      sessionStorage.removeItem('selected_anchor_lat');
+      sessionStorage.removeItem('selected_anchor_lng');
+      sessionStorage.removeItem('selected_authority_id');
+      const hasData = authorityId || lat || lng;
+      if (hasData) {
+        await syncLocationToFirestore({
+          authorityId: authorityId || undefined,
+          anchorLat: lat ? parseFloat(lat) : undefined,
+          anchorLng: lng ? parseFloat(lng) : undefined,
+        });
+        refreshProfile();
+      }
+    }
+    setManuallyCleared(true);
+  };
+
+  return (
+    <>
+      {/* Map tree always mounts — Mapbox warms up behind the gate */}
+      <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
+        <MapShellInner spotFocus={spotFocus ?? null} />
+      </MapModeProvider>
+
+      {/* Location gate — high z-index overlay, not a tree gate */}
+      {needsLocationGate && (
+        <Suspense
+          fallback={<div className="fixed inset-0 z-[80] bg-[#f3f4f6]" aria-busy="true" />}
+        >
+          <div className="fixed inset-0 z-[80]">
+            <UnifiedLocationStep
+              mode="bridge"
+              onNext={handleLocationGateComplete}
+              purpose={mapPurpose}
+            />
+          </div>
+        </Suspense>
+      )}
+    </>
   );
 }

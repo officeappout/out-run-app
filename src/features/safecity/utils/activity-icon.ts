@@ -22,10 +22,10 @@ const LEMUR_ASSET_MAP: Record<WorkoutActivityStatus, string> = {
   strength: '/assets/lemur/king-lemur.png',
   running:  '/assets/lemur/lemur-avatar.png',
   walking:  '/assets/lemur/lemur-avatar.png',
-  cycling:  '/assets/lemur/smart-lemur.png',
+  cycling:  '/assets/lemur/lemur-avatar.png',
 };
 
-const DEFAULT_LEMUR = '/assets/lemur/smart-lemur.png';
+const DEFAULT_LEMUR = '/assets/lemur/lemur-avatar.png';
 
 export function getLemurAsset(status?: WorkoutActivityStatus): string {
   if (!status) return DEFAULT_LEMUR;

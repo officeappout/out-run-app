@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import type { Lap } from '@/features/workout-engine/core/types/session.types';
 
 const formatTime = (seconds: number): string => {
   if (!seconds || seconds < 0 || !isFinite(seconds)) return '00:00';
@@ -12,17 +13,34 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-export default function RunLapsList() {
-  const { laps } = useRunningPlayer();
-  
-  // Force re-render every second to update live data
+interface RunLapsListProps {
+  /**
+   * Optional laps override. When provided (e.g. from a finished-workout
+   * summary or a history re-open), the component renders these laps as a
+   * static list and skips the 1 Hz force-update interval below. When
+   * omitted, the component behaves as before — reading laps directly
+   * from `useRunningPlayer` and re-rendering every second to keep the
+   * active lap's distance/time/pace fresh during a live workout.
+   */
+  laps?: Lap[];
+}
+
+export default function RunLapsList({ laps: lapsProp }: RunLapsListProps = {}) {
+  const storeLaps = useRunningPlayer((s) => s.laps);
+  const laps = lapsProp ?? storeLaps;
+  const isStatic = lapsProp !== undefined;
+
+  // Force re-render every second to update live data.
+  // Static mode (laps passed in as a prop) is already a snapshot —
+  // no need to burn a timer on it.
   const [, forceUpdate] = useState(0);
   useEffect(() => {
+    if (isStatic) return;
     const interval = setInterval(() => {
       forceUpdate((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isStatic]);
 
   // Show ALL laps including active one, reversed to show most recent first
   const allLaps = [...laps].reverse();

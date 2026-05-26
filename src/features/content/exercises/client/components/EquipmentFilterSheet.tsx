@@ -32,10 +32,12 @@
  *     accurate even after manual chip toggles deviate from a preset.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Home, MapPin, Building, PersonStanding } from 'lucide-react';
+import { X, Home, MapPin, Building, PersonStanding, Loader2 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 import {
@@ -46,10 +48,26 @@ import {
   resolveEquipmentSvgPathList,
   ensureEquipmentCachesLoaded,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useUserStore } from '@/features/user';
+import { getUserFromFirestore } from '@/lib/firestore.service';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /** Called with the committed ID array when the user taps "החל סינון". */
+  onApply?: (ids: string[]) => void;
+  /** When provided, the sheet opens with this selection pre-loaded instead of
+   *  reading from useExerciseLibraryStore. Useful for contexts (e.g. the
+   *  workout builder) that manage their own equipment state. */
+  initialIds?: string[];
+  /**
+   * 'filter' (default) — exercise-library filter mode (existing behaviour).
+   * 'profile' — profile equipment editor:
+   *   • hides location presets and ציוד פארק section
+   *   • saves to Firestore users/{uid}.equipment.home on confirm
+   *   • footer button reads "שמור שינויים"
+   */
+  mode?: 'filter' | 'profile';
 }
 
 type PresetId = 'home' | 'park' | 'gym';
@@ -74,9 +92,12 @@ function isPersonalGear(g: GearDefinition): boolean {
   return !isParkGear(g) && !isImprovisedGear(g);
 }
 
-export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
+export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initialIds, mode = 'filter' }: Props) {
+  const isProfileMode = mode === 'profile';
   const filterIds = useExerciseLibraryStore((s) => s.filters.equipmentIds);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
+  const { profile } = useUserStore();
+  const [saving, setSaving] = useState(false);
 
   // ── Lazy data sources ────────────────────────────────────────────────
   const [gear, setGear] = useState<GearDefinition[]>([]);
@@ -111,11 +132,13 @@ export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // ── Draft selection — initialized from current filter on each open ──
-  const [draft, setDraft] = useState<Set<string>>(() => new Set(filterIds));
+  // ── Draft selection — initialized from initialIds (if provided) or the
+  //    current library filter on each open ──────────────────────────────
+  const [draft, setDraft] = useState<Set<string>>(() => new Set(initialIds ?? filterIds));
   useEffect(() => {
-    if (isOpen) setDraft(new Set(filterIds));
-  }, [isOpen, filterIds]);
+    if (isOpen) setDraft(new Set(initialIds ?? filterIds));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // ── Derived: gear partitioned into 3 sections ────────────────────────
   const sections = useMemo(() => {
@@ -204,13 +227,31 @@ export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
     return `${realGear} פריטי ציוד נבחרו`;
   }, [draft, activePreset]);
 
-  const apply = () => {
-    setEquipmentIds(Array.from(draft));
-    onClose();
-  };
+  const apply = useCallback(async () => {
+    const ids = Array.from(draft);
+    if (isProfileMode) {
+      const uid = auth.currentUser?.uid ?? profile?.id;
+      if (!uid) return;
+      setSaving(true);
+      try {
+        await updateDoc(doc(db, 'users', uid), { 'equipment.home': ids });
+        const fresh = await getUserFromFirestore(uid);
+        if (fresh) useUserStore.setState({ profile: fresh });
+        onApply?.(ids);
+        onClose();
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      setEquipmentIds(ids);
+      onApply?.(ids);
+      onClose();
+    }
+  }, [draft, isProfileMode, profile?.id, setEquipmentIds, onApply, onClose]);
+
   const clear = () => {
     setDraft(new Set());
-    setEquipmentIds([]);
+    if (!isProfileMode) setEquipmentIds([]);
     onClose();
   };
 
@@ -249,7 +290,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-900">ציוד ומיקום</h2>
+              <h2 className="text-base font-bold text-gray-900">{isProfileMode ? 'הציוד שלי' : 'ציוד ומיקום'}</h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -262,30 +303,34 @@ export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto px-5 py-4">
-              {/* ── Preset shortcuts ── */}
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                מקום אימון
-              </p>
-              <div className="grid grid-cols-3 gap-2 mb-5">
-                <PresetButton
-                  active={activePreset === 'home'}
-                  onClick={() => applyPreset('home')}
-                  icon={<Home size={18} />}
-                  label="בית"
-                />
-                <PresetButton
-                  active={activePreset === 'park'}
-                  onClick={() => applyPreset('park')}
-                  icon={<MapPin size={18} />}
-                  label="פארק"
-                />
-                <PresetButton
-                  active={activePreset === 'gym'}
-                  onClick={() => applyPreset('gym')}
-                  icon={<Building size={18} />}
-                  label="חדר כושר"
-                />
-              </div>
+              {/* ── Preset shortcuts (filter mode only) ── */}
+              {!isProfileMode && (
+                <>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                    מקום אימון
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 mb-5">
+                    <PresetButton
+                      active={activePreset === 'home'}
+                      onClick={() => applyPreset('home')}
+                      icon={<Home size={18} />}
+                      label="בית"
+                    />
+                    <PresetButton
+                      active={activePreset === 'park'}
+                      onClick={() => applyPreset('park')}
+                      icon={<MapPin size={18} />}
+                      label="פארק"
+                    />
+                    <PresetButton
+                      active={activePreset === 'gym'}
+                      onClick={() => applyPreset('gym')}
+                      icon={<Building size={18} />}
+                      label="חדר כושר"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* ── Bodyweight (universal) ── */}
               <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
@@ -310,12 +355,14 @@ export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
                 </p>
               ) : (
                 <>
-                  <Section
-                    title="ציוד פארק"
-                    items={sections.park}
-                    draft={draft}
-                    onToggle={toggle}
-                  />
+                  {!isProfileMode && (
+                    <Section
+                      title="ציוד פארק"
+                      items={sections.park}
+                      draft={draft}
+                      onToggle={toggle}
+                    />
+                  )}
                   <Section
                     title="ציוד מאולתר / ביתי"
                     items={sections.improvised}
@@ -348,9 +395,16 @@ export default function EquipmentFilterSheet({ isOpen, onClose }: Props) {
                 <button
                   type="button"
                   onClick={apply}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:opacity-90 transition-opacity"
+                  disabled={saving}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-1.5"
                 >
-                  החל סינון
+                  {saving ? (
+                    <><Loader2 size={14} className="animate-spin" /><span>שומר...</span></>
+                  ) : isProfileMode ? (
+                    'שמור שינויים'
+                  ) : (
+                    'החל סינון'
+                  )}
                 </button>
               </div>
             </div>

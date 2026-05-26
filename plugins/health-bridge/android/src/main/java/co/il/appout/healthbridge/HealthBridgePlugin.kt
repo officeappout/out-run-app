@@ -61,12 +61,24 @@ class HealthBridgePlugin : Plugin() {
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
     )
 
+    /**
+     * Holds the PluginCall that was parked while the user is inside the
+     * Health Connect permission settings screen. Resolved by onAppResumed()
+     * (called from the JS App.appStateChange listener) once the app returns
+     * to the foreground and we can re-probe the actual grant state.
+     */
+    @Volatile
+    private var savedPermissionsCall: PluginCall? = null
+
     override fun load() {
         super.load()
         HealthBridgeRegistry.current = this
     }
 
     override fun handleOnDestroy() {
+        // Release any parked call so we don't hold a stale reference.
+        savedPermissionsCall?.reject("plugin destroyed")
+        savedPermissionsCall = null
         if (HealthBridgeRegistry.current === this) {
             HealthBridgeRegistry.current = null
         }
@@ -125,12 +137,20 @@ class HealthBridgePlugin : Plugin() {
         // does not yet ship with a built-in launcher for the new
         // PermissionController.createRequestPermissionResultContract,
         // so we delegate by deep-linking the user into the Health
-        // Connect permission settings screen and asking the WebView to
-        // re-call hasPermissions() when the app returns to foreground
-        // (handled by the App.appStateChange listener in
-        // src/lib/native/init.ts).
+        // Connect permission settings screen.
+        //
+        // Unlike the previous implementation (which resolved immediately
+        // with denied values), we now PARK the call in `savedPermissionsCall`
+        // and resolve it only after the user returns to the foreground.
+        // The JS App.appStateChange listener in src/lib/native/init.ts
+        // calls our `onAppResumed` PluginMethod, which probes the actual
+        // grant state and then resolves this saved call.
         try {
             val ctx = context ?: throw IllegalStateException("no-context")
+            // Park the call before leaving the app — must be done before
+            // startActivity() to avoid a race where onAppResumed fires
+            // before we've stored the reference.
+            savedPermissionsCall = call
             // Health Connect 1.1.0-alpha+ removed the static
             // `getHealthConnectSettingsIntent(ctx)` helper. The supported
             // way to open the Health Connect permission/settings screen
@@ -139,16 +159,49 @@ class HealthBridgePlugin : Plugin() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             ctx.startActivity(intent)
-            // Resolve immediately with empty/denied; the web layer will
-            // re-check on resume.
-            call.resolve(JSObject().apply {
-                put("granted", JSArray())
-                put("denied", JSArray().apply {
-                    put("steps"); put("activeEnergy"); put("exerciseTime")
-                })
-            })
+            // Do NOT resolve here — the call is held open until onAppResumed().
         } catch (e: Exception) {
+            savedPermissionsCall = null
             call.reject("requestPermissions failed: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Called by the JS layer (src/lib/native/init.ts) whenever the app
+     * returns to the foreground (App.appStateChange → isActive = true).
+     *
+     * If there is a parked [requestPermissions] call, we re-probe Health
+     * Connect for the actual grant state and resolve it now — this is the
+     * earliest moment after the user may have toggled permissions in the
+     * Health Connect settings screen.
+     */
+    @PluginMethod
+    fun onAppResumed(call: PluginCall) {
+        val pending = savedPermissionsCall
+        savedPermissionsCall = null
+
+        if (pending == null) {
+            // No pending requestPermissions call — nothing to do.
+            call.resolve()
+            return
+        }
+
+        val client = client()
+        if (client == null) {
+            pending.resolve(JSObject().put("granted", false))
+            call.resolve()
+            return
+        }
+
+        scope.launch {
+            try {
+                val grantedPerms = client.permissionController.getGrantedPermissions()
+                val allGranted = readPermissions.all { grantedPerms.contains(it) }
+                pending.resolve(JSObject().put("granted", allGranted))
+            } catch (e: Exception) {
+                pending.resolve(JSObject().put("granted", false))
+            }
+            call.resolve()
         }
     }
 

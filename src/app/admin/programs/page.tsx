@@ -23,7 +23,7 @@ import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
 import {
   Plus, Edit2, Trash2, Save, X, ChevronDown, ChevronUp,
   Target, Dumbbell, ClipboardList, Crown, Eye, Lock, Check,
-  Settings2, Percent,
+  Settings2, Percent, Award,
 } from 'lucide-react';
 import { useUserRole } from '@/features/admin/services/auth.service';
 // GlobalLevelsManager moved to standalone /admin/levels page
@@ -942,7 +942,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
       ...prev,
       [lvl]: [
         ...(prev[lvl] || []),
-        { exerciseId: '', exerciseName: '', targetValue: 10, unit: 'reps' as const, progressBonus: 5, _key: `new_${Date.now()}` },
+        { exerciseId: '', exerciseName: '', targetValue: 10, unit: 'reps' as const, progressBonus: 5, xpBonus: 0, _key: `new_${Date.now()}` },
       ],
     }));
   };
@@ -966,12 +966,13 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
     try {
       const goals: LevelGoal[] = (editingGoals[lvl] || [])
         .filter((g) => g.exerciseId)
-        .map(({ exerciseId, exerciseName, targetValue, unit, progressBonus }) => ({
+        .map(({ exerciseId, exerciseName, targetValue, unit, progressBonus, xpBonus }) => ({
           exerciseId,
           exerciseName,
           targetValue,
           unit,
           progressBonus: progressBonus ?? 5,
+          ...(xpBonus ? { xpBonus } : {}),
         }));
 
       const existing = levelSettings[lvl];
@@ -1186,7 +1187,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                       <div className="w-20">
                         <label className="text-xs font-bold text-amber-600 mb-1 flex items-center gap-1">
                           <Percent size={12} />
-                          בונוס
+                          בונוס %
                         </label>
                         <input
                           type="number"
@@ -1195,6 +1196,22 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                           value={goal.progressBonus ?? 5}
                           onChange={(e) => updateGoal(lvl, goal._key, { progressBonus: parseInt(e.target.value) || 0 })}
                           className="w-full px-3 py-2.5 border border-amber-300 rounded-xl text-center font-bold text-amber-700 bg-amber-50 focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* XP Bonus (one-time) */}
+                      <div className="w-24">
+                        <label className="text-xs font-bold text-purple-600 mb-1 flex items-center gap-1">
+                          <Award size={12} />
+                          בונוס XP
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={goal.xpBonus ?? 0}
+                          onChange={(e) => updateGoal(lvl, goal._key, { xpBonus: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2.5 border border-purple-300 rounded-xl text-center font-bold text-purple-700 bg-purple-50 focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          placeholder="0"
                         />
                       </div>
 

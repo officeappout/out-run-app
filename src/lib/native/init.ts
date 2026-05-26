@@ -54,6 +54,22 @@ export async function initNativeShell(): Promise<void> {
     // 1. App lifecycle → flush + health re-sync on resume
     App.addListener('appStateChange', async ({ isActive }) => {
       if (!isActive) return;
+
+      // Recovery step: if localStorage lost the "out:has-session" hint
+      // (WKWebView storage eviction) but @capacitor/preferences still has
+      // it, copy it back so the landing page shows the splash on next
+      // navigation instead of flashing the login/onboarding screens.
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        const { SESSION_HINT_NATIVE_KEY } = await import('@/lib/auth.service');
+        const { value } = await Preferences.get({ key: SESSION_HINT_NATIVE_KEY });
+        if (value === '1' && !window.localStorage.getItem('out:has-session')) {
+          try { window.localStorage.setItem('out:has-session', '1'); } catch { /* quota */ }
+        }
+      } catch {
+        // Non-fatal — hint recovery is best-effort.
+      }
+
       try {
         OutboxFlusher.flushNow('app-active');
       } catch (err) {
@@ -72,6 +88,22 @@ export async function initNativeShell(): Promise<void> {
         if (process.env.NODE_ENV !== 'production') {
           console.debug('[native] healthBridgeSyncNow skipped:', err);
         }
+      }
+      // Resolve any pending requestPermissions() PluginCall that was parked
+      // while the user was inside the Health Connect settings screen.
+      // notifyAppResumed() is a no-op when no call is pending; it is safe to
+      // fire on every resume.
+      //
+      // NOTE: We intentionally delegate to healthBridge/init.ts here instead
+      // of importing 'health-bridge' directly. The shared loadPlugin()
+      // singleton extracts the Capacitor proxy INSIDE a .then() callback,
+      // avoiding the `.then()`-not-implemented crash that occurs when Android's
+      // Capacitor proxy is resolved through a raw `await import('health-bridge')`.
+      try {
+        const { notifyAppResumed } = await import('@/lib/healthBridge/init');
+        await notifyAppResumed();
+      } catch {
+        // Defensive — notifyAppResumed() already swallows its own errors.
       }
     });
 

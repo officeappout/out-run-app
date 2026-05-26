@@ -141,6 +141,14 @@ export interface WorkoutCompletionResult {
     bonusGain: number;
     /** Bonus % awarded for newly achieved admin-defined level goals */
     goalBonusGain: number;
+    /**
+     * One-time Skill Mastery Bonus awarded when the user reaches a
+     * physiological mastery threshold inside a Skill program
+     * (5 reps for bilateral skills, 10s for isometric holds).
+     * Zero for non-skill programs and for sessions that did not hit
+     * the threshold.
+     */
+    masteryBonusGain: number;
     totalGain: number;
     newPercent: number;
     leveledUp: boolean;
@@ -226,6 +234,20 @@ export interface MasterProgramProgress {
     level: number;
     percent: number;
   }[];
+  /**
+   * The level already persisted in progression.tracks for this master program
+   * at the time getMasterProgramProgress ran. Extracted from the same user-doc
+   * read so recalculateMasterLevel can apply a monotonic floor without a second
+   * Firestore round-trip.
+   */
+  priorMasterLevel?: number;
+  /**
+   * True when the child filter returned an empty set despite one or more children
+   * being genuinely configured (level > 0). This signals a slug-routing gap or
+   * stale skillFocusIds mismatch — NOT a legitimate L0 user. When set,
+   * recalculateMasterLevel aborts the Firestore write to prevent level wipeout.
+   */
+  routingEmptySkip?: boolean;
 }
 
 /**

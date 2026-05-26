@@ -20,7 +20,12 @@ export interface ArenaData {
   groups: CommunityGroup[];
   events: CommunityEvent[];
   isActiveClient: boolean;
-  /** true only when authority.isActiveClient — drives official league vs pressure mode */
+  /**
+   * true when the city's league should render in open mode (no blur, no pressure banner).
+   * Conditions:
+   *   - authority.isActiveClient === true  (paying client)
+   *   - authority.gatingMode === 'soft_launch'  (admin-toggled demo/preview mode)
+   */
   isLeagueActive: boolean;
   isLoading: boolean;
   error: string | null;
@@ -180,12 +185,32 @@ export function useArenaData(authorityId: string | null): ArenaData {
 
   const isActiveClient = authority?.isActiveClient ?? false;
 
+  // Defensive normalization handles any casing/spacing variant written by
+  // older admin panel versions ('Soft Launch', 'SOFT_LAUNCH', etc.).
+  const rawGatingMode  = (authority?.gatingMode ?? '').toLowerCase().replace(/\s+/g, '_');
+  const isSoftLaunch   = rawGatingMode === 'soft_launch';
+
+  // Temporary diagnostic — logs the exact value stored in Firestore so
+  // mismatches between the admin panel write and this read are immediately
+  // visible in the browser console. Remove once confirmed stable.
+  if (authority) {
+    console.log('[ArenaGating Debug]', {
+      authorityId:    authority.id,
+      authorityName:  authority.name,
+      rawGatingMode:  authority.gatingMode,
+      normalizedMode: rawGatingMode,
+      isActiveClient,
+      isSoftLaunch,
+      isLeagueActive: isActiveClient || isSoftLaunch,
+    });
+  }
+
   return {
     authority,
     groups,
     events,
     isActiveClient,
-    isLeagueActive: isActiveClient,
+    isLeagueActive: isActiveClient || isSoftLaunch,
     isLoading,
     error,
   };

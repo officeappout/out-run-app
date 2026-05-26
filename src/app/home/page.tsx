@@ -6,16 +6,13 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import AlertModal from '@/features/home/components/AlertModal';
-import SettingsModal from '@/features/home/components/SettingsModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
-import UserHeaderPill from '@/features/home/components/UserHeaderPill';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
-import { isUserVerified } from '@/features/user/identity/services/access-control.service';
 import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
@@ -27,14 +24,10 @@ import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import type { CommunityGroup } from '@/types/community.types';
 
 import {
-  LogOut, Settings, BadgeCheck,
-  Shield, RefreshCcw, CheckCircle2, Circle, ChevronDown,
-  CalendarDays, X, Search,
+  Shield, CheckCircle2, Circle, ChevronDown, X,
 } from 'lucide-react';
-import { signOutUser } from '@/lib/auth.service';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
@@ -42,20 +35,26 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
-import StatsOverview from '@/features/home/components/StatsOverview';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
-import HealthMetricsRow from '@/features/home/components/rows/HealthMetricsRow';
-import PerformanceMetricsRow from '@/features/home/components/rows/PerformanceMetricsRow';
+import { useWeeklyProgress } from '@/features/activity';
+import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
+import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
+import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/home/components/WorkoutBuilderSheet';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
+import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
-import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
+import { toISODate, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
-import CollapsingHeader from '@/components/ui/CollapsingHeader';
+import AppHeader from '@/components/ui/AppHeader';
+import { useSettingsStore } from '@/features/home/store/useSettingsStore';
+import { requestHealthPermissions } from '@/lib/healthBridge/init';
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -162,20 +161,234 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
+// Health tab cards — dedicated simple metric cards (no ring)
+// ════════════════════════════════════════════════════════════════════
+
+const HEALTH_CARD_STYLE: React.CSSProperties = {
+  borderRadius: 12,
+  border: '0.5px solid #E0E9FF',
+  boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
+};
+
+const WHO_WEEKLY_TARGET = 150;
+const FALLBACK_STEPS_GOAL = 10_000;
+
+/** Weekly activity minutes card */
+function ActivityCard() {
+  const { summary } = useWeeklyProgress();
+  const weeklyMinutes = Math.round(
+    (summary?.categoryTotals?.strength ?? 0) +
+    (summary?.categoryTotals?.cardio ?? 0) +
+    (summary?.categoryTotals?.maintenance ?? 0),
+  );
+  const barPct = Math.min(100, (weeklyMinutes / WHO_WEEKLY_TARGET) * 100);
+
+  return (
+    <div
+      className="bg-white dark:bg-[#1E1E1E] w-full h-full p-4 flex flex-col justify-between"
+      style={HEALTH_CARD_STYLE}
+      dir="rtl"
+    >
+      <div>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+          פעילות שבועית
+        </p>
+        <p style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }} className="text-gray-900 dark:text-white tabular-nums">
+          {weeklyMinutes} <span className="text-base font-normal">דק׳</span>
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+          מתוך {WHO_WEEKLY_TARGET} דק׳
+        </p>
+      </div>
+      <div
+        className="w-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
+        style={{ height: 4, borderRadius: 2, marginTop: 10 }}
+      >
+        <div
+          style={{
+            width: `${barPct}%`,
+            height: '100%',
+            borderRadius: 2,
+            backgroundColor: '#00C9F2',
+            transition: 'width 0.4s ease',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Today's steps card — tappable. Clicking navigates to /activity/steps.
+ *  On Android the first tap checks Health Connect permission; if not yet
+ *  granted it triggers the native permission flow and shows a hint toast
+ *  instead of navigating away. */
+function StepsCard() {
+  const router = useRouter();
+  const { stepsToday, todayActivity } = useLiveDailyActivity();
+  const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
+  const barPct = goal > 0 ? Math.min(100, (stepsToday / goal) * 100) : 0;
+
+  // Permission state — optimistic from settings store (set when the user
+  // previously granted and the store was hydrated from Capacitor Prefs).
+  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  const patchSettings = useSettingsStore((s) => s.patch);
+
+  // Inline toast state (hint shown when permission is denied/pending).
+  const [hint, setHint] = useState<string | null>(null);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showHint = (msg: string) => {
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    setHint(msg);
+    hintTimer.current = setTimeout(() => setHint(null), 4000);
+  };
+
+  useEffect(() => () => { if (hintTimer.current) clearTimeout(hintTimer.current); }, []);
+
+  const handlePress = useCallback(async () => {
+    // If permission was previously confirmed, go straight to the detail page.
+    if (healthBridgeEnabled) {
+      router.push('/activity/steps');
+      return;
+    }
+
+    // On web/non-native: navigate directly (no permission needed).
+    const isNative =
+      typeof window !== 'undefined' &&
+      Boolean((window as any).Capacitor?.isNativePlatform?.());
+
+    if (!isNative) {
+      router.push('/activity/steps');
+      return;
+    }
+
+    // Native Android/iOS: request Health Connect / HealthKit permissions.
+    try {
+      const { granted } = await requestHealthPermissions();
+      if (granted) {
+        patchSettings({ healthBridgeEnabled: true });
+        router.push('/activity/steps');
+      } else {
+        showHint('כדי לראות את הצעדים שלך, אפשר גישה לבריאות בהגדרות');
+      }
+    } catch {
+      showHint('לא ניתן לגשת לנתוני הבריאות כרגע');
+    }
+  }, [healthBridgeEnabled, patchSettings, router]);
+
+  return (
+    <div
+      className="bg-white dark:bg-[#1E1E1E] w-full h-full flex flex-col justify-between relative overflow-hidden"
+      style={{ ...HEALTH_CARD_STYLE, cursor: 'pointer' }}
+      dir="rtl"
+      onClick={handlePress}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handlePress(); }}
+      aria-label={`צעדים היום: ${stepsToday.toLocaleString()} מתוך ${goal.toLocaleString()}`}
+    >
+      <div className="p-4 flex flex-col justify-between h-full">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+            צעדים היום
+          </p>
+          <p style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }} className="text-gray-900 dark:text-white tabular-nums">
+            {stepsToday.toLocaleString()}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+            מתוך {goal.toLocaleString()} צעדים
+          </p>
+        </div>
+        <div
+          className="w-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
+          style={{ height: 4, borderRadius: 2, marginTop: 10 }}
+        >
+          <div
+            style={{
+              width: `${barPct}%`,
+              height: '100%',
+              borderRadius: 2,
+              backgroundColor: '#1D9E75',
+              transition: 'width 0.4s ease',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Inline permission hint toast */}
+      <AnimatePresence>
+        {hint && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-x-0 bottom-0 px-2 pb-2"
+          >
+            <div
+              className="text-[10px] font-medium text-center text-white rounded-xl px-2 py-1.5 leading-snug"
+              style={{ background: 'rgba(0,0,0,0.72)' }}
+            >
+              {hint}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
 // MAIN HOME PAGE — Clean Execution Zone
 // ════════════════════════════════════════════════════════════════════
 
 export default function HomePage() {
   const router = useRouter();
-  const { profile, _hasHydrated, resetProfile, refreshProfile } = useUserStore();
-  const { reset: resetOnboarding } = useOnboardingStore();
+  const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags } = useFeatureFlags(isSuperAdmin);
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
   const [showAlert, setShowAlert] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
+  // True from the instant a new workout card is tapped until the engine
+  // delivers fresh data — drives the skeleton shimmer inside the drawer.
+  const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
+
+  // Entry context for the WorkoutPreviewDrawer pencil button
+  const [previewEntry, setPreviewEntry] = useState<UserScheduleEntry | null>(null);
+  // Entry data for the edit modal (triggered by drawer pencil or directly)
+  const [editEntry, setEditEntry] = useState<UserScheduleEntry | null>(null);
+
+  // Workout builder sheet
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderProps, setBuilderProps] = useState<Omit<WorkoutBuilderSheetProps, 'onClose'>>({});
+
+  // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
+  const handleEditFromDrawer = useCallback(() => {
+    if (!previewEntry?.entryId) return;
+    setSelectedWorkout(null);
+    setEditEntry(previewEntry);
+  }, [previewEntry]);
+
+  // Open WorkoutPreviewDrawer from a MonthlyCalendarGrid cell tap (via TrainingPlannerOverlay)
+  const handleCalendarEntryTap = useCallback((entry: UserScheduleEntry) => {
+    setPreviewEntry(entry);
+    const cats = entry.scheduledCategories ?? [];
+    const title = cats.length > 0
+      ? cats.map(c => c === 'strength' ? 'כוח' : c === 'cardio' ? 'ריצה' : c === 'walking' ? 'הליכה' : 'גמישות').join(' + ')
+      : 'אימון מתוזמן';
+    setSelectedWorkout({
+      id: entry.entryId ?? entry.date,
+      title,
+      description: '',
+      level: 'medium',
+      difficulty: 'medium',
+      duration: 45,
+      coverImage: '',
+      segments: [],
+    });
+  }, []);
 
   // Selected date drives SmartWeeklySchedule highlight + StatsOverview workout gen
   const [selectedDate, setSelectedDate] = useState(() => toISODate(new Date()));
@@ -183,8 +396,15 @@ export default function HomePage() {
   // Training Planner Overlay (calendar icon → full-screen planner)
   const [showPlanner, setShowPlanner] = useState(false);
 
+  // Incremented whenever a schedule entry is added/moved/removed in the planner,
+  // so StatsOverview and SmartWeeklySchedule re-derive their data immediately.
+  const [scheduleVersion, setScheduleVersion] = useState(0);
+
   // Lifestyle Wizard State
   const [showLifestyleWizard, setShowLifestyleWizard] = useState(false);
+
+  // Home page tabs ("כוח" / "בריאות") — below the schedule strip
+  const [homeTab, setHomeTab] = useState<'strength' | 'health'>('strength');
 
   // ── Gear Toast (one-time after onboarding) ──
   const [showGearToast, setShowGearToast] = useState(false);
@@ -323,8 +543,6 @@ export default function HomePage() {
       profile?.onboardingStatus === 'COMPLETED'
     );
   })();
-  const verified = isUserVerified(profile);
-
   // Health declaration check
   const isHealthMissing = (() => {
     if (!profile) return false;
@@ -339,8 +557,6 @@ export default function HomePage() {
   const userEmail = auth.currentUser?.email || profile?.core?.email;
   const isDevModeAvailable = isAdminEmailAllowed(userEmail ?? null);
   const currentTier = profile?.core?.accessLevel ?? 1;
-  const isDev = process.env.NODE_ENV === 'development';
-
   const handleSetTier = async (tier: 1 | 2 | 3) => {
     if (!profile?.id) return;
     try {
@@ -354,18 +570,27 @@ export default function HomePage() {
   // Dynamic workout state
   const generatedWorkoutRef = useRef<GeneratedWorkout | null>(null);
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
-  const [workoutVersion, setWorkoutVersion] = useState(0);
 
   const handleWorkoutGenerated = useCallback((workout: GeneratedWorkout) => {
     generatedWorkoutRef.current = workout;
     setGeneratedWorkout(workout);
-    setWorkoutVersion((v) => v + 1);
+    setIsWorkoutLoading(false);
   }, []);
 
-  // Active program templateId — used as the icon key source.
-  // The templateId IS the canonical program name (e.g. 'full_body',
-  // 'upper_body', 'running') and maps directly through PROGRAM_ALIAS_TO_ICON.
-  const programIconKey = profile?.progression?.activePrograms?.[0]?.templateId;
+  // Active program icon key — derived dynamically from today's recurring
+  // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
+  // schedule day renders the correct muscle icon everywhere, rather than
+  // leaking the profile-level specialist track (e.g. 'front_lever' → 'pullup').
+  //
+  // Priority:
+  //   1. Today's recurring template primary program ID  (e.g. 'UPPER_CALISTHENICS')
+  //   2. activePrograms[0].templateId fallback
+  const programIconKey = useMemo(() => {
+    const todayLetter = getHebrewDayLetter(new Date());
+    const todayTemplateId =
+      profile?.lifestyle?.recurringTemplate?.[todayLetter]?.[0] ?? null;
+    return todayTemplateId ?? profile?.progression?.activePrograms?.[0]?.templateId;
+  }, [profile?.lifestyle?.recurringTemplate, profile?.progression?.activePrograms]);
 
   // Alerts
   useEffect(() => {
@@ -381,8 +606,11 @@ export default function HomePage() {
   }, [_hasHydrated, profile?.id, refreshProfile]);
 
   // ── Inner "open preview" logic extracted so it can be called with OR without JIT ──
-  const openWorkoutPreview = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
+  // `targetDate` is the ISO date the user tapped — passed synchronously from
+  // handleHeroPress so the workout ID and any downstream resolution use the
+  // clicked date rather than the stale `selectedDate` state value.
+  const openWorkoutPreview = useCallback((targetDate?: string) => {
+    const today = targetDate ?? new Date().toISOString().split('T')[0];
     const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
     const gw = generatedWorkoutRef.current;
 
@@ -455,8 +683,8 @@ export default function HomePage() {
           videoUrl: resolvedVideoUrl,
           imageUrl: resolvedImageUrl,
           exerciseType: actuallyTimeBased ? 'time' as const : 'reps' as const,
-          exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown') || 'main' as const,
-          isFollowAlong: false,
+          exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
+          isFollowAlong: ex.exercise.isFollowAlong ?? false,
           hasAudio: false,
           highlights: resolveHighlights(),
           muscleGroups,
@@ -491,12 +719,23 @@ export default function HomePage() {
           reasoning: ex.reasoning,
           pairedWith: ex.pairedWith ?? null,
           symmetry: ex.exercise.symmetry ?? null,
+          programIds: (() => {
+            const fromTargets = (ex.exercise.targetPrograms ?? [])
+              .map((tp: any) => tp.programId)
+              .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+            const fromIds = (ex.exercise.programIds ?? [])
+              .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+            return Array.from(new Set([...fromTargets, ...fromIds]));
+          })(),
+          pyramidSequence: (ex as any).pyramidSequence ?? undefined,
+          repsSequence: (ex as any).repsSequence ?? undefined,
         };
       });
 
       const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
       const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
       const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
+      const recoveryExercises = exercises.filter((ex: any) => ex.exerciseRole === 'recovery');
 
       const segments: any[] = [];
       if (warmupExercises.length > 0) {
@@ -535,6 +774,18 @@ export default function HomePage() {
           restBetweenExercises: 5,
         });
       }
+      if (recoveryExercises.length > 0) {
+        segments.push({
+          id: 'seg-recovery',
+          type: 'station' as const,
+          title: gw.title || 'שיקום',
+          icon: '🌙',
+          target: { type: 'time' as const, value: 600 },
+          exercises: recoveryExercises,
+          isCompleted: false,
+          restBetweenExercises: 0,
+        });
+      }
       if (segments.length === 0) {
         segments.push({
           id: 'seg-all',
@@ -558,6 +809,10 @@ export default function HomePage() {
         difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
         trainingType: 'strength' as const,
         pipelineLog: gw.pipelineLog,
+        // Protocol fields — preserved across the GeneratedWorkout → WorkoutPlan
+        // boundary so the active workout state machine can adapt execution flow.
+        appliedProtocol: gw.appliedProtocol,
+        blastMode: gw.blastMode,
       };
 
       sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
@@ -576,18 +831,49 @@ export default function HomePage() {
     });
   }, [profile, scheduleState]);
 
-  // Hero Card Press Handler — goes through JIT equipment/health check
-  const handleHeroPress = useCallback(() => {
+  // Hero Card Press Handler — goes through JIT equipment/health check.
+  //
+  // `explicitDate` is passed synchronously by AgendaDayCard's StrengthCard tap
+  // handler (via onTap → onStartWorkout → here).  It short-circuits the async
+  // state-batching race: we resolve the target date immediately and call
+  // setSelectedDate before React's next render cycle so StatsOverview starts
+  // generating the correct workout trio in parallel with the preview opening.
+  const handleHeroPress = useCallback((explicitDate?: string) => {
+    const dateToUse = (typeof explicitDate === 'string') ? explicitDate : selectedDate;
+
+    // Sync the selected-date highlight immediately — StatsOverview will begin
+    // generating for dateToUse before the preview drawer finishes mounting.
+    if (typeof explicitDate === 'string' && explicitDate !== selectedDate) {
+      setSelectedDate(explicitDate);
+    }
+
     if (!profile?.core?.name) {
       router.push('/onboarding-new/profile');
       return;
     }
 
     if (hasProgram) {
-      interceptWorkoutStart(openWorkoutPreview);
+      // When a different date is tapped, flush the stale cached workout
+      // immediately — before the async generator evaluates the new date.
+      // This guarantees the drawer rises with the skeleton shimmer rather
+      // than a frame of the previous workout's exercises.
+      if (typeof explicitDate === 'string' && explicitDate !== selectedDate) {
+        generatedWorkoutRef.current = null;
+        setGeneratedWorkout(null);
+        setIsWorkoutLoading(true);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('active_workout_data');
+        }
+      }
+
+      // Pass dateToUse into openWorkoutPreview so the uniqueWorkoutId and any
+      // future date-aware preview logic use the synchronously resolved date.
+      interceptWorkoutStart(() => openWorkoutPreview(dateToUse));
     } else {
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('onboarding_path', isMapOnlyUser ? 'UPGRADE_FROM_MAP' : 'FULL_PROGRAM');
+        // onboarding_path persists via onboardingPrefs so a hard close
+        // mid-onboarding resumes on the correct path branch.
+        setOnboardingPref('onboarding_path', isMapOnlyUser ? 'UPGRADE_FROM_MAP' : 'FULL_PROGRAM');
         if (profile?.core?.name && !sessionStorage.getItem('onboarding_personal_name')) {
           sessionStorage.setItem('onboarding_personal_name', profile.core.name);
         }
@@ -602,7 +888,36 @@ export default function HomePage() {
       }
       router.push('/onboarding-new/assessment-visual');
     }
-  }, [hasProgram, isMapOnlyUser, interceptWorkoutStart, openWorkoutPreview, profile, router]);
+  }, [hasProgram, isMapOnlyUser, interceptWorkoutStart, openWorkoutPreview, profile, router, selectedDate]);
+
+  const handleBuildCustom = useCallback((ctx?: BuilderContext) => {
+    const props: Omit<WorkoutBuilderSheetProps, 'onClose'> = {};
+    if (ctx?.location) {
+      const locMap: Record<string, string> = {
+        park: 'park', outdoor: 'park', outside: 'park',
+        gym: 'gym', indoor: 'gym',
+        home: 'home',
+      };
+      const mapped = locMap[ctx.location];
+      if (mapped) props.defaultLocation = mapped;
+    }
+    if (ctx?.programIds?.length) {
+      props.defaultProgramIds = ctx.programIds.join(',');
+    }
+    if (ctx?.duration) {
+      const options = [15, 30, 45, 60];
+      const nearest = options.reduce((prev, curr) =>
+        Math.abs(curr - ctx.duration!) < Math.abs(prev - ctx.duration!) ? curr : prev,
+      );
+      props.defaultDuration = String(nearest);
+    }
+    if (ctx?.difficulty) {
+      const diffMap: Record<number, string> = { 1: 'easy', 2: 'medium', 3: 'hard' };
+      props.defaultIntensity = diffMap[ctx.difficulty] ?? 'medium';
+    }
+    setBuilderProps(props);
+    setBuilderOpen(true);
+  }, []);
 
   // Direct start — from UserWorkoutAdjuster, bypasses equipment JIT popup
   const handleDirectStart = useCallback(() => {
@@ -610,19 +925,7 @@ export default function HomePage() {
     if (hasProgram) openWorkoutPreview();
   }, [hasProgram, openWorkoutPreview, profile, router]);
 
-  const handleLogout = async () => { await signOutUser(); resetProfile(); };
-
   const handleAlertAction = () => { setShowAlert(null); handleHeroPress(); };
-
-  const handleDevReset = async () => {
-    if (!isDev) return;
-    if (!confirm('⚠️ Dev Reset: זה ימחק את כל הנתונים המקומיים ויתנתק. להמשיך?')) return;
-    try {
-      localStorage.clear(); sessionStorage.clear();
-      resetOnboarding(); resetProfile();
-      await signOut(auth); router.push('/');
-    } catch (error) { console.error('Error during dev reset:', error); }
-  };
 
   // Firestore fallback
   const [isCheckingFirestore, setIsCheckingFirestore] = useState(false);
@@ -695,58 +998,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
-      {/* ── Header — Instagram-style: hides on scroll-down, slides back on scroll-up ── */}
-      <CollapsingHeader
-        zIndex={40}
-        className="bg-white/90 backdrop-blur-md border-b border-slate-100"
-      >
-        {/* Tightened from py-3 → py-1.5 so the bar sits closer to the iOS
-            status bar instead of stacking 12px on top of the safe-area inset. */}
-        <div className="max-w-md mx-auto px-5 py-1.5 flex items-center justify-between">
-
-          {/* Left: Library + Planner + Settings + Logout */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => router.push('/library')}
-              className="p-2 text-slate-400 hover:text-[#00C9F2] hover:bg-cyan-50 rounded-full transition-all"
-              aria-label="ספריית תרגילים"
-            >
-              <Search size={22} />
-            </button>
-            <button
-              onClick={() => setShowPlanner(true)}
-              className="p-2 text-slate-400 hover:text-[#00C9F2] hover:bg-cyan-50 rounded-full transition-all"
-              aria-label="תכנון אימונים"
-            >
-              <CalendarDays size={22} />
-            </button>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all"
-            >
-              <Settings size={22} />
-            </button>
-            <button
-              onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-            >
-              <LogOut size={22} />
-            </button>
-          </div>
-
-          {/* Center: Logo */}
-          <div className="flex items-center gap-1.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/logo/Kind=logotype.svg" alt="OUT" className="h-8 object-contain" />
-            {verified && <BadgeCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />}
-          </div>
-
-          {/* Right: User pill — taps to profile */}
-          <button onClick={() => router.push('/profile')} className="cursor-pointer">
-            <UserHeaderPill compact />
-          </button>
-        </div>
-      </CollapsingHeader>
+      {/* ── Shared App Header (avatar + flame, logo, bell + chat + search) ── */}
+      <AppHeader />
 
       {/* ── Profile Progress Bar ── */}
       <ProfileProgressBar profile={profile} />
@@ -802,7 +1055,7 @@ export default function HomePage() {
       )}
 
       {/* ── Main Content: Clean Execution Zone ── */}
-      <div className="max-w-md mx-auto px-4 pt-2 pb-4 space-y-4">
+      <div className="max-w-md mx-auto px-4 pt-2 pb-4 space-y-2">
 
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
         {hasCompletedAssessment && (
@@ -824,6 +1077,7 @@ export default function HomePage() {
               calendarMode="week"
               hideMonthToggle
               onSwipeDown={() => setShowPlanner(true)}
+              onOpenPlanner={() => setShowPlanner(true)}
               hasCompletedAssessment={hasCompletedAssessment}
               hasSchedule={hasSchedule}
               onStartAssessment={handleHeroPress}
@@ -832,6 +1086,7 @@ export default function HomePage() {
               runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
               runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
               runningBasePace={profile?.running?.paceProfile?.basePace}
+              scheduleVersion={scheduleVersion}
             />
           </motion.div>
         )}
@@ -864,31 +1119,60 @@ export default function HomePage() {
                    programs, so the section is meaningless beforehand).
             ════════════════════════════════════════════════════════════════ */}
         {(() => {
-          const track = resolvedDashboardMode === 'DEFAULT' ? 'health' : 'performance';
-          const HealthRow = <HealthMetricsRow />;
-          const PerfRow = <PerformanceMetricsRow />;
+          const TAB_LABELS: Record<'strength' | 'health', string> = {
+            strength: 'התקדמות שבועית',
+            health: 'מדדי בריאות',
+          };
 
           return (
-            // `gap-4` collapses naturally when PerformanceMetricsRow returns
-            // null (no strength survey), so we never get a phantom 16px gap.
-            <div className="flex flex-col gap-4 mt-4">
-              {/* Row 2 — 65/35 RTL grid. `direction: 'rtl'` puts the first
-                  DOM child (ProgramProgressRow) into the visually-RIGHT
-                  column (8fr / 65%); ConsistencyWidget lands LEFT (5fr /
-                  35%). `items-stretch` matches heights so both halves
-                  feel like a single card. */}
+            <div className="flex flex-col gap-4 mt-0">
+              {/* ── Tabs bar ─────────────────────────────────────────── */}
               <div
-                className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
-                style={{ gridTemplateColumns: '8fr 5fr', direction: 'rtl' }}
+                className="w-full max-w-[358px] mx-auto flex border-b border-gray-100"
+                dir="rtl"
               >
-                <ProgramProgressRow />
-                <ConsistencyWidget />
+                {(['strength', 'health'] as const).map((tab) => {
+                  const isActive = homeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setHomeTab(tab)}
+                      className={[
+                        'flex-1 py-2.5 text-sm font-bold transition-colors',
+                        isActive
+                          ? 'text-[#00C9F2] border-b-2 border-[#00C9F2] -mb-px'
+                          : 'text-gray-400',
+                      ].join(' ')}
+                    >
+                      {TAB_LABELS[tab]}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Row 3 — Daily Workout Hero (Thumb Zone).
-                  `StatsOverview` was trimmed to its action zone — the
-                  workout trio (DEFAULT/PERF/HYBRID) or the run card
-                  (RUNNING) sits here without preceding "Power Row" noise. */}
+              {/* ── Tab content ──────────────────────────────────────── */}
+              {homeTab === 'strength' ? (
+                /* התקדמות שבועית — program ring (right 65%) + consistency bars (left 35%) */
+                <div
+                  className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
+                  style={{ gridTemplateColumns: '8fr 5fr', direction: 'rtl' }}
+                >
+                  <ProgramProgressRow />
+                  <ConsistencyWidget />
+                </div>
+              ) : (
+                /* מדדי בריאות — activity minutes (right) + steps (left) */
+                <div
+                  className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
+                  style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
+                >
+                  <ActivityCard />
+                  <StepsCard />
+                </div>
+              )}
+
+              {/* ── Daily Workout Hero — always visible ─────────────── */}
               <StatsOverview
                 stats={MOCK_STATS}
                 onStartWorkout={handleHeroPress}
@@ -898,20 +1182,10 @@ export default function HomePage() {
                 hasCompletedAssessment={hasCompletedAssessment}
                 hideWorkoutSection={!!postWorkoutData}
                 enableRunningPrograms={featureFlags.enableRunningPrograms}
+                scheduleVersion={scheduleVersion}
+                onBuildCustom={handleBuildCustom}
+                generateSingleOption={isWorkoutLoading}
               />
-
-              {/* Rows 4 & 5 — compact section-headed tiles, swap by mode. */}
-              {track === 'health' ? (
-                <>
-                  {HealthRow}
-                  {PerfRow}
-                </>
-              ) : (
-                <>
-                  {PerfRow}
-                  {HealthRow}
-                </>
-              )}
             </div>
           );
         })()}
@@ -962,6 +1236,14 @@ export default function HomePage() {
         selectedDate={selectedDate}
         onDaySelect={setSelectedDate}
         onStartWorkout={handleHeroPress}
+        onScheduleChanged={() => setScheduleVersion((v) => v + 1)}
+        onCommunityTap={handleOpenGroupFromBanner}
+        onPreviewEntry={setPreviewEntry}
+        onEntryTap={handleCalendarEntryTap}
+        onOpenBuilder={(params) => {
+          setBuilderProps({ mode: params.mode, date: params.date, defaultDuration: params.defaultDuration, defaultProgramIds: params.defaultProgramIds });
+          setBuilderOpen(true);
+        }}
       />
 
       {/* ── Lifestyle Wizard (Full Screen) ── */}
@@ -987,17 +1269,41 @@ export default function HomePage() {
         />
       )}
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-
       <WorkoutPreviewDrawer
-        key={`drawer-v${workoutVersion}`}
+        key="workout-preview-drawer"
         isOpen={selectedWorkout !== null}
-        onClose={() => setSelectedWorkout(null)}
+        onClose={() => { setSelectedWorkout(null); setPreviewEntry(null); setIsWorkoutLoading(false); }}
         workout={selectedWorkout}
         generatedWorkout={generatedWorkout}
+        isGeneratingWorkout={isWorkoutLoading}
         onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
         onGeneratedWorkoutUpdate={handleWorkoutGenerated}
+        onEditEntry={previewEntry?.entryId ? handleEditFromDrawer : undefined}
       />
+
+      {/* Edit modal — opened by drawer pencil or directly from other entry points */}
+      {editEntry && (() => {
+        const cat = editEntry.scheduledCategories?.[0] ?? 'strength';
+        const entryType = (cat === 'walking' ? 'walking' : cat === 'cardio' ? 'running' : 'strength') as 'strength' | 'running' | 'walking';
+        return (
+          <AddWorkoutModal
+            isOpen={!!editEntry}
+            onClose={() => setEditEntry(null)}
+            targetDate={editEntry.date}
+            userId={profile?.id}
+            onSaved={() => { setEditEntry(null); setScheduleVersion((v) => v + 1); }}
+            initialEntryId={editEntry.entryId}
+            initialType={entryType}
+            initialProgramId={editEntry.programIds?.[0]}
+            initialStartTime={editEntry.startTime}
+            onOpenBuilder={(params) => {
+              setEditEntry(null);
+              setBuilderProps({ mode: params.mode, date: params.date, defaultDuration: params.defaultDuration, defaultProgramIds: params.defaultProgramIds });
+              setBuilderOpen(true);
+            }}
+          />
+        );
+      })()}
 
       <JITSetupModal
         isOpen={jitState.isModalOpen}
@@ -1006,6 +1312,13 @@ export default function HomePage() {
         onDismiss={dismissJIT}
         onCancel={cancelJIT}
       />
+
+      {builderOpen && (
+        <WorkoutBuilderSheet
+          {...builderProps}
+          onClose={() => setBuilderOpen(false)}
+        />
+      )}
 
       {/* ── Dev Mode ── */}
       {isDevModeAvailable && (
@@ -1043,16 +1356,6 @@ export default function HomePage() {
             </div>
           )}
         </>
-      )}
-
-      {isDev && (
-        <button
-          onClick={handleDevReset}
-          className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-lg transition-all active:scale-95"
-        >
-          <RefreshCcw size={16} />
-          <span>Dev Reset</span>
-        </button>
       )}
 
       {/* Gear Toast — one-time after completing onboarding */}

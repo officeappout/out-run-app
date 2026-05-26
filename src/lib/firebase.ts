@@ -1,7 +1,14 @@
 // Firebase configuration and initialization
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAnalytics, Analytics } from "firebase/analytics";
-import { getAuth, Auth } from "firebase/auth";
+import {
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  Auth,
+} from "firebase/auth";
+import { capacitorPreferencesPersistence } from './capacitorAuthPersistence';
 import {
   getFirestore,
   Firestore,
@@ -80,15 +87,65 @@ if (typeof window !== "undefined") {
   const isNative = detectNativePlatform();
   const debugToken = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN;
 
+  // ── Local-dev hostname detection ───────────────────────────────────────
+  // The `localhost` / `127.0.0.1` (and the IPv6 `[::1]`) hostnames are not
+  // registered with reCAPTCHA Enterprise, so any handshake from them comes
+  // back with `HTTP 403 — AppCheck: Fetch server returned an HTTP error
+  // status` and the unhandled rejection cascades into a Firestore stream
+  // crash (`INTERNAL ASSERTION FAILED: Unexpected state`). When that
+  // happens, snapshot listeners die silently and `useUserStore` falls back
+  // to the hard-coded Level 5 placeholder instead of reading the freshly
+  // computed progression doc. We treat *any* local-dev origin as a
+  // mandatory bypass, regardless of NODE_ENV (Next.js dev sometimes runs
+  // built bundles that report `production`).
+  const hostname = window.location?.hostname ?? '';
+  const isLocalHost =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname === '0.0.0.0' ||
+    hostname.endsWith('.localhost');
+  const isLocalDev = isLocalHost || process.env.NODE_ENV === 'development';
+
   if (debugToken) {
     // The Firebase JS SDK reads this global before initializeAppCheck
     // and uses it instead of the provider — see Firebase App Check
     // docs ("Getting started with App Check in JavaScript"). MUST be
     // assigned before initializeAppCheck() runs.
     (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+  } else if (isLocalDev) {
+    // No explicit token supplied — set to `true` so Firebase auto-generates
+    // a local debug token and prints it to the console. Copy that token into
+    // the Firebase console (App Check → Apps → Manage debug tokens) once and
+    // it will be accepted on localhost and the Android emulator without
+    // triggering reCAPTCHA Enterprise 401 errors.
+    (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: boolean | string })
+      .FIREBASE_APPCHECK_DEBUG_TOKEN = true;
   }
 
-  if (isNative) {
+  // ── Local-dev hard bypass ──────────────────────────────────────────────
+  // On localhost/127.0.0.1 (and any other local-dev hostname above) with
+  // NO explicit debug token registered, we skip `initializeAppCheck` ENTIRELY.
+  // Calling it with a reCAPTCHA Enterprise provider against an unregistered
+  // origin is what triggers the 403 cascade, even though the debug-token
+  // flag is set — the provider still tries to mint a token before the SDK
+  // checks the global flag, and the 403 from that pre-flight is what
+  // poisons the Firestore stream.
+  //
+  // Devs who *want* a real App Check token during local dev just need to
+  // export `NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN` (or run inside the native
+  // shell, which uses the platform attestor path below). Everyone else
+  // gets a stable, crash-free Firestore listener stack.
+  if (isLocalDev && !debugToken && !isNative) {
+    console.info(
+      `[firebase] App Check bypass: hostname="${hostname}" treated as ` +
+      'local development. initializeAppCheck() will NOT be invoked — ' +
+      'this prevents reCAPTCHA Enterprise 403s from crashing the ' +
+      'Firestore snapshot listener. Set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN ' +
+      'to a token registered in the Firebase console (App Check → Apps → ' +
+      'Manage debug tokens) if you need a real App Check handshake.',
+    );
+  } else if (isNative) {
     // ───────────────────────────────────────────────────────────────
     // NATIVE PATH — DeviceCheck (iOS) / Play Integrity (Android)
     //
@@ -168,9 +225,44 @@ if (typeof window !== "undefined") {
 // they make carries a valid attestation token from the very first call.
 // ─────────────────────────────────────────────────────────────────────────
 
-// Auth and Firestore are SSR-safe - Firebase SDK handles server-side initialization
-// They can be initialized on server but will only work when called from client components
-export const auth = getAuth(app);
+// ─────────────────────────────────────────────────────────────────────────
+// Firebase Auth — platform-aware persistence
+//
+// The persistence strategy is chosen at initialisation time:
+//
+//   SSR (server)         → getAuth default — no persistence needed server-side
+//   Native Capacitor     → @capacitor/preferences (NSUserDefaults / SharedPreferences)
+//                          ↳ Falls back to IndexedDB → localStorage for resilience
+//                          ↳ Survives iOS hard close, WKWebView eviction, OS restarts
+//   Web browser          → IndexedDB → localStorage (Firebase default)
+//
+// Using initializeAuth() instead of getAuth() lets us inject the persistence
+// chain before Firebase reads any stored token.  `_shouldAllowMigration: true`
+// on the Capacitor adapter means existing IndexedDB sessions are silently
+// migrated to native storage on the user's first launch after this update —
+// no sign-out required.
+// ─────────────────────────────────────────────────────────────────────────
+function buildAuth(firebaseApp: FirebaseApp): Auth {
+  if (typeof window === 'undefined') {
+    // Server-side: Firebase handles this safely with no browser persistence.
+    return getAuth(firebaseApp);
+  }
+
+  const persistence = detectNativePlatform()
+    // Native: Preferences first (survives hard close), then IndexedDB/localStorage as fallbacks.
+    ? [capacitorPreferencesPersistence, indexedDBLocalPersistence, browserLocalPersistence]
+    // Web: standard Firebase defaults.
+    : [indexedDBLocalPersistence, browserLocalPersistence];
+
+  try {
+    return initializeAuth(firebaseApp, { persistence });
+  } catch {
+    // Auth was already initialized (e.g. HMR in development) — reuse existing instance.
+    return getAuth(firebaseApp);
+  }
+}
+
+export const auth = buildAuth(app);
 
 // Initialize Firestore with:
 //   • experimentalAutoDetectLongPolling — works around BloomFilter errors

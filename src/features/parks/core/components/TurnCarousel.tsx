@@ -317,6 +317,7 @@ export default function TurnCarousel({
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
   const setActiveTurnIdx = useMapStore((s) => s.setActiveTurnIdx);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
+  const setCameraMode = useMapStore((s) => s.setCameraMode);
 
   // Measure this component's rendered height and publish it to the store so
   // useDraggableMetrics can position the metrics card's top snap directly
@@ -384,6 +385,13 @@ export default function TurnCarousel({
     const idx = turns.findIndex((t) => t.pathIndex >= nearestPathIdx);
     return idx === -1 ? Math.max(0, allTurns.length - 1) : idx;
   }, [routePath, currentLocation, turns, allTurns.length]);
+
+  // Mirror currentGpsTurnIdx into a ref so the handleScroll debounce
+  // callback (which closes over [] deps) can distinguish "scroll snapped
+  // back to the GPS card" from a genuine manual swipe to a different card,
+  // without the callback being recreated on every GPS tick.
+  const currentGpsTurnIdxRef = useRef(currentGpsTurnIdx);
+  currentGpsTurnIdxRef.current = currentGpsTurnIdx;
 
   // ── Scroll to a specific card ─────────────────────────────────────────────
   const scrollToCard = useCallback(
@@ -454,21 +462,23 @@ export default function TurnCarousel({
   }, [currentGpsTurnIdx, scrollToCard]);
 
   // ── Camera move when selected card changes ───────────────────────────────
-  // Behaviour matrix:
-  //   selectedIdx === currentGpsTurnIdx (live GPS turn) → simple flyTo on
-  //     the turn vertex. We're already framed on the user; no need to
-  //     recompute bounds.
-  //   selectedIdx > currentGpsTurnIdx (peeking ahead, GPS valid) →
-  //     fitBounds between the user position and the previewed turn so
-  //     they SEE the leg they'd be heading into.
-  //   selectedIdx > currentGpsTurnIdx (peeking ahead, NO GPS — desktop)
-  //     → fitBounds between the PREVIOUS turn vertex (or route start)
-  //     and the previewed turn. This is the David-on-PC path: without
-  //     it the carousel would silently flyTo a single point and David
-  //     would think the swipe-preview was broken. See `pickLegStart`.
-  //   selectedIdx < currentGpsTurnIdx (looking back) → flyTo the past
-  //     turn vertex. AppMap's flyTo defaults (zoom 17, pitch 45) keep
-  //     the Waze 3D feel during the transition.
+  // Ownership model (Google Maps / Waze style):
+  //
+  //   isPeek === false  (GPS auto-advance, selectedIdx === currentGpsTurnIdx
+  //                      and user has NOT manually swiped)
+  //     → useCameraController owns the camera entirely in follow-mode.
+  //       We deliberately do NOT dispatch a turnFlyToTarget here because
+  //       the follow easeTo fires ~200 ms later and would immediately
+  //       override any flyTo we issued, causing a visible flicker between
+  //       the turn vertex and the runner's position.
+  //
+  //   isPeek === true   (user swiped to a different card, OR desktop with
+  //                      no GPS where currentGpsTurnIdx === 0 always)
+  //     → We dispatch a fitBounds between the user's position (or the
+  //       previous turn vertex on desktop) and the previewed turn so the
+  //       runner can see "the leg I'd be heading into". useCameraController
+  //       stays in follow mode but its easeTo is suppressed while
+  //       owner === 'user' (i.e. while the map pan / peek is active).
   useEffect(() => {
     if (selectedIdx === prevSelectedIdxRef.current) return;
     prevSelectedIdxRef.current = selectedIdx;
@@ -490,82 +500,64 @@ export default function TurnCarousel({
     }
 
     const bearing = safeNumber(turn.bearingAfter, 0);
-    // Treat ANY selection that isn't the live GPS turn as a "peek" so
-    // desktop testing (currentGpsTurnIdx defaults to 0 with no GPS) and
-    // touch-screen navigation both get the leg-framing preview. The
-    // distinction the old code drew (`> currentGpsTurnIdx`) hid the
-    // preview entirely from David's PC because every swipe-target
-    // landed at the same idx the GPS-less default had locked in.
     const isPeek = selectedIdx !== currentGpsTurnIdx || userHasManuallySelected;
 
-    if (isPeek) {
-      // Prefer real GPS for the leg origin — it shows "the bit of road
-      // you'd actually walk now". When unavailable, anchor on the
-      // previous turn vertex so the preview still frames the correct
-      // segment of the route. Either way we get a meaningful fitBounds.
-      const userValid = isFiniteLatLng(currentLocationRef.current);
-      const legOrigin = userValid
-        ? currentLocationRef.current
-        : pickLegStart(allTurns, routePathRef.current, selectedIdx);
+    // GPS auto-advance: hand off to useCameraController — no dispatch needed.
+    if (!isPeek) return;
 
-      if (!legOrigin) {
-        // No GPS AND no usable leg origin (path was empty / first turn
-        // with no path). Degrade to a single-point flyTo so the user
-        // still sees SOMETHING happen on swipe.
+    // Peek (manual swipe or desktop): fitBounds between user / leg-start and
+    // the previewed turn vertex so the runner sees the upcoming segment.
+    const userValid = isFiniteLatLng(currentLocationRef.current);
+    const legOrigin = userValid
+      ? currentLocationRef.current
+      : pickLegStart(allTurns, routePathRef.current, selectedIdx);
+
+    if (!legOrigin) {
+      // No GPS AND no usable leg origin (path was empty / first turn with
+      // no path). Degrade to a single-point flyTo so the user still sees
+      // SOMETHING happen on swipe.
+      console.warn(
+        '[TurnCarousel] No GPS and no usable leg origin — falling back to flyTo.',
+      );
+      const flyCenter: [number, number] = [turn.lng, turn.lat];
+      if (!isFiniteLngLat(flyCenter)) {
         console.warn(
-          '[TurnCarousel] No GPS and no usable leg origin — falling back to flyTo.',
+          '[TurnCarousel] Invalid flyCenter — aborting zoom.',
+          { flyCenter, turn, selectedIdx },
         );
-      } else {
-        const bounds = buildLegBounds(legOrigin, turn);
-        // ── FINAL pre-dispatch guard ─────────────────────────────────
-        // Even though `buildLegBounds` already runs its endpoints
-        // through `isFiniteLatLng`, we re-validate the OUTPUT shape
-        // here with the same `isFiniteBounds` helper that AppMap's
-        // structural guard uses. Belt-and-braces: if a future change
-        // to buildLegBounds (or a NaN that sneaks in via Math.min /
-        // Math.max on Infinity inputs) produces a malformed tuple,
-        // it dies HERE — never reaching the camera store, never
-        // reaching Mapbox's `LngLat invalid: NaN, NaN` throw at
-        // AppMap.tsx:265.
-        if (!bounds || !isFiniteBounds(bounds)) {
-          console.warn(
-            '[TurnCarousel] Invalid bounds detected - aborting zoom.',
-            { bounds, legOrigin, turn, selectedIdx },
-          );
-          setTurnFlyToTarget(null);
-          return;
-        }
-        if (!userValid) {
-          console.log(
-            '[TurnCarousel] Desktop preview: framing segment from previous turn → selected turn.',
-            { fromIdx: selectedIdx - 1, toIdx: selectedIdx },
-          );
-        }
-        setTurnFlyToTarget({ kind: 'fitBounds', bounds, bearing });
+        setTurnFlyToTarget(null);
         return;
       }
+      // Claim camera ownership before dispatching so useCameraController
+      // stands down before the next GPS tick fires its follow easeTo.
+      setCameraMode('preview_step');
+      setTurnFlyToTarget({ kind: 'flyTo', center: flyCenter, bearing });
+      return;
     }
 
-    // ── flyTo final guard ────────────────────────────────────────────
-    // Mirror the fitBounds guard above for the single-point branch.
-    // The turn-vertex check at the top of the effect already verifies
-    // turn.lat / turn.lng individually, so this is structural defence:
-    // if the tuple shape ever drifts (e.g. someone changes the kind to
-    // accept `[lng, lat, alt]`), the dispatch still refuses NaN.
-    const flyCenter: [number, number] = [turn.lng, turn.lat];
-    if (!isFiniteLngLat(flyCenter)) {
+    const bounds = buildLegBounds(legOrigin, turn);
+    // ── FINAL pre-dispatch guard ───────────────────────────────────
+    // Re-validate the OUTPUT bounds with the same isFiniteBounds
+    // helper AppMap uses. Belt-and-braces against future regressions
+    // in buildLegBounds producing a NaN tuple.
+    if (!bounds || !isFiniteBounds(bounds)) {
       console.warn(
         '[TurnCarousel] Invalid bounds detected - aborting zoom.',
-        { flyCenter, turn, selectedIdx },
+        { bounds, legOrigin, turn, selectedIdx },
       );
       setTurnFlyToTarget(null);
       return;
     }
-    setTurnFlyToTarget({
-      kind: 'flyTo',
-      center: flyCenter,
-      bearing,
-    });
+    if (!userValid && process.env.NODE_ENV !== 'production') {
+      console.log(
+        '[TurnCarousel] Desktop preview: framing segment from previous turn → selected turn.',
+        { fromIdx: selectedIdx - 1, toIdx: selectedIdx },
+      );
+    }
+    // Claim camera ownership in the same synchronous tick as the camera
+    // command so useCameraController sees the lock before its next GPS tick.
+    setCameraMode('preview_step');
+    setTurnFlyToTarget({ kind: 'fitBounds', bounds, bearing });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIdx, setTurnFlyToTarget]);
 
@@ -589,24 +581,49 @@ export default function TurnCarousel({
           const dist = Math.abs(cardCenter - centerTarget);
           if (dist < closestDist) { closestDist = dist; closestIdx = i; }
         });
+      // If a trailing onScroll from a programmatic GPS auto-advance slipped
+      // through the isProgrammaticScrollRef guard and landed here, the scroll
+      // will have snapped onto the GPS card. Treat that as a non-peek: clear
+      // the manual flag so the camera effect evaluates isPeek === false and
+      // hands control back to useCameraController instead of dispatching a
+      // conflicting fitBounds.
+      if (closestIdx === currentGpsTurnIdxRef.current) {
+        setUserHasManuallySelected(false);
+      }
       setSelectedIdx(closestIdx);
     }, 300);
   }, []);
 
+  // ── Release camera lock when peek ends ───────────────────────────────────
+  // Fires when the 3 s auto-resume timer clears userHasManuallySelected,
+  // or when GPS auto-advance resets the flag after the runner passes a turn.
+  useEffect(() => {
+    if (!userHasManuallySelected) {
+      setCameraMode('follow_user');
+    }
+  }, [userHasManuallySelected, setCameraMode]);
+
   // ── Resume GPS follow ─────────────────────────────────────────────────────
   const handleResumeFollow = useCallback(() => {
+    // Release the camera lock first so useCameraController's next GPS-tick
+    // easeTo fires without fighting any residual peek fitBounds.
+    setCameraMode('follow_user');
     setUserHasManuallySelected(false);
     setSelectedIdx(currentGpsTurnIdx);
     scrollToCard(currentGpsTurnIdx);
-  }, [currentGpsTurnIdx, scrollToCard]);
+  }, [currentGpsTurnIdx, scrollToCard, setCameraMode]);
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
+      // Release camera ownership so useCameraController resumes follow mode
+      // the moment navigation ends — no stale 'preview_step' lock lingers.
+      setCameraMode('follow_user');
       if (autoResumeTimerRef.current) clearTimeout(autoResumeTimerRef.current);
       if (scrollEndTimerRef.current)  clearTimeout(scrollEndTimerRef.current);
       if (scrollResetTimerRef.current) clearTimeout(scrollResetTimerRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Empty-state guard: a 2-point straight line has no turns. Render nothing

@@ -51,4 +51,35 @@
          The @capacitor-firebase/messaging plugin owns the runtime prompt
          (triggered from src/lib/native/push.ts → requestPermissions()). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Camera & media (profile photo upload via @capacitor/camera).
+         Runtime prompts are owned by the plugin: Camera.requestPermissions().
+         READ_MEDIA_IMAGES is the Android 13+ scoped replacement for the
+         legacy READ_EXTERNAL_STORAGE; the latter is still required for
+         devices on API ≤ 32. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Health Connect — step / calorie / exercise tracking.
+         Mirrored here from plugins/health-bridge/android/AndroidManifest.xml
+         as required by Google Play's Data Safety review pipeline: permissions
+         declared only in a sub-library manifest are not surfaced correctly in
+         the Play Console. The plugin manifest also declares them so the AAR
+         keeps working stand-alone; Gradle's manifest merger dedupes the two.
+         Per-record permissions are only shown to the user when they open the
+         Health Connect permission screen (triggered by HealthBridgePlugin
+         → requestPermissions() → ACTION_HEALTH_CONNECT_SETTINGS). -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+
+    <!-- Package visibility (Android 11 +): required to detect whether the
+         Health Connect provider app is installed. Without this the
+         HealthConnectClient.getSdkStatus() call returns SDK_UNAVAILABLE. -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
 </manifest>

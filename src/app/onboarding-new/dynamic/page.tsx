@@ -30,7 +30,7 @@ import { generateFirstWorkout } from '@/features/workout-engine/services/first-w
 export default function DynamicOnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { hasCompletedOnboarding, initializeProfile } = useUserStore();
+  const { hasCompletedOnboarding, initializeProfile, refreshProfile } = useUserStore();
 
   // Claim params (from Guest Mode)
   const claimCoins = searchParams.get('coins');
@@ -399,12 +399,19 @@ export default function DynamicOnboardingPage() {
         if (resultOverride.assignedProgramId) setAssignedProgramId(resultOverride.assignedProgramId);
       }
 
-      // Create profile with assigned level and program
+      // Create profile with assigned level and program.
+      // Pass effectiveResults as the 5th argument so mapAnswersToProfile
+      // iterates the full multi-program assessment array and writes every
+      // assigned program into progression.activePrograms — not just the
+      // primary assignedProgramId that the 4-arg overload uses (which
+      // produces a single entry with name:'Active Program' and hard-coded
+      // focusDomains:['full_body']).
       const profile = mapAnswersToProfile(
         allAnswers as any,
         effectiveLevel,
         effectiveProgramId,
-        effectiveSubLevels
+        effectiveSubLevels,
+        effectiveResults ?? undefined
       );
 
       // Inject claim rewards if available
@@ -452,6 +459,20 @@ export default function DynamicOnboardingPage() {
         
         await syncOnboardingToFirestore(syncStep, syncPayload);
         console.log('✅ assignedResults synced to Firestore');
+
+        // Refresh the Zustand store from Firestore so the home screen (and
+        // the partner finder's program pills) immediately see the validated
+        // activePrograms written by the sync service — not the provisional
+        // mapAnswersToProfile snapshot set by initializeProfile() above.
+        // Only fire on the COMPLETED step (strength path): the PROCESSING step
+        // (running path) intentionally defers full program assignment to the
+        // health page, so pulling Firestore here would overwrite the store with
+        // an incomplete profile. The health page calls refreshProfile() itself
+        // after its own COMPLETED sync.
+        if (syncStep === 'COMPLETED') {
+          await refreshProfile();
+          console.log('✅ [Onboarding] Store refreshed from Firestore after COMPLETED sync');
+        }
       } catch (syncErr) {
         console.warn('[Onboarding] Firestore sync failed (non-blocking):', syncErr);
       }

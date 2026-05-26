@@ -3,16 +3,30 @@
 /**
  * useActiveProgramGoals
  *
- * Reads LevelGoal[] for ALL of the user's active programs at their current
- * domain levels.  Goals from different programs are merged and deduplicated by
+ * Reads `LevelGoal[]` for ALL of the user's active programs at their current
+ * domain levels. Goals from different programs are merged and deduplicated by
  * exerciseId so the same exercise never appears twice in the carousel.
  *
- * Data source: programLevelSettings/{activeProgramId}_level_{currentLevel}
+ * Goal fetching for each program is delegated to `fetchGoalsForProgram`,
+ * which handles master-program expansion (e.g. `upper_body` → `push` + `pull`),
+ * tracks-based child discovery, and last-resort level scanning.
+ *
+ * Effective program resolution:
+ *   1. `progression.activePrograms` has entries → use as-is.
+ *   2. `activePrograms` empty BUT `progression.tracks` has entries → derive a
+ *      synthetic program list from those track keys. Covers old users,
+ *      running-only users, and anyone who skipped the strength questionnaire.
+ *   3. Both empty → returns empty goals (consumers can show a CTA).
+ *
+ * Note: the SUB_DOMAIN_IDS filter (push/pull/legs/core/…) is intentionally NOT
+ * applied here — for goals, those leaf programs are exactly where the data
+ * lives. The filter belongs in `ActiveProgramsCarousel` only, where it
+ * suppresses children from the *program* list (not the goal list).
  */
 
 import { useState, useEffect } from 'react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { fetchGoalsForProgram, type TracksMap } from './useGoalsForProgram';
 import type { LevelGoal } from '@/types/workout';
 
 interface ActiveProgramGoalsResult {
@@ -22,25 +36,45 @@ interface ActiveProgramGoalsResult {
   loading: boolean;
 }
 
+/** Minimal shape the effect needs — templateId + resolved level. */
+interface EffectiveProgram {
+  templateId: string;
+  currentLevel: number;
+}
+
 export function useActiveProgramGoals(): ActiveProgramGoalsResult {
   const profile = useUserStore((s) => s.profile);
   const [goals, setGoals] = useState<LevelGoal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const activePrograms = profile?.progression?.activePrograms ?? [];
-  const tracks = (profile?.progression?.tracks ?? {}) as Record<string, { currentLevel?: number }>;
+  const tracks = (profile?.progression?.tracks ?? {}) as TracksMap;
 
-  // Keep backward-compat shape — return the first program's ID / level as primary
-  const primaryProgramId = activePrograms[0]?.templateId ?? null;
-  const primaryLevel: number = primaryProgramId
-    ? (tracks[primaryProgramId]?.currentLevel ?? 1)
-    : 1;
+  // ── Effective program list ────────────────────────────────────────────────
+  // Priority 1: activePrograms → Priority 2: tracks keys.
+  // No SUB_DOMAIN_IDS filter: goals can legitimately live on push/pull/legs/etc.
+  const effectivePrograms: EffectiveProgram[] =
+    activePrograms.length > 0
+      ? activePrograms.map((ap) => ({
+          templateId: ap.templateId,
+          currentLevel: tracks[ap.templateId]?.currentLevel ?? 1,
+        }))
+      : Object.entries(tracks).map(([key, t]) => ({
+          templateId: key,
+          currentLevel: t?.currentLevel ?? 1,
+        }));
 
-  // Stable serialised key so the effect only re-runs when the list actually changes
-  const programKey = activePrograms.map((ap) => ap.templateId).join(',');
+  // Backward-compat: expose the first program's id / level.
+  const primaryProgramId = effectivePrograms[0]?.templateId ?? null;
+  const primaryLevel: number = effectivePrograms[0]?.currentLevel ?? 1;
+
+  // Stable serialised key — includes level so the effect re-runs on level-up.
+  const programKey = effectivePrograms
+    .map((ep) => `${ep.templateId}:${ep.currentLevel}`)
+    .join(',');
 
   useEffect(() => {
-    if (activePrograms.length === 0) {
+    if (effectivePrograms.length === 0) {
       setGoals([]);
       setLoading(false);
       return;
@@ -50,18 +84,15 @@ export function useActiveProgramGoals(): ActiveProgramGoalsResult {
       return;
     }
 
+    let cancelled = false;
     setLoading(true);
 
-    const fetches = activePrograms.map((ap) => {
-      const level = tracks[ap.templateId]?.currentLevel ?? 1;
-      return getProgramLevelSetting(ap.templateId, level)
-        .then((settings) => (settings?.targetGoals ?? []) as LevelGoal[])
-        .catch(() => [] as LevelGoal[]);
-    });
-
-    Promise.all(fetches)
+    Promise.all(
+      effectivePrograms.map((ep) => fetchGoalsForProgram(ep, tracks)),
+    )
       .then((perProgramGoals) => {
-        // Merge + deduplicate by exerciseId (first occurrence wins)
+        if (cancelled) return;
+        // Merge + dedupe across programs (first occurrence wins).
         const seen = new Set<string>();
         const merged: LevelGoal[] = [];
         for (const list of perProgramGoals) {
@@ -74,11 +105,23 @@ export function useActiveProgramGoals(): ActiveProgramGoalsResult {
         }
         setGoals(merged);
       })
-      .catch(() => setGoals([]))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setGoals([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [programKey]);
 
-  return { goals, activeProgramId: primaryProgramId, currentLevel: primaryLevel, loading };
+  return {
+    goals,
+    activeProgramId: primaryProgramId,
+    currentLevel: primaryLevel,
+    loading,
+  };
 }

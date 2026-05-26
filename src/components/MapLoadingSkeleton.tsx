@@ -63,7 +63,7 @@ export default function MapLoadingSkeleton({ visible }: MapLoadingSkeletonProps)
             scale: 1.02,
             backdropFilter: 'blur(0px) saturate(100%)',
           }}
-          transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
+          transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
           className="absolute inset-0 z-[50] overflow-hidden"
           style={{
             // Translucent slate tint — provides legibility for the AI

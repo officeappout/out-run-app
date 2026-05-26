@@ -37,6 +37,11 @@ export interface WorkoutHistoryEntry {
   earnedCoins: number;
   /** Global XP earned in this session — written at save time for the activity history list. */
   xpEarned?: number;
+  /**
+   * Set to true when the Guardian Cloud Function failed to persist XP.
+   * Lets backend jobs detect and manually re-award sessions where XP was lost.
+   */
+  xpAwardFailed?: boolean;
   /** Completed laps for this run. Active (in-progress) lap is excluded. */
   laps?: Lap[];
   /** Total metres of positive elevation gained during the run. */

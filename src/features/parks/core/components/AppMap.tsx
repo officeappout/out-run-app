@@ -71,6 +71,33 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 // that does this.
 let mapHasInitializedInSession = false;
 
+// ── Pure GeoJSON builder for the live-path trace (module-level = no closure) ──
+// Extracted from the previous livePathGeoJSON useMemo so it can be called
+// both from the imperative setData effect (Phase 1-B) and from the initial
+// Source data prop without allocating a React closure object each time.
+function buildLivePathGeoJSON(
+  path: [number, number][],
+  zones?: (string | null)[] | null,
+): GeoJSON.FeatureCollection {
+  if (!path || path.length < 2) {
+    return { type: 'FeatureCollection', features: [] };
+  }
+  const hasZones = zones && zones.some((z) => z != null);
+  if (!hasZones) {
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { zoneType: '_default' },
+        geometry: { type: 'LineString', coordinates: path },
+      }],
+    };
+  }
+  return segmentPathByZone(path, zones!);
+}
+
+const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+
 // All coordinate-finiteness rules live in `src/utils/geoValidation.ts`
 // so AppMap, TurnCarousel, and any future map consumer apply the same
 // rule. See that file for the rationale ("LngLat invalid: NaN, NaN").
@@ -216,6 +243,19 @@ export default function AppMap({
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+
+  // ── Mapbox event-handler refs for unmount disposal ────────────────────────
+  // `handleMapLoad` registers three Mapbox listeners (`style.load` x2 +
+  // `sourcedata`) via closures local to the callback. Without explicit
+  // .off() on unmount the handlers keep a strong reference to the live
+  // Mapbox instance and the WebGL context never gets garbage-collected —
+  // every nav cycle leaks one zombie map and iOS WKWebView OOM-kills
+  // the WebContent process after a few re-entries. We hoist the handler
+  // identities to refs here so the cleanup useEffect below can detach
+  // them by reference (Mapbox .off() requires exact handler identity).
+  const hebrewHandlerRef = useRef<(() => void) | null>(null);
+  const debouncedHebrewRef = useRef<(() => void) | null>(null);
+  const declutterHandlerRef = useRef<(() => void) | null>(null);
   // ── Map paint readiness gate ──────────────────────────────────────────
   // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
   //   1. The Mapbox style has finished parsing (so the declutter pass
@@ -505,8 +545,32 @@ export default function AppMap({
     })),
   }), [visiblePartners]);
 
+  // Abort-aware park fetch. `fetchRealParks` resolves with the inventory
+  // list and we cache it in local state. On a slow network, a tab-switch
+  // mid-fetch used to leave the unresolved Promise pinning this component
+  // instance until the network completed — at which point setParks fired
+  // against a torn-down fiber, blocking GC of the entire AppMap tree and
+  // (combined with the Mapbox listener leaks) accelerating the iOS OOM
+  // kill. The signal-guarded then() drops the state update for stale
+  // mounts so the fiber can be reclaimed immediately on unmount.
+  // `fetchRealParks` itself doesn't accept a signal (it's a Firestore
+  // getDocs wrapper) so the abort only prevents the post-resolution
+  // setState — the underlying network request is left to complete.
   useEffect(() => {
-    fetchRealParks().then(setParks);
+    const controller = new AbortController();
+    // fetchRealParks implements stale-while-revalidate: the Promise resolves
+    // with cached data instantly (0 ms on warm sessions) so pins appear before
+    // the first Firestore round-trip. The onRefresh callback fires when the
+    // background sync completes and applies a smooth state update without
+    // blocking the initial render or creating layout jank.
+    fetchRealParks((fresh) => {
+      if (!controller.signal.aborted) setParks(fresh);
+    })
+      .then((data) => {
+        if (!controller.signal.aborted) setParks(data);
+      })
+      .catch(() => { /* swallowed — non-fatal for map render */ });
+    return () => controller.abort();
   }, []);
 
   // ── "Destination Highlight" park photo pin gating ─────────────────────
@@ -678,7 +742,7 @@ export default function AppMap({
       map.once('style.load', armReadyListeners);
     }
 
-    const safetyTimeout = setTimeout(markReady, 1800);
+    const safetyTimeout = setTimeout(markReady, 900);
 
     return () => {
       clearTimeout(safetyTimeout);
@@ -700,6 +764,34 @@ export default function AppMap({
     // Sleek arrowhead used at the end of the navigation curve LineString.
     // No badge / circle — just a clean white tip that lies on the road.
     registerArrowTipImage(map, 'nav-arrow-tip', ratio);
+  }, [isMapLoaded]);
+
+  // ── Mapbox event-listener disposal (OOM fix) ──────────────────────────────
+  // `handleMapLoad` registers three Mapbox event listeners:
+  //   • style.load → applyHebrewLabels (Hebrew RTL relabel)
+  //   • sourcedata → debouncedHebrew  (re-apply on tile/source updates)
+  //   • style.load → runDeclutter     (fitness-style POI declutter)
+  // The `sourcedata` event in particular fires on every tile load — keeping
+  // the closure alive across tab switches retains the entire WebGL context,
+  // and iOS WKWebView OOM-kills the WebContent process after a few re-mounts.
+  // This effect tears them all down on unmount (or when the gate flips).
+  // Gated on `isMapLoaded` so the listeners are guaranteed to have been
+  // attached before we attempt removal; the refs are captured by
+  // handleMapLoad, so we read them lazily inside the cleanup closure.
+  useEffect(() => {
+    if (!isMapLoaded) return;
+    const map = mapRef.current?.getMap();
+    return () => {
+      if (!map) return;
+      try {
+        if (hebrewHandlerRef.current) map.off('style.load', hebrewHandlerRef.current);
+        if (debouncedHebrewRef.current) map.off('sourcedata', debouncedHebrewRef.current);
+        if (declutterHandlerRef.current) map.off('style.load', declutterHandlerRef.current);
+      } catch { /* map may already be destroyed */ }
+      hebrewHandlerRef.current = null;
+      debouncedHebrewRef.current = null;
+      declutterHandlerRef.current = null;
+    };
   }, [isMapLoaded]);
 
   // ── Interactive cursor for clusters, pins & route lines ──
@@ -829,41 +921,61 @@ export default function AppMap({
     return { type: 'FeatureCollection', features };
   }, [visibleRoutes, focusedRoute]);
 
-  const hasZones = livePathZones && livePathZones.some((z) => z != null);
+  // ── Imperative live-path update ────────────────────────────────────────────
+  // Fires only when the number of accepted GPS samples grows (every 5 m /
+  // DISTANCE_THRESHOLD). Calling setData() directly on the Mapbox GeoJSON
+  // source bypasses React reconciliation entirely — zero re-renders per GPS
+  // tick. The source is kept always-mounted while isActiveWorkout is true
+  // (see the JSX below) so the source handle is always available here.
+  useEffect(() => {
+    if (!isActiveWorkout) return;
+    const rawMap = mapRef.current?.getMap?.() as (mapboxgl.Map | undefined);
+    if (!rawMap) return;
+    const src = rawMap.getSource('live-path') as mapboxgl.GeoJSONSource | undefined;
+    if (!src) return;
+    src.setData(buildLivePathGeoJSON(livePath ?? [], livePathZones));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePath?.length, isActiveWorkout]);
 
-  const livePathGeoJSON = useMemo(() => {
-    if (!livePath || livePath.length < 2) return null;
-    if (!hasZones) {
-      return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { zoneType: '_default' }, geometry: { type: 'LineString', coordinates: livePath } }] };
-    }
-    return segmentPathByZone(livePath, livePathZones!);
-  }, [livePath, livePathZones, hasZones]);
-
-  // Ghost path = only the segment AHEAD of the user (from nearest point onward).
-  // The slice is computed by scanning the planned path for the coordinate closest
-  // to the current position (L1 distance is fast and sufficient for this purpose).
-  // The segment BEHIND is already covered by the livePathGeoJSON trace.
+  // ── Ghost path: segment AHEAD of the user ─────────────────────────────────
+  // Caches the scan start index in a ref so the path-ahead slice only
+  // recomputes when the route changes OR when a new GPS coord is accepted
+  // (livePath.length tick) — NOT on every raw GPS position update.
+  const ghostStartIdxRef = useRef(0);
   const ghostPathGeoJSON = useMemo(() => {
-    if (!isActiveWorkout || !focusedRoute?.path || focusedRoute.path.length < 2) return null;
-
-    let startIdx = 0;
-    if (currentLocation) {
-      let minDist = Infinity;
-      for (let i = 0; i < focusedRoute.path.length; i++) {
-        const [lng, lat] = focusedRoute.path[i];
-        const d = Math.abs(lat - currentLocation.lat) + Math.abs(lng - currentLocation.lng);
-        if (d < minDist) { minDist = d; startIdx = i; }
-      }
+    if (!isActiveWorkout || !focusedRoute?.path || focusedRoute.path.length < 2) {
+      ghostStartIdxRef.current = 0;
+      return null;
     }
 
-    const aheadPath = focusedRoute.path.slice(startIdx);
+    // Scan forward-only from last cached position so we never regress backward.
+    if (currentLocation) {
+      const path = focusedRoute.path;
+      const fromIdx = ghostStartIdxRef.current;
+      let minDist = Infinity;
+      let bestIdx  = fromIdx;
+      for (let i = fromIdx; i < path.length; i++) {
+        const [lng, lat] = path[i];
+        const d = Math.abs(lat - currentLocation.lat) + Math.abs(lng - currentLocation.lng);
+        if (d < minDist) { minDist = d; bestIdx = i; }
+        // Early exit: once we're past the nearest point and moving away, stop scanning.
+        else if (i > fromIdx + 5 && d > minDist * 4) break;
+      }
+      ghostStartIdxRef.current = bestIdx;
+    }
+
+    const aheadPath = focusedRoute.path.slice(ghostStartIdxRef.current);
     if (aheadPath.length < 2) return null;
 
     return {
       type: 'FeatureCollection',
       features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: aheadPath } }],
     };
-  }, [isActiveWorkout, focusedRoute, currentLocation]);
+  // Dep on livePath?.length instead of currentLocation: recomputes only when
+  // the user walks far enough to add a new GPS coord (every DISTANCE_THRESHOLD
+  // metres), not on every raw GPS tick.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActiveWorkout, focusedRoute?.id, focusedRoute?.path, livePath?.length]);
 
   // ── Navigation turn arrow GeoJSON (curve-following) ──────────────────────
   // Builds a short LineString that traces the actual route geometry around
@@ -973,6 +1085,12 @@ export default function AppMap({
     rawMap.on('style.load', applyHebrewLabels);
     rawMap.on('sourcedata', debouncedHebrew);
 
+    // Capture handler identities for unmount disposal. Mapbox's `off()`
+    // matches by reference, so we MUST keep the same function instances
+    // around to detach them later. See the cleanup useEffect below.
+    hebrewHandlerRef.current = applyHebrewLabels;
+    debouncedHebrewRef.current = debouncedHebrew;
+
     // ── Fitness declutter — timing fix ──────────────────────────────────────
     // Diagnostic confirmed: isStyleLoaded() is false during the onLoad callback
     // because Mapbox fires onLoad when the map container is ready, not when all
@@ -981,6 +1099,7 @@ export default function AppMap({
     // style is already parsed (rare on first load, common on hot-reload).
     const runDeclutter = () => applyFitnessMapStyle(rawMap, 'style.load');
     rawMap.on('style.load', runDeclutter);
+    declutterHandlerRef.current = runDeclutter;
     if (rawMap.isStyleLoaded()) {
       // Tag this immediate call distinctly from the listener-driven one
       // so the console trace makes it obvious whether the synchronous
@@ -1039,12 +1158,13 @@ export default function AppMap({
         {/* ── Active workout paths ───────────────────────────────────────── */}
         {isActiveWorkout && (
           <>
-            {/* Trace path: where the user has already been — faint, drawn first = bottom */}
-            {livePathGeoJSON && (
-              <Source id="live-path" type="geojson" data={livePathGeoJSON as any}>
-                <Layer id="live-path-trace" type="line" paint={TRACE_PATH_LINE.paint as any} layout={TRACE_PATH_LINE.layout} />
-              </Source>
-            )}
+            {/* Trace path: always mounted so the imperative setData effect above
+                can update it without waiting for the Source to be conditionally
+                added. Starts with an empty FeatureCollection; the effect hydrates
+                it on the first accepted GPS coord. */}
+            <Source id="live-path" type="geojson" data={EMPTY_FEATURE_COLLECTION as any}>
+              <Layer id="live-path-trace" type="line" paint={TRACE_PATH_LINE.paint as any} layout={TRACE_PATH_LINE.layout} />
+            </Source>
 
             {/* Ghost path: the full planned route — vibrant cyan goal line, drawn on top */}
             {ghostPathGeoJSON && (

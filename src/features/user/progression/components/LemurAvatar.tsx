@@ -4,11 +4,15 @@ import React, { useState } from 'react';
 import { Award } from 'lucide-react';
 
 /**
- * Set to true once PNG files are uploaded to /public/assets/lemur/level{1-10}.png.
- * While false the component renders the Award icon fallback immediately,
- * making ZERO network requests and eliminating the 404 console noise.
+ * When true the component requests an actual lemur image. Until per-level
+ * artwork is shipped, every stage points at /assets/lemur/king-lemur.png
+ * (single source asset). When false the Award icon fallback renders without
+ * any network request.
  */
-const LEMUR_ASSETS_AVAILABLE = false;
+const LEMUR_ASSETS_AVAILABLE = true;
+
+/** Single shared lemur asset used for all 10 stages until per-stage art ships. */
+const LEMUR_ASSET_PATH = '/assets/lemur/king-lemur.png';
 
 interface LemurAvatarProps {
   level: number; // 1-10 (clamped automatically)
@@ -70,7 +74,7 @@ export default function LemurAvatar({
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`/assets/lemur/level${clampedLevel}.png`}
+          src={LEMUR_ASSET_PATH}
           alt={`Lemur Level ${clampedLevel}`}
           width={px}
           height={px}

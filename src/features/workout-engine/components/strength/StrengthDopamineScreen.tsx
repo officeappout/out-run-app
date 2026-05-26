@@ -2,23 +2,19 @@
 
 /**
  * StrengthDopamineScreen - Gamified Progress Celebration
- * 
- * Features:
- * - Sequential bonus cascade with Framer Motion
- * - Animated circular progress indicator
- * - Floating bonus labels with pop-up animations
- * - Haptic feedback on completion
- * - RTL Hebrew support
- * 
- * Animation Sequence:
- * 1. Initial: "מנתח ביצועים..." 
- * 2. Step 1 (1.5s): +9% Completion Bonus
- * 3. Step 2 (2.5s): +5% Performance Bonus
- * 4. Step 3 (3.5s): +3% Streak Bonus + Haptic
+ *
+ * Animation Sequence (starts only after real data arrives via `bonuses` prop):
+ * 1. Loading: "מנתח ביצועים..." with pulse indicator until bonuses prop is defined
+ * 2. Step 1 (data+1.5s): first real bonus pops in
+ * 3. Step 2 (data+2.5s): second real bonus
+ * 4. Step 3 (data+3.5s): last bonus + haptic → buttons unlock
+ *
+ * If bonuses never arrive within DATA_TIMEOUT_MS, the screen gracefully completes
+ * without showing any bonus numbers (network error path).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate as animateValue } from 'framer-motion';
 import { Trophy, Share2, ArrowRight, Sparkles, Flame, Target, CheckCircle2 } from 'lucide-react';
 
 // ============================================================================
@@ -72,36 +68,15 @@ export interface StrengthDopamineScreenProps {
 // CONSTANTS
 // ============================================================================
 
-const DEFAULT_BONUSES: BonusStep[] = [
-  {
-    id: 'completion',
-    label: '9% על השלמת אימון',
-    percentage: 9,
-    icon: <Target className="w-3 h-3" />,
-    position: 'top-right',
-  },
-  {
-    id: 'performance',
-    label: '5% על ביצוע מעל המצופה',
-    percentage: 5,
-    icon: <Sparkles className="w-3 h-3" />,
-    position: 'top-left',
-  },
-  {
-    id: 'streak',
-    label: '3% על התמדה',
-    percentage: 3,
-    icon: <Flame className="w-3 h-3" />,
-    position: 'bottom-left',
-  },
-];
-
 const ANIMATION_DELAYS = {
   initial: 0,
   step1: 1500,
   step2: 2500,
   step3: 3500,
 };
+
+/** If bonuses prop never arrives, complete gracefully after this many ms. */
+const DATA_TIMEOUT_MS = 12000;
 
 const STATUS_MESSAGES = {
   analyzing: 'מנתח ביצועים...',
@@ -148,16 +123,33 @@ function calculateDashOffset(percentage: number): number {
 
 /**
  * Animated Circular Progress Indicator
+ *
+ * Step 1 of the Dopamine Chain: the SVG arc fills and the center counter
+ * counts up live from `initialProgress` to `percentage` in sync — both
+ * driven by the same motion value so they never diverge.
  */
-function CircularProgress({ 
-  percentage, 
-  animate = true 
-}: { 
-  percentage: number; 
-  animate?: boolean;
+function CircularProgress({
+  percentage,
+  initialProgress = 0,
+  shouldAnimate = true,
+}: {
+  percentage: number;
+  initialProgress?: number;
+  shouldAnimate?: boolean;
 }) {
+  const mv = useMotionValue(initialProgress);
+  const displayText = useTransform(mv, (v: number) => `${Math.round(v)}%`);
+
+  useEffect(() => {
+    const ctrl = animateValue(mv, percentage, {
+      duration: shouldAnimate ? 1.2 : 0,
+      ease: 'easeOut',
+    });
+    return () => ctrl.stop();
+  }, [percentage, shouldAnimate, mv]);
+
   const dashOffset = calculateDashOffset(percentage);
-  
+
   return (
     <div className="progress-circle relative w-[180px] h-[180px]">
       <svg width="180" height="180" className="transform -rotate-90">
@@ -171,7 +163,7 @@ function CircularProgress({
           strokeLinecap="round"
           className="stroke-slate-200 dark:stroke-slate-700"
         />
-        {/* Progress circle */}
+        {/* Progress arc — starts from initial fill, not from 0 */}
         <motion.circle
           cx="90"
           cy="90"
@@ -181,24 +173,16 @@ function CircularProgress({
           strokeLinecap="round"
           className="stroke-primary"
           strokeDasharray={CIRCLE_CIRCUMFERENCE}
-          initial={{ strokeDashoffset: CIRCLE_CIRCUMFERENCE }}
+          initial={{ strokeDashoffset: calculateDashOffset(initialProgress) }}
           animate={{ strokeDashoffset: dashOffset }}
-          transition={{ 
-            duration: animate ? 1 : 0, 
-            ease: "easeOut" 
-          }}
+          transition={{ duration: shouldAnimate ? 1.2 : 0, ease: 'easeOut' }}
         />
       </svg>
-      
-      {/* Center percentage display */}
+
+      {/* Center counter — reactive motion value, no React re-renders */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.span 
-          key={percentage}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-5xl font-extrabold text-slate-800 dark:text-white"
-        >
-          {percentage}%
+        <motion.span className="text-5xl font-extrabold text-slate-800 dark:text-white">
+          {displayText}
         </motion.span>
       </div>
     </div>
@@ -382,7 +366,7 @@ export default function StrengthDopamineScreen({
   initialProgress,
   currentLevel,
   programName,
-  bonuses = DEFAULT_BONUSES,
+  bonuses,
   volumeBreakdown,
   celebrationMessage = 'כל הכבוד, איזה אנרגיה! קיבלתם אחוזים שמקדמים אתכם בדרך לרמה הבאה. המשיכו כך – וכשתגיעו ל-100%, תעלו רמה!',
   onShare,
@@ -391,29 +375,55 @@ export default function StrengthDopamineScreen({
 }: StrengthDopamineScreenProps) {
   // Current displayed percentage (animated)
   const [displayPercent, setDisplayPercent] = useState(initialProgress);
-  
+
   // Current status message
   const [statusMessage, setStatusMessage] = useState(STATUS_MESSAGES.analyzing);
-  
+
   // Which bonus steps are visible
   const [visibleBonuses, setVisibleBonuses] = useState<string[]>([]);
-  
+
   // Is the sequence complete?
   const [isComplete, setIsComplete] = useState(false);
-  
-  // Calculate total bonus percentage
-  const totalBonus = bonuses.reduce((sum, b) => sum + b.percentage, 0);
+
+  // True when DATA_TIMEOUT_MS passes with no bonuses — graceful network-error path
+  const [dataTimedOut, setDataTimedOut] = useState(false);
+
+  // Prevents the animation from re-starting if the bonuses reference changes
+  const animationStartedRef = useRef(false);
+
+  // Calculate total bonus percentage (safe when bonuses is still undefined)
+  const totalBonus = bonuses ? bonuses.reduce((sum, b) => sum + b.percentage, 0) : 0;
   const finalPercentage = Math.min(100, initialProgress + totalBonus);
-  
+
   // Trigger haptic feedback
   const haptic = useCallback((type: 'light' | 'medium' | 'heavy' = 'medium') => {
     if (enableHaptics) {
       triggerHaptic(type);
     }
   }, [enableHaptics]);
-  
-  // Sequential animation effect — handles any number of bonuses (1, 2, 3, or more)
+
+  // ── Timeout guard: if real data never arrives, complete without fake numbers ──
   useEffect(() => {
+    if (bonuses !== undefined) return; // data arrived — no timeout needed
+    const timer = setTimeout(() => setDataTimedOut(true), DATA_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [bonuses]);
+
+  // When timed out, advance to complete state without any bonus labels
+  useEffect(() => {
+    if (!dataTimedOut || isComplete) return;
+    setStatusMessage(STATUS_MESSAGES.complete);
+    setIsComplete(true);
+  }, [dataTimedOut, isComplete]);
+
+  // ── Animation: starts ONLY when real bonuses data has arrived ──
+  // The `bonuses` dependency means React re-runs this when the prop transitions
+  // from undefined → real array. The ref prevents it from starting twice.
+  useEffect(() => {
+    if (bonuses === undefined) return;        // still loading — wait
+    if (animationStartedRef.current) return;  // already started — don't restart
+    animationStartedRef.current = true;
+
     let runningPercent = initialProgress;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const stepDelays = [ANIMATION_DELAYS.step1, ANIMATION_DELAYS.step2, ANIMATION_DELAYS.step3];
@@ -436,7 +446,7 @@ export default function StrengthDopamineScreen({
       }, delay));
     });
 
-    // If there are zero bonuses, complete immediately after a short delay
+    // Zero bonuses (e.g. workout with no tracked program) — complete after short delay
     if (bonuses.length === 0) {
       timers.push(setTimeout(() => {
         setStatusMessage(STATUS_MESSAGES.complete);
@@ -457,20 +467,29 @@ export default function StrengthDopamineScreen({
           
           {/* Circular Progress with Bonus Labels */}
           <div className="relative mt-4 mb-12 flex justify-center items-center w-full">
-            <CircularProgress percentage={displayPercent} />
-            
-            {/* Bonus Labels */}
-            {bonuses.map((bonus) => (
+            <CircularProgress percentage={displayPercent} initialProgress={initialProgress} />
+
+            {/* Bonus Labels — only rendered once real data has arrived */}
+            {bonuses !== undefined && bonuses.map((bonus) => (
               <BonusLabel
                 key={bonus.id}
                 bonus={bonus}
                 isVisible={visibleBonuses.includes(bonus.id)}
               />
             ))}
+
+            {/* Loading pulse — shown only while waiting for Firestore result */}
+            {bonuses === undefined && !dataTimedOut && (
+              <div className="absolute -bottom-8 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+              </div>
+            )}
           </div>
-          
+
           {/* Status Message */}
-          <motion.h1 
+          <motion.h1
             key={statusMessage}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -538,8 +557,7 @@ export default function StrengthDopamineScreen({
 // EXPORTS
 // ============================================================================
 
-export { 
-  DEFAULT_BONUSES,
+export {
   ANIMATION_DELAYS,
   STATUS_MESSAGES,
   triggerHaptic,

@@ -124,6 +124,14 @@ export interface HomeWorkoutOptions {
    */
   requiredDomains?: string[];
 
+  /**
+   * When true, generated exercises are restricted strictly to `requiredDomains`.
+   * Disables VerticalFoundation, HorizontalGuarantee, and the domain-overflow
+   * fill path so only explicitly requested domains appear.
+   * Has no effect when `requiredDomains` is undefined.
+   */
+  strictDomains?: boolean;
+
   // === Simulator / QA ===
   /**
    * When set, bypasses the "Ultimate Park Force" override and uses this
@@ -138,6 +146,38 @@ export interface HomeWorkoutOptions {
    * Firestore equipment IDs (e.g. dip station brand IDs) pass gating.
    */
   parkEquipmentIds?: string[];
+
+  /**
+   * When set by the Custom Builder, only the workout for this difficulty level
+   * is generated, skipping the other two slots in the Trio loop to save
+   * device processing overhead.  generateHomeWorkout returns this option directly.
+   */
+  targetDifficulty?: DifficultyLevel;
+
+  /**
+   * When true, the request originates from the Custom Builder panel (explicit
+   * manual user selection — e.g. picking Planche or Front Lever from the pill UI).
+   *
+   * Bypasses the weekly deficit-redistribution clamping in SplitDecisionService
+   * and the domain-level deficit adjustment in _buildSharedPipeline so the
+   * generated session always receives a viable set budget regardless of how
+   * many sets have already been completed this week.
+   *
+   * Without this flag, a fully-exhausted weekly budget (Remaining Sets: 0)
+   * collapses dailySetBudget to the min-2 floor, which reduces domain quotas
+   * to 0 and causes "DOMAIN QUOTA FAILED" for all selected skills.
+   */
+  isManualOverride?: boolean;
+
+  /**
+   * When `true`, only the middle Balanced option (Difficulty 2) is generated.
+   * Difficulty-1 (Active Recovery) and Difficulty-3 (Intense) slots are skipped
+   * entirely, cutting Firestore reads and generation latency by ~66%.
+   *
+   * Use when the result feeds directly into a preview drawer where the D1/D3
+   * alternatives are never surfaced to the user (e.g. schedule-card tap flow).
+   */
+  generateSingleOption?: boolean;
 }
 
 // ============================================================================
@@ -196,5 +236,11 @@ export interface HomeWorkoutTrioResult {
     injuryAreas: InjuryShieldArea[];
     exercisesConsidered: number;
     exercisesExcluded: number;
+    /** Active week in the 5-week periodization cycle (1=Build, 4=Peak, 5=Deload). */
+    periodizationWeek?: number;
+    /** UI message explaining the active session mode (Peak / Deload / Reactivation / Rebuild). */
+    coachCue?: string;
+    /** Trio carousel default focus: 0 = Easy, 1 = Normal, 2 = Intense. */
+    defaultFocusIndex?: 0 | 1 | 2;
   };
 }

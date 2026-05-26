@@ -7,9 +7,9 @@
  */
 
 import { getVisualContentItem, getOnboardingLevels } from './visual-assessment-content.service';
-import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import { getAllPrograms, MASTER_PROGRAM_SLUG_TO_ID } from '@/features/content/programs/core/program.service';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
-import { resolveVideoForLocation } from '@/features/content/exercises/core/exercise.types';
+import { resolveVideoForLocation, resolveImageForLocation } from '@/features/content/exercises/core/exercise.types';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import type { UserDemographics, VideoVariant, VisualAssessmentContent } from '../types/visual-assessment.types';
 import type { MultilingualText } from '@/types/onboarding-questionnaire';
@@ -30,10 +30,19 @@ async function loadCategoryMap(): Promise<Map<string, string>> {
     const programs = await getAllPrograms();
     const map = new Map<string, string>();
     for (const p of programs) {
-      if (!p.isMaster && p.movementPattern && !map.has(p.movementPattern)) {
+      if (p.isMaster) continue;
+      // Index by movementPattern (primary key for standard programs)
+      if (p.movementPattern && !map.has(p.movementPattern)) {
         map.set(p.movementPattern, p.id);
       }
+      // Also index by canonical slug — skill programs (planche, front_lever, etc.)
+      // may have a slug field set but no movementPattern, or a movementPattern that
+      // differs from the user-facing slug used in sessionStorage / progression.tracks.
+      if ((p as { slug?: string }).slug && !map.has((p as { slug?: string }).slug!)) {
+        map.set((p as { slug?: string }).slug!, p.id);
+      }
     }
+    console.log('[DEBUG-RESOLVER] loadCategoryMap built:', Object.fromEntries(map));
     categoryProgramMap = map;
   } catch (err) {
     console.error('[ContentResolver] Failed to load category→program map:', err);
@@ -43,6 +52,10 @@ async function loadCategoryMap(): Promise<Map<string, string>> {
 }
 
 async function resolveCategoryToProgramId(category: string): Promise<string> {
+  // Master programs (e.g. muscle_up) are absent from loadCategoryMap because
+  // loadCategoryMap skips isMaster=true entries. Check the static table first.
+  const masterHash = MASTER_PROGRAM_SLUG_TO_ID[category];
+  if (masterHash) return masterHash;
   const map = await loadCategoryMap();
   return map.get(category) ?? category;
 }
@@ -215,15 +228,32 @@ export async function resolveContent(
   const programId = await resolveCategoryToProgramId(category);
   const cacheKey = `${programId}_${level}_${demographics.gender}_${demographics.age}`;
 
+  console.log(
+    `[DEBUG-RESOLVER] resolveContent("${category}", ${level}) → programId="${programId}"`,
+  );
+
   const cached = getCached(cacheKey);
   if (cached !== undefined) return cached;
 
+  // Attempt 1: resolved program hash (admin-keyed docs use this as the category)
   let content = await getVisualContentItem(programId, level);
+  console.log(`[DEBUG-RESOLVER] attempt1 getVisualContentItem("${programId}", ${level}) → ${content ? 'FOUND' : 'null'}`);
 
-  // Fallback: if programId differs from raw category and no doc found,
-  // try the raw category key (handles legacy docs keyed as push_5 vs pushups_5)
-  if (!content && programId !== category) {
+  // Attempt 2: raw category slug — fires even when programId === category so that
+  // the fallback is never silently skipped when resolution returned unchanged input.
+  if (!content && category !== programId) {
     content = await getVisualContentItem(category, level);
+    console.log(`[DEBUG-RESOLVER] attempt2 getVisualContentItem("${category}", ${level}) → ${content ? 'FOUND' : 'null'}`);
+  }
+
+  // Attempt 3: static master hash — covers muscle_up and other masters even if
+  // resolveCategoryToProgramId() did not resolve them (belt-and-suspenders).
+  if (!content) {
+    const masterHash = MASTER_PROGRAM_SLUG_TO_ID[category];
+    if (masterHash && masterHash !== programId && masterHash !== category) {
+      content = await getVisualContentItem(masterHash, level);
+      console.log(`[DEBUG-RESOLVER] attempt3 masterHash getVisualContentItem("${masterHash}", ${level}) → ${content ? 'FOUND' : 'null'}`);
+    }
   }
 
   if (!content) {
@@ -250,6 +280,7 @@ export async function resolveContent(
   // If the content doc has an exerciseId, fetch the exercise and
   // use its video as the primary source.
   let exerciseVideoUrl: string | null = null;
+  let exerciseThumbnailUrl: string | null = null;
   let exerciseName: string | null = null;
   if (content.exerciseId) {
     try {
@@ -260,6 +291,10 @@ export async function resolveContent(
         if (vid) {
           exerciseVideoUrl = vid;
           console.log(`[ContentResolver] Level ${level} — exercise video resolved: "${exerciseName}" → ${vid.substring(0, 60)}…`);
+        }
+        const img = resolveImageForLocation(exercise);
+        if (img) {
+          exerciseThumbnailUrl = img;
         }
       }
     } catch (err) {
@@ -297,7 +332,7 @@ export async function resolveContent(
     videoUrl: exerciseVideoUrl || variant?.videoUrl?.trim() || null,
     videoUrlMov: exerciseVideoUrl ? null : (variant?.videoUrlMov?.trim() || null),
     videoUrlWebm: exerciseVideoUrl ? null : (variant?.videoUrlWebm?.trim() || null),
-    thumbnailUrl: variant?.thumbnailUrl?.trim() || null,
+    thumbnailUrl: exerciseThumbnailUrl || variant?.thumbnailUrl?.trim() || null,
     boldTitle,
     detailedDescription,
     exerciseName,
@@ -337,35 +372,50 @@ export function prefetchAdjacent(
 }
 
 /**
- * Ask the browser to preload a video URL.
- * Creates a `<link rel="preload" as="video">` in <head>.
+ * Warm the browser HTTP cache for a video URL using the Fetch API.
+ *
+ * `<link rel="preload" as="video">` is not a valid spec value and is silently
+ * discarded by every browser. Instead we issue a fetch with cache:'force-cache'
+ * so the response lands in the HTTP cache before the <video> element requests it.
+ * The request is fire-and-forget; errors are swallowed intentionally.
  */
 export function prefetchVideoUrl(url: string | null): void {
-  if (!url || typeof document === 'undefined') return;
-
-  if (document.querySelector(`link[href="${url}"]`)) return;
-
-  const link = document.createElement('link');
-  link.rel = 'preload';
-  link.as = 'video';
-  link.href = url;
-  link.crossOrigin = 'anonymous';
-  document.head.appendChild(link);
+  if (!url || typeof fetch === 'undefined') return;
+  fetch(url, { mode: 'no-cors', cache: 'force-cache' }).catch(() => {});
 }
 
 /**
- * Fetch the onboarding-visible levels for a category, resolving through
- * the category → programId mapping. Returns sorted level numbers.
+ * Fetch the onboarding-visible levels for a category.
+ *
+ * Uses a single Firestore `in` query with BOTH the raw string slug (canonical
+ * key used across progression.tracks, the workout engine, and the admin panel)
+ * AND the program's Firestore hash ID. This guarantees that documents tagged
+ * by the admin with either value are found correctly, regardless of whether
+ * the admin used the slug or the auto-generated hash in the category dropdown.
+ *
+ * Master programs (e.g. muscle_up) are resolved via MASTER_PROGRAM_SLUG_TO_ID;
+ * non-master skill/movement programs are resolved via the runtime loadCategoryMap.
  */
 export async function getOnboardingLevelsForCategory(category: string): Promise<number[]> {
   const programId = await resolveCategoryToProgramId(category);
-  console.log(`[ContentResolver] getOnboardingLevelsForCategory("${category}") → programId="${programId}"`);
-  let levels = await getOnboardingLevels(programId);
-  if (levels.length === 0 && programId !== category) {
-    console.log(`[ContentResolver] No onboarding levels for "${programId}", trying raw category "${category}"`);
-    levels = await getOnboardingLevels(category);
-  }
-  console.log(`[ContentResolver] Final onboarding levels for "${category}": [${levels.join(', ')}] (${levels.length} total)`);
+
+  // Build a deduplicated candidate array: [rawSlug, hashId].
+  // When the slug IS the ID (no mapping found), the Set collapses to one entry
+  // and Firestore still receives a valid `in: [singleValue]` query.
+  const candidateIds = [...new Set([category, programId])];
+
+  console.log(
+    '[DEBUG-RESOLVER] Incoming Category:',
+    category,
+    'Resolved Candidate IDs:',
+    candidateIds,
+  );
+
+  const levels = await getOnboardingLevels(candidateIds);
+
+  console.log(
+    `[DEBUG-RESOLVER] Final onboarding levels for "${category}": [${levels.join(', ')}] (${levels.length} total)`,
+  );
   return levels;
 }
 

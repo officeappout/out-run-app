@@ -259,6 +259,15 @@ export interface UserFullProfile {
     referralCount?: number;
 
     /**
+     * Whether the user has granted native GPS/geolocation permission and the
+     * system has successfully resolved their position at least once.
+     * Set to true by the map-flow (via persistResolvedCity in useUserCityName)
+     * and by the home-page GPS_PERMISSION handler.  Drives the "אפשר גישה ל-GPS"
+     * item in the onboarding/profile-completion checklist.
+     */
+    gpsEnabled?: boolean;
+
+    /**
      * GDPR / Israeli Privacy Law analytics opt-out (Compliance Phase 5.1).
      * Default: undefined / false → analytics enabled. When true, the custom
      * AnalyticsService stops writing to `analytics_events` AND Firebase

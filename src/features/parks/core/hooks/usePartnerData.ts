@@ -38,11 +38,46 @@ export interface ScheduledPartner {
   activityType: ActivityType;
   level: string;
   startTime: Date;
+  /**
+   * End of the announced arrival window — sourced from the
+   * `endTime` field on `planned_sessions`. Optional because event /
+   * group entries don't have an end time (they fire at a single
+   * scheduled hour). The card uses this to render
+   * "17:00 - 19:00" instead of just "17:00".
+   */
+  endTime?: Date;
   distanceKm: number;
   lat: number;
   lng: number;
-  /** Source of this entry for dedup & display */
-  source?: 'planned' | 'event' | 'group';
+  /**
+   * Park id when the planned session was published from
+   * ParkDetailSheet (`parkId` is set on the doc, `routeId` is empty).
+   * Lets the card branch on "park arrival" vs "route arrival" without
+   * having to inspect which of `routeId`/`parkId` is non-empty.
+   */
+  parkId?: string;
+  /** Denormalised park name (for park arrivals). */
+  parkName?: string;
+  /** Denormalised route name (for route arrivals). */
+  routeName?: string;
+  /** Active program name captured at publish time (parity with `LivePartner`). */
+  programName?: string;
+  /** Active program level captured at publish time. */
+  programLevel?: number;
+  /**
+   * Source of this entry for dedup & display.
+   *   - 'planned'    → other users' planned_sessions (the bulk of the
+   *                    "מי מתכנן" tab)
+   *   - 'event'      → per-person registrations on `community_events`
+   *   - 'group'      → recurring `community_groups` materialized into
+   *                    next-7-day occurrences
+   *   - 'ownArrival' → the CURRENT user's own planned_sessions. Bypasses
+   *                    the `userId !== currentUid` filter so the user
+   *                    can see their own announcement in the partner
+   *                    finder ("did my publish actually save?"). The
+   *                    UI tags these with a "הגעה שלי" badge.
+   */
+  source?: 'planned' | 'event' | 'group' | 'ownArrival';
   /** Group/event name for display */
   sessionLabel?: string;
   /** Group doc ID for virtual sessions */
@@ -64,6 +99,21 @@ export interface LivePartner {
   programName?: string;
   /** Numeric level inside `programName` (1..maxLevel). */
   programLevel?: number;
+  /**
+   * Program template slug (e.g. `'upper_body'`) — the canonical ID for
+   * the partner-finder program filter. Written by `useWorkoutPresence`
+   * as `activeProgram.templateId`; compared directly against
+   * `selectedProgram` in `PartnerOverlay.filteredLive` so the comparison
+   * is slug-to-slug, not slug-to-Hebrew-label.
+   */
+  programId?: string;
+  /**
+   * Age bracket derived from `profile.core.birthDate` at heartbeat time.
+   * Only two possible values — 'minor' (< 18) or 'adult' (≥ 18) — so
+   * the age-range filter can only exclude minors when the lower bound
+   * is ≥ 18. Within the adult bracket ages are not broadcast (privacy).
+   */
+  ageGroup?: 'minor' | 'adult';
   /** Mock pace string (e.g. "5:30") for running/walking partners. */
   mockPace?: string;
   /**
@@ -85,6 +135,18 @@ export interface LivePartner {
    * not as a filterable value.
    */
   gender?: 'male' | 'female' | 'other';
+  /**
+   * Group session id when the partner is currently training in a shared
+   * group session — same field `useGroupPresence` consumes for shared
+   * map-marker rendering. Powers the יחיד / קבוצה pill on the live tab:
+   *   • absent / empty string → solo partner
+   *   • non-empty string      → group partner (we don't need the actual
+   *     session id here, just the boolean signal "is this user in a
+   *     group session right now").
+   * Stays `undefined` for partners without an active group session, NOT
+   * `null` or empty-string, so the type matches the rest of `LivePartner`.
+   */
+  groupSessionId?: string;
 }
 
 export interface PartnerDataResult {
@@ -143,6 +205,7 @@ function expandSlotForWeek(slot: RawSlot): Date[] {
 export function usePartnerData(
   userPos: { lat: number; lng: number } | null,
   radiusKm: number,
+  myGroupIds: string[] = [],
 ): PartnerDataResult {
   const [rawScheduled, setRawScheduled] = useState<any[]>([]);
   const [rawEventPartners, setRawEventPartners] = useState<any[]>([]);
@@ -267,6 +330,15 @@ export function usePartnerData(
   }, [myMode]);
 
   // ── 3. Community groups listener — materialize recurring slots ──
+  // Hybrid visibility: public groups are visible to everyone; private groups
+  // (isPublic === false) are only materialized for members of that group.
+  // This is equivalent to two parallel Firestore queries merged client-side:
+  //   Query A: where('isActive','==',true) + where('isPublic','==',true)
+  //   Query B: where('isActive','==',true) + where('isPublic','==',false)
+  //            + client filter: group.id ∈ myGroupIds
+  // Using a single isActive listener + client visibility gate avoids the
+  // composite-index cost and handles legacy docs where isPublic is unset
+  // (treated as public, same as isPublic === true).
   useEffect(() => {
     unsubGroups.current?.();
     if (myMode === 'ghost') {
@@ -279,12 +351,23 @@ export function usePartnerData(
       where('isActive', '==', true),
     );
 
+    // Capture a stable snapshot of myGroupIds for use inside the closure.
+    // Storing as a Set avoids O(n) includes() on every doc.
+    const memberSet = new Set(myGroupIds);
+
     unsubGroups.current = onSnapshot(
       q,
       (snap) => {
         const partners: any[] = [];
         for (const docSnap of snap.docs) {
           const data = docSnap.data();
+
+          // ── Hybrid visibility gate ────────────────────────────────────────
+          // Groups without isPublic field (legacy) default to visible.
+          const isPrivate = data.isPublic === false;
+          if (isPrivate && !memberSet.has(docSnap.id)) continue;
+          // ─────────────────────────────────────────────────────────────────
+
           const slots = extractSlots(data);
           if (!slots.length) continue;
 
@@ -323,7 +406,10 @@ export function usePartnerData(
     );
 
     return () => unsubGroups.current?.();
-  }, [myMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myMode, myGroupIds.join(',')]);
+  // Note: myGroupIds.join(',') is a stable string dep — avoids a new listener
+  // on every render while still re-subscribing when the set of groups changes.
 
   // ── 4. Live presence listener ──
   useEffect(() => {
@@ -381,13 +467,35 @@ export function usePartnerData(
 
   // ── Filter + transform scheduled (planned + events + groups) ──
   const scheduled = useMemo<ScheduledPartner[]>(() => {
+    // Resolve the end-of-window timestamp from a raw Firestore doc.
+    // Older docs don't have an `endTime` field — we fall back to
+    // `startTime + 1h` so the partner card always renders a valid range
+    // ("17:00 - 18:00") instead of jumping back to a single value when
+    // the legacy data is mixed with new docs.
+    const resolveEndTime = (s: any, startTime: Date): Date => {
+      const raw = s.endTime?.toDate?.() ?? (s.endTime ? new Date(s.endTime) : null);
+      if (raw && !isNaN(raw.getTime()) && raw.getTime() > startTime.getTime()) {
+        return raw;
+      }
+      return new Date(startTime.getTime() + 60 * 60 * 1000);
+    };
+
     const fromPlanned: ScheduledPartner[] = rawScheduled
-      .filter((s) => s.privacyMode !== 'ghost' && s.userId !== currentUid)
+      .filter((s) => {
+        if (s.privacyMode === 'ghost') return false;
+        if (s.userId === currentUid) return false; // own arrivals handled by fromOwnArrival
+        // Squad sessions are private-group bookings — only visible to group members.
+        if (s.privacyMode === 'squad' && typeof s.groupId === 'string') {
+          return myGroupIds.includes(s.groupId);
+        }
+        return true;
+      })
       .map((s) => {
         const lat = s.lat ?? 0;
         const lng = s.lng ?? 0;
         const dist = userPos ? haversineKm(userPos.lat, userPos.lng, lat, lng) : 0;
         const startTime = s.startTime?.toDate?.() ?? new Date(s.startTime);
+        const endTime = resolveEndTime(s, startTime);
         return {
           id: s.id,
           userId: s.userId ?? '',
@@ -397,12 +505,79 @@ export function usePartnerData(
           activityType: (s.activityType ?? 'running') as ActivityType,
           level: s.level ?? 'beginner',
           startTime,
+          endTime,
           distanceKm: dist,
           lat,
           lng,
+          ...(typeof s.parkId === 'string' && s.parkId.length > 0
+            ? { parkId: s.parkId }
+            : {}),
+          ...(typeof s.parkName === 'string' && s.parkName.length > 0
+            ? { parkName: s.parkName }
+            : {}),
+          ...(typeof s.routeName === 'string' && s.routeName.length > 0
+            ? { routeName: s.routeName }
+            : {}),
+          ...(typeof s.programName === 'string' && s.programName.length > 0
+            ? { programName: s.programName }
+            : {}),
+          ...(typeof s.programLevel === 'number'
+            ? { programLevel: s.programLevel }
+            : {}),
           source: 'planned' as const,
         };
       });
+
+    // The current user's own planned arrivals — surfaced as a separate
+    // `ownArrival` source so the partner finder can render them with a
+    // distinct "הגעה שלי" badge. We bypass the `userId !== currentUid`
+    // filter here intentionally; the user MUST be able to see their
+    // own announcement to confirm "did my publish save?" without
+    // having to log in as a different account. We do NOT enforce the
+    // distance-radius filter on this branch either (see the final
+    // concat below) — your own arrival should always show up,
+    // regardless of where you happen to be standing.
+    const fromOwnArrival: ScheduledPartner[] = currentUid
+      ? rawScheduled
+          .filter((s) => s.userId === currentUid)
+          .map((s) => {
+            const lat = s.lat ?? 0;
+            const lng = s.lng ?? 0;
+            const dist = userPos ? haversineKm(userPos.lat, userPos.lng, lat, lng) : 0;
+            const startTime = s.startTime?.toDate?.() ?? new Date(s.startTime);
+            const endTime = resolveEndTime(s, startTime);
+            return {
+              id: s.id,
+              userId: s.userId ?? '',
+              displayName: s.displayName ?? 'אני',
+              photoURL: s.photoURL ?? null,
+              routeId: s.routeId ?? '',
+              activityType: (s.activityType ?? 'running') as ActivityType,
+              level: s.level ?? 'beginner',
+              startTime,
+              endTime,
+              distanceKm: dist,
+              lat,
+              lng,
+              ...(typeof s.parkId === 'string' && s.parkId.length > 0
+                ? { parkId: s.parkId }
+                : {}),
+              ...(typeof s.parkName === 'string' && s.parkName.length > 0
+                ? { parkName: s.parkName }
+                : {}),
+              ...(typeof s.routeName === 'string' && s.routeName.length > 0
+                ? { routeName: s.routeName }
+                : {}),
+              ...(typeof s.programName === 'string' && s.programName.length > 0
+                ? { programName: s.programName }
+                : {}),
+              ...(typeof s.programLevel === 'number'
+                ? { programLevel: s.programLevel }
+                : {}),
+              source: 'ownArrival' as const,
+            };
+          })
+      : [];
 
     const fromEvents: ScheduledPartner[] = rawEventPartners
       .filter((s) => s.userId !== currentUid)
@@ -473,10 +648,17 @@ export function usePartnerData(
         })
       : fromGroups;
 
-    return [...fromPlanned, ...fromEvents, ...dedupedGroups]
-      .filter((s) => !userPos || s.distanceKm <= radiusKm)
-      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  }, [rawScheduled, rawEventPartners, rawGroupPartners, userPos, radiusKm, currentUid]);
+    // Apply the radius gate to OTHER people's entries only — own
+    // arrivals are always visible to the publisher regardless of the
+    // selected radius (see `fromOwnArrival` rationale above).
+    const distGated = [...fromPlanned, ...fromEvents, ...dedupedGroups].filter(
+      (s) => !userPos || s.distanceKm <= radiusKm,
+    );
+
+    return [...fromOwnArrival, ...distGated].sort(
+      (a, b) => a.startTime.getTime() - b.startTime.getTime(),
+    );
+  }, [rawScheduled, rawEventPartners, rawGroupPartners, userPos, radiusKm, currentUid, myGroupIds]);
 
   // ── Filter + transform live ──
   const live = useMemo<LivePartner[]>(() => {
@@ -517,6 +699,8 @@ export function usePartnerData(
           currentStreak: typeof p.currentStreak === 'number' ? p.currentStreak : undefined,
           programName: typeof p.programName === 'string' ? p.programName : undefined,
           programLevel: typeof p.programLevel === 'number' ? p.programLevel : undefined,
+          programId: typeof p.programId === 'string' ? p.programId : undefined,
+          ageGroup: p.ageGroup === 'minor' || p.ageGroup === 'adult' ? p.ageGroup : undefined,
           mockPace: typeof p.mockPace === 'string' ? p.mockPace : undefined,
           targetDistanceKm:
             typeof p.targetDistanceKm === 'number' ? p.targetDistanceKm : undefined,
@@ -528,6 +712,14 @@ export function usePartnerData(
           gender:
             p.gender === 'male' || p.gender === 'female' || p.gender === 'other'
               ? p.gender
+              : undefined,
+          // Treat empty strings as "not in a group" — some legacy presence
+          // writers persisted `''` instead of omitting the field, and the
+          // יחיד filter needs to see those as solo. Anything other than a
+          // non-empty string collapses to undefined.
+          groupSessionId:
+            typeof p.groupSessionId === 'string' && p.groupSessionId.length > 0
+              ? p.groupSessionId
               : undefined,
         } satisfies LivePartner;
       })

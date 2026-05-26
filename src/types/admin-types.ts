@@ -119,6 +119,15 @@ export interface Authority {
     /** Pillar 7: total count of user pressure clicks on "Contact City" CTA */
     pressureCount?: number;
 
+    /**
+     * League gating mode set via the Admin Demo-Seed panel.
+     * - 'soft_launch' → leaderboard is fully open (MunicipalPressureCard hidden).
+     * - 'hard_gate'   → rows 4+ are blurred and the pressure CTA is shown (default).
+     * Distinct from `isActiveClient`: a city can be in soft-launch for demo/testing
+     * without being a paying client.
+     */
+    gatingMode?: 'soft_launch' | 'hard_gate';
+
     // BI KPI Configuration
     kpiSettings?: KpiSettings;
 

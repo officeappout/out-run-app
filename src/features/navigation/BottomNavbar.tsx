@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, Map, Users, Swords } from 'lucide-react';
+import { Home, Map, Users } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -35,13 +35,13 @@ export default function BottomNavigation() {
     return null;
   }
 
+  // The social hub (/community) merges feed and leagues into one tab.
   const navItems = [
-    { name: 'בית',   href: '/home',  icon: Home },
-    { name: 'מפה',   href: '/map',   icon: Map },
+    { name: 'בית',    href: '/home',      icon: Home,  match: 'prefix' as const },
+    { name: 'מפה',    href: '/map',        icon: Map,   match: 'prefix' as const },
     ...(flags.enableCommunityFeed
       ? [
-          { name: 'קהילה', href: '/feed',  icon: Users },
-          { name: 'הליגה', href: '/arena', icon: Swords },
+          { name: 'חברתי', href: '/community', icon: Users, match: 'community-feed' as const },
         ]
       : []),
   ];
@@ -73,7 +73,15 @@ export default function BottomNavigation() {
       <div className="flex justify-around items-center px-4 pt-0.5 pb-0">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+          const onCommunity = pathname === '/community' || pathname?.startsWith('/community/');
+
+          let isActive = false;
+          if (item.match === 'community-feed') {
+            // Highlight "חברתי" on /community and all /community/* subpages
+            isActive = onCommunity;
+          } else {
+            isActive = pathname === item.href || pathname?.startsWith(item.href + '/') || false;
+          }
 
           return (
             <Link

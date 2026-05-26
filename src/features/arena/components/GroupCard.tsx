@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Clock, MapPin, UserPlus, ImageOff, MessageCircle, Navigation, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, MapPin, UserPlus, ImageOff, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
 import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
 import { distanceLabel } from '@/features/arena/utils/distance';
@@ -39,12 +39,16 @@ export default function GroupCard({
   distanceKm,
   onUpdateLocation,
   onJoin,
-  onLockedJoin,
+  onLockedJoin: _onLockedJoin,
   onCardClick,
   onOpenChat,
 }: GroupCardProps) {
   const catConfig = CATEGORY_CONFIG[group.category];
   const coverImage = group.images?.[0];
+
+  const [codeMode, setCodeMode] = useState(false);
+  const [codeValue, setCodeValue] = useState('');
+  const [codeError, setCodeError] = useState(false);
 
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
@@ -62,7 +66,29 @@ export default function GroupCard({
       onOpenChat?.();
       return;
     }
+    if (!group.isPublic) {
+      setCodeMode(true);
+      return;
+    }
     onJoin?.(group.id);
+  }
+
+  function handleCodeSubmit() {
+    const expected = (group.inviteCode ?? '').toUpperCase();
+    if (codeValue.toUpperCase() === expected) {
+      onJoin?.(group.id);
+      setCodeMode(false);
+      setCodeValue('');
+      setCodeError(false);
+    } else {
+      setCodeError(true);
+    }
+  }
+
+  function exitCodeMode() {
+    setCodeMode(false);
+    setCodeValue('');
+    setCodeError(false);
   }
 
   return (
@@ -165,34 +191,83 @@ export default function GroupCard({
           </button>
         )}
 
-        {/* Bottom bar */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800/60">
-          <AttendeesPreview
-            attendees={members ?? []}
-            total={group.currentParticipants}
-          />
-
-          <button
-            onClick={handleJoinClick}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${
-              isJoined
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md shadow-cyan-500/25'
-                : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md hover:shadow-lg'
-            }`}
+        {/* Bottom bar — code entry mode (private non-member) */}
+        {codeMode ? (
+          <div
+            className="pt-3 border-t border-gray-100 dark:border-gray-800/60 space-y-2"
+            onClick={(e) => e.stopPropagation()}
           >
-            {isJoined ? (
-              <>
-                <MessageCircle className="w-3.5 h-3.5" />
-                כנס לצ&apos;אט
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-3.5 h-3.5" />
-                הצטרף
-              </>
+            <div className="flex gap-2 items-center">
+              <input
+                dir="ltr"
+                type="text"
+                value={codeValue}
+                onChange={(e) => { setCodeValue(e.target.value.toUpperCase()); setCodeError(false); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleCodeSubmit()}
+                maxLength={6}
+                placeholder="XXXXXX"
+                autoFocus
+                className={`flex-1 text-center text-sm font-mono font-black tracking-widest border-2 rounded-xl px-3 py-2 focus:outline-none transition-colors ${
+                  codeError
+                    ? 'border-red-400 bg-red-50 text-red-600'
+                    : 'border-gray-200 focus:border-cyan-400'
+                }`}
+              />
+              <button
+                disabled={joining || !codeValue.trim()}
+                onClick={handleCodeSubmit}
+                className="px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-black flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
+              >
+                אישור
+              </button>
+              <button
+                onClick={exitCodeMode}
+                className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+            </div>
+            {codeError && (
+              <p className="text-xs text-red-500 font-semibold text-center">
+                קוד שגוי, אנא נסה שנית
+              </p>
             )}
-          </button>
-        </div>
+          </div>
+        ) : (
+          /* Bottom bar — default view */
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800/60">
+            <AttendeesPreview
+              attendees={members ?? []}
+              total={group.currentParticipants}
+            />
+
+            <button
+              onClick={handleJoinClick}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${
+                isJoined
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md shadow-cyan-500/25'
+                  : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md hover:shadow-lg'
+              }`}
+            >
+              {isJoined ? (
+                <>
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  כנס לצ&apos;אט
+                </>
+              ) : !group.isPublic ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  הזן קוד הצטרפות
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  הצטרף
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

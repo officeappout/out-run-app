@@ -23,6 +23,7 @@ import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 
 /**
  * Phase 2 Onboarding Wizard - Lifestyle Adaptation
@@ -46,10 +47,11 @@ export default function OnboardingWizard() {
   // Get resume step from URL query params
   const resumeStep = searchParams?.get('resume') as OnboardingStepId | null;
 
-  // Get current language
-  const savedLanguage: OnboardingLanguage = (typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_language') || 'he')
-    : 'he') as OnboardingLanguage;
+  // Get current language. Backed by onboardingPrefs so the choice survives
+  // a hard close on iOS (where sessionStorage is wiped between launches).
+  const savedLanguage: OnboardingLanguage = (
+    getOnboardingPref('onboarding_language') || 'he'
+  ) as OnboardingLanguage;
   const locale = getOnboardingLocale(savedLanguage);
 
   // ── JIT mode (triggered from workout start) ──────────────────────
@@ -57,9 +59,9 @@ export default function OnboardingWizard() {
   const jitStep = searchParams?.get('step') as OnboardingStepId | null;
 
   // ── Dynamic step sequence based on onboarding path ──────────────
-  const onboardingPath = typeof window !== 'undefined'
-    ? sessionStorage.getItem('onboarding_path') || null
-    : null;
+  // Also backed by onboardingPrefs so MAP_ONLY users who close the app
+  // mid-wizard resume on the correct path branch.
+  const onboardingPath = getOnboardingPref('onboarding_path');
 
   const wizardSteps: OnboardingStepId[] = useMemo(() => {
     // JIT mode: only show the specific requested step
@@ -241,8 +243,18 @@ export default function OnboardingWizard() {
   const handleBack = () => {
     if (currentStepIndex > 0) {
       setStep(wizardSteps[currentStepIndex - 1]);
+      return;
+    }
+    // Step 0: exit the wizard entirely.
+    // Prefer browser history so in-app triggers (JIT, map upgrade) land
+    // back on the exact screen that opened the wizard. Fall back to
+    // /gateway for cold-entry users who have no prior history entry.
+    const hasHistory =
+      typeof window !== 'undefined' && window.history.length > 1;
+    if (hasHistory) {
+      router.back();
     } else {
-      router.push('/onboarding-new/roadmap');
+      router.push('/gateway');
     }
   };
 
@@ -459,7 +471,7 @@ export default function OnboardingWizard() {
       currentStep={visibleStepIndex >= 0 ? visibleStepIndex + 1 : 1}
       totalSteps={visibleSteps.length}
       onBack={handleBack}
-      showBack={currentStepIndex > 0}
+      showBack={true}
     >
       {renderStepContent()}
     </OnboardingLayout>

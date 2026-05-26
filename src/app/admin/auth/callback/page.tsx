@@ -8,7 +8,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithMagicLink, isMagicLinkCallback } from '@/lib/auth.service';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager } from '@/features/admin/services/authority.service';
-import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
+import AppLogoLoader from '@/components/AppLogoLoader';
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -171,15 +172,7 @@ function AuthCallbackContent() {
   }, [router, searchParams]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center" dir="rtl">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <Loader2 className="w-12 h-12 text-cyan-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">מתחבר...</h2>
-          <p className="text-gray-600">בודק את הקישור ומתחבר למערכת</p>
-        </div>
-      </div>
-    );
+    return <AppLogoLoader caption="מתחבר..." />;
   }
 
   if (error) {
@@ -215,14 +208,7 @@ function AuthCallbackContent() {
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center" dir="rtl">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <Loader2 className="w-12 h-12 text-cyan-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">טוען...</h2>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<AppLogoLoader caption="טוען..." />}>
       <AuthCallbackContent />
     </Suspense>
   );

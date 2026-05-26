@@ -115,7 +115,7 @@ export default function ContentSection({
                   .map((tp, i) => (i === index ? null : tp.programId))
                   .filter((id): id is string => Boolean(id));
                 
-                // Find the selected program to get its maxLevels
+                // Find the selected program to get its maxLevels and slug
                 const selectedProgram = programs.find(p => p.id === assignment.programId);
                 // Default to 10 if no program selected or maxLevels not defined
                 const DEFAULT_MAX_LEVELS = 25;
@@ -124,95 +124,239 @@ export default function ContentSection({
                 // Generate level options based on program's maxLevels
                 const levelOptions = Array.from({ length: maxLevels }, (_, i) => i + 1);
 
+                // Handstand Triad: detect if this row is a handstand or hspu program.
+                //
+                // Mirror the slug-derivation logic from buildIdToSlugMapFromPrograms:
+                //   effectiveSlug = p.slug || p.movementPattern || name-normalized
+                // Then use includes() so partial names like 'handstand_push_ups' still match.
+                // Final Hebrew keyword fallback catches programs with only a Hebrew name.
+                const _pName = selectedProgram?.name?.toLowerCase() ?? '';
+                const _effectiveSlug = selectedProgram
+                  ? (
+                      selectedProgram.slug ||
+                      selectedProgram.movementPattern ||
+                      _pName.replace(/[\s-]+/g, '_')
+                    )
+                  : assignment.programId ?? '';
+
+                const isHandstandProgram =
+                  _effectiveSlug.includes('handstand') ||
+                  _effectiveSlug.includes('hspu') ||
+                  _pName.includes('handstand') ||
+                  _pName.includes('hspu') ||
+                  (selectedProgram?.name ?? '').includes('עמידת ידיים');
+
+                // Current triad scores — default to 8 (midpoint of 1–15) when not yet set
+                const strengthScore = assignment.strengthScore ?? 8;
+                const balanceScore  = assignment.balanceScore  ?? 8;
+                const mobilityScore = assignment.mobilityScore ?? 8;
+
+                /**
+                 * Update one triad score and auto-recalculate level.
+                 * Clamped to [1, 10] — these programs max out at 10 by design.
+                 */
+                const handleTriadChange = (
+                  field: 'strengthScore' | 'balanceScore' | 'mobilityScore',
+                  raw: number,
+                ) => {
+                  const value = Math.min(15, Math.max(1, raw));
+                  const s = field === 'strengthScore' ? value : strengthScore;
+                  const b = field === 'balanceScore'  ? value : balanceScore;
+                  const m = field === 'mobilityScore'  ? value : mobilityScore;
+                  const newLevel = Math.min(15, Math.max(1, Math.round((s + b + m) / 3)));
+                  setTargetPrograms((prev) => {
+                    const next = [...prev];
+                    next[index] = {
+                      ...next[index],
+                      [field]: value,
+                      level: newLevel,
+                    };
+                    return next;
+                  });
+                };
+
                 return (
                   <div
                     key={index}
-                    className="flex flex-col md:flex-row items-stretch md:items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-xl"
+                    className={`flex flex-col gap-3 p-4 border rounded-xl ${
+                      isHandstandProgram
+                        ? 'bg-indigo-50 border-indigo-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
                   >
-                    <div className="flex-1 flex flex-col md:flex-row gap-3">
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">
-                          תוכנית
-                        </label>
-                        <select
-                          value={assignment.programId}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // Find the new program to check its maxLevels
-                            const newProgram = programs.find(p => p.id === value);
-                            const newMaxLevels = newProgram?.maxLevels || DEFAULT_MAX_LEVELS;
-                            
-                            setTargetPrograms((prev) => {
-                              const next = [...prev];
-                              // If current level exceeds new program's max, reset to max
-                              const currentLevel = next[index].level;
-                              const adjustedLevel = currentLevel > newMaxLevels ? newMaxLevels : currentLevel;
+                    {/* ── Top row: Program selector + Level + Delete ── */}
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                      <div className="flex-1 flex flex-col md:flex-row gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold text-gray-500 mb-1">
+                            תוכנית
+                          </label>
+                          <select
+                            value={assignment.programId}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const newProgram = programs.find(p => p.id === value);
+                              const newMaxLevels = newProgram?.maxLevels || DEFAULT_MAX_LEVELS;
                               
-                              next[index] = {
-                                ...next[index],
-                                programId: value,
-                                level: adjustedLevel,
-                              };
-                              return next;
-                            });
-                          }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white"
-                        >
-                          <option value="">בחר תוכנית...</option>
-                          {programs.map((program) => (
-                            <option
-                              key={program.id}
-                              value={program.id}
-                              disabled={selectedProgramIds.includes(program.id)}
-                            >
-                              {safeRenderText(program.name)} {program.maxLevels ? `(${program.maxLevels} רמות)` : ''}
-                            </option>
-                          ))}
-                        </select>
+                              setTargetPrograms((prev) => {
+                                const next = [...prev];
+                                const currentLevel = next[index].level;
+                                const adjustedLevel = currentLevel > newMaxLevels ? newMaxLevels : currentLevel;
+                                
+                                next[index] = {
+                                  ...next[index],
+                                  programId: value,
+                                  level: adjustedLevel,
+                                };
+                                return next;
+                              });
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white"
+                          >
+                            <option value="">בחר תוכנית...</option>
+                            {programs.map((program) => (
+                              <option
+                                key={program.id}
+                                value={program.id}
+                                disabled={selectedProgramIds.includes(program.id)}
+                              >
+                                {safeRenderText(program.name)} {program.maxLevels ? `(${program.maxLevels} רמות)` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="w-full md:w-44">
+                          <label className="block text-xs font-bold text-gray-500 mb-1">
+                            רמה{isHandstandProgram ? ' (מחושב אוטומטי)' : selectedProgram ? ` (מתוך ${maxLevels})` : ''}
+                          </label>
+                          <select
+                            value={assignment.level}
+                            onChange={(e) => {
+                              const level = parseInt(e.target.value) || 1;
+                              setTargetPrograms((prev) => {
+                                const next = [...prev];
+                                next[index] = { ...next[index], level };
+                                return next;
+                              });
+                            }}
+                            disabled={!assignment.programId || isHandstandProgram}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white ${
+                              !assignment.programId || isHandstandProgram ? 'opacity-60 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            {levelOptions.map((level) => (
+                              <option key={level} value={level}>
+                                Level {level} {level === maxLevels ? '(מקסימום)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                          {!assignment.programId && (
+                            <p className="text-[10px] text-amber-600 mt-1">בחר תוכנית קודם</p>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="w-full md:w-44">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">
-                          רמה {selectedProgram ? `(מתוך ${maxLevels})` : ''}
-                        </label>
-                        <select
-                          value={assignment.level}
-                          onChange={(e) => {
-                            const level = parseInt(e.target.value) || 1;
-                            setTargetPrograms((prev) => {
-                              const next = [...prev];
-                              next[index] = {
-                                ...next[index],
-                                level,
-                              };
-                              return next;
-                            });
-                          }}
-                          disabled={!assignment.programId}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white ${!assignment.programId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {levelOptions.map((level) => (
-                            <option key={level} value={level}>
-                              Level {level} {level === maxLevels ? '(מקסימום)' : ''}
-                            </option>
-                          ))}
-                        </select>
-                        {!assignment.programId && (
-                          <p className="text-[10px] text-amber-600 mt-1">בחר תוכנית קודם</p>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTargetPrograms((prev) => prev.filter((_, i) => i !== index))
+                        }
+                        className="self-start md:self-center p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="הסר שיוך"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setTargetPrograms((prev) => prev.filter((_, i) => i !== index))
-                      }
-                      className="self-start md:self-center p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="הסר שיוך"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {/* ── Handstand Triad sliders (handstand / hspu only) ── */}
+                    {isHandstandProgram && (
+                      <div className="pt-3 border-t border-indigo-200 space-y-3">
+                        <p className="text-xs font-bold text-indigo-700 flex items-center gap-1">
+                          <span>⚡</span> Handstand Triad — ניתוח תלת-ממדי
+                          <span className="ml-auto font-normal text-indigo-500 text-[11px]">
+                            ממוצע → Level {assignment.level}
+                          </span>
+                        </p>
+
+                        {/* Strength */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-bold text-gray-600">
+                              כוח (Strength)
+                            </label>
+                            <span className="text-xs font-black text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                              {strengthScore}/15
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={1}
+                            max={15}
+                            step={1}
+                            value={strengthScore}
+                            onChange={(e) => handleTriadChange('strengthScore', parseInt(e.target.value))}
+                            className="w-full h-2 rounded-full accent-indigo-500 cursor-pointer"
+                          />
+                          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+                            <span>1</span><span>8</span><span>15</span>
+                          </div>
+                        </div>
+
+                        {/* Balance */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-bold text-gray-600">
+                              שיווי משקל (Balance)
+                            </label>
+                            <span className="text-xs font-black text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                              {balanceScore}/15
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={1}
+                            max={15}
+                            step={1}
+                            value={balanceScore}
+                            onChange={(e) => handleTriadChange('balanceScore', parseInt(e.target.value))}
+                            className="w-full h-2 rounded-full accent-purple-500 cursor-pointer"
+                          />
+                          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+                            <span>1</span><span>8</span><span>15</span>
+                          </div>
+                        </div>
+
+                        {/* Mobility */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-bold text-gray-600">
+                              גמישות (Mobility)
+                            </label>
+                            <span className="text-xs font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                              {mobilityScore}/15
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={1}
+                            max={15}
+                            step={1}
+                            value={mobilityScore}
+                            onChange={(e) => handleTriadChange('mobilityScore', parseInt(e.target.value))}
+                            className="w-full h-2 rounded-full accent-emerald-500 cursor-pointer"
+                          />
+                          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+                            <span>1</span><span>8</span><span>15</span>
+                          </div>
+                        </div>
+
+                        {/* Auto-level formula display */}
+                        <p className="text-[10px] text-indigo-500 text-center pt-1">
+                          ({strengthScore} + {balanceScore} + {mobilityScore}) ÷ 3 = {((strengthScore + balanceScore + mobilityScore) / 3).toFixed(2)} → Level {assignment.level}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}

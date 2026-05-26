@@ -11,13 +11,13 @@
  */
 
 import React from 'react';
-import { Heart, Sparkles, Target } from 'lucide-react';
+import { Footprints, Heart, Sparkles, Target } from 'lucide-react';
 
 /** Brand cyan used throughout the schedule and completion states */
 export const BRAND_CYAN = '#00C9F2';
 
 /** Canonical icon key values (matches Admin dropdown options) */
-export type ProgramIconKey = 'muscle' | 'full_body' | 'pullup' | 'leg' | 'core' | 'shoe' | 'heart';
+export type ProgramIconKey = 'muscle' | 'full_body' | 'pullup' | 'leg' | 'core' | 'shoe' | 'heart' | 'walking' | 'pull' | 'push' | 'legs';
 
 interface IconConfig {
   component: React.FC<{ className?: string }>;
@@ -27,7 +27,7 @@ interface IconConfig {
 // ── Inline SVG components (from public/icons/programs/) ──────────────
 // Using `currentColor` makes color controllable via CSS `color` / Tailwind.
 
-function MuscleIcon({ className }: { className?: string }) {
+export function MuscleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 13 11" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M11.875 8.49641C11.6642 9.35355 10.5787 9.5625 9.88848 9.5625C8.3983 9.5625 2.71702 9.5625 2.71702 9.5625C1.30519 9.5625 0.227331 7.96126 0.766428 6.5655C1.95888 4.46229 3.02976 2.83719 3.64838 0.894899C5.07769 0.0616627 6.91005 0.894898 6.4791 2.2858M4.64655 2.83719C3.87448 3.99641 4.30703 5.28212 3.64838 6.5655C5.60422 5.28159 7.52284 5.02481 9.60907 6.5655" stroke="currentColor" strokeWidth="1.125" strokeLinejoin="round"/>
@@ -43,7 +43,7 @@ function LegIcon({ className }: { className?: string }) {
   );
 }
 
-function RunIcon({ className }: { className?: string }) {
+export function RunIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M13.5411 4.81964C13.2994 4.38452 12.7507 4.22773 12.3155 4.46947L10.8856 5.26389L9.94303 3.82233C9.91514 3.82331 9.88731 3.82446 9.8592 3.82446C8.90979 3.82446 8.09211 3.25156 7.73243 2.43354C6.62716 2.43346 4.76196 2.43335 4.76196 2.43335C4.43346 2.43335 4.13098 2.6121 3.9725 2.89983L2.83089 4.97276C2.59079 5.40879 2.74957 5.95689 3.18557 6.197C3.32344 6.27293 3.47252 6.30897 3.61954 6.30897C3.93741 6.30897 4.24563 6.14045 4.4098 5.84232L5.29451 4.23588H6.99666L4.39786 8.77229H1.24698C0.749242 8.77229 0.345703 9.1758 0.345703 9.67356C0.345703 10.1713 0.749215 10.5748 1.24698 10.5748H4.91216C5.23091 10.5748 5.52595 10.4065 5.6881 10.1321L6.33552 9.03646L7.97002 10.3243L6.99004 12.7623C6.80441 13.2241 7.0283 13.749 7.49013 13.9346C7.60036 13.9789 7.71408 13.9999 7.826 13.9999C8.18313 13.9999 8.52118 13.7862 8.66252 13.4345L9.89425 10.3702C10.0435 9.99893 9.9301 9.57373 9.61581 9.32611L7.80349 7.89822L9.05652 5.76032L9.83584 6.95223C10.0079 7.21539 10.2957 7.36039 10.5909 7.36039C10.7393 7.36039 10.8896 7.32367 11.0279 7.24686L13.1909 6.04516C13.626 5.80347 13.7828 5.25476 13.5411 4.81964Z" fill="currentColor"/>
@@ -51,6 +51,10 @@ function RunIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export const WalkingIcon = ({ className }: { className?: string }) => (
+  <Footprints className={className} />
+);
 
 function FullBodyIcon({ className }: { className?: string }) {
   return (
@@ -72,7 +76,7 @@ export function CheckMarkBadge({ size = 16 }: { size?: number }) {
   );
 }
 
-const ICON_MAP: Record<ProgramIconKey, IconConfig> = {
+export const ICON_MAP: Record<ProgramIconKey, IconConfig> = {
   muscle: {
     component: MuscleIcon,
     label: 'שריר',
@@ -101,6 +105,22 @@ const ICON_MAP: Record<ProgramIconKey, IconConfig> = {
     component: ({ className }) => <Heart className={className} />,
     label: 'בריאות',
   },
+  walking: {
+    component: WalkingIcon,
+    label: 'הליכה',
+  },
+  pull: {
+    component: ({ className }) => <Target className={className} />,
+    label: 'משיכה',
+  },
+  push: {
+    component: MuscleIcon,
+    label: 'דחיפה',
+  },
+  legs: {
+    component: LegIcon,
+    label: 'רגליים',
+  },
 };
 
 /**
@@ -122,7 +142,7 @@ export const PROGRAM_ALIAS_TO_ICON: Record<string, ProgramIconKey> = {
   core: 'core',
   running: 'shoe',
   cardio: 'shoe',
-  walking: 'shoe',
+  walking: 'walking',
   calisthenics: 'pullup',
   handstand: 'core',
   pull_up_pro: 'pullup',
@@ -130,6 +150,29 @@ export const PROGRAM_ALIAS_TO_ICON: Record<string, ProgramIconKey> = {
   wellness: 'heart',
   pilates: 'core',
   yoga: 'core',
+  // ── Smart Schedule v1.3 skill IDs (uppercase from recurringTemplate/programIds) ──
+  PLANCHE: 'muscle',
+  HSPU: 'muscle',
+  FRONT_LEVER: 'pullup',
+  OAPU: 'pullup',
+  MUSCLE_UP: 'pullup',
+  HANDSTAND: 'core',
+  // calisthenics_upper / UPPER_CALISTHENICS is a MASTER session (push + pull
+  // hybrid) — maps to 'muscle' (the muscle.svg asset) so it renders the same
+  // icon as UPPER_BODY rather than the pull-only 'pullup' Target icon.
+  UPPER_CALISTHENICS: 'muscle',
+  UPPER_BODY: 'muscle',
+  FULL_BODY: 'full_body',
+  // lowercase slugs (from sessionStorage / Firestore program slugs + engine normalization)
+  planche: 'muscle',
+  hspu: 'muscle',
+  front_lever: 'pullup',
+  oapu: 'pullup',
+  one_arm_pullup: 'pullup',
+  muscle_up: 'pullup',
+  // Normalized engine slug — was missing, causing resolveIconKey('calisthenics_upper') to fall through
+  calisthenics_upper: 'muscle',
+  upper_calisthenics: 'muscle',
 };
 
 /**
@@ -198,6 +241,9 @@ const PROGRAM_SHORT_LABEL_MAP: Record<string, string> = {
   upper_body: 'עליון',
   push: 'עליון',
   pushing: 'עליון',
+  // calisthenics_upper master — labelled 'קליסט׳' to distinguish from plain 'עליון'
+  calisthenics_upper: 'קליסט׳',
+  upper_calisthenics: 'קליסט׳',
   pullup: 'מתח',
   pull: 'מתח',
   pulling: 'מתח',

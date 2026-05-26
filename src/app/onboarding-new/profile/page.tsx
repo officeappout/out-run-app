@@ -3,33 +3,39 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Loader2 } from 'lucide-react';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { ChevronRight } from 'lucide-react';
 import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 
 /**
  * Resolve uid from multiple sources (in priority order):
  * 1. onAuthStateChanged user
  * 2. auth.currentUser (synchronous snapshot)
- * 3. sessionStorage fallback written by Gateway
+ * 3. onboardingPrefs fallback written by Gateway (localStorage backed
+ *    by @capacitor/preferences on native — survives iOS hard close)
  */
 function resolveUid(authUser: User | null): string | null {
   if (authUser?.uid) return authUser.uid;
   if (auth.currentUser?.uid) return auth.currentUser.uid;
-  try { return sessionStorage.getItem('gateway_uid'); } catch { return null; }
+  return getOnboardingPref('gateway_uid');
 }
 
 export default function IdentityProfilePage() {
   const router = useRouter();
-  const { profile } = useUserStore();
+  const searchParams = useSearchParams();
+  /** When true the page was opened mid-session to collect a missing name only. */
+  const isProfileOnly = searchParams.get('context') === 'profile-only';
+  const { profile, updateProfile } = useUserStore();
   const direction = 'rtl';
 
   // Auth state — always start null so SSR and first client render match
@@ -143,7 +149,7 @@ export default function IdentityProfilePage() {
     }
   }, [formData.birthDay, formData.birthMonth, formData.birthYear, validateDOB]);
 
-  // Check if form is complete
+  // Check if form is complete — standard onboarding flow (requires zero-padded inputs)
   const isFormComplete = 
     formData.name.trim().length > 0 &&
     formData.birthDay.length === 2 &&
@@ -152,9 +158,26 @@ export default function IdentityProfilePage() {
     formData.gender !== '' &&
     !hasDobError;
 
+  // Relaxed gate for the profile-only detour from the community wizard.
+  // Checks parsed integer ranges so single-digit day/month entries ("5", "3")
+  // are accepted without requiring zero-padding ("05", "03").
+  const parsedDay   = parseInt(formData.birthDay, 10);
+  const parsedMonth = parseInt(formData.birthMonth, 10);
+  const parsedYear  = parseInt(formData.birthYear, 10);
+  const isProfileOnlyComplete =
+    formData.name.trim().length >= 2 &&
+    formData.gender !== '' &&
+    parsedDay >= 1 && parsedDay <= 31 &&
+    parsedMonth >= 1 && parsedMonth <= 12 &&
+    formData.birthYear.length === 4 && parsedYear >= 1900 && parsedYear <= new Date().getFullYear() &&
+    !hasDobError;
+
+  /** Single source of truth for the button's enabled state. */
+  const canSubmit = isProfileOnly ? isProfileOnlyComplete : isFormComplete;
+
   // Handle submit
   const handleContinue = async () => {
-    if (!isFormComplete || loading) return;
+    if (!canSubmit || loading) return;
 
     setLoading(true);
     try {
@@ -174,41 +197,74 @@ export default function IdentityProfilePage() {
         parseInt(formData.birthDay)
       );
 
-      // Save to sessionStorage for dynamic questionnaire
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('onboarding_personal_name', formData.name);
-        sessionStorage.setItem('onboarding_personal_gender', formData.gender);
-        sessionStorage.setItem('onboarding_personal_dob', birthDate.toISOString().split('T')[0]);
+      if (isProfileOnly) {
+        // ── Profile-only context (entered from community wizard) ─────────────
+        // Only patch the three identity fields; never touch onboarding status
+        // or any other core fields the user already has.
+        await updateDoc(doc(db, 'users', uid), {
+          'core.name': formData.name,
+          'core.gender': formData.gender,
+          'core.birthDate': birthDate,
+          updatedAt: serverTimestamp(),
+        });
+
+        // Optimistic in-memory sync — spread the existing core so TypeScript
+        // sees a complete CoreProfile, then override the three changed fields.
+        // updateProfile deep-merges into core, so every other field
+        // (authorityId, affiliations, accessLevel, etc.) is preserved.
+        // calculateProfileCompletion() re-runs synchronously on the next render
+        // of ProfileCompletionWidget / ProfileProgressBar, instantly ticking the
+        // "שם מלא" (name) and "תאריך לידה" (dob) checklist items green.
+        if (profile?.core) {
+          updateProfile({
+            core: {
+              ...profile.core,
+              name: formData.name,
+              gender: formData.gender as 'male' | 'female' | 'other',
+              birthDate,
+            },
+          });
+        }
+
+        router.push('/community?openCreate=true');
+      } else {
+        // ── Standard onboarding flow ─────────────────────────────────────────
+        // Save to sessionStorage for dynamic questionnaire
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('onboarding_personal_name', formData.name);
+          sessionStorage.setItem('onboarding_personal_gender', formData.gender);
+          sessionStorage.setItem('onboarding_personal_dob', birthDate.toISOString().split('T')[0]);
+        }
+
+        // Update Firestore — includes scaffold fields so Gateway doesn't need
+        // to write anything (auth-only). merge:true keeps any existing data.
+        await setDoc(doc(db, 'users', uid), {
+          id: uid,
+          onboardingPath: 'FULL_PROGRAM',
+          onboardingStatus: 'IN_PROGRESS',
+          onboardingStep: 'IDENTITY',
+          onboardingProgress: 0,
+          core: {
+            name: formData.name,
+            gender: formData.gender,
+            birthDate: birthDate,
+            initialFitnessTier: 1,
+            trackingMode: 'wellness',
+            mainGoal: 'healthy_lifestyle',
+            weight: 0,
+            accessLevel: 1,
+            affiliations: [],
+            unlockedProgramIds: [],
+            isVerified: false,
+          },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+
+        firePhaseConfetti();
+
+        router.push('/onboarding-new/program-path');
       }
-
-      // Update Firestore — includes scaffold fields so Gateway doesn't need
-      // to write anything (auth-only). merge:true keeps any existing data.
-      await setDoc(doc(db, 'users', uid), {
-        id: uid,
-        onboardingPath: 'FULL_PROGRAM',
-        onboardingStatus: 'IN_PROGRESS',
-        onboardingStep: 'IDENTITY',
-        onboardingProgress: 0,
-        core: {
-          name: formData.name,
-          gender: formData.gender,
-          birthDate: birthDate,
-          initialFitnessTier: 1,
-          trackingMode: 'wellness',
-          mainGoal: 'healthy_lifestyle',
-          weight: 0,
-          accessLevel: 1,
-          affiliations: [],
-          unlockedProgramIds: [],
-          isVerified: false,
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-
-      firePhaseConfetti();
-
-      router.push('/onboarding-new/program-path');
     } catch (error) {
       console.error('[Identity] Error saving profile:', error);
       alert('שגיאה בשמירת הפרופיל');
@@ -230,7 +286,7 @@ export default function IdentityProfilePage() {
 
   if (!resolvedUid) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center" dir={direction}>
+      <div className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center overflow-hidden" dir={direction}>
         <Loader2 size={36} className="text-[#5BC2F2] animate-spin mb-4" />
         <p className="text-slate-400 text-sm font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
           מאמת זהות...
@@ -240,38 +296,64 @@ export default function IdentityProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col" dir={direction}>
-      {/* Story bar + phase label */}
-      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-        <OnboardingStoryBar
-          totalPhases={STRENGTH_PHASES.TOTAL}
-          currentPhase={STRENGTH_PHASES.PROFILE}
-          phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROFILE]}
-        />
-      </div>
+    <div className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden" dir={direction}>
+      {/* Story bar — fixed to top so it never scrolls with form content */}
+      {!isProfileOnly && (
+        <div
+          className="relative flex-shrink-0 bg-white z-10"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <OnboardingStoryBar
+            totalPhases={STRENGTH_PHASES.TOTAL}
+            currentPhase={STRENGTH_PHASES.PROFILE}
+            phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROFILE]}
+          />
+          {/* Back button — exits to /gateway (the entry point for this page) */}
+          <button
+            onClick={() => {
+              const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
+              if (hasHistory) router.back();
+              else router.push('/gateway');
+            }}
+            className="absolute right-3 top-0 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-white/70 shadow-sm active:scale-95 transition-transform"
+            style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
+            aria-label="חזרה"
+          >
+            <ChevronRight size={22} className="text-slate-600" />
+          </button>
+        </div>
+      )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col w-full max-w-md mx-auto px-6 py-8 overflow-y-auto">
+      {/* Main Content — only this region scrolls on small viewports */}
+      <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-md mx-auto px-6 pt-4 pb-2">
         {/* Title + Lemur Guide */}
-        <div className="flex flex-row items-center gap-4 mb-6">
+        <div className="flex flex-row items-center gap-4 mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/assets/lemur/lemur_notepad.png"
             alt=""
-            className="w-1/4 max-w-[120px] shrink-0 object-contain drop-shadow-md pointer-events-none"
+            className="w-1/4 max-w-[100px] shrink-0 object-contain drop-shadow-md pointer-events-none"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
           <div className="flex-1 text-right">
             <h2 className="text-2xl font-black text-slate-900 mb-1">נעים להכיר! 👋</h2>
             <div className="text-sm font-medium text-slate-500 leading-relaxed">
-              אני קלי, המאמן האישי שלך.
-              <br />
-              כדי שנתפור לך תוכנית מדויקת, אני צריך רק כמה פרטים קטנים.
+              {isProfileOnly ? (
+                <>
+                  היי אני קלי המאמן האישי שלך! כדי להקים את הקהילה החדשה, נשאר רק להגדיר כמה פרטים בסיסיים בפרופיל.
+                </>
+              ) : (
+                <>
+                  אני קלי, המאמן האישי שלך.
+                  <br />
+                  כדי שנתפור לך תוכנית מדויקת, אני צריך רק כמה פרטים קטנים.
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        <form className="space-y-6 px-1" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-5 px-1" onSubmit={(e) => e.preventDefault()}>
           {/* Name Input */}
           <div className="space-y-2">
             <label className="block text-slate-800 font-bold text-sm text-right pr-1">
@@ -438,20 +520,25 @@ export default function IdentityProfilePage() {
         </form>
       </div>
 
-      {/* Action Button */}
-      <div className="w-full max-w-md mx-auto px-6" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+      {/* Action Button — sits outside the scroll area, always visible */}
+      <div className="flex-shrink-0 w-full max-w-md mx-auto px-6" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
         <motion.button
           onClick={handleContinue}
-          disabled={!isFormComplete || loading}
-          whileTap={{ scale: isFormComplete && !loading ? 0.97 : 1 }}
+          disabled={!canSubmit || loading}
+          whileTap={{ scale: canSubmit && !loading ? 0.97 : 1 }}
           className={`w-full py-4 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-lg ${
-            isFormComplete && !loading
+            canSubmit && !loading
               ? 'bg-[#5BC2F2] text-white hover:bg-[#4AB1E1] active:shadow-xl' 
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
         >
           {loading ? (
             <span>שומר...</span>
+          ) : isProfileOnly ? (
+            <>
+              <span>שמור וחזור ליצירת הקהילה</span>
+              <ChevronLeft size={20} />
+            </>
           ) : (
             <>
               <span>המשך</span>

@@ -33,7 +33,7 @@ const DEFAULT_PERSONAS: Persona[] = [
       en: 'Perfect for athletes who want to improve performance and reach new personal records',
       es: 'Perfecto para atletas que quieren mejorar el rendimiento'
     },
-    imageUrl: '/assets/lemur/smart-lemur.png',
+    imageUrl: '/assets/lemur/lemur-avatar.png',
     linkedLifestyleTags: ['athlete', 'active'],
     themeColor: '#06B6D4', // Cyan
   },
@@ -69,7 +69,7 @@ const DEFAULT_PERSONAS: Persona[] = [
       en: 'Perfect for students looking for quick workouts between classes and exams',
       es: 'Perfecto para estudiantes'
     },
-    imageUrl: '/assets/lemur/smart-lemur.png',
+    imageUrl: '/assets/lemur/lemur-avatar.png',
     linkedLifestyleTags: ['student', 'young'],
     themeColor: '#8B5CF6', // Purple
   },

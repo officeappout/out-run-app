@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, PanInfo } from 'framer-motion';
-import { PersonStanding, Heart } from 'lucide-react';
+import { PersonStanding, Heart, Sparkles } from 'lucide-react';
 import type { WorkoutTrioOption } from '@/features/workout-engine/services/home-workout.types';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
 import {
@@ -114,6 +114,8 @@ interface WorkoutSelectionCarouselProps {
   programIconKey?: string | null;
   selectedIndex?: number;
   userGender?: 'male' | 'female' | 'other' | null;
+  /** When provided, appends a static "בנה אימון משלך" card after the trio */
+  onBuildCustom?: () => void;
 }
 
 export default function WorkoutSelectionCarousel({
@@ -125,6 +127,7 @@ export default function WorkoutSelectionCarousel({
   programIconKey,
   selectedIndex: controlledIndex,
   userGender,
+  onBuildCustom,
 }: WorkoutSelectionCarouselProps) {
   const [internalIndex, setInternalIndex] = useState(1);
   const activeIndex = controlledIndex ?? internalIndex;
@@ -148,7 +151,8 @@ export default function WorkoutSelectionCarousel({
   const centerX = (viewportW / 2) - (cardW / 2);
   const trackX = centerX - activeIndex * stride;
 
-  const lastIndex = Math.max(0, options.length - 1);
+  const totalCards = options.length;
+  const lastIndex = Math.max(0, totalCards - 1);
   const dragLeft = centerX - lastIndex * stride;
   const dragRight = centerX;
 
@@ -156,10 +160,10 @@ export default function WorkoutSelectionCarousel({
   const { showToast } = useToast();
 
   const handleSelect = useCallback((idx: number) => {
-    const clamped = Math.max(0, Math.min(options.length - 1, idx));
+    const clamped = Math.max(0, Math.min(totalCards - 1, idx));
     setInternalIndex(clamped);
     onSelect(clamped);
-  }, [options.length, onSelect]);
+  }, [totalCards, onSelect]);
 
   const handleGuardedStart = useCallback((idx: number) => {
     if (!isOnline) {
@@ -175,51 +179,59 @@ export default function WorkoutSelectionCarousel({
   }, [activeIndex, handleSelect]);
 
   return (
-    <div
-      ref={viewportRef}
-      dir="rtl"
-      className="overflow-hidden w-full"
-      style={{ height: CARD_HEIGHT + 24 }}
-    >
-      <motion.div
-        className="flex flex-row items-center"
-        style={{ gap: GAP, paddingTop: 8, paddingBottom: 16, direction: 'ltr' }}
-        initial={{ x: trackX }}
-        animate={{ x: trackX }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        drag="x"
-        dragConstraints={{ left: dragLeft, right: dragRight }}
-        dragElastic={0.1}
-        onDragEnd={handleDragEnd}
+    <div dir="rtl" className="w-full">
+      <div
+        ref={viewportRef}
+        className="overflow-hidden w-full"
+        style={{ height: CARD_HEIGHT + 24 }}
       >
-        {options.map((opt, i) => {
-          const isActive = i === activeIndex;
-          return (
-            <motion.div
-              key={i}
-              className="flex-shrink-0"
-              style={{ width: cardW, height: CARD_HEIGHT }}
-              initial={false}
-              animate={{
-                scale: isActive ? ACTIVE_SCALE : SIDE_SCALE,
-                zIndex: isActive ? 20 : 0,
-              }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              onClick={() => !isActive && handleSelect(i)}
-            >
-              <TrioCard
-                option={opt}
-                isRecovery={isRestDay || opt.result.workout.isRecovery}
-                workoutLocation={workoutLocation}
-                programIconKey={programIconKey}
-                onStart={() => handleGuardedStart(i)}
-                isActive={isActive}
-                userGender={userGender}
-              />
-            </motion.div>
-          );
-        })}
-      </motion.div>
+        <motion.div
+          className="flex flex-row items-center"
+          style={{ gap: GAP, paddingTop: 8, paddingBottom: 16, direction: 'ltr' }}
+          initial={{ x: trackX }}
+          animate={{ x: trackX }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          drag="x"
+          dragConstraints={{ left: dragLeft, right: dragRight }}
+          dragElastic={0.1}
+          onDragEnd={handleDragEnd}
+        >
+          {options.map((opt, i) => {
+            const isActive = i === activeIndex;
+            return (
+              <motion.div
+                key={i}
+                className="flex-shrink-0"
+                style={{ width: cardW, height: CARD_HEIGHT }}
+                initial={false}
+                animate={{
+                  scale: isActive ? ACTIVE_SCALE : SIDE_SCALE,
+                  zIndex: isActive ? 20 : 0,
+                }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                onClick={() => !isActive && handleSelect(i)}
+              >
+                <TrioCard
+                  option={opt}
+                  isRecovery={isRestDay || opt.result.workout.isRecovery}
+                  workoutLocation={workoutLocation}
+                  programIconKey={programIconKey}
+                  onStart={() => handleGuardedStart(i)}
+                  isActive={isActive}
+                  userGender={userGender}
+                />
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </div>
+
+      {onBuildCustom && (
+        <BuildCustomButton
+          onTap={onBuildCustom}
+          userGender={userGender}
+        />
+      )}
     </div>
   );
 }
@@ -261,7 +273,7 @@ function TrioCard({
     const seen = new Set<string>();
     const icons: { srcList: string[]; label: string; norm: string }[] = [];
     for (const ex of exercises) {
-      if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown') continue;
+      if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown' || ex.exerciseRole === 'recovery') continue;
       const method = ex.method;
       const rawIds: string[] = [
         ...((method as any)?.gearIds ?? []),
@@ -429,6 +441,133 @@ function TrioCard({
         >
           {ctaText}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── BuildCustomButton ────────────────────────────────────────────────────────
+
+const MESSAGES_MALE = [
+  'תבנה אימון שמתאים למה שיש לך היום ✦',
+  'אז מה ה-OUT שלך היום? ✦',
+  'כמה זמן יש לך? אני אבנה לך אימון מושלם ✦',
+  'רוצה לבנות אימון בעצמך? ✦',
+];
+
+const MESSAGES_FEMALE = [
+  'תבני אימון שמתאים למה שיש לך היום ✦',
+  'אז מה ה-OUT שלך היום? ✦',
+  'כמה זמן יש לך? אני אבני לך אימון מושלם ✦',
+  'רוצה לבנות אימון בעצמך? ✦',
+];
+
+function BuildCustomButton({
+  onTap,
+  userGender,
+}: {
+  onTap: () => void;
+  userGender?: 'male' | 'female' | 'other' | null;
+}) {
+  const messages = userGender === 'female' ? MESSAGES_FEMALE : MESSAGES_MALE;
+  const [msgIdx, setMsgIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const [pressed, setPressed] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setMsgIdx(i => (i + 1) % messages.length);
+        setVisible(true);
+      }, 300);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [messages.length]);
+
+  return (
+    <div className="px-4 pb-3" dir="rtl">
+      <style>{`
+        @keyframes shimmerBorder {
+          0%   { background-position: 0% 50%; }
+          100% { background-position: 300% 50%; }
+        }
+        @keyframes shimmerBorderFast {
+          0%   { background-position: 0% 50%; }
+          100% { background-position: 300% 50%; }
+        }
+      `}</style>
+
+      {/* Gradient border wrapper */}
+      <div
+        style={{
+          padding: 2,
+          borderRadius: 50,
+          background: 'linear-gradient(90deg, #00BAF7, #0CF2E3, #00BAF7, #0CF2E3)',
+          backgroundSize: '300% 100%',
+          animation: pressed
+            ? 'shimmerBorderFast 1s linear infinite'
+            : 'shimmerBorder 5.5s linear infinite',
+          transform: pressed ? 'scale(0.97)' : 'scale(1)',
+          boxShadow: pressed ? '0 0 14px rgba(0,186,247,0.35)' : 'none',
+          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+        }}
+        onPointerDown={() => setPressed(true)}
+        onPointerUp={() => { setPressed(false); onTap(); }}
+        onPointerLeave={() => setPressed(false)}
+        onPointerCancel={() => setPressed(false)}
+      >
+        {/* Inner transparent surface */}
+        <div
+          style={{
+            borderRadius: 48,
+            background: 'white',
+            padding: '14px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: 'pointer',
+            minHeight: 52,
+            direction: 'rtl',
+          }}
+        >
+          <Sparkles size={18} color="#00BAF7" strokeWidth={2} style={{ flexShrink: 0 }} />
+          <span
+            style={{
+              flex: 1,
+              fontSize: 15,
+              fontWeight: 500,
+              color: '#00BAF7',
+              textAlign: 'center',
+              opacity: visible ? 1 : 0,
+              transform: visible ? 'translateY(0)' : 'translateY(5px)',
+              transition: visible
+                ? 'opacity 0.4s ease, transform 0.4s ease'
+                : 'opacity 0.3s ease, transform 0.3s ease',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {messages[msgIdx]}
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation dots */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+        {messages.map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: i === msgIdx ? 12 : 4,
+              height: 4,
+              borderRadius: 2,
+              background: i === msgIdx ? '#00BAF7' : 'rgba(0,186,247,0.25)',
+              transition: 'width 0.3s ease, background 0.3s ease',
+            }}
+          />
+        ))}
       </div>
     </div>
   );

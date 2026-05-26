@@ -8,11 +8,17 @@ import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 // Light-theme palette — mirrors `MainMetrics.tsx` so swiping between the
 // two slides looks like one cohesive surface. Cyan accent maps to the
 // `out-cyan` token (#00ADEF) in `tailwind.config.ts`.
-const NUM_COLOR     = '#000000';
-const LABEL_COLOR   = 'rgba(0, 0, 0, 0.65)';
-const HEADER_COLOR  = 'rgba(0, 0, 0, 0.45)';
-const DIVIDER_COLOR = 'rgba(0, 0, 0, 0.08)';
-const ACCENT_COLOR  = '#00ADEF';
+//
+// Each value is consumed via a CSS custom property set on the parent card
+// (`AdaptiveMetricsWrapper`) so this slide re-themes to the orange family
+// the moment `useSessionStore.status === 'paused'`. The hard-coded values
+// below are kept as FALLBACKS so the slide still renders correctly if the
+// parent ever forgets to declare the variables.
+const NUM_COLOR     = 'var(--metrics-num-color, #000000)';
+const LABEL_COLOR   = 'var(--metrics-label-color, rgba(0, 0, 0, 0.65))';
+const HEADER_COLOR  = 'var(--metrics-header-color, rgba(0, 0, 0, 0.45))';
+const DIVIDER_COLOR = 'var(--metrics-divider-color, rgba(0, 0, 0, 0.08))';
+const ACCENT_COLOR  = 'var(--metrics-accent-color, #00ADEF)';
 
 const formatTime = (seconds: number | undefined | null): string => {
   const s = seconds ?? 0;

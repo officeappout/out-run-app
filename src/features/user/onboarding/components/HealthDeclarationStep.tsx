@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldCheck, Zap, X, Loader2, Info } from 'lucide-react';
 import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import SignaturePad from './SignaturePad';
-import { generateHealthDeclarationPdf } from '../services/pdf-service';
+// pdf-service is NOT statically imported here — see the preload useEffect below.
+// Keeping it out of the static import graph prevents pdf-lib (~600 KB) from being
+// bundled into this page's initial JS chunk, eliminating the main-thread freeze
+// that occurred when the browser first evaluated the chunk during navigation.
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { storage, db, auth } from '@/lib/firebase';
@@ -22,10 +25,16 @@ interface HealthDeclarationStepProps {
   onComplete?: () => void;
 }
 
+// Module-level cache so the preloaded `generateHealthDeclarationPdf` function
+// survives across re-renders. We store the resolved function directly rather
+// than the module promise so `handleSubmit` can call it synchronously once
+// the background import has completed.
+let _cachedGeneratePdf: ((name: string, sig: string) => Promise<Uint8Array>) | null = null;
+
 export default function HealthDeclarationStep({
     title,
     description,
-    onContinue,
+  onContinue,
   onComplete,
 }: HealthDeclarationStepProps) {
   // ── User data from sessionStorage ──
@@ -44,6 +53,23 @@ export default function HealthDeclarationStep({
 
   // ── Store ──
   const updateData = useOnboardingStore((state) => state.updateData);
+
+  // ── Background preload of pdf-lib ────────────────────────────────────────
+  // Triggered once on mount so the browser fetches and evaluates the pdf-lib
+  // bundle (~600 KB) during the time the user is reading and answering the
+  // health questionnaire. By the time they click submit the module is already
+  // parsed and cached — zero JS evaluation cost on button press.
+  useEffect(() => {
+    import('../services/pdf-service')
+      .then((mod) => {
+        _cachedGeneratePdf = mod.generateHealthDeclarationPdf;
+        console.log('[HealthDeclaration] pdf-service preloaded in background.');
+      })
+      .catch((err) => {
+        // Non-fatal: handleSubmit will attempt another dynamic import as fallback.
+        console.warn('[HealthDeclaration] Background preload of pdf-service failed:', err);
+      });
+  }, []);
 
   // ── State ──
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
@@ -131,7 +157,14 @@ export default function HealthDeclarationStep({
       let pdfDownloadUrl: string | null = null;
 
       try {
-        const pdfBytes = await generateHealthDeclarationPdf(userName, signatureData);
+        // Use the module-level cached function from the background preload.
+        // If the user clicks before the preload finishes (rare — they must fill
+        // all questions, sign, and tick the checkbox first), fall back to a fresh
+        // dynamic import which will resolve immediately from the browser cache.
+        const generatePdf = _cachedGeneratePdf
+          ?? (await import('../services/pdf-service')).generateHealthDeclarationPdf;
+
+        const pdfBytes = await generatePdf(userName, signatureData);
 
         // ── 2. Upload to Firebase Storage ──
         const userId = auth.currentUser?.uid;

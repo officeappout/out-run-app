@@ -1,16 +1,35 @@
 'use client';
 
 /**
- * WorkoutControlCluster — circular Lap / Pause / Stop trio for FreeRunActive.
+ * WorkoutControlCluster — 2-button state machine for FreeRunActive.
  * --------------------------------------------------------------------------
- * Replaces the global `<SessionControlBar />` for free-run sessions and
- * matches the visual language of `PlannedRunActive`'s in-map FAB row:
- * three circular buttons anchored at the bottom of the map area, with
- * the central Pause/Stop guarded by a 1.5 s long-press conic ring.
+ * Replaces the previous Lap / Pause / Stop trio with a tighter cluster that
+ * mirrors the in-flight workout state. The cluster only ever shows TWO
+ * buttons; what those two buttons are depends on the session status:
  *
- *   [ Lap (cyan) ]   [ Pause (orange) ]   [ Stop (red) ]
- *      56 px              64 px              56 px
- *      tap            long-press 1.5s    long-press 1.5s
+ *   ┌────────── RUNNING (status === 'active') ─────────────┐
+ *   │ [ Lap (cyan, tap) ]      [ Pause (orange, tap) ]     │
+ *   │   56 px                    64 px                     │
+ *   │   single tap               single tap                │
+ *   │                                                       │
+ *   │  No standalone Stop button. Stop is only reachable    │
+ *   │  by first pausing — that gate IS the safety guard     │
+ *   │  against accidental finish.                           │
+ *   └───────────────────────────────────────────────────────┘
+ *
+ *   ┌────────── PAUSED (status === 'paused') ──────────────┐
+ *   │ [ Stop (red, hold 700ms) ]   [ Resume (orange, tap) ] │
+ *   │   56 px                       64 px                   │
+ *   │   long-press 0.7 s            single tap              │
+ *   │                                                       │
+ *   │  The Stop button replaces Lap on the LEFT only after  │
+ *   │  the user has paused. The 700 ms hold is a deliberate │
+ *   │  guard so a stray tap can't terminate the workout.    │
+ *   │                                                       │
+ *   │  AdaptiveMetricsWrapper additionally paints itself    │
+ *   │  with an orange border + orange numbers in this       │
+ *   │  state so the user sees the paused mode immediately.  │
+ *   └───────────────────────────────────────────────────────┘
  *
  * Bottom-offset contract:
  *   The cluster reads `--session-bar-clearance` (set live by
@@ -22,13 +41,8 @@
  *
  * Lap toast:
  *   "Lap N" bubble (same emerald gradient as SessionControlBar) appears
- *   ~88 px above the cluster for ~1.8 s on every successful lap.
- *
- * Why a separate component:
- *   FreeRunActive owns its full chrome now and should NOT rely on a
- *   MapShell-mounted singleton for its primary controls — that would
- *   make the cluster's position depend on whether the global bar is
- *   present, and force MapShell to know about FreeRun's control surface.
+ *   ~88 px above the cluster for ~1.8 s on every successful lap. Only
+ *   surfaces in the running state — paused has no Lap button.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,9 +55,13 @@ const LAP_TOAST_MS = 1800;
 
 // Light-theme palette consistent with SessionControlBar / PlannedRun.
 const LAP_COLOR = '#00ADEF';   // out-cyan
-const PAUSE_COLOR = '#FF8C00'; // structured-pause orange
+const PAUSE_COLOR = '#FF8C00'; // structured-pause / resume orange
 const STOP_COLOR = '#EF4444';  // destructive red
-const RESUME_COLOR = '#10B981';// emerald (mirrors paused-state SessionControlBar)
+
+// Long-press threshold for the destructive Stop confirmation. 700 ms is
+// short enough to feel responsive but long enough that a stray tap on a
+// jostling phone never terminates the workout.
+const STOP_HOLD_SECONDS = 0.7;
 
 export default function WorkoutControlCluster() {
   const status = useSessionStore((s) => s.status);
@@ -68,13 +86,19 @@ export default function WorkoutControlCluster() {
     lapToastTimer.current = setTimeout(() => setLapToast(null), LAP_TOAST_MS);
   }, []);
 
-  const handlePauseConfirm = useCallback(() => {
-    if (isPaused) {
-      resumeSession();
-    } else {
-      pauseSession();
+  const handlePause = useCallback(() => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(12);
     }
-  }, [isPaused, pauseSession, resumeSession]);
+    pauseSession();
+  }, [pauseSession]);
+
+  const handleResume = useCallback(() => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(12);
+    }
+    resumeSession();
+  }, [resumeSession]);
 
   const handleStopConfirm = useCallback(async () => {
     const { finishWorkout } = useRunningPlayer.getState();
@@ -92,10 +116,10 @@ export default function WorkoutControlCluster() {
   return (
     <>
       {/* Lap toast — sits ~88 px above the cluster row so it doesn't
-          collide with the buttons. Same offset recipe as SessionControlBar
-          so toggling between free-run and other flows keeps the toast
-          in the same spot. */}
-      {lapToast && (
+          collide with the buttons. Only relevant in the running state;
+          gated below by `!isPaused` so a stale toast can't survive into
+          the paused chrome. */}
+      {lapToast && !isPaused && (
         <div
           className="absolute left-1/2 -translate-x-1/2 z-40 px-5 py-2 rounded-2xl font-black text-sm text-white pointer-events-none animate-bounce"
           style={{
@@ -112,11 +136,11 @@ export default function WorkoutControlCluster() {
       {/*
         Cluster row.
         ────────────
-        `dir="ltr"` so the visual order (Lap | Pause | Stop) is constant
-        regardless of the parent's RTL container — long-press feedback
-        and conic rings shouldn't flip on language. The bottom offset
-        respects both the card's measured clearance AND the safe-area
-        inset on notched devices.
+        `dir="ltr"` so the visual order is constant regardless of the
+        parent's RTL container — long-press feedback and conic rings
+        shouldn't flip on language. The bottom offset respects both the
+        card's measured clearance AND the safe-area inset on notched
+        devices.
       */}
       <div
         className="absolute left-0 right-0 z-40 flex items-center justify-center gap-5 pointer-events-auto px-6"
@@ -126,66 +150,117 @@ export default function WorkoutControlCluster() {
             'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px))',
         }}
       >
-        {/* Lap — single tap, same circular minimal recipe as Pause but
-            without the long-press ring. Cyan inner disc, faint outer
-            ring acts as a visual peer to the conic rings on the
-            long-press buttons (so the trio reads as one cluster). */}
-        <button
-          type="button"
-          aria-label="הקפה חדשה"
-          onClick={handleLap}
-          className="relative flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 56, height: 56, minWidth: 44, minHeight: 44 }}
-        >
-          <div
-            className="absolute inset-0 rounded-full"
-            style={{
-              border: `2px solid ${LAP_COLOR}40`, // 25% opacity peer-ring
-            }}
-          />
-          <div
-            className="rounded-full flex items-center justify-center text-white shadow-lg"
-            style={{
-              width: 42,
-              height: 42,
-              backgroundColor: LAP_COLOR,
-            }}
-          >
-            <RotateCcw size={20} strokeWidth={2.5} />
-          </div>
-        </button>
+        {isPaused ? (
+          <>
+            {/* Stop — long-press 700 ms with the destructive red palette.
+                Calls `finishWorkout` directly; the long-press IS the
+                confirmation. Replaces the Lap button on the LEFT so the
+                geometry of the cluster stays balanced (small / big) and
+                the orange Resume button keeps its anchor on the right. */}
+            <LongPressCircleButton
+              icon={<Square size={20} fill="currentColor" />}
+              color={STOP_COLOR}
+              onConfirm={handleStopConfirm}
+              holdDuration={STOP_HOLD_SECONDS}
+              size={56}
+              ariaLabel="סיים אימון"
+            />
 
-        {/* Pause / Resume — long-press 1.5 s. Colour & icon swap on
-            paused state so the same physical button reads as the
-            primary "continue" CTA after a pause without forcing the
-            user to look elsewhere. */}
-        <LongPressCircleButton
-          icon={
-            isPaused ? (
-              <Play size={26} fill="currentColor" />
-            ) : (
-              <Pause size={26} fill="currentColor" />
-            )
-          }
-          color={isPaused ? RESUME_COLOR : PAUSE_COLOR}
-          onConfirm={handlePauseConfirm}
-          holdDuration={1.5}
-          size={64}
-          ariaLabel={isPaused ? 'המשך אימון' : 'השהה אימון'}
-        />
+            {/* Resume — single tap. Orange disc + white play icon
+                matches the paused-state metrics card so the user sees
+                a single coherent orange surface to "press play". No
+                long-press: resuming is non-destructive. */}
+            <CircleTapButton
+              icon={<Play size={26} fill="currentColor" className="text-white" />}
+              color={PAUSE_COLOR}
+              onClick={handleResume}
+              size={64}
+              ariaLabel="המשך אימון"
+            />
+          </>
+        ) : (
+          <>
+            {/* Lap — single tap. Cyan inner disc, faint outer ring acts
+                as a visual peer to any future long-press conic ring on
+                the right (so the pair reads as one cluster). */}
+            <CircleTapButton
+              icon={<RotateCcw size={20} strokeWidth={2.5} className="text-white" />}
+              color={LAP_COLOR}
+              onClick={handleLap}
+              size={56}
+              ariaLabel="הקפה חדשה"
+            />
 
-        {/* Stop — long-press 1.5 s with the destructive red palette. Calls
-            `finishWorkout` directly (bypassing the pause overlay) — the
-            long-press IS the confirmation, no extra modal. */}
-        <LongPressCircleButton
-          icon={<Square size={20} fill="currentColor" />}
-          color={STOP_COLOR}
-          onConfirm={handleStopConfirm}
-          holdDuration={1.5}
-          size={56}
-          ariaLabel="סיים אימון"
-        />
+            {/* Pause — single tap. Pausing is a fully reversible state
+                transition (Resume restores everything), so no long-press
+                guard is needed here. The destructive guard lives on the
+                Stop button that surfaces AFTER the user has paused. */}
+            <CircleTapButton
+              icon={<Pause size={26} fill="currentColor" className="text-white" />}
+              color={PAUSE_COLOR}
+              onClick={handlePause}
+              size={64}
+              ariaLabel="השהה אימון"
+            />
+          </>
+        )}
       </div>
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline helper: circular tap button.
+// Visual recipe mirrors the inner disc + faint outer peer-ring of
+// `LongPressCircleButton` so the two button kinds slot into the cluster
+// without any visual seam — only the destructive Stop carries an active
+// progress ring (filled by the LongPressCircleButton itself).
+// Kept local because it's tightly coupled to the cluster's visual language
+// and has no other consumer.
+// ─────────────────────────────────────────────────────────────────────────────
+interface CircleTapButtonProps {
+  icon: React.ReactNode;
+  color: string;
+  onClick: () => void;
+  size?: number;
+  ariaLabel?: string;
+}
+
+function CircleTapButton({
+  icon,
+  color,
+  onClick,
+  size = 56,
+  ariaLabel,
+}: CircleTapButtonProps) {
+  const innerSize = Math.round(size * 0.75);
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className="relative flex items-center justify-center active:scale-90 transition-transform"
+      style={{ width: size, height: size, minWidth: 44, minHeight: 44 }}
+    >
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          // 25 %-opacity peer ring matches the unfilled track on
+          // LongPressCircleButton (rgba white 22 % over the colour disc).
+          // Mixing in the button colour keeps the ring branded per-button.
+          border: `2px solid ${color}40`,
+        }}
+      />
+      <div
+        className="rounded-full flex items-center justify-center text-white shadow-lg"
+        style={{
+          width: innerSize,
+          height: innerSize,
+          backgroundColor: color,
+        }}
+      >
+        {icon}
+      </div>
+    </button>
   );
 }

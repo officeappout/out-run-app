@@ -12,7 +12,7 @@ import { Exercise, MechanicalType, ExerciseTag } from '@/features/content/exerci
 import type { ScoredExercise } from './contextual-engine.types';
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
-import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
+import { normalizeGearId, ESSENTIAL_PARK_GEAR, satisfiesGearRequirement } from '../shared/utils/gear-mapping.utils';
 import type {
   DifficultyLevel,
   ExercisePriority,
@@ -26,6 +26,20 @@ import type {
 const DOMAIN_ALIAS_MAP: Record<string, string[]> = {
   lower_body: ['legs'],
   upper_body: ['push', 'pull'],
+  // Skill compound sub-programs — treated as children of their parent compound domain.
+  // This populates DOMAIN_PARENT_MAP so that:
+  //   DOMAIN_PARENT_MAP['front_lever']  = ['pull']
+  //   DOMAIN_PARENT_MAP['muscle_up']    = ['pull']
+  //   DOMAIN_PARENT_MAP['back_lever']   = ['pull']
+  //   DOMAIN_PARENT_MAP['planche']      = ['push']
+  //   DOMAIN_PARENT_MAP['handstand']    = ['push']
+  // When `applyDifficultyFilter` resolves a user level for a
+  // {programId: 'front_lever', level: X} exercise in a pull session,
+  // it traverses parents → finds 'pull' → uses user.pull.level.
+  // Without this mapping, the lookup falls back to globalLevel, breaking
+  // levelDiff and the scoring proximity calculation for multi-keyed exercises.
+  pull: ['muscle_up', 'front_lever', 'back_lever'],
+  push: ['planche', 'handstand'],
 };
 
 const DOMAIN_PARENT_MAP: Record<string, string[]> = {};
@@ -43,22 +57,56 @@ export { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP };
 
 /**
  * Resolve an exercise's level from its targetPrograms, prioritising the entry
- * that matches one of the currently active domains.
+ * that matches the primary active program (if any) and then the currently
+ * active domains.
  *
- * Priority:
+ * Priority (top to bottom; first match wins and returns immediately):
+ *  0. Primary program match: targetPrograms entry whose ID/slug exactly
+ *     matches `primaryProgramId` (`context.activeProgramId`). This wins
+ *     unconditionally over the generic baseline tracks so that a skill
+ *     program (e.g. `planche` L7) is never hijacked by a co-tagged
+ *     foundational domain (e.g. `push` L5) just because the foundational
+ *     entry happens to be indexed first in `exercise.targetPrograms`.
  *  1. Direct match: targetPrograms entry whose programId is in activeDomains
- *  2. Parent match:  targetPrograms entry whose programId is a parent of an active domain
- *  3. Fallback:      first targetPrograms entry → recommendedLevel → 1
+ *  2. Parent match:  targetPrograms entry whose programId is a parent of an
+ *     active domain
+ *  3. Reverse match: exercise's resolved domain is a child of an active domain
+ *  4. Fallback:      first targetPrograms entry → recommendedLevel → 1
  *
- * @returns `{ level, resolvedDomain }` where resolvedDomain is the matched domain or null
+ * @param exercise         Exercise to resolve a level for.
+ * @param activeDomains    Active workout domain IDs (push, pull, planche, …).
+ * @param primaryProgramId The user's primary active program (e.g.
+ *                         `context.activeProgramId`). When provided, an exact
+ *                         match against this id is returned immediately —
+ *                         strictly enforcing the spreadsheet rule that the
+ *                         active skill track dominates baseline foundational
+ *                         tracks for multi-assigned exercises.
+ * @returns                `{ level, resolvedDomain }` where `resolvedDomain`
+ *                         is the matched domain or `null` on fallback.
  */
 export function resolveExerciseLevelForDomains(
   exercise: Exercise,
   activeDomains?: string[],
+  primaryProgramId?: string,
 ): { level: number; resolvedDomain: string | null } {
   const tps = exercise.targetPrograms;
   if (!tps || tps.length === 0) {
     return { level: exercise.recommendedLevel || 1, resolvedDomain: null };
+  }
+
+  // 0. Primary-program priority — a targetPrograms entry whose id/slug
+  //    exactly matches the primary active program ALWAYS wins.  This is the
+  //    fix for the "first-wins blindness" where an exercise like פלאנץ׳ בטאק
+  //    with targetPrograms [{push, L5}, {planche, L7}] would resolve to L5
+  //    while training the planche skill, because `push` happened to come
+  //    first in either the array or the activeDomains list.
+  if (primaryProgramId) {
+    const tp = tps.find(
+      (t) =>
+        t.programId === primaryProgramId ||
+        resolveToSlug(t.programId) === primaryProgramId,
+    );
+    if (tp) return { level: tp.level, resolvedDomain: primaryProgramId };
   }
 
   if (activeDomains && activeDomains.length > 0) {
@@ -238,25 +286,68 @@ export function applyDifficultyFilter(
   return exercises.map((ex) => {
     // Domain-aware: resolve exercise level from the targetPrograms entry
     // matching the active workout domains, not blindly from [0].
-    const exerciseLevel = (ex.programLevel ?? resolveExerciseLevelForDomains(ex.exercise, activeDomainIds).level) || globalLevel;
+    // `context.activeProgramId` is forwarded as the primary-program tiebreaker
+    // so multi-assigned exercises (e.g. {push, L5} + {planche, L7}) resolve
+    // to the skill-level entry when the user is training that skill.
+    const exerciseLevel =
+      (ex.programLevel
+        ?? resolveExerciseLevelForDomains(
+          ex.exercise,
+          activeDomainIds,
+          context.activeProgramId,
+        ).level)
+      || globalLevel;
 
     let rawDomainLevel: number | null = null;
     const tps = ex.exercise.targetPrograms;
     if (tps && tps.length > 0) {
+      // Two-pass resolution — prioritise the tp entry whose resolved slug
+      // matches an active session domain (activeDomainIds).  This ensures
+      // rawDomainLevel is derived from the same track as exerciseLevel,
+      // preventing cross-domain levelDiff mismatches.
+      //
+      // Example: exercise tagged [{pull, L1}, {front_lever, L5}] in a
+      // front_lever session.  Old code: rawDomainLevel = user.pull (first
+      // match), exerciseLevel = 5 (front_lever) → levelDiff = 5−8 = −3 even
+      // though the exercise is perfectly on-level for the skill track.
+      // New code: scan finds {front_lever, L5} → rawDomainLevel = user.front_lever
+      // → levelDiff = 5−5 = 0 ✓
+      //
+      // When no active-domain tp is found, falls back to the first available
+      // match (original behaviour) so non-skill sessions are unaffected.
+      let activeDomainMatch: number | null = null;
+      let fallbackLevel: number | null = null;
+
       for (const tp of tps) {
-        const directLevel = domainLevelMap.get(tp.programId)
-          ?? domainLevelMap.get(resolveToSlug(tp.programId));
-        if (directLevel != null) { rawDomainLevel = directLevel; break; }
         const slug = resolveToSlug(tp.programId);
-        const parents = DOMAIN_PARENT_MAP[tp.programId] ?? DOMAIN_PARENT_MAP[slug];
-        if (parents) {
-          for (const p of parents) {
-            const parentLevel = domainLevelMap.get(p);
-            if (parentLevel != null) { rawDomainLevel = parentLevel; break; }
+        const bySlug = domainLevelMap.get(slug);
+        const byId = domainLevelMap.get(tp.programId);
+        const directLevel = bySlug ?? byId ?? null;
+
+        if (directLevel != null) {
+          const matchesActive =
+            activeDomainIds.length > 0 &&
+            activeDomainIds.some(
+              d => d === slug || d === tp.programId || resolveToSlug(d) === slug,
+            );
+          if (matchesActive) {
+            activeDomainMatch = directLevel;
+            break; // Active-domain match wins immediately
           }
-          if (rawDomainLevel !== null) break;
+          if (fallbackLevel === null) fallbackLevel = directLevel;
+        } else {
+          // No direct level — check parent map and record as fallback only.
+          const parents = DOMAIN_PARENT_MAP[tp.programId] ?? DOMAIN_PARENT_MAP[slug];
+          if (parents && fallbackLevel === null) {
+            for (const p of parents) {
+              const parentLevel = domainLevelMap.get(p);
+              if (parentLevel != null) { fallbackLevel = parentLevel; break; }
+            }
+          }
         }
       }
+
+      rawDomainLevel = activeDomainMatch ?? fallbackLevel;
     }
 
     // STRICT DOMAIN GATING: if targetPrograms lookup didn't match,
@@ -339,18 +430,32 @@ export function selectExercisesForDifficulty(
 
   if (pool.length >= count) return pool.slice(0, count);
 
-  // Overflow: fill remaining slots from exercises outside the bolt window,
-  // but enforce a hard levelDiff cap to prevent wildly over-levelled exercises
-  // from leaking in (e.g., L18 Tuck Planche Push-up for an L12 Push user).
+  // Overflow: fill remaining slots when both strict and relaxed bolt pools are
+  // insufficient.  Two safeguards:
+  //   1. Bolt-aware range: bolt 1 (Easy) never overflows into at-level or
+  //      above-level exercises — that would silently undo the difficulty
+  //      selection.  Bolt 3 (Hard) keeps the existing HARD_LEVEL_CAP ceiling.
+  //   2. Proximity sort: overflow exercises are ordered by how close their
+  //      levelDiff is to the bolt's INTENDED target, so the engine always
+  //      picks the most on-target exercise before falling further away.
+  //      Score is used only as a tiebreaker within the same proximity tier.
   const HARD_LEVEL_CAP = 3;
+  const targetDiff = difficulty === 3 ? 1 : difficulty === 1 ? -2 : -1;
   const poolIds = new Set(pool.map((ex) => ex.exercise.id));
   const overflow = exercises
     .filter((ex) => {
       if (poolIds.has(ex.exercise.id)) return false;
       const d = ex.levelDiff ?? 0;
+      if (difficulty === 1) return d <= -1 && d >= -3; // Easy: never leak at-level or above
+      if (difficulty === 3) return d >= -1 && d <= HARD_LEVEL_CAP;
       return d <= HARD_LEVEL_CAP;
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      const aProx = Math.abs((a.levelDiff ?? 0) - targetDiff);
+      const bProx = Math.abs((b.levelDiff ?? 0) - targetDiff);
+      if (aProx !== bProx) return aProx - bProx; // closer to intended bolt first
+      return b.score - a.score;                   // score as tiebreaker
+    });
 
   return [...pool, ...overflow].slice(0, count);
 }
@@ -462,13 +567,22 @@ export function selectExercisesWithDomainQuotas(
       const isLocationCompatible = (ex: Exercise) => {
         const m = findMethod(ex);
         if (!m) return false;
-        if (loc === 'park' || loc === 'outdoor_gym') return true;
         const gearIds = m.gearIds ?? (m.gearId ? [m.gearId] : []);
         const equipmentIds = m.equipmentIds ?? (m.equipmentId ? [m.equipmentId] : []);
         const all = [...gearIds, ...equipmentIds].filter(Boolean);
-        return all.length === 0 || all.every((id) => {
+        if (all.length === 0) return true;
+        // Pre-normalise the available inventory once for the whole method.
+        // Route through satisfiesGearRequirement (from gear-mapping.utils.ts)
+        // so unidirectional rules like parallettes → dip_station are honoured
+        // here too — not just inside ContextualEngine.findMatchingMethod.
+        const avail = context.availableEquipment;
+        const normalizedAvail = avail?.length
+          ? avail.map(normalizeGearId)
+          : Array.from(ESSENTIAL_PARK_GEAR);  // catastrophic fallback
+        return all.every((id) => {
           const norm = normalizeGearId(id);
-          return norm === 'bodyweight' || norm === 'none' || ESSENTIAL_PARK_GEAR.has(norm);
+          if (norm === 'bodyweight' || norm === 'none') return true;
+          return satisfiesGearRequirement(norm, normalizedAvail);
         });
       };
       const getLevelForDomain = (ex: Exercise): number => {
@@ -512,11 +626,19 @@ export function selectExercisesWithDomainQuotas(
       });
       rescue = pickVerticalFirst(step1);
 
-      // Step 2: Progressive window — try ±1, ±2, ±3 (prefers closest match)
+      // Step 2: Progressive window — try ±1, ±2, ±3 (direction is bolt-aware)
+      // Bolt 1 (Easy) scans downward first so it prefers L(user-1) before
+      // L(user+1).  Bolt 3 (Hard) scans upward first to prefer L(user+1)
+      // before falling back to L(user-1).  Bolt 2 keeps the original [+1,-1]
+      // order (closer match first, then lower).
       if (!rescue) {
+        const dirs: [number, number] =
+          difficulty === 1 ? [-1, 1] : // Easy  → lower first
+          difficulty === 3 ? [1, -1] : // Hard  → higher first
+                             [1, -1];  // Normal → higher first (original)
         for (const delta of [1, 2, 3]) {
           const candidates: Exercise[] = [];
-          for (const dir of [1, -1]) {
+          for (const dir of dirs) {
             const targetLevel = userLevel + (delta * dir);
             if (targetLevel < 1) continue;
             const matched = pool.filter((ex) => {
@@ -649,7 +771,13 @@ export function selectExercisesWithDomainQuotas(
   takeFromPool(secondaryPool, count - selected.length);
 
   if (selected.length < count) {
-    const any = shuffled.filter((s) => !selectedIds.has(s.exercise.id)).sort((a, b) => b.score - a.score);
+    const any = shuffled
+      .filter((s) =>
+        !selectedIds.has(s.exercise.id) &&
+        (!context.strictDomains ||
+          context.requiredDomains!.some(d => exerciseMatchesProgram(s.exercise, d)))
+      )
+      .sort((a, b) => b.score - a.score);
     const shuffledAny = seededShuffle(any.slice(0, (count - selected.length) * 2), seed + 999);
     for (const s of shuffledAny) {
       if (selected.length >= count) break;

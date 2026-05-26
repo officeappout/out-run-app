@@ -26,7 +26,7 @@ import {
 } from '@/features/content/exercises/core/exercise.types';
 import { UserFullProfile, TrainingDomainId } from '@/features/user/core/types/user.types';
 import { resolveDataLevel } from './level-resolution.utils';
-import { resolveToSlug } from './program-hierarchy.utils';
+import { resolveToSlug, resolveSlugToId } from './program-hierarchy.utils';
 
 // ============================================================================
 // TYPES
@@ -178,6 +178,18 @@ export function exerciseMatchesProgram(exercise: Exercise, programKey: string): 
   // Also check if any programId resolves to the programKey via slug map
   if (exercise.programIds?.some(pid => resolveToSlug(pid) === programKey)) return true;
 
+  // Bidirectional hash↔slug: when programKey is a canonical slug (e.g. 'planche'),
+  // also accept exercises whose targetPrograms / programIds store the corresponding
+  // Firestore document hash ID (e.g. 'pCI5NHXpowu2ySucqDn8').
+  // This covers admin-created exercises where the program picker saves the hash
+  // rather than the human-readable slug, which the forward direction alone misses
+  // if resolveToSlug hasn't been populated yet (cold start / cache eviction).
+  const programKeyHashId = resolveSlugToId(programKey);
+  if (programKeyHashId) {
+    if (exercise.targetPrograms?.some(tp => tp.programId === programKeyHashId)) return true;
+    if (exercise.programIds?.includes(programKeyHashId)) return true;
+  }
+
   if (programKey === 'full_body') return true;
 
   // Legs: triple-fallback — movementGroup OR primaryMuscle OR name/tags string
@@ -242,22 +254,34 @@ export function exerciseMatchesProgram(exercise: Exercise, programKey: string): 
  *   2. MovementGroup ShadowMatrix override
  *   3. MuscleGroup ShadowMatrix override
  *   4. User assessment level (tracks/domains) via targetPrograms program match
+ *      4a. ACTIVE PROGRAM MATCH (new): a `targetPrograms` entry whose
+ *          id/slug exactly matches `activeProgramId` wins unconditionally —
+ *          this prevents the generic baseline `push` track from hijacking
+ *          a Planche L7 entry just because `push` happens to be indexed
+ *          first in the exercise's `targetPrograms` array.
+ *      4b. Standard array-order lookup (existing fall-through behaviour).
  *   5. Normal domain-based Shadow Tracking from user profile
  *
  * BOTTOM-UP: Child domains (push, pull, legs, core) hold granular levels.
  * Only when a child domain is completely missing do we fall back to baseUserLevel.
  *
- * @param exercise       The exercise whose level is being resolved.
- * @param userProfile    The full user profile (contains progression.domains).
- * @param shadowMatrix   Optional QA-testing override structure.
- * @param baseUserLevel  Fallback when a child domain level is missing (default: 1).
- * @returns              Effective level (1-20+) for this exercise.
+ * @param exercise        The exercise whose level is being resolved.
+ * @param userProfile     The full user profile (contains progression.domains).
+ * @param shadowMatrix    Optional QA-testing override structure.
+ * @param baseUserLevel   Fallback when a child domain level is missing (default: 1).
+ * @param activeProgramId Optional primary active program (e.g. `planche`).
+ *                        When provided, Step 4 first scans the exercise's
+ *                        `targetPrograms` for an entry exactly matching this
+ *                        id (or its slug) and returns the user's level for
+ *                        that program — overriding the array-order fallback.
+ * @returns               Effective level (1-20+) for this exercise.
  */
 export function getEffectiveLevelForExercise(
   exercise: Exercise,
   userProfile: UserFullProfile,
   shadowMatrix?: ShadowMatrix,
   baseUserLevel?: number,
+  activeProgramId?: string,
 ): number {
   const exerciseName = typeof exercise.name === 'string'
     ? exercise.name
@@ -335,11 +359,13 @@ export function getEffectiveLevelForExercise(
       full_body: ['push', 'pull', 'legs', 'core'],
     };
 
-    /** Resolve a programId (possibly a Firestore doc ID) to its track slug. */
+    /** Resolve a programId (possibly a Firestore doc ID) to its track slug.
+     * Slug takes priority over raw hash so that stale L1 hash entries in
+     * userTracks never shadow the correct slug entry (e.g. pull=L14). */
     const toSlug = (pid: string): string => {
-      if (activeTrackSlugs.has(pid)) return pid;
       const mapped = resolveToSlug(pid);
-      if (mapped !== pid) return mapped;
+      if (mapped !== pid && activeTrackSlugs.has(mapped)) return mapped;
+      if (activeTrackSlugs.has(pid)) return pid;
       return pid;
     };
 
@@ -362,6 +388,40 @@ export function getEffectiveLevelForExercise(
       return undefined;
     };
 
+    // ── Step 4a: Active program priority match ──────────────────────────
+    // When the caller passes `activeProgramId`, a `targetPrograms` entry
+    // whose programId/slug exactly matches the active program wins over
+    // any other entry — even if a foundational track (push/pull) was
+    // listed earlier in the array.  This is the fix for the
+    // "first-wins blindness" bug where exercises tagged BOTH
+    // `{push, L5}` AND `{planche, L7}` would resolve via `push` simply
+    // because of array order, even when the user is actively training
+    // the planche track.
+    if (activeProgramId) {
+      const activeTp = exercise.targetPrograms.find(
+        (tp) =>
+          tp.programId === activeProgramId ||
+          resolveToSlug(tp.programId) === activeProgramId,
+      );
+      if (activeTp) {
+        const activeSlug = toSlug(activeTp.programId);
+        const activeUserLevel = lookupLevel(activeSlug);
+        if (activeUserLevel !== undefined) {
+          console.log(
+            `[ShadowLevel] ACTIVE PROGRAM MATCH: "${exerciseName}" → ` +
+            `program="${activeTp.programId}" (slug="${activeSlug}") ` +
+            `userLevel=${activeUserLevel} (adminTag=${activeTp.level}) ` +
+            `activeProgramId="${activeProgramId}" ` +
+            `(movementGroup=${movementGroup}, muscle=${primaryMuscle})`,
+          );
+          return activeUserLevel;
+        }
+      }
+    }
+
+    // ── Step 4b: Standard array-order fall-through ─────────────────────
+    // Only reached when no active-program match exists OR the matched
+    // active-program entry has no user level recorded yet.
     for (const tp of exercise.targetPrograms) {
       const slug = toSlug(tp.programId);
       const userLevel = lookupLevel(slug);

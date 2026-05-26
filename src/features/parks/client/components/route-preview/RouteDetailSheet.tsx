@@ -19,7 +19,9 @@ import {
 import { useMyRegistrations } from '@/features/parks/core/hooks/useMyRegistrations';
 import { joinEvent, materializeVirtualSession } from '@/features/admin/services/community.service';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
+import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
 import { auth } from '@/lib/firebase';
+import { useUserStore } from '@/features/user';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
@@ -29,6 +31,16 @@ import type { WorkoutActivityStatus } from '@/features/safecity/services/presenc
 
 const DRAWER_HEIGHT = '85vh';
 const CLOSE_THRESHOLD = 180;
+
+/** Slider step for the arrival-window range, in minutes. */
+const RANGE_STEP_MIN = 15;
+
+/** Minutes-from-midnight → "HH:MM". Mirrors the same helper in ParkDetailSheet. */
+function minutesToLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
 
 // Same pill style as WorkoutPreviewDrawer's stat row — keeps visual parity
 // between the route preview and the strength workout preview.
@@ -136,7 +148,10 @@ export default function RouteDetailSheet({
   const [dayFilter, setDayFilter] = useState<DayFilter>('week');
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [pickedTime, setPickedTime] = useState('18:00');
+  // Arrival-window range in minutes-from-midnight. Default 17:00-19:00
+  // mirrors the ParkDetailSheet default so the UX is consistent across
+  // both publish surfaces.
+  const [timeRangeMinutes, setTimeRangeMinutes] = useState<[number, number]>([17 * 60, 19 * 60]);
   const [publishingSession, setPublishingSession] = useState(false);
   const [justPublished, setJustPublished] = useState<{ time: string; name: string; photoURL?: string } | null>(null);
   // Optimistic local sessions injected immediately after "אני מגיע ב..." publish,
@@ -150,10 +165,36 @@ export default function RouteDetailSheet({
     if (!user || !route) return;
     setPublishingSession(true);
     try {
-      const today = new Date();
-      const [h, m] = pickedTime.split(':').map(Number);
-      today.setHours(h, m, 0, 0);
-      if (today < new Date()) today.setDate(today.getDate() + 1);
+      // Derive startTime / endTime from the dual-range slider, same
+      // pattern as ParkDetailSheet. Base date is today; if the window
+      // has already ended today we shift to tomorrow.
+      const baseDate = new Date();
+      baseDate.setHours(0, 0, 0, 0);
+      const [startMinutes, endMinutes] = timeRangeMinutes;
+      const startTime = new Date(baseDate);
+      startTime.setMinutes(startMinutes);
+      const endTime = new Date(baseDate);
+      endTime.setMinutes(endMinutes);
+
+      // Guard: if the window has already ended, publish for tomorrow.
+      if (endTime.getTime() < Date.now()) {
+        startTime.setDate(startTime.getDate() + 1);
+        endTime.setDate(endTime.getDate() + 1);
+      }
+      // Defensive: clamp to at least one slider step.
+      if (endTime.getTime() <= startTime.getTime()) {
+        endTime.setTime(startTime.getTime() + RANGE_STEP_MIN * 60 * 1000);
+      }
+
+      // Capture the publisher's active strength program at write
+      // time so the partner card can show the same "🎯 program ·
+      // רמה N" line live cards already render.
+      const liveProfile = useUserStore.getState().profile;
+      const activeProgram = liveProfile?.progression?.activePrograms?.[0];
+      const programName = activeProgram?.name ?? undefined;
+      const programLevel = activeProgram?.templateId
+        ? liveProfile?.progression?.tracks?.[activeProgram.templateId]?.currentLevel
+        : undefined;
       // GeoJSON path format is [lng, lat] — extract start-point coordinates.
       const startPoint = route.path?.[0];
       await createPlannedSession({
@@ -161,15 +202,25 @@ export default function RouteDetailSheet({
         displayName: user.displayName ?? 'משתמש',
         photoURL: user.photoURL,
         routeId: route.id,
+        // Denormalised label so the partner card can render the
+        // route name without a per-card Firestore lookup.
+        routeName: route.name,
+        ...(programName ? { programName } : {}),
+        ...(typeof programLevel === 'number' ? { programLevel } : {}),
         activityType: route.type ?? 'running',
         level: 'beginner',
-        startTime: today,
+        startTime,
+        endTime,
         privacyMode: 'squad',
         lat: startPoint != null ? startPoint[1] : null,
         lng: startPoint != null ? startPoint[0] : null,
       });
       setShowTimePicker(false);
-      setJustPublished({ time: pickedTime, name: user.displayName ?? 'משתמש', photoURL: user.photoURL ?? undefined });
+      setJustPublished({
+        time: `${minutesToLabel(startMinutes)} - ${minutesToLabel(endMinutes)}`,
+        name: user.displayName ?? 'משתמש',
+        photoURL: user.photoURL ?? undefined,
+      });
       // Inject an optimistic session immediately so it appears in filteredSessions
       // without waiting for the Firestore snapshot to propagate.
       const syntheticSession: SessionEnrichment = {
@@ -186,7 +237,7 @@ export default function RouteDetailSheet({
     } finally {
       setPublishingSession(false);
     }
-  }, [pickedTime, route]);
+  }, [timeRangeMinutes, route]);
 
   const routeIds = useMemo(() => (route ? [route.id] : []), [route?.id]);
   const routeArr = useMemo(() => (route ? [route] : []), [route]);
@@ -379,7 +430,9 @@ export default function RouteDetailSheet({
 
               {/* Scrollable body — bottom padding accounts for the fixed action bar + safe-area */}
               <div ref={scrollRef} className="h-full overflow-y-auto" style={{ paddingBottom: 'calc(max(9rem, env(safe-area-inset-bottom, 0px) + 7rem))' }}>
-                {/* Hero */}
+                {/* Hero — no title inside so the overflow-hidden clip never
+                    truncates the route name as the hero collapses on scroll.
+                    Mirrors the fix applied to ParkDetailSheet. */}
                 <div
                   className="relative w-full overflow-hidden"
                   style={{ height: `${heroHeight}px`, opacity: heroOpacity, transform: `scale(${heroScale})` }}
@@ -410,38 +463,31 @@ export default function RouteDetailSheet({
                       <X size={20} />
                     </button>
                   </div>
-
-                  {/* Title + activity badge */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
-                    {activityLabel && (
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm">
-                          {activityLabel}
-                        </span>
-                      </div>
-                    )}
-                    {/* Hero title — same sizing as the strength workout
-                        overview's hero title (`text-[20px]/font-bold`).
-                        Capped at 2 lines so very long route names wrap
-                        cleanly instead of pushing the layout, and reserves
-                        40px on the inline-end side so a long name doesn't
-                        slide under the close (X) button which sits at the
-                        top-right (RTL = visual right) of the hero. */}
-                    <h1
-                      className="text-[20px] font-bold text-gray-900 leading-tight line-clamp-2"
-                      style={{
-                        overflow: 'hidden',
-                        wordBreak: 'break-word',
-                        paddingRight: 40,
-                      }}
-                    >
-                      {route.name || 'מסלול ללא שם'}
-                    </h1>
-                  </div>
                 </div>
 
-                {/* Content */}
-                <div className="bg-white -mt-10 relative z-10 px-5 pt-2 pb-8">
+                {/* Title + activity badge — OUTSIDE the hero so the route name
+                    escapes the hero's overflow-hidden clip. The -mt-14 pulls it
+                    up to visually overlap the hero's white fade-out gradient,
+                    identical to the pattern used in ParkDetailSheet. */}
+                <div className="relative z-20 -mt-14 px-5 pb-2">
+                  {activityLabel && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm">
+                        {activityLabel}
+                      </span>
+                    </div>
+                  )}
+                  <h1
+                    className="text-[20px] font-bold text-gray-900 leading-tight"
+                    style={{ wordBreak: 'break-word', paddingInlineEnd: 40 }}
+                  >
+                    {route.name || 'מסלול ללא שם'}
+                  </h1>
+                </div>
+
+                {/* Content — no -mt-10 here; the title block's -mt-14 handles
+                    the hero→content visual bridge. */}
+                <div className="bg-white relative z-10 px-5 pt-2 pb-8">
                   {/* Top meta row: city + walk-to-start distance.
                       Kept intentionally small + grey so it reads as
                       contextual ("where am I going from?") rather than
@@ -501,61 +547,157 @@ export default function RouteDetailSheet({
                       {(route.analytics?.usageCount ?? 0) > 0 && (
                         <span className="inline-flex items-center gap-1">
                           <Users size={13} className="text-emerald-500" />
-                          <span>{route.analytics?.usageCount} רצו החודש</span>
+                          <span>{route.analytics?.usageCount} שימושים</span>
                         </span>
                       )}
                     </div>
                   )}
 
-                  {/* ── Journey timeline bar ──────────────────────────────
-                      Single pill container with up to three segments:
-                        [🚶 walk] → [🗺️ route] → [🏁]
-                      Walk segment shown only when walkToRouteMinutes is set.
-                      Finish marker omitted for circular routes (start ≈ end).
-                      RTL flex: DOM order [walk, →, route, →, finish] renders
-                      with walk at the right and finish at the left. ✓ */}
-                  {route.duration > 0 && (() => {
-                    const path = route.path;
-                    const isCircular = path && path.length >= 2
-                      ? haversineKm(path[0][1], path[0][0], path[path.length - 1][1], path[path.length - 1][0]) * 1000 < 100
-                      : false;
-                    return (
-                      <div
-                        dir="rtl"
-                        className="w-full bg-white shadow-sm rounded-lg px-4 py-3 flex flex-row items-center justify-between mb-4"
-                        style={{ border: '0.5px solid #E0E9FF' }}
-                      >
-                        {/* Walk segment */}
-                        {walkToRouteMinutes != null && (
-                          <>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-lg leading-none">🚶</span>
-                              <span className="text-[13px] font-semibold text-gray-500 whitespace-nowrap">
-                                {walkToRouteMinutes} דק&apos;
+                  {/* ── Compact Community Section ──────── */}
+                  <section className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-[15px] font-bold flex items-center gap-1.5">
+                        <Calendar size={14} className="text-emerald-500" />
+                        <span>מתאמנים</span>
+                        {allSessions.length > 0 && (
+                          <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
+                            {allSessions.reduce((s, e) => s + (e.currentRegistrations ?? 0), 0)}
+                          </span>
+                        )}
+                      </h3>
+                      <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                        {(['today', 'tomorrow', 'week'] as DayFilter[]).map((f) => (
+                          <button
+                            key={f}
+                            onClick={() => setDayFilter(f)}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                              dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
+                            }`}
+                          >
+                            {DAY_FILTER_LABELS[f]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {filteredSessions.length === 0 && !justPublished ? (
+                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden">
+                        <div className="flex items-center gap-3 py-3 px-3">
+                          <Users size={18} className="text-emerald-400 flex-shrink-0" />
+                          <p className="text-xs text-emerald-700 font-bold flex-1">אף אחד עוד לא פרסם שהוא מגיע...</p>
+                          <button
+                            onClick={() => setShowTimePicker(!showTimePicker)}
+                            className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
+                          >
+                            אני מגיע ב...
+                          </button>
+                        </div>
+                        {showTimePicker && (
+                          <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-emerald-700">שעת הגעה</span>
+                              <span className="text-[11px] font-black text-emerald-600" dir="ltr">
+                                {minutesToLabel(timeRangeMinutes[0])} - {minutesToLabel(timeRangeMinutes[1])}
                               </span>
                             </div>
-                            <span className="text-gray-300 mx-2 text-sm select-none">→</span>
-                          </>
-                        )}
-
-                        {/* Route segment */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-lg leading-none">🗺️</span>
-                          <span className="text-[13px] font-semibold text-cyan-500 whitespace-nowrap">
-                            {formatDuration(route.duration)}
-                          </span>
-                        </div>
-
-                        {/* Finish marker — non-circular routes only */}
-                        {!isCircular && (
-                          <>
-                            <span className="text-gray-300 mx-2 text-sm select-none">→</span>
-                            <span className="text-lg leading-none">🏁</span>
-                          </>
+                            <DualRangeSlider
+                              min={6 * 60}
+                              max={22 * 60}
+                              step={RANGE_STEP_MIN}
+                              values={timeRangeMinutes}
+                              onChange={setTimeRangeMinutes}
+                              ariaLabelMin="שעת הגעה מוקדמת"
+                              ariaLabelMax="שעת הגעה מאוחרת"
+                            />
+                            <button
+                              onClick={handlePublishArrival}
+                              disabled={publishingSession}
+                              className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
+                            >
+                              {publishingSession ? '...' : 'פרסם'}
+                            </button>
+                          </div>
                         )}
                       </div>
-                    );
-                  })()}
+                    ) : (
+                      <div className="space-y-1">
+                        {filteredSessions.map((ev, idx) => {
+                          let timeLabel = '';
+                          const d = new Date(ev.nextStartTime);
+                          if (!isNaN(d.getTime())) {
+                            const now = new Date();
+                            const isToday = d.toDateString() === now.toDateString();
+                            const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
+                            const isTomorrow = d.toDateString() === tmrw.toDateString();
+                            const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                            timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
+                          }
+                          const isJoining = joiningEventId === ev.eventId;
+                          const count = ev.currentRegistrations ?? 0;
+                          const alreadyJoined = isUserRegistered(ev);
+
+                          return (
+                            <div key={`route_${ev.eventId}_${idx}`} className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors">
+                              <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{timeLabel}</span>
+                              <span className="flex-1 text-xs font-bold text-emerald-800 truncate">
+                                {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
+                              </span>
+                              {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
+                              <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
+                              <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
+                                {ev.avatars?.slice(0, 2).map((a, ai) => (
+                                  <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => setProfileUser({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
+                                    {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" /> : a.name.charAt(0)}
+                                  </button>
+                                ))}
+                              </div>
+                              {alreadyJoined ? (
+                                <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
+                                  <Check size={10} />
+                                  נרשמת
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleJoinEvent(ev)}
+                                  disabled={isJoining || ev.spotsLeft === 0}
+                                  className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
+                                >
+                                  {isJoining ? '...' : 'הצטרף'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Visual confirmation of just-published arrival */}
+                    <AnimatePresence>
+                      {justPublished && (
+                        <motion.div
+                          key={`published_${justPublished.time}`}
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-1.5"
+                        >
+                          <div className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-100 border border-emerald-200 rounded-lg">
+                            <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{justPublished.time}</span>
+                            <div className="w-5 h-5 rounded-full border border-white bg-emerald-200 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden flex-shrink-0">
+                              {justPublished.photoURL
+                                ? <img src={justPublished.photoURL} alt="" className="w-full h-full object-cover" />
+                                : justPublished.name.charAt(0)}
+                            </div>
+                            <span className="flex-1 text-xs font-bold text-emerald-800 truncate">{justPublished.name}</span>
+                            <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
+                              <Check size={10} />
+                              נרשמת
+                            </span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </section>
 
                   {/* ── Vertical timeline accordion ─────────────────────
                       Two stacked rows that mirror the journey bar above:
@@ -824,192 +966,50 @@ export default function RouteDetailSheet({
                     </p>
                   )}
 
-                  {/* ── Compact Community Section ──────── */}
-                  <section className="mb-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-[15px] font-bold flex items-center gap-1.5">
-                        <Calendar size={14} className="text-emerald-500" />
-                        <span>מתאמנים</span>
-                        {allSessions.length > 0 && (
-                          <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
-                            {allSessions.reduce((s, e) => s + (e.currentRegistrations ?? 0), 0)}
-                          </span>
-                        )}
-                      </h3>
-                      <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
-                        {(['today', 'tomorrow', 'week'] as DayFilter[]).map((f) => (
-                          <button
-                            key={f}
-                            onClick={() => setDayFilter(f)}
-                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                              dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
-                            }`}
-                          >
-                            {DAY_FILTER_LABELS[f]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {filteredSessions.length === 0 && !justPublished ? (
-                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden">
-                        <div className="flex items-center gap-3 py-3 px-3">
-                          <Users size={18} className="text-emerald-400 flex-shrink-0" />
-                          <p className="text-xs text-emerald-700 font-bold flex-1">אף אחד עוד לא פרסם שהוא מגיע...</p>
-                          <button
-                            onClick={() => setShowTimePicker(!showTimePicker)}
-                            className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
-                          >
-                            אני מגיע ב...
-                          </button>
-                        </div>
-                        {showTimePicker && (
-                          <div className="flex items-center gap-2 px-3 pb-3 pt-1 border-t border-emerald-100">
-                            <Calendar size={14} className="text-emerald-500 flex-shrink-0" />
-                            <input
-                              type="time"
-                              value={pickedTime}
-                              onChange={(e) => setPickedTime(e.target.value)}
-                              className="flex-1 bg-white border border-emerald-200 rounded-lg px-2 py-1.5 text-sm text-gray-800 font-bold text-center"
-                              dir="ltr"
-                            />
-                            <button
-                              onClick={handlePublishArrival}
-                              disabled={publishingSession}
-                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
-                            >
-                              {publishingSession ? '...' : 'פרסם'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {filteredSessions.map((ev, idx) => {
-                          let timeLabel = '';
-                          const d = new Date(ev.nextStartTime);
-                          if (!isNaN(d.getTime())) {
-                            const now = new Date();
-                            const isToday = d.toDateString() === now.toDateString();
-                            const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
-                            const isTomorrow = d.toDateString() === tmrw.toDateString();
-                            const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                            timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
-                          }
-                          const isJoining = joiningEventId === ev.eventId;
-                          const count = ev.currentRegistrations ?? 0;
-                          const alreadyJoined = isUserRegistered(ev);
-
-                          return (
-                            <div key={`route_${ev.eventId}_${idx}`} className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors">
-                              <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{timeLabel}</span>
-                              <span className="flex-1 text-xs font-bold text-emerald-800 truncate">
-                                {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
-                              </span>
-                              {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
-                              <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
-                              <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
-                                {ev.avatars?.slice(0, 2).map((a, ai) => (
-                                  <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => setProfileUser({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
-                                    {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" /> : a.name.charAt(0)}
-                                  </button>
-                                ))}
-                              </div>
-                              {alreadyJoined ? (
-                                <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
-                                  <Check size={10} />
-                                  נרשמת
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => handleJoinEvent(ev)}
-                                  disabled={isJoining || ev.spotsLeft === 0}
-                                  className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
-                                >
-                                  {isJoining ? '...' : 'הצטרף'}
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Visual confirmation of just-published arrival */}
-                    <AnimatePresence>
-                      {justPublished && (
-                        <motion.div
-                          key={`published_${justPublished.time}`}
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="mt-1.5"
-                        >
-                          <div className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-100 border border-emerald-200 rounded-lg">
-                            <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{justPublished.time}</span>
-                            <div className="w-5 h-5 rounded-full border border-white bg-emerald-200 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden flex-shrink-0">
-                              {justPublished.photoURL
-                                ? <img src={justPublished.photoURL} alt="" className="w-full h-full object-cover" />
-                                : justPublished.name.charAt(0)}
-                            </div>
-                            <span className="flex-1 text-xs font-bold text-emerald-800 truncate">{justPublished.name}</span>
-                            <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
-                              <Check size={10} />
-                              נרשמת
+                  {/* Features + amenity tags — merged into one section.
+                      surface/environment/lit come from route.features;
+                      extended tags come from route.featureTags. Both
+                      surfaces appear in a single chip row so the user
+                      never sees two separate "תכונות" headings. */}
+                  {(() => {
+                    const hasFeatures = route.features && (
+                      route.features.surface ||
+                      route.features.environment ||
+                      route.features.lit === true
+                    );
+                    const hasTags = route.featureTags && route.featureTags.length > 0;
+                    if (!hasFeatures && !hasTags) return null;
+                    return (
+                      <section className="mb-6">
+                        <h3 className="text-[16px] font-bold mb-3">תכונות ומתקנים</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {route.features?.environment && (
+                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
+                              {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
                             </span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </section>
-
-                  {/* Route features */}
-                  {route.features && (
-                    <section className="mb-6">
-                      <h3 className="text-[16px] font-bold mb-3">תכונות מסלול</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {route.features.surface && (
-                          <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
-                          </span>
-                        )}
-                        {route.features.environment && (
-                          <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
-                          </span>
-                        )}
-                        {/* Lighting reads the real `lit: boolean` from RouteFeatures.
-                            Only show the chip when actually lit — we don't want to
-                            advertise an unlit route as a feature. */}
-                        {route.features.lit === true && (
-                          <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                            מואר
-                          </span>
-                        )}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Extended feature tags (route.featureTags). Renders the
-                      same `ParkFeatureTag`-style amenities list the admin
-                      can now toggle in RouteEditor. Backward-compatible:
-                      any route saved before this field exists simply skips
-                      this section. */}
-                  {route.featureTags && route.featureTags.length > 0 && (
-                    <section className="mb-6">
-                      <h3 className="text-[16px] font-bold mb-3">מתקנים בסביבה</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {route.featureTags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600"
-                          >
-                            {ROUTE_FEATURE_TAG_LABELS[tag] ?? tag}
-                          </span>
-                        ))}
-                      </div>
-                    </section>
-                  )}
+                          )}
+                          {route.features?.surface && (
+                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
+                              {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
+                            </span>
+                          )}
+                          {route.features?.lit === true && (
+                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
+                              מואר
+                            </span>
+                          )}
+                          {route.featureTags?.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600"
+                            >
+                              {ROUTE_FEATURE_TAG_LABELS[tag] ?? tag}
+                            </span>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })()}
 
                   {/* Dev simulation controls — hidden in production builds */}
                   {process.env.NODE_ENV !== 'production' && devSim && (

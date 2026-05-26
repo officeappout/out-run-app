@@ -200,6 +200,12 @@ export async function generateFirstWorkout(
   }
 
   // ── Step 2: Build workout options ────────────────────────────────────
+  // Extract real gym equipment from the resolved park (if any) so the engine
+  // uses the actual park inventory instead of the ESSENTIAL_PARK_GEAR fallback.
+  const parkEquipmentIds = nearbyPark?.gymEquipment?.length
+    ? nearbyPark.gymEquipment.map((eq) => eq.equipmentId)
+    : undefined;
+
   const workoutOptions: HomeWorkoutOptions = {
     userProfile,
     location,
@@ -208,9 +214,8 @@ export async function generateFirstWorkout(
     difficulty: 2, // Normal difficulty for first workout
     isFirstSessionInProgram: true,
     daysInactiveOverride: 0, // Brand new user, no detraining penalty
-    // No equipment override for home (bodyweight only)
-    // For park: the engine will resolve equipment from outdoor list
     equipmentOverride: undefined,
+    parkEquipmentIds: parkEquipmentIds?.length ? parkEquipmentIds : undefined,
   };
 
   // ── Step 3: Generate the workout ─────────────────────────────────────

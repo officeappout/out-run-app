@@ -6,7 +6,6 @@
 
 export { 
   default as StrengthDopamineScreen,
-  DEFAULT_BONUSES,
   ANIMATION_DELAYS,
   STATUS_MESSAGES,
   triggerHaptic,

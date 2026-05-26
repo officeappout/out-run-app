@@ -34,31 +34,64 @@ const SESSION_HINT_KEY = 'out:has-session';
 type AuthState = 'restoring' | 'authenticated' | 'guest';
 
 // ════════════════════════════════════════════════════════════════════
-// CAROUSEL IMAGES — High-quality outdoor fitness / park scenes
+// CAROUSEL IMAGES — Static assets served from public/images/landing/
+//
+// Drop replacement images into:
+//   public/images/landing/bg-1.jpg
+//   public/images/landing/bg-2.jpg
+//   public/images/landing/bg-3.jpg
+//
+// The filenames are the contract — the carousel reads exactly these
+// three paths. Swap the files to swap the visuals; no code change needed.
 // ════════════════════════════════════════════════════════════════════
 
 const CAROUSEL_IMAGES = [
-  'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=1400&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1400&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1400&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?q=80&w=1400&auto=format&fit=crop',
+  '/images/landing/bg-1.jpg',
+  '/images/landing/bg-2.jpg',
+  '/images/landing/bg-3.jpg',
+];
+
+// Each tagline is paired 1-to-1 with the image at the same index so the
+// text transitions in perfect sync with the background crossfade.
+const TAGLINES = [
+  'עכשיו אפשר להתאמן בכל מקום, מתי שנוח לכם',
+  'מסלולי הליכה בפארק ותוכניות אימונים',
+  'מתאים אימונים לכל אחת ואחד',
 ];
 
 const CYCLE_MS = 4000; // 4 seconds per image
 
 // ════════════════════════════════════════════════════════════════════
-// BACKGROUND CAROUSEL — Crossfade animation
+// BACKGROUND CAROUSEL — Crossfade animation (index lifted to parent)
+//
+// The `index` prop is owned by LandingPage so that the same counter
+// drives both the background crossfade AND the tagline swap, keeping
+// them perfectly in sync without a second timer.
+//
+// Mounted guard: the carousel touches browser-only APIs and Framer
+// Motion inline styles that can differ between the SSR pass and client
+// hydration. We suppress the subtree on the server and render a neutral
+// white placeholder instead, so React sees an identical DOM on both
+// sides and never raises a hydration warning.
 // ════════════════════════════════════════════════════════════════════
 
-function BackgroundCarousel() {
-  const [index, setIndex] = useState(0);
+function BackgroundCarousel({ index }: { index: number }) {
+  const [mounted, setMounted] = useState(false);
 
+  // Mark as mounted after hydration so SSR and client first-paint match.
   useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
-    }, CYCLE_MS);
-    return () => clearInterval(timer);
+    setMounted(true);
   }, []);
+
+  // SSR / pre-mount: render a plain white placeholder that the server
+  // HTML and the client's first paint both agree on.
+  if (!mounted) {
+    return (
+      <div className="absolute inset-0 z-0 bg-white">
+        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent z-10" />
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 z-0">
@@ -72,8 +105,8 @@ function BackgroundCarousel() {
           transition={{ duration: 1.5, ease: 'easeInOut' }}
         />
       ))}
-      {/* Dark overlay for legibility */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+      {/* Clean white fade-out gradient overlay matching the onboarding flow */}
+      <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent z-10" />
     </div>
   );
 }
@@ -212,28 +245,80 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ── Unified carousel index — drives both background AND tagline ──
+  // Owned here so a single timer keeps both in perfect sync.
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselMounted, setCarouselMounted] = useState(false);
+  useEffect(() => {
+    setCarouselMounted(true);
+  }, []);
+  useEffect(() => {
+    if (!carouselMounted) return;
+    const timer = setInterval(() => {
+      setCarouselIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, CYCLE_MS);
+    return () => clearInterval(timer);
+  }, [carouselMounted]);
+
   // ── Auth gate ──
-  // Initial value is computed synchronously from the localStorage hint
-  // so the first paint matches the expected outcome:
-  //   • brand-new visitor (no hint)     → render landing UI immediately
-  //   • returning user (hint present)   → render branded splash, switch
-  //                                       to landing only if Firebase
-  //                                       confirms the session is gone
-  // SSR always falls into 'restoring' since localStorage is unavailable.
-  // The page is `dynamic = 'force-dynamic'` so the SSR branch is short-
-  // lived and immediately replaced by the client value on hydration.
-  const [authState, setAuthState] = useState<AuthState>(() => {
-    if (typeof window === 'undefined') return 'restoring';
-    try {
-      return window.localStorage.getItem(SESSION_HINT_KEY) === '1'
-        ? 'restoring'
-        : 'guest';
-    } catch {
-      // Private mode / quota — pessimistic default to landing UI so the
-      // user can still attempt a manual login.
-      return 'guest';
+  // IMPORTANT: Always initialise as 'restoring' so the server-rendered
+  // HTML and the first client render are IDENTICAL (both show the branded
+  // splash). Reading localStorage here instead would cause a hydration
+  // mismatch: SSR has no window → 'restoring', but new/logged-out clients
+  // would evaluate to 'guest' → React sees two different component trees.
+  // The localStorage hint is read in a useEffect below (runs only on the
+  // client, after hydration is committed), which is the correct place for
+  // any code that touches browser-only APIs.
+  const [authState, setAuthState] = useState<AuthState>('restoring');
+
+  // ── Session hint check — client-only, post-hydration ──
+  // Two-tier fallback to avoid the cold-start race condition on iOS where
+  // WKWebView can evict localStorage between hard close and re-launch:
+  //   1. Fast path: localStorage.getItem(SESSION_HINT_KEY)
+  //   2. Native fallback: @capacitor/preferences (NSUserDefaults /
+  //      SharedPreferences) which the OS does NOT evict.
+  // If either source has the hint we stay in 'restoring' so the splash
+  // remains visible and the Firebase onAuthStateChange listener below
+  // handles the redirect once auth finishes restoring. Only when BOTH
+  // sources are empty do we paint the landing UI immediately.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSessionHint() {
+      try {
+        if (window.localStorage.getItem(SESSION_HINT_KEY) === '1') return;
+      } catch {
+        // Private-mode / quota error — fall through to native check.
+      }
+
+      // Native fallback: check @capacitor/preferences before declaring guest.
+      const cap = (window as unknown as {
+        Capacitor?: { isNativePlatform?: () => boolean };
+      }).Capacitor;
+      if (cap?.isNativePlatform?.()) {
+        try {
+          const [{ Preferences }, { SESSION_HINT_NATIVE_KEY }] = await Promise.all([
+            import('@capacitor/preferences'),
+            import('@/lib/auth.service'),
+          ]);
+          const { value } = await Preferences.get({ key: SESSION_HINT_NATIVE_KEY });
+          if (cancelled) return;
+          if (value === '1') {
+            // Restore the fast-path mirror so subsequent reads are sync.
+            try { window.localStorage.setItem(SESSION_HINT_KEY, '1'); } catch { /* quota */ }
+            return; // stay 'restoring' — Firebase will redirect
+          }
+        } catch {
+          // Plugin / I/O failure — fall through and treat as guest.
+        }
+      }
+
+      if (!cancelled) setAuthState('guest');
     }
-  });
+
+    void checkSessionHint();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Auto-redirect for already logged-in users ──
   useEffect(() => {
@@ -354,24 +439,24 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] relative overflow-hidden flex flex-col">
+    <div className="min-h-[100dvh] bg-white relative overflow-hidden flex flex-col">
       {/* ── Animated Background Carousel ── */}
-      <BackgroundCarousel />
+      <BackgroundCarousel index={carouselIndex} />
 
       {/* ── Content fills screen, pushes bottom section down ── */}
-      <div className="relative z-10 flex-1 flex flex-col justify-end">
+      <div className="relative z-20 flex-1 flex flex-col justify-end">
 
-        {/* ── Bottom UI Section — Glassmorphism ── */}
+        {/* ── Bottom UI Section — Light white gradient ── */}
         <div
-          className="px-6 pt-10 pb-8"
+          className="px-6 pt-32 pb-8"
           style={{
             paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))',
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)',
+            background: 'linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 60%, rgba(255,255,255,0) 100%)',
           }}
         >
           <div className="max-w-md mx-auto flex flex-col items-center gap-5">
 
-            {/* Logo */}
+            {/* Logo — official SVG brand asset, native colors (light background) */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -381,21 +466,25 @@ export default function LandingPage() {
               <img
                 src="/assets/logo/Kind=logotype.svg"
                 alt="OUT"
-                className="h-10 object-contain brightness-0 invert"
+                className="h-10 object-contain"
               />
             </motion.div>
 
-            {/* Tagline */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-white/70 text-sm font-medium text-center"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-              dir="rtl"
-            >
-              אימון חכם בחוץ. מתקנים, מסלולים ותוכניות — הכל חינם.
-            </motion.p>
+            {/* Tagline — synced to carousel index, crossfades on each cycle */}
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={carouselIndex}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+                className="text-slate-900 text-lg font-black text-center drop-shadow-sm"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+                dir="rtl"
+              >
+                {TAGLINES[carouselIndex]}
+              </motion.p>
+            </AnimatePresence>
 
             {/* Primary Button: הרשמה מהירה */}
             <motion.button
@@ -404,7 +493,7 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.35 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleQuickSignup}
-              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] text-base"
+              className="w-full bg-[#5BC2F2] hover:bg-[#4AADE3] text-white font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/20 transition-all active:scale-[0.98] text-base"
               style={{ fontFamily: 'var(--font-simpler)' }}
               dir="rtl"
             >
@@ -417,7 +506,7 @@ export default function LandingPage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.5 }}
               onClick={handleLoginOpen}
-              className="text-white/80 hover:text-white text-sm font-medium py-2 transition-colors underline underline-offset-2"
+              className="text-slate-500 hover:text-slate-900 text-sm font-bold py-2 transition-colors underline underline-offset-2"
               style={{ fontFamily: 'var(--font-simpler)' }}
               dir="rtl"
             >

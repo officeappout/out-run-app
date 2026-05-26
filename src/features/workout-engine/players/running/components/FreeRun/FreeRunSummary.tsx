@@ -2,8 +2,16 @@
 
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useEffect, useState, type ReactNode } from 'react';
-import { CheckCircle, Save, Share2, Coins, Flag, Clock, Navigation as NavIcon, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
+import { Save, Share2, Coins, Flag, Clock, Navigation as NavIcon, Sparkles, Maximize2, X } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -12,10 +20,12 @@ import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import RunLapsList from './RunLapsList';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import RunMapBlock from '@/features/workout-engine/summary/components/running/RunMapBlock';
-import SummaryStatsGrid from '@/features/workout-engine/summary/components/shared/SummaryStatsGrid';
+import DopamineStreakBlock from '@/features/workout-engine/summary/components/shared/DopamineStreakBlock';
+import CircularProgress from '@/components/CircularProgress';
 import { createContribution } from '@/features/parks/core/services/contribution.service';
 import { XP_REWARDS } from '@/types/contribution.types';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import type { Lap } from '@/features/workout-engine/core/types/session.types';
 
 interface FreeRunSummaryProps {
   onDelete?: () => void;
@@ -40,7 +50,17 @@ export default function FreeRunSummary({
   const [routeQuality, setRouteQuality] = useState(0);
   const [routeDifficulty, setRouteDifficulty] = useState<'easy' | 'medium' | 'hard' | null>(null);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  // Expanded-map overlay state. Tapping the framed hero map flips this
+  // to `true` and mounts a z-50 full-screen preview of the same route.
+  // The X button in the overlay sets it back to `false`.
+  const [expandedMap, setExpandedMap] = useState(false);
+  // Tab state — 'summary' shows streak/XP/stats/coin/rating, 'laps' shows
+  // the pace chart + lap list. The tab row itself is only rendered when
+  // there is at least one completed lap (see `completedLaps` below), so
+  // workouts without auto-lap never see a tab UI at all.
+  const [activeTab, setActiveTab] = useState<'summary' | 'laps'>('summary');
   const { profile } = useUserStore();
+  const currentStreak = useProgressionStore((s) => s.currentStreak);
 
   // Data source priority:
   //   1. isReadOnly + workout prop  → historical view from profile
@@ -51,7 +71,16 @@ export default function FreeRunSummary({
 
   const totalDistance = historySource?.distance ?? confirmedSource?.distance ?? sessionDistance;
   const totalDuration = historySource?.duration ?? confirmedSource?.duration ?? sessionDuration;
-  const laps = historySource ? [] : (confirmedSource?.laps ?? sessionLaps);
+  // Follow the same priority chain used for every other metric so a
+  // re-opened history workout actually shows its stored laps. The old
+  // code forced `[]` for history, which silently hid lap data for any
+  // run that had saved `laps` (a regression once `laps` was added to
+  // WorkoutHistoryEntry).
+  const laps: Lap[] = historySource?.laps ?? confirmedSource?.laps ?? sessionLaps;
+  // The still-active lap (the one currently accumulating) is excluded
+  // from the pace chart / lap list on the summary screen — it's noise
+  // until it's been closed out.
+  const completedLaps = useMemo(() => laps.filter((l) => !l.isActive), [laps]);
   
   // Convert routePath to number[][] format for RunMapBlock
   // Handle both formats: [{lat, lng}] (new) or [[lat, lng]] (old)
@@ -236,171 +265,388 @@ export default function FreeRunSummary({
         </div>
       )}
 
-      {/* Map Hero - Fixed at top, 40% of screen */}
-      <div className="relative w-full" style={{ height: '40vh', minHeight: '40vh', maxHeight: '40vh' }}>
+      {/* Map Hero — framed card, fixed 180 px tall.
+          Previously 40 vh, which on a 900 px device ate ~360 px of
+          vertical space and pushed the stats rings below the fold
+          on first paint. 180 px is a glance-sized thumbnail that
+          still reads as a map; the full-screen expand button is how
+          users drill in when they want detail. Inner
+          `rounded-2xl border border-slate-200 overflow-hidden` is
+          the shared "card" visual language used elsewhere in the
+          app. Horizontal padding gives the card breathing room from
+          the screen edges so the border reads clearly against the
+          gray-50 backdrop. A small Maximize2 chip in the top-left
+          corner hints that the card is tappable; the entire card is
+          the hit target. */}
+      <div
+        className="relative w-full px-4 pt-4 pb-2"
+        style={{ height: '180px', minHeight: '180px', maxHeight: '180px' }}
+      >
         {routeCoords.length > 0 ? (
-          <div className="w-full h-full">
-            <RunMapBlock
-              routeCoords={routeCoords}
-              startCoord={routeCoords[0]}
-              endCoord={routeCoords[routeCoords.length - 1]}
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => setExpandedMap(true)}
+            aria-label="הרחב מפה"
+            className="relative block w-full h-full rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADEF]"
+          >
+            {/* pointer-events-none on the map keeps the parent button
+                as the single click target — otherwise the underlying
+                Mapbox canvas swallows taps and the expand never
+                fires. Users still get a proper interactive map once
+                the overlay opens. */}
+            <div className="w-full h-full pointer-events-none">
+              <RunMapBlock
+                routeCoords={routeCoords}
+                startCoord={routeCoords[0]}
+                endCoord={routeCoords[routeCoords.length - 1]}
+              />
+            </div>
+            <span
+              className="absolute top-3 left-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center"
+              aria-hidden
+            >
+              <Maximize2 size={16} className="text-gray-700" />
+            </span>
+          </button>
         ) : (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+          <div className="w-full h-full rounded-2xl border border-slate-200 overflow-hidden bg-gray-100 flex items-center justify-center">
             <p className="text-gray-400">אין נתוני מסלול</p>
           </div>
         )}
       </div>
 
+      {/* Expanded-map overlay — z-50 sits above the summary sheet
+          (z-20) and the turn-carousel that lives inside MapShell
+          (z-30). Only mounts while the user has tapped the hero;
+          tapping the X collapses back to the framed preview. */}
+      {expandedMap && routeCoords.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex flex-col"
+          role="dialog"
+          aria-modal="true"
+          aria-label="תצוגת מפה מוגדלת"
+        >
+          <div className="flex-1 relative">
+            <RunMapBlock
+              routeCoords={routeCoords}
+              startCoord={routeCoords[0]}
+              endCoord={routeCoords[routeCoords.length - 1]}
+            />
+            <button
+              type="button"
+              onClick={() => setExpandedMap(false)}
+              aria-label="סגור מפה"
+              className="absolute top-4 left-4 w-11 h-11 rounded-full bg-white/95 shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+              style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
+            >
+              <X size={20} className="text-gray-800" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Scrollable Details Card - Starts below map, covers rest of screen */}
       <div className="flex-1 overflow-y-auto pointer-events-auto relative z-[30]">
         <div className="bg-white rounded-t-[32px] shadow-2xl min-h-full">
           <div className="px-6 pt-6 pb-24 space-y-6">
-            {/* Header */}
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-              className="flex items-center justify-center gap-3 mb-2"
-            >
-              <CheckCircle size={32} className="text-[#00ADEF]" fill="currentColor" />
-              <h1 className="text-2xl font-black tracking-wide text-gray-900">אימון הושלם!</h1>
-            </motion.div>
-            <p className="text-center text-gray-500 text-sm mb-4">כל הכבוד על ההתמדה</p>
-
-            {/* Coin Badge */}
-            {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
-            {IS_COIN_SYSTEM_ENABLED && calories > 0 && (
+            {/* XP pill — same visual language as CommuteSlimSummary's XP
+                chip, promoted to the workout summary so finishers see a
+                quiet acknowledgement of their earned XP near the top.
+                Hidden for historical workouts where xpEarned was never
+                persisted (old docs) and for sessions with 0 XP. */}
+            {xpEarned > 0 && (
               <motion.div
-                initial={{ scale: 0, opacity: 0 }}
+                initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ 
-                  type: 'spring', 
-                  stiffness: 300, 
-                  damping: 20,
-                  delay: 0.2 
-                }}
-                className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-xl shadow-lg p-4 flex items-center justify-center gap-3"
+                transition={{ delay: 0.15, type: 'spring', stiffness: 280, damping: 22 }}
+                className="flex items-center justify-center"
               >
-                <motion.div
-                  animate={{ rotate: [0, 10, -10, 10, 0] }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-50 ring-1 ring-cyan-100">
+                  <Sparkles size={14} className="text-[#00ADEF]" />
+                  <span className="text-sm font-black text-[#0284C7] tabular-nums">
+                    +{xpEarned} XP
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Tab row — only shown when there are completed laps to
+                tab into. Workouts without auto-lap keep the classic
+                single-column summary (streak → stats → coin → rating).
+                The tabs and their contents are both guarded against
+                commute mode higher up via the `isCommute` early-return,
+                so this block never runs for commute sessions.
+
+                Style-wise this matches the exercise-swap modal tabs
+                (ExerciseReplacementModal.tsx) exactly: underlined
+                segments, no pill chrome, no background fill — each
+                tab is just text + a 2 px bottom accent on the active
+                item, with a hairline separator running full-width
+                below the row. */}
+            {completedLaps.length > 0 && (
+              <div
+                className="flex border-b border-slate-100 dark:border-slate-800"
+                role="tablist"
+                aria-label="סיכום אימון"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'summary'}
+                  onClick={() => setActiveTab('summary')}
+                  className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
+                    activeTab === 'summary'
+                      ? 'text-[#00ADEF] border-[#00ADEF]'
+                      : 'text-slate-400 dark:text-slate-500 border-transparent'
+                  }`}
                 >
-                  <Coins size={32} className="text-yellow-800" fill="currentColor" />
-                </motion.div>
-                <div className="text-center">
-                  <div className="text-3xl font-black text-yellow-900">
-                    +{calories}
-                  </div>
-                  <div className="text-sm font-bold text-yellow-800">מטבעות</div>
-                </div>
-              </motion.div>
+                  סיכום
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'laps'}
+                  onClick={() => setActiveTab('laps')}
+                  className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
+                    activeTab === 'laps'
+                      ? 'text-[#00ADEF] border-[#00ADEF]'
+                      : 'text-slate-400 dark:text-slate-500 border-transparent'
+                  }`}
+                >
+                  הקפות
+                </button>
+              </div>
             )}
 
-            {/* Stats Grid — shared component used by all summary screens */}
-            <SummaryStatsGrid
-              time={totalDuration}
-              distance={totalDistance}
-              calories={calories}
-              pace={avgPace > 0 ? avgPace : currentPace}
-              elevationGain={
-                (confirmedSource?.elevationGain ?? (historySource as any)?.elevationGain) || undefined
-              }
-            />
-
-            {/* Laps Table */}
-            {laps.length > 0 && (
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="bg-gray-50 rounded-xl shadow-sm overflow-hidden"
-                style={{ height: '300px' }}
-              >
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-bold text-gray-900">פירוט הקפות</h2>
-                </div>
-                <div className="h-[calc(300px-4rem)] overflow-y-auto">
-                  <RunLapsList />
-                </div>
-              </motion.div>
-            )}
-
-            {/* Route Rating */}
-            {!isReadOnly && (
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 shadow-sm"
-                dir="rtl"
-              >
-                {ratingSubmitted ? (
-                  <div className="flex items-center justify-center gap-2 py-2">
-                    <span className="text-emerald-600 text-sm font-bold">תודה על הדירוג! +{XP_REWARDS.review} XP</span>
-                  </div>
-                ) : (
-                  <>
-                    <h4 className="text-gray-800 text-sm font-bold mb-3">דרגו את המסלול</h4>
-                    <div className="flex gap-2 mb-3">
-                      {([['easy', 'קל'] as const, ['medium', 'בינוני'] as const, ['hard', 'קשה'] as const]).map(([val, label]) => (
-                        <button
-                          key={val}
-                          onClick={() => setRouteDifficulty(val)}
-                          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                            routeDifficulty === val
-                              ? 'bg-blue-500 text-white shadow-sm'
-                              : 'bg-white text-gray-500 border border-gray-200'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex justify-center mb-3">
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            onClick={() => setRouteQuality(star)}
-                            className="p-0.5 transition-transform active:scale-90"
-                          >
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill={star <= routeQuality ? '#FBBF24' : 'none'} stroke={star <= routeQuality ? '#FBBF24' : '#D1D5DB'} strokeWidth="2">
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                            </svg>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {routeQuality > 0 && (
-                      <button
-                        onClick={async () => {
-                          if (!profile?.id) return;
-                          try {
-                            const loc = routeCoords.length > 0
-                              ? { lat: routeCoords[0][0], lng: routeCoords[0][1] }
-                              : { lat: 0, lng: 0 };
-                            await createContribution({
-                              userId: profile.id,
-                              type: 'review',
-                              status: 'pending',
-                              location: loc,
-                              routeQuality,
-                              routeDifficulty: routeDifficulty ?? undefined,
-                            });
-                            setRatingSubmitted(true);
-                          } catch (err) {
-                            console.error('[FreeRunSummary] Rating failed:', err);
-                          }
-                        }}
-                        className="w-full py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold active:scale-[0.98] transition-transform"
-                      >
-                        שלח דירוג ⭐
-                      </button>
-                    )}
-                  </>
+            {/* ── SUMMARY TAB ────────────────────────────────────────── */}
+            {(completedLaps.length === 0 || activeTab === 'summary') && (
+              <>
+                {/* Streak block — shared DopamineStreakBlock (orange flame
+                    card). Guarded on currentStreak > 1 so a first-time
+                    finisher (streak === 0 or 1) doesn't get a confusing
+                    "day streak: 1" block on their very first workout. */}
+                {currentStreak > 1 && (
+                  <DopamineStreakBlock streakDays={currentStreak} />
                 )}
+
+                {/* ── Ring stats ─────────────────────────────────────
+                    Replaces the previous SummaryStatsGrid row of large
+                    stat tiles with a hero-plus-two-smaller ring layout
+                    (same pattern as ProgramProgressCard on the home
+                    dashboard). Each ring is driven to 100% — the
+                    workout is complete, so the ring reads as
+                    achievement chrome, and the actual value lives in
+                    the ring's center via `children`.
+
+                    Colours track the existing SummaryStatsGrid palette
+                    so finishers keep the same visual language:
+                      distance → brand cyan, time → orange, pace → blue.
+                    Calories moved out of this block entirely; they are
+                    still surfaced in the coin badge below when the
+                    coin system is enabled. Elevation gain is no
+                    longer shown on this screen. */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="bg-white rounded-xl shadow-sm p-6"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  <div className="flex flex-col items-center gap-6">
+                    {/* Hero — distance. Largest ring, centre-stage so
+                        the finisher's eye lands on the km number
+                        first. */}
+                    <CircularProgress
+                      percentage={100}
+                      size={168}
+                      strokeWidth={10}
+                      colorClass="text-[#00ADEF]"
+                      trackClass="text-gray-100"
+                    >
+                      <div className="flex flex-col items-center leading-none">
+                        <span className="text-4xl font-black text-gray-900 tabular-nums">
+                          {totalDistance.toFixed(2)}
+                        </span>
+                        <span className="text-[11px] font-bold text-gray-500 mt-2 tracking-wider uppercase">
+                          ק״מ
+                        </span>
+                      </div>
+                    </CircularProgress>
+
+                    {/* Secondary rings — time + average pace.
+                        Same diameter so neither reads as more
+                        important than the other; they're a pair of
+                        supporting stats beneath the hero. */}
+                    <div className="flex items-center justify-center gap-8">
+                      <CircularProgress
+                        percentage={100}
+                        size={100}
+                        strokeWidth={7}
+                        colorClass="text-[#FF8C00]"
+                        trackClass="text-gray-100"
+                      >
+                        <div className="flex flex-col items-center leading-none">
+                          <span className="text-lg font-black text-gray-900 tabular-nums" dir="ltr">
+                            {formatTime(totalDuration)}
+                          </span>
+                          <span className="text-[10px] font-bold text-gray-500 mt-1.5 tracking-wider uppercase">
+                            זמן
+                          </span>
+                        </div>
+                      </CircularProgress>
+                      <CircularProgress
+                        percentage={100}
+                        size={100}
+                        strokeWidth={7}
+                        colorClass="text-blue-600"
+                        trackClass="text-gray-100"
+                      >
+                        <div className="flex flex-col items-center leading-none">
+                          <span className="text-lg font-black text-gray-900 tabular-nums" dir="ltr">
+                            {formatPace(avgPace > 0 ? avgPace : currentPace)}
+                          </span>
+                          <span className="text-[10px] font-bold text-gray-500 mt-1.5 tracking-wider uppercase">
+                            קצב
+                          </span>
+                        </div>
+                      </CircularProgress>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Coin Badge */}
+                {/* COIN_SYSTEM_PAUSED: Re-enable in April */}
+                {IS_COIN_SYSTEM_ENABLED && calories > 0 && (
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 300,
+                      damping: 20,
+                      delay: 0.2,
+                    }}
+                    className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-xl shadow-lg p-4 flex items-center justify-center gap-3"
+                  >
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 10, 0] }}
+                      transition={{ duration: 0.5, delay: 0.5 }}
+                    >
+                      <Coins size={32} className="text-yellow-800" fill="currentColor" />
+                    </motion.div>
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-yellow-900">
+                        +{calories}
+                      </div>
+                      <div className="text-sm font-bold text-yellow-800">מטבעות</div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Route Rating */}
+                {!isReadOnly && (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 shadow-sm"
+                    dir="rtl"
+                  >
+                    {ratingSubmitted ? (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <span className="text-emerald-600 text-sm font-bold">תודה על הדירוג! +{XP_REWARDS.review} XP</span>
+                      </div>
+                    ) : (
+                      <>
+                        <h4 className="text-gray-800 text-sm font-bold mb-3">דרגו את המסלול</h4>
+                        <div className="flex gap-2 mb-3">
+                          {([['easy', 'קל'] as const, ['medium', 'בינוני'] as const, ['hard', 'קשה'] as const]).map(([val, label]) => (
+                            <button
+                              key={val}
+                              onClick={() => setRouteDifficulty(val)}
+                              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                                routeDifficulty === val
+                                  ? 'bg-blue-500 text-white shadow-sm'
+                                  : 'bg-white text-gray-500 border border-gray-200'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex justify-center mb-3">
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() => setRouteQuality(star)}
+                                className="p-0.5 transition-transform active:scale-90"
+                              >
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill={star <= routeQuality ? '#FBBF24' : 'none'} stroke={star <= routeQuality ? '#FBBF24' : '#D1D5DB'} strokeWidth="2">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                </svg>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {routeQuality > 0 && (
+                          <button
+                            onClick={async () => {
+                              if (!profile?.id) return;
+                              try {
+                                const loc = routeCoords.length > 0
+                                  ? { lat: routeCoords[0][0], lng: routeCoords[0][1] }
+                                  : { lat: 0, lng: 0 };
+                                await createContribution({
+                                  userId: profile.id,
+                                  type: 'review',
+                                  status: 'pending',
+                                  location: loc,
+                                  routeQuality,
+                                  routeDifficulty: routeDifficulty ?? undefined,
+                                });
+                                setRatingSubmitted(true);
+                              } catch (err) {
+                                console.error('[FreeRunSummary] Rating failed:', err);
+                              }
+                            }}
+                            className="w-full py-2.5 rounded-xl bg-blue-500 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+                          >
+                            שלח דירוג ⭐
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </>
+            )}
+
+            {/* ── LAPS TAB ───────────────────────────────────────────── */}
+            {completedLaps.length > 0 && activeTab === 'laps' && (
+              <motion.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-4"
+              >
+                {/* Per-lap pace chart — inline SVG, no chart library. */}
+                <LapPaceChart laps={completedLaps} />
+
+                {/* Lap list — passed as prop so the summary uses a static
+                    snapshot and skips the 1 Hz force-update interval the
+                    live-workout HUD relies on. */}
+                <div
+                  className="bg-gray-50 rounded-xl shadow-sm overflow-hidden"
+                  style={{ height: '300px' }}
+                >
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-bold text-gray-900">פירוט הקפות</h2>
+                  </div>
+                  <div className="h-[calc(300px-4rem)] overflow-y-auto">
+                    <RunLapsList laps={laps} />
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -437,6 +683,172 @@ export default function FreeRunSummary({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * MeasuredChartBox
+ * ────────────────
+ * Copied verbatim from `ExerciseDetailSheet.tsx`. Eliminates Recharts'
+ * "width/height of -1" warning at the source by gating chart mount on
+ * a real ResizeObserver measurement instead of using
+ * <ResponsiveContainer> (which races the parent's first paint and
+ * fires the warning before its own observer has a stable measurement).
+ *
+ * Children receive concrete numeric `width` and `height` in pixels —
+ * pass them straight to <AreaChart width={...} height={...}>, no
+ * ResponsiveContainer needed.
+ */
+function MeasuredChartBox({
+  children,
+  className,
+}: {
+  children: (size: { width: number; height: number }) => ReactNode;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let raf = 0;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          setSize((prev) =>
+            prev && prev.width === width && prev.height === height
+              ? prev
+              : { width, height },
+          );
+        });
+      }
+    });
+    ro.observe(el);
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
+  }, []);
+
+  return (
+    <div ref={ref} className={className}>
+      {size ? children(size) : null}
+    </div>
+  );
+}
+
+/**
+ * LapPaceChart
+ * ────────────
+ * Per-lap pace line chart rendered in the "Laps" tab of the workout
+ * summary. Uses the exact same Recharts AreaChart pattern as
+ * `ExerciseProgressionSection` in ExerciseDetailSheet.tsx — same
+ * gradient, same muted grid, same dot + activeDot styling, same dark
+ * tooltip chrome.
+ *
+ * Differences from the exercise trend chart:
+ *   • `dataKey = "pace"` (min/km) instead of "maxReps"
+ *   • Y-axis is `reversed` so lower pace values (faster laps) sit at
+ *     the TOP of the chart — the visual metaphor is "peaks = fastest"
+ *   • Tick and tooltip values are formatted via `formatPace`
+ *     (shared helper) so the axis reads `05:03` dot-min/km style
+ *
+ * Empty state: if laps array is empty OR every `splitPace` is
+ * non-positive (the session never recorded a valid pace), a quiet
+ * placeholder replaces the chart so we don't paint a flat zero line.
+ */
+function LapPaceChart({ laps }: { laps: Lap[] }) {
+  const data = laps
+    .filter((l) => Number.isFinite(l.splitPace))
+    .map((l) => ({ lap: l.lapNumber, pace: l.splitPace }));
+  const hasData = data.some((d) => d.pace > 0);
+
+  // Stable per-mount gradient id — multiple LapPaceCharts on the same
+  // page would otherwise collide on `#freerunLapPaceGrad` and the
+  // second chart would pick up the first chart's gradient.
+  const gradId = useMemo(
+    () => `freerun_lap_pace_${Math.random().toString(36).slice(2, 9)}`,
+    [],
+  );
+
+  return (
+    <div
+      className="bg-gray-50 rounded-xl shadow-sm p-4"
+      dir="rtl"
+      style={{ fontFamily: 'var(--font-simpler)' }}
+    >
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h3 className="text-sm font-bold text-gray-900">קצב לפי הקפה</h3>
+        <span className="text-[11px] font-semibold text-gray-500">דק׳/ק״מ · נמוך = מהיר</span>
+      </div>
+
+      {!hasData ? (
+        <div className="h-[150px] flex items-center justify-center">
+          <p className="text-xs text-gray-400">אין נתוני קצב להצגה</p>
+        </div>
+      ) : (
+        <MeasuredChartBox className="w-full aspect-[2/1] min-h-[150px]">
+          {({ width, height }) => (
+            <AreaChart
+              width={width}
+              height={height}
+              data={data}
+              margin={{ top: 4, right: 8, left: -4, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"  stopColor="#00ADEF" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#00ADEF" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 6" stroke="#F1F5F9" vertical={false} />
+              <XAxis
+                dataKey="lap"
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                reversed
+                tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                axisLine={false}
+                tickLine={false}
+                width={40}
+                tickFormatter={(v: number) => formatPace(v)}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: '#1E293B', border: 'none', borderRadius: 10,
+                  fontSize: 11, fontWeight: 700, color: '#fff', padding: '6px 10px',
+                }}
+                // Cast on the function reference rather than the value
+                // param: Recharts 3.x widened the Formatter signature
+                // to a 5-arg generic over `ValueType` which our simple
+                // 1-arg formatter no longer satisfies structurally
+                // (the same mismatch exists in ExerciseDetailSheet.tsx
+                // — the pattern this chart was copied from). Safe
+                // because `value` is always a number here.
+                formatter={((value: number) => [formatPace(value), 'קצב']) as never}
+                labelFormatter={(lap) => `הקפה ${lap}`}
+                cursor={{ stroke: '#00ADEF', strokeWidth: 1, strokeDasharray: '4 4' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="pace"
+                stroke="#00ADEF"
+                strokeWidth={2.5}
+                fill={`url(#${gradId})`}
+                dot={{ r: 4, fill: '#fff', stroke: '#00ADEF', strokeWidth: 2 }}
+                activeDot={{ r: 6, fill: '#00ADEF', stroke: '#fff', strokeWidth: 2 }}
+                isAnimationActive={data.length > 1}
+              />
+            </AreaChart>
+          )}
+        </MeasuredChartBox>
+      )}
     </div>
   );
 }

@@ -150,12 +150,94 @@ export async function getProgramLevelSetting(
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) return null;
-    
+
+    const rawData = docSnap.data();
+
+    // ── RAW DOC DEBUG — log ALL field keys so we know exactly what Firestore ──
+    // stored.  A narrow field-specific log showed "{}" because JSON.stringify
+    // omits undefined values; logging every key avoids that blind spot.
+    console.log(
+      `[ProgramLevelSettings][RAW] "${docSnap.id}" — keys: [${Object.keys(rawData).join(', ')}]`,
+    );
+    // Also log the full subset of protocol-related fields (using JSON.stringify
+    // safe-value so undefined shows as the string "undefined" instead of vanishing).
+    const protocolFields: Record<string, unknown> = {};
+    for (const k of Object.keys(rawData)) {
+      if (
+        k.toLowerCase().includes('protocol') ||
+        k.toLowerCase().includes('superset') ||
+        k.toLowerCase().includes('emom') ||
+        k.toLowerCase().includes('pyramid') ||
+        k.toLowerCase().includes('allow') ||
+        k.toLowerCase().includes('probability')
+      ) {
+        protocolFields[k] = rawData[k];
+      }
+    }
+    console.log(
+      `[ProgramLevelSettings][RAW] "${docSnap.id}" — protocol fields:`,
+      Object.keys(protocolFields).length > 0
+        ? JSON.stringify(protocolFields, (_k, v) => (v === undefined ? '__undefined__' : v))
+        : '(none found — document has no protocol-related fields)',
+    );
+    // ────────────────────────────────────────────────────────────────────────
+
+    // ── Legacy + alias field normalisation ───────────────────────────────
+    // Support every field name variant we've ever shipped or might encounter:
+    //   preferredProtocols (current canonical)
+    //   protocols / enabledProtocols / activeProtocols / allowedProtocols (aliases)
+    //   allowSupersets / allowEMOM / allowPyramid (legacy booleans)
+    const rawProtocolsArray: unknown =
+      rawData['preferredProtocols'] ??
+      rawData['protocols'] ??
+      rawData['enabledProtocols'] ??
+      rawData['activeProtocols'] ??
+      rawData['allowedProtocols'];
+
+    let preferredProtocols: ProgramLevelSettings['preferredProtocols'] =
+      Array.isArray(rawProtocolsArray) && rawProtocolsArray.length > 0
+        ? (rawProtocolsArray as ProgramLevelSettings['preferredProtocols'])
+        : undefined;
+
+    if (!preferredProtocols?.length) {
+      const built: ProgramLevelSettings['preferredProtocols'] = [];
+      if (rawData['allowSupersets'] === true)  built.push('antagonist_pair');
+      if (rawData['allowEMOM']      === true)  built.push('emom');
+      if (rawData['allowPyramid']   === true)  built.push('pyramid');
+      if (built.length) {
+        preferredProtocols = built;
+        console.log(
+          `[ProgramLevelSettings] Legacy→canonical: "${docSnap.id}" ` +
+          `allowSupersets=${rawData['allowSupersets']} allowEMOM=${rawData['allowEMOM']} ` +
+          `allowPyramid=${rawData['allowPyramid']} → preferredProtocols=[${built.join(', ')}]`,
+        );
+      }
+    }
+
+    let protocolProbability: number | undefined = rawData['protocolProbability'];
+    if (protocolProbability == null) {
+      const raw = rawData['probability'];
+      if (typeof raw === 'number') {
+        // Guard: values > 1 were stored as whole-number percentages (e.g. 20 → 0.20).
+        protocolProbability = raw > 1 ? raw / 100 : raw;
+        console.log(
+          `[ProgramLevelSettings] Legacy→canonical: "${docSnap.id}" ` +
+          `probability=${raw} → protocolProbability=${protocolProbability}`,
+        );
+      }
+    } else if (protocolProbability > 1) {
+      // Stored as integer percentage even in the new field — normalise.
+      protocolProbability = protocolProbability / 100;
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     return {
       id: docSnap.id,
-      ...docSnap.data(),
-      createdAt: toDate(docSnap.data().createdAt),
-      updatedAt: toDate(docSnap.data().updatedAt),
+      ...rawData,
+      ...(preferredProtocols  !== undefined ? { preferredProtocols }  : {}),
+      ...(protocolProbability !== undefined ? { protocolProbability } : {}),
+      createdAt: toDate(rawData['createdAt']),
+      updatedAt: toDate(rawData['updatedAt']),
     } as ProgramLevelSettings;
   } catch (error) {
     console.error('Error fetching program level setting:', error);

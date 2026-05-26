@@ -176,6 +176,11 @@ export default function ExerciseEditorForm({
     exerciseRole: initialData?.exerciseRole, // warmup/cooldown/main
     isFollowAlong: initialData?.isFollowAlong,
     
+    // === RECOVERY / REINFORCEMENT ===
+    showOnRestDays: initialData?.showOnRestDays,
+    restDayProgramIds: initialData?.restDayProgramIds ? [...initialData.restDayProgramIds] : [],
+    isFinisherVideo: initialData?.isFinisherVideo,
+    
     // === TIMING ===
     secondsPerRep: initialData?.secondsPerRep,
     defaultRestSeconds: initialData?.defaultRestSeconds,
@@ -414,6 +419,11 @@ export default function ExerciseEditorForm({
         exerciseRole: initialData.exerciseRole,
         isFollowAlong: initialData.isFollowAlong,
         
+        // === RECOVERY / REINFORCEMENT ===
+        showOnRestDays: initialData.showOnRestDays,
+        restDayProgramIds: initialData.restDayProgramIds ? [...initialData.restDayProgramIds] : [],
+        isFinisherVideo: initialData.isFinisherVideo,
+        
         // === TIMING ===
         secondsPerRep: initialData.secondsPerRep,
         defaultRestSeconds: initialData.defaultRestSeconds,
@@ -558,6 +568,11 @@ export default function ExerciseEditorForm({
       tags: formData.tags,
       exerciseRole: formData.exerciseRole,
       isFollowAlong: formData.isFollowAlong,
+      
+      // === RECOVERY / REINFORCEMENT ===
+      showOnRestDays: formData.showOnRestDays,
+      restDayProgramIds: formData.restDayProgramIds,
+      isFinisherVideo: formData.isFinisherVideo,
       
       // === TIMING ===
       secondsPerRep: formData.secondsPerRep,

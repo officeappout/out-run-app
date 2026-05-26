@@ -2,27 +2,31 @@
  * Community Schedule Service
  *
  * Bridges community group scheduleSlots with the personal Training Planner.
- * - addCommunitySessionsToPlanner: writes community session refs into userSchedule
- * - removeCommunitySessionsFromPlanner: strips a group's sessions from userSchedule
- * - generateCommunityICS: creates a downloadable .ics blob for native calendar sync
+ * - addCommunitySessionsToPlanner: writes community sessions as first-class
+ *   `source: 'community'` entries inside `UserScheduleDay.entries[]`.
+ * - removeCommunitySessionsFromPlanner: strips a group's community entries
+ *   from userSchedule, never touching personal entries.
+ * - generateCommunityICS: creates a downloadable .ics blob for native calendar sync.
+ *
+ * After the entries[] migration, community sessions are no longer stored as
+ * a top-level `communitySessions[]` field — each session becomes a standalone
+ * entry carrying `source: 'community'`, `groupId`, `groupName`, `startTime`,
+ * and `scheduledCategories: [category]`.
  */
 
-import {
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { ScheduleSlot } from '@/types/community.types';
-import type { CommunitySessionRef, UserScheduleEntry } from '../types/schedule.types';
+import type {
+  UserScheduleEntry,
+  ScheduleActivityCategory,
+} from '../types/schedule.types';
+import {
+  addScheduleEntry,
+  getScheduleEntries,
+  removeCommunityEntriesForGroup,
+} from './userSchedule.service';
 
-const COLLECTION = 'userSchedule';
-const WEEKS_AHEAD = 8;
-
-function docId(userId: string, date: string): string {
-  return `${userId}_${date}`;
-}
+/** Horizon for how far ahead recurring slots are pre-populated. */
+const WEEKS_AHEAD = 12;
 
 function toISODate(d: Date): string {
   const yyyy = d.getFullYear();
@@ -32,8 +36,14 @@ function toISODate(d: Date): string {
 }
 
 /**
- * Given a list of ScheduleSlots, compute all concrete dates
- * for the next WEEKS_AHEAD weeks and return them as ISO strings.
+ * Expand a list of recurring `ScheduleSlot`s to concrete `(date, time)` pairs
+ * for the next 12 weeks (84 days), respecting each slot's `frequency`:
+ *   - 'weekly'   → step 7 days
+ *   - 'biweekly' → step 14 days
+ *   - 'monthly'  → step 30 days  (calendar-month approximation)
+ *
+ * The first occurrence is the earliest day on or after today matching
+ * `slot.dayOfWeek`; subsequent occurrences are produced by adding `stepDays`.
  */
 function expandSlotDates(
   slots: ScheduleSlot[],
@@ -41,16 +51,21 @@ function expandSlotDates(
   const results: { date: string; time: string }[] = [];
   const now = new Date();
   now.setHours(0, 0, 0, 0);
+  const horizonDays = WEEKS_AHEAD * 7; // 84
 
   for (const slot of slots) {
-    for (let w = 0; w < WEEKS_AHEAD; w++) {
+    const stepDays =
+      slot.frequency === 'biweekly' ? 14
+      : slot.frequency === 'monthly' ? 30
+      : 7; // weekly (default)
+
+    let daysAhead = slot.dayOfWeek - now.getDay();
+    if (daysAhead < 0) daysAhead += 7;
+
+    for (let offset = daysAhead; offset < horizonDays; offset += stepDays) {
       const candidate = new Date(now);
-      let daysAhead = slot.dayOfWeek - candidate.getDay();
-      if (daysAhead < 0) daysAhead += 7;
-      candidate.setDate(candidate.getDate() + daysAhead + w * 7);
-      if (candidate >= now) {
-        results.push({ date: toISODate(candidate), time: slot.time });
-      }
+      candidate.setDate(now.getDate() + offset);
+      results.push({ date: toISODate(candidate), time: slot.time });
     }
   }
   return results;
@@ -58,9 +73,12 @@ function expandSlotDates(
 
 /**
  * After a user joins a group, populate their Training Planner with
- * recurring community sessions for the next WEEKS_AHEAD weeks.
+ * recurring community sessions for the next 12 weeks.
  *
- * Merges into existing entries (personal workouts are not overwritten).
+ * Each occurrence is appended to the day's `entries[]` as a first-class
+ * `source: 'community'` entry.  Personal entries on the same day are
+ * preserved.  Same-group occurrences are deduped: if this group already has
+ * an entry on the date, the call is a no-op.
  */
 export async function addCommunitySessionsToPlanner(
   userId: string,
@@ -75,51 +93,39 @@ export async function addCommunitySessionsToPlanner(
 
   await Promise.all(
     dates.map(async ({ date, time }) => {
-      const id = docId(userId, date);
-      const ref = doc(db, COLLECTION, id);
-
       try {
-        const snap = await getDoc(ref);
-        const newSession: CommunitySessionRef = { groupId, groupName, time, category };
-
-        if (snap.exists()) {
-          const existing = snap.data() as UserScheduleEntry;
-          const sessions = existing.communitySessions ?? [];
-          if (sessions.some((s) => s.groupId === groupId)) return;
-          await setDoc(
-            ref,
-            {
-              communitySessions: [...sessions, newSession],
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          );
-        } else {
-          const entry: Partial<UserScheduleEntry> = {
-            userId,
-            date,
-            programIds: [],
-            type: 'training',
-            source: 'community',
-            completed: false,
-            startTime: time,
-            communitySessions: [newSession],
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
-          await setDoc(ref, entry, { merge: false });
+        const existing = await getScheduleEntries(userId, date);
+        if (existing.some((e) => e.source === 'community' && e.groupId === groupId)) {
+          return;
         }
+
+        const entry: UserScheduleEntry = {
+          userId,
+          date,
+          programIds: [],
+          type: 'training',
+          source: 'community',
+          completed: false,
+          groupId,
+          groupName,
+          startTime: time,
+          scheduledCategories: [category as ScheduleActivityCategory],
+        };
+
+        await addScheduleEntry(userId, date, entry);
       } catch (err) {
-        console.warn(`[CommunitySchedule] failed to write ${id}:`, err);
+        console.warn(`[CommunitySchedule] failed to write ${userId}_${date}:`, err);
       }
     }),
   );
 }
 
 /**
- * When a user leaves a group, remove that group's community sessions
- * from their planner. If a day only had community sessions (no personal
- * workouts), the entry is converted to a rest day.
+ * When a user leaves a group, remove that group's community entries from
+ * their planner.  Delegates to `removeCommunityEntriesForGroup` which:
+ *   - filters by `source === 'community' && groupId === groupId` only
+ *   - never removes or modifies personal entries on the same day
+ *   - deletes the day-doc entirely if no entries remain
  */
 export async function removeCommunitySessionsFromPlanner(
   userId: string,
@@ -132,37 +138,10 @@ export async function removeCommunitySessionsFromPlanner(
 
   await Promise.all(
     dates.map(async ({ date }) => {
-      const id = docId(userId, date);
-      const ref = doc(db, COLLECTION, id);
-
       try {
-        const snap = await getDoc(ref);
-        if (!snap.exists()) return;
-
-        const existing = snap.data() as UserScheduleEntry;
-        const sessions = (existing.communitySessions ?? []).filter(
-          (s) => s.groupId !== groupId,
-        );
-
-        if (
-          sessions.length === 0 &&
-          (!existing.programIds || existing.programIds.length === 0) &&
-          existing.source === 'community'
-        ) {
-          const { deleteDoc } = await import('firebase/firestore');
-          await deleteDoc(ref);
-        } else {
-          await setDoc(
-            ref,
-            {
-              communitySessions: sessions,
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          );
-        }
+        await removeCommunityEntriesForGroup(userId, date, groupId);
       } catch (err) {
-        console.warn(`[CommunitySchedule] failed to clean ${id}:`, err);
+        console.warn(`[CommunitySchedule] failed to clean ${userId}_${date}:`, err);
       }
     }),
   );

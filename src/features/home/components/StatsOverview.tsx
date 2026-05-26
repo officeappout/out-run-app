@@ -39,16 +39,17 @@ import {
   calculateWeeklyBudget,
 } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
-import { getScheduleEntry, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
-import { toISODate, isLateNightPivot } from '@/features/user/scheduling/utils/dateUtils';
+import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
+import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import { toISODate, isLateNightPivot, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import UserWorkoutAdjuster from './UserWorkoutAdjuster';
 import ProcessingOverlay from './ProcessingOverlay';
-import { getProgram } from '@/features/content/programs/core/program.service';
-import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
+import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsForProgram';
 import type { GoalItem } from './widgets/ProgramProgressCard';
 import { getLocalizedText } from '@/features/content/exercises';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs';
-import { getPark } from '@/features/parks/core/services/parks.service';
+import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
 
@@ -247,6 +248,24 @@ interface StatsOverviewProps {
   hideWorkoutSection?: boolean;
   /** Feature flag — when false, clamps RUNNING/HYBRID dashboard mode to DEFAULT */
   enableRunningPrograms?: boolean;
+  /** Increment to force workout re-generation after a schedule mutation */
+  scheduleVersion?: number;
+  /** When provided, a "בנה אימון משלך" card is appended to the workout carousel */
+  onBuildCustom?: (ctx: BuilderContext) => void;
+  /**
+   * When `true`, passes `generateSingleOption: true` to `generateHomeWorkoutTrio`
+   * so only the Balanced (D2) option is computed.  Cuts latency ~66%.
+   * Controlled by the parent when the preview drawer is loading a card tap.
+   */
+  generateSingleOption?: boolean;
+}
+
+/** Context forwarded to the workout builder when the custom card is tapped. */
+export interface BuilderContext {
+  location?: string;
+  programIds?: string[];
+  duration?: number;
+  difficulty?: number;
 }
 
 export default function StatsOverview({ 
@@ -261,6 +280,9 @@ export default function StatsOverview({
   hasCompletedAssessment = true,
   hideWorkoutSection = false,
   enableRunningPrograms = true,
+  scheduleVersion,
+  onBuildCustom,
+  generateSingleOption,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
@@ -363,11 +385,16 @@ export default function StatsOverview({
   const activeProgram = profile?.progression?.activePrograms?.[0];
   const activeProgramCount = profile?.progression?.activePrograms?.length ?? 1;
 
-  // Resolve primary domain ID: prefer activeProgram.templateId, then first domains key, then first tracks key
+  // Resolve primary domain ID: prefer activeProgram.templateId, then first domains key, then first tracks key.
+  // Defensive: skip hash-looking domain keys (long alphanumeric, no underscores) left by the admin panel
+  // assigning programs via hash ID — those orphan entries point to the wrong program.
   const primaryDomainId = useMemo(() => {
     if (activeProgram?.templateId) return activeProgram.templateId;
+    const isHashKey = (k: string) => k.length > 15 && !k.includes('_');
     const domainsKeys = profile?.progression?.domains ? Object.keys(profile.progression.domains) : [];
-    if (domainsKeys.length > 0) return domainsKeys[0];
+    const slugDomainKeys = domainsKeys.filter((k) => !isHashKey(k));
+    if (slugDomainKeys.length > 0) return slugDomainKeys[0];
+    if (domainsKeys.length > 0) return domainsKeys[0]; // last resort: accept hash if no slug keys exist
     const tracksKeys = profile?.progression?.tracks ? Object.keys(profile.progression.tracks) : [];
     return tracksKeys.length > 0 ? tracksKeys[0] : null;
   }, [activeProgram?.templateId, profile?.progression?.domains, profile?.progression?.tracks]);
@@ -412,7 +439,7 @@ export default function StatsOverview({
     if (!programId) return;
 
     let cancelled = false;
-    getProgram(programId)
+    getProgramByTemplateId(programId)
       .then((prog) => {
         if (cancelled || !prog) return;
         if (prog.name) setHebrewProgramName(prog.name);
@@ -448,174 +475,39 @@ export default function StatsOverview({
     [primaryDomainId],
   );
 
-  // ── Fetch level goals (milestones) from ProgramLevelSettings ──
-  // Supports Goal Inheritance: if current program is a Master Program,
-  // also fetch goals from all its child programs.
-  // FIXED: depends on `programMeta` state (not a ref) to avoid race conditions.
-  const [levelGoals, setLevelGoals] = useState<GoalItem[]>([]);
+  // ── Fetch level goals (milestones) via shared hook ──────────────────────
+  // useGoalsForProgram handles master expansion, tracks-based discovery, and
+  // the last-resort scan internally — no inline orchestration needed here.
+  const { goals: rawGoals } = useGoalsForProgram(
+    primaryDomainId ? { templateId: primaryDomainId, currentLevel: domainLevel } : null,
+  );
 
-  useEffect(() => {
-    if (!primaryDomainId) return;
-    // Wait until programMeta is loaded so we know if it's a master program
-    if (programMeta === null) return;
-
-    let cancelled = false;
+  // Map raw LevelGoal[] → GoalItem[] for ProgramProgressCard.
+  // Completion state is derived from progression.levelGoalProgress.
+  const levelGoals = useMemo<GoalItem[]>(() => {
+    if (rawGoals.length === 0) return [];
 
     const userGoalProgress = profile?.progression?.levelGoalProgress ?? [];
+    const currentLevelProgress = userGoalProgress.find(
+      (lgp) => lgp.levelName === `Level ${domainLevel}`,
+    );
 
-    const mapGoals = (
-      settings: { id?: string; targetGoals?: any[] } | null,
-      sourcePrefix: string,
-    ): GoalItem[] => {
-      if (!settings?.targetGoals?.length) return [];
-      const currentLevelProgress = userGoalProgress.find(
-        (lgp) => lgp.levelId === settings.id || lgp.levelName === `Level ${domainLevel}`,
-      );
-      return settings.targetGoals.map((tg: any, idx: number) => {
-        let isCompleted = false;
-        if (currentLevelProgress?.goals) {
-          const match = currentLevelProgress.goals.find(
-            (g: any) => g.exerciseId === tg.exerciseId,
-          );
-          if (match) isCompleted = match.isCompleted;
-        }
-        const unitLabel = tg.unit === 'reps' ? 'חזרות' : 'שניות';
-        return {
-          id: `${sourcePrefix}-goal-${idx}-${tg.exerciseId}`,
-          label: `${tg.exerciseName} — ${tg.targetValue} ${unitLabel}`,
-          isCompleted,
-        };
-      });
-    };
-
-    (async () => {
-      try {
-        const tracks = profile?.progression?.tracks;
-
-        // ── Step 1: Fetch goals for the primary program document ──
-        const mainSettings = await getProgramLevelSetting(primaryDomainId, domainLevel);
-        let allGoals = mapGoals(mainSettings, primaryDomainId);
-
-        console.log(
-          `[StatsOverview] Primary doc "${primaryDomainId}_level_${domainLevel}" → ${allGoals.length} goals`,
+    return rawGoals.map((tg, idx) => {
+      let isCompleted = false;
+      if (currentLevelProgress?.goals) {
+        const match = currentLevelProgress.goals.find(
+          (g: { exerciseId: string; isCompleted?: boolean }) => g.exerciseId === tg.exerciseId,
         );
-
-        // ── Step 2: Goal Inheritance for Master Programs ──
-        // Collect child IDs from programMeta (canonical source).
-        // Also fetch the program directly as a second-pass fallback in case
-        // programMeta.subPrograms was cached empty while Firestore had data.
-        let childIds = [...programMeta.subPrograms];
-
-        if (programMeta.isMaster && childIds.length === 0) {
-          console.log(`[StatsOverview] isMaster=true but children empty — refetching ${primaryDomainId}`);
-          try {
-            const freshProg = await getProgram(primaryDomainId);
-            if (freshProg?.subPrograms?.length) {
-              childIds = freshProg.subPrograms;
-              setProgramMeta({ isMaster: true, subPrograms: childIds });
-            }
-          } catch { /* ignore */ }
-        }
-
-        // ── Step 2b: Tracks-based discovery fallback ──
-        // If subPrograms is still empty, discover children from the user's
-        // progression.tracks keys (any track that isn't the primary itself).
-        if (childIds.length === 0 && tracks) {
-          const discoveredChildren = Object.keys(tracks).filter(
-            (trackId) => trackId !== primaryDomainId,
-          );
-          if (discoveredChildren.length > 0) {
-            console.log(
-              `[StatsOverview] 🔍 Discovered ${discoveredChildren.length} child tracks from profile.progression.tracks: [${discoveredChildren.join(', ')}]`,
-            );
-            childIds = discoveredChildren;
-          }
-        }
-
-        if (childIds.length > 0) {
-          console.log(
-            `[StatsOverview] Fetching child-program goals: [${childIds.join(', ')}] (each at own track level)`,
-          );
-          const childResults = await Promise.allSettled(
-            childIds.map((childId) => {
-              const childTrackLevel = tracks?.[childId]?.currentLevel ?? domainLevel;
-              console.log(`[StatsOverview]   ↳ "${childId}" → fetching level ${childTrackLevel}`);
-              return getProgramLevelSetting(childId, childTrackLevel);
-            }),
-          );
-          for (let i = 0; i < childResults.length; i++) {
-            const result = childResults[i];
-            const childId = childIds[i];
-            if (result.status === 'fulfilled' && result.value) {
-              const childGoals = mapGoals(result.value, childId);
-              console.log(`[StatsOverview]   └─ "${childId}": ${childGoals.length} goals`);
-              allGoals = [...allGoals, ...childGoals];
-            } else {
-              console.log(`[StatsOverview]   └─ "${childId}": no settings found`);
-            }
-          }
-        }
-
-        // ── Step 3: Last-resort — query ALL level settings for the primary program ──
-        // If we still have 0 goals, it might be that the doc ID convention
-        // doesn't match (e.g., level stored as 0 instead of 1). Try fetching
-        // all settings for the primary program and pick the closest level.
-        if (allGoals.length === 0) {
-          console.log(
-            `[StatsOverview] ⚠️ Still 0 goals — last-resort: fetching ALL settings for "${primaryDomainId}"`,
-          );
-          try {
-            const { getProgramLevelSettingsByProgram } = await import(
-              '@/features/content/programs/core/programLevelSettings.service'
-            );
-            const allSettings = await getProgramLevelSettingsByProgram(primaryDomainId);
-            if (allSettings.length > 0) {
-              const closest =
-                allSettings.find((s) => s.levelNumber === domainLevel) ||
-                allSettings[0];
-              const fallbackGoals = mapGoals(closest, primaryDomainId);
-              console.log(
-                `[StatsOverview]   └─ last-resort found ${allSettings.length} docs, using level ${closest.levelNumber}: ${fallbackGoals.length} goals`,
-              );
-              allGoals = [...allGoals, ...fallbackGoals];
-            } else {
-              console.log(`[StatsOverview]   └─ last-resort: no settings docs at all for "${primaryDomainId}"`);
-            }
-          } catch (err) {
-            console.warn('[StatsOverview] Last-resort query failed:', err);
-          }
-        }
-
-        if (!cancelled) {
-          setLevelGoals(allGoals);
-          console.log(
-            `[StatsOverview] ✅ MERGED GOALS ARRAY (${allGoals.length} total):`,
-            allGoals.map(g => ({ id: g.id, label: g.label, done: g.isCompleted })),
-          );
-        }
-      } catch (err) {
-        console.warn('[StatsOverview] Failed to fetch level goals:', err);
+        if (match?.isCompleted) isCompleted = true;
       }
-    })();
-
-    return () => { cancelled = true; };
-  }, [primaryDomainId, domainLevel, profile?.progression?.levelGoalProgress, profile?.progression?.tracks, programMeta]);
-
-  // ── Park Equipment Bridge (temporary filter, never written to profile) ──
-  const [parkEquipmentIds, setParkEquipmentIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    const parkId = profile?.firstWorkoutParkId;
-    if (!parkId) return;
-    let cancelled = false;
-    getPark(parkId)
-      .then((park) => {
-        if (cancelled || !park?.gymEquipment?.length) return;
-        setParkEquipmentIds(park.gymEquipment.map((eq) => eq.equipmentId));
-      })
-      .catch((err) => console.warn('[StatsOverview] Park equipment fetch failed:', err));
-    return () => { cancelled = true; };
-  }, [profile?.firstWorkoutParkId]);
+      const unitLabel = tg.unit === 'reps' ? 'חזרות' : 'שניות';
+      return {
+        id: `${primaryDomainId ?? 'goal'}-${idx}-${tg.exerciseId}`,
+        label: `${tg.exerciseName} — ${tg.targetValue} ${unitLabel}`,
+        isCompleted,
+      };
+    });
+  }, [rawGoals, primaryDomainId, domainLevel, profile?.progression?.levelGoalProgress]);
 
   // ── Dynamic Workout State (Trio) ────────────────────────────────────────
   const [trioResult, setTrioResult] = useState<HomeWorkoutTrioResult | null>(null);
@@ -626,22 +518,86 @@ export default function StatsOverview({
   const [currentWorkoutLocation, setCurrentWorkoutLocation] = useState<string | null>(null);
   const didGenerate = useRef(false);
   const lastGeneratedDate = useRef<string | null>(null);
+  // Stores the program IDs used to generate the current trio so they can be
+  // forwarded to the builder when the custom card is tapped.
+  const scheduledProgramIdsRef = useRef<string[]>([]);
+  // Ref mirror of trioResult for synchronous reads inside the generation effect.
+  const trioResultRef = useRef<HomeWorkoutTrioResult | null>(null);
+  // Signals that a schedule-planner update (scheduleVersion change) deliberately
+  // requested a re-generation.  Consumed once at the start of each generation run.
+  const pendingScheduleRegenRef = useRef(false);
+  // Ref-stabilised callback: prevents the generation effect from re-firing
+  // purely because the parent recreated the onWorkoutGenerated function reference.
+  const onWorkoutGeneratedRef = useRef(onWorkoutGenerated);
+  useEffect(() => { onWorkoutGeneratedRef.current = onWorkoutGenerated; }, [onWorkoutGenerated]);
+
+  // Ref-stabilised flag: read at generation time so the effect doesn't re-fire
+  // when the parent clears this flag after the workout is delivered.
+  const generateSingleOptionRef = useRef(generateSingleOption ?? false);
+  useEffect(() => { generateSingleOptionRef.current = generateSingleOption ?? false; }, [generateSingleOption]);
+  // Keep trioResultRef in sync with React state so the generation effect can
+  // read the current value synchronously (effect closures see stale state).
+  useEffect(() => { trioResultRef.current = trioResult; }, [trioResult]);
 
   const dynamicWorkout = trioResult?.options[selectedOptionIndex]?.result.workout ?? null;
 
   // Resolve effective target date (prop or today fallback)
   const targetDate = selectedDateProp ?? toISODate(new Date());
 
-  // Reset generation guard when selectedDate changes so the effect re-fires
+  // Reset generation guard whenever targetDate changes (week-strip day tap or
+  // any other date navigation).  The unconditional reset means the generation
+  // effect always re-fires for a new date — even if a prior generation for the
+  // same session hasn't finished yet.  lastGeneratedDate is still updated at
+  // the start of each generation run so the Custom-Builder bypass gate can
+  // distinguish an intentional date change from a spurious re-render.
   useEffect(() => {
-    if (lastGeneratedDate.current && lastGeneratedDate.current !== targetDate) {
-      didGenerate.current = false;
+    didGenerate.current = false;
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[StatsOverview] targetDate changed → ${targetDate}, generation guard reset`);
     }
   }, [targetDate]);
 
+  // Reset generation guard when a schedule mutation happens (e.g. add/move/remove entry
+  // in TrainingPlannerOverlay) so the workout is re-generated with the updated schedule.
+  useEffect(() => {
+    if (scheduleVersion === undefined || scheduleVersion === 0) return;
+    didGenerate.current = false;
+    pendingScheduleRegenRef.current = true; // intentional re-generation triggered by scheduler
+  }, [scheduleVersion]);
+
   // Generate workout on mount / date change — UTS Phase 2 date-reactive path
+  //
+  // GPS race-condition fix: park equipment is resolved INSIDE this effect,
+  // serialized as the very first async step before generateHomeWorkoutTrio is
+  // called.  The old pattern (a separate useEffect writing to parkEquipmentIds
+  // state) fired in parallel with this effect, so generation consistently ran
+  // before GPS resolved and always fell back to ESSENTIAL_PARK_GEAR.
+  //
+  // Dependency note: `profile?.id` is used instead of the full `profile` object
+  // so that reference-level churn on the store (e.g. a Zustand selector in a
+  // sibling hook returning a new object on every snapshot call) cannot
+  // re-trigger generation. The full `profile` value is read from the closure at
+  // execution time — the generator always sees the latest data. `didGenerate`
+  // (ref) prevents any duplicate runs should the effect somehow fire twice.
   useEffect(() => {
     if (!profile || isGuest || didGenerate.current) return;
+
+    // ── Custom-Builder bypass gate ────────────────────────────────────────
+    // If a trio result is already set for today's date AND this effect did not
+    // fire from an intentional schedule-planner update (pendingScheduleRegenRef),
+    // a custom-builder session is likely still active.  Preserve it and return
+    // early to avoid the default background generation from overwriting the user's
+    // hand-crafted workout selection.
+    if (
+      trioResultRef.current !== null &&
+      lastGeneratedDate.current === targetDate &&
+      !pendingScheduleRegenRef.current
+    ) {
+      didGenerate.current = true; // re-arm guard so spurious re-fires are also caught
+      return;
+    }
+    // Consume the intentional-regen flag so it is not carried into future runs.
+    pendingScheduleRegenRef.current = false;
 
     // Pure RUNNING mode: strength workouts are never shown.
     // NextRunWorkoutCard reads profile.running.activeProgram directly — no trio needed.
@@ -652,6 +608,9 @@ export default function StatsOverview({
       return;
     }
 
+    // Mark as generating immediately to prevent double-execution on re-render.
+    // All async work (GPS, schedule, generation) happens inside the IIFE below,
+    // so the guard is set before any await — this is intentional.
     didGenerate.current = true;
     lastGeneratedDate.current = targetDate;
 
@@ -675,39 +634,137 @@ export default function StatsOverview({
 
     // ── Momentum Guard (Late-Night Pivot) ──────────────────────────────
     // Only applies to today; future/past dates skip this check.
+    // NOTE: isLateNightPivot always returns false while the Bolt-specific
+    // duration caps (Bolt1=30 / Bolt2=45 / Bolt3=60) are active.
+    // The engine now controls duration internally per bolt; we pass the
+    // maximum (60 min) so the exercise pool is sized for Bolt 3 and the
+    // per-bolt Volume Guard trims lighter options down to their own cap.
     const isTargetToday = targetDate === toISODate(new Date());
     const lateNight = isTargetToday && isLateNightPivot(profile.lifestyle?.trainingTime);
-    const condensedTime = lateNight ? 15 : 30;
+    const condensedTime = lateNight ? 15 : 60;
     if (lateNight) {
       console.log('[UTS] Late-Night Pivot active → condensed 15-min workout');
     }
 
-    // ── UTS: Consult UserSchedule before generating ────────────────────
-    getScheduleEntry(profile.id, targetDate)
-      .then(entry => {
-        if (!entry && profile.lifestyle?.recurringTemplate) {
-          return hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
+    (async () => {
+      try {
+        // ── Step 1: Resolve park equipment BEFORE generation (serialized) ──
+        // Only attempt GPS for park/street locations — irrelevant overhead otherwise.
+        let resolvedParkGear: string[] = [];
+        const isParkLocation = resolvedLocation === 'park' || resolvedLocation === 'street';
+        if (isParkLocation) {
+          let gpsCoords: { lat: number; lng: number } | undefined;
+          if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+            try {
+              const permission = await navigator.permissions.query({ name: 'geolocation' });
+              if (permission.state === 'granted') {
+                const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+                  navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: false,
+                    timeout: 5000,
+                    maximumAge: 120_000,
+                  }),
+                );
+                gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              }
+            } catch {
+              // GPS unavailable or denied — resolver falls through to profile fallback
+            }
+          }
+          resolvedParkGear = await resolveParkEquipmentIds(profile, { gpsCoords });
+          console.log(
+            resolvedParkGear.length > 0
+              ? `[StatsOverview] Park gear resolved (${resolvedParkGear.length} items): [${resolvedParkGear.join(', ')}]`
+              : '[StatsOverview] No park gear resolved — ESSENTIAL_PARK_GEAR fallback will apply',
+          );
         }
-        return entry;
-      })
-      .then(async (entry) => {
+
+        // ── Step 2: Consult UserSchedule ───────────────────────────────────
+        //
+        // Priority for picking the entry that drives workout generation:
+        //   1. Personal training entry (non-community) → use programIds
+        //   2. Explicit rest entry → marks day as `isRestDay`
+        //   3. Community-only or no entry → fall through to recurringTemplate
+        //      hydration (or the activeProgram default below) — the user can
+        //      still get a workout suggestion alongside their community session.
+        const rawEntries = await getScheduleEntries(profile.id, targetDate);
+        let entry: UserScheduleEntry | null =
+          rawEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
+          rawEntries.find((e) => e.type === 'rest') ??
+          null;
+        if (!entry && profile.lifestyle?.recurringTemplate) {
+          entry = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
+        }
+
         const isRestDay = entry?.type === 'rest';
         const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
+
+        // When both getScheduleEntries AND hydrateFromTemplate returned null
+        // (e.g. network error, but no tombstone), read today's program IDs
+        // directly from the in-memory recurringTemplate as a pure read-only
+        // fallback.  This prevents the engine from falling to activePrograms[0]
+        // (e.g. 'front_lever') when the scheduled day maps to a master session
+        // (e.g. 'UPPER_CALISTHENICS').
+        // NOTE: if entry is a rest-tombstone (override=true), `!entry` is false
+        // and we correctly skip this path — respecting the user's deletion.
+        const templateDayLetter = getHebrewDayLetter(new Date(targetDate + 'T00:00:00'));
+        const templateFallbackIds =
+          !entry && profile.lifestyle?.recurringTemplate?.[templateDayLetter]
+            ? (profile.lifestyle.recurringTemplate[templateDayLetter] as string[]).filter(Boolean)
+            : null;
+
         const scheduledProgramIds =
           entry?.type === 'training' && entry.programIds?.length
             ? entry.programIds
-            : activeProgram ? [activeProgram] : [];
+            : templateFallbackIds?.length
+              ? templateFallbackIds
+              : activeProgram ? [activeProgram] : [];
 
+        scheduledProgramIdsRef.current = scheduledProgramIds;
         console.log(
           `[UTS] Schedule for ${targetDate}: type=${entry?.type ?? 'none'}` +
           ` programs=[${scheduledProgramIds.join(',')}]` +
           ` lateNight=${lateNight}`,
         );
 
-        const remainingBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
-        const budgetUsagePercent = useWeeklyVolumeStore.getState().getBudgetUsagePercent();
-        const domainSetsCompletedThisWeek = useWeeklyVolumeStore.getState().getDomainSetsCompleted();
-        const recentExerciseIds = useWeeklyVolumeStore.getState().getRecentExerciseIds(2);
+        // Only trust the persisted budget data when the store is confirmed to
+        // belong to the current user. A mismatch means the store still holds a
+        // previous user's completed-sets count, which can produce a stale small
+        // remainingBudget (e.g. 2-4 sets) that falsely triggers the Budget Floor
+        // guard in generateHomeWorkoutTrio (remainingWeeklyBudget < 6 → 3
+        // "אימון שחרור והתאוששות" recovery cards for a brand-new user).
+        // checkAndResetWeek() runs async in a parallel useEffect; by the time we
+        // reach here it may not have completed yet, so we guard here too.
+        const volumeStoreState = useWeeklyVolumeStore.getState();
+        const storeOwnsCurrentUser =
+          volumeStoreState.isInitialized && volumeStoreState.userId === profile.id;
+
+        // Secondary consistency gate: if the store claims sets were completed
+        // but has zero session logs to back them up, the `totalSetsCompleted`
+        // value is stale data (e.g. a same-UID test run where sessions were
+        // injected directly into the store without going through
+        // recordStrengthSession). A small stale remainingBudget (< 6) would
+        // otherwise slip through storeOwnsCurrentUser and falsely trigger the
+        // Budget Floor → 3 recovery cards even for a new user on day 1.
+        const sessionLogs = volumeStoreState.sessionLogs ?? [];
+        const hasConsistentStrengthData =
+          sessionLogs.length > 0 ||
+          volumeStoreState.strength.totalSetsCompleted === 0;
+
+        const budgetDataValid = storeOwnsCurrentUser && hasConsistentStrengthData;
+
+        const remainingBudget = budgetDataValid
+          ? volumeStoreState.getRemainingBudget()
+          : 0;
+        const budgetUsagePercent = budgetDataValid
+          ? volumeStoreState.getBudgetUsagePercent()
+          : 0;
+        const domainSetsCompletedThisWeek = budgetDataValid
+          ? volumeStoreState.getDomainSetsCompleted()
+          : {};
+        const recentExerciseIds = storeOwnsCurrentUser
+          ? volumeStoreState.getRecentExerciseIds(2)
+          : [];
 
         // Phase 4: Count remaining training days in the week (including today)
         const userScheduleDays = profile.lifestyle?.scheduleDays ?? [];
@@ -725,7 +782,8 @@ export default function StatsOverview({
         // Cached + deduped — essentially free on repeat calls.
         await ensureEquipmentCachesLoaded();
 
-        return generateHomeWorkoutTrio({
+        // ── Step 3: Generate with fully-resolved park gear ─────────────────
+        const trio = await generateHomeWorkoutTrio({
           userProfile: profile,
           location: resolvedLocation,
           availableTime: condensedTime,
@@ -738,24 +796,34 @@ export default function StatsOverview({
             ? domainSetsCompletedThisWeek : undefined,
           remainingScheduleDays,
           recentExerciseIds: recentExerciseIds.length > 0 ? recentExerciseIds : undefined,
-          parkEquipmentIds: parkEquipmentIds.length > 0 ? parkEquipmentIds : undefined,
+          parkEquipmentIds: resolvedParkGear.length > 0 ? resolvedParkGear : undefined,
+          // Drawer fast-path: skip D1/D3 generation when only D2 is needed.
+          generateSingleOption: generateSingleOptionRef.current || undefined,
         });
-      })
-      .then((trio) => {
+
         setTrioResult(trio);
-        setSelectedOptionIndex(1);
-        onWorkoutGenerated?.(trio.options[1].result.workout);
+        // Periodization: use policy-driven default focus (0=Easy/Deload, 1=Normal, 2=Intense/Peak).
+        const focusIdx = trio.meta?.defaultFocusIndex ?? 1;
+        setSelectedOptionIndex(focusIdx);
+        onWorkoutGeneratedRef.current?.(trio.options[focusIdx].result.workout);
+        if (focusIdx !== 1) {
+          console.log(
+            `[Periodization] Auto-focused carousel to option ${focusIdx} ` +
+            `(week=${trio.meta?.periodizationWeek}, reason=${trio.meta?.coachCue ?? 'n/a'})`,
+          );
+        }
         const loc = trio.meta?.location || resolvedLocation;
         setCurrentWorkoutLocation(loc);
         if (typeof window !== 'undefined' && loc) {
           sessionStorage.setItem('currentWorkoutLocation', loc);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('[StatsOverview] Workout generation failed:', err);
-      })
-      .finally(() => setIsGenerating(false));
-  }, [profile, isGuest, onWorkoutGenerated, targetDate]);
+      } finally {
+        setIsGenerating(false);
+      }
+    })();
+  }, [profile?.id, isGuest, targetDate, scheduleVersion]);
 
   // Persist hero media to sessionStorage so the Workout Detail page can reuse it
   useEffect(() => {
@@ -808,6 +876,21 @@ export default function StatsOverview({
     }
     onStartWorkout?.();
   }, [trioResult, onWorkoutGenerated, onStartWorkout]);
+
+  // Wraps onBuildCustom to forward the current trio context (location, programs,
+  // duration, difficulty) so the builder opens pre-filled.
+  const handleBuildCustomWrapped = useCallback(() => {
+    const workout = trioResult?.options[selectedOptionIndex]?.result.workout;
+    const ctx: BuilderContext = {
+      location:   currentWorkoutLocation ?? undefined,
+      programIds: scheduledProgramIdsRef.current.length > 0
+        ? scheduledProgramIdsRef.current
+        : undefined,
+      duration:   workout?.estimatedDuration,
+      difficulty: workout?.difficulty,
+    };
+    onBuildCustom?.(ctx);
+  }, [trioResult, selectedOptionIndex, currentWorkoutLocation, onBuildCustom]);
 
   // ── Nudge popup state (for locked widgets) — must be before any early return ──
   const [showNudge, setShowNudge] = useState(false);
@@ -927,6 +1010,17 @@ export default function StatsOverview({
         </p>
       </div>
 
+      {/* Periodization / Reactivation Coach Cue Banner */}
+      {trioResult?.meta?.coachCue && (
+        <div
+          className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium text-center"
+          style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#4f46e5' }}
+          dir="rtl"
+        >
+          {trioResult.meta.coachCue}
+        </div>
+      )}
+
       {/* Carousel — blurred with lemur teaser overlay when assessment is not completed */}
       <div className="relative">
         <div className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}>
@@ -940,6 +1034,7 @@ export default function StatsOverview({
               programIconKey={primaryDomainId}
               selectedIndex={selectedOptionIndex}
               userGender={profile?.core?.gender}
+              onBuildCustom={handleBuildCustomWrapped}
             />
           ) : (
             <CarouselSkeleton />

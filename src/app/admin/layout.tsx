@@ -50,6 +50,7 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager, isSystemAdmin as checkIsSystemAdmin, UserRoleInfo } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
 import { signOutUser } from '@/lib/auth.service';
+import AppLogoLoader from '@/components/AppLogoLoader';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
@@ -537,10 +538,7 @@ function AdminLayoutInner({
                 <main className="flex-1 overflow-y-auto min-h-[100dvh] bg-white">
                     <div className="p-4 md:p-8 min-h-full bg-white text-slate-900" style={{ colorScheme: 'light' }}>
                         <div className="flex items-center justify-center h-64">
-                            <div className="text-center">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-                                <p className="text-sm md:text-base text-slate-700">בודק הרשאות...</p>
-                            </div>
+                            <AppLogoLoader caption="בודק הרשאות..." className="flex flex-col items-center justify-center gap-4" />
                         </div>
                     </div>
                 </main>

@@ -33,6 +33,7 @@
  */
 
 import { motion } from 'framer-motion';
+import type { CSSProperties } from 'react';
 import { Settings, Flag } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '../../store/useRunningPlayer';
@@ -42,6 +43,26 @@ import { useCommuteEta } from '../Commute/useCommuteEta';
 import { useDraggableMetrics } from '../../hooks/useDraggableMetrics';
 
 const PRIMARY_DARK = '#0284C7';
+
+// ── Paused-state palette ─────────────────────────────────────────────────────
+// When `useSessionStore.status === 'paused'`, the card paints itself in the
+// same orange family as the Pause/Resume button so the user instantly reads
+// "this workout is paused" without needing a header label. The values are
+// surfaced as CSS custom properties on the card root so EVERY descendant
+// (StatsCarousel slides, pill content, dividers) re-themes uniformly without
+// any of them having to subscribe to the session store directly.
+const PAUSED_BORDER = '#FF8C00';
+const PAUSED_NUM = '#FF8C00';
+const PAUSED_LABEL = '#C2410C';
+const PAUSED_HEADER = '#9A3412';
+const PAUSED_DIVIDER = 'rgba(255, 140, 0, 0.22)';
+const PAUSED_ACCENT = '#FF8C00';
+
+const DEFAULT_NUM = '#000000';
+const DEFAULT_LABEL = 'rgba(0, 0, 0, 0.65)';
+const DEFAULT_HEADER = 'rgba(0, 0, 0, 0.45)';
+const DEFAULT_DIVIDER = 'rgba(0, 0, 0, 0.08)';
+const DEFAULT_ACCENT = '#00ADEF';
 
 interface AdaptiveMetricsWrapperProps {
   /**
@@ -108,6 +129,25 @@ export default function AdaptiveMetricsWrapper({
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
 
+  // ── Paused-state theming ────────────────────────────────────────────────
+  // The card is the single visual anchor that swaps to the orange family
+  // when the user pauses. We expose the palette as CSS custom properties
+  // on the card root so descendant slides (MainMetrics, LapMetrics, pill
+  // content) re-theme automatically; none of them have to subscribe to
+  // the session store directly. The session store is the single source
+  // of truth — flip the variable here, every number repaints in the
+  // next browser frame.
+  const sessionStatus = useSessionStore((s) => s.status);
+  const isPaused = sessionStatus === 'paused';
+
+  const cardThemeVars = {
+    '--metrics-num-color': isPaused ? PAUSED_NUM : DEFAULT_NUM,
+    '--metrics-label-color': isPaused ? PAUSED_LABEL : DEFAULT_LABEL,
+    '--metrics-header-color': isPaused ? PAUSED_HEADER : DEFAULT_HEADER,
+    '--metrics-divider-color': isPaused ? PAUSED_DIVIDER : DEFAULT_DIVIDER,
+    '--metrics-accent-color': isPaused ? PAUSED_ACCENT : DEFAULT_ACCENT,
+  } as CSSProperties;
+
   return (
     <motion.div
       drag="y"
@@ -123,14 +163,23 @@ export default function AdaptiveMetricsWrapper({
         ref={cardRef}
         className="relative rounded-3xl overflow-hidden bg-white"
         style={{
-          border: '1px solid rgba(0, 0, 0, 0.08)',
-          boxShadow:
-            '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
+          // Border thickens to 2 px and shifts to PAUSED_BORDER on pause
+          // so the orange chrome reads at a glance even on a glanced-at
+          // wrist-mounted phone. The 0.2 s transition matches the height
+          // ease below for a cohesive state-change feel.
+          border: isPaused
+            ? `2px solid ${PAUSED_BORDER}`
+            : '1px solid rgba(0, 0, 0, 0.08)',
+          boxShadow: isPaused
+            ? '0 4px 24px rgba(255, 140, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.04)'
+            : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
           // Pill mode locks the card to a fixed compact height; the
           // 0.25 s ease keeps the expand/collapse feeling continuous.
           height: isPill ? 56 : 'auto',
-          transition: 'height 0.25s ease',
+          transition: 'height 0.25s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+          ...cardThemeVars,
         }}
+        data-paused={isPaused ? 'true' : 'false'}
       >
         {/* ── Settings gear (top-right corner of card) ─────────────────────
             Replaces the previously floating map button so the card holds
@@ -232,24 +281,33 @@ function PillContent({
   return (
     <div className="flex items-center justify-around w-full px-4 h-full">
       <div className="flex items-baseline gap-1.5" dir="ltr">
-        <span className="text-xl font-black text-black tabular-nums leading-none">
+        <span
+          className="text-xl font-black tabular-nums leading-none"
+          style={{ color: `var(--metrics-num-color, ${DEFAULT_NUM})` }}
+        >
           {safeDistance.toFixed(2)}
         </span>
         <span
           className="text-[10px] font-bold uppercase tracking-wider"
-          style={{ color: PRIMARY_DARK }}
+          style={{ color: `var(--metrics-accent-color, ${PRIMARY_DARK})` }}
         >
           KM
         </span>
       </div>
-      <div className="w-px h-6" style={{ background: 'rgba(0,0,0,0.10)' }} />
+      <div
+        className="w-px h-6"
+        style={{ background: `var(--metrics-divider-color, ${DEFAULT_DIVIDER})` }}
+      />
       <div className="flex items-baseline gap-1.5" dir="ltr">
-        <span className="text-xl font-black text-black tabular-nums leading-none">
+        <span
+          className="text-xl font-black tabular-nums leading-none"
+          style={{ color: `var(--metrics-num-color, ${DEFAULT_NUM})` }}
+        >
           {formatDuration(durationSec)}
         </span>
         <span
           className="text-[10px] font-bold uppercase tracking-wider"
-          style={{ color: PRIMARY_DARK }}
+          style={{ color: `var(--metrics-accent-color, ${PRIMARY_DARK})` }}
         >
           TIME
         </span>
@@ -288,22 +346,34 @@ function CommutePillContent() {
   return (
     <div className="flex items-center justify-around w-full px-4 h-full" dir="rtl">
       <div className="flex items-center gap-2">
-        <Flag size={14} className="text-[#00ADEF]" fill="#00ADEF" strokeWidth={2.4} />
+        <Flag
+          size={14}
+          style={{ color: `var(--metrics-accent-color, ${DEFAULT_ACCENT})` }}
+          fill="currentColor"
+          strokeWidth={2.4}
+        />
         <span
-          className="text-xl font-black text-black tabular-nums leading-none"
+          className="text-xl font-black tabular-nums leading-none"
+          style={{ color: `var(--metrics-num-color, ${DEFAULT_NUM})` }}
           dir="ltr"
         >
           {etaText}
         </span>
       </div>
-      <div className="w-px h-6" style={{ background: 'rgba(0,0,0,0.10)' }} />
+      <div
+        className="w-px h-6"
+        style={{ background: `var(--metrics-divider-color, ${DEFAULT_DIVIDER})` }}
+      />
       <div className="flex items-baseline gap-1.5" dir="ltr">
-        <span className="text-xl font-black text-black tabular-nums leading-none">
+        <span
+          className="text-xl font-black tabular-nums leading-none"
+          style={{ color: `var(--metrics-num-color, ${DEFAULT_NUM})` }}
+        >
           {remainingText}
         </span>
         <span
           className="text-[10px] font-bold uppercase tracking-wider"
-          style={{ color: PRIMARY_DARK }}
+          style={{ color: `var(--metrics-accent-color, ${PRIMARY_DARK})` }}
         >
           LEFT
         </span>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import HealthDeclarationStep from '@/features/user/onboarding/components/HealthDeclarationStep';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
@@ -47,6 +48,33 @@ export default function HealthDeclarationPage() {
       }
       if ((onboardingData as any).runningScheduleTime) {
         syncPayload.runningScheduleTime = (onboardingData as any).runningScheduleTime;
+      }
+
+      // Firestore fallback for assignedResults — sessionStorage is tab-scoped
+      // and is wiped when the user closes the browser between the assessment and
+      // this page. Without this, onboarding-sync.service.ts finds no
+      // assignedResults in either data or sessionStorage and falls through to
+      // the generic GOAL_TO_PROGRAM mapping, overwriting the assessed program
+      // with a generic one. Reading from Firestore (where dynamic/page.tsx
+      // already persisted the results) makes this sync idempotent across
+      // tab-close / session restores.
+      const storedResults = typeof window !== 'undefined'
+        ? sessionStorage.getItem('onboarding_assigned_results')
+        : null;
+      if (!storedResults) {
+        try {
+          const userSnap = await getDoc(doc(db, 'users', uid));
+          const firestoreAssignedResults = userSnap.data()?.assignedResults;
+          if (Array.isArray(firestoreAssignedResults) && firestoreAssignedResults.length > 0) {
+            syncPayload.assignedResults = firestoreAssignedResults;
+            console.log(
+              '[Health] Restored assignedResults from Firestore (sessionStorage empty):',
+              firestoreAssignedResults.length, 'entries',
+            );
+          }
+        } catch (e) {
+          console.warn('[Health] Could not read assignedResults from Firestore fallback:', e);
+        }
       }
 
       console.log('[Health] Calling syncOnboardingToFirestore(COMPLETED) — full running bridge + activeProgram generation');

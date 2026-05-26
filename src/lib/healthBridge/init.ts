@@ -247,21 +247,58 @@ export async function initHealthBridge(): Promise<void> {
 }
 
 /**
+ * Hard upper bound on how long we will wait for the native permission
+ * flow to resolve. On Android the plugin parks the `requestPermissions`
+ * PluginCall while the user is inside the Health Connect settings
+ * screen, and only resolves it once `onAppResumed` fires. If the user
+ * never returns to the app — or `onAppResumed` is missed for any
+ * reason — the UI spinner would otherwise hang forever. 45 s is long
+ * enough for the system sheet round-trip but short enough that the user
+ * won't sit on a frozen settings screen.
+ */
+const PERMISSION_TIMEOUT_MS = 45_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label}:timeout`));
+    }, ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
+/**
  * Public: invoked from a UI button (Profile → Connect Health).
  * Asks the OS for permissions; on success persists the flag and
  * primes background delivery + initial sync.
+ *
+ * The native `requestPermissions` and `hasPermissions` calls are wrapped
+ * in `withTimeout` so the caller is guaranteed to receive a resolved
+ * promise within `PERMISSION_TIMEOUT_MS`. On timeout we return
+ * `{ granted: false }` and the UI spinner clears.
  */
-export async function requestHealthPermissions(): Promise<{ granted: boolean }> {
+export async function requestHealthPermissions(): Promise<{ granted: boolean; timedOut?: boolean }> {
   if (!isNative()) return { granted: false };
   try {
     const HealthBridge = await loadPlugin();
-    await (HealthBridge as any).requestPermissions({
-      permissions: ['steps', 'activeEnergy', 'exerciseTime'],
-    });
+    await withTimeout(
+      (HealthBridge as any).requestPermissions({
+        permissions: ['steps', 'activeEnergy', 'exerciseTime'],
+      }),
+      PERMISSION_TIMEOUT_MS,
+      'requestPermissions',
+    );
     // iOS does not tell us the read-grant state directly; we re-probe.
-    const { granted } = await (HealthBridge as any).hasPermissions({
-      permissions: ['steps', 'activeEnergy', 'exerciseTime'],
-    });
+    const { granted } = await withTimeout(
+      (HealthBridge as any).hasPermissions({
+        permissions: ['steps', 'activeEnergy', 'exerciseTime'],
+      }),
+      PERMISSION_TIMEOUT_MS,
+      'hasPermissions',
+    );
     if (granted) {
       const Preferences = await getPrefs();
       await Preferences.set({ key: PREF_KEY_PERMISSIONS, value: '1' });
@@ -273,9 +310,36 @@ export async function requestHealthPermissions(): Promise<{ granted: boolean }> 
       void healthBridgeSyncNow('manual');
     }
     return { granted: Boolean(granted) };
-  } catch (err) {
+  } catch (err: any) {
+    const msg = String(err?.message || err || '');
+    if (msg.endsWith(':timeout')) {
+      console.warn('[healthBridge] permission flow timed out:', msg);
+      return { granted: false, timedOut: true };
+    }
     console.warn('[healthBridge] requestPermissions failed:', err);
     return { granted: false };
+  }
+}
+
+/**
+ * Public: called by the native shell on every app-resume so that any
+ * pending `requestPermissions()` PluginCall (parked while the user was
+ * inside the Health Connect settings screen) is resolved.
+ *
+ * Uses the shared `loadPlugin()` singleton — the plugin proxy is NEVER
+ * passed through a raw `await import(...)` expression, which would
+ * trigger the Android Capacitor proxy's .then()-not-implemented error.
+ */
+export async function notifyAppResumed(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const HealthBridge = await loadPlugin();
+    await (HealthBridge as any).onAppResumed();
+  } catch (err) {
+    // No pending call, iOS (resolves inline), or plugin not yet loaded.
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[healthBridge] notifyAppResumed skipped:', err);
+    }
   }
 }
 

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Coins, ArrowRight, ChevronRight, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Activity, Target } from 'lucide-react';
+import { Coins, ChevronRight, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Activity, Target } from 'lucide-react';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { DictionaryKey, getTranslation } from '@/lib/i18n/dictionaries';
 import { useAppStore } from '@/store/useAppStore';
@@ -318,53 +318,50 @@ export default function OnboardingLayout({
   // Simple mode (Setup Wizard) - with segmented progress bar
   if (headerType === 'progress' && !isDynamicMode && (title || subtitle)) {
     return (
-      <div dir={direction} className="min-h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col" style={{ minHeight: '100dvh' }}>
-        {/* Sticky Header with Segmented Progress Bar - Fully Transparent Glass */}
+      <div dir={direction} className="h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col overflow-hidden">
+        {/* Layout-locked header — never scrolls */}
         <motion.header
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="sticky top-0 z-50 bg-transparent backdrop-blur-2xl"
+          className="relative flex-shrink-0 z-50 bg-white/80 backdrop-blur-2xl"
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           {/* Segmented Progress Bar */}
           {renderSegmentedProgressBar()}
-          
-          {/* Coin Counter and Back Button Row - Coins ALWAYS on LEFT */}
-          <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between">
-            {/* Coin Counter - ALWAYS LEFT (yellow) - COIN_SYSTEM_PAUSED: Hidden when disabled */}
-            {IS_COIN_SYSTEM_ENABLED ? (
-            <motion.div
-              animate={coinBounce ? { scale: [1, 1.2, 1] } : {}}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="flex items-center gap-2"
-            >
-              <Coins size={20} className="text-yellow-500" />
-              <span className="text-yellow-500 font-bold font-simpler text-lg">{coins}</span>
-            </motion.div>
-            ) : (
-              <div /> // Empty placeholder to maintain layout
-            )}
 
-            {/* Back Button - ALWAYS RIGHT */}
-            {showBack && onBack && (
-              <motion.button
-                onClick={onBack}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors min-h-[44px] min-w-[44px] justify-center"
+          {/* Coin Counter (left side, only when enabled) */}
+          {IS_COIN_SYSTEM_ENABLED && (
+            <div className="max-w-md mx-auto px-4 pb-3">
+              <motion.div
+                animate={coinBounce ? { scale: [1, 1.2, 1] } : {}}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className="flex items-center gap-2"
               >
-                <ArrowRight size={18} className={direction === 'rtl' ? 'rotate-180' : ''} />
-                <span className="font-simpler text-sm">{direction === 'rtl' ? 'חזור' : 'Back'}</span>
-              </motion.button>
-            )}
-          </div>
+                <Coins size={20} className="text-yellow-500" />
+                <span className="text-yellow-500 font-bold font-simpler text-lg">{coins}</span>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Back button — absolute top-right (RTL leading edge), z-20, always on top */}
+          {showBack && onBack && (
+            <motion.button
+              onClick={onBack}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="absolute right-3 top-0 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-white/70 shadow-sm"
+              style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
+              aria-label={direction === 'rtl' ? 'חזרה' : 'Back'}
+            >
+              <ChevronRight size={22} className="text-slate-600" />
+            </motion.button>
+          )}
         </motion.header>
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-4 md:py-8 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-4 md:p-6 lg:p-8">
-            {/* Title */}
+        {/* Main Content — only this region scrolls */}
+        <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-4 md:p-6">
             {title && (
               <motion.h1
                 initial={{ opacity: 0, y: -20 }}
@@ -376,7 +373,6 @@ export default function OnboardingLayout({
               </motion.h1>
             )}
 
-            {/* Subtitle */}
             {subtitle && (
               <motion.p
                 initial={{ opacity: 0, y: -10 }}
@@ -388,7 +384,6 @@ export default function OnboardingLayout({
               </motion.p>
             )}
 
-            {/* Children Content */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -439,53 +434,50 @@ export default function OnboardingLayout({
     );
   }
 
-  // Progress mode (Dynamic Questionnaire/Wizard) - New layout with segmented progress bar
+  // Progress mode (Dynamic Questionnaire/Wizard)
   return (
-    <div dir={direction} className="min-h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col" style={{ minHeight: '100dvh' }}>
-      {/* Sticky Header with Segmented Progress Bar - Fully Transparent Glass */}
+    <div dir={direction} className="h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col overflow-hidden">
+      {/* Layout-locked header — never scrolls */}
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="sticky top-0 z-50 bg-transparent backdrop-blur-2xl"
+        className="relative flex-shrink-0 z-50 bg-white/80 backdrop-blur-2xl"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        {/* Segmented Progress Bar */}
         {renderSegmentedProgressBar()}
-        
-        {/* Coin Counter and Back Button Row - Coins ALWAYS on LEFT */}
-        <div className="w-full px-4 pb-3 flex items-center justify-between">
-          {/* Coin Counter - ALWAYS LEFT (yellow) - COIN_SYSTEM_PAUSED: Hidden when disabled */}
-          {IS_COIN_SYSTEM_ENABLED ? (
-          <motion.div
-            animate={coinBounce ? { scale: [1, 1.2, 1] } : {}}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="flex items-center gap-2"
-          >
-            <Coins size={20} className="text-yellow-500" />
-            <span className="text-yellow-500 font-bold font-simpler text-lg">{coins}</span>
-          </motion.div>
-          ) : (
-            <div /> // Empty placeholder to maintain layout
-          )}
 
-          {/* Back Button - ALWAYS RIGHT */}
-          {showBack && onBack && (
-            <motion.button
-              onClick={onBack}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors min-h-[44px] min-w-[44px] justify-center"
+        {/* Coin Counter (only when enabled) */}
+        {IS_COIN_SYSTEM_ENABLED && (
+          <div className="w-full px-4 pb-3">
+            <motion.div
+              animate={coinBounce ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className="flex items-center gap-2"
             >
-              <ArrowRight size={18} className={direction === 'rtl' ? 'rotate-180' : ''} />
-              <span className="font-simpler text-sm">{direction === 'rtl' ? 'חזור' : 'Back'}</span>
-            </motion.button>
-          )}
-        </div>
+              <Coins size={20} className="text-yellow-500" />
+              <span className="text-yellow-500 font-bold font-simpler text-lg">{coins}</span>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Back button — absolute top-right (RTL leading edge), z-20, always on top */}
+        {showBack && onBack && (
+          <motion.button
+            onClick={onBack}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="absolute right-3 top-0 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-white/70 shadow-sm"
+            style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
+            aria-label={direction === 'rtl' ? 'חזרה' : 'Back'}
+          >
+            <ChevronRight size={22} className="text-slate-600" />
+          </motion.button>
+        )}
       </motion.header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col px-4 py-4 md:py-6 relative z-10 max-w-md mx-auto w-full overflow-y-auto min-h-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* Main Content — only this region scrolls on small viewports */}
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 py-4 max-w-md mx-auto w-full" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {children}
       </main>
     </div>

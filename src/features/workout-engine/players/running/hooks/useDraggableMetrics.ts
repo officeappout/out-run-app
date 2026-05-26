@@ -205,10 +205,12 @@ export function useDraggableMetrics({
   // Re-snap whenever the upstream default changes (e.g. navigation flips).
   // The console log is the verification handle requested in the design spec.
   useEffect(() => {
-    if (defaultPosition === 'bottom') {
-      console.log('[UI Layout] Switching to BOTTOM mode because route is active.');
-    } else {
-      console.log('[UI Layout] Switching to TOP mode because no route is active.');
+    if (process.env.NODE_ENV !== 'production') {
+      if (defaultPosition === 'bottom') {
+        console.log('[UI Layout] Switching to BOTTOM mode because route is active.');
+      } else {
+        console.log('[UI Layout] Switching to TOP mode because no route is active.');
+      }
     }
     setCardState(defaultState);
   }, [defaultPosition, defaultState]);
@@ -225,7 +227,9 @@ export function useDraggableMetrics({
   // app that can leave the card at the top during navigation, period.
   useEffect(() => {
     if (lockToBottom && cardState.position !== 'bottom') {
-      console.log('[UI] Layout locked to BOTTOM due to navigation intent.');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[UI] Layout locked to BOTTOM due to navigation intent.');
+      }
       setCardState((prev) => ({ ...prev, position: 'bottom' }));
     }
   }, [lockToBottom, cardState.position]);
@@ -364,12 +368,19 @@ export function useDraggableMetrics({
     return () => setMetricsCardPosition('top');
   }, [setMetricsCardPosition]);
 
+  // ── Landscape collapse heuristic ─────────────────────────────────────────
+  // On phones rotated to landscape (viewport height < 500 px), the expanded
+  // card consumes >50 % of screen height and covers the map entirely.
+  // Force pill mode so the user retains a navigable map view.
+  const isLandscape = viewportH < 500;
+
   // ── Target Y for each state ──────────────────────────────────────────────
   // Y is measured from the screen's top in pixels. The motion.div is
   // positioned at top:0 so its translateY directly equals "distance from
   // the screen top".
-  const cardHeightForState =
-    cardState.size === 'pill' ? PILL_HEIGHT_PX : measuredCardHeight;
+  const cardHeightForState = isLandscape || cardState.size === 'pill'
+    ? PILL_HEIGHT_PX
+    : measuredCardHeight;
 
   const targetY = useMemo(() => {
     if (cardState.position === 'top') {
@@ -502,7 +513,7 @@ export function useDraggableMetrics({
     handleDragEnd,
     dragConstraints,
     /** Convenience: true when card is in pill mode (caller decides
-     *  which content variant to render). */
-    isPill: cardState.size === 'pill',
+     *  which content variant to render). Also true in landscape. */
+    isPill: isLandscape || cardState.size === 'pill',
   } as const;
 }

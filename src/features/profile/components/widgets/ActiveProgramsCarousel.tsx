@@ -1,156 +1,56 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
+import { useRouter } from 'next/navigation';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
-import type { Program } from '@/types/workout';
-import type { UserActiveProgram } from '@/features/user/core/types/user.types';
-
-interface EnrichedProgram {
-  active: UserActiveProgram;
-  template: Program;
-  percent: number;
-  currentLevel: number;
-  maxLevel: number;
-}
+import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 
 /**
- * Sub-domain program IDs that are created by level-equivalence rules.
- * These should not appear as top-level cards — they are child tracks of
- * master programs (e.g. 'push' / 'pull' under 'upper_body').
- */
-const SUB_DOMAIN_IDS = new Set([
-  'push', 'pushing', 'pull', 'pulling',
-  'legs', 'lower_body', 'core', 'abs',
-]);
-
-/** Build a display-ready Program stub when the Firestore lookup fails. */
-function toStubProgram(ap: UserActiveProgram): Program {
-  const PROGRAM_NAME_HE: Record<string, string> = {
-    full_body: 'כל הגוף', fullbody: 'כל הגוף',
-    upper_body: 'פלג גוף עליון',
-    running: 'ריצה', cardio: 'קרדיו',
-    pilates: 'פילאטיס', yoga: 'יוגה',
-    healthy_lifestyle: 'אורח חיים בריא', pull_up_pro: 'מתח מקצועי',
-    calisthenics: 'קליסטניקס',
-  };
-  const displayName =
-    PROGRAM_NAME_HE[ap.templateId.toLowerCase()] ||
-    (ap.name
-      ? ap.name
-          .replace(/_/g, ' ')
-          .split(' ')
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ')
-      : ap.templateId.replace(/_/g, ' '));
-  return { id: ap.templateId, name: displayName, isMaster: false };
-}
-
-/**
- * Active Programs carousel — uses the same ProgramProgressCard component
- * as the Home Page (circular progress ring, program icon, level text).
+ * Active Programs section on the Profile page.
  *
- * Template lookup failure is handled gracefully: a stub card is built from
- * the UserActiveProgram's own metadata so the section is never empty.
+ * Delegates all data resolution (master-derive, CMS fetch, fallbacks) to
+ * `useProgramProgress` — the same hook used by `ProgramProgressRow` on the
+ * Home page — so all three screens show identical, consistent values.
  */
 export default function ActiveProgramsCarousel() {
-  const profile = useUserStore((s) => s.profile);
-  const [programs, setPrograms] = useState<EnrichedProgram[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const allActivePrograms = profile?.progression?.activePrograms ?? [];
-
-    // Only show master/top-level programs — exclude sub-domain tracks (push, pull, legs, core …)
-    const activePrograms = allActivePrograms.filter(
-      (ap) => !SUB_DOMAIN_IDS.has(ap.templateId.toLowerCase()),
-    );
-
-    if (activePrograms.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    const tracks = (profile?.progression?.tracks ?? {}) as Record<
-      string,
-      { percent?: number; currentLevel?: number }
-    >;
-
-    // `domains` stores maxLevel (same source the Home Page uses)
-    const domains = (profile?.progression?.domains ?? {}) as Record<
-      string,
-      { maxLevel?: number; currentLevel?: number }
-    >;
-
-    Promise.all(
-      activePrograms.map(async (ap): Promise<EnrichedProgram> => {
-        const percent = tracks[ap.templateId]?.percent ?? 0;
-        const currentLevel =
-          tracks[ap.templateId]?.currentLevel ??
-          domains[ap.templateId]?.currentLevel ??
-          1;
-
-        // maxLevel: domains (same as Home Page) → template field → safe default 25
-        const domainMax = domains[ap.templateId]?.maxLevel;
-
-        try {
-          const template = await getProgramByTemplateId(ap.templateId);
-          if (template) {
-            const maxLevel = domainMax ?? template.maxLevels ?? 25;
-            return { active: ap, template, percent, currentLevel, maxLevel };
-          }
-        } catch {
-          // fall through to stub
-        }
-
-        const maxLevel = domainMax ?? 25;
-        return { active: ap, template: toStubProgram(ap), percent, currentLevel, maxLevel };
-      }),
-    )
-      .then(setPrograms)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [profile?.progression?.activePrograms, profile?.progression?.tracks, profile?.progression?.domains]);
+  const router = useRouter();
+  const data = useProgramProgress();
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
-      <h3 className="text-sm font-black text-gray-800 mb-3">תוכניות פעילות</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
+        <button
+          type="button"
+          onClick={() => router.push('/home')}
+          className="text-xs font-semibold text-[#00C9F2] active:opacity-70"
+        >
+          ניהול
+        </button>
+      </div>
 
-      {loading ? (
-        /* Skeleton — matches ProgramProgressCard's carousel height (~107px) */
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          {[0, 1].map((i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 bg-gray-100 rounded-xl animate-pulse"
-              style={{ width: 320, minHeight: 107 }}
-            />
-          ))}
-        </div>
-      ) : programs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-6 gap-2">
+      {data ? (
+        <ProgramProgressCard
+          programName={data.programName}
+          iconKey={data.iconKey}
+          currentLevel={data.currentLevel}
+          maxLevel={data.maxLevel}
+          progressPercent={data.progressPercent}
+          programCount={data.programCount}
+          className="!max-w-none"
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center py-6 gap-3">
           <span className="text-3xl">📋</span>
           <p className="text-sm font-bold text-gray-500 text-center leading-snug">
-            אין תוכנית פעילה כרגע.
-            <br />
-            בחר תוכנית מעמוד הבית.
+            עדיין לא בחרת תוכנית אימון.
           </p>
-        </div>
-      ) : (
-        /* Horizontal scroll — same scrollbar-hide pattern as other carousels */
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
-          {programs.map(({ active, template, percent, currentLevel, maxLevel }) => (
-            <ProgramProgressCard
-              key={active.id}
-              programName={template.name}
-              iconKey={active.templateId}
-              currentLevel={currentLevel}
-              maxLevel={maxLevel}
-              progressPercent={Math.round(percent)}
-              programCount={programs.length}
-            />
-          ))}
+          <button
+            type="button"
+            onClick={() => router.push('/home')}
+            className="mt-1 px-5 py-2 bg-[#00C9F2] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+          >
+            בחר תוכנית
+          </button>
         </div>
       )}
     </div>

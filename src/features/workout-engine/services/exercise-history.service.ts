@@ -186,11 +186,32 @@ export async function getHistoryMapForExercises(
   if (!userId || exerciseIds.length === 0) return {};
   if (typeof navigator !== 'undefined' && !navigator.onLine) return {};
 
+  // Deduplicate request IDs so we never issue two reads for the same exercise.
+  const uniqueIds = Array.from(new Set(exerciseIds));
+
   try {
-    const reads = exerciseIds.map(async (id) => {
+    const reads = uniqueIds.map(async (id) => {
+      // Firestore document lookups are EXACT: the path
+      //   users/{uid}/exerciseHistory/{id}
+      // resolves to a single document by its primary key. There is no
+      // prefix / regex / contains semantic — "Pushup" can never silently
+      // match "Wall Handstand Pushup" at the read layer.
       const snap = await getDoc(doc(db, 'users', userId, SUB_COLLECTION, id));
       if (!snap.exists()) return null;
       const data = snap.data() as ExerciseHistoryEntry;
+
+      // Defense-in-depth: if the document's own `exerciseId` field disagrees
+      // with the document key it was stored under, the data is corrupt.
+      // Skip it and warn rather than risk feeding the wrong reps into the
+      // workout generator's history floor.
+      if (data.exerciseId && data.exerciseId !== id) {
+        console.warn(
+          `[ExerciseHistory] ID mismatch — doc key="${id}" but stored exerciseId="${data.exerciseId}". ` +
+          `Skipping this entry to avoid cross-exercise contamination.`,
+        );
+        return null;
+      }
+
       return { id, reps: data.reps };
     });
 
@@ -200,7 +221,7 @@ export async function getHistoryMapForExercises(
       if (r && r.reps?.length > 0) map[r.id] = r.reps;
     }
     console.log(
-      `[ExerciseHistory] Loaded history for ${Object.keys(map).length}/${exerciseIds.length} exercises`,
+      `[ExerciseHistory] Loaded history for ${Object.keys(map).length}/${uniqueIds.length} exercises (exact-key reads)`,
     );
     return map;
   } catch (e) {

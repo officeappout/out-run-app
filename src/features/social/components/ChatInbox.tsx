@@ -130,8 +130,13 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Backdrop — z-[100] clears the PartnerOverlay armor (z-[90]) so
+              the chat sheet can slide up directly on top of the partner list
+              without any z-index collision. The overlay itself stays mounted
+              behind this layer; dismissing the chat returns the user to their
+              exact partner-search context instantly. */}
           <m.div
-            className="fixed inset-0 z-[70] bg-black/40"
+            className="fixed inset-0 z-[100] bg-black/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -141,8 +146,11 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
             }}
           />
 
+          {/* Sheet — z-[101] sits one step above the backdrop so the spring
+              animation slides cleanly over both the backdrop and the partner
+              overlay underneath. */}
           <m.div
-            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

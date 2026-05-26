@@ -193,6 +193,41 @@ export const CATEGORY_COLORS = {
 
 export type DayDisplayCategory = keyof typeof CATEGORY_COLORS;
 
+/**
+ * Running sub-category → exact hex color.
+ * Mirrors the CATEGORY_COLORS map in SmartWeeklySchedule.tsx so the weekly
+ * strip and the full-schedule agenda always share the same palette.
+ */
+export const RUNNING_CATEGORY_COLORS: Record<string, string> = {
+  easy_run:           '#4CAF50',
+  long_run:           '#2E7D32',
+  short_intervals:    '#E11D48',
+  long_intervals:     '#0D9488',
+  fartlek_easy:       '#CE93D8',
+  fartlek_structured: '#CE93D8',
+  tempo:              '#9C27B0',
+  hill_long:          '#FF7043',
+  hill_short:         '#FF7043',
+  hill_sprints:       '#FF7043',
+  strides:            '#FF7043',
+  recovery:           '#B0BEC5',
+};
+
+/**
+ * Community group category → accent color for agenda/calendar UI.
+ * Aligned with the Tailwind gradient palette used by `GroupCard.tsx` and
+ * `GroupDetailsDrawer.tsx` (emerald/orange/violet/cyan/lime), converted to
+ * solid hex values so they can be used in inline styles.
+ */
+export const COMMUNITY_CATEGORY_COLORS: Record<string, string> = {
+  walking:      '#10B981', // emerald-500
+  running:      '#F97316', // orange-500
+  yoga:         '#8B5CF6', // violet-500
+  calisthenics: '#06B6D4', // cyan-500
+  cycling:      '#84CC16', // lime-500
+  other:        '#9CA3AF', // gray-400
+};
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -215,6 +250,11 @@ export interface DaySessionInput {
 export interface DayDisplayInput {
   state: DayState;
   isSelected: boolean;
+  /**
+   * When true, never paint selectable chrome (15 % fill / 1 px border) on the
+   * icon container — e.g. month grid shows selection only on the day number.
+   */
+  suppressIconSelectableChrome?: boolean;
   isRest: boolean;
   isMissed: boolean;
   isCompleted: boolean;
@@ -470,8 +510,14 @@ function buildSession(
  * Both calendar components use this; do NOT duplicate this logic anywhere else.
  */
 export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps {
+  /** Selection ring on icon — disabled when the host UI handles selection elsewhere. */
+  const selForChrome = input.suppressIconSelectableChrome ? false : input.isSelected;
+
   const category = resolveCategory(input);
-  const color = input.runningColor ?? CATEGORY_COLORS[category];
+  const color =
+    input.runningColor ??
+    (input.runningCategory ? RUNNING_CATEGORY_COLORS[input.runningCategory.toLowerCase()] : undefined) ??
+    CATEGORY_COLORS[category];
   const labelText = getShortLabel(input.runningCategory ?? input.programIconKey);
 
   // Common echo so DayIconCell can apply state-specific polish (today shadow, etc.)
@@ -492,7 +538,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     // Cap at 3 sessions for the pager UI; assume already sorted by minutes desc.
     const sessions = sessionInputs
       .slice(0, 3)
-      .map((s) => buildSession(input.state, isPastCompleted, input.isSelected, s));
+      .map((s) => buildSession(input.state, isPastCompleted, selForChrome, s));
 
     return {
       ...echo,
@@ -569,7 +615,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     if (input.isMissed && !input.debtCleared) {
       return {
         ...echo,
-        container: selectableContainer(CATEGORY_COLORS.rest, input.isSelected),
+        container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
         icon: { type: 'zz' },
         label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
         dots: [],
@@ -580,7 +626,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     if (input.isMissed && input.debtCleared) {
       return {
         ...echo,
-        container: selectableContainer(color, input.isSelected),
+        container: selectableContainer(color, selForChrome),
         icon: { type: 'img', src: resolveFlameSrc(input) },
         label: { text: labelText, color },
         dots: [{ color }],
@@ -593,7 +639,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     if (input.isRest && input.isCompleted) {
       return {
         ...echo,
-        container: selectableContainer(color, input.isSelected),
+        container: selectableContainer(color, selForChrome),
         icon: { type: 'img', src: resolveFlameSrc(input) },
         label: { text: labelText, color },
         dots: [{ color }],
@@ -604,7 +650,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     if (input.isRest && input.stepGoalMet) {
       return {
         ...echo,
-        container: selectableContainer(CATEGORY_COLORS.steps, input.isSelected),
+        container: selectableContainer(CATEGORY_COLORS.steps, selForChrome),
         icon: { type: 'img', src: ASSET_REGISTRY.flames.steps },
         label: { text: 'צעדים', color: CATEGORY_COLORS.steps },
         dots: [{ color: CATEGORY_COLORS.steps }],
@@ -615,7 +661,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     if (input.isRest) {
       return {
         ...echo,
-        container: selectableContainer(CATEGORY_COLORS.rest, input.isSelected),
+        container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
         icon: { type: 'zz' },
         label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
         dots: [],
@@ -626,7 +672,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     if (input.isCompleted) {
       return {
         ...echo,
-        container: selectableContainer(color, input.isSelected),
+        container: selectableContainer(color, selForChrome),
         icon: { type: 'img', src: resolveFlameSrc(input) },
         label: { text: labelText, color },
         dots: [{ color }],
@@ -636,7 +682,7 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     // Past planned but not completed (edge case: past today's slot) → Zz
     return {
       ...echo,
-      container: selectableContainer(CATEGORY_COLORS.rest, input.isSelected),
+      container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
       icon: { type: 'zz' },
       label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
       dots: [],
@@ -648,23 +694,21 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
   if (input.isRest) {
     return {
       ...echo,
-      container: selectableContainer(CATEGORY_COLORS.rest, input.isSelected),
+      container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
       icon: { type: 'zz' },
       label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
       dots: [],
     };
   }
 
-  // Future training day
-  // Default: gray icon
-  // Selected: 15% category bg + 1px border + colorful icon
+  // Future training day — icon always uses the activity/running category color
   return {
     ...echo,
-    container: selectableContainer(color, input.isSelected),
+    container: selectableContainer(color, selForChrome),
     icon: {
       type: 'program',
       iconKey: input.programIconKey,
-      color: input.isSelected ? color : '#1F2937', // gray-800
+      color,
     },
     label: { text: labelText, color },
     dots: [{ color }],
@@ -724,13 +768,31 @@ const DOT_INACTIVE_OPACITY = 0.3;
 
 export interface DayIconCellProps {
   props: DayDisplayProps;
+  /** When true the pager-dot row below the icon is not rendered. */
+  hideDots?: boolean;
+  /** Override the icon container (month grid «today» badge, etc.). */
+  sizeOverride?: {
+    sizePx: number;
+    radiusPx: number;
+    /** Program / ghost / zz inner frame side (defaults to ICON_SIZE_PX ≈24). */
+    innerSlotPx?: number;
+    /** Flame / raster icons — exact render side inside the badge. */
+    imgIconPx?: number;
+  };
 }
 
 /**
  * Render a single icon descriptor (img / program / ghost / zz / none).
  * Pure renderer — no state.
  */
-function IconRenderer({ icon }: { icon: DayDisplayProps['icon'] }) {
+function IconRenderer({
+  icon,
+  innerFramePx,
+}: {
+  icon: DayDisplayProps['icon'];
+  /** When set (e.g. month «today» 34 px badge), scales the inner icon frame. */
+  innerFramePx?: number;
+}) {
   switch (icon.type) {
     case 'img': {
       const sz = icon.overrideSizePx ?? ICON_SIZE_PX;
@@ -770,35 +832,45 @@ function IconRenderer({ icon }: { icon: DayDisplayProps['icon'] }) {
         />
       );
     }
-    case 'program':
+    case 'program': {
+      const frame = innerFramePx ?? ICON_SIZE_PX;
+      const largeGlyph = innerFramePx != null && innerFramePx >= 18;
       return (
-        // Outer div = 24 px icon frame (ICON_SIZE_PX); inner SVG = 12 px
-        // (PROGRAM_ICON_PX) for the minimalist Figma look.
         <div
-          className="flex items-center justify-center"
-          style={{ color: icon.color, width: ICON_SIZE_PX, height: ICON_SIZE_PX }}
+          className="flex items-center justify-center shrink-0"
+          style={{ color: icon.color, width: frame, height: frame }}
         >
-          {getProgramIcon(icon.iconKey, 'w-3 h-3')}
+          {getProgramIcon(icon.iconKey, largeGlyph ? 'w-5 h-5' : 'w-3 h-3')}
         </div>
       );
+    }
     case 'ghost':
-      return <GhostRing />;
-    case 'zz':
-      // Soft-gray rest indicator. Sharp 14 px text, no shadows, no glow.
       return (
         <div
-          className="flex items-center justify-center"
-          style={{ width: ICON_SIZE_PX, height: ICON_SIZE_PX }}
+          className="flex items-center justify-center shrink-0"
+          style={{ width: innerFramePx ?? ICON_SIZE_PX, height: innerFramePx ?? ICON_SIZE_PX }}
+        >
+          <GhostRing />
+        </div>
+      );
+    case 'zz': {
+      const frame = innerFramePx ?? ICON_SIZE_PX;
+      const fontSize = innerFramePx != null ? Math.round(14 * (frame / ICON_SIZE_PX)) : 14;
+      return (
+        <div
+          className="flex items-center justify-center shrink-0"
+          style={{ width: frame, height: frame }}
           aria-label="מנוחה"
         >
           <span
             className="font-bold leading-none select-none"
-            style={{ fontSize: 14, color: '#D1D5DB' }}
+            style={{ fontSize, color: '#D1D5DB' }}
           >
-            Z<sup style={{ fontSize: 8, verticalAlign: 'super' }}>z</sup>
+            Z<sup style={{ fontSize: Math.max(6, fontSize * 0.55), verticalAlign: 'super' }}>z</sup>
           </span>
         </div>
       );
+    }
     case 'none':
     default:
       return null;
@@ -828,9 +900,11 @@ const FADE_DURATION_S = 0.15;
  *    the active dot rotates in lock-step with the visible icon.
  *  • Rest (Zz) and missed-no-debt days render zero dots.
  */
-export function DayIconCell({ props }: DayIconCellProps) {
+export function DayIconCell({ props, hideDots = false, sizeOverride }: DayIconCellProps) {
   const { container, icon, state, sessions, dots } = props;
   const isToday = state === 'today';
+  const containerSize = sizeOverride?.sizePx ?? CONTAINER_SIZE_PX;
+  const containerRadius = sizeOverride?.radiusPx ?? 8; // rounded-lg = 8px
   const isMulti = !!(sessions && sessions.length >= 2);
 
   // Active session index for multi-session days. Resets to 0 when the
@@ -850,19 +924,44 @@ export function DayIconCell({ props }: DayIconCellProps) {
   // single mode uses the top-level fields.
   const active = isMulti ? sessions![activeIndex] : null;
   const currentContainer = active?.container ?? container;
-  const currentIcon = active?.icon ?? icon;
+  const rawIcon = active?.icon ?? icon;
+
+  let currentIcon = rawIcon;
+  if (currentIcon.type === 'img' && sizeOverride?.imgIconPx != null) {
+    currentIcon = {
+      ...currentIcon,
+      overrideSizePx: sizeOverride.imgIconPx,
+    };
+  }
+
+  const innerSlotPx = sizeOverride?.innerSlotPx;
 
   return (
-    <div className="flex flex-col items-center justify-center" dir="rtl">
+    <div
+      className="flex flex-col items-center justify-center"
+      dir="rtl"
+      style={sizeOverride ? {
+        width: sizeOverride.sizePx,
+        height: sizeOverride.sizePx,
+        maxWidth: sizeOverride.sizePx,
+        maxHeight: sizeOverride.sizePx,
+        flexShrink: 0,
+      } : undefined}
+    >
       {/* ── Icon container ─────────────────────────────────────────────── */}
       {/* `rounded-lg` (8 px) — paired with the smaller 38 px footprint so
           the container keeps its 'soft square' identity at the new size
           without drifting toward a circle. */}
       <div
-        className="rounded-lg flex items-center justify-center transition-all duration-300"
+        className="flex items-center justify-center transition-all duration-300"
         style={{
-          width: CONTAINER_SIZE_PX,
-          height: CONTAINER_SIZE_PX,
+          width: containerSize,
+          height: containerSize,
+          maxWidth: sizeOverride ? containerSize : undefined,
+          maxHeight: sizeOverride ? containerSize : undefined,
+          flexShrink: sizeOverride ? 0 : undefined,
+          boxSizing: sizeOverride ? 'border-box' : undefined,
+          borderRadius: containerRadius,
           backgroundColor: hexToRgba(currentContainer.bgColor, currentContainer.bgOpacity),
           // Border is always 100 % opaque — only the bg uses 15 % alpha.
           border:
@@ -882,37 +981,39 @@ export function DayIconCell({ props }: DayIconCellProps) {
               transition={{ duration: FADE_DURATION_S, ease: 'easeInOut' }}
               className="flex items-center justify-center"
             >
-              <IconRenderer icon={currentIcon} />
+              <IconRenderer icon={currentIcon} innerFramePx={innerSlotPx} />
             </motion.div>
           </AnimatePresence>
         ) : (
-          <IconRenderer icon={currentIcon} />
+          <IconRenderer icon={currentIcon} innerFramePx={innerSlotPx} />
         )}
       </div>
 
       {/* ── 4 px gap → pager dots row (1 / 2 / 3 dots, or empty) ───────── */}
-      <div
-        className="flex items-center justify-center gap-[2px]"
-        style={{ height: 4, marginTop: 4 }}
-      >
-        {dots.map((d, i) => {
-          // For single-dot days the lone dot is always active. For multi
-          // days the dot index lines up with the rotating session index.
-          const isActive = !isMulti || i === activeIndex;
-          return (
-            <span
-              key={`dot-${i}`}
-              className="rounded-full transition-opacity duration-300"
-              style={{
-                width: DOT_SIZE_PX,
-                height: DOT_SIZE_PX,
-                backgroundColor: d.color,
-                opacity: isActive ? 1 : DOT_INACTIVE_OPACITY,
-              }}
-            />
-          );
-        })}
-      </div>
+      {!hideDots && (
+        <div
+          className="flex items-center justify-center gap-[2px]"
+          style={{ height: 4, marginTop: 4 }}
+        >
+          {dots.map((d, i) => {
+            // For single-dot days the lone dot is always active. For multi
+            // days the dot index lines up with the rotating session index.
+            const isActive = !isMulti || i === activeIndex;
+            return (
+              <span
+                key={`dot-${i}`}
+                className="rounded-full transition-opacity duration-300"
+                style={{
+                  width: DOT_SIZE_PX,
+                  height: DOT_SIZE_PX,
+                  backgroundColor: d.color,
+                  opacity: isActive ? 1 : DOT_INACTIVE_OPACITY,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

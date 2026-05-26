@@ -252,6 +252,19 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   const prevSimActive = useRef(false);
   const rawMapRef = useRef<mapboxgl.Map | null>(null);
 
+  // ── Listener-tracking refs for unmount cleanup ────────────────────────────
+  // onMapReady wires 5 DOM listeners + 1 Mapbox event listener that close
+  // over `rawMap` (the live Mapbox instance). Without an explicit removal
+  // on unmount the closures form a GC root that retains the entire WebGL
+  // context — every nav cycle accumulates one zombie Mapbox instance and
+  // iOS WKWebView eventually OOM-kills the WebContent process.
+  // We capture the targets + handler identities here so the existing
+  // unmount effect below can detach them by reference.
+  const canvasContainerRef = useRef<HTMLElement | null>(null);
+  const canvasElementRef = useRef<HTMLCanvasElement | null>(null);
+  const breakFollowFnRef = useRef<(() => void) | null>(null);
+  const moveStartHandlerRef = useRef<((evt: any) => void) | null>(null);
+
   // Fix 1: keep bearing in a ref so bearing updates never re-trigger the
   // main camera effect — only position changes should drive easeTo.
   const userBearingRef = useRef(userBearing);
@@ -345,7 +358,15 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     }
   }, [mapMode]);
 
-  // Cleanup debounce timers on unmount.
+  // Cleanup debounce timers AND map listeners on unmount.
+  //
+  // Listener disposal is the OOM-critical part: every DOM listener wired
+  // in onMapReady closes over the live Mapbox instance. If we don't
+  // detach them here, the closures hold the entire WebGL context alive
+  // across tab navigations and iOS WKWebView OOM-kills the WebContent
+  // process after 2–3 nav cycles. Clearing rawMapRef.current = null
+  // severs the last component-side reference so the GC can reclaim the
+  // instance once react-map-gl's own teardown completes.
   useEffect(() => {
     return () => {
       if (fitBoundsDebounceRef.current) {
@@ -360,6 +381,47 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         clearTimeout(idleRecenterTimerRef.current);
         idleRecenterTimerRef.current = null;
       }
+
+      // ── DOM listener disposal (mousedown / wheel / touchstart) ──
+      // Mirror image of the addEventListener pairs in onMapReady; same
+      // event names, same handler reference (captured in breakFollowFnRef).
+      // We use the same `passive: true` option object form on removal to
+      // satisfy the spec — listeners added with `passive: true` and
+      // removed with a bare second arg are removed correctly by all
+      // major engines, but being explicit keeps the symmetry obvious.
+      const container = canvasContainerRef.current;
+      const canvas = canvasElementRef.current;
+      const breakFn = breakFollowFnRef.current;
+      if (container && breakFn) {
+        try {
+          container.removeEventListener('mousedown', breakFn);
+          container.removeEventListener('wheel', breakFn);
+          container.removeEventListener('touchstart', breakFn);
+        } catch { /* container may already be detached */ }
+      }
+      if (canvas && breakFn) {
+        try {
+          canvas.removeEventListener('mousedown', breakFn);
+          canvas.removeEventListener('wheel', breakFn);
+        } catch { /* canvas may already be detached */ }
+      }
+
+      // Mapbox 'movestart' listener — removed by handler identity.
+      const map = rawMapRef.current;
+      const moveStartHandler = moveStartHandlerRef.current;
+      if (map && moveStartHandler) {
+        try { map.off('movestart', moveStartHandler); } catch { /* map gone */ }
+      }
+
+      // Sever the last component-side strong reference to the Mapbox
+      // instance. react-map-gl's own teardown handles the WebGL
+      // context destruction; this just makes sure the controller hook
+      // isn't pinning the instance through its ref.
+      rawMapRef.current = null;
+      canvasContainerRef.current = null;
+      canvasElementRef.current = null;
+      breakFollowFnRef.current = null;
+      moveStartHandlerRef.current = null;
     };
   }, []);
 
@@ -383,9 +445,9 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // The user might have already tapped recenter (manually) before
       // the 15 s elapsed. If so, owner is already 'follow' — no-op.
       if (ownerRef.current !== 'user') return;
-      console.log(
-        `[Cam] Idle ${IDLE_RECENTER_MS / 1000}s — auto-recentering for runner safety.`,
-      );
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Cam] Idle ${IDLE_RECENTER_MS / 1000}s — auto-recentering for runner safety.`);
+      }
       ownerRef.current = 'follow';
       // Force the camera effect to re-run so the easeTo dispatches even
       // when GPS isn't producing new samples (stationary runner).
@@ -434,21 +496,24 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     const H = typeof window !== 'undefined' ? window.innerHeight : 800;
     if (metricsCardPosition === 'bottom') {
       // Card-at-bottom regime: lift the focal point well above the card.
-      const fromBottom = Math.round(((WAZE_CARD_BOTTOM_PX) / (2 * H) + 0.5) * 100);
-      console.log(
-        `[Cam] wazePadding: card=BOTTOM, H=${H}px, top=0, bottom=${WAZE_CARD_BOTTOM_PX}px → ` +
-          `user dot at ~${fromBottom}% from bottom (raised to clear card)`,
-      );
-      console.log('[Cam] Adaptive padding active: dot pushed UP for bottom card');
+      if (process.env.NODE_ENV !== 'production') {
+        const fromBottom = Math.round(((WAZE_CARD_BOTTOM_PX) / (2 * H) + 0.5) * 100);
+        console.log(
+          `[Cam] wazePadding: card=BOTTOM, H=${H}px, top=0, bottom=${WAZE_CARD_BOTTOM_PX}px → ` +
+            `user dot at ~${fromBottom}% from bottom (raised to clear card)`,
+        );
+      }
       return { top: 0, bottom: WAZE_CARD_BOTTOM_PX, left: 0, right: 0 };
     }
     // Card-at-top regime: standard Waze framing — dot at 25 % from bottom.
     const top = Math.round(H * WAZE_TOP_FRAC);
-    const fromBottomPct = Math.round(((1 - WAZE_TOP_FRAC) / 2) * 100);
-    console.log(
-      `[Cam] wazePadding: card=TOP, H=${H}px, top=${top}px, bottom=0 → ` +
-        `user dot at ~${fromBottomPct}% from bottom (default Waze framing)`,
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      const fromBottomPct = Math.round(((1 - WAZE_TOP_FRAC) / 2) * 100);
+      console.log(
+        `[Cam] wazePadding: card=TOP, H=${H}px, top=${top}px, bottom=0 → ` +
+          `user dot at ~${fromBottomPct}% from bottom (default Waze framing)`,
+      );
+    }
     return { top, bottom: 0, left: 0, right: 0 };
   }, [metricsCardPosition]);
 
@@ -473,7 +538,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     // "LngLat invalid: NaN, NaN" exception that unmounted the map.
     if (simulationActive && !prevSimActive.current && isFiniteLatLng(currentLocation)) {
       ownerRef.current = 'follow';
-      console.log('[Cam] sim-start snap');
+      if (process.env.NODE_ENV !== 'production') console.log('[Cam] sim-start snap');
       try {
         // smoothedBearingRef is typically valid by sim-start time, but on
         // the very first session it can be NaN until the first GPS sample
@@ -552,6 +617,14 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // `isFiniteLatLng` is the SINGLE source of truth for "do I have a
       // usable GPS fix?". Bare truthy check used to admit
       // `{lat: NaN, lng: NaN}` and crash Mapbox; this rejects it.
+      //
+      // cameraMode guard — TurnCarousel sets 'preview_step' in the same
+      // synchronous tick as setTurnFlyToTarget when the user swipes a card.
+      // Reading imperatively (getState, not a hook selector) keeps this a
+      // simple gate check inside an already-running effect — NOT a new dep
+      // that would re-subscribe on every swipe and cause its own re-render.
+      if (useMapStore.getState().cameraMode === 'preview_step') return;
+
       if (ownerRef.current === 'follow' && isFiniteLatLng(currentLocation)) {
         const center: [number, number] = [currentLocation.lng, currentLocation.lat];
 
@@ -569,12 +642,12 @@ export function useCameraController(params: CameraControllerParams): CameraContr
             // Flatten the camera so the runner can see their surroundings.
             targetPitch = NAV_PITCH_STOPPED;
             targetZoom  = NAV_ZOOM_STOPPED;
-            console.log('[Cam] state=STOPPED (paused)');
+            if (process.env.NODE_ENV !== 'production') console.log('[Cam] state=STOPPED (paused)');
           } else if (distToNextTurnM !== null && distToNextTurnM < TURN_APPROACH_DIST_M) {
             // Zoom into the junction — maximum pitch shows the corner detail.
             targetPitch = NAV_PITCH_TURN;
             targetZoom  = NAV_ZOOM_TURN;
-            console.log(`[Cam] state=TURN (${Math.round(distToNextTurnM)}m to next maneuver)`);
+            if (process.env.NODE_ENV !== 'production') console.log(`[Cam] state=TURN (${Math.round(distToNextTurnM)}m to next maneuver)`);
           } else {
             // Standard running view: high immersive pitch, road-ahead zoom.
             targetPitch = NAV_PITCH_STRAIGHT;
@@ -598,7 +671,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           const duration = isStateTransition ? 800 : 200;
 
           const logTag = isNavigationMode ? 'nav-follow' : 'workout-follow';
-          console.log(`[Cam] ${logTag} pitch=${targetPitch} zoom=${targetZoom} dur=${duration}ms`);
+          if (process.env.NODE_ENV !== 'production') console.log(`[Cam] ${logTag} pitch=${targetPitch} zoom=${targetZoom} dur=${duration}ms`);
           // Final safety pass — every numeric param Mapbox will see must
           // be finite. If anything regressed upstream, drop the call
           // rather than crash the map tree.
@@ -628,7 +701,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
 
         // Sim in discover mode — follow with 3D perspective
         if (simulationActive) {
-          console.log('[Cam] sim-discover-follow');
+          if (process.env.NODE_ENV !== 'production') console.log('[Cam] sim-discover-follow');
           // Final safety pass — same recipe as the workout/nav branch
           // above. FOLLOW_ZOOM / FOLLOW_PITCH are module constants so
           // they're always finite, but `bearing` and `center` come from
@@ -684,7 +757,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
               ],
               [Infinity, Infinity, -Infinity, -Infinity],
             );
-            console.log('[Cam] discover-fit-all (initial):', routes.length, 'routes');
+            if (process.env.NODE_ENV !== 'production') console.log('[Cam] discover-fit-all (initial):', routes.length, 'routes');
             hasDoneInitialDiscoverFit.current = true;
             // Pre-mark the route DiscoverLayer's auto-focus will pick (routes[0])
             // so the immediately-following setFocusedRoute call doesn't queue
@@ -731,7 +804,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
                 ],
                 [valid[0][0], valid[0][1], valid[0][0], valid[0][1]],
               );
-              console.log('[Cam] preview-fitBounds (debounced):', focusedRoute.name);
+              if (process.env.NODE_ENV !== 'production') console.log('[Cam] preview-fitBounds (debounced):', focusedRoute.name);
               m.fitBounds(bounds as [number, number, number, number], {
                 padding: { top: 120, bottom: 280, left: 60, right: 60 },
                 maxZoom: 16,
@@ -757,7 +830,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
               ],
               [Infinity, Infinity, -Infinity, -Infinity],
             );
-            console.log('[Cam] preview-fitBounds nav-variants');
+            if (process.env.NODE_ENV !== 'production') console.log('[Cam] preview-fitBounds nav-variants');
             m.fitBounds(bounds as [number, number, number, number], {
               padding: { top: 80, bottom: 200, left: 80, right: 80 },
               duration: 1000,
@@ -773,7 +846,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         !isActiveWorkout &&
         !isNavigationMode
       ) {
-        console.log('[Cam] flyTo destination');
+        if (process.env.NODE_ENV !== 'production') console.log('[Cam] flyTo destination');
         try {
           m.flyTo({
             center: [destinationMarker.lng, destinationMarker.lat],
@@ -798,7 +871,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         !destinationMarker
       ) {
         hasInitialZoomed.current = true;
-        console.log('[Cam] initial-zoom (flat)');
+        if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial-zoom (flat)');
         try {
           m.flyTo({
             center: [currentLocation.lng, currentLocation.lat],
@@ -874,11 +947,24 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     canvas.addEventListener('mousedown', breakFollow, { passive: true });
     canvas.addEventListener('wheel', breakFollow, { passive: true });
 
-    rawMap.on('movestart', (evt: any) => {
+    // Hoist the movestart handler to a named local so the unmount
+    // cleanup can detach it by reference (Mapbox `off()` requires the
+    // exact same function identity that was passed to `on()`).
+    const moveStartHandler = (evt: any) => {
       if (evt.originalEvent) breakFollow();
-    });
+    };
+    rawMap.on('movestart', moveStartHandler);
 
-    console.log('[Cam] listeners wired');
+    // Capture targets + handler refs so the unmount cleanup effect
+    // can remove every listener registered above. Without these the
+    // closures hold a strong ref to `rawMap` after MapShell unmounts
+    // and the Mapbox WebGL context never gets garbage-collected.
+    canvasContainerRef.current = container;
+    canvasElementRef.current = canvas;
+    breakFollowFnRef.current = breakFollow;
+    moveStartHandlerRef.current = moveStartHandler;
+
+    if (process.env.NODE_ENV !== 'production') console.log('[Cam] listeners wired');
   }, []);
 
   const recenter = useCallback(() => {

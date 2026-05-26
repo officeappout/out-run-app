@@ -162,7 +162,13 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
         interactive={false}
       >
           {routeCoords.length > 1 && (
-            <Source id="route" type="geojson" data={geojsonData}>
+            // `lineMetrics` opts the source into per-segment
+            // progress tracking (0→1 along the polyline). Mapbox
+            // requires it in order for `line-gradient` to evaluate
+            // — without it the paint property silently falls back
+            // to the default line-color and the gradient never
+            // appears. See: docs.mapbox.com/style-spec/reference/sources/
+            <Source id="route" type="geojson" data={geojsonData} lineMetrics>
               <Layer
                 id="route-line"
                 type="line"
@@ -171,7 +177,22 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
                   'line-cap': 'round',
                 }}
                 paint={{
-                  'line-color': '#00ADEF',
+                  // 3-stop brand gradient along the run path:
+                  //   start (0.0)  → #9FE1CB  light teal
+                  //   middle (0.5) → #00ADEF  brand cyan
+                  //   end   (1.0)  → #0066CC  deep blue
+                  // `line-gradient` is mutually exclusive with
+                  // `line-color`; including both triggers a
+                  // Mapbox style warning and the gradient wins,
+                  // so we omit line-color entirely.
+                  'line-gradient': [
+                    'interpolate',
+                    ['linear'],
+                    ['line-progress'],
+                    0,   '#9FE1CB',
+                    0.5, '#00ADEF',
+                    1,   '#0066CC',
+                  ],
                   'line-width': 5,
                   'line-opacity': 0.9,
                 }}

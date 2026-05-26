@@ -22,7 +22,7 @@ import {
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
   Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
-  FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft
+  FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft, Shuffle
 } from 'lucide-react';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import dynamicImport from 'next/dynamic';
@@ -37,7 +37,7 @@ import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import { GearDefinition } from '@/features/content/equipment/gear';
 import { getUserEvents, AnalyticsEvent } from '@/features/analytics/AnalyticsService';
 import { getAuthority } from '@/features/admin/services/authority.service';
-import { getProgram, getAllPrograms } from '@/features/content/programs';
+import { getProgram, getAllPrograms, MASTER_PROGRAM_ID_TO_SLUG } from '@/features/content/programs';
 import { Program } from '@/features/content/programs';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
@@ -61,8 +61,10 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   const [editingDomains, setEditingDomains] = useState(false);
   const [editingTracks, setEditingTracks] = useState(false);
   const [editLevels, setEditLevels] = useState<Record<string, number>>({});
+  const [editPercents, setEditPercents] = useState<Record<string, number>>({});
   const [editTrackLevels, setEditTrackLevels] = useState<Record<string, number>>({});
   const [savingLevels, setSavingLevels] = useState(false);
+  const [cleaningLegacy, setCleaningLegacy] = useState(false);
   const [showProgramPicker, setShowProgramPicker] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -198,6 +200,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   const saveManualLevelOverrides = async (
     levelMap: Record<string, number>,
     target: 'domains' | 'tracks' | 'both',
+    percentMap?: Record<string, number>,
   ) => {
     if (!user || !fullProfile) return;
     setSavingLevels(true);
@@ -212,6 +215,13 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
         }
         if (target === 'tracks' || target === 'both') {
           firestoreUpdates[`progression.tracks.${key}.currentLevel`] = level;
+        }
+      }
+
+      // Write percent values to tracks (percent lives only on tracks, not domains)
+      if (percentMap && (target === 'tracks' || target === 'both')) {
+        for (const [key, pct] of Object.entries(percentMap)) {
+          firestoreUpdates[`progression.tracks.${key}.percent`] = Math.min(100, Math.max(0, pct));
         }
       }
 
@@ -249,9 +259,17 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
           prog.tracks[key].currentLevel = level;
         }
       }
+      if (percentMap && (target === 'tracks' || target === 'both')) {
+        for (const [key, pct] of Object.entries(percentMap)) {
+          if (prog?.tracks?.[key]) {
+            prog.tracks[key].percent = pct;
+          }
+        }
+      }
       setFullProfile(updatedProfile);
       setEditingDomains(false);
       setEditingTracks(false);
+      setEditPercents({});
       setSyncMessage('רמות עודכנו בהצלחה ✓');
       setTimeout(() => setSyncMessage(null), 3000);
     } catch (err) {
@@ -288,32 +306,45 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       const maxLevel = (program as any).maxLevels ?? 25;
       const initialLevel = Math.min(globalLevel, maxLevel);
 
+      // Resolve the program's semantic slug so that domains/tracks use slug
+      // keys (e.g. 'full_body') instead of Firestore hash IDs.  Leaf programs
+      // carry their slug in movementPattern; master programs are covered by the
+      // static MASTER_PROGRAM_ID_TO_SLUG export from program.service.
+      const programSlug: string =
+        (program as any).movementPattern ||
+        MASTER_PROGRAM_ID_TO_SLUG[program.id] ||
+        program.id; // safe fallback — at least consistent with itself
+
       const firestoreUpdates: Record<string, any> = {
         'progression.activePrograms': [{
-          id: program.id,
-          templateId: program.id,
+          id: programSlug,
+          templateId: programSlug,
           name: typeof program.name === 'string' ? program.name : (program.name as any)?.he ?? program.id,
           startDate: new Date(),
           durationWeeks: 52,
           currentWeek: 1,
           focusDomains: (program as any).subPrograms ?? [],
         }],
-        [`progression.tracks.${program.id}.currentLevel`]: initialLevel,
-        [`progression.tracks.${program.id}.maxLevel`]: maxLevel,
-        [`progression.tracks.${program.id}.percent`]: 0,
-        [`progression.tracks.${program.id}.totalWorkoutsCompleted`]: 0,
-        [`progression.domains.${program.id}.currentLevel`]: initialLevel,
-        [`progression.domains.${program.id}.maxLevel`]: maxLevel,
+        [`progression.tracks.${programSlug}.currentLevel`]: initialLevel,
+        [`progression.tracks.${programSlug}.maxLevel`]: maxLevel,
+        [`progression.tracks.${programSlug}.percent`]: 0,
+        [`progression.tracks.${programSlug}.totalWorkoutsCompleted`]: 0,
+        [`progression.domains.${programSlug}.currentLevel`]: initialLevel,
+        [`progression.domains.${programSlug}.maxLevel`]: maxLevel,
       };
 
-      // If program has subPrograms (e.g. push, pull, legs, core), init each
+      // If program has subPrograms (e.g. push, pull, legs, core), init each.
+      // subPrograms[] stores Firestore hash IDs — resolve each to its slug so
+      // progression.tracks and progression.domains use consistent slug keys.
       if ((program as any).subPrograms?.length) {
-        for (const sub of (program as any).subPrograms) {
-          firestoreUpdates[`progression.tracks.${sub}.currentLevel`] = initialLevel;
-          firestoreUpdates[`progression.tracks.${sub}.maxLevel`] = maxLevel;
-          firestoreUpdates[`progression.tracks.${sub}.percent`] = 0;
-          firestoreUpdates[`progression.domains.${sub}.currentLevel`] = initialLevel;
-          firestoreUpdates[`progression.domains.${sub}.maxLevel`] = maxLevel;
+        for (const subHash of (program as any).subPrograms as string[]) {
+          const subSlug: string =
+            MASTER_PROGRAM_ID_TO_SLUG[subHash] || subHash;
+          firestoreUpdates[`progression.tracks.${subSlug}.currentLevel`] = initialLevel;
+          firestoreUpdates[`progression.tracks.${subSlug}.maxLevel`] = maxLevel;
+          firestoreUpdates[`progression.tracks.${subSlug}.percent`] = 0;
+          firestoreUpdates[`progression.domains.${subSlug}.currentLevel`] = initialLevel;
+          firestoreUpdates[`progression.domains.${subSlug}.maxLevel`] = maxLevel;
         }
       }
 
@@ -333,6 +364,188 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       setTimeout(() => setSyncMessage(null), 3000);
     } finally {
       setSavingLevels(false);
+    }
+  };
+
+  // ── Remove active program from user ────────────────────────────────────
+  const removeActiveProgram = async (programId: string) => {
+    if (!user || !fullProfile) return;
+    setSavingLevels(true);
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      const remaining = (fullProfile.progression?.activePrograms ?? []).filter(
+        ap => ap.id !== programId && ap.templateId !== programId,
+      );
+      await updateDoc(doc(db, 'users', user.id), {
+        'progression.activePrograms': remaining,
+      });
+      const updatedProfile = { ...fullProfile };
+      (updatedProfile.progression as any).activePrograms = remaining;
+      setFullProfile(updatedProfile);
+      setSyncMessage('תוכנית הוסרה ✓');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } catch (err) {
+      console.error('[AdminProgram] Failed to remove program:', err);
+      setSyncMessage('שגיאה בהסרת תוכנית');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } finally {
+      setSavingLevels(false);
+    }
+  };
+
+  // ── Clean legacy English / broken activePrograms entries ───────────────
+  // Removes entries that match ANY of these conditions:
+  //   1. name contains ASCII letters → English humanized name stored by old onboarding
+  //      (e.g. "full body", "Full Body", "calisthenics upper")
+  //   2. id or templateId is exactly 'calisthenics' — broken slug missing '_upper'
+  //   3. id is a raw 20-char Firestore auto-ID hash AND a proper slug entry
+  //      for the same base program already exists elsewhere in the array
+  // After filtering, deduplicates by normalized templateId (keep first occurrence).
+  const cleanLegacyActivePrograms = async () => {
+    // Use fullProfile.id — the ID of the user currently open in the modal.
+    // Do NOT use user.id here; that refers to the AdminUserListItem prop which
+    // in some auth contexts resolves to the logged-in admin's own UID.
+    if (!fullProfile?.id) return;
+    const targetUserId = fullProfile.id;
+    setCleaningLegacy(true);
+    try {
+      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+
+      // Always read fresh from Firestore — never trust in-memory state.
+      const snap = await getDoc(doc(db, 'users', targetUserId));
+      if (!snap.exists()) {
+        setSyncMessage('משתמש לא נמצא ב-Firestore');
+        setTimeout(() => setSyncMessage(null), 3000);
+        return;
+      }
+      const raw = snap.data();
+
+      console.log('[AdminClean] progression keys:', Object.keys(raw?.progression ?? {}));
+
+      // ── Build hash → slug map from live Firestore programs ───────────────
+      // Seed with the static map for the 4 known master programs, then fill
+      // the rest from all programs in Firestore so movement-pattern programs
+      // (push/pull/legs/core) are covered as well.
+      const allPrograms = await getAllPrograms();
+      const idToSlug: Record<string, string> = { ...MASTER_PROGRAM_ID_TO_SLUG };
+      for (const p of allPrograms) {
+        if (!idToSlug[p.id]) {
+          idToSlug[p.id] =
+            (p as any).slug ??
+            (p as any).movementPattern ??
+            p.name.toLowerCase().replace(/[\s-]+/g, '_');
+        }
+      }
+
+      // ── Determine if a map key is legacy / broken ────────────────────────
+      // Valid keys are lowercase ASCII slugs with underscores (push, full_body).
+      // Legacy keys have spaces ("full body"), capital letters ("Full Body"),
+      // or are the broken "calisthenics" slug that was never resolved.
+      const isLegacyKey = (key: string): boolean => {
+        if (key === 'calisthenics') return true;       // broken slug (missing _upper)
+        if (key.includes(' ')) return true;            // space → humanized English name
+        if (/[A-Z]/.test(key)) return true;            // uppercase → legacy camelCase/Title
+        return false;
+      };
+
+      // Returns true when a key looks like a Firestore auto-generated hash ID
+      // (long alphanumeric string with no underscores or spaces).
+      const isFirestoreHash = (key: string): boolean =>
+        key.length > 15 && /^[a-zA-Z0-9]+$/.test(key);
+
+      // ── Clean progression.domains ────────────────────────────────────────
+      const rawDomains = raw?.progression?.domains ?? {};
+      const cleanedDomains: Record<string, any> = {};
+      const removedDomainKeys: string[] = [];
+      for (const [k, v] of Object.entries(rawDomains)) {
+        const correspondingSlug = idToSlug[k];
+        const slugAlreadyInDomains = !!correspondingSlug && correspondingSlug in rawDomains;
+        if (isLegacyKey(k) || (isFirestoreHash(k) && slugAlreadyInDomains)) {
+          removedDomainKeys.push(k);
+        } else {
+          cleanedDomains[k] = v;
+        }
+      }
+
+      // ── Clean progression.tracks ─────────────────────────────────────────
+      const rawTracks = raw?.progression?.tracks ?? {};
+      const cleanedTracks: Record<string, any> = {};
+      const removedTrackKeys: string[] = [];
+      for (const [k, v] of Object.entries(rawTracks)) {
+        const correspondingSlug = idToSlug[k];
+        const slugAlreadyInTracks = !!correspondingSlug && correspondingSlug in rawTracks;
+        if (isLegacyKey(k) || (isFirestoreHash(k) && slugAlreadyInTracks)) {
+          removedTrackKeys.push(k);
+        } else {
+          cleanedTracks[k] = v;
+        }
+      }
+
+      // ── Clean progression.activePrograms (array) ─────────────────────────
+      const existing: any[] = raw?.progression?.activePrograms ?? [];
+      const firestoreHashRe = /^[a-zA-Z0-9]{20}$/;
+      const hasEnglishLetterRe = /[a-zA-Z]/;
+      const slugIds = new Set(
+        existing
+          .map((ap: any) => (ap.id || ap.templateId || '') as string)
+          .filter((id) => !firestoreHashRe.test(id) && id.trim() !== ''),
+      );
+      const isLegacyEntry = (ap: any): boolean => {
+        const id = (ap.id || '') as string;
+        const templateId = (ap.templateId || '') as string;
+        const name = (ap.name || '') as string;
+        if (hasEnglishLetterRe.test(name)) return true;
+        if (id === 'calisthenics' || templateId === 'calisthenics') return true;
+        if (firestoreHashRe.test(id) && slugIds.size > 0) return true;
+        return false;
+      };
+      const filtered = existing.filter((ap: any) => !isLegacyEntry(ap));
+      const seen = new Set<string>();
+      const cleanedActivePrograms = filtered.filter((ap: any) => {
+        const key = (ap.templateId || ap.id || '').toLowerCase().trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const removedActivePrograms = existing.length - cleanedActivePrograms.length;
+
+      const totalRemoved = removedDomainKeys.length + removedTrackKeys.length + removedActivePrograms;
+
+      console.log('[AdminClean] Removed domain keys:', removedDomainKeys);
+      console.log('[AdminClean] Removed track keys:', removedTrackKeys);
+      console.log('[AdminClean] Removed activePrograms entries:', removedActivePrograms);
+      console.log('[AdminClean] Clean domains:', Object.keys(cleanedDomains));
+      console.log('[AdminClean] Clean tracks:', Object.keys(cleanedTracks));
+
+      if (totalRemoved === 0) {
+        setSyncMessage('לא נמצאו רשומות ישנות — הכל נקי ✓');
+        setTimeout(() => setSyncMessage(null), 4000);
+        return;
+      }
+
+      // Write all three cleaned objects back in one atomic updateDoc call
+      await updateDoc(doc(db, 'users', targetUserId), {
+        'progression.domains': cleanedDomains,
+        'progression.tracks': cleanedTracks,
+        'progression.activePrograms': cleanedActivePrograms,
+      });
+
+      // Refresh local state so the UI reflects the cleaned data immediately
+      const refreshed = await getDoc(doc(db, 'users', targetUserId));
+      if (refreshed.exists()) {
+        setFullProfile({ id: targetUserId, ...refreshed.data() } as any);
+      }
+
+      setSyncMessage(`ניקוי הושלם: ${totalRemoved} שדות ישנים הוסרו ✓`);
+      setTimeout(() => setSyncMessage(null), 4000);
+    } catch (err) {
+      console.error('[AdminClean] Failed to clean legacy programs:', err);
+      setSyncMessage('שגיאה בניקוי');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } finally {
+      setCleaningLegacy(false);
     }
   };
 
@@ -1400,41 +1613,83 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-black text-gray-900">רמות נוכחיות (Domains)</h3>
                         {!editingDomains ? (
-                          <button
-                            onClick={() => {
-                              const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
-                              const domains = (fullProfile.progression as any)?.domains as Record<string, { currentLevel?: number }> | undefined;
-                              const merged: Record<string, number> = {};
-                              if (domains) {
-                                for (const [k, v] of Object.entries(domains)) {
-                                  const trackLevel = tracks?.[k]?.currentLevel ?? 0;
-                                  merged[k] = Math.max(v?.currentLevel ?? 0, trackLevel);
+                          <div className="flex gap-2">
+                            {/* Clean legacy / duplicate activePrograms entries */}
+                            <button
+                              onClick={cleanLegacyActivePrograms}
+                              disabled={savingLevels || cleaningLegacy}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors disabled:opacity-40"
+                              title="הסר רשומות activePrograms ישנות באנגלית וכפילויות"
+                            >
+                              <Shuffle size={14} />
+                              {cleaningLegacy ? 'מנקה...' : 'נקה Legacy'}
+                            </button>
+                            {/* Randomize: random L1-15 + 0-100% for every non-master domain */}
+                            <button
+                              onClick={() => {
+                                const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number; percent?: number }> | undefined;
+                                const domains = (fullProfile.progression as any)?.domains as Record<string, { currentLevel?: number }> | undefined;
+                                const allKeys = new Set([
+                                  ...Object.keys(domains ?? {}),
+                                  ...Object.keys(tracks ?? {}),
+                                ]);
+                                const randomLevels: Record<string, number> = {};
+                                const randomPcts: Record<string, number> = {};
+                                for (const k of allKeys) {
+                                  const isMasterKey = programs.find(p => p.id === k)?.isMaster === true;
+                                  if (!isMasterKey) {
+                                    randomLevels[k] = Math.floor(Math.random() * 15) + 1;
+                                    randomPcts[k] = Math.floor(Math.random() * 101);
+                                  }
                                 }
-                              }
-                              if (tracks) {
-                                for (const [k, v] of Object.entries(tracks)) {
-                                  if (!merged[k]) merged[k] = v?.currentLevel ?? 0;
+                                setEditLevels(randomLevels);
+                                setEditPercents(randomPcts);
+                                setEditingDomains(true);
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                            >
+                              <Shuffle size={14} />
+                              ערבב
+                            </button>
+                            <button
+                              onClick={() => {
+                                const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number; percent?: number }> | undefined;
+                                const domains = (fullProfile.progression as any)?.domains as Record<string, { currentLevel?: number }> | undefined;
+                                const merged: Record<string, number> = {};
+                                const mergedPcts: Record<string, number> = {};
+                                if (domains) {
+                                  for (const [k, v] of Object.entries(domains)) {
+                                    const trackLevel = tracks?.[k]?.currentLevel ?? 0;
+                                    merged[k] = Math.max(v?.currentLevel ?? 0, trackLevel);
+                                  }
                                 }
-                              }
-                              setEditLevels(merged);
-                              setEditingDomains(true);
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                          >
-                            <Edit3 size={14} />
-                            ערוך
-                          </button>
+                                if (tracks) {
+                                  for (const [k, v] of Object.entries(tracks)) {
+                                    if (!merged[k]) merged[k] = v?.currentLevel ?? 0;
+                                    mergedPcts[k] = (v as any)?.percent ?? 0;
+                                  }
+                                }
+                                setEditLevels(merged);
+                                setEditPercents(mergedPcts);
+                                setEditingDomains(true);
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                            >
+                              <Edit3 size={14} />
+                              ערוך
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex gap-2">
                             <button
-                              onClick={() => setEditingDomains(false)}
+                              onClick={() => { setEditingDomains(false); setEditPercents({}); }}
                               className="px-3 py-1.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
                             >
                               ביטול
                             </button>
                             <button
                               disabled={savingLevels}
-                              onClick={() => saveManualLevelOverrides(editLevels, 'both')}
+                              onClick={() => saveManualLevelOverrides(editLevels, 'both', editPercents)}
                               className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg disabled:opacity-50"
                             >
                               <Save size={14} />
@@ -1478,6 +1733,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                             const trackLevel = tracks?.[domain]?.currentLevel ?? 0;
                             const effectiveLevel = Math.max(domainLevel, trackLevel);
                             const maxLevel = domains?.[domain]?.maxLevel ?? tracks?.[domain]?.maxLevel ?? 25;
+                            const currentPct = (tracks?.[domain] as any)?.percent ?? 0;
                             const isDesynced = domainLevel > 0 && trackLevel > 0 && domainLevel !== trackLevel;
                             const prog = programs.find(p => p.id === domain);
                             const isMaster = prog?.isMaster === true;
@@ -1486,28 +1742,55 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                               : domain;
                             return (
                               <div key={domain} className={`rounded-xl p-4 ${isDesynced ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
-                                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                                <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                                   <span className="text-[#5BC2F2]">{getProgramIcon(resolveIconKey(domain), 'w-4 h-4')}</span>
                                   {displayName}
+                                  {isMaster && <span className="text-xs text-gray-400">(נגזר)</span>}
                                 </div>
                                 {editingDomains && !isMaster ? (
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={maxLevel}
-                                    value={editLevels[domain] ?? effectiveLevel}
-                                    onChange={e => setEditLevels(prev => ({ ...prev, [domain]: parseInt(e.target.value) || 1 }))}
-                                    className="w-20 px-2 py-1 text-xl font-black text-[#5BC2F2] border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-500"
-                                  />
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-gray-400 w-10">רמה</span>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={maxLevel}
+                                        value={editLevels[domain] ?? effectiveLevel}
+                                        onChange={e => setEditLevels(prev => ({ ...prev, [domain]: parseInt(e.target.value) || 1 }))}
+                                        className="w-20 px-2 py-1 text-lg font-black text-[#5BC2F2] border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-500"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-gray-400 w-10">אחוז</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        value={editPercents[domain] ?? currentPct}
+                                        onChange={e => setEditPercents(prev => ({ ...prev, [domain]: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                                        className="w-20 px-2 py-1 text-lg font-black text-purple-600 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500"
+                                      />
+                                    </div>
+                                  </div>
                                 ) : (
-                                  <div className="font-black text-2xl text-[#5BC2F2]">
-                                    רמה {effectiveLevel}
-                                    {isMaster && editingDomains && (
-                                      <span className="text-xs font-medium text-gray-400 mr-2">(נגזר)</span>
-                                    )}
+                                  <div>
+                                    <div className="font-black text-2xl text-[#5BC2F2]">
+                                      רמה {effectiveLevel}
+                                    </div>
+                                    <div className="mt-1">
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                          <div
+                                            className="bg-[#5BC2F2] h-1.5 rounded-full transition-all"
+                                            style={{ width: `${Math.min(100, currentPct)}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-xs text-gray-500 font-medium w-9 text-left">{currentPct}%</span>
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
-                                <div className="text-xs text-gray-500 mt-1">מתוך {maxLevel}</div>
+                                <div className="text-xs text-gray-400 mt-1">מתוך {maxLevel}</div>
                                 {isDesynced && !editingDomains && (
                                   <div className="text-xs text-amber-600 mt-1 font-medium">
                                     ⚠ domain={domainLevel} track={trackLevel}
@@ -1518,6 +1801,60 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                           });
                         })()}
                       </div>
+                    </div>
+
+                    {/* ── Active Programs ─────────────────────────────── */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-black text-gray-900">תוכניות פעילות</h3>
+                        <button
+                          onClick={() => setShowProgramPicker(true)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                        >
+                          <Plus size={14} />
+                          הוסף
+                        </button>
+                      </div>
+                      {(fullProfile.progression?.activePrograms ?? []).length === 0 ? (
+                        <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500 text-center">
+                          אין תוכניות פעילות
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {(fullProfile.progression?.activePrograms ?? []).map((ap, idx) => {
+                            const tid = ap.templateId || ap.id;
+                            const prog = programs.find(p => p.id === tid);
+                            const name = prog?.name
+                              ? (typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? tid)
+                              : (ap.name || tid);
+                            const tracks = (fullProfile.progression as any)?.tracks as Record<string, { currentLevel?: number }> | undefined;
+                            const level = tracks?.[tid]?.currentLevel ?? (fullProfile.progression as any)?.domains?.[tid]?.currentLevel ?? '—';
+                            return (
+                              <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[#5BC2F2]">
+                                    {getProgramIcon(resolveIconKey(tid), 'w-5 h-5')}
+                                  </span>
+                                  <div>
+                                    <div className="font-bold text-sm text-gray-900">{name}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {tid} · רמה {level}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  disabled={savingLevels}
+                                  onClick={() => removeActiveProgram(tid)}
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                                  title="הסר תוכנית"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     <div>

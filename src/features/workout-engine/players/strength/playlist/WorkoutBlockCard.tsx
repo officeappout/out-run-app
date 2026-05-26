@@ -14,33 +14,20 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronUp, Info, Dumbbell, RotateCcw, SkipForward } from 'lucide-react';
+import { Check, ChevronUp, Info, Dumbbell, SkipForward } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import SetPillsGrid, { SetPillData } from './SetPillsGrid';
+import SetPillsGrid from './SetPillsGrid';
 import { useCachedMediaMap } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { pyramidLabel } from '@/features/workout-engine/logic/protocols/pyramid.processor';
+import type { BlockStatus, ExerciseEntry } from './types';
+import { buildPills, findFirstIncompleteSet } from './utils/set-status.utils';
+
+// Backward-compatible re-exports for any importers still doing
+//   `import { ExerciseEntry, BlockStatus } from './WorkoutBlockCard'`
+export type { BlockStatus, ExerciseEntry } from './types';
 
 const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
-
-export type BlockStatus = 'completed' | 'active' | 'upcoming';
-
-export interface ExerciseEntry {
-  exerciseId: string;
-  exerciseName: string;
-  imageUrl?: string | null;
-  sets: number;
-  repsText: string;
-  exerciseType: 'reps' | 'time';
-  targetReps: number;
-  status: BlockStatus;
-  currentSetIndex: number;
-  loggedReps: (number | null)[];
-  loggedRepsRight?: (number | null)[];
-  loggedRepsLeft?: (number | null)[];
-  restDuration: number;
-  onPillTap: (setIndex: number) => void;
-  onDirectComplete?: () => void;
-}
 
 export interface WorkoutBlockCardProps {
   exercises: ExerciseEntry[];
@@ -53,54 +40,12 @@ export interface WorkoutBlockCardProps {
   exerciseRole?: string;
   isSuperSet: boolean;
   onSkipRest?: () => void;
-}
-
-/**
- * Returns the index of the first set that hasn't been completed yet,
- * considering both logged reps (DataEntryModal) and the state machine index.
- * Returns -1 if every set is done.
- */
-function findFirstIncompleteSet(entry: ExerciseEntry): number {
-  for (let j = 0; j < entry.sets; j++) {
-    if (entry.loggedReps[j] === null && j >= entry.currentSetIndex) {
-      return j;
-    }
-  }
-  return -1;
-}
-
-function buildPills(entry: ExerciseEntry): SetPillData[] {
-  const isCompleted = entry.status === 'completed';
-  const isEntryActive = entry.status === 'active';
-  const firstIncompleteSet = isEntryActive ? findFirstIncompleteSet(entry) : -1;
-
-  return Array.from({ length: entry.sets }, (_, i): SetPillData => {
-    let pillStatus: 'completed' | 'active' | 'upcoming';
-    if (isCompleted) {
-      pillStatus = 'completed';
-    } else if (isEntryActive) {
-      if (firstIncompleteSet === -1) {
-        pillStatus = 'completed';
-      } else if (i < firstIncompleteSet) {
-        pillStatus = 'completed';
-      } else if (i === firstIncompleteSet) {
-        pillStatus = 'active';
-      } else {
-        pillStatus = 'upcoming';
-      }
-    } else {
-      pillStatus = 'upcoming';
-    }
-    return {
-      setIndex: i,
-      status: pillStatus,
-      targetReps: entry.targetReps,
-      loggedReps: entry.loggedReps[i] ?? null,
-      loggedRepsRight: entry.loggedRepsRight?.[i] ?? null,
-      loggedRepsLeft: entry.loggedRepsLeft?.[i] ?? null,
-      isTimeBased: entry.exerciseType === 'time',
-    };
-  });
+  /**
+   * When true the accordion header is hidden and the exercise body is always
+   * visible — used for main / pyramid exercises so they render exactly like
+   * warmup rows: a standalone full-width card with image + title + rep tracking.
+   */
+  noHeader?: boolean;
 }
 
 export default function WorkoutBlockCard({
@@ -114,6 +59,7 @@ export default function WorkoutBlockCard({
   exerciseRole,
   isSuperSet,
   onSkipRest,
+  noHeader = false,
 }: WorkoutBlockCardProps) {
   const isActive = cardStatus === 'active';
   const isCompleted = cardStatus === 'completed';
@@ -282,6 +228,14 @@ export default function WorkoutBlockCard({
     if (expanded) {
       if (isSuperSet) return `סופר סט (${exercises.length} תרגילים)`;
       if (isGrouped) return segmentTitle || `${exercises.length} תרגילים`;
+      // Single-exercise card: pyramid block gets its own descriptive label
+      // instead of the generic "תרגיל בודד".  WorkoutPlaylist passes the
+      // groupTitle via the `segmentTitle` prop for multi-exercise pyramid groups;
+      // for lone pyramid exercises we resolve the shape label directly.
+      const singleEx = exercises[0];
+      if (singleEx?.pyramidSequence && singleEx.pyramidSequence.length > 0) {
+        return pyramidLabel(singleEx.pyramidSequence);
+      }
       return 'תרגיל בודד';
     }
     if (isGrouped && exercises.length >= 2) {
@@ -293,7 +247,15 @@ export default function WorkoutBlockCard({
   const roundLabel = useMemo(() => {
     if (isGrouped) return `${exercises.length} תרגילים`;
     const ex = exercises[0];
-    return ex && ex.sets > 1 ? `${ex.sets}x סבבים` : 'סבב 1';
+    if (!ex) return 'סבב 1';
+    // Pyramid: surface the structure instead of generic "Nx סבבים".
+    // Phase 3.4 — label resolves dynamically per shape ("סט שיא" for peak
+    // ramps, "פירמידה עולה-יורדת" for symmetric waves).
+    const isPyramid =
+      (ex.pyramidSequence && ex.pyramidSequence.length > 0) ||
+      (ex.repsSequence && ex.repsSequence.length > 0);
+    if (isPyramid) return `${pyramidLabel(ex.pyramidSequence)} (${ex.sets} שלבים)`;
+    return ex.sets > 1 ? `${ex.sets}x סבבים` : 'סבב 1';
   }, [isGrouped, exercises]);
 
   const isOnline = useOnlineStatus();
@@ -337,249 +299,266 @@ export default function WorkoutBlockCard({
         )}
       </AnimatePresence>
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <button
-        onClick={toggleExpanded}
-        className="w-full flex items-center justify-between px-4 pt-3 pb-2"
-      >
-        <span
-          className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[60%] transition-all duration-200"
-          style={{ fontFamily: 'var(--font-simpler)' }}
+      {/* ── Header (warmup/cooldown and grouped cards only) ────────────── */}
+      {!noHeader && (
+        <button
+          onClick={toggleExpanded}
+          className="w-full flex items-center justify-between px-4 pt-3 pb-2"
         >
-          {headerLabel}
-        </span>
-
-        <div className="flex items-center gap-2">
           <span
-            className={[
-              'text-xs font-medium',
-              isWarmup || isCooldown
-                ? 'text-amber-600 dark:text-amber-400'
-                : 'text-slate-500 dark:text-slate-400',
-            ].join(' ')}
+            className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[60%] transition-all duration-200"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {roundLabel}
+            {headerLabel}
           </span>
-          <Info size={14} className="text-slate-300" />
-          <motion.div
-            animate={{ rotate: expanded ? 0 : 180 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronUp size={16} className="text-slate-400" />
-          </motion.div>
-        </div>
-      </button>
 
-      {/* ── Expandable body ────────────────────────────────────────────── */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{
-              height: 'auto',
-              opacity: 1,
-              transition: {
-                height: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
-                opacity: { duration: 0.25, delay: 0.12 },
-              },
-            }}
-            exit={{
-              height: 0,
-              opacity: 0,
-              transition: {
-                opacity: { duration: 0.15, ease: 'easeIn' },
-                height: { duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.08 },
-              },
-            }}
-            className="overflow-hidden"
-          >
-            {/* ── Exercise rows ──────────────────────────────────────────── */}
-            {exercises.map((entry, idx) => {
-              const isEntryActive = entry.status === 'active';
-              const isEntryCompleted = entry.status === 'completed';
-              const isNextUp = idx === nextExerciseIndex;
-              const isSimpleComplete = isWarmup || isCooldown;
-              const pills = isSimpleComplete ? [] : buildPills(entry);
-              const allLoggedDone = entry.sets > 0 && entry.loggedReps.every(r => r !== null);
+          <div className="flex items-center gap-2">
+            <span
+              className={[
+                'text-xs font-medium',
+                isWarmup || isCooldown
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-slate-500 dark:text-slate-400',
+              ].join(' ')}
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              {roundLabel}
+            </span>
+            <Info size={14} className="text-slate-300" />
+            <motion.div
+              animate={{ rotate: expanded ? 0 : 180 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronUp size={16} className="text-slate-400" />
+            </motion.div>
+          </div>
+        </button>
+      )}
 
-              console.log(
-                `📋 [Playlist Card] exercise: ${entry.exerciseName} | status: ${entry.status} | loggedReps: [${entry.loggedReps.join(', ')}] | t=${performance.now().toFixed(1)}ms`,
-              );
+      {/* ── Body: noHeader → always visible; accordion → collapsible ───── */}
+      {(() => {
+        // Shared exercise rows + rest bar — rendered inside either a plain div
+        // (noHeader, always visible) or an AnimatePresence accordion.
+        const exerciseRows = exercises.map((entry, idx) => {
+          const isEntryActive = entry.status === 'active';
+          const isEntryCompleted = entry.status === 'completed';
+          const isNextUp = idx === nextExerciseIndex;
+          const isSimpleComplete = isWarmup || isCooldown;
+          const pills = isSimpleComplete ? [] : buildPills(entry);
+          const allLoggedDone = entry.sets > 0 && entry.loggedReps.every(r => r !== null);
 
-              return (
-                <motion.div
-                  layout
-                  layoutId={`ex-row-${entry.exerciseId}`}
-                  key={entry.exerciseId}
-                  ref={(el: HTMLDivElement | null) => {
-                    if (el) exerciseRowRefs.current.set(idx, el);
-                    else exerciseRowRefs.current.delete(idx);
-                  }}
-                  transition={{ layout: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } }}
-                  className={[
-                    'relative overflow-hidden mx-3 rounded-xl p-3 mb-2',
-                    isEntryActive
-                      ? 'bg-[#BFEEFD]'
-                      : isNextUp
-                        ? 'bg-[#BFEEFD]/30 ring-1 ring-[#00BAF7]/20'
-                        : 'bg-[#F0FDFF] dark:bg-slate-800/40',
-                  ].join(' ')}
-                >
-                  <canvas
-                    ref={(el: HTMLCanvasElement | null) => {
-                      if (el) confettiCanvasRefs.current.set(idx, el);
-                      else confettiCanvasRefs.current.delete(idx);
-                    }}
-                    className="absolute inset-0 w-full h-full pointer-events-none"
-                    style={{ zIndex: 20 }}
-                  />
-                  <div className="flex items-start gap-3">
-                    <div className={[
-                      'rounded-xl bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0',
-                      isEntryActive ? 'w-24 h-24' : 'w-20 h-20',
-                    ].join(' ')}>
-                      {entry.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={(() => {
-                            const resolved = entry.imageUrl ? cachedImageMap.get(entry.imageUrl) : null;
-                            if (resolved?.startsWith('blob:')) return resolved;
-                            return isOnline ? (resolved || entry.imageUrl) : OFFLINE_PLACEHOLDER;
-                          })()}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Dumbbell size={22} className="text-slate-400" />
-                        </div>
-                      )}
+          // Strict turn gate: only the exercise whose index matches the live
+          // state-machine cursor may render interactive elements.
+          const isTurnActive = idx === activeExerciseIndex;
+
+          return (
+            <motion.div
+              layout
+              layoutId={`ex-row-${entry.exerciseId}`}
+              key={entry.exerciseId}
+              ref={(el: HTMLDivElement | null) => {
+                if (el) exerciseRowRefs.current.set(idx, el);
+                else exerciseRowRefs.current.delete(idx);
+              }}
+              transition={{ layout: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } }}
+              className={[
+                'relative overflow-hidden mx-3 rounded-xl p-3 mb-2',
+                isEntryActive
+                  ? 'bg-[#BFEEFD]'
+                  : isNextUp
+                    ? 'bg-[#BFEEFD]/30 ring-1 ring-[#00BAF7]/20'
+                    : 'bg-[#F0FDFF] dark:bg-slate-800/40',
+              ].join(' ')}
+            >
+              <canvas
+                ref={(el: HTMLCanvasElement | null) => {
+                  if (el) confettiCanvasRefs.current.set(idx, el);
+                  else confettiCanvasRefs.current.delete(idx);
+                }}
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ zIndex: 20 }}
+              />
+              <div className="flex items-start gap-3">
+                {/* ── Cover thumbnail — always large (matches warmup active size) ── */}
+                <div className="w-24 h-24 rounded-xl bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
+                  {entry.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={(() => {
+                        const resolved = entry.imageUrl ? cachedImageMap.get(entry.imageUrl) : null;
+                        if (resolved?.startsWith('blob:')) return resolved;
+                        return isOnline ? (resolved || entry.imageUrl) : OFFLINE_PLACEHOLDER;
+                      })()}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER; }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Dumbbell size={22} className="text-slate-400" />
                     </div>
-
-                    <div className="flex-1 min-w-0 pt-1 text-right">
-                      <p
-                        className={[
-                          'font-bold mb-1',
-                          isEntryActive ? 'text-lg' : 'text-base',
-                          isEntryCompleted
-                            ? 'text-slate-500 dark:text-slate-400'
-                            : 'text-slate-900 dark:text-white',
-                        ].join(' ')}
-                        style={{ fontFamily: 'var(--font-simpler)' }}
-                      >
-                        {entry.exerciseName}
-                      </p>
-                      <p
-                        className={[
-                          'mb-3',
-                          isEntryActive
-                            ? 'text-base font-medium text-slate-800 dark:text-slate-200'
-                            : 'text-sm text-slate-500 dark:text-slate-400',
-                        ].join(' ')}
-                        style={{ fontFamily: 'var(--font-simpler)' }}
-                      >
-                        {entry.repsText}
-                      </p>
-
-                      {isSimpleComplete ? (
-                        (isEntryCompleted || allLoggedDone) ? (
-                          <div className="flex items-center gap-1.5 text-[#00BAF7]" style={{ fontFamily: 'var(--font-simpler)' }}>
-                            <Check size={14} strokeWidth={3} />
-                            <span className="text-xs font-bold">בוצע</span>
-                          </div>
-                        ) : isEntryActive ? (
-                          <button
-                            onClick={() => entry.onDirectComplete?.()}
-                            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all duration-300"
-                            style={{
-                              fontFamily: 'var(--font-simpler)',
-                              background: 'linear-gradient(to left, #00BAF7, #0CF2E3)',
-                            }}
-                          >
-                            <Check size={12} strokeWidth={3} />
-                            סמן כבוצע
-                          </button>
-                        ) : null
-                      ) : (
-                        <SetPillsGrid
-                          pills={pills}
-                          onPillTap={(setIdx) => handlePillTap(idx, setIdx)}
-                          pulseSetIndex={guidePulse?.exerciseIdx === idx ? guidePulse.setIdx : null}
-                          onPulseComplete={() => setGuidePulse(null)}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-
-            {/* ── Rest progress bar — only visible during RESTING ─────── */}
-            {isActive && isResting && (() => {
-              const totalRest = restDuration;
-              const isEnding = restTimeLeft !== undefined && restTimeLeft <= 10;
-              const progress = restTimeLeft !== undefined
-                ? Math.max(0, Math.min(100, (restTimeLeft / totalRest) * 100))
-                : 100;
-
-              return (
-                <div
-                  className={[
-                    'relative overflow-hidden mx-3 mb-2 h-[36px] rounded-[8px] transition-all duration-500',
-                    isEnding ? 'bg-white' : 'bg-[#BFEEFD]',
-                  ].join(' ')}
-                  style={{ border: isEnding ? '1px solid rgba(255,138,0,0.1)' : '0.5px solid #00BAF7' }}
-                >
-                  <div
-                    className="absolute inset-y-0 right-0 rounded-[8px]"
-                    style={{
-                      width: `${progress}%`,
-                      backgroundColor: isEnding ? '#FF8A00' : '#00BAF7',
-                      transition: 'width 1s linear, background-color 0.5s ease',
-                    }}
-                  />
-                  <div className="relative z-10 flex items-center justify-between h-full px-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={[
-                          'text-sm font-bold tabular-nums transition-colors duration-500',
-                          isEnding ? 'text-[#FF8A00]' : 'text-slate-800',
-                        ].join(' ')}
-                        style={{ fontFamily: 'var(--font-simpler)' }}
-                      >
-                        {restTimeLeft !== undefined && formatTime
-                          ? formatTime(restTimeLeft)
-                          : formatTime?.(restDuration) ?? '00:30'}
-                      </span>
-                      <span
-                        className="text-xs text-slate-500"
-                        style={{ fontFamily: 'var(--font-simpler)' }}
-                      >
-                        מנוחה
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => onSkipRest?.()}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/60 active:bg-white/90 transition-colors"
-                    >
-                      <span
-                        className="text-[11px] font-bold text-slate-700"
-                        style={{ fontFamily: 'var(--font-simpler)' }}
-                      >
-                        דלג
-                      </span>
-                      <SkipForward size={13} className="text-slate-700" strokeWidth={2.5} />
-                    </button>
-                  </div>
+                  )}
                 </div>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+                {/* ── Exercise name + reps + rep-tracking (pills / complete button) ── */}
+                <div className="flex-1 min-w-0 pt-1 text-right">
+                  <p
+                    className={[
+                      'font-bold mb-1',
+                      isEntryActive ? 'text-lg' : 'text-base',
+                      isEntryCompleted
+                        ? 'text-slate-500 dark:text-slate-400'
+                        : 'text-slate-900 dark:text-white',
+                    ].join(' ')}
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {entry.exerciseName}
+                  </p>
+                  <p
+                    className={[
+                      'mb-3',
+                      isEntryActive
+                        ? 'text-base font-medium text-slate-800 dark:text-slate-200'
+                        : 'text-sm text-slate-500 dark:text-slate-400',
+                    ].join(' ')}
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {entry.repsText}
+                  </p>
+
+                  {isSimpleComplete ? (
+                    (isEntryCompleted || allLoggedDone) ? (
+                      <div className="flex items-center gap-1.5 text-[#00BAF7]" style={{ fontFamily: 'var(--font-simpler)' }}>
+                        <Check size={14} strokeWidth={3} />
+                        <span className="text-xs font-bold">בוצע</span>
+                      </div>
+                    ) : (isEntryActive && isTurnActive) ? (
+                      <button
+                        onClick={() => entry.onDirectComplete?.()}
+                        className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition-all duration-300"
+                        style={{
+                          fontFamily: 'var(--font-simpler)',
+                          background: 'linear-gradient(to left, #00BAF7, #0CF2E3)',
+                        }}
+                      >
+                        <Check size={12} strokeWidth={3} />
+                        סמן כבוצע
+                      </button>
+                    ) : null
+                  ) : (
+                    <SetPillsGrid
+                      pills={pills}
+                      onPillTap={isTurnActive ? (setIdx) => handlePillTap(idx, setIdx) : () => {}}
+                      pulseSetIndex={isTurnActive && guidePulse?.exerciseIdx === idx ? guidePulse.setIdx : null}
+                      onPulseComplete={() => setGuidePulse(null)}
+                    />
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          );
+        });
+
+        const restBar = isActive && isResting && (() => {
+          const totalRest = restDuration;
+          const isEnding = restTimeLeft !== undefined && restTimeLeft <= 10;
+          const progress = restTimeLeft !== undefined
+            ? Math.max(0, Math.min(100, (restTimeLeft / totalRest) * 100))
+            : 100;
+
+          return (
+            <div
+              className={[
+                'relative overflow-hidden mx-3 mb-2 h-[36px] rounded-[8px] transition-all duration-500',
+                isEnding ? 'bg-white' : 'bg-[#BFEEFD]',
+              ].join(' ')}
+              style={{ border: isEnding ? '1px solid rgba(255,138,0,0.1)' : '0.5px solid #00BAF7' }}
+            >
+              <div
+                className="absolute inset-y-0 right-0 rounded-[8px]"
+                style={{
+                  width: `${progress}%`,
+                  backgroundColor: isEnding ? '#FF8A00' : '#00BAF7',
+                  transition: 'width 1s linear, background-color 0.5s ease',
+                }}
+              />
+              <div className="relative z-10 flex items-center justify-between h-full px-4">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={[
+                      'text-sm font-bold tabular-nums transition-colors duration-500',
+                      isEnding ? 'text-[#FF8A00]' : 'text-slate-800',
+                    ].join(' ')}
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    {restTimeLeft !== undefined && formatTime
+                      ? formatTime(restTimeLeft)
+                      : formatTime?.(restDuration) ?? '00:30'}
+                  </span>
+                  <span
+                    className="text-xs text-slate-500"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    מנוחה
+                  </span>
+                </div>
+                <button
+                  onClick={() => onSkipRest?.()}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/60 active:bg-white/90 transition-colors"
+                >
+                  <span
+                    className="text-[11px] font-bold text-slate-700"
+                    style={{ fontFamily: 'var(--font-simpler)' }}
+                  >
+                    דלג
+                  </span>
+                  <SkipForward size={13} className="text-slate-700" strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+          );
+        })();
+
+        if (noHeader) {
+          return (
+            <div className="pt-3">
+              {exerciseRows}
+              {restBar}
+            </div>
+          );
+        }
+
+        return (
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="body"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{
+                  height: 'auto',
+                  opacity: 1,
+                  transition: {
+                    height: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+                    opacity: { duration: 0.25, delay: 0.12 },
+                  },
+                }}
+                exit={{
+                  height: 0,
+                  opacity: 0,
+                  transition: {
+                    opacity: { duration: 0.15, ease: 'easeIn' },
+                    height: { duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.08 },
+                  },
+                }}
+                className="overflow-hidden"
+              >
+                {exerciseRows}
+                {restBar}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        );
+      })()}
     </div>
   );
 }

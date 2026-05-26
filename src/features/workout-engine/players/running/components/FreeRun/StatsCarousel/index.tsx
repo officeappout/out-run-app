@@ -117,7 +117,9 @@ export default function StatsCarousel() {
 
       {/* Pagination dots — light theme to match the white metrics panel.
           Sibling of the slide region (NOT inside the drag overlay) so
-          taps reach the buttons cleanly on mobile. */}
+          taps reach the buttons cleanly on mobile. The active dot reads
+          from `--metrics-accent-color` so it tracks the parent card's
+          paused-state theme automatically (cyan → orange when paused). */}
       <div className="flex justify-center gap-2 mt-2 pb-3">
         {slides.map((_, index) => (
           <button
@@ -128,7 +130,9 @@ export default function StatsCarousel() {
             style={{
               width: index === currentSlide ? '1.5rem' : '0.375rem',
               background:
-                index === currentSlide ? '#00ADEF' : 'rgba(0, 0, 0, 0.18)',
+                index === currentSlide
+                  ? 'var(--metrics-accent-color, #00ADEF)'
+                  : 'rgba(0, 0, 0, 0.18)',
             }}
             aria-label={`עבור לשקופית ${index + 1}`}
           />

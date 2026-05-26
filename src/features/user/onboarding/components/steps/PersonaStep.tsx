@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import type { AccessCodeResult } from '../../services/access-code.service';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 const ACCESS_CODE_PERSONA_IDS = new Set(['student', 'soldier', 'reservist', 'pupil']);
 
@@ -178,7 +179,16 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     const stored = sessionStorage.getItem('onboarding_personal_gender');
     return stored === 'female' ? 'female' : 'male';
   }, []);
-  
+
+  // User first name — set during the personal-info step
+  const userName = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return sessionStorage.getItem('onboarding_personal_name') || '';
+  }, []);
+
+  // Ref for programmatic smooth-scroll to the goals section
+  const goalsSectionRef = useRef<HTMLDivElement>(null);
+
   // Access Code Gate modal state
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [pendingPersona, setPendingPersona] = useState<LifestyleOption | null>(null);
@@ -241,6 +251,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   };
 
   const applyPersonaToggle = useCallback((option: LifestyleOption) => {
+    const isAdding = !selectedPersonaIds.includes(option.id);
     let newSelectedIds: string[];
     if (selectedPersonaIds.includes(option.id)) {
       newSelectedIds = selectedPersonaIds.filter(id => id !== option.id);
@@ -257,6 +268,13 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('onboarding_selected_persona_ids', JSON.stringify(newSelectedIds));
       sessionStorage.setItem('onboarding_selected_persona_tags', JSON.stringify(allTags));
+    }
+    // On the first persona pick, smoothly scroll the goals section into view
+    // so the user immediately sees the next action without manual scrolling.
+    if (isAdding && newSelectedIds.length === 1) {
+      setTimeout(() => {
+        goalsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 350);
     }
   }, [selectedPersonaIds, selectedGoalIds, updateData]);
 
@@ -278,9 +296,9 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       unitPath: result.unitPath,
       tenantType: result.tenantType,
     } as any);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('onboarding_path', result.onboardingPath);
-    }
+    // onboarding_path uses onboardingPrefs so MAP_ONLY / FULL_PROGRAM /
+    // MILITARY_JOIN selection survives a hard close.
+    setOnboardingPref('onboarding_path', result.onboardingPath);
     setShowCodeModal(false);
     setPendingPersona(null);
   }, [pendingPersona, applyPersonaToggle, updateData]);
@@ -390,6 +408,35 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
 
   return (
     <div className="flex flex-col h-full" dir={direction}>
+      {/* Primary Header - Absolute top */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-2"
+      >
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-xl font-bold text-black dark:text-white">
+            {isHebrew ? 'שנכיר? ✨' : "Let's get to know you ✨"}
+          </h3>
+          {selectedPersonaIds.length > 0 && (
+            <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
+              {selectedPersonaIds.length}
+            </span>
+          )}
+        </div>
+        {isHebrew && (
+          <p
+            className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed mt-2"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            {userName ? `היי ${userName}, ` : ''}
+            {userGender === 'female'
+              ? 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחרי את התפקיד שמקשר ומאפיין אותך הכי טוב. 🦾'
+              : 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחר את התפקיד שמקשר ומאפיין אותך הכי טוב. 🦾'}
+          </p>
+        )}
+      </motion.div>
+
       {/* Mad-libs Sentence Card - Sticky at top with blur */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -448,24 +495,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           transition={{ delay: 0.1 }}
           className="mb-5"
         >
-          <div className="mb-3 px-1">
-            <p className="text-xs text-slate-500 mb-2 leading-relaxed" style={{ fontFamily: 'var(--font-simpler)' }}>
-              {isHebrew 
-                ? 'סמנו את מה שהכי מגדיר אתכם. אם יש כמה, בחרו אותם לפי סדר החשיבות עבורכם.'
-                : 'Select what defines you best. If multiple apply, choose them in order of importance.'}
-            </p>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-600">
-                {isHebrew ? (userGender === 'female' ? 'מי את?' : 'מי אתה?') : 'Who are you?'}
-              </h3>
-              {selectedPersonaIds.length > 0 && (
-                <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
-                  {selectedPersonaIds.length}
-                </span>
-              )}
-            </div>
-          </div>
-          
+
           {/* Compact 2-column grid */}
           <div className="grid grid-cols-2 gap-2">
             {LIFESTYLE_OPTIONS.map((option, index) => {
@@ -520,6 +550,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
 
         {/* Goal Selection - Multi-Select (Max 2) - SHORT TITLES on Chips */}
         <motion.div
+          ref={goalsSectionRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -590,13 +621,16 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
         <button
           onClick={handleContinue}
           disabled={!canContinue}
-          className={`w-full py-3.5 rounded-2xl font-black text-base transition-all duration-300 ${
+          className={`w-full py-3.5 rounded-full font-semibold text-base transition-all duration-200 ${
             canContinue
-              ? 'bg-[#5BC2F2] text-white shadow-lg shadow-[#5BC2F2]/30 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]'
+              ? 'text-black shadow-md shadow-cyan-400/25 hover:brightness-105 active:scale-95'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
+          style={canContinue ? { background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' } : undefined}
         >
-          {isHebrew ? 'המשך' : 'Continue'}
+          {isHebrew
+            ? (userGender === 'female' ? 'המשיכי' : 'המשך')
+            : 'Continue'}
         </button>
       </div>
 

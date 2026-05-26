@@ -4,36 +4,46 @@
  * PartnerFilterBar — multi-row filter system above the partner card list.
  *
  * Row visibility matrix:
- *   Row 1 — activity pills          [הכל][כוח][ריצה][הליכה]   (always)
- *   Row 2 — solo / group pills      [הכל][יחידים][קבוצות]      (always)
+ *   Row 1 — activity pills          [הכל][כוח][ריצה][הליכה]    (always)
+ *   Row 2 — solo / group pills      [הכל][יחידים][קבוצות]       (always, both tabs)
  *   Row 3 — dynamic per activity:
- *             strength → program pills (user's active master programs)
+ *             strength → program pills (every activeProgram the user
+ *                        is enrolled in, labelled via CMS lookup)
  *             running  → distance slider (0–21 km, step 0.5)
  *             else     → hidden
- *   Row 4 — dynamic per activity:
- *             strength + program selected → level range slider
- *             running                     → pace range slider
- *             else                        → hidden
+ *   Row 4 — strength-only level range slider
+ *             • strength + program selected → 1..program.maxLevels (CMS)
+ *             • strength without program    → 1..max(maxLevels) across
+ *               the user's enrolled programs, or DEFAULT_PROGRAM_MAX (20)
+ *             • running / walking           → HIDDEN (cardio is
+ *               filtered by distance + pace only — no level concept)
+ *             Slider auto-resets to [1, max] when the user picks a
+ *             different program pill so a stale window from the
+ *             previous program never carries over.
+ *   Row 4 (running)  — pace range slider (180-540 sec/km)
  *   Row 5 — time pills + slider     (scheduled tab only)
  *
- * Tab handling — Option C for [קבוצות] on the live tab:
- *   live partners (presence/{uid}) carry no group identifier, so a
- *   "groups" filter on the live tab would always return zero results.
- *   When the user taps [קבוצות] from the live tab we instead:
- *     1. set soloGroupFilter('groups')
- *     2. fire onSwitchToScheduled() so the parent can flip activeTab
- *   PartnerOverlay then shows a transient hint explaining the switch.
+ * Solo/group filtering — works on BOTH tabs. The live tab narrows
+ * against `LivePartner.groupSessionId` (mirrored from the presence doc,
+ * which `useGroupPresence` also consumes); the scheduled tab narrows
+ * against `ScheduledPartner.source`. There is no longer an Option-C
+ * auto-switch when [קבוצות] is tapped on live — the filter genuinely
+ * narrows live partners now.
  *
- * Master-program detection is async via getCachedPrograms() (5-min cache,
- * one Firestore read per cache miss). On cold start we render every
- * activeProgram entry as a fallback so the row never appears empty.
+ * Program pill source — every entry in `profile.progression.activePrograms`
+ * is rendered as a pill. CMS data (`getCachedPrograms`, 5-min cache)
+ * supplies canonical Hebrew labels and iconKeys, but we no longer
+ * filter on `cms.isMaster` — that gate silently dropped legitimate
+ * enrollments whose CMS metadata was incomplete. Cold-start fallback:
+ * `PROGRAM_NAME_HE[templateId]` → enrollment `name`, so the row is
+ * never empty while the cache warms.
  *
  * All filter state lives in `usePartnerFilters` so selections survive
  * tab switches, overlay close/reopen, and full page navigations
  * (persisted to localStorage).
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import {
   usePartnerFilters,
@@ -148,13 +158,12 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
   const setPaceRange = usePartnerFilters((s) => s.setPaceRange);
   const plannedTime = usePartnerFilters((s) => s.plannedTime);
   const setPlannedTime = usePartnerFilters((s) => s.setPlannedTime);
-  const scheduledTimeMinutes = usePartnerFilters((s) => s.scheduledTimeMinutes);
-  const setScheduledTimeMinutes = usePartnerFilters((s) => s.setScheduledTimeMinutes);
+  const scheduledTimeRange = usePartnerFilters((s) => s.scheduledTimeRange);
+  const setScheduledTimeRange = usePartnerFilters((s) => s.setScheduledTimeRange);
 
   // User profile (for program names + level bounds)
   const profile = useUserStore((s) => s.profile);
   const activePrograms = profile?.progression?.activePrograms ?? [];
-  const domains = profile?.progression?.domains ?? {};
 
   // ── CMS programs (async, cached 5min by program-hierarchy) ───────────────
   // Fetched once for two reasons:
@@ -187,16 +196,17 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
   // `'full_body'`. Cross-reference the CMS map first (canonical Hebrew
   // name + iconKey), then fall through to PROGRAM_NAME_HE on the slug,
   // then to whatever name was stored on enrollment.
+  //
+  // We render EVERY entry the user is enrolled in — there is no
+  // `cms.isMaster` filter anymore. The previous filter silently dropped
+  // legitimate strength enrollments whose CMS metadata was incomplete
+  // (missing `isMaster`, missing CMS doc, sub-program enrollments
+  // without a master mirror), which surfaced as "the program selector
+  // row never appears" for many real users. The user-visible spec is
+  // "show the programs the current user is actually enrolled in" —
+  // the most direct read of that is `activePrograms`.
   const programPills = useMemo(() => {
-    const filtered = programsById
-      ? activePrograms.filter((up) => {
-          const cmsByTemplate = programsById.get(up.templateId);
-          const cmsById = programsById.get(up.id);
-          const cms = cmsByTemplate ?? cmsById;
-          return cms ? cms.isMaster : true;
-        })
-      : activePrograms;
-    return filtered.map((up) => {
+    return activePrograms.map((up) => {
       const cms = programsById?.get(up.templateId) ?? programsById?.get(up.id);
       const label =
         cms?.name
@@ -208,19 +218,100 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
     });
   }, [activePrograms, programsById]);
 
-  // ── Level range bounds for Row 4 strength slider ──────────────────────────
-  // Resolve via selectedProgram → activeProgram.focusDomains[0] → maxLevel.
-  // Fallback 10 (matches DEFAULTS) when domain or program is not yet wired.
-  const levelMaxBound = useMemo(() => {
-    const program = activePrograms.find((p) => p.templateId === selectedProgram);
-    const domainId = program?.focusDomains?.[0];
-    if (!domainId) return 10;
-    const max = domains[domainId]?.maxLevel;
-    return typeof max === 'number' && max > 0 ? max : 10;
-  }, [activePrograms, domains, selectedProgram]);
+  // ── Level range bounds for Row 4 level slider ─────────────────────────────
+  // Source of truth: `Program.maxLevels` from the CMS (loaded into
+  // `programsById` above). NOT `DomainProgress.maxLevel`, which expresses
+  // the CURRENT USER'S per-domain ceiling — fine for "what level am I
+  // allowed to reach next?", wrong for "what level range can a PARTNER
+  // be at?". The partner finder needs the program's theoretical range,
+  // and that lives only on the CMS doc.
+  //
+  // Resolution priority (strength activity only — slider is hidden
+  // otherwise so the running/walking branch returns a sentinel that
+  // is never read):
+  //   1. selectedProgram set → `programsById.get(selectedProgram).maxLevels`
+  //      with the same `templateId → id` fallback chain that
+  //      `programPills` uses, so legacy enrollments where the CMS
+  //      doc id is in `up.id` (not `up.templateId`) still resolve.
+  //   2. selectedProgram === null (הכל) → highest `maxLevels` across
+  //      every program the user is enrolled in, expressing "any of my
+  //      programs". This way a user on a 25-level program can still
+  //      filter to L20 partners while the slider is on הכל; capping at
+  //      a single number (e.g. 10) would silently hide them.
+  //   3. Cold-start (CMS not yet loaded) OR user has no enrolled
+  //      programs → DEFAULT_PROGRAM_MAX. 20 matches
+  //      `ProgressionFilterSheet.DEFAULT_MAX_LEVELS` and the
+  //      `admin/questionnaire` fallback so the partner UI agrees with
+  //      every other "level grid" surface in the app.
+  const DEFAULT_PROGRAM_MAX = 20;
 
-  // Defensive clamp — if maxLevel shrinks (e.g. user switches to a program
-  // with smaller max), pull the upper handle down so the slider stays valid.
+  const levelMaxBound = useMemo(() => {
+    if (liveActivity !== 'strength') return DEFAULT_PROGRAM_MAX;
+
+    const resolveMaxFor = (templateOrId: string): number | undefined => {
+      if (!programsById) return undefined;
+      const direct = programsById.get(templateOrId);
+      if (direct?.maxLevels && direct.maxLevels > 0) return direct.maxLevels;
+      // Legacy fallback: an active enrollment may carry the CMS doc id
+      // in `up.id` while the pill renders `up.templateId`.
+      const ap = activePrograms.find(
+        (p) => p.templateId === templateOrId || p.id === templateOrId,
+      );
+      if (ap) {
+        const cms =
+          programsById.get(ap.templateId) ?? programsById.get(ap.id);
+        if (cms?.maxLevels && cms.maxLevels > 0) return cms.maxLevels;
+      }
+      return undefined;
+    };
+
+    if (selectedProgram) {
+      return resolveMaxFor(selectedProgram) ?? DEFAULT_PROGRAM_MAX;
+    }
+
+    // הכל — pick the highest `maxLevels` across the user's enrolled
+    // programs so the slider can express the union of every program's
+    // range. Falls through to DEFAULT_PROGRAM_MAX when CMS hasn't
+    // loaded yet (or the user has no enrolled programs at all).
+    if (activePrograms.length > 0) {
+      let highest = 0;
+      for (const ap of activePrograms) {
+        const max =
+          resolveMaxFor(ap.templateId) ?? resolveMaxFor(ap.id);
+        if (typeof max === 'number' && max > highest) highest = max;
+      }
+      if (highest > 0) return highest;
+    }
+
+    return DEFAULT_PROGRAM_MAX;
+  }, [liveActivity, selectedProgram, programsById, activePrograms]);
+
+  // ── Reset levelRange to [1, max] on a USER-DRIVEN program change ──────────
+  // When the user taps a different program pill, the previous range is
+  // almost certainly stale (a "level 1-12" window for a 12-level program
+  // makes no sense once they swap to a 25-level program). Resetting to
+  // `[1, levelMaxBound]` gives them the full new range as a starting
+  // point — the documented spec for this row.
+  //
+  // The first-render gate is critical: on initial mount, `selectedProgram`
+  // is hydrated from localStorage (via `usePartnerFilters` persist), and
+  // so is `levelRange`. The persisted pair was coherent when saved, so
+  // resetting on mount would silently throw away the user's last range.
+  // We only reset on subsequent changes by tracking the previous value
+  // in a ref.
+  const prevSelectedProgramRef = useRef<string | null>(selectedProgram);
+  useEffect(() => {
+    if (prevSelectedProgramRef.current === selectedProgram) return;
+    prevSelectedProgramRef.current = selectedProgram;
+    setLevelRange([1, levelMaxBound]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProgram]);
+
+  // Defensive clamp — if the bound shrinks for any other reason (e.g.
+  // CMS data finishes loading and reveals a smaller maxLevels than
+  // DEFAULT_PROGRAM_MAX), pull the upper handle down so the slider stays
+  // within a valid range. Lower handle is also clamped so the [min, max]
+  // invariant is preserved.
   useEffect(() => {
     if (levelRange[1] > levelMaxBound) {
       setLevelRange([Math.min(levelRange[0], levelMaxBound), levelMaxBound]);
@@ -228,25 +319,33 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelMaxBound]);
 
-  // ── Option C — [קבוצות] on live tab auto-switches to scheduled ────────────
+  // ── Solo/group tap handler ────────────────────────────────────────────────
+  // The row is now visible on BOTH tabs and `LivePartner` carries a
+  // `groupSessionId` field that the live filter narrows on, so we no
+  // longer auto-switch tabs when the user taps [קבוצות]. The
+  // `onSwitchToScheduled` prop is preserved on the component API for
+  // backwards compatibility with any future surfaces that might want
+  // to opt back in (it is intentionally unused here today).
   function handleSoloGroupTap(value: SoloGroupFilter) {
     setSoloGroupFilter(value);
-    if (value === 'groups' && tab === 'live') {
-      onSwitchToScheduled?.();
-    }
   }
 
   // ── Row visibility flags ──────────────────────────────────────────────────
+  // - Row 2 (solo / group) is shown on BOTH tabs. Live partners carry
+  //   `groupSessionId` from the presence doc, so the pill genuinely
+  //   narrows on both surfaces (alone vs. group session).
+  // - Row 4 level slider is STRENGTH-ONLY. Running and walking are
+  //   filterable by distance + pace only ("level is irrelevant for
+  //   cardio") — the previous behaviour (level visible on every
+  //   non-'all' activity) confused users with a slider that mapped
+  //   onto `lemurStage` rather than anything cardio-specific.
+  const showRow2SoloGroup = true;
   const showRow3Strength = liveActivity === 'strength';
   const showRow3Running = liveActivity === 'running';
-  const showRow4Strength = liveActivity === 'strength' && selectedProgram !== null;
+  const showRow4Level = liveActivity === 'strength';
   const showRow4Running = liveActivity === 'running';
   const showRow5 = tab === 'scheduled';
   const showTimeSlider = showRow5 && (plannedTime === 'today' || plannedTime === 'tomorrow');
-
-  // Display value for the time slider — null falls back to a centered noon
-  // marker so the thumb is visible even before the user makes a selection.
-  const timeSliderValue = scheduledTimeMinutes ?? 720;
 
   return (
     // `w-full min-w-0` on the root so the column itself never expands past
@@ -287,20 +386,25 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
       </div>
 
       {/* ─── Row 2 — solo / group ─────────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-2 overflow-x-auto px-4 scrollbar-none min-w-0"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        {SOLO_GROUP_PILLS.map((p) => (
-          <Pill
-            key={`sg_${p.value}`}
-            active={soloGroupFilter === p.value}
-            onClick={() => handleSoloGroupTap(p.value)}
-          >
-            {p.label}
-          </Pill>
-        ))}
-      </div>
+      {/* Live tab: narrows `LivePartner.groupSessionId` (set/unset).
+          Scheduled tab: narrows `ScheduledPartner.source` (planned/event
+          → solo, group → groups). Both surfaces actually filter today. */}
+      {showRow2SoloGroup && (
+        <div
+          className="flex items-center gap-2 overflow-x-auto px-4 scrollbar-none min-w-0"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {SOLO_GROUP_PILLS.map((p) => (
+            <Pill
+              key={`sg_${p.value}`}
+              active={soloGroupFilter === p.value}
+              onClick={() => handleSoloGroupTap(p.value)}
+            >
+              {p.label}
+            </Pill>
+          ))}
+        </div>
+      )}
 
       {/* ─── Row 3 strength — program pills ───────────────────────────────── */}
       {showRow3Strength && programPills.length > 0 && (
@@ -366,8 +470,13 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
         </div>
       )}
 
-      {/* ─── Row 4 strength — level range ─────────────────────────────────── */}
-      {showRow4Strength && (
+      {/* ─── Row 4 — level range (strength only) ──────────────────────────── */}
+      {/* Strength-only. For strength + selected program the upper bound
+          comes from the program's domain `maxLevel`; without a selected
+          program the bound is 10 (lemurStage). Cardio activities
+          (running, walking) deliberately have NO level slider — they
+          are filtered by distance + pace per the cardio spec. */}
+      {showRow4Level && (
         <div className="px-4">
           <div className="mb-1">
             <span className="text-[12px] font-bold text-gray-600">רמה</span>
@@ -436,21 +545,19 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled }: Part
       {showTimeSlider && (
         <div className="px-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] font-bold text-gray-600">שעה</span>
+            <span className="text-[12px] font-bold text-gray-600">טווח שעות</span>
             <span className="text-[12px] font-black" dir="ltr" style={{ color: ACCENT }}>
-              {scheduledTimeMinutes !== null ? formatTimeOfDay(scheduledTimeMinutes) : '—'}
+              {formatTimeOfDay(scheduledTimeRange[0])} – {formatTimeOfDay(scheduledTimeRange[1])}
             </span>
           </div>
-          <input
-            type="range"
-            min={360}
-            max={1320}
+          <DualRangeSlider
+            min={6 * 60}
+            max={22 * 60}
             step={15}
-            value={timeSliderValue}
-            onChange={(e) => setScheduledTimeMinutes(Number(e.target.value))}
-            className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
-            style={{ accentColor: ACCENT }}
-            aria-label="שעת אימון"
+            values={scheduledTimeRange}
+            onChange={setScheduledTimeRange}
+            ariaLabelMin="שעת התחלה"
+            ariaLabelMax="שעת סיום"
           />
         </div>
       )}

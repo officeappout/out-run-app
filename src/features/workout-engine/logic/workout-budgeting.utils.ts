@@ -11,6 +11,7 @@
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains } from './workout-selection.utils';
+import { resolveToSlug } from '../services/program-hierarchy.utils';
 import {
   DifficultyLevel,
   ExercisePriority,
@@ -32,11 +33,11 @@ import {
 // ============================================================================
 
 const DURATION_SCALING: Record<string, { min: number; max: number; includeAccessories: boolean }> = {
-  '5': { min: 2, max: 3, includeAccessories: false },
-  '15': { min: 4, max: 5, includeAccessories: false },
-  '30': { min: 4, max: 5, includeAccessories: false },
-  '45': { min: 6, max: 8, includeAccessories: true },
-  '60': { min: 7, max: 10, includeAccessories: true },
+  '5':  { min: 2, max: 3,  includeAccessories: false },
+  '15': { min: 4, max: 5,  includeAccessories: false },
+  '30': { min: 5, max: 6,  includeAccessories: false },
+  '45': { min: 6, max: 8,  includeAccessories: true  },
+  '60': { min: 7, max: 10, includeAccessories: true  },
 };
 
 const BASE_SETS_BY_LEVEL: Record<number, number> = {
@@ -86,7 +87,7 @@ const DIFFICULTY_VOLUME: Record<DifficultyLevel, {
   reps: { min: number; max: number };
   holdSeconds: { min: number; max: number };
 }> = {
-  1: { sets: { min: 3, max: 3 }, reps: { min: 10, max: 15 }, holdSeconds: { min: 20, max: 30 } },
+  1: { sets: { min: 3, max: 3 }, reps: { min: 10, max: 12 }, holdSeconds: { min: 20, max: 30 } },
   2: { sets: { min: 3, max: 4 }, reps: { min: 6, max: 8 }, holdSeconds: { min: 15, max: 25 } },
   3: { sets: { min: 4, max: 5 }, reps: { min: 1, max: 6 }, holdSeconds: { min: 5, max: 15 } },
 };
@@ -132,6 +133,107 @@ export function getExerciseCountForDuration(
 }
 
 // ============================================================================
+// DAVID STAIRCASE — Progress-aware rep scaling
+// ============================================================================
+//
+// Rationale:
+//   The onboarding questionnaire tells us a user "fresh to Level X" can hit
+//   roughly 1-3 reps of an X-level exercise; a user "mastering Level X"
+//   (>=50% progress to X+1) can hit 4-6 reps comfortably. The legacy logic
+//   ignored this and used a flat 3-6 range for every match-tier exercise,
+//   which both over-prescribed reps for fresh users and under-prescribed
+//   reps for mastery-stage users.
+//
+// Mapping (bilateral, vertical):
+//   Match (delta = 0)   <50%  →  2-4 reps   (neurological focus)
+//   Match (delta = 0)   >=50% →  4-6 reps   (hypertrophy ramp)
+//   Easy  (delta = -1)        →  6-8 reps
+//   Flow  (delta = -2)        →  10-12 reps
+//   Hard / Elite (delta >= 1) →  unchanged from TIER_TABLE (low reps for above-level)
+//
+// Horizontal matches retain a wider hypertrophy-friendly range, but still
+// scale by progress so a fresh user is not asked for 12-rep horizontal pulls.
+function getStaircaseRange(
+  tierName: TierName,
+  isHorizontalMatch: boolean,
+  levelProgressPercent: number | undefined,
+): { min: number; max: number } | null {
+  const pct = levelProgressPercent ?? 0;
+
+  if (tierName === 'match') {
+    if (isHorizontalMatch) {
+      return pct < 50 ? { min: 4, max: 6 } : { min: 6, max: 12 };
+    }
+    return pct < 50 ? { min: 2, max: 4 } : { min: 4, max: 6 };
+  }
+
+  if (tierName === 'easy')  return { min: 6, max: 8 };
+  if (tierName === 'flow')  return { min: 10, max: 12 };
+
+  // hard / elite: keep the existing TIER_TABLE values (low reps for above-level work)
+  return null;
+}
+
+/**
+ * History Floor: never assign fewer reps than the user actually performed
+ * in their most recent session for this exercise — capped to the staircase
+ * max so we don't blow past the physiologically appropriate ceiling.
+ *
+ * Paranoid guards:
+ *   - Suspicious history values (>= 100 reps) are treated as corrupt data
+ *     and discarded (legacy bug protection — a hold logged in seconds may
+ *     have been written to a rep-based exercise's history doc).
+ *   - The returned floor is ALWAYS clamped to `range.max`, regardless of
+ *     what history says. Callers should still apply higher-level caps
+ *     (skill ceiling, etc.) afterwards.
+ */
+const HISTORY_SUSPICIOUS_THRESHOLD = 100;
+
+function applyHistoryFloor(
+  reps: number,
+  range: { min: number; max: number },
+  exerciseId: string,
+  historyMap: Record<string, number[]> | undefined,
+): { reps: number; floored: boolean; lastMax: number | null; discarded: boolean } {
+  if (!historyMap) return { reps, floored: false, lastMax: null, discarded: false };
+  const lastReps = historyMap[exerciseId];
+  if (!lastReps || lastReps.length === 0) return { reps, floored: false, lastMax: null, discarded: false };
+  const lastMax = Math.max(...lastReps);
+
+  // Sanity check 1: absolute outlier — any single logged set ≥ 100 reps is
+  // almost certainly corrupted history (e.g. seconds written into a rep-based
+  // field by a legacy bug). Refuse to use it as a floor and log a warning.
+  if (lastMax >= HISTORY_SUSPICIOUS_THRESHOLD) {
+    console.warn(
+      `[HistoryFloor] Discarding suspicious history for "${exerciseId}": ` +
+      `lastMax=${lastMax} (absolute threshold ${HISTORY_SUSPICIOUS_THRESHOLD}). ` +
+      `Likely corrupt data from a prior bug — please check Firestore.`,
+    );
+    return { reps, floored: false, lastMax, discarded: true };
+  }
+
+  // Sanity check 2: range-relative outlier — if the recorded max exceeds the
+  // prescribed range max by more than 3×, treat it as suspect. This catches
+  // the "30-rep history on a 5-rep skill move" pattern (where range.max = 5
+  // but lastMax = 30 = 6× the ceiling — almost certainly cross-contaminated
+  // or corrupted, since a real 30-rep set is physiologically impossible at
+  // a hard/elite skill tier).
+  const RELATIVE_OUTLIER_MULTIPLIER = 3;
+  if (lastMax > range.max * RELATIVE_OUTLIER_MULTIPLIER) {
+    console.warn(
+      `[HistoryFloor] Discarding outlier history for "${exerciseId}": ` +
+      `lastMax=${lastMax} > ${RELATIVE_OUTLIER_MULTIPLIER}× range.max(${range.max}). ` +
+      `Falling back to staircase reps (${reps}).`,
+    );
+    return { reps, floored: false, lastMax, discarded: true };
+  }
+
+  if (lastMax <= reps) return { reps, floored: false, lastMax, discarded: false };
+  const cappedFloor = Math.min(lastMax, range.max);
+  return { reps: cappedFloor, floored: cappedFloor !== reps, lastMax, discarded: false };
+}
+
+// ============================================================================
 // VOLUME ADJUSTMENT
 // ============================================================================
 
@@ -148,6 +250,47 @@ export function calculateVolumeAdjustment(
   if (difficulty === 1) {
     adjustedSets = Math.max(2, baseSets - 1);
     reductionPercent = ((baseSets - adjustedSets) / baseSets) * 100;
+  }
+
+  // ── Periodization Volume Multiplier ──────────────────────────────────
+  // Peak (week 4): +20% sets for a max-stimulus overload session.
+  // Deload (week 5): -50% sets for full systemic recovery.
+  // Only applied when no gap-based volumeReductionOverride is active
+  // (inactivity + deload don't stack — the gap override takes priority).
+  if (
+    context.periodizationWeek != null &&
+    context.periodizationWeek !== 1 &&
+    context.periodizationWeek !== 2 &&
+    context.periodizationWeek !== 3 &&
+    context.volumeReductionOverride == null
+  ) {
+    const pw = context.periodizationWeek;
+    if (pw === 4) {
+      const multiplied = Math.max(2, Math.round(baseSets * 1.2));
+      console.log(
+        `[Periodization] Peak week (W4): sets ${baseSets} → ${multiplied} (+20%)`,
+      );
+      return {
+        reason: 'peak',
+        reductionPercent: -20,
+        originalSets: baseSets,
+        adjustedSets: multiplied,
+        badge: '🔥 שבוע פסגה',
+      };
+    }
+    if (pw === 5) {
+      const reduced = Math.max(2, Math.round(baseSets * 0.5));
+      console.log(
+        `[Periodization] Deload week (W5): sets ${baseSets} → ${reduced} (-50%)`,
+      );
+      return {
+        reason: 'deload',
+        reductionPercent: 50,
+        originalSets: baseSets,
+        adjustedSets: reduced,
+        badge: '🧘 שבוע שחזור',
+      };
+    }
   }
 
   if (context.volumeReductionOverride != null && context.volumeReductionOverride > 0) {
@@ -297,7 +440,8 @@ function resolveExerciseDomain(
   const tps = exercise.targetPrograms ?? [];
 
   for (const tp of tps) {
-    if (budgetDomains.has(tp.programId)) return tp.programId;
+    const slug = resolveToSlug(tp.programId);
+    if (budgetDomains.has(slug)) return slug;
   }
 
   for (const tp of tps) {
@@ -325,9 +469,10 @@ export function assignVolume(
   exercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   context: WorkoutGenerationContext,
   volumeAdjustment: VolumeAdjustment,
-  _difficulty: DifficultyLevel,
+  difficulty: DifficultyLevel,
 ): WorkoutExercise[] {
   const blastRestMultiplier = context.intentMode === 'blast' ? 0.5 : 1;
+  const diffVol = DIFFICULTY_VOLUME[difficulty];
 
   // ── Domain-Aware Budgeting pre-pass (Phase 2) ───────────────────────
   const domainBudgetMap = new Map<string, number>();
@@ -354,23 +499,36 @@ export function assignVolume(
     // would force each to its tier.sets.min (typically 3), exceeding the budget,
     // consolidate into fewer exercises. The highest-scored exercises receive the
     // domain budget; the rest fall through to regular tier-based assignment.
+    //
+    // Strict Exercise Cap (by budget tier):
+    //   budget < 5  → max 1 distinct exercise  (e.g. 3-4 sets of Squats only)
+    //   budget 5–8  → max 2 distinct exercises
+    //   budget > 8  → no extra cap (existing TYPICAL_MIN_SETS guard applies)
     const TYPICAL_MIN_SETS = 3;
     for (const db of context.domainBudgets!) {
       const count = exercisesPerDomain.get(db.domain) ?? 0;
       if (count === 0) continue;
+
+      // Hard cap on distinct exercises per domain based on budget tier
+      const budgetCap = db.daily < 5 ? 1 : db.daily <= 8 ? 2 : Infinity;
       const perExercise = Math.ceil(db.daily / count);
-      if (perExercise < TYPICAL_MIN_SETS && count > 1) {
-        const maxReceivers = Math.max(1, Math.floor(db.daily / TYPICAL_MIN_SETS));
+      const needsBudgetConsolidation = perExercise < TYPICAL_MIN_SETS && count > 1;
+
+      if (count > budgetCap || needsBudgetConsolidation) {
+        const maxReceivers = Math.min(
+          Math.max(1, Math.floor(db.daily / TYPICAL_MIN_SETS)),
+          budgetCap === Infinity ? count : budgetCap,
+        );
         const domainExercises = exercises
           .filter(s => exerciseDomainMap.get(s.exercise.id) === db.domain)
           .sort((a, b) => b.score - a.score);
         for (let i = 0; i < Math.min(maxReceivers, domainExercises.length); i++) {
           domainBudgetReceivers.add(domainExercises[i].exercise.id);
         }
-        exercisesPerDomain.set(db.domain, maxReceivers);
+        exercisesPerDomain.set(db.domain, Math.min(maxReceivers, domainExercises.length));
         console.log(
           `[assignVolume] Budget guard: ${db.domain} budget=${db.daily} ÷ ${count} exercises ` +
-          `would under-min → consolidated to ${maxReceivers} receiver(s)`,
+          `(budgetCap=${budgetCap}) → consolidated to ${maxReceivers} receiver(s)`,
         );
       } else {
         const domainExercises = exercises
@@ -390,6 +548,19 @@ export function assignVolume(
     console.groupEnd();
   }
 
+  // Pre-assignment set ceiling for constrained single-domain sessions.
+  // When the dailySetBudget is set and the exercise pool is small, spreading
+  // sets evenly prevents 2 exercises from consuming the entire budget at
+  // their tier maximum (e.g. 4-5 sets × 2 = 8-10 sets out of 11 budget).
+  // This ceiling is only applied via the non-domain-budget path; exercises
+  // already managed by domain budgets have their own ceiling through
+  // domainSets = Math.ceil(budget / count).
+  const exerciseCount = exercises.length;
+  const setsPerSlot =
+    context.dailySetBudget != null && exerciseCount > 0
+      ? Math.max(2, Math.floor(context.dailySetBudget / exerciseCount))
+      : undefined;
+
   return exercises.map((scored) => {
     const priority = classifyPriority(scored.exercise);
     const timeBased = isTimeBasedExercise(scored.exercise);
@@ -399,6 +570,14 @@ export function assignVolume(
 
     const tierName = resolveTier(delta);
     const tier = TIER_TABLE[tierName];
+
+    // Merge: sets/reps/hold from DIFFICULTY_VOLUME; rest unchanged from TIER_TABLE
+    const volumeTier: TierConfig = {
+      sets: diffVol.sets,
+      reps: diffVol.reps,
+      hold: diffVol.holdSeconds,
+      rest: tier.rest,
+    };
 
     let sets: number;
 
@@ -411,9 +590,16 @@ export function assignVolume(
       const budget = domainBudgetMap.get(exDomain)!;
       const count = exercisesPerDomain.get(exDomain)!;
       const domainSets = Math.ceil(budget / count);
-      sets = Math.max(tier.sets.min, Math.min(tier.sets.max, domainSets));
+      sets = Math.max(volumeTier.sets.min, Math.min(volumeTier.sets.max, domainSets));
     } else {
-      sets = tier.sets.min + Math.floor(Math.random() * (tier.sets.max - tier.sets.min + 1));
+      // Apply the pre-assignment ceiling so a small pool spreads sets evenly.
+      // setsPerSlot is clamped to [sets.min, sets.max] so the random range
+      // is always non-negative and the tier minimum is always respected.
+      const effectiveSetMax = setsPerSlot != null
+        ? Math.max(volumeTier.sets.min, Math.min(volumeTier.sets.max, setsPerSlot))
+        : volumeTier.sets.max;
+      const range = Math.max(0, effectiveSetMax - volumeTier.sets.min);
+      sets = volumeTier.sets.min + Math.floor(Math.random() * (range + 1));
     }
 
     if (priority === 'skill') {
@@ -421,6 +607,7 @@ export function assignVolume(
     } else if (priority === 'isolation') {
       sets = Math.max(2, sets - 1);
     }
+
 
     if (volumeAdjustment.reductionPercent > 0) {
       sets = Math.max(2, Math.round(sets * (1 - volumeAdjustment.reductionPercent / 100)));
@@ -439,14 +626,29 @@ export function assignVolume(
     // uniRepsRange: set by the Relative Skill Guard for unilateral exercises
     let uniRepsRange: { min: number; max: number } | undefined;
 
+    // Phase 3.6 — Physiological hold cap resolved once at the top of the
+    // closure so both the reps scalar block and the repsRange Smart Range
+    // Compression block below can share the same value without hitting a
+    // block-scope ReferenceError (fixing the crash reported at line ~705).
+    const holdCap = getIsometricTimeCap(exercise);
+
     if (timeBased) {
-      reps = calculateHoldTimeTier(exercise, tier, tierName);
-      // Rule C — Static Skill Hard Cap: Planche, Front Lever, Human Flag ≤ 15 s
-      if (exercise.mechanicalType === 'straight_arm') {
-        reps = Math.min(reps, 15);
-      }
+      reps = calculateHoldTimeTier(exercise, volumeTier, tierName);
+      // Route every time-based exercise through the full three-tier cap:
+      //   pullup lock-offs / straight-arm levers / level ≥ 8  → 15 s
+      //   handstands / hangs / 'תלייה'-named                  → 45 s
+      //   core holds and base conditioning                    → 45 s
+      reps = Math.min(reps, holdCap);
     } else {
-      const repRange = isHorizontalMatch ? MATCH_HORIZONTAL_REPS : tier.reps;
+      // ── DAVID STAIRCASE — progress-aware rep range ──
+      // For match/easy/flow tiers, override the legacy TIER_TABLE range with a
+      // physiologically-aligned range based on the user's progress within the
+      // current level. For hard/elite (above user level) we keep the existing
+      // low-rep tier values since the user is in over-level territory.
+      const staircaseRange = getStaircaseRange(tierName, isHorizontalMatch, context.levelProgressPercent);
+      const repRange = staircaseRange
+        ?? (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps);
+
       const mg = exercise.movementGroup ?? '';
       const isPushPull = PUSH_PULL_MG.has(mg);
       const isLegs     = LEGS_MG.has(mg);
@@ -459,8 +661,12 @@ export function assignVolume(
           // Rule A — High Intensity: exercise is at or ±1 user level
           if (isPushPull) { reps = 1 + Math.floor(Math.random() * 3); uniRepsRange = { min: 1, max: 3 }; }
           else            { reps = 3 + Math.floor(Math.random() * 4); uniRepsRange = { min: 3, max: 6 }; }
-        } else if (levelDiff >= 2) {
-          // Rule B — Moderate Intensity: exercise is ≥2 levels below user
+        } else if (levelDiff >= 2 && difficulty !== 1) {
+          // Rule B — Moderate Intensity: exercise is ≥2 levels below user.
+          // Skipped for bolt 1 (Easy) — the lower exercise level is an intentional
+          // difficulty selection, not a gap to compensate for with extra reps.
+          // When difficulty === 1, the code falls through to the standard
+          // DIFFICULTY_VOLUME[1] rep range (10–12) below.
           if (isPushPull) { reps = 3 + Math.floor(Math.random() * 3); uniRepsRange = { min: 3, max: 5 }; }
           else            { reps = 6 + Math.floor(Math.random() * 3); uniRepsRange = { min: 6, max: 8 }; }
         } else {
@@ -481,6 +687,19 @@ export function assignVolume(
           reps = Math.max(repRange.min, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
         }
       }
+
+      // ── HISTORY FLOOR — never assign fewer reps than user did last session ──
+      // Capped to the active range max so the floor stays inside the
+      // physiologically appropriate window for this delta tier.
+      const activeRange = uniRepsRange ?? repRange;
+      const floorResult = applyHistoryFloor(reps, activeRange, scored.exercise.id, context.exerciseHistoryMap);
+      if (floorResult.floored) {
+        console.log(
+          `[assignVolume] HistoryFloor "${getLocalizedText(scored.exercise.name) || scored.exercise.id}":` +
+          ` ${reps} → ${floorResult.reps} reps (last session max: ${floorResult.lastMax}, capped at range max ${activeRange.max})`,
+        );
+        reps = floorResult.reps;
+      }
     }
 
     let restSeconds = tier.rest.min + Math.floor(Math.random() * (tier.rest.max - tier.rest.min + 1));
@@ -491,15 +710,32 @@ export function assignVolume(
 
     restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
 
-    const effectiveRepRange = isHorizontalMatch ? MATCH_HORIZONTAL_REPS : tier.reps;
+    // Mirror the staircase override into the displayed range so the UI shows
+    // the same window we used for the assigned reps. Falls back to the legacy
+    // tier range for hard/elite tiers (where staircase returns null).
+    const staircaseDisplayRange = getStaircaseRange(tierName, isHorizontalMatch, context.levelProgressPercent);
+    const effectiveRepRange = staircaseDisplayRange
+      ?? (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps);
+    // Phase 3.6 — Smart Range Compression.
+    // For time-based exercises, build the initial range from the difficulty
+    // table then compress it when the table overshoots the physiological cap.
+    // `holdCap` was resolved above in the reps block; it is always in scope
+    // here because both branches are inside the same `exercises.map` closure.
     let repsRange: { min: number; max: number } = timeBased
-      ? { min: tier.hold.min, max: tier.hold.max }
+      ? (() => {
+          const baseMin = volumeTier.hold.min;
+          const baseMax = volumeTier.hold.max;
+          if (baseMax > holdCap) {
+            // Difficulty table overshot the physiological ceiling.
+            // Compress into a tight explosive-strength window:
+            //   max = holdCap, min = max(5, holdCap - 5).
+            // e.g. holdCap=15 → { min: 10, max: 15 } — a clean strength band.
+            return { min: Math.max(5, holdCap - 5), max: holdCap };
+          }
+          // Table is within the cap — preserve it exactly.
+          return { min: baseMin, max: baseMax };
+        })()
       : (uniRepsRange ?? { min: effectiveRepRange.min, max: effectiveRepRange.max });
-
-    // Apply static skill cap to the displayed range as well
-    if (timeBased && exercise.mechanicalType === 'straight_arm') {
-      repsRange = { min: Math.min(repsRange.min, 15), max: 15 };
-    }
 
     const exerciseId = scored.exercise.id;
     const isGoalExercise = context.goalExerciseIds?.has(exerciseId) ?? false;
@@ -520,11 +756,53 @@ export function assignVolume(
       }
     }
 
+    // ── ABSOLUTE SKILL CEILING ─────────────────────────────────────────────
+    // Skill exercises (planche, front lever, muscle-up, handstand, etc.) and
+    // any exercise classified as `hard` or `elite` tier (delta >= +1) must
+    // never be prescribed for more than 5 reps regardless of staircase range,
+    // history floor, goal ramp, or horizontal hypertrophy expansion.
+    //
+    // This guards against:
+    //   - Horizontal-match skill exercises picking up the 6-12 hypertrophy range
+    //   - Corrupt history pulling reps up to the staircase max for a skill
+    //   - Admin-defined goals with implausibly high rep targets on a skill move
+    //
+    // Time-based exercises (isometric holds) are exempt — `reps` here is in
+    // seconds and the static skill cap (≤15s for straight-arm) already handles
+    // those upstream.
+    if (!timeBased) {
+      const SKILL_REP_CEILING = 5;
+      const isSkillPriority = priority === 'skill';
+      const isHighIntensityTier = tierName === 'hard' || tierName === 'elite';
+      if (isSkillPriority || isHighIntensityTier) {
+        if (reps > SKILL_REP_CEILING) {
+          console.log(
+            `[assignVolume] SkillCeiling "${getLocalizedText(scored.exercise.name) || exerciseId}":` +
+            ` ${reps} → ${SKILL_REP_CEILING} reps (priority=${priority}, tier=${tierName})`,
+          );
+          reps = SKILL_REP_CEILING;
+        }
+        if (repsRange.max > SKILL_REP_CEILING) {
+          repsRange = {
+            min: Math.min(repsRange.min, SKILL_REP_CEILING),
+            max: SKILL_REP_CEILING,
+          };
+        }
+      }
+    }
+
     const resolvedProgramLevel = (() => {
       if (scored.programLevel != null && scored.programLevel > 0) return scored.programLevel;
-      // Domain-aware fallback: resolve from targetPrograms matching active domains
+      // Domain-aware fallback: resolve from targetPrograms matching active domains.
+      // `context.activeProgramId` is forwarded as the primary-program tiebreaker
+      // so multi-assigned exercises resolve to the skill-level entry instead of
+      // a baseline foundational entry indexed earlier in targetPrograms.
       const activeDomains = context.requiredDomains as string[] | undefined;
-      return resolveExerciseLevelForDomains(scored.exercise, activeDomains).level;
+      return resolveExerciseLevelForDomains(
+        scored.exercise,
+        activeDomains,
+        context.activeProgramId,
+      ).level;
     })();
 
     const volumeReasoning = [
@@ -618,38 +896,200 @@ export function applySmartSetCap(
 // ESTIMATED DURATION
 // ============================================================================
 
+// Warmup timing constants
+// Warmup exercises are performed as a continuous flow circuit — no seated
+// rest between movements, just a brief transition shuffle.  Inflating warmup
+// time with 30s transitions and per-set rest was adding 10–18 phantom minutes.
+const WARMUP_REST_PER_EXERCISE_SEC = 0;       // no rest between warmup sets
+const WARMUP_TRANSITION_SEC        = 5;       // 5 s shuffle between warmup items
+const WARMUP_WORK_SEC_PER_SLOT     = 60;      // ~60 s per warmup slot (1 set)
+const WARMUP_BLOCK_CAP_SEC         = 6 * 60;  // hard cap: warmup ≤ 6 min
+
 export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number {
-  let totalWorkSeconds = 0;
-  let totalRestSeconds = 0;
+  // Section accumulators for detailed breakdown
+  let rawWarmupSec   = 0;
+  let mainWorkSec    = 0; let mainRestSec    = 0;
+  let cooldownWorkSec = 0; let cooldownRestSec = 0;
+
+  // Per-exercise detail rows for the console table
+  const rows: Array<{ role: string; name: string; sets: number; workSec: number; restSec: number }> = [];
+
+  const warmupExercises:  WorkoutExercise[] = [];
+  const cooldownExercises: WorkoutExercise[] = [];
 
   for (const ex of exercises) {
-    const isWarmupOrCooldown = ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown';
+    const role = ex.exerciseRole ?? 'main';
 
-    if (isWarmupOrCooldown) {
-      totalWorkSeconds += 90;
-    } else {
-      const secPerRep = ex.exercise.secondsPerRep ?? 3;
-      const setTime = ex.isTimeBased ? ex.reps : ex.reps * secPerRep;
-      const sideMultiplier = ex.exercise.symmetry === 'unilateral' ? 2 : 1;
-      totalWorkSeconds += ex.sets * setTime * sideMultiplier;
+    if (role === 'warmup') {
+      warmupExercises.push(ex);
+      continue;
     }
 
-    const effectiveRest = Math.min(ex.restSeconds, 90);
-    totalRestSeconds += ex.sets * effectiveRest;
+    if (role === 'cooldown') {
+      cooldownExercises.push(ex);
+      // Work seconds — flat 90 s per cooldown slot (follow-along / mobility)
+      const exWorkSec  = 90;
+      const exRestSec  = ex.sets * ex.restSeconds;
+      cooldownWorkSec += exWorkSec;
+      cooldownRestSec += exRestSec;
+      rows.push({ role, name: (ex.exercise.name as any)?.he ?? ex.exercise.id, sets: ex.sets, workSec: exWorkSec, restSec: exRestSec });
+      continue;
+    }
+
+    // Main exercise
+    const secPerRep      = ex.exercise.secondsPerRep ?? 3;
+    const setTime        = ex.isTimeBased ? ex.reps : ex.reps * secPerRep;
+    const sideMultiplier = ex.exercise.symmetry === 'unilateral' ? 2 : 1;
+    const exWorkSec      = ex.sets * setTime * sideMultiplier;
+    // Rest seconds — full staircase value, no cap.
+    const exRestSec      = ex.sets * ex.restSeconds;
+    mainWorkSec += exWorkSec;
+    mainRestSec += exRestSec;
+    rows.push({ role, name: (ex.exercise.name as any)?.he ?? ex.exercise.id, sets: ex.sets, workSec: exWorkSec, restSec: exRestSec });
   }
 
-  const totalSeconds = totalWorkSeconds + totalRestSeconds;
-  const transitionSeconds = (exercises.length - 1) * 30;
-  const finalMinutes = Math.ceil((totalSeconds + transitionSeconds) / 60);
+  // ── Warmup block: 0 rest, 5 s transitions, hard-capped at 6 min ─────────
+  // Each warmup slot = WARMUP_WORK_SEC_PER_SLOT seconds of active work.
+  // Transition time shrinks from the standard 30 s to 5 s (flow circuit).
+  if (warmupExercises.length > 0) {
+    const rawWork = warmupExercises.length * WARMUP_WORK_SEC_PER_SLOT;
+    const rawTrans = (warmupExercises.length - 1) * WARMUP_TRANSITION_SEC;
+    rawWarmupSec = Math.min(rawWork + rawTrans, WARMUP_BLOCK_CAP_SEC);
+
+    for (const ex of warmupExercises) {
+      rows.push({
+        role: 'warmup',
+        name: (ex.exercise.name as any)?.he ?? ex.exercise.id,
+        sets: ex.sets,
+        workSec: WARMUP_WORK_SEC_PER_SLOT,
+        restSec: WARMUP_REST_PER_EXERCISE_SEC,
+      });
+    }
+  }
+
+  // ── Transitions: warmup items use 5 s; all others use 30 s ──────────────
+  const mainAndCooldownExercises = exercises.filter(ex => (ex.exerciseRole ?? 'main') !== 'warmup');
+  const mainTransitionSeconds = mainAndCooldownExercises.length > 1
+    ? (mainAndCooldownExercises.length - 1) * 30
+    : 0;
+
+  const totalSeconds = rawWarmupSec + mainWorkSec + mainRestSec + cooldownWorkSec + cooldownRestSec;
+  const finalSeconds = totalSeconds + mainTransitionSeconds;
+  const finalMinutes = Math.ceil(finalSeconds / 60);
+
+  const fmt = (s: number) => `${Math.round(s / 60)}m ${s % 60}s`;
 
   console.group('[Duration Math Formulation]');
-  console.log('Total Work Time:', Math.round(totalWorkSeconds / 60), 'min');
-  console.log('Rest Time:', Math.round(totalRestSeconds / 60), 'min');
-  console.log('Transition (30s between exercises):', transitionSeconds, 's');
-  console.log('Final Duration:', finalMinutes, 'min');
+  console.log(
+    `┌─────────────┬────────────┬────────────┬────────────┐\n` +
+    `│  Section    │  Work      │  Rest      │  Subtotal  │\n` +
+    `├─────────────┼────────────┼────────────┼────────────┤\n` +
+    `│  Warmup     │ ${fmt(rawWarmupSec).padEnd(10)} │ ${('0m 0s').padEnd(10)} │ ${fmt(rawWarmupSec).padEnd(10)} │  ← 0s rest, 5s transitions, cap=${WARMUP_BLOCK_CAP_SEC / 60}m\n` +
+    `│  Main       │ ${fmt(mainWorkSec).padEnd(10)} │ ${fmt(mainRestSec).padEnd(10)} │ ${fmt(mainWorkSec + mainRestSec).padEnd(10)} │  ← ${Math.round(mainRestSec / 60)}m rest = ${mainWorkSec > 0 ? Math.round(mainRestSec / (mainWorkSec + mainRestSec) * 100) : 0}% of main block\n` +
+    `│  Cooldown   │ ${fmt(cooldownWorkSec).padEnd(10)} │ ${fmt(cooldownRestSec).padEnd(10)} │ ${fmt(cooldownWorkSec + cooldownRestSec).padEnd(10)} │\n` +
+    `├─────────────┼────────────┼────────────┼────────────┤\n` +
+    `│  TOTAL(raw) │             │             │ ${fmt(totalSeconds).padEnd(10)} │\n` +
+    `└─────────────┴────────────┴────────────┴────────────┘`,
+  );
+  console.log(`  + Main transitions (${mainAndCooldownExercises.length - 1} × 30s): ${mainTransitionSeconds}s`);
+  console.log(`  = Final Duration: ${finalMinutes} min`);
+
+  if (rows.length > 0) {
+    console.groupCollapsed('[Duration] Per-exercise breakdown');
+    console.table(
+      rows.map(r => ({
+        role: r.role,
+        name: r.name,
+        sets: r.sets,
+        'work (s)': r.workSec,
+        'rest (s)': r.restSec,
+        'total (s)': r.workSec + r.restSec,
+      })),
+    );
+    console.groupEnd();
+  }
+
   console.groupEnd();
 
   return finalMinutes;
+}
+
+// ============================================================================
+// ISOMETRIC TIME CAP
+// ============================================================================
+
+/**
+ * Returns the maximum physiologically appropriate hold duration (seconds)
+ * for an isometric exercise, based on movement group, Hebrew name, and level.
+ *
+ * Tier 1 — Grip / Shoulder Health / Balance Exemption (45 s ceiling):
+ *   Handstands, dead/active hangs ('תלייה'), and the 'hang' movementGroup
+ *   need sustained TUT for balance, shoulder health and grip endurance.
+ *   They bypass all neural caps regardless of level.
+ *   'עמידת ידיים' is included here so free handstand exercises (which may
+ *   be filed under 'vertical_push' or 'handstand_pushup' in Firestore) are
+ *   treated as balance/endurance rather than structural lever work.
+ *
+ * Tier 2 — Elite Neural-Skill Cap (15 s ceiling):
+ *   Dedicated movement groups (planche, front_lever, human_flag,
+ *   one_arm_pullup, handstand_pushup, pullup) plus a Hebrew name heuristic
+ *   for exercises whose Firestore docs are mis-categorised under generic
+ *   groups like 'horizontal_push' (e.g. 'פלאנץ׳ בטאק מתקדם').  Any
+ *   exercise at level ≥ 8 that doesn't qualify for the Tier-1 exemption
+ *   is also capped here.
+ *
+ * Tier 3 — Standard Conditioning Ceiling (45 s):
+ *   Core holds (plank, hollow body, L-sit), hip hinges, and base-level
+ *   isometrics default to the conventional conditioning cap.
+ */
+export function getIsometricTimeCap(exercise: Exercise): number {
+  const mg = exercise.movementGroup ?? '';
+  const nameHe = (exercise.name as any)?.he ?? '';
+
+  // Tier 1 — Grip, Shoulder Health & Balance Exemption.
+  // 'עמידת ידיים' handles free handstands (balance / endurance TUT).
+  if (
+    mg === 'handstand' ||
+    mg === 'hang' ||
+    nameHe.includes('תלייה') ||
+    nameHe.includes('עמידת ידיים')
+  ) {
+    return 45;
+  }
+
+  // Tier 2 — Elite Neurological Levers & Heavy Lock-offs.
+  const eliteSkillGroups = [
+    'planche',
+    'front_lever',
+    'human_flag',
+    'one_arm_pullup',
+    'handstand_pushup',
+    'pullup',
+  ];
+
+  // Hebrew name heuristic — catches exercises filed under generic Firestore
+  // movement groups (e.g. 'horizontal_push') that are physiologically elite
+  // skill levers.  Substrings are prefix-safe in Hebrew morphology:
+  //   'פלאנץ' matches 'פלאנץ׳', 'פלאנץ בטאק', 'פלאנץ׳ מתקדם' etc.
+  //   'פרונט'  matches 'פרונט לבר', 'פרונט לוור' variants.
+  //   'דגל'    matches 'דגל אנושי', 'דגלון קדמי/אחורי' (front/back lever).
+  //   'יד אחת' matches 'מתח יד אחת', 'שכיבה יד אחת' etc.
+  const isEliteSkillName =
+    nameHe.includes('פלאנץ') ||
+    nameHe.includes('פרונט') ||
+    nameHe.includes('דגל') ||
+    nameHe.includes('יד אחת');
+
+  // Fallback level resolution: some Firestore docs carry a flat `level` field
+  // on the document root in addition to (or instead of) `targetPrograms`.
+  const level = (exercise as any).level ?? exercise.targetPrograms?.[0]?.level ?? 0;
+
+  if (eliteSkillGroups.includes(mg) || level >= 8 || isEliteSkillName) {
+    return 15;
+  }
+
+  // Tier 3 — Standard fallback for base conditioning and core holds.
+  return 45;
 }
 
 // ============================================================================

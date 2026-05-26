@@ -14,7 +14,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 
-const PARK_FALLBACK_IMAGE = '/assets/lemur/smart-lemur.png';
+const PARK_FALLBACK_IMAGE = '/assets/lemur/lemur-avatar.png';
 
 const MAX_SUGGESTIONS = 8;
 const RADIUS_KM = 10;

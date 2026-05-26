@@ -7,10 +7,16 @@ import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 // Light-theme palette for the metrics panel. The previous dark theme
 // keyed every accent off `CYAN`; in light theme we want maximum contrast
 // for the numbers (pure black) and a softer dark-gray for the labels.
-const NUM_COLOR   = '#000000';
-const LABEL_COLOR = 'rgba(0, 0, 0, 0.65)';
-const HEADER_COLOR = 'rgba(0, 0, 0, 0.45)';
-const DIVIDER_COLOR = 'rgba(0, 0, 0, 0.08)';
+//
+// Each value is consumed via a CSS custom property set on the parent card
+// (`AdaptiveMetricsWrapper`) so the entire panel re-themes to the orange
+// family the moment `useSessionStore.status === 'paused'`. The constants
+// below are kept as the FALLBACK so the panel still renders correctly if
+// the parent ever forgets to declare the variables.
+const NUM_COLOR     = 'var(--metrics-num-color, #000000)';
+const LABEL_COLOR   = 'var(--metrics-label-color, rgba(0, 0, 0, 0.65))';
+const HEADER_COLOR  = 'var(--metrics-header-color, rgba(0, 0, 0, 0.45))';
+const DIVIDER_COLOR = 'var(--metrics-divider-color, rgba(0, 0, 0, 0.08))';
 
 export default function MainMetrics() {
   // Atomic selectors — each read subscribes to ONE field, so a coord push

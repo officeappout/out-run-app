@@ -263,7 +263,7 @@ export type ExerciseTag = 'skill' | 'compound' | 'isolation' | 'explosive' | 'hi
 /**
  * Exercise role in a workout
  */
-export type ExerciseRole = 'warmup' | 'cooldown' | 'main';
+export type ExerciseRole = 'warmup' | 'cooldown' | 'main' | 'recovery' | 'reinforcement';
 
 // ============================================================================
 // EXTERNAL VIDEO PROVIDERS (Phase 5 — Bunny.net Infrastructure)
@@ -641,6 +641,22 @@ export interface Exercise {
    */
   exerciseRole?: ExerciseRole;
   /**
+   * When true, this exercise is surfaced on the user's rest days.
+   * Only relevant when exerciseRole === 'recovery'.
+   */
+  showOnRestDays?: boolean;
+  /**
+   * Program IDs whose users receive this recovery video on rest days.
+   * Subset of programIds — only drives rest-day injection logic.
+   */
+  restDayProgramIds?: string[];
+  /**
+   * When true, this video can be appended as a finisher block
+   * at the end of an active workout session.
+   * Only relevant when exerciseRole === 'reinforcement'.
+   */
+  isFinisherVideo?: boolean;
+  /**
    * Follow-along mode: When true, the video plays from start to finish and timer syncs with video length.
    * Defaults to true for warmup/cooldown exercises.
    */
@@ -737,6 +753,16 @@ export interface Exercise {
 export interface TargetProgramRef {
   programId: string;
   level: number;
+  /**
+   * Handstand Triad diagnostic scores (1–10).
+   * Present only for handstand / hspu program associations.
+   * The `level` field for these rows is auto-calculated as
+   * Math.round((strengthScore + balanceScore + mobilityScore) / 3),
+   * clamped to [1, 10].
+   */
+  strengthScore?: number;
+  balanceScore?: number;
+  mobilityScore?: number;
 }
 
 /**

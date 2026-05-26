@@ -99,6 +99,9 @@
  */
 html {
   height: 100%;
+  /* Must match body background so any WKWebView bounce-scroll / edge bleed
+     doesn't expose a white stripe behind the home indicator or status bar. */
+  background-color: #F8FAFC;
   overflow-x: hidden;
 }
 
@@ -109,6 +112,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   color: var(--foreground);
   background: var(--background);
+  background-color: #F8FAFC;       /* explicit fallback — Tailwind bg-[#F8FAFC] on <body> */
   font-family: var(--font-simpler);
   transition: font-family 0.2s ease;
 }
@@ -116,6 +120,22 @@ body {
 /* Apply Simpler Pro to all elements */
 *, *::before, *::after {
   font-family: inherit;
+}
+
+/* iOS WKWebView: prevent viewport auto-zoom on input focus.
+   Any input rendered at < 16px triggers an OS-level viewport zoom on
+   WKWebView; this guard floors all inputs at 16px on Apple devices only,
+   leaving desktop and Android rendering untouched. */
+@supports (-webkit-touch-callout: none) {
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input:not([type]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
 }
 
 /* Font switching based on language - with Simpler Pro first */

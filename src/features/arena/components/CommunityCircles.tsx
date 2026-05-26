@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
-import { Users, Plus } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Plus } from 'lucide-react';
 import { useMyGroups } from '@/features/arena/hooks/useMyGroups';
+import { useChatInbox } from '@/features/social/hooks/useChatInbox';
+import { useUserStore } from '@/features/user';
 import type { CommunityGroup } from '@/types/community.types';
 
 // ── Category → visual identity ────────────────────────────────────────────────
@@ -23,18 +24,28 @@ interface CircleItemProps {
   label: string;
   children: React.ReactNode;
   onClick?: () => void;
-  href?: string;
-  /** Show a cyan ring to mark "active" / primary circles */
-  ring?: boolean;
+  /**
+   * Ring style:
+   *  - 'none'   → no ring (default)
+   *  - 'cyan'   → quiet cyan ring (joined group with no unread chat)
+   *  - 'unread' → loud red ring (joined group with at least one unread chat
+   *               message) — same red-500 used by the AppHeader notification
+   *               dot, so the visual language stays consistent.
+   */
+  ring?: 'none' | 'cyan' | 'unread';
 }
 
-function CircleItem({ label, children, onClick, href, ring = false }: CircleItemProps) {
+function CircleItem({ label, children, onClick, ring = 'none' }: CircleItemProps) {
+  const ringClass =
+    ring === 'unread'
+      ? 'ring-[2.5px] ring-red-500 ring-offset-2'
+      : ring === 'cyan'
+        ? 'ring-[2.5px] ring-cyan-400 ring-offset-2'
+        : '';
+
   const avatar = (
     <div
-      className={[
-        'w-14 h-14 rounded-full flex-shrink-0',
-        ring ? 'ring-[2.5px] ring-cyan-400 ring-offset-2' : '',
-      ]
+      className={['w-14 h-14 rounded-full flex-shrink-0', ringClass]
         .filter(Boolean)
         .join(' ')}
     >
@@ -50,14 +61,6 @@ function CircleItem({ label, children, onClick, href, ring = false }: CircleItem
       </span>
     </div>
   );
-
-  if (href) {
-    return (
-      <Link href={href} className="active:scale-90 transition-transform block">
-        {inner}
-      </Link>
-    );
-  }
 
   return (
     <button
@@ -76,15 +79,33 @@ function CircleItem({ label, children, onClick, href, ring = false }: CircleItem
 interface CommunityCirclesProps {
   /** Called when the user taps one of their joined group circles */
   onGroupClick: (group: CommunityGroup) => void;
-  /** Called when the user taps the "Discover" CTA (empty-state + action) */
-  onDiscoverPress?: () => void;
+  /** Called when the user taps the trailing "+" circle (create/join a new
+   *  community). When omitted, the trailing circle is hidden. */
+  onCreatePress?: () => void;
 }
 
 export default function CommunityCircles({
   onGroupClick,
-  onDiscoverPress,
+  onCreatePress,
 }: CommunityCirclesProps) {
   const { groups, isLoading } = useMyGroups();
+  const myUid = useUserStore((s) => s.profile?.id ?? null);
+
+  // Real-time chat inbox — used ONLY to derive "this group has unread
+  // messages" so we can paint the matching circle with the loud red ring.
+  // ChatThread.groupId links a group chat back to its CommunityGroup.
+  const { threads } = useChatInbox(myUid);
+
+  const unreadGroupIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!myUid) return set;
+    for (const t of threads) {
+      if (t.groupId && (t.unreadCount?.[myUid] ?? 0) > 0) {
+        set.add(t.groupId);
+      }
+    }
+    return set;
+  }, [threads, myUid]);
 
   return (
     <div className="w-full" dir="rtl">
@@ -92,13 +113,6 @@ export default function CommunityCircles({
         className="flex gap-4 overflow-x-auto scrollbar-hide px-4 py-2 snap-x"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {/* ── Static: Partners navigation circle ──── */}
-        <CircleItem label="שותפים" href="/search" ring>
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-md">
-            <Users className="w-6 h-6 text-white" />
-          </div>
-        </CircleItem>
-
         {/* ── Dynamic: loading skeletons ──── */}
         {isLoading &&
           Array.from({ length: 2 }).map((_, i) => (
@@ -112,9 +126,14 @@ export default function CommunityCircles({
         {!isLoading &&
           groups.map((group) => {
             const meta = CATEGORY_META[group.category] ?? CATEGORY_META.other;
+            const hasUnread = unreadGroupIds.has(group.id);
             return (
               <div key={group.id} className="snap-start flex-shrink-0">
-                <CircleItem label={group.name} onClick={() => onGroupClick(group)}>
+                <CircleItem
+                  label={group.name}
+                  onClick={() => onGroupClick(group)}
+                  ring={hasUnread ? 'unread' : 'cyan'}
+                >
                   {group.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -134,10 +153,10 @@ export default function CommunityCircles({
             );
           })}
 
-        {/* ── Empty-state / discover CTA ──── */}
-        {!isLoading && groups.length === 0 && (
+        {/* ── Trailing "+" — create / join a new community ──── */}
+        {onCreatePress && (
           <div className="snap-start flex-shrink-0">
-            <CircleItem label="גלה קבוצות" onClick={onDiscoverPress}>
+            <CircleItem label="צור / הצטרף" onClick={onCreatePress}>
               <div className="w-full h-full rounded-full border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
                 <Plus className="w-5 h-5 text-gray-400" />
               </div>

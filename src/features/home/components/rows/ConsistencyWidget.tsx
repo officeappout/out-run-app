@@ -24,8 +24,8 @@ import { WIDGET_CARD_STYLE } from '@/features/home/components/widgets/StrengthVo
 import { GhostUpsell } from './GhostUpsell';
 import { hasStrengthSurvey, hasRunSurvey } from '@/features/home/hooks/useProgramProgress';
 
-const STRENGTH_ONBOARDING_HREF = '/onboarding-new/program-path?track=strength';
-const RUN_ONBOARDING_HREF = '/onboarding-new/program-path?track=run';
+const STRENGTH_ONBOARDING_HREF = '/onboarding-new/profile';
+const RUN_ONBOARDING_HREF = '/onboarding-new/profile';
 
 interface MiniBarsProps {
   /** Short Hebrew caption, e.g. "כוח" or "ריצה". */

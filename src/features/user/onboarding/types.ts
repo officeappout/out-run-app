@@ -137,6 +137,19 @@ export interface OnboardingData {
   scheduleDays?: string[]; // Array of Hebrew day letters like ['א', 'ג', 'ה'] - actual selected days (merged)
   scheduleDayIndices?: number[]; // Array of day indices (0-6) for reference
 
+  // [Smart Schedule v1.3 — UTS Bridge]
+  // Maps each Hebrew day letter to the list of program/skill IDs the user
+  // wants on that day. Persisted to users.lifestyle.recurringTemplate so the
+  // UTS hydrator can seed userSchedule docs for strength users (parity with
+  // running onboarding which already populates this field).
+  recurringTemplate?: Record<string, string[]>;
+  // Per-day session items (Multi-Session aware). Used when the user picks
+  // multiple skills on the same day in the wizard popover.
+  scheduleGridSessions?: Array<{
+    dayOfWeek: number;
+    skillIds: string[];
+  }>;
+
   // Running Schedule (set by RunningScheduleStep)
   runningWeeklyFrequency?: number;          // 1–4, consumed by PlanGeneratorService
   runningScheduleDays?: string[];           // Hebrew letters e.g. ['א', 'ג', 'ה']

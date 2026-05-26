@@ -207,6 +207,16 @@ export default function VisualAssessmentPage() {
     }
   }, [authReady, isHydrated, demographics, pathConfig, router]);
 
+  // ── Diagnostic: log categories fed to sliders ───────────────
+  useEffect(() => {
+    if (!pathConfig) return;
+    console.log(
+      '[DEBUG-PAGE] pathConfig.path:', pathConfig.path,
+      '| categories passed to VisualSlider:', pathConfig.categories,
+      '| skipTier:', pathConfig.skipTier,
+    );
+  }, [pathConfig]);
+
   // Clear content cache on mount (so admin updates are immediately visible)
   // and again on unmount (GC).
   useEffect(() => {
@@ -285,11 +295,27 @@ export default function VisualAssessmentPage() {
   ) => {
     try {
       const programs = await getAllPrograms();
+      // ── Path C: strict zero-baseline for unassessed foundational domains ──
+      // All four foundational tracks start at 0 (NOT 5).
+      //
+      // Rationale:
+      //   • A skill-only user (e.g. Planche) never undergoes a push/pull/legs/
+      //     core visual slider assessment. Seeding any of those tracks with a
+      //     non-zero default contaminates `masterProgramSubLevels` and bypasses
+      //     the Ghost Purge in onboarding-sync.service.ts (which only removes
+      //     entries whose `currentLevel === 0`).
+      //   • `legs` and `core` must remain 0 so the purge can vaporise them.
+      //   • `push` (or `pull`) may be overridden below by the CMS
+      //     `parentLevelMapping` stored on the program's level settings —
+      //     this is the explicit spreadsheet formula for skill→foundation
+      //     mapping. If no mapping exists, the +9 offset formula in
+      //     onboarding-sync.service.ts (SKILL_TO_FOUNDATION_OFFSET) provides
+      //     the correct foundational level without any default here.
       const masterSubLevels: Record<string, number> = {
-        push: 5,
-        pull: 5,
-        legs: 5,
-        core: 5,
+        push: 0,
+        pull: 0,
+        legs: 0,
+        core: 0,
       };
 
       for (const [skillId, level] of Object.entries(skillLevels)) {
@@ -341,16 +367,19 @@ export default function VisualAssessmentPage() {
       console.error('[Assessment] buildSkillResult error:', err);
       const primaryProgramId = categories[0] ?? 'full_body';
       const primaryLevel = skillLevels[categories[0]] ?? 1;
+      // Error path: same zero-baseline rule — no ghost L5 defaults.
+      // The onboarding-sync SKILL_TO_FOUNDATION_OFFSET formula will derive
+      // the correct push/pull level from the skill level on completion.
       setResult({
         programId: primaryProgramId,
         levelMode: 'manual',
         levelId: `${primaryProgramId}_level_${primaryLevel}`,
         displayName: primaryProgramId.replace(/_/g, ' '),
         levels: {
-          push: 5,
-          pull: 5,
-          legs: 5,
-          core: 5,
+          push: 0,
+          pull: 0,
+          legs: 0,
+          core: 0,
         },
         average: primaryLevel,
         skillLevels,
@@ -501,16 +530,41 @@ export default function VisualAssessmentPage() {
           ? result.levelId
           : `${result.programId}_level_${Math.round(result.average)}`;
 
-      // Path B: Zero-out categories NOT selected (user wasn't asked about them)
-      const selectedCategories =
-        pathConfig?.path === 'body_focus'
-          ? (pathConfig.categories ?? [])
-          : ['push', 'pull', 'legs', 'core'];
+      // ── Build masterSubLevels ──────────────────────────────────────────────
+      // Path B (body_focus): only include the categories the user was actually
+      //   assessed on; zero out the rest.
+      //
+      // Path C (skills): `result.levels.push` / `.pull` may carry the CMS
+      //   parentLevelMapping value (e.g. Planche L7 → Push L16). Pass those
+      //   non-zero foundation levels through so onboarding-sync can write them.
+      //   `legs` and `core` are ALWAYS 0 for skill users — they were never
+      //   assessed and must remain absent so the Ghost Purge can vaporise them.
+      //
+      // Default (health/full_body): include all four base domains.
+      const isSkillsPath = pathConfig?.path === 'skills';
       const masterSubLevels = {
-        push: selectedCategories.includes('push') ? (result.levels.push ?? 0) : 0,
-        pull: selectedCategories.includes('pull') ? (result.levels.pull ?? 0) : 0,
-        legs: selectedCategories.includes('legs') ? (result.levels.legs ?? 0) : 0,
-        core: selectedCategories.includes('core') ? (result.levels.core ?? 0) : 0,
+        push: isSkillsPath
+          ? (result.levels.push ?? 0)            // pass parentMapping value if set; 0 otherwise
+          : pathConfig?.path === 'body_focus'
+            ? (pathConfig.categories?.includes('push') ? (result.levels.push ?? 0) : 0)
+            : (result.levels.push ?? 0),
+        pull: isSkillsPath
+          ? (result.levels.pull ?? 0)
+          : pathConfig?.path === 'body_focus'
+            ? (pathConfig.categories?.includes('pull') ? (result.levels.pull ?? 0) : 0)
+            : (result.levels.pull ?? 0),
+        // legs/core are NEVER assessed for Path C — zero is intentional so the
+        // Ghost Purge in onboarding-sync.service.ts can safely remove them.
+        legs: isSkillsPath
+          ? 0
+          : pathConfig?.path === 'body_focus'
+            ? (pathConfig.categories?.includes('legs') ? (result.levels.legs ?? 0) : 0)
+            : (result.levels.legs ?? 0),
+        core: isSkillsPath
+          ? 0
+          : pathConfig?.path === 'body_focus'
+            ? (pathConfig.categories?.includes('core') ? (result.levels.core ?? 0) : 0)
+            : (result.levels.core ?? 0),
       };
 
       const assignedResults =
@@ -802,6 +856,11 @@ export default function VisualAssessmentPage() {
                   legs: result.levels?.legs ?? 0,
                   core: result.levels?.core ?? 0,
                 }}
+                skillLevels={
+                  result.skillLevels && Object.keys(result.skillLevels).length > 0
+                    ? result.skillLevels
+                    : undefined
+                }
               />
             </motion.div>
           )}

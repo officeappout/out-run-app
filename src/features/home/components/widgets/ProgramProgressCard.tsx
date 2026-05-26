@@ -124,19 +124,25 @@ export function ProgramProgressCard({
       dir="rtl"
     >
       {/* ── Top section: clickable to expand ──────────────────── */}
-      <button
+      {/* Using <div role="button"> instead of <button> so this component can
+          be safely nested inside an outer <button> in ProgramsSection without
+          triggering the invalid HTML / React hydration warning. */}
+      <div
+        role={hasGoals ? 'button' : undefined}
+        tabIndex={hasGoals ? 0 : undefined}
+        aria-disabled={!hasGoals || undefined}
         onClick={() => hasGoals && setExpanded(v => !v)}
-        className="w-full text-right flex items-center justify-between"
+        onKeyDown={(e) => { if (hasGoals && (e.key === 'Enter' || e.key === ' ')) setExpanded(v => !v); }}
+        className={`w-full text-right flex items-center justify-between${hasGoals ? ' cursor-pointer' : ''}`}
         style={{ padding: 16 }}
-        disabled={!hasGoals}
       >
         {/* Right side: program info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[#00C9F2] flex-shrink-0">
+            <span className="text-gray-900 dark:text-white flex-shrink-0">
               {getProgramIcon(iconKey, 'w-5 h-5')}
             </span>
-            <h3 className="text-[15px] font-bold text-gray-900 dark:text-white truncate">
+            <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
               {programName}
             </h3>
           </div>
@@ -165,7 +171,7 @@ export function ProgramProgressCard({
           size={68}
           strokeWidth={5}
         />
-      </button>
+      </div>
 
       {/* ── Expandable goals ──────────────────────────────────── */}
       <AnimatePresence>

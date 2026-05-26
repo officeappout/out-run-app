@@ -22,7 +22,8 @@
  *     - paceRange           — Row 4 running (min/max sec/km)
  *   Scheduled-tab-only
  *     - plannedTime         — Row 5 pills (today/tomorrow only)
- *     - scheduledTimeMinutes — Row 5 slider (HH*60+MM, null = off)
+ *     - scheduledTimeMinutes — Row 5 slider (HH*60+MM, null = off, DEPRECATED)
+ *     - scheduledTimeRange   — Row 5 dual-range slider ([startMin, endMin])
  *   Long-tail (PartnerFilterSheet)
  *     - genderFilter, ageRange, distanceKm
  */
@@ -52,8 +53,10 @@ interface PartnerFiltersState {
   runDistance: number;
   /** Min/max pace in seconds-per-km for Row 4 running slider. */
   paceRange: [number, number];
-  /** Minutes-from-midnight for Row 5 time slider; null = no time selected. */
+  /** @deprecated Use scheduledTimeRange instead. Kept for localStorage compat. */
   scheduledTimeMinutes: number | null;
+  /** [startMin, endMin] from midnight for Row 5 dual-range slider. */
+  scheduledTimeRange: [number, number];
   distanceKm: number;
   ageRange: [number, number];
   levelRange: [number, number];
@@ -66,6 +69,7 @@ interface PartnerFiltersState {
   setRunDistance: (v: number) => void;
   setPaceRange: (v: [number, number]) => void;
   setScheduledTimeMinutes: (v: number | null) => void;
+  setScheduledTimeRange: (v: [number, number]) => void;
   setDistanceKm: (v: number) => void;
   setAgeRange: (v: [number, number]) => void;
   setLevelRange: (v: [number, number]) => void;
@@ -90,6 +94,7 @@ const DEFAULTS: Omit<
   | 'setRunDistance'
   | 'setPaceRange'
   | 'setScheduledTimeMinutes'
+  | 'setScheduledTimeRange'
   | 'setDistanceKm'
   | 'setAgeRange'
   | 'setLevelRange'
@@ -108,6 +113,8 @@ const DEFAULTS: Omit<
   // user's basePace ±45s on first open.
   paceRange: [315, 405],
   scheduledTimeMinutes: null,
+  // 08:00 – 20:00 covers the typical morning-to-evening workout window
+  scheduledTimeRange: [8 * 60, 20 * 60],
   distanceKm: 5,
   ageRange: [18, 99],
   levelRange: [1, 10],
@@ -127,6 +134,7 @@ export const usePartnerFilters = create<PartnerFiltersState>()(
       setRunDistance: (v) => set({ runDistance: v }),
       setPaceRange: (v) => set({ paceRange: v }),
       setScheduledTimeMinutes: (v) => set({ scheduledTimeMinutes: v }),
+      setScheduledTimeRange: (v) => set({ scheduledTimeRange: v }),
       setDistanceKm: (v) => set({ distanceKm: v }),
       setAgeRange: (v) => set({ ageRange: v }),
       setLevelRange: (v) => set({ levelRange: v }),

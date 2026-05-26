@@ -133,18 +133,26 @@ export async function getVisualContentByCategory(
 }
 
 /**
- * Fetch the level numbers that have showInOnboarding === true for a category.
- * Returns a sorted array of level numbers. Used to build dynamic simple-mode steps.
+ * Fetch the level numbers that have showInOnboarding === true for one or more
+ * candidate category IDs. Accepts an array so that callers can pass both the
+ * raw string slug AND the Firestore hash ID in a single round-trip, ensuring
+ * documents tagged by the admin with either value are found correctly.
  *
- * Important: Fetches ALL docs for the category and filters client-side,
- * because Firestore excludes documents that are missing the field entirely
+ * Uses Firestore `in` operator (supports 1–30 values).
+ *
+ * Important: Fetches ALL matching docs and filters client-side, because
+ * Firestore excludes documents missing the `showInOnboarding` field entirely
  * from `where('showInOnboarding', '==', true)` queries.
  */
-export async function getOnboardingLevels(category: string): Promise<number[]> {
+export async function getOnboardingLevels(candidateIds: string[]): Promise<number[]> {
+  // Deduplicate and guard against empty arrays (Firestore `in` requires ≥1 item).
+  const ids = [...new Set(candidateIds)].filter(Boolean);
+  if (ids.length === 0) return [];
+
   try {
     const q = query(
       collection(db, COLLECTION),
-      where('category', '==', category),
+      where('category', 'in', ids),
       orderBy('level', 'asc'),
     );
     const snap = await getDocs(q);
@@ -153,7 +161,8 @@ export async function getOnboardingLevels(category: string): Promise<number[]> {
       .map(d => (d.data().level as number) ?? 0)
       .filter(l => l > 0);
 
-    console.log(`[VisualContentService] getOnboardingLevels("${category}"): ${snap.docs.length} total docs, ${levels.length} with showInOnboarding=true → [${levels.join(', ')}]`);
+    console.log('[DEBUG-FIRESTORE] Querying IDs:', ids, 'Snapshot size returned:', snap.size);
+    console.log(`[DEBUG-FIRESTORE] showInOnboarding=true levels: [${levels.join(', ')}] (${levels.length} total)`);
     return levels;
   } catch (error) {
     console.error('[VisualContentService] getOnboardingLevels error:', error);

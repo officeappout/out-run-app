@@ -139,7 +139,14 @@ export async function uploadCommunityImage(file: File): Promise<string> {
   const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
   const storagePath = `communities/${ts}-${safeName}`;
   const storageRef = ref(storage, storagePath);
-  await uploadBytes(storageRef, file, { contentType: file.type });
+
+  // Convert to ArrayBuffer before upload: Capacitor Android's WebView bridges
+  // File/Blob objects differently from a desktop browser. Passing a raw File to
+  // uploadBytes can silently produce a 0-byte upload or throw on Android.
+  // Reading the bytes eagerly via arrayBuffer() gives Firebase a plain buffer
+  // that serialises safely across the native bridge.
+  const buffer = await file.arrayBuffer();
+  await uploadBytes(storageRef, buffer, { contentType: file.type });
   return getDownloadURL(storageRef);
 }
 

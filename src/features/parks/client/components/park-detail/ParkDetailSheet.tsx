@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check } from 'lucide-react';
+import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check, Dumbbell } from 'lucide-react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { getReviewsForPark } from '@/features/parks/core/services/contribution.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { UserContribution } from '@/types/contribution.types';
-import FacilityCard, { FACILITY_TAGS } from './FacilityCard';
+import IconChip from './IconChip';
+import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from './amenity-icons';
 import SuggestEditSheet from '../contribution-wizard/SuggestEditSheet';
 import StarRatingWidget from '../contribution-wizard/StarRatingWidget';
 import { createContribution } from '@/features/parks/core/services/contribution.service';
@@ -18,8 +19,12 @@ import { useParkEvents, matchesDayFilter, type DayFilter, type SessionEnrichment
 import { useMyRegistrations } from '@/features/parks/core/hooks/useMyRegistrations';
 import { joinEvent, materializeVirtualSession } from '@/features/admin/services/community.service';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
+import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { auth } from '@/lib/firebase';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
+import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
+import EquipmentDetailDrawer from '../equipment-detail/EquipmentDetailDrawer';
 
 const DAY_FILTER_LABELS: Record<DayFilter, string> = {
   today: 'היום',
@@ -41,6 +46,33 @@ function formatDate(ts: any): string {
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
 }
 
+/**
+ * Format a "minutes from midnight" value (the unit the dual-range slider
+ * operates on — see `RANGE_STEP_MIN` below) into a HH:MM string for the
+ * floating slider labels and the LTR window summary line.
+ */
+function minutesToLabel(minutes: number): string {
+  const hh = Math.floor(minutes / 60) % 24;
+  const mm = Math.floor(minutes) % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(hh)}:${pad(mm)}`;
+}
+
+/**
+ * Convert a `Date` into the local-date `<input type="date">` value
+ * ("YYYY-MM-DD"). Used for the explicit date picker that shows up
+ * in `dayFilter === 'week'` mode (paired with the time-range slider).
+ */
+function toLocalDateInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Dual-range slider domain: 0..1440 minutes, in 15-minute steps. */
+const RANGE_MIN = 0;
+const RANGE_MAX = 24 * 60;
+const RANGE_STEP_MIN = 15;
+
 interface ParkDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -60,6 +92,11 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   const [reviews, setReviews] = useState<UserContribution[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [suggestEditOpen, setSuggestEditOpen] = useState(false);
+  // Resolved equipment metadata for `park.gymEquipment` ids — needed to
+  // render the "מתקנים" grid with proper SVG icons + Hebrew names. The
+  // stored `ParkGymEquipment` only carries equipmentId + brandName, so
+  // we fan out one Firestore read per id (typically <10 per park).
+  const [parkEquipment, setParkEquipment] = useState<GymEquipment[]>([]);
 
   // Inline rating
   const [ratingOpen, setRatingOpen] = useState(false);
@@ -71,42 +108,159 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   // Gallery expanded image
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [joiningEventId, setJoiningEventId] = useState<string | null>(null);
-  const [dayFilter, setDayFilter] = useState<DayFilter>('week');
+  const [dayFilter, setDayFilter] = useState<DayFilter>('today');
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
+  // Equipment-detail drawer state. Stored as `{ id, brand }` so we
+  // can preserve the brand context the park advertised when the user
+  // re-opens the same equipment from a different card. `null` keeps
+  // the drawer closed (and is what the close handler resets to).
+  const [selectedEquipment, setSelectedEquipment] = useState<
+    { id: string; brand: string | null } | null
+  >(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [pickedTime, setPickedTime] = useState('18:00');
+  // Time-window state for the dual-range slider. Stored as
+  // `[startMinutes, endMinutes]` in MINUTES from midnight (0..1440)
+  // because that's the unit the slider's underlying numeric domain
+  // operates on. Defaults to a 17:00–19:00 window — the same example
+  // copy used in the spec — which in 15-minute steps is [1020, 1140].
+  const [timeRangeMinutes, setTimeRangeMinutes] = useState<[number, number]>([
+    17 * 60,
+    19 * 60,
+  ]);
+  // Date the user is targeting in `week` mode (a YYYY-MM-DD string
+  // bound to a native `<input type="date">`). Defaults to tomorrow so
+  // the user has somewhere to start picking from when they tap the
+  // השבוע chip. `today`/`tomorrow` modes don't use this — the date
+  // there is implied directly by the chip selection.
+  const [pickedDate, setPickedDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toLocalDateInputValue(d);
+  });
   const [publishingSession, setPublishingSession] = useState(false);
-  const [justPublished, setJustPublished] = useState<{ time: string; name: string; photoURL?: string } | null>(null);
+  // Optimistic local arrivals injected immediately after the
+  // `createPlannedSession` write resolves, so the row appears in the
+  // sessions list without waiting for the Firestore snapshot round-trip.
+  // Cleared when the sheet closes (see body-overflow effect below).
+  const [localArrivals, setLocalArrivals] = useState<SessionEnrichment[]>([]);
 
   const handlePublishArrival = useCallback(async () => {
     const user = auth.currentUser;
     if (!user || !selectedPark) return;
     setPublishingSession(true);
     try {
-      const today = new Date();
-      const [h, m] = pickedTime.split(':').map(Number);
-      today.setHours(h, m, 0, 0);
-      if (today < new Date()) today.setDate(today.getDate() + 1);
+      // Resolve the BASE date (no time component yet) from the active
+      // `dayFilter`:
+      //   - 'today'    → today
+      //   - 'tomorrow' → today + 1 day
+      //   - 'week'     → the explicit YYYY-MM-DD the user picked via
+      //                  the date input (`pickedDate`)
+      // The slider then layers a [start, end] minutes-of-day window
+      // on top, producing two concrete Date instances we persist as
+      // `startTime` / `endTime` on the planned_session doc.
+      const baseDate = new Date();
+      if (dayFilter === 'tomorrow') {
+        baseDate.setDate(baseDate.getDate() + 1);
+      } else if (dayFilter === 'week') {
+        const parsed = new Date(`${pickedDate}T00:00:00`);
+        if (isNaN(parsed.getTime())) {
+          console.warn('[ParkDetail] Invalid date input value:', pickedDate);
+          return;
+        }
+        baseDate.setFullYear(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      }
+      baseDate.setHours(0, 0, 0, 0);
+
+      const [startMinutes, endMinutes] = timeRangeMinutes;
+      const startTime = new Date(baseDate);
+      startTime.setMinutes(startMinutes);
+      const endTime = new Date(baseDate);
+      endTime.setMinutes(endMinutes);
+
+      // Defensive: the slider clamps end ≥ start during drag, but a
+      // race (e.g. controlled state out of sync) could still produce
+      // a degenerate window. Force at least the slider step so
+      // downstream consumers always see a non-zero range.
+      if (endTime.getTime() <= startTime.getTime()) {
+        endTime.setTime(startTime.getTime() + RANGE_STEP_MIN * 60 * 1000);
+      }
+
+      // Reject windows that have already ended — there's no point
+      // announcing an arrival for a slot that's already past.
+      if (endTime.getTime() < Date.now()) {
+        console.warn(
+          '[ParkDetail] Rejecting publish — window ends in the past:',
+          endTime.toISOString(),
+        );
+        return;
+      }
+
+      // Resolve the publisher's active strength program at write time
+      // so the partner card can render the same "🎯 program · רמה N"
+      // line that live cards already show. We mirror the field shape
+      // used by `useWorkoutPresence` (the heartbeat that powers live
+      // cards) so the consumer code path is identical.
+      const liveProfile = useUserStore.getState().profile;
+      const activeProgram = liveProfile?.progression?.activePrograms?.[0];
+      const programName = activeProgram?.name ?? undefined;
+      const programLevel = activeProgram?.templateId
+        ? liveProfile?.progression?.tracks?.[activeProgram.templateId]?.currentLevel
+        : undefined;
+
+      // parkId (NOT routeId) so `useParkEvents` can read this back via its
+      // `where('parkId', '==', parkId)` planned_sessions subscription.
+      // Using the routeId field for parkIds was a bug — it cross-polluted
+      // the partner-finder route stream and prevented this very screen
+      // from re-rendering its own arrival on refresh.
       await createPlannedSession({
         userId: user.uid,
         displayName: user.displayName ?? 'משתמש',
         photoURL: user.photoURL,
-        routeId: selectedPark.id,
+        parkId: selectedPark.id,
+        // Denormalised label so PartnerCard can render
+        // "📍 פארק הלל" without an extra Firestore round-trip.
+        parkName: selectedPark.name,
+        ...(programName ? { programName } : {}),
+        ...(typeof programLevel === 'number' ? { programLevel } : {}),
         activityType: 'workout',
         level: 'beginner',
-        startTime: today,
-        privacyMode: 'squad',
+        startTime,
+        endTime,
+        // 'verified_global' (public tier) so the partner-finder
+        // listeners — which gate on `where('mode', '==',
+        // 'verified_global')` to stay within Firestore rules — can
+        // surface this arrival to non-followers. The previous 'squad'
+        // value silently restricted visibility to the publisher's
+        // followers only, which defeated the point of an open
+        // "I'm coming" announcement at a public park.
+        privacyMode: 'verified_global',
         lat: selectedPark.location?.lat ?? null,
         lng: selectedPark.location?.lng ?? null,
       });
       setShowTimePicker(false);
-      setJustPublished({ time: pickedTime, name: user.displayName ?? 'משתמש', photoURL: user.photoURL ?? undefined });
+      const displayName = user.displayName ?? 'משתמש';
+      setLocalArrivals((prev) => [
+        ...prev,
+        {
+          eventId: `local-arrival-${user.uid}-${Date.now()}`,
+          eventLabel: displayName,
+          nextStartTime: startTime.toISOString(),
+          currentRegistrations: 1,
+          plannedCount: 1,
+          avatars: [{
+            uid: user.uid,
+            name: displayName,
+            photoURL: user.photoURL ?? undefined,
+          }],
+          isPersonalArrival: true,
+        },
+      ]);
     } catch (err) {
       console.error('[ParkDetail] Failed to publish arrival:', err);
     } finally {
       setPublishingSession(false);
     }
-  }, [pickedTime, selectedPark]);
+  }, [timeRangeMinutes, pickedDate, dayFilter, selectedPark]);
 
   const park = selectedPark;
 
@@ -114,22 +268,51 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     isOpen ? park?.id : null,
   );
 
+  // Merge live snapshot results with optimistic local arrivals; drop
+  // local entries once the snapshot has caught up (matched by userId +
+  // start-time) so the same arrival doesn't render twice.
+  const mergedParkEvents = useMemo(() => {
+    if (localArrivals.length === 0) return parkEvents;
+
+    const liveKey = (ev: SessionEnrichment) => {
+      const uid = ev.avatars?.[0]?.uid ?? '';
+      return `${uid}_${ev.nextStartTime}`;
+    };
+    const liveKeys = new Set(
+      parkEvents
+        .filter((e) => e.isPersonalArrival)
+        .map(liveKey),
+    );
+    const stillOptimistic = localArrivals.filter((l) => !liveKeys.has(liveKey(l)));
+    if (stillOptimistic.length === 0) return parkEvents;
+
+    return [...parkEvents, ...stillOptimistic].sort((a, b) =>
+      a.nextStartTime.localeCompare(b.nextStartTime),
+    );
+  }, [parkEvents, localArrivals]);
+
   const filteredParkEvents = useMemo(
-    () => parkEvents.filter((ev) => matchesDayFilter(ev.nextStartTime, dayFilter)),
-    [parkEvents, dayFilter],
+    () => mergedParkEvents.filter((ev) => matchesDayFilter(ev.nextStartTime, dayFilter)),
+    [mergedParkEvents, dayFilter],
   );
 
+  // Personal arrivals don't have a `community_events/{id}/registrations`
+  // sub-collection — only real (non-recurring, non-personal) events do.
+  // Including them in `realEventIds` would trigger spurious snapshot
+  // listeners on non-existent docs.
   const realEventIds = useMemo(
-    () => parkEvents.filter((e) => !e.isRecurring).map((e) => e.eventId),
-    [parkEvents],
+    () => mergedParkEvents
+      .filter((e) => !e.isRecurring && !e.isPersonalArrival)
+      .map((e) => e.eventId),
+    [mergedParkEvents],
   );
   const registeredEventIds = useMyRegistrations(realEventIds);
 
   useEffect(() => {
     if (isOpen && park?.id) {
-      console.log('[ParkDetail] Park:', park.id, park.name, '| Events found:', parkEvents.length, parkEvents.map(e => e.eventLabel));
+      console.log('[ParkDetail] Park:', park.id, park.name, '| Events found:', mergedParkEvents.length, mergedParkEvents.map(e => e.eventLabel));
     }
-  }, [isOpen, park?.id, park?.name, parkEvents]);
+  }, [isOpen, park?.id, park?.name, mergedParkEvents]);
 
   const currentUid = auth.currentUser?.uid;
 
@@ -172,6 +355,28 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
       .finally(() => setReviewsLoading(false));
   }, [isOpen, park?.id]);
 
+  // Resolve equipment ids → full GymEquipment docs so the "מתקנים"
+  // grid can render the SVG icon (iconKey) + Hebrew name. Cancellable
+  // via `cancelled` flag in case the user opens a different park
+  // before the previous fetch resolves.
+  useEffect(() => {
+    if (!isOpen || !park?.gymEquipment?.length) {
+      setParkEquipment([]);
+      return;
+    }
+    let cancelled = false;
+    const ids = park.gymEquipment.map((e) => e.equipmentId).filter(Boolean);
+    Promise.all(ids.map((id) => getGymEquipment(id).catch(() => null)))
+      .then((items) => {
+        if (cancelled) return;
+        setParkEquipment(items.filter((x): x is GymEquipment => x !== null));
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('[ParkDetailSheet] Equipment load failed:', err);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, park?.id, park?.gymEquipment]);
+
   const avgRating = useMemo(() => {
     const rated = reviews.filter(r => r.rating);
     if (rated.length === 0) return park?.rating ?? null;
@@ -196,7 +401,13 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   // Prevent body scroll
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
+    else {
+      document.body.style.overflow = '';
+      // Reset optimistic state when the sheet closes so the next park
+      // opens with a clean slate (otherwise the previous park's local
+      // arrival pill would briefly appear under a different header).
+      setLocalArrivals([]);
+    }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
@@ -294,7 +505,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center active:scale-90 transition-transform">
                     <ChevronLeft size={20} className="text-gray-700 dark:text-gray-300" />
                   </button>
-                  <h1 className="text-lg font-black text-gray-900 dark:text-white flex-1 text-center px-4 truncate">
+                  <h1 className="text-lg font-black text-gray-900 dark:text-white flex-1 text-center px-4 leading-tight line-clamp-2">
                     {park.name}
                   </h1>
                   <div className="w-10" />
@@ -336,22 +547,32 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       <X size={20} />
                     </button>
                   </div>
-
-                  {/* Title + category badge */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
-                    {park.facilityType && (
-                      <span className="inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm">
-                        {FACILITY_LABELS[park.facilityType] || park.facilityType}
-                      </span>
-                    )}
-                    <h1 className="text-[22px] font-black text-gray-900 dark:text-white leading-tight">
-                      {park.name}
-                    </h1>
-                  </div>
                 </div>
 
-                {/* Content */}
-                <div className="bg-white dark:bg-slate-900 -mt-10 relative z-10 px-5 pt-2 pb-8">
+                {/* Title + category badge — pulled OUTSIDE the hero so they
+                    escape the hero's `overflow-hidden` (and its scroll-driven
+                    height collapse + scale transform). When kept inside, long
+                    Hebrew park names wrapping to 2–3 lines were getting their
+                    top edge clipped because the absolute `bottom-0` block grew
+                    upward past the collapsing hero's top edge.
+                    Mirrors the structure used in WorkoutPreviewDrawer.tsx
+                    (~line 932) where the title is the first sibling AFTER the
+                    hero, with `-mt-14` to overlap the hero gradient visually. */}
+                <div className="relative z-20 -mt-14 px-5 pb-2">
+                  {park.facilityType && (
+                    <span className="inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm">
+                      {FACILITY_LABELS[park.facilityType] || park.facilityType}
+                    </span>
+                  )}
+                  <h1 className="text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal">
+                    {park.name}
+                  </h1>
+                </div>
+
+                {/* Content. The previous `-mt-10` overlap is gone now that the
+                    title block above provides the hero→content transition; the
+                    title's own `-mt-14` is what bridges the hero gradient. */}
+                <div className="bg-white dark:bg-slate-900 relative z-10 px-5 pt-2 pb-8">
                   {/* Rating + location + distance row */}
                   <div className="flex items-center gap-4 mb-4 flex-wrap">
                     {avgRating && (
@@ -380,29 +601,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                     )}
                   </div>
 
-                  {/* Description */}
-                  {park.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-                      {park.description}
-                    </p>
-                  )}
-
-                  {/* Facilities grid — Rectangle cards */}
-                  <section className="mb-6">
-                    <h3 className="text-[16px] font-bold mb-3">מתקנים ותכונות</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {FACILITY_TAGS.filter(tag => park.featureTags?.includes(tag.id)).map(tag => (
-                        <FacilityCard key={tag.id} tag={tag} isActive variant="mobile" />
-                      ))}
-                      {(!park.featureTags || park.featureTags.length === 0) && (
-                        <div className="col-span-2 text-center py-6 bg-gray-50 dark:bg-slate-800/30 rounded-xl">
-                          <p className="text-sm text-gray-400">לא צוינו תכונות</p>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-
-                  {/* ── Park Pulse: Compact Community Section ──────── */}
+                  {/* ── (2) WHO'S COMING — Park Pulse / מתאמנים ──────
+                      Moved to the top of the body so the community
+                      pulse + arrival CTA are the first thing the user
+                      sees after the hero/metadata row. */}
                   <section className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-[15px] font-bold flex items-center gap-1.5">
@@ -429,6 +631,94 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       </div>
                     </div>
 
+                    {/* Always-visible publish row — pulled out of the
+                        empty-state branch so the user can announce an
+                        arrival regardless of whether other arrivals
+                        already exist for the selected day.
+                        Time-window picker:
+                          • today/tomorrow → dual-range slider only
+                            (date is implied by the chip selection)
+                          • week           → date input + dual-range
+                            slider so the user can pick any day +
+                            window this week. */}
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2">
+                      <div className="flex items-center gap-3 py-2.5 px-3">
+                        <Users size={16} className="text-emerald-500 flex-shrink-0" />
+                        <span className="text-xs text-emerald-700 font-bold flex-1">
+                          {filteredParkEvents.length === 0
+                            ? 'אף אחד עוד לא פרסם שהוא מגיע...'
+                            : 'גם אתה מתכנן להגיע?'}
+                        </span>
+                        <button
+                          onClick={() => setShowTimePicker((v) => !v)}
+                          className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
+                        >
+                          אני מגיע ב...
+                        </button>
+                      </div>
+                      {showTimePicker && (
+                        <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-3">
+                          {/* Optional date input — only relevant when the
+                              user picked the השבוע chip; today/tomorrow
+                              implicitly fix the date already. */}
+                          {dayFilter === 'week' && (
+                            <div className="flex items-center gap-2">
+                              <Calendar size={14} className="text-emerald-500 flex-shrink-0" />
+                              <input
+                                type="date"
+                                value={pickedDate}
+                                onChange={(e) => setPickedDate(e.target.value)}
+                                className="flex-1 bg-white border border-emerald-200 rounded-lg px-2 py-1.5 text-sm text-gray-800 font-bold text-center"
+                                dir="ltr"
+                              />
+                            </div>
+                          )}
+
+                          {/* Dual-handle time-range slider. The slider
+                              domain is minutes-of-day (0..1440, step 15)
+                              so the underlying values are easy to
+                              convert into concrete Dates in the publish
+                              handler. The window summary below the
+                              slider stays LTR ("17:00 - 19:00") so
+                              the dash in the middle reads correctly
+                              under the page-level RTL direction. */}
+                          <div className="px-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-bold text-emerald-700">
+                                חלון הגעה
+                              </span>
+                              <span
+                                className="text-[12px] font-black text-emerald-600"
+                                dir="ltr"
+                              >
+                                {minutesToLabel(timeRangeMinutes[0])} - {minutesToLabel(timeRangeMinutes[1])}
+                              </span>
+                            </div>
+                            <DualRangeSlider
+                              min={RANGE_MIN}
+                              max={RANGE_MAX}
+                              step={RANGE_STEP_MIN}
+                              values={timeRangeMinutes}
+                              onChange={setTimeRangeMinutes}
+                              formatLabel={minutesToLabel}
+                              ariaLabelMin="שעת התחלה"
+                              ariaLabelMax="שעת סיום"
+                            />
+                          </div>
+
+                          <div className="flex justify-end">
+                            <button
+                              onClick={handlePublishArrival}
+                              disabled={publishingSession}
+                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
+                            >
+                              {publishingSession ? '...' : 'פרסם'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {eventsLoading ? (
                       <div className="space-y-1.5">
                         {[1, 2].map((i) => (
@@ -438,39 +728,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                           </div>
                         ))}
                       </div>
-                    ) : filteredParkEvents.length === 0 && !justPublished ? (
-                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden">
-                        <div className="flex items-center gap-3 py-3 px-3">
-                          <Users size={18} className="text-emerald-400 flex-shrink-0" />
-                          <p className="text-xs text-emerald-700 font-bold flex-1">אף אחד עוד לא פרסם שהוא מגיע...</p>
-                          <button
-                            onClick={() => setShowTimePicker(!showTimePicker)}
-                            className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
-                          >
-                            אני מגיע ב...
-                          </button>
-                        </div>
-                        {showTimePicker && (
-                          <div className="flex items-center gap-2 px-3 pb-3 pt-1 border-t border-emerald-100">
-                            <Calendar size={14} className="text-emerald-500 flex-shrink-0" />
-                            <input
-                              type="time"
-                              value={pickedTime}
-                              onChange={(e) => setPickedTime(e.target.value)}
-                              className="flex-1 bg-white border border-emerald-200 rounded-lg px-2 py-1.5 text-sm text-gray-800 font-bold text-center"
-                              dir="ltr"
-                            />
-                            <button
-                              onClick={handlePublishArrival}
-                              disabled={publishingSession}
-                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
-                            >
-                              {publishingSession ? '...' : 'פרסם'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
+                    ) : filteredParkEvents.length === 0 ? null : (
                       <div className="space-y-1">
                         {filteredParkEvents.map((ev, idx) => {
                           let timeLabel = '';
@@ -486,6 +744,14 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                           const isJoining = joiningEventId === ev.eventId;
                           const count = Math.max(1, ev.currentRegistrations ?? 0);
                           const alreadyJoined = isUserRegistered(ev);
+                          // Personal arrivals are individual "I'm heading here"
+                          // announcements — not joinable group sessions. We
+                          // render them with no Join CTA; the publisher gets
+                          // a "פרסמת" badge so they can see their own arrival
+                          // confirmed in the live list (this is also the
+                          // read-on-mount confirmation that survives refresh).
+                          const isOwnArrival =
+                            ev.isPersonalArrival && ev.avatars?.[0]?.uid === currentUid;
 
                           return (
                             <div key={`park_${ev.eventId}_${idx}`} className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors">
@@ -494,7 +760,9 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                 {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
                               </span>
                               {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
-                              <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
+                              {!ev.isPersonalArrival && (
+                                <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
+                              )}
                               <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
                                 {ev.avatars?.slice(0, 2).map((a, ai) => (
                                   <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => setProfileUser({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
@@ -502,7 +770,14 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                   </button>
                                 ))}
                               </div>
-                              {alreadyJoined ? (
+                              {ev.isPersonalArrival ? (
+                                isOwnArrival ? (
+                                  <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
+                                    <Check size={10} />
+                                    פרסמת
+                                  </span>
+                                ) : null
+                              ) : alreadyJoined ? (
                                 <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
                                   <Check size={10} />
                                   נרשמת
@@ -521,36 +796,168 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                         })}
                       </div>
                     )}
-
-                    {/* Visual confirmation of just-published arrival */}
-                    <AnimatePresence>
-                      {justPublished && (
-                        <motion.div
-                          key={`published_${justPublished.time}`}
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="mt-1.5"
-                        >
-                          <div className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-100 border border-emerald-200 rounded-lg">
-                            <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{justPublished.time}</span>
-                            <div className="w-5 h-5 rounded-full border border-white bg-emerald-200 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden flex-shrink-0">
-                              {justPublished.photoURL
-                                ? <img src={justPublished.photoURL} alt="" className="w-full h-full object-cover" />
-                                : justPublished.name.charAt(0)}
-                            </div>
-                            <span className="flex-1 text-xs font-bold text-emerald-800 truncate">{justPublished.name}</span>
-                            <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
-                              <Check size={10} />
-                              נרשמת
-                            </span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </section>
 
-                  {/* Photo gallery */}
+                  {/* ── (3) AMENITIES — "פירוט על הפארק" ────────────────
+                      Renamed from "נוחויות" to make clearer that this
+                      is the wider park-context info (shade, lighting,
+                      benches, accessibility, etc.) — comfort features
+                      that frame the experience without being fitness
+                      gear. We render them as compact chips using the
+                      same `IconChip` style as the strength-workout
+                      equipment tags so the visual language stays
+                      consistent across screens. Each tag falls back
+                      through three icon strategies: dedicated SVG
+                      asset → lucide vector → emoji placeholder
+                      (see `amenity-icons.ts`). */}
+                  <section className="mb-6">
+                    <h3 className="text-[16px] font-bold mb-3">פירוט על הפארק</h3>
+                    {park.featureTags && park.featureTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {AMENITY_DISPLAY_ORDER
+                          .filter((tag) => park.featureTags?.includes(tag))
+                          .map((tag) => {
+                            const cfg = AMENITY_ICON_MAP[tag];
+                            if (!cfg) return null;
+                            return (
+                              <IconChip
+                                key={tag}
+                                label={cfg.label}
+                                iconSrc={cfg.iconSrc}
+                                IconComponent={cfg.IconComponent}
+                              />
+                            );
+                          })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 bg-gray-50 dark:bg-slate-800/30 rounded-xl">
+                        <p className="text-sm text-gray-400">לא צוינו תכונות</p>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* ── (4) DESCRIPTION — free-text paragraph ────────── */}
+                  {park.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
+                      {park.description}
+                    </p>
+                  )}
+
+                  {/* ── (5) EQUIPMENT — fitness gear installed at the
+                      park (pullup bar, parallel bars, rings, etc.).
+                      Source: `park.gymEquipment` resolved against the
+                      `gym_equipment` collection. Each item is a
+                      tappable card that opens the
+                      `EquipmentDetailDrawer` (a bottom sheet matching
+                      the in-library exercise-drawer pattern) without
+                      tearing the user out of the park context.
+                      The card carries forward the specific
+                      `ParkGymEquipment.brandName` so the drawer
+                      lands on the right brand variant out of the gate. */}
+                  {parkEquipment.length > 0 && (
+                    <section className="mb-6">
+                      <h3 className="text-[16px] font-bold mb-3">מתקנים</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {parkEquipment.map((eq) => {
+                          // Resolve the brand the park advertises for
+                          // this equipment id so we can preview its
+                          // image/icon directly on the card and pass
+                          // the brand name through to the drawer.
+                          const parkRef = park.gymEquipment?.find(
+                            (g) => g.equipmentId === eq.id,
+                          );
+                          const brandName = parkRef?.brandName ?? '';
+                          const brandImage = brandName
+                            ? eq.brands?.find((b) => b.brandName === brandName)?.imageUrl
+                            : eq.brands?.[0]?.imageUrl;
+                          const hasVideo = brandName
+                            ? !!eq.brands?.find((b) => b.brandName === brandName)?.videoUrl
+                            : !!eq.brands?.[0]?.videoUrl;
+
+                          return (
+                            <button
+                              key={eq.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedEquipment({
+                                  id: eq.id,
+                                  brand: brandName || null,
+                                })
+                              }
+                              className="group flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-800/90 shadow-sm active:scale-[0.98] transition-transform text-start w-full"
+                              style={{ border: '0.5px solid #E0E9FF' }}
+                              aria-label={`${eq.name}${brandName ? ` (${brandName})` : ''}`}
+                            >
+                              {/* Media thumbnail — prefers the brand's
+                                  product photo, falls back to the
+                                  equipment SVG icon, then to a generic
+                                  Dumbbell glyph as a last resort. */}
+                              <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+                                {brandImage ? (
+                                  <img
+                                    src={brandImage}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                    onError={(e) => {
+                                      const img = e.currentTarget as HTMLImageElement;
+                                      img.style.display = 'none';
+                                      img.parentElement?.querySelector('[data-fallback]')?.classList.remove('hidden');
+                                    }}
+                                  />
+                                ) : null}
+                                <div
+                                  data-fallback
+                                  className={brandImage ? 'hidden' : ''}
+                                >
+                                  {eq.iconKey ? (
+                                    <img
+                                      src={`/assets/icons/equipment/${eq.iconKey}.svg`}
+                                      alt=""
+                                      className="w-8 h-8 object-contain"
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
+                                  ) : (
+                                    <Dumbbell size={22} className="text-cyan-500" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Text + chevron column */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
+                                  {eq.name}
+                                </p>
+                                {brandName && (
+                                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                    {brandName}
+                                  </p>
+                                )}
+                                {hasVideo && (
+                                  <span className="inline-block mt-1 text-[9px] font-bold text-cyan-600">
+                                    סרטון זמין
+                                  </span>
+                                )}
+                              </div>
+                              {/* In RTL the visual "forward" arrow points
+                                  left — `ChevronLeft` is the correct
+                                  glyph here, matching the back-button
+                                  convention used elsewhere in the sheet. */}
+                              <ChevronLeft
+                                size={16}
+                                className="flex-shrink-0 text-gray-400 group-hover:text-cyan-500 transition-colors"
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* ── (6) PHOTOS — actual photo gallery (park images
+                      + review snapshots). Stays at the bottom. */}
                   {photoGallery.length > 1 && (
                     <section className="mb-6">
                       <h3 className="text-[16px] font-bold mb-3">תמונות</h3>
@@ -716,6 +1123,17 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
         isOpen={!!profileUser}
         onClose={() => setProfileUser(null)}
         user={profileUser}
+      />
+
+      {/* Equipment-detail drawer — opens above the park sheet
+          (z-[200]) when the user taps an equipment card in the
+          "מתקנים" section. Stays mounted with `isOpen` driven by
+          local state so the slide-out animation can play on close. */}
+      <EquipmentDetailDrawer
+        isOpen={!!selectedEquipment}
+        onClose={() => setSelectedEquipment(null)}
+        equipmentId={selectedEquipment?.id ?? null}
+        brandName={selectedEquipment?.brand ?? null}
       />
     </>
   );

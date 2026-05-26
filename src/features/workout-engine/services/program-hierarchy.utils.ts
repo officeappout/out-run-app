@@ -61,7 +61,7 @@ export async function getIdToSlugMap(): Promise<Map<string, string>> {
   _idToSlugMap = new Map<string, string>();
   _slugToIdMap = new Map<string, string>();
   for (const p of programs) {
-    const slug = p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
+    const slug = p.slug || p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
     _idToSlugMap.set(p.id, slug);
     if (!_slugToIdMap.has(slug)) _slugToIdMap.set(slug, p.id);
   }
@@ -83,6 +83,22 @@ export function getIdToSlugMapSync(): Map<string, string> | null {
 }
 
 /**
+ * Synchronous reverse lookup: slug → Firestore document hash ID.
+ *
+ * Only works after buildIdToSlugMapFromPrograms() has been called (which
+ * happens at the top of _buildSharedPipeline in home-workout.service.ts).
+ *
+ * Used by exerciseMatchesProgram to perform bidirectional matching:
+ *   hash → slug  (via resolveToSlug)
+ *   slug → hash  (via this function)
+ *
+ * Returns undefined when the map hasn't been built or the slug isn't found.
+ */
+export function resolveSlugToId(slug: string): string | undefined {
+  return _slugToIdMap?.get(slug);
+}
+
+/**
  * Build the map synchronously from an already-loaded programs array.
  * Call this right after getCachedPrograms() to make the sync getter available.
  *
@@ -93,7 +109,7 @@ export function buildIdToSlugMapFromPrograms(programs: Program[]): Map<string, s
   _idToSlugMap = new Map<string, string>();
   _slugToIdMap = new Map<string, string>();
   for (const p of programs) {
-    const slug = p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
+    const slug = p.slug || p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
     _idToSlugMap.set(p.id, slug);
     KNOWN_SLUG_PATTERNS[p.id] = slug;
     if (!_slugToIdMap.has(slug)) _slugToIdMap.set(slug, p.id);
@@ -216,11 +232,12 @@ export function resolveChildDomainsForParent(
 ): string[] {
   if (!activeProgramId) return [];
 
-  if (activeProgramId === 'full_body') {
+  const activeProgramSlug = resolveToSlug(activeProgramId);
+  if (activeProgramSlug === 'full_body' || activeProgramId === 'full_body') {
     return [...FULL_BODY_CHILD_DOMAINS];
   }
 
-  if (activeProgramId === 'calisthenics_upper') {
+  if (activeProgramSlug === 'calisthenics_upper' || activeProgramId === 'calisthenics_upper') {
     const skillIds = profile.progression?.skillFocusIds;
     if (skillIds && Array.isArray(skillIds) && skillIds.length > 0) {
       return [...skillIds];

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 interface MediaSessionConfig {
-  workoutState: 'PREPARING' | 'ACTIVE' | 'RESTING' | 'PAUSED';
+  workoutState: 'PREPARING' | 'ACTIVE' | 'INPUT' | 'RESTING' | 'PAUSED';
   exerciseName: string;
   nextExerciseName: string;
   workoutName: string;

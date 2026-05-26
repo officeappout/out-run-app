@@ -7,6 +7,7 @@
 import { collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { GeneratedWorkout } from '../logic/WorkoutGenerator';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,7 +81,7 @@ function sanitizeForFirestore<T>(obj: T): T {
   );
 }
 
-const SHARE_BASE_URL = 'https://out-run-app.vercel.app';
+const SHARE_BASE_URL = APP_CONFIG_LINKS.WEB_BASE_URL;
 
 function buildShareUrl(docId: string): string {
   return `${SHARE_BASE_URL}/workouts/${docId}`;
@@ -273,7 +274,7 @@ export async function shareWorkout(
 
     // Last-resort: copy URL to clipboard if we have one
     try {
-      const text = `${workout.title}\nhttps://out-run-app.vercel.app/workouts/share-error`;
+      const text = `${workout.title}\n${APP_CONFIG_LINKS.WEB_BASE_URL}/workouts/share-error`;
       await navigator.clipboard.writeText(text);
     } catch { /* ignore */ }
 

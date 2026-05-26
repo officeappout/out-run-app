@@ -40,6 +40,10 @@ export interface FeedPost {
   activityCredit: number;
   distanceKm?: number;
   paceMinPerKm?: number;
+  /** Average pace in seconds per km. Used for segment leaderboards. */
+  paceSecPerKm?: number;
+  /** Completed distance segment bracket. */
+  runSegment?: '3k' | '5k' | '10k' | null;
   intensityLevel?: string;
   title?: string;
   audience?: FeedAudience;
@@ -51,6 +55,11 @@ export interface FeedPost {
   parkId?: string;
   parkName?: string;
   ageGroup?: 'minor' | 'adult';
+  gender?: 'male' | 'female' | 'other';
+  programId?: string;
+  /** IDs of community_groups the author belongs to at post time.
+   *  Used by array-contains queries for group/league leaderboards. */
+  groupIds?: string[];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -74,6 +83,8 @@ export async function createWorkoutPost(params: {
   durationMinutes: number;
   distanceKm?: number;
   paceMinPerKm?: number;
+  paceSecPerKm?: number;
+  runSegment?: '3k' | '5k' | '10k' | null;
   intensityLevel?: string;
   title?: string;
   audience?: FeedAudience;
@@ -83,6 +94,10 @@ export async function createWorkoutPost(params: {
   parkId?: string;
   parkName?: string;
   ageGroup?: 'minor' | 'adult';
+  gender?: 'male' | 'female' | 'other';
+  programId?: string;
+  /** Snapshot of the author's joined group IDs at post time. */
+  groupIds?: string[];
 }): Promise<string | null> {
   try {
     // Feature flag guard — skip post creation when community feed is disabled
@@ -112,6 +127,8 @@ export async function createWorkoutPost(params: {
       activityCredit,
       distanceKm: params.distanceKm ?? null,
       paceMinPerKm: params.paceMinPerKm ?? null,
+      paceSecPerKm: params.paceSecPerKm ?? null,
+      runSegment: params.runSegment ?? null,
       intensityLevel: params.intensityLevel ?? null,
       title: params.title || null,
       audience: params.audience ?? 'partners',
@@ -120,6 +137,9 @@ export async function createWorkoutPost(params: {
       parkId: params.parkId ?? null,
       parkName: params.parkName ?? null,
       ageGroup: params.ageGroup ?? null,
+      gender: params.gender ?? null,
+      programId: params.programId ?? null,
+      groupIds: params.groupIds ?? [],
       createdAt: serverTimestamp(),
     });
 
@@ -170,6 +190,8 @@ export async function getFeedPosts(
         activityCredit: data.activityCredit ?? data.whoPoints ?? 0,
         distanceKm: data.distanceKm ?? undefined,
         paceMinPerKm: data.paceMinPerKm ?? undefined,
+        paceSecPerKm: data.paceSecPerKm ?? undefined,
+        runSegment: data.runSegment ?? undefined,
         intensityLevel: data.intensityLevel ?? undefined,
         title: data.title ?? undefined,
         audience: data.audience ?? undefined,
@@ -179,6 +201,9 @@ export async function getFeedPosts(
         parkId: data.parkId ?? undefined,
         parkName: data.parkName ?? undefined,
         ageGroup: data.ageGroup ?? undefined,
+        gender: data.gender ?? undefined,
+        programId: data.programId ?? undefined,
+        groupIds: Array.isArray(data.groupIds) ? data.groupIds : undefined,
         createdAt:
           data.createdAt instanceof Timestamp
             ? data.createdAt.toDate()

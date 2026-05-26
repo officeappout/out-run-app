@@ -105,7 +105,16 @@ export function useGPS(): GPSState {
           console.warn('[useGPS] Geolocation error', error.code, error.message);
         }
       },
-      { enableHighAccuracy: true, maximumAge: 0 },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        // 20 s matches the running player's watcher. Without a timeout the
+        // browser (and especially iOS WKWebView) can silently stall the watch
+        // after ~60 s with no fix, producing no callbacks and no error — the
+        // last known position just freezes. With a timeout, code 3 fires every
+        // ~10 s when the chip is searching so we can flag GPS status correctly.
+        timeout: 20000,
+      },
     );
 
     return () => {

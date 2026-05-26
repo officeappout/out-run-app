@@ -17,6 +17,8 @@ import {
   Globe,
   MapPin,
   Trees,
+  Copy,
+  Share2,
 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
@@ -24,7 +26,7 @@ import { createGroup, updateGroup, getGroupById } from '@/features/arena/service
 import { uploadCommunityImage } from '@/features/admin/services/community.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import type { Park } from '@/features/parks/core/types/park.types';
-import type { CommunityGroup, CommunityGroupCategory, ScheduleSlot } from '@/types/community.types';
+import type { CommunityGroup, CommunityGroupCategory, CommunityGroupType, ScheduleSlot } from '@/types/community.types';
 
 // Mapbox components are client-only — lazy-loaded to avoid SSR errors
 const MiniLocationPicker = dynamic(
@@ -58,12 +60,16 @@ interface WizardForm {
   name: string;
   description: string;
   category: CommunityGroupCategory;
+  /** Group type — determines scope binding and privacy defaults. */
+  groupType: CommunityGroupType;
   address: string;
   coords: { lat: number; lng: number };
   /** True once the user explicitly picks an address, park, or moves the map pin */
   locationSelected: boolean;
   scheduleSlots: ScheduleSlot[];
   isPublic: boolean;
+  /** Only relevant when isPublic === false; lets non-members request to join */
+  allowJoinRequests: boolean;
   rules: string;
   imageFile: File | null;
   imagePreviewUrl: string | null;
@@ -85,11 +91,13 @@ const BLANK_FORM: WizardForm = {
   name: '',
   description: '',
   category: 'running',
+  groupType: 'neighborhood',
   address: '',
   coords: { lat: 31.7683, lng: 35.2137 },
   locationSelected: false,
   scheduleSlots: [],
   isPublic: true,
+  allowJoinRequests: false,
   rules: '',
   imageFile: null,
   imagePreviewUrl: null,
@@ -99,11 +107,18 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   const { profile } = useUserStore();
   const access = useArenaAccess();
   const isEditMode = !!editGroupId;
+  const myGender = profile?.core?.gender;
 
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [celebrating, setCelebrating] = useState(false);
+  const [successInfo, setSuccessInfo] = useState<{
+    groupId: string;
+    inviteCode: string;
+    name: string;
+    isPrivate: boolean;
+  } | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
 
   const [form, setForm] = useState<WizardForm>(BLANK_FORM);
@@ -130,11 +145,13 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
         name: group.name,
         description: group.description ?? '',
         category: group.category,
+        groupType: group.groupType ?? 'neighborhood',
         address: group.meetingLocation?.address ?? '',
         coords: group.meetingLocation?.location ?? { lat: 31.7683, lng: 35.2137 },
         locationSelected: true,
         scheduleSlots: slots,
         isPublic: group.isPublic ?? true,
+        allowJoinRequests: group.allowJoinRequests ?? false,
         rules: group.rules ?? '',
         imageFile: null,
         imagePreviewUrl: group.images?.[0] ?? null,
@@ -175,7 +192,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
   const canAdvance = (): boolean => {
     if (step === 0) return form.name.trim().length >= 2;
-    if (step === 1) return form.locationSelected; // must pick address, park, or move pin
+    // Location is optional for social groups (friends/family meet anywhere)
+    if (step === 1) return form.groupType === 'friends' || form.groupType === 'family' || form.locationSelected;
     if (step === 2) return true;
     if (step === 3) return true;
     return true;
@@ -193,7 +211,12 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   // ── Submit ───────────────────────────────────────────────────────────────
 
   const handleCreate = useCallback(async () => {
-    if (!profile?.id || !profile?.core?.name) return;
+    // Safety assertion — the entry-point guard in CommunityPage should always
+    // prevent reaching this point with an incomplete profile.
+    if (!profile?.id || !profile?.core?.name) {
+      console.error('[CreateGroupWizard] handleCreate reached with incomplete profile — entry guard missed');
+      return;
+    }
     const authorityId = access.cityAuthorityId ?? '';
 
     setSubmitting(true);
@@ -238,20 +261,26 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
           scheduleSlots: form.scheduleSlots,
           meetingLocation,
           isPublic: form.isPublic,
+          allowJoinRequests: form.isPublic ? false : form.allowJoinRequests,
           rules: rulesStr,
           images: resolvedImages,
         });
         onSuccess(editGroupId);
       } else {
         // ── Create Mode: create new document + celebrate ─────────────────────
-        const groupId = await createGroup(profile.id, profile.core.name, {
+        const isSocialGroup = form.groupType === 'friends' || form.groupType === 'family';
+        // Social groups (friends/family) are not city-scoped; they're private by design.
+        const effectiveAuthorityId = isSocialGroup ? null : authorityId;
+
+        const { groupId, inviteCode } = await createGroup(profile.id, profile.core.name, {
           name: form.name.trim(),
           description: form.description.trim(),
           category: form.category,
-          groupType: 'neighborhood',
-          scopeId: authorityId,
-          authorityId,
-          isPublic: form.isPublic,
+          groupType: form.groupType,
+          scopeId: effectiveAuthorityId,
+          ...(effectiveAuthorityId ? { authorityId: effectiveAuthorityId } : {}),
+          isPublic: isSocialGroup ? false : form.isPublic,
+          allowJoinRequests: (isSocialGroup || form.isPublic) ? false : form.allowJoinRequests,
           scheduleSlots: form.scheduleSlots,
           meetingLocation,
           rules: rulesStr ?? undefined,
@@ -260,7 +289,6 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
           isOfficial: false,
         });
 
-        setCelebrating(true);
         confetti({
           particleCount: 160,
           spread: 110,
@@ -268,10 +296,13 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
           origin: { y: 0.55 },
           colors: ['#06b6d4', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#f472b6'],
         });
-        await new Promise<void>((r) => setTimeout(r, 2200));
-        setCelebrating(false);
 
-        onSuccess(groupId);
+        setSuccessInfo({
+          groupId,
+          inviteCode,
+          name: form.name.trim(),
+          isPrivate: isSocialGroup ? true : !form.isPublic,
+        });
       }
     } catch (err) {
       console.error('[CreateGroupWizard] submit failed:', err);
@@ -287,6 +318,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
     setStep(0);
     setSubmitError(null);
     setForm(BLANK_FORM);
+    setSuccessInfo(null);
+    setCodeCopied(false);
     onClose();
   };
 
@@ -306,20 +339,6 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
             onClick={handleClose}
           />
 
-          {/* ── Celebration overlay (shows during the 2s confetti window) ── */}
-          {celebrating && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="fixed inset-0 z-[92] flex flex-col items-center justify-center pointer-events-none"
-            >
-              <div className="bg-white rounded-3xl shadow-2xl px-8 py-10 flex flex-col items-center gap-3 mx-6">
-                <span className="text-6xl select-none">🎉</span>
-                <h2 className="text-xl font-black text-gray-900 text-center">הקהילה נוצרה!</h2>
-                <p className="text-sm text-gray-500 text-center">אנשים יכולים להצטרף אליה כבר עכשיו</p>
-              </div>
-            </motion.div>
-          )}
 
           {/* Drawer */}
           <motion.div
@@ -337,7 +356,11 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black text-gray-900">
-                  {isEditMode ? 'ערוך קהילה' : 'צור קהילה חדשה'}
+                  {successInfo
+                    ? 'הקהילה שלך באוויר! 🚀'
+                    : isEditMode
+                      ? t('ערוך קהילה', 'ערכי קהילה', myGender)
+                      : t('צור קהילה חדשה', 'צורי קהילה חדשה', myGender)}
                 </h2>
                 <button
                   onClick={handleClose}
@@ -347,30 +370,34 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                 </button>
               </div>
 
-              {/* Step progress */}
-              <div className="flex items-center gap-1.5">
-                {STEPS.map((label, i) => (
-                  <React.Fragment key={i}>
-                    <div
-                      className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black transition-all ${
-                        i < step
-                          ? 'bg-cyan-500 text-white'
-                          : i === step
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      {i < step ? <Check className="w-3 h-3" /> : i + 1}
-                    </div>
-                    {i < STEPS.length - 1 && (
-                      <div className={`flex-1 h-0.5 rounded ${i < step ? 'bg-cyan-500' : 'bg-gray-100'}`} />
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
-              <p className="text-[11px] text-gray-500 font-semibold mt-1.5 text-center">
-                {STEPS[step]}
-              </p>
+              {/* Step progress — hidden on success screen */}
+              {!successInfo && (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    {STEPS.map((label, i) => (
+                      <React.Fragment key={i}>
+                        <div
+                          className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black transition-all ${
+                            i < step
+                              ? 'bg-cyan-500 text-white'
+                              : i === step
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-400'
+                          }`}
+                        >
+                          {i < step ? <Check className="w-3 h-3" /> : i + 1}
+                        </div>
+                        {i < STEPS.length - 1 && (
+                          <div className={`flex-1 h-0.5 rounded ${i < step ? 'bg-cyan-500' : 'bg-gray-100'}`} />
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-500 font-semibold mt-1.5 text-center">
+                    {STEPS[step]}
+                  </p>
+                </>
+              )}
             </div>
 
             {/* ── Edit-mode loading skeleton ──────────────────────── */}
@@ -380,97 +407,187 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
               </div>
             )}
 
-            {/* ── Scrollable step content ─────────────────────────── */}
-            <div className={`flex-1 overflow-y-auto px-5 pb-4 ${loadingEdit ? 'hidden' : ''}`} dir="rtl">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  {step === 0 && <StepBasics form={form} updateForm={updateForm} />}
-                  {step === 1 && (
-                    <StepLocation
-                      form={form}
-                      updateForm={updateForm}
-                      authorityId={access.cityAuthorityId ?? ''}
-                    />
-                  )}
-                  {step === 2 && (
-                    <StepSchedule
-                      form={form}
-                      slotDay={slotDay}
-                      slotTime={slotTime}
-                      setSlotDay={setSlotDay}
-                      setSlotTime={setSlotTime}
-                      addSlot={addSlot}
-                      removeSlot={removeSlot}
-                    />
-                  )}
-                  {step === 3 && <StepPrivacy form={form} updateForm={updateForm} />}
-                  {step === 4 && (
-                    <StepFinalize
-                      form={form}
-                      fileInputRef={fileInputRef}
-                      onImagePick={handleImagePick}
-                      submitError={submitError}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+            {/* ── Success screen (post-creation) ──────────────────── */}
+            {!loadingEdit && successInfo && (
+              <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-5 pt-2" dir="rtl">
+                <div className="text-center space-y-1">
+                  <p className="text-4xl select-none">🎉</p>
+                  <p className="text-sm text-gray-500 font-semibold">
+                    {successInfo.isPrivate
+                      ? 'שתף את קוד ההצטרפות הסודי עם המתאמנים שלך:'
+                      : 'הקהילה שלך פתוחה וממתינה לחברים הראשונים!'}
+                  </p>
+                </div>
 
-            {/* ── Footer navigation ───────────────────────────────── */}
-            <div
-              className={`flex-shrink-0 px-5 pt-4 pb-4 border-t border-gray-100 ${loadingEdit ? 'hidden' : ''}`}
-              style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
-            >
-              <div className="flex items-center gap-3" dir="rtl">
-                {/* Back */}
-                <button
-                  onClick={handleBack}
-                  className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
-                >
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                </button>
+                {/* Invite code card — shown for private groups */}
+                {successInfo.isPrivate && (
+                  <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 space-y-4">
+                    <div className="text-center">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                        קוד הצטרפות
+                      </p>
+                      <div className="font-mono text-4xl font-black tracking-[0.3em] text-gray-900 select-all py-2">
+                        {successInfo.inviteCode}
+                      </div>
+                    </div>
 
-                {step < 4 ? (
-                  <button
-                    onClick={handleNext}
-                    disabled={!canAdvance()}
-                    className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    המשך
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleCreate}
-                    disabled={submitting || form.name.trim().length < 2}
-                    className="flex-1 h-11 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all active:scale-[0.97] disabled:opacity-50"
-                  >
-                    {submitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        {isEditMode ? 'שמור שינויים' : 'צור קהילה'}
-                      </>
-                    )}
-                  </button>
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const origin = typeof window !== 'undefined'
+                            ? window.location.origin
+                            : 'https://out-run-app.vercel.app';
+                          navigator.clipboard
+                            ?.writeText(`${origin}/join/${successInfo.inviteCode}`)
+                            .catch(() => {});
+                          setCodeCopied(true);
+                          setTimeout(() => setCodeCopied(false), 2000);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-black transition-all active:scale-95 shadow-sm"
+                      >
+                        {codeCopied
+                          ? <><Check className="w-4 h-4 text-emerald-500" />הועתק!</>
+                          : <><Copy className="w-4 h-4" />העתק קוד</>}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const origin = typeof window !== 'undefined'
+                            ? window.location.origin
+                            : 'https://out-run-app.vercel.app';
+                          const link = `${origin}/join/${successInfo.inviteCode}`;
+                          const text = `היי! הקמתי קהילה חדשה "${successInfo.name}" — בוא להצטרף! 🏃\nקוד הצטרפות: ${successInfo.inviteCode}\n${link}`;
+                          if (typeof navigator !== 'undefined' && navigator.share) {
+                            navigator.share({ title: successInfo.name, text, url: link }).catch(() => {});
+                          } else {
+                            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                          }
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        שתף בוואטסאפ
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              {/* Location hint — visible only on step 1 when no location is set */}
-              {step === 1 && !form.locationSelected && (
-                <p className="text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  יש לבחור מיקום כדי להמשיך
-                </p>
-              )}
-            </div>
+                {/* Enter community CTA */}
+                <button
+                  onClick={() => {
+                    const gid = successInfo.groupId;
+                    setSuccessInfo(null);
+                    setCodeCopied(false);
+                    setStep(0);
+                    setForm(BLANK_FORM);
+                    onSuccess(gid);
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all active:scale-[0.97]"
+                >
+                  <Check className="w-4 h-4" />
+                  כניסה לקהילה
+                </button>
+              </div>
+            )}
+
+            {/* ── Scrollable step content ─────────────────────────── */}
+            {!loadingEdit && !successInfo && (
+              <>
+                <div className="flex-1 overflow-y-auto px-5 pb-4" dir="rtl">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={step}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 16 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                      {step === 0 && <StepBasics form={form} updateForm={updateForm} />}
+                      {step === 1 && (
+                        <StepLocation
+                          form={form}
+                          updateForm={updateForm}
+                          authorityId={access.cityAuthorityId ?? ''}
+                        />
+                      )}
+                      {step === 2 && (
+                        <StepSchedule
+                          form={form}
+                          slotDay={slotDay}
+                          slotTime={slotTime}
+                          setSlotDay={setSlotDay}
+                          setSlotTime={setSlotTime}
+                          addSlot={addSlot}
+                          removeSlot={removeSlot}
+                        />
+                      )}
+                      {step === 3 && <StepPrivacy form={form} updateForm={updateForm} />}
+                      {step === 4 && (
+                        <StepFinalize
+                          form={form}
+                          fileInputRef={fileInputRef}
+                          onImagePick={handleImagePick}
+                          submitError={submitError}
+                        />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                {/* ── Footer navigation ───────────────────────────────── */}
+                <div
+                  className="flex-shrink-0 px-5 pt-4 pb-4 border-t border-gray-100"
+                  style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+                >
+                  <div className="flex items-center gap-3" dir="rtl">
+                    {/* Back */}
+                    <button
+                      onClick={handleBack}
+                      className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+                    >
+                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
+
+                    {step < 4 ? (
+                      <button
+                        onClick={handleNext}
+                        disabled={!canAdvance()}
+                        className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        המשך
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleCreate}
+                        disabled={submitting || form.name.trim().length < 2}
+                        className="flex-1 h-11 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all active:scale-[0.97] disabled:opacity-50"
+                      >
+                        {submitting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4" />
+                            {isEditMode
+                              ? t('שמור שינויים', 'שמרי שינויים', myGender)
+                              : t('צור קהילה', 'צורי קהילה', myGender)}
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Location hint — visible only on step 1 when no location is set */}
+                  {step === 1 && !form.locationSelected &&
+                   form.groupType !== 'friends' && form.groupType !== 'family' && (
+                    <p className="text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      יש לבחור מיקום כדי להמשיך
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </motion.div>
         </>
       )}
@@ -480,11 +597,22 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
 // ── Step sub-components ────────────────────────────────────────────────────────
 
+/** Gender-aware text helper. Returns the female form when gender === 'female', male form otherwise. */
+function t(male: string, female: string, gender?: string | null): string {
+  return gender === 'female' ? female : male;
+}
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-gray-500 mb-1.5">{children}</label>;
 }
 
 // ── Step 1: Basics ────────────────────────────────────────────────────────────
+
+const GROUP_TYPES: { value: CommunityGroupType; emoji: string; label: string; sub: string }[] = [
+  { value: 'neighborhood', emoji: '🏘️', label: 'שכונה / קהילה',  sub: 'קבוצת אימון מקומית' },
+  { value: 'friends',      emoji: '👥', label: 'חברים',           sub: 'קבוצה פרטית לחברים' },
+  { value: 'family',       emoji: '👨‍👩‍👧', label: 'משפחה',           sub: 'אתגר משפחתי' },
+];
 
 function StepBasics({
   form,
@@ -493,15 +621,60 @@ function StepBasics({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
+  const isSocial = form.groupType === 'friends' || form.groupType === 'family';
+
+  const handleGroupTypeChange = (value: CommunityGroupType) => {
+    updateForm('groupType', value);
+    // Social groups are always private — enforce it immediately
+    if (value === 'friends' || value === 'family') {
+      updateForm('isPublic', false);
+    } else {
+      updateForm('isPublic', true);
+    }
+  };
+
   return (
     <div className="space-y-5 pt-4">
+
+      {/* Group type picker */}
       <div>
-        <FieldLabel>שם הקהילה *</FieldLabel>
+        <FieldLabel>סוג הקבוצה</FieldLabel>
+        <div className="grid grid-cols-3 gap-2">
+          {GROUP_TYPES.map((gt) => (
+            <button
+              key={gt.value}
+              type="button"
+              onClick={() => handleGroupTypeChange(gt.value)}
+              className={`flex flex-col items-center gap-1 py-3 px-1 rounded-xl border-2 transition-all ${
+                form.groupType === gt.value
+                  ? 'border-cyan-500 bg-cyan-50'
+                  : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+              }`}
+            >
+              <span className="text-xl">{gt.emoji}</span>
+              <span className="text-[11px] font-black text-gray-800 text-center leading-tight">{gt.label}</span>
+              <span className="text-[9px] text-gray-400 text-center leading-tight">{gt.sub}</span>
+            </button>
+          ))}
+        </div>
+        {isSocial && (
+          <p className="mt-2 text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
+            🔒 קבוצה פרטית — הצטרפות בקוד הזמנה בלבד
+          </p>
+        )}
+      </div>
+
+      <div>
+        <FieldLabel>שם הקבוצה *</FieldLabel>
         <input
           type="text"
           value={form.name}
           onChange={(e) => updateForm('name', e.target.value)}
-          placeholder="לדוגמה: קבוצת ריצה שכונתית"
+          placeholder={
+            form.groupType === 'family'  ? 'לדוגמה: אתגר ריצה משפחת כהן' :
+            form.groupType === 'friends' ? 'לדוגמה: חברים רצים ביחד' :
+            'לדוגמה: קבוצת ריצה שכונתית'
+          }
           maxLength={60}
           className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
         />
@@ -534,13 +707,73 @@ function StepBasics({
         <textarea
           value={form.description}
           onChange={(e) => updateForm('description', e.target.value)}
-          placeholder="ספר על הקהילה שלך — מה עושים, מי מוזמן, מה האווירה..."
+          placeholder="ספר על הקבוצה שלך — מה עושים, מי מוזמן, מה האווירה..."
           rows={3}
           maxLength={300}
           className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
         />
         <p className="text-[10px] text-gray-400 mt-1 text-left">{form.description.length}/300</p>
       </div>
+
+      {/* Privacy — neighborhood groups only (social groups are always private) */}
+      {form.groupType === 'neighborhood' && (
+        <div>
+          <FieldLabel>מי יכול להצטרף?</FieldLabel>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: true,  icon: <Globe className="w-4 h-4" />,  label: 'ציבורית', sub: 'כל אחד יכול להצטרף' },
+              { value: false, icon: <Lock className="w-4 h-4" />,   label: 'פרטית',   sub: 'רק בהזמנה' },
+            ] as const).map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => {
+                  updateForm('isPublic', opt.value);
+                  if (opt.value) updateForm('allowJoinRequests', false);
+                }}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                  form.isPublic === opt.value
+                    ? 'border-cyan-500 bg-cyan-50'
+                    : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                }`}
+              >
+                <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
+                  {opt.icon}
+                </span>
+                <span className="text-xs font-black text-gray-800">{opt.label}</span>
+                <span className="text-[9px] text-gray-400 text-center leading-tight">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Join requests — only for private neighborhood groups */}
+      {form.groupType === 'neighborhood' && !form.isPublic && (
+        <div>
+          <FieldLabel>אפשר לבקש להצטרף?</FieldLabel>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: true,  label: 'כן', sub: 'אנשים יכולים לשלוח בקשה' },
+              { value: false, label: 'לא', sub: 'הצטרפות בקוד הזמנה בלבד' },
+            ] as const).map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => updateForm('allowJoinRequests', opt.value)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                  form.allowJoinRequests === opt.value
+                    ? 'border-cyan-500 bg-cyan-50'
+                    : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                }`}
+              >
+                <span className="text-sm font-black text-gray-800">{opt.label}</span>
+                <span className="text-[9px] text-gray-400 text-center leading-tight">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

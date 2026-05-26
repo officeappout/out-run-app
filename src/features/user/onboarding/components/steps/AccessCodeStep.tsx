@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { validateAccessCode, type AccessCodeResult } from '../../services/access-code.service';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 interface AccessCodeStepProps {
   onNext: () => void;
@@ -34,9 +35,9 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
         tenantType: result.tenantType,
       });
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('onboarding_path', result.onboardingPath);
-      }
+      // onboarding_path persists via onboardingPrefs so military/student
+      // access codes survive a hard close mid-onboarding.
+      setOnboardingPref('onboarding_path', result.onboardingPath);
 
       onNext();
     } catch (err: any) {

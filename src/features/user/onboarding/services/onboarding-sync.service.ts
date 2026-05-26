@@ -29,6 +29,118 @@ import {
   getFocusDomainsForMuscleFocus,
 } from './assessment-path-config.service';
 import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
+import { getProgramByTemplateId } from '@/features/content/programs';
+
+// ── Canonical program slug allow-list ──────────────────────────────
+//
+// These slugs are domain-known to be valid program identifiers across the
+// entire system (GOAL_TO_PROGRAM, MASTER_PROGRAM_SLUG_TO_ID, SKILL_MAX_LEVELS,
+// tracking matrix, visual content resolver, etc.).  They are used as a
+// zero-read fast-path inside isValidProgramTemplateId so that:
+//   a) The post-onboarding Firestore write is never blocked by a failed
+//      getProgramByTemplateId() lookup for canonical skill slugs that
+//      happen to store their Firestore doc under a hash ID (not a slug).
+//   b) We save unnecessary Firestore reads for values we already know are valid.
+//
+// Extend this set whenever a new canonical program category is added to the app.
+const CANONICAL_PROGRAM_SLUGS = new Set<string>([
+  // Master programs
+  'full_body', 'upper_body', 'calisthenics_upper', 'muscle_up',
+  // Primary movement categories
+  'push', 'pull', 'legs', 'core', 'lower_body',
+  // Calisthenics skill programs
+  'front_lever', 'planche', 'handstand', 'hspu', 'one_arm_pullup',
+]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Physiological Skill → Foundation Domain Mapping ("David's Matrix")
+//
+// Root scale relationship (from master training spreadsheets):
+//   Foundational Upper Body Track Level = Assessed Skill Level + SKILL_TO_FOUNDATION_OFFSET
+//
+// Examples (with offset = 9):
+//   Planche L7  → Push  L16   (7  + 9 = 16)
+//   Front Lever L9 → Pull L18  (9  + 9 = 18)
+//
+// Directionality is strict and unidirectional — this mapping ONLY fires for
+// Path C (skill-only) users who have not undergone a separate foundational
+// push/pull assessment.  For those users, legs and core tracks are intentionally
+// left absent (no ghost data, no default fallback).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Offset added to a skill level to derive the paired foundational domain level. */
+const SKILL_TO_FOUNDATION_OFFSET = 9;
+
+/**
+ * Maps a canonical skill program slug to the foundational movement domain
+ * whose track level should be inferred from the assessed skill level.
+ *
+ * Push-family skills → 'push'
+ * Pull-family skills → 'pull'
+ *
+ * Skills absent from this map (e.g. 'human_flag') have no direct foundational
+ * pairing and leave both push and pull tracks unwritten — by design.
+ */
+const SKILL_TO_FOUNDATION_DOMAIN: Readonly<Record<string, 'push' | 'pull'>> = {
+  planche:          'push',
+  handstand:        'push',
+  handstand_pushup: 'push',
+  hspu:             'push',
+  front_lever:      'pull',
+  back_lever:       'pull',
+  muscle_up:        'pull',
+  one_arm_pullup:   'pull',
+};
+
+/**
+ * Resolve a programId against the `programs` Firestore collection BEFORE
+ * we persist it into `progression.activePrograms[].templateId`. Any value
+ * that doesn't resolve (corrupt slug like the legendary single-letter
+ * "פ" that bricked WorkoutTrio, hand-edited or stale Firestore data,
+ * etc.) is rejected so we don't propagate the corruption forward.
+ *
+ * Returns:
+ *   - `true`  → templateId is a known canonical slug OR resolved to a real
+ *               Program document in Firestore
+ *   - `false` → templateId is empty / non-string / unresolvable / errored
+ *               (caller should skip the write and log loudly)
+ *
+ * Soft-fails on errors (returns `false` after logging) rather than
+ * throwing — the caller is in the middle of a multi-step onboarding
+ * write and we don't want a single bad id to abort the entire sync.
+ */
+async function isValidProgramTemplateId(templateId: unknown): Promise<boolean> {
+  if (typeof templateId !== 'string' || templateId.trim() === '') {
+    return false;
+  }
+  // Cheap shape gate before we spend a Firestore read: real program
+  // template ids are slugs (lowercase ASCII / underscores), so a single
+  // Hebrew character or any non-ASCII junk can be rejected without
+  // hitting the network. This is what would have caught the "פ" case
+  // immediately, and it's also what protects us from rate-limited
+  // Firestore reads when a malformed value gets retried in a loop.
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(templateId)) {
+    return false;
+  }
+  // Fast-path: canonical slugs are always valid — no Firestore read needed.
+  // Skill programs (front_lever, planche, …) store their Firestore documents
+  // under auto-generated hash IDs, so getProgramByTemplateId() can only find
+  // them if the program's movementPattern or slug fields are set correctly in
+  // the DB. The allow-list is the zero-latency safety net for the sync write.
+  if (CANONICAL_PROGRAM_SLUGS.has(templateId)) {
+    return true;
+  }
+  try {
+    const program = await getProgramByTemplateId(templateId);
+    return program !== null;
+  } catch (err) {
+    console.warn(
+      '[OnboardingSync] programId validation threw — treating as invalid:',
+      templateId, err,
+    );
+    return false;
+  }
+}
 
 // Step order mapping for analytics
 const STEP_ORDER: Record<OnboardingStepId, number> = {
@@ -53,7 +165,7 @@ const GOAL_TO_PROGRAM: Record<string, string> = {
   routine: 'full_body',
   aesthetics: 'upper_body',
   fitness: 'full_body',
-  performance: 'calisthenics',
+  performance: 'calisthenics_upper',
   skills: 'upper_body',
   community: 'full_body',
   // Legacy mainGoal values (UserFullProfile.core.mainGoal)
@@ -368,6 +480,27 @@ export async function syncOnboardingToFirestore(
       };
     }
 
+    // ── [Smart Schedule v1.3] UTS Bridge ────────────────────────────────────
+    // Persist the per-day program/skill template so the UTS hydrator can
+    // seed userSchedule documents for strength users — closing the gap that
+    // previously left strength onboarding without a recurringTemplate (and
+    // therefore without calendar hydration). Mirrors the running bridge
+    // block further down. We MERGE rather than overwrite so a user who
+    // completes both strength and running onboarding keeps both worlds.
+    if (
+      (data as any).recurringTemplate &&
+      typeof (data as any).recurringTemplate === 'object' &&
+      Object.keys((data as any).recurringTemplate).length > 0
+    ) {
+      updateData.lifestyle = {
+        ...updateData.lifestyle,
+        recurringTemplate: {
+          ...((updateData.lifestyle as any)?.recurringTemplate ?? {}),
+          ...(data as any).recurringTemplate,
+        },
+      } as any;
+    }
+
     // ── Running Schedule (from RunningScheduleStep) ──────────────────────────
     // weeklyFrequency is consumed by PlanGeneratorService via bridgeRunningOnboarding.
     // Merged directly into updateData.running (same fix as scheduleDays).
@@ -659,7 +792,14 @@ export async function syncOnboardingToFirestore(
         cmsFetchSucceeded = true;
         for (const prog of programs) {
           if (prog.maxLevels != null && prog.maxLevels > 0) {
-            cmsMaxLevels[prog.id] = prog.maxLevels;
+            // Key by canonical slug (prog.slug → movementPattern → id) so that
+            // the initialDomains lookup later (cmsMaxLevels[programId]) can find
+            // the entry using the same slug that quiz results write to tracks.
+            // Using prog.id (hash) was the root cause of domains.<hash>.currentLevel=0
+            // being written alongside domains.<slug>.currentLevel=<real>, which in
+            // turn produced the L1 shadow entry that blocked advanced exercises.
+            const key = prog.slug || prog.movementPattern || prog.id;
+            cmsMaxLevels[key] = prog.maxLevels;
           }
         }
       } catch (e) {
@@ -678,9 +818,21 @@ export async function syncOnboardingToFirestore(
         DOMAIN_MAX_LEVELS,
       );
 
+      // Seed every CMS program with maxLevel metadata only.
+      // currentLevel is intentionally set to 0 ("not yet assessed") — NOT to
+      // initialLevel.  The quiz-result mirror loop later in this function
+      // overwrites each entry the user actually completed with their real
+      // assessed level.
+      //
+      // Previously, every unselected program was stamped with the flat tier
+      // value (e.g. L5 for a tier-3 user), which caused "profile pollution":
+      // muscle_up, upper_body, calisthenics_upper, push, legs, etc. all
+      // appeared at L5 even though the user only assessed Pull.  This also
+      // fed the master-level averaging formula with ghost L5 values, making
+      // upper_body appear at avg(pull=16, push=5) ≈ L10 instead of L16.
       const initialDomains: Record<string, { currentLevel: number; maxLevel: number; isUnlocked: boolean }> = {};
       for (const [domainId, maxLevel] of Object.entries(DOMAIN_MAX_LEVELS)) {
-        initialDomains[domainId] = { currentLevel: initialLevel, maxLevel, isUnlocked: true };
+        initialDomains[domainId] = { currentLevel: 0, maxLevel, isUnlocked: true };
       }
 
       // ============================================================
@@ -737,6 +889,34 @@ export async function syncOnboardingToFirestore(
       const path = getProgramPathFromStorage();
       const muscleIds = getMuscleFocusFromStorage();
       const isPathBBodyFocus = path === 'body_focus' && muscleIds.length > 0;
+
+      // Path B safety net: if the user chose a muscle focus (e.g. "Chest only" →
+      // ['chest']) but the questionnaire produced no assignedResults (sessionStorage
+      // was cleared between pages, or the quiz page never wrote results), we
+      // synthesise a valid effectiveResults entry from the muscle selection so the
+      // program is never silently reassigned to the GOAL_TO_PROGRAM table.
+      // The synthesised level is initialLevel (derived from the fitness-tier answer);
+      // this is equivalent to what the quiz would have returned had results been present.
+      if (isPathBBodyFocus && (!effectiveResults || effectiveResults.length === 0)) {
+        const syntheticProgramId = deriveActiveProgramFromMuscleFocus(muscleIds);
+        const syntheticFocusDomains = getFocusDomainsForMuscleFocus(muscleIds);
+        const syntheticMasterSub: Record<string, number> = {
+          push: syntheticFocusDomains.includes('push') ? initialLevel : 0,
+          pull: syntheticFocusDomains.includes('pull') ? initialLevel : 0,
+          legs: syntheticFocusDomains.includes('legs') ? initialLevel : 0,
+          core: syntheticFocusDomains.includes('core') ? initialLevel : 0,
+        };
+        effectiveResults = [{
+          programId: syntheticProgramId,
+          levelId: `${syntheticProgramId}_level_${initialLevel}`,
+          masterProgramSubLevels: syntheticMasterSub,
+        }];
+        console.log(
+          '[OnboardingSync] Path B: no assignedResults found — synthesised from muscle focus.',
+          `muscleIds=[${muscleIds.join(', ')}] → programId="${syntheticProgramId}"` +
+          ` @L${initialLevel}, focusDomains=[${syntheticFocusDomains.join(', ')}]`,
+        );
+      }
 
       // Path C (skills): Specialist (1 skill) vs Generalist (2+ skills) program linkage
       let skillIds = getSkillFocusFromStorage();
@@ -829,45 +1009,125 @@ export async function syncOnboardingToFirestore(
         
         // Accumulate: keep existing programs, add new ones from quiz
         const existingActivePrograms = updateData.progression?.activePrograms || [];
-        const existingProgramIds = new Set(existingActivePrograms.map((p: any) => p.id));
+        // Check both `id` AND `templateId` so that legacy hash-ID entries and
+        // new slug entries for the same program are treated as the same slot.
+        // Without this, "H2279XsRGDg9G370J7S9" (old hash) and "full_body" (new
+        // slug) would both pass the dedup gate and create a duplicate row.
+        const existingProgramIds = new Set(
+          existingActivePrograms.flatMap((p: any) =>
+            [p.id, p.templateId].filter((v): v is string => typeof v === 'string' && v.trim() !== ''),
+          ),
+        );
 
         for (const result of effectiveResults) {
           const rLevelMatch = result.levelId.match(/(\d+)/);
           const rLevel = rLevelMatch
             ? Math.max(1, parseInt(rLevelMatch[1], 10))
-            : initialLevel;
+            : 1;
           
           // Set track for the program itself
           quizTracks[result.programId] = { currentLevel: rLevel, percent: 0 };
 
-          // Set tracks for child programs (masterProgramSubLevels)
+          // ── Path C: Strict Skill → Foundation derivation ─────────────────
+          // For single-skill Path C results (e.g. programId = 'planche'):
+          // infer the paired foundational track using the physio offset formula.
+          // Legs and core are explicitly NOT written — they are unassessed and
+          // must remain absent from the progression document (no ghost data).
+          if (isPathCSkills) {
+            const foundationDomain = SKILL_TO_FOUNDATION_DOMAIN[result.programId];
+            if (foundationDomain) {
+              const maxFoundation = cmsMaxLevels[foundationDomain] ?? 25;
+              const foundationLevel = Math.min(rLevel + SKILL_TO_FOUNDATION_OFFSET, maxFoundation);
+              quizTracks[foundationDomain] = { currentLevel: foundationLevel, percent: 0 };
+              console.log(
+                `[OnboardingSync] Skill→Foundation: ${result.programId} L${rLevel} → ` +
+                `${foundationDomain} L${foundationLevel} (offset +${SKILL_TO_FOUNDATION_OFFSET}, ` +
+                `cap=${maxFoundation})`,
+              );
+            }
+          }
+
+          // Set tracks for child programs (masterProgramSubLevels).
+          // Only write entries where childLevel > 0 — zero values represent
+          // un-assessed or un-selected sub-domains (e.g. `legs: 0` on a push/pull
+          // body-focus user, or an un-assessed skill in a multi-skill result).
+          // Writing them would create ghost tracks that pollute master-program
+          // averages (upper_body, full_body) with meaningless L0 entries.
           if (result.masterProgramSubLevels) {
             for (const [childId, childLevel] of Object.entries(result.masterProgramSubLevels)) {
-              quizTracks[childId] = { currentLevel: childLevel, percent: 0 };
+              if (childLevel > 0) {
+                quizTracks[childId] = { currentLevel: childLevel, percent: 0 };
+              }
             }
 
-            // Virtual Core Level: if user didn't assess core (level is 0/missing),
-            // derive it from the average of push, pull, and legs so the engine
-            // can pick appropriate basic core exercises instead of skipping core entirely.
-            const sub = result.masterProgramSubLevels as Record<string, number>;
-            const coreLevel = sub.core ?? 0;
-            if (coreLevel === 0) {
-              const pushLvl = sub.push ?? 0;
-              const pullLvl = sub.pull ?? 0;
-              const legsLvl = sub.legs ?? 0;
-              const assessed = [pushLvl, pullLvl, legsLvl].filter(l => l > 0);
-              if (assessed.length > 0) {
-                const virtualCore = Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length);
-                quizTracks['core'] = { currentLevel: virtualCore, percent: 0 };
+            // ── Path C multi-skill: derive foundational tracks from each sub-skill ─
+            // For a calisthenics_upper result (multi-skill user with e.g.
+            // masterProgramSubLevels = { planche: 7, front_lever: 9 }), derive the
+            // corresponding foundational track for every skill sub-level present.
+            // When multiple push-family (or pull-family) skills are present, we take
+            // the MAX derived level so the foundational track reflects the user's
+            // highest applicable capability.
+            // Legs and core remain unwritten (no fallback, no ghost data).
+            if (isPathCSkills) {
+              const derivedFoundations: Partial<Record<'push' | 'pull', number>> = {};
+              for (const [skillId, skillLvl] of Object.entries(
+                result.masterProgramSubLevels as Record<string, number>,
+              )) {
+                if (skillLvl <= 0) continue;
+                const fd = SKILL_TO_FOUNDATION_DOMAIN[skillId];
+                if (!fd) continue;
+                const maxFd = cmsMaxLevels[fd] ?? 25;
+                const derived = Math.min(skillLvl + SKILL_TO_FOUNDATION_OFFSET, maxFd);
+                if ((derivedFoundations[fd] ?? 0) < derived) derivedFoundations[fd] = derived;
+              }
+              for (const [fd, level] of Object.entries(derivedFoundations) as Array<['push' | 'pull', number]>) {
+                quizTracks[fd] = { currentLevel: level, percent: 0 };
                 console.log(
-                  `[OnboardingSync] Virtual Core Level: core was 0 → derived ${virtualCore} from avg(${assessed.join(', ')})`,
+                  `[OnboardingSync] Skill→Foundation (multi-skill): ` +
+                  `${fd} L${level} (max derived from sub-levels, offset +${SKILL_TO_FOUNDATION_OFFSET})`,
                 );
+              }
+            }
+
+            // Virtual Core Level: only for Path B body-focus users who have assessed
+            // push / pull / legs but skipped core.  Path C skill users intentionally
+            // leave core unset — a skill specialist's core needs are served through
+            // the foundational domain pair (push/pull), not a virtual average.
+            if (!isPathCSkills) {
+              const sub = result.masterProgramSubLevels as Record<string, number>;
+              const coreLevel = sub.core ?? 0;
+              if (coreLevel === 0) {
+                const pushLvl = sub.push ?? 0;
+                const pullLvl = sub.pull ?? 0;
+                const legsLvl = sub.legs ?? 0;
+                const assessed = [pushLvl, pullLvl, legsLvl].filter(l => l > 0);
+                if (assessed.length > 0) {
+                  const virtualCore = Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length);
+                  quizTracks['core'] = { currentLevel: virtualCore, percent: 0 };
+                  console.log(
+                    `[OnboardingSync] Virtual Core Level: core was 0 → derived ${virtualCore} from avg(${assessed.join(', ')})`,
+                  );
+                }
               }
             }
           }
 
-          // Add to activePrograms (accumulative — don't overwrite existing)
+          // Add to activePrograms (accumulative — don't overwrite existing).
+          // Validate the templateId resolves to a real Program before
+          // writing — this is the safety net against the "פ" bug class
+          // (corrupt single-character ids, hand-edited Firestore data,
+          // legacy slugs that no longer match any program). A rejected
+          // entry is logged loudly so the regression is visible without
+          // requiring the user to hit WorkoutTrio's "0 exercises" edge.
           if (!existingProgramIds.has(result.programId)) {
+            if (!(await isValidProgramTemplateId(result.programId))) {
+              console.warn(
+                '🚨 [OnboardingSync] Rejecting activePrograms entry — programId ' +
+                'failed getProgramByTemplateId() validation:',
+                JSON.stringify(result.programId),
+              );
+              continue;
+            }
             const focusDomains =
               isPathCSkills && result.programId === 'calisthenics_upper'
                 ? skillIds
@@ -918,25 +1178,82 @@ export async function syncOnboardingToFirestore(
           }
         }
 
+        // ── Ghost Data Purge (Path C) ─────────────────────────────────
+        // Path C users register via a single (or multi) skill selection and are
+        // never assessed on the legs / core foundational tracks.  The
+        // `initialDomains` bootstrap stamps every CMS program with
+        // `currentLevel: 0` so the document has a complete shape, but for skill
+        // users those zeros are pure ghost data — they would otherwise:
+        //   • Pollute master-program averages (upper_body, full_body) with L0
+        //     summands that drag the computed master level downwards.
+        //   • Render fake "Level 0" progress bars on the dashboard for tracks
+        //     the user was never offered to assess.
+        //   • Break the strict spreadsheet rule that unassessed foundational
+        //     domains must remain ABSENT (not zero).
+        //
+        // The purge is strictly conditional:
+        //   • Only fires for Path C users (`isPathCSkills`).
+        //   • Only strips `legs` and `core` (push/pull may have been derived
+        //     via SKILL_TO_FOUNDATION_OFFSET and must be preserved).
+        //   • Only strips entries the quiz did NOT explicitly assess
+        //     (currentLevel === 0) — any legitimately assessed value stays.
+        if (isPathCSkills) {
+          for (const ghostDomain of ['legs', 'core'] as const) {
+            const wasAssessed = (quizTracks[ghostDomain]?.currentLevel ?? 0) > 0;
+            if (wasAssessed) continue;
+            const seeded = seededDomains[ghostDomain];
+            if (seeded && seeded.currentLevel === 0) {
+              delete seededDomains[ghostDomain];
+            }
+            const merged = mergedTracks[ghostDomain];
+            if (merged && (merged.currentLevel ?? 0) === 0) {
+              delete mergedTracks[ghostDomain];
+            }
+          }
+          console.log(
+            '[OnboardingSync] Path C Ghost Purge: stripped unassessed `legs`/`core` placeholders. ' +
+            `Remaining domains: [${Object.keys(seededDomains).join(', ')}], ` +
+            `tracks: [${Object.keys(mergedTracks).join(', ')}]`,
+          );
+        }
+
         // Merge activePrograms (keep existing + add new from quiz)
         const mergedActivePrograms = [
           ...existingActivePrograms,
           ...activeProgramEntries,
         ];
 
+        // Validate the primary fallback before we use it as the sole
+        // activePrograms entry. If `mergedActivePrograms` is non-empty
+        // we don't need this fallback at all and skip the validation.
+        const primaryFallbackValid =
+          mergedActivePrograms.length > 0 ||
+          (await isValidProgramTemplateId(primaryProgramId));
+        if (mergedActivePrograms.length === 0 && !primaryFallbackValid) {
+          console.warn(
+            '🚨 [OnboardingSync] primaryProgramId failed validation — refusing ' +
+            'to seed activePrograms with a corrupt fallback:',
+            JSON.stringify(primaryProgramId),
+          );
+        }
+
         updateData.progression = {
           ...updateData.progression,
           domains: seededDomains,
           tracks: mergedTracks,
-          activePrograms: mergedActivePrograms.length > 0 ? mergedActivePrograms : [{
-            id: primaryProgramId,
-            templateId: primaryProgramId,
-            name: primaryProgramId.replace(/_/g, ' '),
-            startDate: new Date().toISOString(),
-            durationWeeks: 52,
-            currentWeek: 1,
-            focusDomains: [primaryProgramId] as any,
-          }],
+          activePrograms: mergedActivePrograms.length > 0
+            ? mergedActivePrograms
+            : primaryFallbackValid
+              ? [{
+                  id: primaryProgramId,
+                  templateId: primaryProgramId,
+                  name: primaryProgramId.replace(/_/g, ' '),
+                  startDate: new Date().toISOString(),
+                  durationWeeks: 52,
+                  currentWeek: 1,
+                  focusDomains: [primaryProgramId] as any,
+                }]
+              : [],
           ...(isPathCSkills && skillIds.length >= 2 ? { skillFocusIds: skillIds } : {}),
         };
 
@@ -969,6 +1286,20 @@ export async function syncOnboardingToFirestore(
           [assignedProgramId]: { currentLevel: initialLevel, percent: 0 },
         };
 
+        // Validate the GOAL_TO_PROGRAM fallback id resolves before we
+        // seed activePrograms with it. If it doesn't, leave activePrograms
+        // empty so downstream consumers (WorkoutTrio, ActiveProgramsCarousel)
+        // surface "no program assigned" instead of inheriting a corrupt
+        // templateId that silently produces 0 exercises.
+        const assignedProgramIdValid = await isValidProgramTemplateId(assignedProgramId);
+        if (!assignedProgramIdValid) {
+          console.warn(
+            '🚨 [OnboardingSync] GOAL_TO_PROGRAM produced an unresolvable id — ' +
+            'refusing to seed activePrograms with it:',
+            JSON.stringify(assignedProgramId),
+          );
+        }
+
         // Also set the main active program in progression if not already set
         const existingPrograms = updateData.progression?.activePrograms;
         if (!existingPrograms || existingPrograms.length === 0) {
@@ -976,7 +1307,7 @@ export async function syncOnboardingToFirestore(
             ...updateData.progression,
             domains: initialDomains,
             tracks: initialTracks,
-            activePrograms: [{
+            activePrograms: assignedProgramIdValid ? [{
               id: assignedProgramId,
               templateId: assignedProgramId,
               name: assignedProgramId.replace(/_/g, ' '),
@@ -984,7 +1315,7 @@ export async function syncOnboardingToFirestore(
               durationWeeks: 52,
               currentWeek: 1,
               focusDomains: [assignedProgramId] as any,
-            }],
+            }] : [],
           };
         } else {
           // At minimum, ensure domains and tracks are populated
@@ -1274,20 +1605,32 @@ export async function syncOnboardingToFirestore(
     }
 
     // ─── Trigger Master Program Recalculation (if tracks exist) ────────────
+    // This runs FIRE-AND-FORGET so it does NOT block router.replace('/home').
+    // Rationale:
+    //   • The operation is explicitly non-critical (will re-run on first workout).
+    //   • Each of the 12+ track keys spawns a Firestore waterfall
+    //     (getDocs + getDoc × N + updateDoc). Running them serially with `await`
+    //     inside syncOnboardingToFirestore was the dominant cause of the 3-8 s lag
+    //     between clicking the final CTA and seeing the Home screen.
+    //   • We kick off all keys concurrently with Promise.all (not sequentially)
+    //     to halve the Firestore round-trips even in the background.
     if (step === 'COMPLETED' && updateData.progression?.tracks) {
-      try {
-        const trackKeys = Object.keys(updateData.progression.tracks);
-        console.log(`[OnboardingSync] Recalculating master levels for ${trackKeys.length} tracks...`);
-        
-        for (const childProgramId of trackKeys) {
-          await recalculateAncestorMasters(user.uid, childProgramId);
-        }
-        
-        console.log('✅ [OnboardingSync] Master program levels recalculated after onboarding');
-      } catch (masterErr) {
-        console.warn('[OnboardingSync] Master recalculation failed (non-critical):', masterErr);
-        // Non-critical: will recalculate on first workout if this fails
-      }
+      const trackKeys = Object.keys(updateData.progression.tracks);
+      console.log(
+        `[OnboardingSync] Kicking off background master-level recalculation for ${trackKeys.length} tracks (non-blocking).`,
+      );
+      // Intentionally NOT awaited — navigation proceeds immediately.
+      Promise.all(
+        trackKeys.map((childProgramId) =>
+          recalculateAncestorMasters(user.uid, childProgramId),
+        ),
+      )
+        .then(() => {
+          console.log('✅ [OnboardingSync] Background master program levels recalculated.');
+        })
+        .catch((masterErr) => {
+          console.warn('[OnboardingSync] Background master recalculation failed (non-critical):', masterErr);
+        });
     }
 
     // Log analytics event with step index

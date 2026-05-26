@@ -17,8 +17,16 @@ import type { Exercise, ExecutionLocation } from '@/features/content/exercises/c
 import type { GeneratedWorkout, WorkoutExercise } from '../logic/WorkoutGenerator';
 import type { WorkoutTrioOption } from './home-workout.types';
 import { resolveToSlug } from './program-hierarchy.utils';
-import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
+import {
+  isTimeBasedExercise,
+  getIsometricTimeCap,
+  calculateEstimatedDuration,
+} from '../logic/workout-budgeting.utils';
 import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
+import {
+  MG_TO_DOMAIN,
+  collectMethodGear,
+} from '../shared/constants/domain-mapping.constants';
 
 /**
  * Check if userProgramLevels contains a key that matches `programId`
@@ -36,18 +44,12 @@ function getLevelForProgram(levels: Map<string, number>, programId: string): num
 // ============================================================================
 // GEAR HELPERS (Essential Gear Exception)
 // ============================================================================
-
-export function collectAllGearIds(
-  method: { gearIds?: string[]; gearId?: string; equipmentIds?: string[]; equipmentId?: string } | undefined,
-): string[] {
-  if (!method) return [];
-  const ids: string[] = [];
-  if (method.gearIds) ids.push(...method.gearIds);
-  else if (method.gearId) ids.push(method.gearId);
-  if (method.equipmentIds) ids.push(...method.equipmentIds);
-  else if (method.equipmentId) ids.push(method.equipmentId);
-  return ids.filter(Boolean);
-}
+//
+// `collectMethodGear` (the unified raw-gear collector) is now imported from
+// `../shared/constants/domain-mapping.constants`.  The previous local
+// `collectAllGearIds` export has been retired — `warmup.service.ts` and any
+// other consumers should import `collectMethodGear` from the constants
+// module directly.
 
 export function isEssentialGear(gearId: string): boolean {
   return ESSENTIAL_PARK_GEAR.has(normalizeGearId(gearId));
@@ -75,19 +77,152 @@ export function hasGearKeywordInText(exercise: Exercise): boolean {
 }
 
 // ============================================================================
+// WARMUP FLOOR — Movement-pattern-aware safety floor
+// ============================================================================
+
+/**
+ * Maps raw movementGroup values to the three broad training patterns used for
+ * warmup-floor enforcement.  Any movement group not listed here (e.g. 'core')
+ * is treated as pattern-agnostic and does not require a dedicated warmup item.
+ */
+const MG_TO_WARMUP_PATTERN: Record<string, 'push' | 'pull' | 'legs'> = {
+  vertical_pull:   'pull',
+  horizontal_pull: 'pull',
+  vertical_push:   'push',
+  horizontal_push: 'push',
+  squat:  'legs',
+  hinge:  'legs',
+  lunge:  'legs',
+};
+
+/**
+ * Returns true when a single reasoning string produced by warmup.service.ts
+ * corresponds to the requested movement pattern.  Covers both potentiation
+ * ("warmup: potentiation (vertical_pull)") and regression
+ * ("warmup: pull regression (L1–L3)") naming conventions.
+ */
+function warmupReasonMatchesPattern(
+  reason: string,
+  pattern: 'push' | 'pull' | 'legs',
+): boolean {
+  const r = reason.toLowerCase();
+  switch (pattern) {
+    case 'pull': return r.includes('pull');
+    case 'push': return r.includes('push');
+    case 'legs': return r.includes('legs') || r.includes('squat') || r.includes('hinge') || r.includes('lunge');
+  }
+}
+
+/**
+ * Returns the minimum warmup subset that must be preserved to maintain
+ * movement-pattern safety:
+ *   1. The single "general mobility" warmup (Part A, always present if generated).
+ *   2. One pattern-specific warmup (potentiation or regression) for each of
+ *      Push / Pull / Legs that is actively represented in the main exercises.
+ *
+ * This is a strict SUBSET of the incoming warmup array — no new exercises are
+ * ever created here.  Callers that perform warmup trimming must retain at least
+ * this set to guarantee anatomically-complete movement preparation.
+ *
+ * Floor size: 1 (general) + 0–3 (active patterns) = 1–4 warmup items.
+ */
+export function buildWarmupFloor(
+  warmups: WorkoutExercise[],
+  mainExercises: WorkoutExercise[],
+): WorkoutExercise[] {
+  // Detect which broad patterns are active in the main workout
+  const activePatterns = new Set<'push' | 'pull' | 'legs'>();
+  for (const ex of mainExercises) {
+    const pattern = MG_TO_WARMUP_PATTERN[ex.exercise.movementGroup ?? ''];
+    if (pattern) activePatterns.add(pattern);
+  }
+
+  const floor: WorkoutExercise[] = [];
+  const floorIds = new Set<string>();
+
+  // Part 1: always preserve the general mobility warmup
+  const general = warmups.find(w => w.reasoning.some(r => r.includes('general mobility')));
+  if (general && !floorIds.has(general.exercise.id)) {
+    floor.push(general);
+    floorIds.add(general.exercise.id);
+  }
+
+  // Part 2: up to 4 pattern-specific warmup items per active movement pattern
+  // (The David Scale may assign 1–4 slots per family; we preserve all of them.)
+  for (const pattern of activePatterns) {
+    const matches = warmups
+      .filter(w =>
+        !floorIds.has(w.exercise.id) &&
+        w.reasoning.some(r => warmupReasonMatchesPattern(r, pattern)),
+      )
+      .slice(0, 4);
+    for (const m of matches) {
+      floor.push(m);
+      floorIds.add(m.exercise.id);
+    }
+  }
+
+  return floor;
+}
+
+// ============================================================================
+// HOME-EXCLUSIVE FURNITURE — Park Fallback Audit
+// ============================================================================
+
+/**
+ * Canonical gear IDs (lower-cased) that only make sense indoors.
+ * Any exercise whose execution method references these must be excluded
+ * from the global-pool fallback when the session location is 'park'.
+ * Exported so warmup.service.ts can apply the same ban at generation time.
+ */
+export const HOME_EXCLUSIVE_GEAR_IDS = new Set([
+  'sofa', 'couch', 'door_anchor', 'door_frame', 'doorframe',
+  'door', 'bed', 'desk',
+]);
+
+/**
+ * Text keywords for home-exclusive furniture — catches exercise names or tags
+ * that reference indoor-only props even when gear IDs are absent.
+ * Exported so warmup.service.ts can apply the same ban at generation time.
+ */
+export const HOME_FURNITURE_KEYWORDS = [
+  'sofa', 'ספה', 'couch', 'door_anchor', 'door anchor',
+  'door_frame', 'doorframe', 'עוגן דלת', 'מסגרת דלת',
+];
+
+/**
+ * Returns true when an exercise relies on home-exclusive furniture —
+ * either via a method's gear IDs or via name/tag keywords.
+ * Used to guard the global-pool fallback for park sessions.
+ */
+function hasHomeFurniture(ex: Exercise): boolean {
+  const methods = (ex as any).execution_methods ?? ex.executionMethods ?? [];
+  for (const m of methods) {
+    const gearIds = collectMethodGear(m as any).map(g => g.toLowerCase());
+    if (gearIds.some(g => HOME_EXCLUSIVE_GEAR_IDS.has(g))) return true;
+  }
+  const name = typeof ex.name === 'string'
+    ? ex.name
+    : (((ex.name as any)?.he ?? '') + ' ' + ((ex.name as any)?.en ?? ''));
+  const tags = (ex.tags ?? []).join(' ');
+  const combined = (name + ' ' + tags).toLowerCase();
+  return HOME_FURNITURE_KEYWORDS.some(kw => combined.includes(kw));
+}
+
+// ============================================================================
 // OPTION 2 — INTENSE (+1 to +3 levels, increased rest, volume fallback)
 // ============================================================================
 
 const INTENSE_REST_FLOOR = 90;
 const MAX_MAIN = 5;   // raised from 3 — Option 3 must have substance
 const MAX_CORE = 1;
-const MAX_POTENTIATION = 1;
 
 export function applyIntenseOption(
   workout: GeneratedWorkout,
   _blacklistedIds: Set<string>,
   userProgramLevels: Map<string, number>,
   allExercises: Exercise[],
+  location?: ExecutionLocation,
 ): void {
   const warmups = workout.exercises.filter(ex => ex.exerciseRole === 'warmup');
   const cooldowns = workout.exercises.filter(ex => ex.exerciseRole === 'cooldown');
@@ -95,10 +230,13 @@ export function applyIntenseOption(
     ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
   );
 
-  const potentiationWarmups = warmups.filter(ex =>
-    ex.reasoning.some(r => r.includes('potentiation')),
-  );
-  const keptWarmups = potentiationWarmups.slice(0, MAX_POTENTIATION);
+  // Movement-pattern-aware warmup floor.
+  // Previous logic kept only MAX_POTENTIATION=1 potentiation warmup and
+  // silently dropped the general mobility warmup and all regression items.
+  // buildWarmupFloor preserves: (a) the general warmup, (b) one pattern-specific
+  // item for each of Push / Pull / Legs represented in the main exercises.
+  // Floor size: 1–4 warmup items depending on the active movement anatomy.
+  const keptWarmups = buildWarmupFloor(warmups, main);
   const droppedWarmups = warmups.length - keptWarmups.length;
 
   const isCore = (ex: WorkoutExercise): boolean => {
@@ -114,11 +252,9 @@ export function applyIntenseOption(
   // Guarantee at least one Push, one Pull, and one Legs exercise among the
   // MAX_MAIN non-core slots.  This prevents "all-Pull" sessions even when Pull
   // exercises score highest (e.g., David at L19 Pull).
-  const MG_TO_DOMAIN_INTENSE: Record<string, string> = {
-    vertical_pull: 'pull',  horizontal_pull: 'pull',
-    vertical_push: 'push',  horizontal_push: 'push',
-    squat: 'legs', hinge: 'legs', lunge: 'legs',
-  };
+  // Uses the canonical MG_TO_DOMAIN (foundational + skill MGs) — skill MGs
+  // resolve to their own program slug so they are correctly excluded from
+  // the push/pull/legs domain quota check below.
   const REQUIRED_DOMAINS_INTENSE = ['push', 'pull', 'legs'] as const;
 
   const intenseSelected: typeof nonCorePool = [];
@@ -136,7 +272,7 @@ export function applyIntenseOption(
   for (const domain of REQUIRED_DOMAINS_INTENSE) {
     const best = sortedNonCore.find(e =>
       !intenseUsed.has(e.exercise.id) &&
-      MG_TO_DOMAIN_INTENSE[e.exercise.movementGroup ?? ''] === domain,
+      MG_TO_DOMAIN[e.exercise.movementGroup ?? ''] === domain,
     );
     if (best) {
       intenseSelected.push(best);
@@ -153,55 +289,24 @@ export function applyIntenseOption(
     }
   }
 
-  // Third pass (global pool fallback): if the scored pool was too small,
-  // draw level-appropriate exercises from the full DB to always reach MAX_MAIN.
+  // Third pass — DISABLED for Intense option.
+  // The old global pool fallback padded Intense workouts with low-quality isolation
+  // exercises (e.g. Ankle Mobility) just to hit MAX_MAIN.  For elite sessions it is
+  // better to stay at fewer, heavy compound exercises and compensate via extra sets
+  // than to pollute the session with mismatched movements.
+  //
+  // If the engine found < MAX_MAIN exercises, we accept the smaller roster and let
+  // assignVolume redistribute the set budget across the available slots.
   if (intenseSelected.length < MAX_MAIN) {
     const maxUserLevel = Math.max(...Array.from(userProgramLevels.values()), 1);
-    const template = intenseSelected[intenseSelected.length - 1] ?? main[0];
-    const beforeFallback = intenseSelected.length;
-
-    if (template) {
-      const fallbackCandidates = allExercises.filter(ex =>
-        !intenseUsed.has(ex.id)
-        && ex.exerciseRole !== 'warmup'
-        && ex.exerciseRole !== 'cooldown'
-        && !(ex.movementGroup === 'core' || ex.primaryMuscle === 'core' || ex.primaryMuscle === 'abs')
-        && ex.targetPrograms?.some(tp => {
-          const userLvl = getLevelForProgram(userProgramLevels, tp.programId);
-          return userLvl !== undefined && Math.abs(tp.level - userLvl) <= 4;
-        }),
-      );
-
-      for (const candidate of fallbackCandidates) {
-        if (intenseSelected.length >= MAX_MAIN) break;
-        const newIsTimeBased = isTimeBasedExercise(candidate);
-        const typeChanged = newIsTimeBased !== template.isTimeBased;
-        intenseSelected.push({
-          ...template,
-          exercise: candidate,
-          method: (candidate.executionMethods?.[0] ?? template.method) as any,
-          mechanicalType: (candidate.mechanicalType || 'none') as any,
-          isTimeBased: newIsTimeBased,
-          reps: typeChanged ? (newIsTimeBased ? 30 : Math.min(template.reps, 12)) : template.reps,
-          repsRange: typeChanged
-            ? (newIsTimeBased ? { min: 20, max: 45 } : { min: 6, max: 12 })
-            : template.repsRange,
-          reasoning: [...(template.reasoning ?? []), 'intense_global_pool_fallback'],
-        });
-        intenseUsed.add(candidate.id);
-      }
-
-      if (intenseSelected.length > beforeFallback) {
-        console.log(
-          `[WorkoutTrio] Intense: global pool fallback added ${intenseSelected.length - beforeFallback} ` +
-          `exercise(s) (maxLevel=${maxUserLevel})`,
-        );
-      }
-    }
+    console.log(
+      `[WorkoutTrio] Intense: only ${intenseSelected.length}/${MAX_MAIN} slots filled ` +
+      `(maxLevel=${maxUserLevel}) — keeping quality roster, global fallback suppressed`,
+    );
   }
 
   const domainsRepresented = [...new Set(
-    intenseSelected.map(e => MG_TO_DOMAIN_INTENSE[e.exercise.movementGroup ?? ''] ?? 'other'),
+    intenseSelected.map(e => MG_TO_DOMAIN[e.exercise.movementGroup ?? ''] ?? 'other'),
   )];
   console.log(
     `[WorkoutTrio] Intense selection: ${intenseSelected.length}/${MAX_MAIN} slots filled, ` +
@@ -241,16 +346,49 @@ export function applyIntenseOption(
         const replaced = keptMain[lowestIdx];
         const newIsTimeBased = isTimeBasedExercise(candidate);
         const typeChanged = newIsTimeBased !== replaced.isTimeBased;
+
+        // When the candidate is time-based we ALWAYS clamp the hold duration
+        // to the candidate's physiological ceiling — regardless of whether
+        // the swap changed the type (rep ↔ time) or the candidate replaces
+        // an already time-based slot.
+        //
+        // Why this matters (Phase 3d fix — Same-Type Isometric Leak):
+        //   Pre-fix, the cap was gated by `typeChanged && newIsTimeBased`.
+        //   That meant a time-based-to-time-based swap (e.g. L-sit hold →
+        //   planche hold) inherited the OLD 30s reps target.  With a
+        //   physiological cap of 15s on planche, the user would silently
+        //   train 2× the safe hold, defeating the isometric safety floor.
+        //
+        // getIsometricTimeCap returns:
+        //   15 s — elite skill levers (planche, front lever, named 'פלאנץ' etc.)
+        //   45 s — standard conditioning (planks, L-sit, hangs)
+        //
+        // We additionally clamp to 20 s maximum so intense-day injections
+        // stay within a realistic D3 hold window even for non-skill
+        // conditioning exercises.
+        // Result examples:
+        //   planche hold (any swap)  → cap=15 → injectedHold=15, range={10,15}  ✓
+        //   L-sit hold (any swap)    → cap=45 → injectedHold=20, range={15,20}  ✓
+        const injectedHold = newIsTimeBased
+          ? Math.min(getIsometricTimeCap(candidate), 20)
+          : 0;
+
         keptMain[lowestIdx] = {
           ...replaced,
           exercise: candidate,
           method: (candidate.executionMethods?.[0] ?? replaced.method) as any,
           mechanicalType: (candidate.mechanicalType || 'none') as any,
           isTimeBased: newIsTimeBased,
-          reps: typeChanged ? (newIsTimeBased ? 30 : Math.min(replaced.reps, 12)) : replaced.reps,
-          repsRange: typeChanged
-            ? (newIsTimeBased ? { min: 20, max: 45 } : { min: 6, max: 12 })
-            : replaced.repsRange,
+          // When the candidate is time-based, ALWAYS use the safe-capped hold —
+          // never inherit the previous slot's reps value.  When the candidate
+          // is rep-based, only mutate reps when the type actually changed
+          // (so a rep→rep swap preserves the user's existing rep target).
+          reps: newIsTimeBased
+            ? injectedHold
+            : (typeChanged ? Math.min(replaced.reps, 12) : replaced.reps),
+          repsRange: newIsTimeBased
+            ? { min: Math.max(5, injectedHold - 5), max: injectedHold }
+            : (typeChanged ? { min: 6, max: 12 } : replaced.repsRange),
           reasoning: [...replaced.reasoning, `david_rule:level_${targetLevel}_inject`],
         };
         injectedLevel = targetLevel;
@@ -284,18 +422,21 @@ export function applyIntenseOption(
   workout.exercises = allKept;
   workout.totalPlannedSets = allKept.reduce((s, ex) => s + ex.sets, 0);
 
-  const durationSeconds = allKept.reduce(
-    (acc, ex) => acc + ex.sets * ((ex.isTimeBased ? ex.reps : 45) + ex.restSeconds),
-    0,
-  );
-  workout.estimatedDuration = Math.max(1, Math.round(durationSeconds / 60));
+  // Use the canonical estimator from workout-budgeting.utils so the Intense
+  // variant respects the same rep-based / time-based / rest-aware math that
+  // every other branch of the pipeline uses.  The previous private 45s
+  // reduce was a stale heuristic that ignored isometric tier caps and the
+  // tier-staircase rest values.
+  workout.estimatedDuration = calculateEstimatedDuration(allKept);
 
   workout.difficulty = 3 as any;
 
+  const generalKept = keptWarmups.filter(w => w.reasoning.some(r => r.includes('general mobility'))).length;
+  const patternKept = keptWarmups.length - generalKept;
   console.log(
-    `[WorkoutTrio] Intense: ${keptWarmups.length} potentiation, ` +
+    `[WorkoutTrio] Intense: ${generalKept} general + ${patternKept} pattern warmups (floor), ` +
     `${keptNonCore.length} main(domains:${domainsRepresented.join('/')}) + ${keptCore.length} core, ` +
-    `dropped ${droppedWarmups} warmups, rest≥${INTENSE_REST_FLOOR}s, ` +
+    `dropped ${droppedWarmups} non-floor warmups, rest≥${INTENSE_REST_FLOOR}s, ` +
     `David Rule: ${hasHigherLevel ? 'natural' : injectedLevel ? `injected L${injectedLevel}` : 'volume_fallback'} → ~${workout.estimatedDuration} min`,
   );
 }
@@ -303,8 +444,6 @@ export function applyIntenseOption(
 // ============================================================================
 // OPTION 3 — FLOW / TECHNICAL (regression -1 to -3, rep compensation)
 // ============================================================================
-
-const FLOW_REP_MULTIPLIER = 1.2;
 
 /**
  * Regression floor: advanced users should never regress into
@@ -323,6 +462,7 @@ export function applyFlowRegression(
   allExercises: Exercise[],
   _blacklistedIds: Set<string>,
   location?: ExecutionLocation,
+  activeProgramId?: string,
 ): void {
   workout.difficulty = 1 as any;
 
@@ -331,7 +471,21 @@ export function applyFlowRegression(
   );
   if (main.length === 0) return;
 
-  const maxUserLevel = Math.max(...Array.from(userProgramLevels.values()), 1);
+  // Use the active skill program's level as the reference for the regression
+  // floor — not the global maximum across all domains.
+  //
+  // Problem: for a Planche L7 / Push L16 user, the global max is 16.
+  // `regressionFloor(16) = 12`, so the flow swapper refuses to go below L12,
+  // which is the user's Planche CEILING — making "flow" exercises impossible.
+  //
+  // Fix: when activeProgramId maps to a level in userProgramLevels (e.g.
+  // planche → L7), use THAT level: `regressionFloor(7) = 3`.  Only fall back
+  // to the global max when no active skill program is resolvable.
+  const activeSkillLevel: number | undefined = activeProgramId
+    ? (userProgramLevels.get(activeProgramId) ??
+       userProgramLevels.get(resolveToSlug(activeProgramId)))
+    : undefined;
+  const maxUserLevel = activeSkillLevel ?? Math.max(...Array.from(userProgramLevels.values()), 1);
   const levelFloor = regressionFloor(maxUserLevel);
   const usedIds = new Set(workout.exercises.map(ex => ex.exercise.id));
 
@@ -358,7 +512,7 @@ export function applyFlowRegression(
         if (hasGearKeywordInText(raw)) return false;
         const methods = raw.execution_methods ?? raw.executionMethods ?? [];
         const hasNakedMethod = methods.length === 0
-          || methods.some(m => isGearFree(collectAllGearIds(m as any), true));
+          || methods.some(m => isGearFree(collectMethodGear(m as any), true));
         if (!hasNakedMethod) return false;
         return true;
       });
@@ -369,11 +523,12 @@ export function applyFlowRegression(
         usedIds.add(replacement.id);
         ex.exercise = replacement;
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
-          .find(m => isGearFree(collectAllGearIds(m as any), true));
+          .find(m => isGearFree(collectMethodGear(m as any), true));
         ex.method = (nakedMethod ?? replacement.executionMethods?.[0] ?? ex.method) as any;
-        ex.reps = Math.round(oldReps * FLOW_REP_MULTIPLIER);
+        // Reps are deliberately NOT multiplied: the regression swap to a lower-level
+        // exercise already reduces difficulty.  Stacking a ×1.2 rep bonus on top of
+        // bolt 1's 10–12 base would push volume above normal (bolt 2) levels.
         ex.reasoning.push(`flow_regression:L${exLevel}→L${targetLevel}(floor=L${levelFloor})`);
-        ex.reasoning.push(`flow_rep_compensation:${oldReps}→${ex.reps}`);
         swapped++;
         found = true;
         break;
@@ -381,18 +536,36 @@ export function applyFlowRegression(
     }
 
     if (!found && exLevel > 1) {
-      const oldReps = ex.reps;
-      ex.reps = Math.round(oldReps * FLOW_REP_MULTIPLIER);
-      ex.reasoning.push(`flow_rep_compensation_inplace:${oldReps}→${ex.reps}`);
+      // No lower-level swap was possible; reps remain at the bolt 1 base
+      // (DIFFICULTY_VOLUME[1]: 10–12).  A ×1.2 in-place bump is omitted for
+      // the same reason: the bolt table already encodes the Easy volume intent.
+      ex.reasoning.push(`flow_no_swap:exLevel=${exLevel}(floor=L${levelFloor})`);
     }
   }
 
   console.log(
     `[WorkoutTrio] Flow: swapped ${swapped}/${main.length} exercises ` +
-    `(regression -1/-2/-3, floor=L${levelFloor}, rep×${FLOW_REP_MULTIPLIER})`,
+    `(regression -1/-2/-3, floor=L${levelFloor}, reps unchanged)`,
   );
 
   applyEssentialGearFilter(workout, _blacklistedIds, allExercises, location);
+
+  // Belt-and-suspenders warmup floor enforcement.
+  // applyEssentialGearFilter preserves all warmup exercises unchanged (it only
+  // operates on main exercises), so the floor is almost always already intact.
+  // This guard catches any future code path that might inadvertently trim warmups.
+  const flowWarmups = workout.exercises.filter(ex => ex.exerciseRole === 'warmup');
+  const flowMain    = workout.exercises.filter(ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown');
+  const flowCooldowns = workout.exercises.filter(ex => ex.exerciseRole === 'cooldown');
+  const flowFloor = buildWarmupFloor(flowWarmups, flowMain);
+  if (flowFloor.length < flowWarmups.length) {
+    // This should never fire — log a warning if it does so we know to investigate.
+    console.warn(
+      `[WorkoutTrio] Flow: warmup floor (${flowFloor.length}) < generated warmups (${flowWarmups.length}) ` +
+      `— floor enforcement active`,
+    );
+    workout.exercises = [...flowFloor, ...flowMain, ...flowCooldowns];
+  }
 }
 
 // ============================================================================
@@ -416,7 +589,7 @@ export function applyEssentialGearFilter(
     return;
   }
   const isNaked = (ex: WorkoutExercise): boolean => {
-    if (!isGearFree(collectAllGearIds(ex.method as any), true)) return false;
+    if (!isGearFree(collectMethodGear(ex.method as any), true)) return false;
     if (hasGearKeywordInText(ex.exercise)) return false;
     return true;
   };
@@ -425,7 +598,7 @@ export function applyEssentialGearFilter(
     if (hasGearKeywordInText(ex)) return false;
     const methods = ex.execution_methods ?? ex.executionMethods ?? [];
     if (methods.length === 0) return true;
-    return methods.some(m => isGearFree(collectAllGearIds(m as any), true));
+    return methods.some(m => isGearFree(collectMethodGear(m as any), true));
   };
 
   const warmups = workout.exercises.filter(ex => ex.exerciseRole === 'warmup');
@@ -437,7 +610,7 @@ export function applyEssentialGearFilter(
   let nakedMain: typeof main = [];
   let gearRemoved = 0;
   for (const ex of main) {
-    const gearIds = collectAllGearIds(ex.method as any);
+    const gearIds = collectMethodGear(ex.method as any);
     const gearFree = isGearFree(gearIds, true);
     const keywordHit = hasGearKeywordInText(ex.exercise);
     const pass = gearFree && !keywordHit;
@@ -470,7 +643,7 @@ export function applyEssentialGearFilter(
     const backfill = candidates.slice(0, needed);
     for (const raw of backfill) {
       const nakedMethod = (raw.execution_methods ?? raw.executionMethods ?? [])
-        .find(m => isGearFree(collectAllGearIds(m as any), true));
+        .find(m => isGearFree(collectMethodGear(m as any), true));
       nakedMain.push({
         exercise: raw,
         score: 0,
@@ -512,7 +685,7 @@ export function applyEssentialGearFilter(
       );
       if (replacement) {
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
-          .find(m => isGearFree(collectAllGearIds(m as any), true));
+          .find(m => isGearFree(collectMethodGear(m as any), true));
         clean.push({
           ...violator,
           exercise: replacement,
@@ -539,7 +712,7 @@ export function applyEssentialGearFilter(
   const essentialGearUsed = new Set<string>();
   for (const ex of workout.exercises) {
     if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown') continue;
-    const ids = collectAllGearIds(ex.method as any);
+    const ids = collectMethodGear(ex.method as any);
     for (const g of ids) {
       const lower = g.toLowerCase();
       if (lower === 'bodyweight' || lower === 'none') continue;
@@ -622,7 +795,7 @@ export function logTrioSummary(
     const gearIds = new Set<string>();
     for (const ex of w.exercises) {
       if (ex.exerciseRole === 'warmup' || ex.exerciseRole === 'cooldown') continue;
-      const ids = collectAllGearIds(ex.method as any);
+      const ids = collectMethodGear(ex.method as any);
       for (const g of ids) {
         const lower = g.toLowerCase();
         if (lower !== 'bodyweight' && lower !== 'none') {

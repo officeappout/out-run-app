@@ -56,6 +56,7 @@ export default function EditGearDefinitionPage() {
         allowedLocations: Array.isArray(gear.allowedLocations) ? gear.allowedLocations : [],
         defaultLocation: gear.defaultLocation || undefined,
         lifestyleTags: Array.isArray(gear.lifestyleTags) ? gear.lifestyleTags : [],
+        isOptional: gear.isOptional ?? false,
       });
     } catch (error) {
       console.error('Error loading gear definition:', error);

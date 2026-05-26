@@ -47,7 +47,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { getAuthority } from '@/features/admin/services/authority.service';
@@ -144,6 +144,25 @@ async function persistResolvedCity(normalized: string): Promise<boolean> {
   log(
     `persist ${wrote ? 'OK' : 'NO-OP'}: name="${normalized}", authorityId=${authorityId ?? 'none'}, tier=${tier}`,
   );
+
+  // Commit gpsEnabled=true so the onboarding checklist "אפשר גישה ל-GPS"
+  // task (which reads profile.core.gpsEnabled) flips to complete.
+  // This is the only code path where the map-flow GPS grant lands — the home
+  // page has its own setDoc call, but the map flow only called addAffiliation
+  // which never touched gpsEnabled.  We always run this regardless of whether
+  // `wrote` was a fresh affiliation or a dedup skip, because a returning user
+  // whose city affiliation already exists may still be missing the flag.
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { 'core.gpsEnabled': true });
+    // Mirror into the Zustand store immediately so the checklist re-renders
+    // without waiting for a full refreshProfile() round-trip.
+    useUserStore.getState().updateProfile({ core: { gpsEnabled: true } } as any);
+    log('persist: core.gpsEnabled → true (gpsAccess checklist synced)');
+  } catch (err) {
+    log('persist: gpsEnabled write failed', err);
+  }
+
   return wrote;
 }
 

@@ -15,11 +15,13 @@
  * appear instantly via the in-memory overlay (Native Phase, Apr 2026).
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Footprints, ChevronLeft } from 'lucide-react';
 import CircularProgress from '@/components/CircularProgress';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
+import { useSettingsStore } from '@/features/home/store/useSettingsStore';
+import { requestHealthPermissions } from '@/lib/healthBridge/init';
 
 const FALLBACK_STEPS_GOAL = 10_000;
 
@@ -38,14 +40,39 @@ interface StepsSummaryCardProps {
 export default function StepsSummaryCard({ className = '', variant = 'default' }: StepsSummaryCardProps) {
   const router = useRouter();
   const { stepsToday, todayActivity } = useLiveDailyActivity();
+  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  const patchSettings = useSettingsStore((s) => s.patch);
 
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage =
     goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
 
-  const handleOpen = () => {
-    router.push('/activity/steps');
-  };
+  const handleOpen = useCallback(async () => {
+    // If permissions are already granted, go straight to the analytics page.
+    if (healthBridgeEnabled) {
+      router.push('/activity/steps');
+      return;
+    }
+    // On web / desktop we can't trigger the native dialog — just navigate.
+    const isNative =
+      typeof window !== 'undefined' &&
+      Boolean((window as any).Capacitor?.isNativePlatform?.());
+    if (!isNative) {
+      router.push('/activity/steps');
+      return;
+    }
+    // Native path: show the Android Health Connect permission dialog first.
+    try {
+      const { granted } = await requestHealthPermissions();
+      if (granted) {
+        patchSettings({ healthBridgeEnabled: true });
+        router.push('/activity/steps');
+      }
+      // Permission denied — stay on current screen silently.
+    } catch {
+      // Plugin unavailable or dialog dismissed — no-op.
+    }
+  }, [healthBridgeEnabled, patchSettings, router]);
 
   const ariaLabel = `פתח ניתוח צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`;
 

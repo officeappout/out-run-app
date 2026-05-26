@@ -8,14 +8,11 @@ import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services
 import { sendAdminMagicLink } from '@/features/admin/services/passwordless-auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { Building2, Mail, AlertCircle, CheckCircle, Loader2, X, MailCheck, Search } from 'lucide-react';
+import AppLogoLoader from '@/components/AppLogoLoader';
 
 export default function AuthorityPortalLoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-cyan-600 animate-spin" />
-      </div>
-    }>
+    <Suspense fallback={<AppLogoLoader />}>
       <AuthorityPortalLoginContent />
     </Suspense>
   );
@@ -153,14 +150,7 @@ function AuthorityPortalLoginContent() {
   };
 
   if (checkingAuth) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-cyan-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">בודק הרשאות...</p>
-        </div>
-      </div>
-    );
+    return <AppLogoLoader caption="בודק הרשאות..." />;
   }
 
   return (

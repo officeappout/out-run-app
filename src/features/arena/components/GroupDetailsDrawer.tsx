@@ -21,6 +21,9 @@ import {
   Share2,
   Pencil,
   Crown,
+  Lock,
+  Copy,
+  Check,
 } from 'lucide-react';
 import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember } from '@/types/community.types';
 import { useUserStore } from '@/features/user';
@@ -108,6 +111,12 @@ export default function GroupDetailsDrawer({
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [codeUnlocked, setCodeUnlocked] = useState(false);
+  // Invite-code entry state (private groups, non-members)
+  const [inviteInput, setInviteInput] = useState('');
+  const [inviteError, setInviteError] = useState(false);
+  const [inviteCodeMode, setInviteCodeMode] = useState(false);
+  // Copy-to-clipboard feedback (member invite panel)
+  const [inviteCopied, setInviteCopied] = useState(false);
   const { showToast } = useToast();
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
@@ -704,6 +713,51 @@ export default function GroupDetailsDrawer({
                   );
                 })()}
 
+                {/* ── Invite code panel — private group members / creator ── */}
+                {!group.isPublic && (isJoined || isCreator) && group.inviteCode && (
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/40 space-y-3" dir="rtl">
+                    <div className="flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-gray-400" />
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">קוד הזמנה</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 text-center font-mono text-2xl font-black tracking-[0.25em] text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-xl py-3 border border-gray-200 dark:border-gray-600 select-all">
+                        {group.inviteCode}
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(group.inviteCode ?? '').catch(() => {});
+                          setInviteCopied(true);
+                          setTimeout(() => setInviteCopied(false), 2000);
+                        }}
+                        className="w-12 h-12 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
+                        title="העתק קוד"
+                      >
+                        {inviteCopied
+                          ? <Check className="w-4 h-4 text-emerald-500" />
+                          : <Copy className="w-4 h-4 text-gray-500" />
+                        }
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+                        const link = `${origin}/join/${group.inviteCode}`;
+                        const text = `הוזמנת להצטרף לקהילה "${group.name}"! השתמש בקוד: ${group.inviteCode}\nאו לחץ על הקישור: ${link}`;
+                        if (typeof navigator !== 'undefined' && navigator.share) {
+                          navigator.share({ title: group.name, text, url: link }).catch(() => {});
+                        } else {
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                        }
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-[0.97] shadow-lg shadow-emerald-500/20"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      הזמן חברים בוואטסאפ
+                    </button>
+                  </div>
+                )}
+
                 {/* Chat button (post-join) */}
                 {isJoined && (
                   <button
@@ -763,9 +817,10 @@ export default function GroupDetailsDrawer({
                   </div>
                 )}
 
-                {/* Join button (pre-join) — gated when group.isLocked */}
+                {/* Join button (pre-join) — three cases: tenant-locked / private / public */}
                 {!isJoined && onJoin && (
                   group.isLocked && !codeUnlocked ? (
+                    /* Case 1: tenant / unit access-code gate */
                     <AccessCodeGate
                       orgName={group.name}
                       groupType={group.groupType}
@@ -773,13 +828,86 @@ export default function GroupDetailsDrawer({
                       contactPhone={null}
                       hideSkip
                       compact
-                      onSuccess={(result: AccessCodeResult) => {
+                      onSuccess={(_result: AccessCodeResult) => {
                         setCodeUnlocked(true);
                         showToast('success', `ברוכים הבאים ל${group.name}!`);
                         onJoin(group.id);
                       }}
                     />
+                  ) : !group.isPublic ? (
+                    /* Case 2: private group — invite code required */
+                    <div className="space-y-3" dir="rtl">
+                      {!inviteCodeMode ? (
+                        <button
+                          onClick={() => setInviteCodeMode(true)}
+                          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-900 text-white shadow-lg transition-all active:scale-[0.97]"
+                        >
+                          <Lock className="w-4 h-4" />
+                          הזן קוד הצטרפות
+                        </button>
+                      ) : (
+                        <div className="space-y-2.5">
+                          <p className="text-xs text-gray-500 text-center font-semibold">
+                            זו קהילה פרטית — הזינו את קוד ההצטרפות:
+                          </p>
+                          <div className="flex gap-2">
+                            <input
+                              dir="ltr"
+                              type="text"
+                              value={inviteInput}
+                              onChange={(e) => { setInviteInput(e.target.value.toUpperCase()); setInviteError(false); }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !joining && inviteInput.trim()) {
+                                  const expected = (group.inviteCode ?? '').toUpperCase();
+                                  if (inviteInput.toUpperCase() === expected) {
+                                    setInviteError(false);
+                                    onJoin(group.id);
+                                  } else {
+                                    setInviteError(true);
+                                  }
+                                }
+                              }}
+                              maxLength={6}
+                              placeholder="XXXXXX"
+                              autoFocus
+                              className={`flex-1 text-center text-lg font-mono font-black tracking-widest border-2 rounded-2xl px-3 py-3 focus:outline-none transition-colors ${
+                                inviteError
+                                  ? 'border-red-400 bg-red-50 text-red-600'
+                                  : 'border-gray-200 focus:border-cyan-400'
+                              }`}
+                            />
+                            <button
+                              disabled={joining || !inviteInput.trim()}
+                              onClick={() => {
+                                const expected = (group.inviteCode ?? '').toUpperCase();
+                                if (inviteInput.toUpperCase() === expected) {
+                                  setInviteError(false);
+                                  onJoin(group.id);
+                                } else {
+                                  setInviteError(true);
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-black disabled:opacity-40 transition-all active:scale-95 flex-shrink-0"
+                            >
+                              {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
+                            </button>
+                          </div>
+                          {inviteError && (
+                            <p className="text-sm text-red-500 font-bold text-center">
+                              קוד שגוי, אנא נסה שנית
+                            </p>
+                          )}
+                          <button
+                            onClick={() => { setInviteCodeMode(false); setInviteInput(''); setInviteError(false); }}
+                            className="w-full text-xs text-gray-400 font-semibold py-1 hover:text-gray-600 transition-colors"
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ) : (
+                    /* Case 3: public group — join directly */
                     <button
                       disabled={joining}
                       onClick={() => { if (!joining) onJoin(group.id); }}

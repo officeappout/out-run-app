@@ -6,7 +6,8 @@ import {
   AppLanguage,
   ExerciseFormData,
 } from '../../../core/exercise.types';
-import { HelpCircle, Hash, CheckCircle2, Flame, Activity, Wind, Users, User } from 'lucide-react';
+import { HelpCircle, Hash, CheckCircle2, Flame, Activity, Wind, Users, User, Moon, Zap, AlertTriangle, Info } from 'lucide-react';
+import { safeRenderText } from '@/utils/render-helpers';
 import {
   EXERCISE_TYPE_LABELS,
   MOVEMENT_GROUP_LABELS,
@@ -200,25 +201,25 @@ export default function BasicsSection({
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">תפקיד התרגיל באימון</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
             {[
-              { value: 'main' as const, label: 'תרגיל עיקרי', icon: <Activity size={18} /> },
-              { value: 'warmup' as const, label: 'חימום', icon: <Flame size={18} /> },
-              { value: 'cooldown' as const, label: 'קירור', icon: <Wind size={18} /> },
+              { value: 'main' as const,          label: 'תרגיל עיקרי',          icon: <Activity size={18} /> },
+              { value: 'warmup' as const,        label: 'חימום',                 icon: <Flame size={18} /> },
+              { value: 'cooldown' as const,      label: 'קירור',                 icon: <Wind size={18} /> },
+              { value: 'recovery' as const,      label: 'התאוששות (יום מנוחה)', icon: <Moon size={18} /> },
+              { value: 'reinforcement' as const, label: 'חיזוקים / פינישר',     icon: <Zap size={18} /> },
             ].map((role) => (
               <button
                 key={role.value}
                 type="button"
                 onClick={() => {
                   const newRole = role.value;
-                  const shouldBeFollowAlong = newRole === 'warmup' || newRole === 'cooldown';
-                  const shouldBeCompletion = newRole === 'warmup' || newRole === 'cooldown';
-                  setFormData({ 
-                    ...formData, 
+                  const isPassiveRole = newRole === 'warmup' || newRole === 'cooldown' || newRole === 'recovery';
+                  setFormData({
+                    ...formData,
                     exerciseRole: newRole,
-                    isFollowAlong: shouldBeFollowAlong ? true : (formData.isFollowAlong || false),
-                    // Auto-select "Completion Only" for warmup/cooldown
-                    loggingMode: shouldBeCompletion ? 'completion' : (formData.loggingMode || 'reps'),
+                    isFollowAlong: isPassiveRole ? true : (formData.isFollowAlong || false),
+                    loggingMode: isPassiveRole ? 'completion' : (formData.loggingMode || 'reps'),
                   });
                 }}
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
@@ -228,7 +229,7 @@ export default function BasicsSection({
                 }`}
               >
                 {role.icon}
-                <span className="text-xs font-bold">{role.label}</span>
+                <span className="text-xs font-bold text-center leading-tight">{role.label}</span>
               </button>
             ))}
           </div>
@@ -247,8 +248,8 @@ export default function BasicsSection({
           </div>
         </div>
 
-        {/* Follow-Along Toggle (shown for warmup/cooldown) */}
-        {(formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown') && (
+        {/* Follow-Along Toggle (shown for warmup/cooldown/recovery) */}
+        {(formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown' || formData.exerciseRole === 'recovery') && (
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -297,18 +298,18 @@ export default function BasicsSection({
             <button
               type="button"
               onClick={() => {
-                // Prevent switching to 'reps' if exercise is warmup/cooldown
-                if (formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown') {
+                // Prevent switching to 'reps' if exercise is warmup/cooldown/recovery
+                if (formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown' || formData.exerciseRole === 'recovery') {
                   return; // Keep it as 'completion'
                 }
                 setFormData({ ...formData, loggingMode: 'reps' });
               }}
-              disabled={formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown'}
+              disabled={formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown' || formData.exerciseRole === 'recovery'}
               className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
                 formData.loggingMode === 'reps'
                   ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
                   : 'border-gray-200 hover:border-gray-300'
-              } ${(formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown') ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${(formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown' || formData.exerciseRole === 'recovery') ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Hash size={24} className={formData.loggingMode === 'reps' ? 'text-cyan-600' : 'text-gray-400'} />
               <span className="text-sm font-bold">מעקב חזרות</span>
@@ -331,7 +332,7 @@ export default function BasicsSection({
         </div>
 
         {/* Full Width Fields: Follow-Along Toggle */}
-        {(formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown') && (
+        {(formData.exerciseRole === 'warmup' || formData.exerciseRole === 'cooldown' || formData.exerciseRole === 'recovery') && (
           <div className="lg:col-span-2 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -352,6 +353,147 @@ export default function BasicsSection({
               במצב זה, הסרטון מתנגן מהתחלה עד הסוף והטיימר מסתנכרן עם אורך הסרטון.
               <br />
               <strong>In this mode, the video plays from start to finish and the timer syncs with the video length.</strong>
+            </p>
+          </div>
+        )}
+
+        {/* Recovery: Rest Day Settings panel */}
+        {formData.exerciseRole === 'recovery' && (() => {
+          // Resolve the canonical recovery video slot.
+          // Generator (home-workout.service.ts → tryBuildRecoveryVideoTrio) reads
+          // execution_methods[0].media.mainVideoUrl + .videoDurationSeconds ONLY.
+          // The global "סרטוני ספרייה (Bunny.net)" band writes to formData.media.*
+          // which is NEVER picked up by the rest-day trio builder.
+          const firstMethodMedia = (executionMethods?.[0] as any)?.media || {};
+          const hasMethodVideo = !!(firstMethodMedia.mainVideoUrl || firstMethodMedia.videoUrl);
+          const hasMethodDuration = typeof firstMethodMedia.videoDurationSeconds === 'number'
+            && firstMethodMedia.videoDurationSeconds > 0;
+          const restDayReady = hasMethodVideo && hasMethodDuration;
+
+          return (
+          <div className="lg:col-span-2 bg-teal-50 border-2 border-teal-200 rounded-xl p-4 space-y-4">
+            <h3 className="text-sm font-bold text-teal-800 flex items-center gap-2">
+              <Moon size={16} className="text-teal-600" />
+              הגדרות יום מנוחה (Rest Day Settings)
+            </h3>
+
+            {/* Canonical video-slot guidance — recovery video must live on the
+                execution method, not in the global Bunny library section. */}
+            <div className="flex items-start gap-2 bg-white/70 border border-teal-300 rounded-lg p-3">
+              <Info size={16} className="text-teal-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-teal-900 leading-relaxed">
+                <strong>איפה להעלות את סרטון ההתאוששות?</strong>
+                <br />
+                המנוע של ימי מנוחה קורא את הסרטון ואת משך הסרטון
+                <strong> רק </strong>
+                משיטת הביצוע הראשונה (
+                <code className="bg-teal-100 px-1 rounded">execution_methods[0].media</code>
+                ). העלאות בקטע
+                <strong> &ldquo;סרטוני ספרייה (Bunny.net)&rdquo; </strong>
+                הגלובלי הן רק לתצוגה מקדימה — הן לא יוזרמו ליום מנוחה.
+                <br />
+                ודא ש־
+                <code className="bg-teal-100 px-1 rounded">mainVideoUrl</code>
+                {' '}ו־
+                <code className="bg-teal-100 px-1 rounded">videoDurationSeconds</code>
+                {' '}מוגדרים בכרטיס שיטת הביצוע למטה.
+              </div>
+            </div>
+
+            {/* Live readiness indicator — surfaces the silent fail-through case */}
+            {formData.showOnRestDays && !restDayReady && (
+              <div className="flex items-start gap-2 bg-amber-50 border-2 border-amber-300 rounded-lg p-3">
+                <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-amber-900 leading-relaxed">
+                  <strong>הסרטון לא יוצג ביום מנוחה.</strong>
+                  {' '}חסרים:&nbsp;
+                  {!hasMethodVideo && (
+                    <span className="font-bold">mainVideoUrl</span>
+                  )}
+                  {!hasMethodVideo && !hasMethodDuration && <span>, </span>}
+                  {!hasMethodDuration && (
+                    <span className="font-bold">videoDurationSeconds</span>
+                  )}
+                  {' '}בשיטת הביצוע הראשונה.
+                </div>
+              </div>
+            )}
+
+            {/* showOnRestDays toggle */}
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">
+                הצג אוטומטית ביום מנוחה
+              </label>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!formData.showOnRestDays}
+                  onChange={(e) => setFormData({ ...formData, showOnRestDays: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600" />
+              </label>
+            </div>
+
+            {/* restDayProgramIds multi-select — reuses programs prop already fetched */}
+            {programs.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-2">
+                  תוכניות שיקבלו סרטון זה ביום מנוחה
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {programs.map((program) => {
+                    const selected = (formData.restDayProgramIds || []).includes(program.id);
+                    return (
+                      <button
+                        key={program.id}
+                        type="button"
+                        onClick={() => {
+                          const current = formData.restDayProgramIds || [];
+                          setFormData({
+                            ...formData,
+                            restDayProgramIds: selected
+                              ? current.filter((id) => id !== program.id)
+                              : [...current, program.id],
+                          });
+                        }}
+                        className={`text-right px-3 py-2 rounded-lg border-2 text-xs font-bold transition-all ${
+                          selected
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        {safeRenderText(program.name)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* Reinforcement: Finisher Block panel */}
+        {formData.exerciseRole === 'reinforcement' && (
+          <div className="lg:col-span-2 bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Zap size={16} className="text-amber-600" />
+                מצב פינישר (Finisher Block)
+              </label>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!formData.isFinisherVideo}
+                  onChange={(e) => setFormData({ ...formData, isFinisherVideo: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500" />
+              </label>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              כשמופעל, ניתן לצרף סרטון זה כבלוק חיזוק בסיום אימון פעיל.
             </p>
           </div>
         )}

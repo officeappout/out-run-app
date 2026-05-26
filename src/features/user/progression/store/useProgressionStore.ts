@@ -8,7 +8,7 @@ import { create } from 'zustand';
 import type { UserFullProfile } from '../../core/types/user.types';
 import { getLemurStage, recordActivity as recordLemurActivity } from '../services/lemur-evolution.service';
 import { awardCoins as awardCoinsToFirestore } from '../services/coin-calculator.service';
-import { checkAndUnlockAchievements } from '../services/achievement.service';
+import type { UnlockedAchievementsMap, UnlockedAchievementEntry } from '../types/achievement.types';
 import { calculateStrengthWorkoutXP, calculateRunningWorkoutXP, calculateCommuteXP, calculateLevelFromXP } from '../services/xp.service';
 import type { StrengthWorkoutXPParams, RunningWorkoutXPParams, CommuteWorkoutXPParams } from '../services/xp.service';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, type Unsubscribe } from 'firebase/firestore';
@@ -62,8 +62,11 @@ interface ProgressionState {
   // Session tracking for real-time progress updates
   sessionProgress: { [domain: string]: SessionProgressState };
 
-  // Badges
+  // Badges (legacy — kept for backward compat)
   unlockedBadges: string[];
+
+  // Achievement system (tiered, Firestore-driven)
+  unlockedAchievements: UnlockedAchievementsMap;
 
   // Loading state
   isLoaded: boolean;
@@ -77,6 +80,9 @@ interface ProgressionState {
   subscribeToProgression: (userId: string) => Unsubscribe;
   recordActivity: (userId: string) => Promise<{ evolved: boolean; lemurStage: number }>;
   unlockBadge: (badgeId: string) => void;
+  /** Optimistically apply a newly-unlocked achievement/tier to local state.
+   *  Firestore persistence is handled by achievement.service before this is called. */
+  unlockAchievement: (key: string, entry: UnlockedAchievementEntry) => void;
   syncFromProfile: (profile: UserFullProfile | null) => void;
   awardWorkoutRewards: (userId: string, calories: number) => Promise<void>;
   awardWorkoutCoins: (calories: number) => Promise<void>;
@@ -113,6 +119,7 @@ const initialState = {
   domainProgress: {},
   sessionProgress: {} as { [domain: string]: SessionProgressState },
   unlockedBadges: [],
+  unlockedAchievements: {} as UnlockedAchievementsMap,
   isLoaded: false,
   isHydrated: false,
 };
@@ -149,26 +156,8 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         lastActiveDate: new Date().toISOString().split('T')[0],
       });
 
-      // Check for achievements if evolved
-      if (result.evolved) {
-        const state = get();
-        const profile = {
-          progression: {
-            coins: state.coins,
-            totalCaloriesBurned: state.totalCaloriesBurned,
-            daysActive: state.daysActive,
-            lemurStage: state.lemurStage,
-            unlockedBadges: state.unlockedBadges,
-          },
-        };
-
-        const newBadges = await checkAndUnlockAchievements(userId, profile);
-        if (newBadges.length > 0) {
-          set((state) => ({
-            unlockedBadges: [...state.unlockedBadges, ...newBadges],
-          }));
-        }
-      }
+      // Achievement checks are handled by the useAchievements hook on the
+      // dashboard, which runs a full stats-based check after each workout.
 
       return {
         evolved: result.evolved,
@@ -181,13 +170,26 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
   },
 
   /**
-   * Unlock a badge (optimistic update)
+   * Unlock a badge (legacy — optimistic update)
    */
   unlockBadge: (badgeId: string) => {
     set((state) => ({
       unlockedBadges: state.unlockedBadges.includes(badgeId)
         ? state.unlockedBadges
         : [...state.unlockedBadges, badgeId],
+    }));
+  },
+
+  /**
+   * Apply a newly-unlocked achievement/tier to local state (optimistic).
+   * Called by useAchievements after Firestore persistence succeeded.
+   */
+  unlockAchievement: (key: string, entry: UnlockedAchievementEntry) => {
+    set((state) => ({
+      unlockedAchievements: {
+        ...state.unlockedAchievements,
+        [key]: entry,
+      },
     }));
   },
 
@@ -218,6 +220,7 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       globalXP: progression.globalXP || 0,
       globalLevel: progression.globalLevel || 1,
       unlockedBadges: progression.unlockedBadges || [],
+      unlockedAchievements: (progression as any).unlockedAchievements || {},
       domainProgress: progression.tracks || {},
       // Dynamic Goals
       dailyStepGoal: progression.dailyStepGoal || 3000,
@@ -376,8 +379,57 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
               lemurStage:           forwardOrKeep(p.lemurStage,           state.lemurStage),
               currentStreak:        forwardOrKeep(p.currentStreak,        state.currentStreak),
               lastActiveDate:       p.lastActiveDate ?? state.lastActiveDate,
+              // Merge incoming achievements — never remove locally-known unlocks
+              unlockedAchievements: {
+                ...(p.unlockedAchievements ?? {}),
+                ...state.unlockedAchievements,
+              },
               isHydrated: true,
             }));
+
+            // ── Bridge tracks / domains / activePrograms → useUserStore ────
+            // These fields are NOT scalars so they can't use forwardOrKeep.
+            // Firestore is the single source of truth for them; we overwrite
+            // the matching sub-fields in the persisted UserFullProfile so that
+            // admin changes (level edits, legacy key cleanup) are immediately
+            // reflected in the client's localStorage cache and UI — without
+            // requiring the user to log out and back in.
+            //
+            // Runs in a microtask (Promise.resolve().then) so we can use async
+            // import without blocking the synchronous onSnapshot callback.
+            const hasMutatedMaps =
+              p.tracks != null || p.domains != null || p.activePrograms != null;
+            if (hasMutatedMaps) {
+              Promise.resolve().then(async () => {
+                try {
+                  const { useUserStore } = await import(
+                    '@/features/user/identity/store/useUserStore'
+                  );
+                  const currentProfile = useUserStore.getState().profile;
+                  if (!currentProfile) return;
+
+                  const progressionPatch: Record<string, unknown> = {};
+                  // Only patch fields that actually exist in the snapshot so we
+                  // don't accidentally wipe fields that weren't in this update.
+                  if (p.tracks != null)         progressionPatch.tracks         = p.tracks;
+                  if (p.domains != null)         progressionPatch.domains         = p.domains;
+                  if (p.activePrograms != null)  progressionPatch.activePrograms  = p.activePrograms;
+
+                  useUserStore.getState().updateProfile({
+                    progression: progressionPatch as any,
+                  });
+
+                  console.log(
+                    '[ProgressionStore] Bridged tracks/domains/activePrograms → useUserStore',
+                    Object.keys(progressionPatch),
+                  );
+                } catch (e) {
+                  console.warn(
+                    '[ProgressionStore] Failed to bridge tracks/domains to useUserStore:', e,
+                  );
+                }
+              });
+            }
           },
           (error) => {
             console.error('[ProgressionStore] onSnapshot error:', error);
@@ -583,10 +635,11 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         (leveledUp ? ` (LEVEL UP from ${previousLevel}!)` : ''),
       );
 
-      return { xpEarned, newLevel, leveledUp };
+      return { xpEarned, newLevel, leveledUp, success: true as const };
     } catch (error) {
       console.error('[ProgressionStore] Error awarding strength XP:', error);
-      return { xpEarned: 0, newLevel: previousLevel, leveledUp: false };
+      // success:false lets callers detect CF failure and roll back optimistic updates.
+      return { xpEarned: 0, newLevel: previousLevel, leveledUp: false, success: false as const };
     }
   },
 

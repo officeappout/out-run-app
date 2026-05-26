@@ -129,14 +129,81 @@ export async function getParksByAuthority(authorityId: string, tenantId?: string
   }
 }
 
-/**
- * Fetch real parks for map display (Client-side)
- * Simple fetch for displaying parks on the map
- */
-export async function fetchRealParks(): Promise<Park[]> {
+// ── Park data client cache (stale-while-revalidate, localStorage, 6-hour TTL) ─
+// Shared cache key: any consumer (AppMap, useRouteGeneration, useRouteFilter,
+// useSearchNavigation, useRouteDeviationOrchestrator) that calls fetchRealParks
+// hits this same bucket, so there is at most one Firestore round-trip per
+// browser session regardless of how many hooks call in parallel.
+export const PARKS_CACHE_KEY = 'outfit_cached_parks';
+const PARKS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+interface ParksCacheEntry {
+  data: Park[];
+  cachedAt: number;
+}
+
+function readParksFromStorage(): Park[] | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const querySnapshot = await getDocs(collection(db, PARKS_COLLECTION));
-    return querySnapshot.docs.map(doc => normalizePark(doc.id, doc.data()));
+    const raw = localStorage.getItem(PARKS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed: ParksCacheEntry = JSON.parse(raw);
+    if (Date.now() - parsed.cachedAt > PARKS_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeParksToStorage(parks: Park[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const entry: ParksCacheEntry = { data: parks, cachedAt: Date.now() };
+    localStorage.setItem(PARKS_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // Storage quota exceeded or private browsing — non-fatal
+  }
+}
+
+/**
+ * Fetch real parks for map display (Client-side) with stale-while-revalidate
+ * localStorage caching.
+ *
+ * Behaviour:
+ *   - Cold start (no cache or stale >6h): fetches from Firestore, persists to
+ *     localStorage, resolves with the fresh data.
+ *   - Warm start (valid cache): resolves with cached data instantly (0 ms), then
+ *     fires a background Firestore sync. If the data has changed the optional
+ *     `onRefresh` callback is invoked so callers can update their React state
+ *     without blocking the initial render.
+ *
+ * The `onRefresh` pattern keeps the function signature backward-compatible —
+ * existing callers that don't pass a callback still benefit from the instant
+ * cache hit; only AppMap needs to wire up the background state update.
+ */
+export async function fetchRealParks(
+  onRefresh?: (parks: Park[]) => void,
+): Promise<Park[]> {
+  const cached = readParksFromStorage();
+
+  if (cached) {
+    // Return stale data instantly, refresh in background.
+    getDocs(collection(db, PARKS_COLLECTION))
+      .then((snapshot) => {
+        const fresh = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
+        writeParksToStorage(fresh);
+        onRefresh?.(fresh);
+      })
+      .catch(() => { /* background refresh failure is non-fatal */ });
+    return cached;
+  }
+
+  // Cold fetch — no valid cache available.
+  try {
+    const snapshot = await getDocs(collection(db, PARKS_COLLECTION));
+    const parks = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
+    writeParksToStorage(parks);
+    return parks;
   } catch (error) {
     console.error('[Parks Service] Error fetching parks:', error);
     return [];

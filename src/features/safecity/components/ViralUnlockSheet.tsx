@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, Share2, QrCode } from 'lucide-react';
 import { useUserStore } from '@/features/user';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 
 interface ViralUnlockSheetProps {
   isOpen: boolean;
@@ -13,8 +14,7 @@ interface ViralUnlockSheetProps {
 const REFERRAL_GOAL = 1;
 
 function generateInviteLink(userId: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-  return `${origin}/join?ref=${userId}`;
+  return `${APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}?ref=${userId}`;
 }
 
 function resolveLocationName(profile: ReturnType<typeof useUserStore>['profile']): string {
@@ -114,7 +114,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
             </button>
 
             <div className="px-6 pb-8 pt-2 flex flex-col items-center gap-5 overflow-y-auto" dir="rtl">
-              {/* Lemur mascot — smart-lemur with cyan glow */}
+              {/* Lemur mascot — lemur-avatar with cyan glow */}
               <div
                 className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-[#00BAF7] flex items-center justify-center bg-cyan-50"
                 style={{
@@ -123,7 +123,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/assets/lemur/smart-lemur.png"
+                  src="/assets/lemur/lemur-avatar.png"
                   alt="Smart Lemur"
                   width={96}
                   height={96}

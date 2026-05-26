@@ -61,6 +61,19 @@ export interface SplitWorkoutContext {
   priority2SkillIds?: string[];
   /** Third-slot skill(s) for multi-skill dynamic rotation (P1+P2 fixed, P3+ rotates) */
   priority3SkillIds?: string[];
+  /**
+   * Pendulum focus for 3-day / 2-skill `calisthenics_upper` sessions.
+   * Encodes the adaptive push/pull alternation state for this session so that
+   * upstream consumers (UI, analytics, SplitDecisionService logs) can display
+   * the current emphasis without re-deriving it from priority skill IDs.
+   *
+   *   push_focus   — push-vector skill is P1 at 65% budget (planche dominant)
+   *   pull_focus   — pull-vector skill is P1 at 65% budget (front_lever dominant)
+   *   hybrid_blend — both skills equal weight 50/50 (first session or post-hybrid)
+   *
+   * Undefined for all non-pendulum session types.
+   */
+  pendulumFocus?: 'push_focus' | 'pull_focus' | 'hybrid_blend';
 }
 
 // ============================================================================

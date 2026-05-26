@@ -7,7 +7,10 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { DifficultyLevel, GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkout } from '@/features/workout-engine/services/home-workout.service';
+import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
+import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
+import type { MuscleChip } from '@/features/home/constants/muscle-chips';
 
 // Known calisthenics skill program IDs → Hebrew labels
 const SKILL_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -35,24 +38,6 @@ interface UserWorkoutAdjusterProps {
   /** Pre-fill location from the current workout context */
   initialLocation?: ExecutionLocation;
 }
-
-// ─── Muscle Chip Config ──────────────────────────────────────────────────────
-
-interface MuscleChip {
-  id: string;
-  label: string;
-  emoji: string;
-  domains: string[];
-}
-
-const MUSCLE_CHIPS: MuscleChip[] = [
-  { id: 'back',      label: 'גב',      emoji: '🏋️', domains: ['pull'] },
-  { id: 'chest',     label: 'חזה',     emoji: '💪', domains: ['push'] },
-  { id: 'legs',      label: 'רגליים',  emoji: '🦵', domains: ['legs'] },
-  { id: 'core',      label: 'בטן',     emoji: '🔥', domains: ['core'] },
-  { id: 'shoulders', label: 'כתפיים',  emoji: '🏋️', domains: ['push'] },
-  { id: 'arms',      label: 'ידיים',   emoji: '💪', domains: ['push', 'pull'] },
-];
 
 // ─── Intensity Config ────────────────────────────────────────────────────────
 
@@ -132,6 +117,11 @@ export default function UserWorkoutAdjuster({
       const remaining = (store as any).getRemainingBudget?.() ?? undefined;
       const usagePct  = (store as any).getBudgetUsagePercent?.() ?? undefined;
 
+      const isPark = (location as string) === 'park' || (location as string) === 'street';
+      const parkEquipmentIds = isPark
+        ? await resolveParkEquipmentIds(userProfile)
+        : undefined;
+
       const result = await generateHomeWorkout({
         userProfile,
         testLocation: location as ExecutionLocation,
@@ -143,6 +133,7 @@ export default function UserWorkoutAdjuster({
         weeklyBudgetUsagePercent: usagePct  > 0 ? usagePct  : undefined,
         // Skill focus: override scheduled programs to focus on the selected skill
         scheduledProgramIds: selectedSkillId ? [selectedSkillId] : undefined,
+        parkEquipmentIds: parkEquipmentIds?.length ? parkEquipmentIds : undefined,
       });
 
       onApplyAndStart(result.workout);
@@ -265,7 +256,7 @@ export default function UserWorkoutAdjuster({
               {/* ── 3. Muscle Focus ── */}
               <Section title="אזור אימון" sub="(ריק = כל הגוף)">
                 <div className="grid grid-cols-3 gap-2">
-                  {MUSCLE_CHIPS.map(chip => {
+                  {MUSCLE_CHIPS.filter(c => c.group === 'primary').map(chip => {
                     const active = selectedChips.includes(chip.id);
                     return (
                       <button

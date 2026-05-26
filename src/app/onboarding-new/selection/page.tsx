@@ -16,6 +16,7 @@ import { Loader2, ChevronLeft, Sparkles } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 
 export default function SelectionPage() {
   const router = useRouter();
@@ -31,11 +32,9 @@ export default function SelectionPage() {
   
   // Local language state (supports 'ru' which store doesn't yet)
   const [selectedLanguage, setSelectedLanguage] = useState<OnboardingLanguage>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('onboarding_language') as OnboardingLanguage | null;
-      if (saved && (saved === 'he' || saved === 'en' || saved === 'ru')) {
-        return saved;
-      }
+    const saved = getOnboardingPref('onboarding_language') as OnboardingLanguage | null;
+    if (saved && (saved === 'he' || saved === 'en' || saved === 'ru')) {
+      return saved;
     }
     return (storeLanguage === 'he' || storeLanguage === 'en') ? storeLanguage : 'he';
   });
@@ -49,7 +48,7 @@ export default function SelectionPage() {
     if (lang === 'he' || lang === 'en') {
       setStoreLanguage(lang);
     }
-    sessionStorage.setItem('onboarding_language', lang);
+    setOnboardingPref('onboarding_language', lang);
   };
 
   /**

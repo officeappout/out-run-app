@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
-import { getProgram, getLevel } from '@/features/content/programs';
+import { getProgramByTemplateId, getLevel } from '@/features/content/programs';
 import type { Program, Level } from '@/features/content/programs';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { useOnboardingStore } from '../store/useOnboardingStore';
@@ -47,6 +47,33 @@ const CATEGORY_DISPLAY = [
   { key: 'core' as const, en: 'Core', he: 'ליבה',           emoji: '🔥', color: '#f59e0b', lightBg: '#f59e0b12' },
 ];
 
+// ── Calisthenics skill display metadata ────────────────────────────
+// Keeps Hebrew labels, emoji and brand colours in sync with VisualSlider.tsx.
+const SKILL_META: Record<string, { he: string; emoji: string; color: string }> = {
+  front_lever:        { he: 'פרונט ליבר',                     emoji: '🏋️',   color: '#10b981' },
+  muscle_up:          { he: 'עליית כוח',                      emoji: '🤸',   color: '#6366f1' },
+  planche:            { he: "פלאנץ'",                         emoji: '⚖️',   color: '#f59e0b' },
+  handstand:          { he: 'עמידת ידיים',                    emoji: '🤸‍♂️', color: '#ec4899' },
+  hspu:               { he: 'שכיבות סמיכה בעמידת ידיים',     emoji: '🤸‍♂️', color: '#8b5cf6' },
+  one_arm_pullup:     { he: 'מתח יד אחת',                    emoji: '💪',   color: '#8b5cf6' },
+  calisthenics_upper: { he: 'קליסטניקס עליון',               emoji: '⭐',   color: '#6366f1' },
+};
+
+// ── Static skill max-levels — zero-latency fallback ─────────────────
+// Used as the gauge denominator while the Firestore program doc loads
+// (or if the fetch fails). Mirrors the maxLevels configured in Firestore
+// for each canonical skill program. Update this map when a program's
+// maxLevels changes in the admin panel.
+const SKILL_MAX_LEVELS: Record<string, number> = {
+  front_lever:        15,
+  muscle_up:          15,
+  planche:            15,
+  handstand:          15,
+  hspu:               15,
+  one_arm_pullup:     15,
+  calisthenics_upper: 25,
+};
+
 // ── Reveal phase state machine ─────────────────────────────────────
 type RevealPhase = 'calculating' | 'cards' | 'gauge' | 'insights';
 
@@ -59,6 +86,8 @@ interface ProgramResultProps {
   language?: OnboardingLanguage;
   onContinue: () => void;
   assessmentLevels?: Partial<Record<'push' | 'pull' | 'legs' | 'core', number>>;
+  /** For skills path: map of skillId → assessed level (e.g. { front_lever: 9 }) */
+  skillLevels?: Record<string, number>;
 }
 
 // ── Confetti particle ──────────────────────────────────────────────
@@ -101,10 +130,13 @@ const SparkleEffect = ({ delay, angle, distance }: {
 // The LEVEL NUMBER is the hero element, displayed huge inside the ring.
 const CircularGauge = ({
   levelNumber,
+  maxLevel,
   levelName,
   onCountComplete,
 }: {
   levelNumber: number;
+  /** Dynamic max from Firestore program.maxLevels — defaults to 25 */
+  maxLevel: number;
   levelName: string | null;
   onCountComplete?: () => void;
 }) => {
@@ -183,7 +215,7 @@ const CircularGauge = ({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.7 }}
           >
-            / 25
+            / {maxLevel}
           </motion.span>
         </div>
       </div>
@@ -209,11 +241,11 @@ const CircularGauge = ({
   );
 };
 
-// ── Category Card — Monochrome brand style ─────────────────────────
-// All cards are visually identical; no per-category colors.
-// Category colors are preserved in CATEGORY_DISPLAY for use elsewhere.
-const CategoryCard = ({ cat, levelValue, delay }: {
-  cat: typeof CATEGORY_DISPLAY[number];
+// ── Summary Card — used for both muscle-focus and skill cards ────────
+// Visually identical across categories; brand gradient accent stripe on top.
+const SummaryCard = ({ emoji, label, levelValue, delay }: {
+  emoji: string;
+  label: string;
   levelValue: number | undefined;
   delay: number;
 }) => (
@@ -227,25 +259,20 @@ const CategoryCard = ({ cat, levelValue, delay }: {
     animate={{ opacity: 1, scale: 1, y: 0 }}
     transition={{ delay, type: 'spring', stiffness: 280, damping: 20 }}
   >
-    {/* Top accent stripe — brand cyan, same for all cards */}
+    {/* Top accent stripe — brand cyan */}
     <div className="h-[3px] w-full" style={{ background: BRAND_GRADIENT }} />
 
     {/* Card body */}
     <div className="flex flex-col items-center py-3 px-2 gap-1.5">
-      {/* Emoji in a soft-gray bubble — icon slot ready for custom SVGs */}
       <div
         className="w-9 h-9 rounded-full flex items-center justify-center text-[18px] leading-none shrink-0 bg-slate-100"
-        aria-label={cat.en}
+        aria-label={label}
       >
-        {cat.emoji}
+        {emoji}
       </div>
-
-      {/* Category name */}
       <span className="text-[9px] font-bold text-slate-400 text-center leading-tight tracking-wide">
-        {cat.he}
+        {label}
       </span>
-
-      {/* Level — Hebrew format, brand color */}
       <span className="text-sm font-black leading-none text-[#00BAF7]">
         {levelValue != null && levelValue > 0 ? `רמה ${levelValue}` : '—'}
       </span>
@@ -263,6 +290,7 @@ export default function ProgramResult({
   language = 'he',
   onContinue,
   assessmentLevels,
+  skillLevels,
 }: ProgramResultProps) {
   void getOnboardingLocale(language); // keep import used
 
@@ -298,8 +326,11 @@ export default function ProgramResult({
       try {
         setProgramLoading(true);
         const [p, l] = await Promise.all([
-          programId ? getProgram(programId) : Promise.resolve(null),
-          levelId   ? getLevel(levelId)     : Promise.resolve(null),
+          // getProgramByTemplateId resolves slugs (front_lever, planche …) to
+          // their Firestore hash IDs via movementPattern + slug + name queries,
+          // so maxLevels is always populated even for skill programs.
+          programId ? getProgramByTemplateId(programId) : Promise.resolve(null),
+          levelId   ? getLevel(levelId)                 : Promise.resolve(null),
         ]);
         setProgram(p);
         setLevel(l);
@@ -330,6 +361,18 @@ export default function ProgramResult({
   // ── Derived values ─────────────────────────────────────────────
   const levelName: string | null = programLoading ? null : ((level?.name as string | undefined) ?? null);
 
+  /**
+   * Dynamic max level for the gauge denominator.
+   * Priority: Firestore program.maxLevels → SKILL_MAX_LEVELS static map
+   * → generic fallback 25.
+   * SKILL_MAX_LEVELS is used immediately (zero-latency) so the gauge never
+   * shows the wrong denominator while the program doc is loading.
+   */
+  const skillMaxFallback = SKILL_MAX_LEVELS[programId ?? ''];
+  const maxLevel: number = program?.maxLevels
+    ?? skillMaxFallback
+    ?? 25;
+
   const getProgramName = () => {
     if (programPath === 'health') return language === 'he' ? 'תוכנית גוף מלא' : 'Full Body Program';
     if (program?.name) return program.name;
@@ -337,7 +380,11 @@ export default function ProgramResult({
     return language === 'he' ? 'תוכנית אימונים מותאמת אישית' : 'Personalized Training Program';
   };
 
-  const hasCategoryData = assessmentLevels != null &&
+  /** True when the user is on a calisthenics skills path with real skill levels. */
+  const isSkillsPath = skillLevels != null && Object.keys(skillLevels).length > 0;
+
+  const hasCategoryData = !isSkillsPath &&
+    assessmentLevels != null &&
     CATEGORY_DISPLAY.some(c => (assessmentLevels[c.key] ?? 0) > 0);
 
   // Gender-aware social proof — aligned with the "1% start line" narrative
@@ -468,7 +515,7 @@ export default function ProgramResult({
       {/* ── MAIN CONTENT (cards → gauge → insights) ───────────────── */}
       <div className="flex flex-col items-center px-5 pt-4 pb-10 gap-4 relative z-10">
 
-        {/* ── Category Cards — appear first, stagger in ────────────── */}
+        {/* ── Category / Skill Cards — appear first, stagger in ──────── */}
         <AnimatePresence>
           {revealPhase !== 'calculating' && (
             <motion.div
@@ -477,26 +524,46 @@ export default function ProgramResult({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2 }}
             >
-              {hasCategoryData
-                ? CATEGORY_DISPLAY.map((cat, i) => (
-                    <CategoryCard
-                      key={cat.key}
-                      cat={cat}
-                      levelValue={assessmentLevels?.[cat.key]}
-                      delay={i * 0.18}
-                    />
-                  ))
-                : CATEGORY_DISPLAY.map((cat, i) => (
-                    // Skeleton if no data yet (e.g. path 3/skills)
-                    <motion.div
-                      key={cat.key}
-                      className="flex-1 rounded-2xl h-20 bg-slate-100"
-                      style={{ border: `2px solid ${cat.color}30` }}
-                      initial={{ opacity: 0, scale: 0.7, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      transition={{ delay: i * 0.18, type: 'spring', stiffness: 280, damping: 22 }}
-                    />
-                  ))
+              {isSkillsPath
+                // Skills path: one card per selected skill
+                ? Object.entries(skillLevels!).map(([skillId, lvl], i) => {
+                    const meta = SKILL_META[skillId] ?? {
+                      he: skillId.replace(/_/g, ' '),
+                      emoji: '⭐',
+                      color: '#6366f1',
+                    };
+                    return (
+                      <SummaryCard
+                        key={skillId}
+                        emoji={meta.emoji}
+                        label={meta.he}
+                        levelValue={lvl}
+                        delay={i * 0.18}
+                      />
+                    );
+                  })
+                : hasCategoryData
+                  // Muscle-focus path: push / pull / legs / core
+                  ? CATEGORY_DISPLAY.map((cat, i) => (
+                      <SummaryCard
+                        key={cat.key}
+                        emoji={cat.emoji}
+                        label={cat.he}
+                        levelValue={assessmentLevels?.[cat.key]}
+                        delay={i * 0.18}
+                      />
+                    ))
+                  // No data yet — render skeletons
+                  : CATEGORY_DISPLAY.map((cat, i) => (
+                      <motion.div
+                        key={cat.key}
+                        className="flex-1 rounded-2xl h-20 bg-slate-100"
+                        style={{ border: `2px solid ${cat.color}30` }}
+                        initial={{ opacity: 0, scale: 0.7, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ delay: i * 0.18, type: 'spring', stiffness: 280, damping: 22 }}
+                      />
+                    ))
               }
             </motion.div>
           )}
@@ -543,6 +610,7 @@ export default function ProgramResult({
                   ) : (
                     <CircularGauge
                       levelNumber={levelNumber}
+                      maxLevel={maxLevel}
                       levelName={levelName}
                       onCountComplete={handleCountComplete}
                     />

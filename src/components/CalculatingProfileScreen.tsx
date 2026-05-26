@@ -154,7 +154,7 @@ export default function CalculatingProfileScreen({
             {/* Static Image - Base Layer (fallback if video doesn't load) */}
             <div className="absolute inset-0 w-full h-full flex items-center justify-center z-0 pointer-events-none">
               <Image
-                src="/assets/lemur/smart-lemur.png"
+                src="/assets/lemur/lemur-avatar.png"
                 alt="Smart Lemur calculating"
                 width={224}
                 height={256}

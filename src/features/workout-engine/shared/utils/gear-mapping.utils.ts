@@ -578,10 +578,13 @@ export const ALIAS_TO_CANONICAL: Record<string, string> = {
   park_bench: 'bench',
   street_bench: 'bench',
   streetBench: 'bench',
-  // ── Step / stairs ──────────────────────────────────────────────────────────
-  step: 'step',
-  park_step: 'step',
-  stairs: 'stairs',
+  // ── Step / stairs / elevated surface ─────────────────────────────────────
+  step:           'step',
+  park_step:      'step',
+  training_steps: 'step',   // "מדרגות אימון" — native park fixture
+  box:            'step',   // plyo box / plyometric box → step family
+  plyo_box:       'step',
+  stairs:         'stairs',
   // ── Bars (low/high) ────────────────────────────────────────────────────────
   low_bar: 'low_bar',
   lowBar: 'low_bar',
@@ -681,6 +684,7 @@ export const ESSENTIAL_PARK_GEAR: ReadonlySet<string> = new Set([
   'bench',
   'low_bar',
   'high_bar',
+  'step',          // training_steps / park_step / box all normalize to 'step'
 ]);
 
 // ============================================================================
@@ -697,11 +701,21 @@ export const ESSENTIAL_PARK_GEAR: ReadonlySet<string> = new Set([
 // ============================================================================
 
 const EQUIPMENT_FAMILIES: Record<string, ReadonlySet<string>> = {
-  overhead_bar: new Set(['pullup_bar', 'high_bar', 'monkey_bars']),
-  dip_surface:  new Set(['dip_station', 'parallel_bars', 'parallettes']),
-  bench_seat:   new Set(['bench', 'street_bench', 'ab_bench']),
-  band_elastic: new Set(['resistance_bands', 'resistance_band', 'long_resistance_band']),
-  bar_low:      new Set(['low_bar', 'parallel_bars']),
+  overhead_bar:     new Set(['pullup_bar', 'high_bar', 'monkey_bars']),
+  // parallettes is intentionally NOT included here — the dip_station ↔ parallettes
+  // substitution is strictly unidirectional (parallettes → dip_station ONLY).
+  // The directional rule lives in ContextualEngine's GEAR_SATISFACTION_RULES.
+  // Keeping them in the same bidirectional family would allow home parallettes to
+  // satisfy a dip_station requirement, which is physically impossible (insufficient
+  // vertical clearance).
+  dip_surface:      new Set(['dip_station', 'parallel_bars']),
+  bench_seat:       new Set(['bench', 'street_bench', 'ab_bench']),
+  band_elastic:     new Set(['resistance_bands', 'resistance_band', 'long_resistance_band']),
+  bar_low:          new Set(['low_bar', 'parallel_bars']),
+  // Elevated surface: step, box, plyo_box, training_steps all normalize to
+  // 'step'; bench normalizes to 'bench'.  Both canonicals live in this family
+  // so an exercise tagged for any raised platform passes when either is available.
+  box_surface:      new Set(['step', 'bench']),
 };
 
 /** Reverse index: canonical key → family name (built once at module load). */
@@ -724,6 +738,49 @@ export function isEquipmentFamilyMatch(
   const family = CANONICAL_TO_FAMILY[requiredCanonical];
   if (!family) return false;
   return EQUIPMENT_FAMILIES[family]?.has(availableCanonical) ?? false;
+}
+
+// ============================================================================
+// UNIDIRECTIONAL GEAR SATISFACTION RULES
+// ============================================================================
+//
+// Each key is the canonical required-gear ID; its value lists every canonical
+// ID that is accepted as a valid satisfier (including the key itself).
+//
+// Rules are strictly directional:
+//   parallettes → satisfied by 'parallettes' OR 'dip_station'
+//     Park dip-bars provide equivalent ground-clearance and wrist alignment.
+//
+//   dip_station  → satisfied by 'dip_station' ONLY
+//     A dip-station exercise CANNOT be done on home parallettes because the
+//     vertical range-of-motion (feet above floor) is insufficient.
+//
+// This map is consumed by satisfiesGearRequirement below and MUST be the
+// single source of truth — ContextualEngine.ts and workout-selection.utils.ts
+// both import from here so the rule is never duplicated.
+// ============================================================================
+
+export const GEAR_SATISFACTION_RULES: Readonly<Record<string, ReadonlyArray<string>>> = {
+  parallettes: ['parallettes', 'dip_station'],
+};
+
+/**
+ * Check whether a normalised required-gear ID is satisfied by the list of
+ * normalised available IDs, respecting the unidirectional satisfaction rules
+ * before falling back to the symmetric equipment-family check.
+ *
+ * IMPORTANT: both `requiredId` and every element of `normalizedAvailable`
+ * must already be canonical (i.e. passed through `normalizeGearId`).
+ */
+export function satisfiesGearRequirement(
+  requiredId: string,
+  normalizedAvailable: string[],
+): boolean {
+  const rule = GEAR_SATISFACTION_RULES[requiredId];
+  if (rule) {
+    return rule.some((satisfier) => normalizedAvailable.includes(satisfier));
+  }
+  return normalizedAvailable.some((availId) => isEquipmentFamilyMatch(requiredId, availId));
 }
 
 /**

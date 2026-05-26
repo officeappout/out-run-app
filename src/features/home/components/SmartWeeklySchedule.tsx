@@ -14,13 +14,14 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, X, LayoutGrid, Circle as CircleIcon, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
+import { Bed, Check, X, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
-import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot } from '@/features/content/programs/core/program-icon.util';
+import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
+import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/features/home/utils/day-display.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
-import type { RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
+import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
 import {
   generateCommunityICS,
@@ -86,6 +87,9 @@ interface SmartWeeklyScheduleProps {
   hideMonthToggle?: boolean;
   /** Phase 5 — swipe-down on the week strip triggers this callback (e.g. open planner) */
   onSwipeDown?: () => void;
+  /** Tapping "שינוי לוז" triggers this callback (e.g. open the full planner overlay).
+   *  When omitted, the button falls back to toggling week/month mode. */
+  onOpenPlanner?: () => void;
   /** Journey: Map path (no assessment) vs Assessment path (no schedule) vs Active */
   hasCompletedAssessment?: boolean;
   /** True when user has set scheduleDays */
@@ -102,6 +106,8 @@ interface SmartWeeklyScheduleProps {
   runningProgramStartDate?: string | Date;
   /** Base pace in seconds per km */
   runningBasePace?: number;
+  /** Increment to force weekly-strip re-derivation after a schedule mutation */
+  scheduleVersion?: number;
 }
 
 interface DayActivityData {
@@ -126,6 +132,10 @@ interface DayActivityData {
    * on a later (rest) day in the same ISO week.
    */
   debtCleared: boolean;
+  /** Icon key override for days that have a community training entry. */
+  communityIconKey?: string;
+  /** Primary personal schedule entry for this day — used for per-entry icon resolution. */
+  primaryEntry?: UserScheduleEntry;
 }
 
 // ============================================================================
@@ -215,6 +225,62 @@ function buildMiniRingData(
   
   return rings;
 }
+
+// ============================================================================
+// DUMMY PREVIEW SCHEDULE
+// Vibrant mock activity shown blurred behind the glass scrim when the user
+// has no schedule set yet (hasSchedule === false). Gives the frosted overlay
+// a rich calisthenics depth cue without touching any real user data.
+// ============================================================================
+
+/** Training days used by the preview (Sun / Tue / Thu). */
+const DUMMY_PREVIEW_SCHEDULE_DAYS: readonly string[] = ['א', 'ג', 'ה'];
+
+function buildDummyActivityMap(): Map<number, DayActivityData> {
+  const restDay: DayActivityData = {
+    hasActivity: false,
+    isCompleted: false,
+    isMissed: false,
+    isRest: true,
+    isToday: false,
+    isFuture: false,
+    totalMinutes: 0,
+    steps: 0,
+    calories: 0,
+    categories: { strength: 0, cardio: 0, maintenance: 0 },
+    dominantCategory: null,
+    debtCleared: false,
+  };
+
+  // "today pending" template — forces resolveDayDisplayProps into the
+  // state==='today' && !isCompleted branch which is the only path that
+  // returns bgOpacity:1 (solid fill). This guarantees a fully opaque
+  // category-coloured square that bleeds through the glass scrim as a
+  // vivid halo even after filter:blur + opacity on the wrapper.
+  const trainingBase: DayActivityData = {
+    ...restDay,
+    isRest: false,
+    isToday: true,    // drives state='today' → solid fill in DayDisplayProps
+    isCompleted: false,
+    categories: { strength: 0, cardio: 0, maintenance: 0 }, // no sessions → single icon
+  };
+
+  const map = new Map<number, DayActivityData>();
+  for (let i = 0; i < 7; i++) map.set(i, { ...restDay });
+
+  // Sunday (0) — Planche Skill Focus → solid cyan square
+  map.set(0, { ...trainingBase, dominantCategory: 'strength' });
+
+  // Tuesday (2) — Front Lever & Pull Volume → solid lime square
+  map.set(2, { ...trainingBase, dominantCategory: 'cardio' });
+
+  // Thursday (4) — Handstand & Push Day → solid cyan square
+  map.set(4, { ...trainingBase, dominantCategory: 'strength' });
+
+  return map;
+}
+
+const DUMMY_ACTIVITY_MAP: Map<number, DayActivityData> = buildDummyActivityMap();
 
 // ============================================================================
 // ACTIVITY DOTS COMPONENT
@@ -651,6 +717,7 @@ export default function SmartWeeklySchedule({
   expandedGridConfig,
   hideMonthToggle = false,
   onSwipeDown,
+  onOpenPlanner,
   hasCompletedAssessment = false,
   hasSchedule = true,
   onStartAssessment,
@@ -659,6 +726,7 @@ export default function SmartWeeklySchedule({
   runningCurrentWeek,
   runningProgramStartDate,
   runningBasePace,
+  scheduleVersion,
 }: SmartWeeklyScheduleProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -684,20 +752,22 @@ export default function SmartWeeklySchedule({
       const entries = await getWeekEntries(userId, sundayISO);
       const communityEvents: Parameters<typeof generateCommunityICS>[0] = [];
       const seenSlots = new Set<string>();
+      // After the entries[] migration, community sessions are first-class
+      // entries with `source: 'community'` carrying groupId/groupName/startTime
+      // directly.  The deprecated top-level `communitySessions[]` is gone.
       for (const entry of entries) {
-        if (!entry.communitySessions?.length) continue;
-        for (const s of entry.communitySessions) {
-          const key = `${s.groupId}-${s.time}`;
-          if (seenSlots.has(key)) continue;
-          seenSlots.add(key);
-          const dayOfWeek = new Date(entry.date + 'T00:00:00').getDay();
-          communityEvents.push({
-            groupName: s.groupName,
-            category: s.category,
-            dayOfWeek,
-            time: s.time,
-          });
-        }
+        if (entry.source !== 'community' || !entry.groupId || !entry.groupName || !entry.startTime) continue;
+        const key = `${entry.groupId}-${entry.startTime}`;
+        if (seenSlots.has(key)) continue;
+        seenSlots.add(key);
+        const dayOfWeek = new Date(entry.date + 'T00:00:00').getDay();
+        const category = entry.scheduledCategories?.[0] ?? '';
+        communityEvents.push({
+          groupName: entry.groupName,
+          category,
+          dayOfWeek,
+          time: entry.startTime,
+        });
       }
       if (communityEvents.length === 0) {
         alert('אין מפגשים קהילתיים בלוז כרגע');
@@ -758,10 +828,10 @@ export default function SmartWeeklySchedule({
   // View mode: Phase 5 dots-only DayIconCell is the canonical view for
   // every track. The toggle still lets users opt in to the legacy rings
   // view for activity-progress detail.
-  const [viewMode, setViewMode] = useState<ScheduleViewMode>('icons');
-  const toggleViewMode = useCallback(() => {
-    setViewMode((prev) => (prev === 'rings' ? 'icons' : 'rings'));
-  }, []);
+  // View mode is locked to 'icons' since the rings/icons toggle button was
+  // removed. Kept as a typed local so all the existing `viewMode` / `useIconView`
+  // branches keep working without churn.
+  const viewMode: ScheduleViewMode = 'icons';
   
   // Get activity data from the Activity store
   const { 
@@ -801,7 +871,31 @@ export default function SmartWeeklySchedule({
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
-  
+
+  // Per-date manual schedule entries for the current week.
+  // Keyed by ISO date; populated from Firestore so the strip can prefer an
+  // explicit rest/training override over the recurring template.
+  const [weekScheduleEntries, setWeekScheduleEntries] = useState<Map<string, UserScheduleEntry[]>>(new Map());
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const sundayISO = getSundayWeekStart(new Date());
+    getWeekEntries(userId, sundayISO)
+      .then((entries) => {
+        if (cancelled) return;
+        const byDate = new Map<string, UserScheduleEntry[]>();
+        for (const entry of entries) {
+          const list = byDate.get(entry.date) ?? [];
+          list.push(entry);
+          byDate.set(entry.date, list);
+        }
+        setWeekScheduleEntries(byDate);
+      })
+      .catch(() => {/* non-critical — strip falls back to scheduleDays */});
+    return () => { cancelled = true; };
+  }, [userId, scheduleVersion]);
+
   // Normalize selected days from props
   const selectedDays = scheduleDays || [];
   
@@ -819,7 +913,32 @@ export default function SmartWeeklySchedule({
       const dayLetter = HEBREW_DAYS[i];
       const isToday = i === todayIndex;
       const isFuture = i > todayIndex;
-      const isRestDay = !isTrainingDay(dayLetter);
+
+      // Compute ISO date for this day index within the current week.
+      // The week is Sunday-anchored (i=0=Sun, …, i=6=Sat).
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() - todayIndex + i);
+      const isoDate = toISODate(dayDate);
+
+      // Manual userSchedule entries for this date take priority over the
+      // recurring template (scheduleDays). An explicit rest entry makes the
+      // day rest; an explicit training entry makes it training — regardless
+      // of whether the day letter is in scheduleDays.
+      const manualEntries = weekScheduleEntries.get(isoDate) ?? [];
+      const hasManualTraining = manualEntries.some((e) => e.type === 'training');
+      const hasManualRest     = manualEntries.some((e) => e.type === 'rest');
+      const isRestDay = hasManualRest
+        ? true
+        : hasManualTraining
+          ? false
+          : !isTrainingDay(dayLetter);
+
+      const communityEntry = manualEntries.find(
+        (e) => e.source === 'community' && e.type === 'training'
+      );
+      const communityIconKey: string | undefined = communityEntry
+        ? (PROGRAM_ALIAS_TO_ICON[communityEntry.scheduledCategories?.[0] ?? ''] ?? undefined)
+        : undefined;
       
       // Default data
       let dayData: DayActivityData = {
@@ -835,13 +954,11 @@ export default function SmartWeeklySchedule({
         categories: { strength: 0, cardio: 0, maintenance: 0 },
         dominantCategory: null,
         debtCleared: false,
+        communityIconKey,
+        primaryEntry: manualEntries.find((e) => e.type === 'training' && e.source !== 'community')
+          ?? manualEntries.find((e) => e.type === 'training')
+          ?? manualEntries[0],
       };
-      
-      // Compute ISO date for this day index within the current week.
-      // The week is Sunday-anchored (i=0=Sun, …, i=6=Sat).
-      const dayDate = new Date(today);
-      dayDate.setDate(today.getDate() - todayIndex + i);
-      const isoDate = toISODate(dayDate);
 
       // scheduleDay drives the "completed" signal for past non-today days.
       const scheduleDay = schedule.find(s => s.day === dayLetter);
@@ -863,10 +980,15 @@ export default function SmartWeeklySchedule({
           calories: isToday && todayActivity ? todayActivity.calories : dayData.calories,
         };
         // Mark missed: past training day with no activity and not completed.
+        // Prefer the manual entry override; fall back to scheduleDay / scheduleDays.
         if (!isToday && !status.isCompleted) {
-          const isTraining = scheduleDay
-            ? scheduleDay.status !== 'rest'
-            : isTrainingDay(dayLetter);
+          const isTraining = hasManualRest
+            ? false
+            : hasManualTraining
+              ? true
+              : scheduleDay
+                ? scheduleDay.status !== 'rest'
+                : isTrainingDay(dayLetter);
           if (isTraining) dayData.isMissed = true;
         }
       }
@@ -933,7 +1055,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, scheduleVersion, weekScheduleEntries]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -972,12 +1094,23 @@ export default function SmartWeeklySchedule({
       : 'assessment';
   const showOverlay = !hasSchedule && (onStartAssessment || onSetSchedule);
 
+  // When the glass scrim overlay is active, substitute real activity data with
+  // the dummy preview so the blurred background shows a vibrant calisthenics
+  // week layout instead of empty cells.
+  const effectiveActivityData: Map<number, DayActivityData> = showOverlay
+    ? DUMMY_ACTIVITY_MAP
+    : weekActivityData;
+
   // Get day icon based on track, view mode, and status.
   // In "icons" view, delegates to the unified SmartDayIcon wrapper.
   // In "rings" view, keeps the CompactRingsProgress rendering.
   const getDayIcon = (day: DaySchedule, dayData: DayActivityData, isCellSelected: boolean, dayIndex: number) => {
     const { day: dayLetter } = day;
     const planned = isTrainingDay(dayLetter);
+
+    // Per-day skill icon bridge: resolve the primary programId stored in the
+    // day's schedule entry so all render paths can share it.
+    const perDayPrimaryId = dayData.primaryEntry?.programIds?.[0] ?? null;
 
     // ── Running mode + icon view: route through the centralized engine
     //    so we get the branded flame + colored pager dot for the actual
@@ -1053,6 +1186,25 @@ export default function SmartWeeklySchedule({
       // and capped at 3 by the engine. When 2+ are present and the day
       // qualifies, the engine returns alternating sessions and DayIconCell
       // pulses through them with pager dots.
+      //
+      // Per-day skill icon — three-tier priority:
+      //   1. programIds[0] from the hydrated Firestore entry (most specific)
+      //   2. recurringTemplate[dayLetter][0] — in-memory fallback when no
+      //      Firestore doc exists yet (e.g. 'UPPER_CALISTHENICS' → 'muscle')
+      //   3. resolvedIconKey — profile-level activePrograms[0] (least specific)
+      //
+      // Without Tier 2, a future calisthenics_upper day with no Firestore
+      // doc falls straight to activePrograms[0] (e.g. 'front_lever' → 'pullup').
+      const templatePrimaryId =
+        !perDayPrimaryId && recurringTemplate
+          ? ((recurringTemplate as Record<string, string[] | undefined>)[dayLetter]?.[0] ?? null)
+          : null;
+      const perDayIconKey = perDayPrimaryId
+        ? (resolveIconKey(perDayPrimaryId) ?? resolvedIconKey)
+        : templatePrimaryId
+          ? (resolveIconKey(templatePrimaryId) ?? resolvedIconKey)
+          : resolvedIconKey;
+
       const sessions: DaySessionInput[] = (
         ['strength', 'cardio', 'maintenance'] as const
       )
@@ -1060,9 +1212,9 @@ export default function SmartWeeklySchedule({
         .map((cat) => ({
           category: cat,
           minutes: dayData.categories[cat],
-          // Strength session reuses the user's resolved program icon;
+          // Strength session uses per-day skill icon when available;
           // cardio/maintenance fall back to category defaults inside the engine.
-          programIconKey: cat === 'strength' ? resolvedIconKey : undefined,
+          programIconKey: cat === 'strength' ? perDayIconKey : undefined,
         }))
         .sort((a, b) => b.minutes - a.minutes);
 
@@ -1085,7 +1237,11 @@ export default function SmartWeeklySchedule({
         debtCleared: dayData.debtCleared,
         dominantCategory: heroSession?.category ?? dayData.dominantCategory,
         stepGoalMet: false,
-        programIconKey: heroSession?.programIconKey ?? resolvedIconKey,
+        programIconKey:
+          heroSession?.programIconKey ??
+          dayData.communityIconKey ??
+          resolveIconKey(dayData.primaryEntry?.programIds?.[0] ?? dayData.primaryEntry?.scheduledCategories?.[0]) ??
+          resolvedIconKey,
         // Pass the full sessions array when 2+ real activities exist so
         // DayIconCell alternates between them with pager dots.
         sessions: sessions.length >= 2 ? sessions : undefined,
@@ -1133,21 +1289,49 @@ export default function SmartWeeklySchedule({
           );
         }
       }
-      // Rings-view today: standalone colored icon, no background circle
+      // Rings-view today: standalone colored icon, no background circle.
+      // Priority: SKILL_DISPLAY svg → legacy getProgramIcon.
       const ringColor = dominantColor || '#00C9F2';
+      const todaySkillDisplay = perDayPrimaryId
+        ? SKILL_DISPLAY[perDayPrimaryId as keyof typeof SKILL_DISPLAY]
+        : null;
       return (
         <div className="flex items-center justify-center" style={{ width: 44, height: 44 }}>
           <div style={{ color: ringColor, filter: `drop-shadow(0 0 4px ${ringColor}60)` }}>
-            {getProgramIcon(resolvedIconKey, 'w-6 h-6')}
+            {todaySkillDisplay
+              ? (
+                <img
+                  src={todaySkillDisplay.iconPath}
+                  alt={todaySkillDisplay.shortName}
+                  className="w-6 h-6 object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              )
+              : getProgramIcon(resolvedIconKey, 'w-6 h-6')
+            }
           </div>
         </div>
       );
     }
 
     if (dayData.isFuture && planned) {
+      // Priority: SKILL_DISPLAY svg → legacy getProgramIcon.
+      const futureSkillDisplay = perDayPrimaryId
+        ? SKILL_DISPLAY[perDayPrimaryId as keyof typeof SKILL_DISPLAY]
+        : null;
       return (
         <div className="flex items-center justify-center text-gray-300 dark:text-gray-600" style={{ width: 44, height: 44 }}>
-          {getProgramIcon(resolvedIconKey, 'w-5 h-5')}
+          {futureSkillDisplay
+            ? (
+              <img
+                src={futureSkillDisplay.iconPath}
+                alt={futureSkillDisplay.shortName}
+                className="w-5 h-5 object-contain opacity-40"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )
+            : getProgramIcon(resolvedIconKey, 'w-5 h-5')
+          }
         </div>
       );
     }
@@ -1182,7 +1366,7 @@ export default function SmartWeeklySchedule({
   // Fallback: Empty state
   if (!schedule || schedule.length === 0) {
     return (
-      <div className="mb-6 w-full max-w-[358px] mx-auto" dir="rtl">
+      <div className="mb-0 w-full max-w-[358px] mx-auto" dir="rtl">
         <div
           className="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1E1E1E] dark:to-[#1A1A2E]"
           style={{ borderRadius: 12, padding: 16, border: '0.5px solid #E0E9FF', boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)' }}
@@ -1196,28 +1380,12 @@ export default function SmartWeeklySchedule({
   }
 
   return (
-    <div className="mb-6 relative z-10 w-full max-w-[358px] mx-auto" dir="rtl">
+    <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto" dir="rtl">
       {/* ── Header — OUTSIDE the card ─────────────────────────── */}
-      <div className="flex items-center justify-between mb-2 px-1">
+      <div className="flex items-center justify-between mb-1 px-1">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">לו״ז אימונים</h2>
-        <div className="flex items-center gap-2 relative z-20">
-          <button
-            onClick={toggleViewMode}
-            className={`p-2 rounded-xl transition-all active:scale-90 ${
-              viewMode === 'icons'
-                ? 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400'
-                : 'bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-[#00ADEF]'
-            }`}
-            title={viewMode === 'rings' ? 'הצג אייקוני תוכנית' : 'הצג טבעות פעילות'}
-            aria-label={viewMode === 'rings' ? 'הצג אייקוני תוכנית' : 'הצג טבעות פעילות'}
-          >
-            {viewMode === 'icons' ? (
-              <CircleIcon className="w-4.5 h-4.5" />
-            ) : (
-              <LayoutGrid className="w-4.5 h-4.5" />
-            )}
-          </button>
-          {!hideMonthToggle && (
+        {!hideMonthToggle && (
+          <div className="flex items-center gap-2 relative z-20">
             <button
               onClick={toggleCalendarMode}
               className={`p-2 rounded-xl transition-all active:scale-90 ${
@@ -1230,12 +1398,12 @@ export default function SmartWeeklySchedule({
             >
               <CalendarDays className="w-4.5 h-4.5" />
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Sub-header row — sync chip & edit link ──────────── */}
-      <div className="flex items-center justify-between mb-3 px-1">
+      {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
+      {!showOverlay && <div className="flex items-center justify-between mb-2 px-1">
         <button
           onClick={handleCalendarSync}
           disabled={syncing}
@@ -1251,78 +1419,42 @@ export default function SmartWeeklySchedule({
           </span>
         </button>
         <button
-          onClick={toggleCalendarMode}
+          onClick={onOpenPlanner ?? toggleCalendarMode}
           className="inline-flex items-center gap-1 font-medium hover:underline"
           style={{ fontSize: 13, color: '#00C9F2' }}
         >
           <img src="/icons/schedule/edit-pen.svg" alt="" className="w-3.5 h-3.5" />
           <span>שינוי לוז</span>
         </button>
-      </div>
+      </div>}
 
       {/* ── Main Card — bordered container with depth ──────────── */}
       <motion.div
         className="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1E1E1E] dark:to-[#1A1A2E] relative overflow-hidden"
         style={{
           borderRadius: 12,
-          padding: 16,
+          padding: '10px 12px',
           border: '0.5px solid #E0E9FF',
           boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)',
         }}
         onPanEnd={onSwipeDown ? handlePanEnd : undefined}
       >
-        {/* Journey overlay: glassmorphism over days grid — Map or Assessment path */}
+        {/* Journey overlay: ultra-light full-card glass — calendar stays sharp below */}
         {showOverlay && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/60 dark:bg-[#1E1E1E]/70 backdrop-blur-md" style={{ borderRadius: 12 }}>
-            {/* Subtle watermark illustration */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.04] dark:opacity-[0.06]"
-              viewBox="0 0 300 160"
-              fill="none"
-              preserveAspectRatio="xMidYMid slice"
-            >
-              <rect x="30" y="20" width="240" height="16" rx="4" fill="currentColor" />
-              <rect x="30" y="46" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="70" y="46" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="110" y="46" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="150" y="46" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="190" y="46" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="230" y="46" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="30" y="86" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="70" y="86" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="110" y="86" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="150" y="86" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="190" y="86" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="230" y="86" width="30" height="30" rx="6" fill="currentColor" />
-              <rect x="30" y="126" width="240" height="12" rx="4" fill="currentColor" />
-            </svg>
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center px-8 leading-relaxed">
-              {journeyState === 'map'
-                ? 'גלול/י למטה והשלם/י את האבחון כדי לפתוח את הלו״ז'
-                : 'בחר באילו ימים אתה מתאמן כדי שנתאים את התוכנית'}
-            </p>
-
+          <div
+            className="absolute inset-0 z-20 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/15 dark:bg-slate-900/35 backdrop-blur-[2px]"
+          >
             <button
               onClick={journeyState === 'map' ? onStartAssessment : onSetSchedule}
-              className="mt-4 px-7 py-2.5 text-white text-sm font-bold rounded-xl transition-all active:scale-95"
-              style={{
-                background: 'linear-gradient(135deg, #00C9F2 0%, #00A3CC 100%)',
-                boxShadow: '0 4px 14px 0 rgba(0, 186, 247, 0.35)',
-              }}
+              className="px-7 py-2 text-black text-sm font-semibold rounded-full shadow-md shadow-cyan-400/25 transition-all duration-200 hover:brightness-105 active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
             >
               {journeyState === 'map' ? 'התחל אבחון' : 'קבע לו״ז אימונים'}
             </button>
           </div>
         )}
         <div
-          className={
-            showOverlay
-              ? journeyState === 'map'
-                ? 'filter blur-md pointer-events-none select-none'
-                : 'filter blur-sm opacity-60 pointer-events-none select-none'
-              : ''
-          }
+          className={showOverlay ? 'pointer-events-none select-none' : ''}
         >
         <AnimatePresence mode="wait">
           {calendarMode === 'week' ? (
@@ -1352,13 +1484,20 @@ export default function SmartWeeklySchedule({
                     const todayIndex = new Date().getDay();
                     const isToday = index === todayIndex;
                     const isPast = index < todayIndex;
-                    const dayData = weekActivityData.get(index);
+                    const dayData = effectiveActivityData.get(index);
 
                     const todayNow = new Date();
                     const cellDate = new Date(todayNow);
                     cellDate.setDate(todayNow.getDate() + (index - todayNow.getDay()));
                     const cellISO = cellDate.toISOString().split('T')[0];
                     const isCellSelected = selectedDate === cellISO;
+                    // In preview mode force training days to use their colored
+                    // 15%-fill + 1px border container (same as "selected" state)
+                    // so the category halos have enough surface area to bleed
+                    // through the glass scrim as recognisable color blocks.
+                    const effectiveCellSelected =
+                      isCellSelected ||
+                      (showOverlay && DUMMY_PREVIEW_SCHEDULE_DAYS.includes(day.day));
 
                     const dayColor = isToday
                       ? '#00C9F2'
@@ -1396,7 +1535,7 @@ export default function SmartWeeklySchedule({
                           className="flex items-center justify-center relative"
                           style={{ width: 32, height: 32, overflow: 'visible' }}
                         >
-                          {dayData && getDayIcon(day, dayData, isCellSelected, index)}
+                          {dayData && getDayIcon(day, dayData, effectiveCellSelected, index)}
 
                           {/* Legacy planned dot — rings view only */}
                           {!useIconView && planned && (

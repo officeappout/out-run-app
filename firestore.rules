@@ -232,6 +232,12 @@ service cloud.firestore {
     match /dailyActivity/{docId} {
       allow read, write: if isRootAdmin() || isAdmin();
 
+      // Leaderboard queries (steps mode: WHERE authorityId == scopeId, orderBy steps)
+      // must read across multiple users' dailyActivity docs. The owner-only rules
+      // below still apply for all other client reads; this line only widens the
+      // read gate — writes remain strictly owner-scoped and passive-field-protected.
+      allow read: if isAuthenticated();
+
       // Read: field check (enables collection queries) OR docId prefix
       allow read: if isAuthenticated() && (
         (resource != null && resource.data.userId == request.auth.uid) ||
@@ -299,8 +305,13 @@ service cloud.firestore {
     }
 
     // streaks — docId == uid
+    // Reads are open to all authenticated users so that leaderboard queries
+    // (ranking.service.ts streak mode: WHERE authorityId == scopeId) can
+    // aggregate across multiple users' streak docs without permission errors.
+    // Writes remain owner-only (isOwner checks uid == docId) plus admins.
     match /streaks/{docId} {
-      allow read, write: if isOwner(docId) || isRootAdmin() || isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOwner(docId) || isRootAdmin() || isAdmin();
     }
 
     // ============================================================
@@ -367,6 +378,16 @@ service cloud.firestore {
     match /analytics_events/{docId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated();
+    }
+
+    // ============================================================
+    // ACHIEVEMENTS — achievement definitions (public read, admin write)
+    // Seeded via scripts/seed-achievements.ts.
+    // Users read definitions to display locked/unlocked states.
+    // ============================================================
+    match /achievements/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ============================================================
@@ -776,6 +797,8 @@ service cloud.firestore {
       //   - request.auth.uid == createdBy  →  user can only create groups for themselves
       //   - source == 'user'               →  cannot impersonate authority/professional groups
       //   - isOfficial == false            →  cannot self-grant official status
+      // Note: social groups (friends/family) intentionally omit authorityId — this
+      //       rule does not require it, so those creates are explicitly permitted.
       allow create: if isAuthenticated()
                     && request.auth.uid == request.resource.data.createdBy
                     && request.resource.data.source == 'user'
@@ -798,12 +821,14 @@ service cloud.firestore {
       }
 
       // attendance sub-collection — session booking / RSVP.
-      // Any authenticated member can read attendance, but writes are scoped
-      // to the user's own record only (sessionId == uid convention).
+      // Doc ID format: {YYYY-MM-DD_HH-mm}  (NOT a uid — a date/time key).
+      // Any authenticated user can read attendance for any group session.
+      // Writes are open to all authenticated users: bookSession() creates
+      // the doc on first RSVP and subsequent RSVPs update the same doc via
+      // arrayUnion(uid), so the doc ID can never equal request.auth.uid.
       match /attendance/{sessionId} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated()
-                     && request.auth.uid == sessionId;
+        allow write: if isAuthenticated();
       }
     }
 
@@ -815,11 +840,48 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['currentRegistrations', 'updatedAt']);
 
+      // Authenticated users may CREATE a virtual_materialized event when joining a
+      // recurring group slot. Strict shape so this path can't be used to forge
+      // admin-curated events:
+      //   - createdBy must equal the requester (no impersonation)
+      //   - source must be 'virtual_materialized' (UI distinguishes from admin events)
+      //   - groupId must reference a real community_groups doc
+      // The official-status badge (`isOfficial`) cannot be self-granted via this
+      // path; it must equal the parent group's flag (admins still bypass via
+      // the `isAdmin()` write rule above).
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.createdBy
+                    && request.resource.data.source == 'virtual_materialized'
+                    && request.resource.data.groupId is string
+                    && request.resource.data.groupId.size() > 0
+                    && (request.resource.data.isOfficial == false
+                        || request.resource.data.isOfficial == null);
+
       // registrations sub-collection — users can write their own registration doc
       match /registrations/{uid} {
         allow read: if isAuthenticated();
         allow write: if isAuthenticated() && request.auth.uid == uid;
       }
+    }
+
+    // ============================================================
+    // PLANNED SESSIONS — ephemeral "I'm heading to this route/park"
+    // declarations. Powers:
+    //   • RouteDetailSheet & ParkDetailSheet "אני מגיע ב..." buttons
+    //   • Partner-finder hub (usePartnerData)
+    //   • useParkEvents personal-arrival stream
+    // Reads are open to any authenticated user; the upstream queries
+    // are bounded by parkId / routeId / userId / status / expiresAt
+    // so this is not an unbounded firehose. Writes are scoped to the
+    // doc owner — matched against `userId` on the resource (existing
+    // doc for update/delete, request payload for create).
+    // ============================================================
+    match /planned_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isAuthenticated()
+                            && request.auth.uid == resource.data.userId;
     }
 
     // ============================================================

@@ -1,6 +1,6 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 
 const LOADING_STEPS = [
     "מנתח את השטח...",
@@ -23,11 +23,21 @@ export default function RouteGenerationLoader() {
 
     return (
         <div className="fixed inset-0 z-[90] bg-white/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-            <div className="mb-8 relative">
-                <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-20"></div>
-                <div className="relative bg-white p-4 rounded-full shadow-xl border border-blue-50">
-                    <Loader2 size={48} className="text-blue-500 animate-spin" />
-                </div>
+            {/* Branded logo — replaces generic Loader2 spinner */}
+            <div className="mb-8 relative flex items-center justify-center">
+                <div
+                    className="absolute inset-0 -m-6 rounded-full blur-2xl animate-pulse"
+                    style={{
+                        background: 'radial-gradient(circle, rgba(0,229,255,0.30) 0%, transparent 70%)',
+                        animationDuration: '2s',
+                    }}
+                />
+                <img
+                    src="/assets/logo/Kind=logotype.svg"
+                    alt="OUT"
+                    className="relative h-12 brightness-0 opacity-80 animate-pulse"
+                    style={{ animationDuration: '2s' }}
+                />
             </div>
 
             <h3 className="text-xl font-bold text-gray-900 mb-2 min-h-[1.75rem] transition-all duration-300">

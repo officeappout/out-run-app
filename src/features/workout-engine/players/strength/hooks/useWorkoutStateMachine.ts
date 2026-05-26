@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { WorkoutPlan, WorkoutSegment, Exercise as WorkoutExercise } from '@/features/parks';
+import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import { useWorkoutTimers } from './useWorkoutTimers';
+import { usePyramidManager } from './usePyramidManager';
+import { useSupersetPredicates } from './useSupersetPredicates';
+import { useExerciseDerivedValues } from './useExerciseDerivedValues';
+import { useExerciseLog } from './useExerciseLog';
+// NextExerciseInfo now lives in useExerciseDerivedValues — imported for local use and re-exported
+import type { NextExerciseInfo } from './useExerciseDerivedValues';
+export type { NextExerciseInfo } from './useExerciseDerivedValues';
 
 // ============================================================================
 // TYPES
@@ -12,7 +20,7 @@ import { useWorkoutTimers } from './useWorkoutTimers';
  * Phase 2 State Machine — `RESTING` replaces both `REPETITION_PICKER` and
  * `TRANSITION`. The log drawer is a boolean flag, not a separate state.
  */
-export type WorkoutState = 'PREPARING' | 'ACTIVE' | 'RESTING' | 'PAUSED';
+export type WorkoutState = 'PREPARING' | 'ACTIVE' | 'INPUT' | 'RESTING' | 'PAUSED';
 
 export interface ExerciseResultLog {
   exerciseId: string;
@@ -26,20 +34,7 @@ export interface ExerciseResultLog {
   confirmedRepsLeft?: number[];
 }
 
-export interface NextExerciseInfo {
-  name: string;
-  videoUrl: string | null;
-  imageUrl: string | null;
-  equipment: string[];
-  reps?: string;
-  duration?: string;
-  exerciseType: string;
-  executionSteps: string[];
-  muscleGroups: { primary: string[]; secondary: string[] };
-  exerciseGoal: string | null;
-  /** Notification text from the matching execution method (e.g. "Find a comfortable bench") */
-  notificationText: string | null;
-}
+// NextExerciseInfo moved to useExerciseDerivedValues.ts (SM-3); re-exported above.
 
 // ── Hybrid Workout Block Context ──────────────────────────────────────────
 
@@ -114,6 +109,12 @@ export interface WorkoutStateMachineResult {
   isSupersetActive: boolean;
   /** Display name of the paired exercise (superset partner), or null */
   supersetPartnerName: string | null;
+  /**
+   * True when we are Exercise A in the pair (the partner B comes next).
+   * Used to show a micro-rest cue ("מעבר לבן זוג הסופרסט") on the rest screen.
+   * False when we are B (full recovery rest follows before returning to A).
+   */
+  isNextPartnerExercise: boolean;
 
   blockId: string | undefined;
   blockType: WorkoutBlockType | undefined;
@@ -122,6 +123,15 @@ export interface WorkoutStateMachineResult {
   currentSide: 'right' | 'left' | null;
   /** Stored side values after both sides are done (for the log drawer) */
   pendingSideData: { right: number; left: number } | null;
+
+  /**
+   * Active pyramid step for the current set, or null when the active
+   * exercise has no `pyramidSequence`.  Drives dynamic overrides for
+   * exerciseName / targetReps / exerciseVideoUrl.
+   */
+  pyramidStep: PyramidStep | null;
+  /** True when the active exercise is running a Mechanical Pyramid. */
+  isPyramidActive: boolean;
 
   handleExerciseComplete: (reps?: number) => void;
   /** Saves reps AND closes the drawer. Pass forceSkipRest to bypass RESTING entirely. Pass editSetIndex to update a specific set in-place (re-edit). */
@@ -143,6 +153,8 @@ export interface WorkoutStateMachineResult {
 
 const DEFAULT_REST_TIME = 10;
 
+// SUPERSET_TRANSITION_REST (10 s) now lives in useSupersetPredicates.ts (SM-2).
+
 // ============================================================================
 // HOOK
 // ============================================================================
@@ -163,15 +175,6 @@ export function useWorkoutStateMachine(
   const transitionLock = useRef(false);
   const prevIndicesRef = useRef({ segment: 0, exercise: 0, set: 0 });
   const workoutIdRef = useRef(workout.id);
-  const exerciseLogRef = useRef<ExerciseResultLog[]>([]);
-  const [logVersion, setLogVersion] = useState(0);
-  const bumpLog = useCallback(() => setLogVersion(v => {
-    const next = v + 1;
-    console.log(`🔄 [Source of Truth] logVersion incremented to: ${next} | Snapshot updated. | t=${performance.now().toFixed(1)}ms`);
-    return next;
-  }), []);
-  const lastActiveStartTime = useRef<number>(Date.now());
-
   // --------------------------------------------------------------------------
   // STATE
   // --------------------------------------------------------------------------
@@ -258,6 +261,26 @@ export function useWorkoutStateMachine(
     return 1;
   }, []);
 
+  // ── SM-4: Exercise log — ref, version counter, write API ─────────────────
+  // Placed here (before moveToNext) so exerciseLogRef is in scope for the
+  // onComplete call inside moveToNext.  pyramidStep is NOT passed as an input
+  // because usePyramidManager (SM-1) is called later in the MEMOS section;
+  // autoSaveTargetReps inlines the pyramid lookup directly instead.
+  const {
+    exerciseLogRef,
+    logVersion,
+    bumpLog,
+    autoSaveTargetReps,
+    getExerciseLog,
+    exerciseLogSnapshot,
+  } = useExerciseLog({
+    workout,
+    currentSegmentIndex,
+    currentExerciseIndex,
+    currentSetIndex,
+    getExercises,
+  });
+
   // --------------------------------------------------------------------------
   // moveToNext — advances indices + sets workoutState to ACTIVE
   // This is called when rest finishes (timer or skip).
@@ -309,33 +332,80 @@ export function useWorkoutStateMachine(
 
       // ── Superset Flow ────────────────────────────────────────────────────
       const pairedId = (currentEx as any)?.pairedWith as string | null | undefined;
+
+      // Diagnostic: always log what pairedWith is so we can confirm data integrity
+      console.log(
+        `[Engine][moveToNext] seg=${currentSegmentIndex} ex[${prevExerciseIndex}]="${(currentEx as any)?.name}" ` +
+        `pairedWith=${pairedId ?? 'NONE'} setIdx=${setIdx}`,
+      );
+
       if (pairedId) {
         const pairedIndex = exercises.findIndex((e) => e.id === pairedId);
-        if (pairedIndex !== -1) {
+
+        if (pairedIndex === -1) {
+          // Partner not found in this segment — log a clear warning so the user
+          // can identify whether it's a segment-split or ID-mismatch issue.
+          console.warn(
+            `[Engine][Superset] ⚠️ "${(currentEx as any)?.name}" has pairedWith="${pairedId}" ` +
+            `but no exercise with that id was found in segment ${currentSegmentIndex}. ` +
+            `Segment exercises: [${exercises.map((e: any) => `${e.name}(${e.id})`).join(', ')}]. ` +
+            `Falling back to straight sets — check that both paired exercises share the same exerciseRole.`,
+          );
+        } else {
+          // Equalize round count to Math.max(A.sets, B.sets) — mirrors the
+          // WorkoutPlaylist.tsx equalizedSets logic so the engine terminates
+          // after the same number of rounds the UI renders pills for.
+          const pairedPartner = exercises[pairedIndex];
+          const effectiveSets = Math.max(setsForCurrentEx, getSetsForExercise(pairedPartner));
+
           const isFirstInPair = pairedIndex > prevExerciseIndex;
 
           if (isFirstInPair) {
             // Current = A (first), partner = B (second) → go to B, same round
-            console.log(`[Engine][Superset] A→B (round ${setIdx + 1}/${setsForCurrentEx}) "${currentEx.name}" → "${exercises[pairedIndex].name}"`);
+            console.log(`[Engine][Superset] A→B (round ${setIdx + 1}/${effectiveSets}) "${(currentEx as any)?.name}" → "${(exercises[pairedIndex] as any)?.name}"`);
             setWorkoutState('ACTIVE');
             return pairedIndex;
           } else {
             // Current = B (second), partner = A (first)
-            if (setIdx < setsForCurrentEx - 1) {
+            if (setIdx < effectiveSets - 1) {
               // More rounds → go back to A, increment round
               const nextRound = setIdx + 1;
-              console.log(`[Engine][Superset] B→A (round ${nextRound + 1}/${setsForCurrentEx}) "${currentEx.name}" → "${exercises[pairedIndex].name}"`);
+              console.log(`[Engine][Superset] B→A (round ${nextRound + 1}/${effectiveSets}) "${(currentEx as any)?.name}" → "${(exercises[pairedIndex] as any)?.name}"`);
               setCurrentSetIndex(nextRound);
               setWorkoutState('ACTIVE');
               return pairedIndex;
             } else {
-              // All rounds done → advance past B (the higher-index member)
-              const afterPairIndex = prevExerciseIndex + 1;
-              console.log(`[Engine][Superset] Pair complete. Moving to index ${afterPairIndex}`);
+              // All rounds done.
+              // Instead of a blind prevExerciseIndex + 1, scan the segment
+              // for the first exercise that still has sets remaining in the
+              // log.  This handles "sandwich" layouts where the paired
+              // exercises are not adjacent (e.g. [A@0, standalone@1, B@2]):
+              //   blind +1 from B@2 → index 3 (out of bounds, skips @1)
+              //   scan   from @0   → index 1 (correct, continues there)
               setCurrentSetIndex(0);
-              if (afterPairIndex < exercises.length) {
+              const segId =
+                workout.segments[currentSegmentIndex]?.id ||
+                String(currentSegmentIndex);
+              const nextIncompleteIndex = exercises.findIndex((ex: any) => {
+                // Superset partners (pairedWith set) are managed exclusively
+                // by the round-counter logic above.  Including them here
+                // would cause the scan to re-enter A or B when their log
+                // count is temporarily below effectiveSets, skipping the
+                // true next target (standalone siblings like "בק לבר בפישוק").
+                if (ex.pairedWith != null) return false;
+                const totalSets = getSetsForExercise(ex);
+                const logEntry = exerciseLogRef.current.find(
+                  (e) => e.exerciseId === ex.id && e.segmentId === segId,
+                );
+                return (logEntry?.confirmedReps.length ?? 0) < totalSets;
+              });
+              console.log(
+                `[Engine][Superset] Pair complete (${effectiveSets} rounds). ` +
+                `Next incomplete index=${nextIncompleteIndex}`,
+              );
+              if (nextIncompleteIndex !== -1) {
                 setWorkoutState('ACTIVE');
-                return afterPairIndex;
+                return nextIncompleteIndex;
               }
               const nextIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
               if (nextIdx !== null) {
@@ -351,7 +421,21 @@ export function useWorkoutStateMachine(
       }
 
       // ── Straight Sets (default) ──────────────────────────────────────────
+      //
+      // Pyramid exercises (pyramidSequence present) intentionally fall through
+      // to this path.  The processor stamps exactly ONE pyramid exercise per
+      // workout; its steps live inside pyramidSequence, not as separate segment
+      // entries.  currentSetIndex advances 0 → 1 → 2 exactly like any other
+      // straight-set exercise, and pyramidStep = pyramidSequence[currentSetIndex]
+      // handles the per-step name / target / video overrides downstream.
       console.log('[Engine] moveToNext (straight sets)', { currentSegmentIndex, setIdx });
+
+      if ((workout as any).appliedProtocol === 'pyramid' && (currentEx as any)?.pyramidSequence) {
+        console.log(
+          `[Engine] Processing Pyramid Step via native straight-sets. ` +
+          `Set: ${setIdx + 1}/${(currentEx as any).pyramidSequence.length}`,
+        );
+      }
 
       if (setIdx < setsForCurrentEx - 1) {
         const nextSet = setIdx + 1;
@@ -369,6 +453,15 @@ export function useWorkoutStateMachine(
 
       const nextIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
       if (nextIdx !== null) {
+        // Log the new segment's first exercise so we can verify pairedWith survived
+        const nextSeg = workout.segments[nextIdx];
+        const nextExercises = getExercises(nextSeg);
+        const nextFirst = nextExercises?.[0];
+        const nextFirstPaired = (nextFirst as any)?.pairedWith ?? 'NONE';
+        console.log(
+          `[Engine] ↪ Advancing to segment ${nextIdx} ("${nextSeg?.title ?? 'untitled'}") — ` +
+          `first exercise="${(nextFirst as any)?.name ?? '?'}" pairedWith=${nextFirstPaired}`,
+        );
         setCurrentSegmentIndex(nextIdx);
         setWorkoutState('ACTIVE');
       } else {
@@ -384,42 +477,6 @@ export function useWorkoutStateMachine(
   useEffect(() => { moveToNextRef.current = moveToNext; });
 
   // --------------------------------------------------------------------------
-  // Auto-save helper — writes target reps when the user hasn't manually saved
-  // --------------------------------------------------------------------------
-
-  const autoSaveTargetReps = useCallback(() => {
-    const exercise = (() => {
-      const segment = workout.segments[currentSegmentIndex];
-      const exercises = getExercises(segment);
-      return exercises?.[currentExerciseIndex] || null;
-    })();
-    if (!exercise) return;
-
-    const segId = workout.segments[currentSegmentIndex]?.id || String(currentSegmentIndex);
-    const repsStr = exercise.reps?.replace(/^\d+\s*[xX×]\s*/, '') ?? '';
-    let reps = 0;
-    if (repsStr) {
-      const match = repsStr.match(/(\d+)/);
-      reps = match ? parseInt(match[1], 10) : 0;
-    }
-
-    const existing = exerciseLogRef.current.find(
-      (e) => e.exerciseId === exercise.id && e.segmentId === segId,
-    );
-    if (!existing) {
-      exerciseLogRef.current.push({
-        exerciseId: exercise.id,
-        exerciseName: exercise.name,
-        segmentId: segId,
-        confirmedReps: [reps],
-        targetReps: reps,
-      });
-      bumpLog();
-      console.log(`[Engine] Auto-saved target reps: ${exercise.name} → ${reps}`);
-    }
-  }, [workout, currentSegmentIndex, currentExerciseIndex, getExercises, bumpLog]);
-
-  // --------------------------------------------------------------------------
   // REST COMPLETE HANDLER — called by useWorkoutTimers when restTimeLeft hits 0
   //
   // Fix #2: The timer is decoupled from UI — this callback doesn't reset anything.
@@ -429,17 +486,15 @@ export function useWorkoutStateMachine(
   const handleRestTimerDone = useCallback(() => {
     if (transitionLock.current || moveInFlightRef.current) return;
     transitionLock.current = true;
-    console.log('[Engine] Rest timer hit 0', { isLogDrawerOpen });
-    if (isLogDrawerOpen) {
-      autoSaveTargetReps();
-      setIsLogDrawerOpen(false);
-    }
+    // Log is already committed by handleExerciseComplete before RESTING,
+    // so the rest-timer callback only needs to advance the cursor.
+    console.log('[Engine] Rest timer hit 0 — advancing');
     setFadeIn(false);
     setTimeout(() => {
       moveToNextRef.current();
       setFadeIn(true);
     }, 100);
-  }, [isLogDrawerOpen, autoSaveTargetReps]);
+  }, []);
 
   // --------------------------------------------------------------------------
   // TIMER HOOK
@@ -493,17 +548,6 @@ export function useWorkoutStateMachine(
   }, [currentSegmentIndex, currentExerciseIndex, currentSetIndex]);
 
   // --------------------------------------------------------------------------
-  // EFFECT — Reset mount shield whenever ACTIVE state begins (or set changes)
-  // --------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (workoutState === 'ACTIVE') {
-      lastActiveStartTime.current = Date.now();
-      console.log('[Engine] Mount shield armed', { segment: currentSegmentIndex, exercise: currentExerciseIndex, set: currentSetIndex });
-    }
-  }, [workoutState, currentSegmentIndex, currentExerciseIndex, currentSetIndex]);
-
-  // --------------------------------------------------------------------------
   // EFFECT — Workout Plan ID Change Detection
   // --------------------------------------------------------------------------
 
@@ -536,36 +580,59 @@ export function useWorkoutStateMachine(
     [workout, currentSegmentIndex],
   );
 
-  /**
-   * Total sets for the CURRENT exercise (not the segment).
-   * Straight Sets: each exercise tracks its own set count.
-   */
-  const setsForCurrentExercise = useMemo(
-    () => getSetsForExercise(activeExercise),
-    [activeExercise, getSetsForExercise],
-  );
+  // ── SM-1: Pyramid protocol — pure derivations (see usePyramidManager.ts) ──
+  const { pyramidStep, isPyramidActive } = usePyramidManager({ activeExercise, currentSetIndex });
 
-  const isFollowAlongMode = useMemo(() => {
-    const title = currentSegment?.title || '';
-    if (title.includes('חימום') || title.toLowerCase().includes('warmup')) return true;
-    if (title.includes('קירור') || title.toLowerCase().includes('cooldown')) return true;
-    if (activeExercise?.exerciseRole === 'warmup' || activeExercise?.exerciseRole === 'cooldown') return true;
-    return activeExercise?.isFollowAlong === true;
-  }, [activeExercise, currentSegment]);
+  // ── SM-2: Superset predicates — read-only pair state ─────────────────────
+  // computeEffectiveRestTime accepts segmentRestTime as a parameter (not a
+  // hook input) so this hook can be declared before segmentRestTime is memoised.
+  const {
+    isSupersetActive,
+    supersetPartnerName,
+    isNextPartnerExercise,
+    computeEffectiveRestTime,
+  } = useSupersetPredicates({ activeExercise, currentSegment, currentExerciseIndex, getExercises });
 
-  const exerciseType = useMemo<'reps' | 'time' | 'follow-along'>(() => {
-    if (isFollowAlongMode) return 'follow-along';
-    if (activeExercise?.exerciseType === 'time') return 'time';
-    if (activeExercise?.exerciseType === 'reps') return 'reps';
-    if (currentSegment?.target?.type === 'reps') return 'reps';
-    if (currentSegment?.target?.type === 'time') return 'time';
-    if (activeExercise?.reps) return 'reps';
-    if (activeExercise?.duration) return 'time';
-    return 'reps';
-  }, [activeExercise, currentSegment, isFollowAlongMode]);
+  // ── SM-3: All 20+ display-value memos (see useExerciseDerivedValues.ts) ──
+  const {
+    isFollowAlongMode,
+    exerciseType,
+    isUnilateralTimed,
+    segmentRestTime,
+    exerciseDuration,
+    targetReps,
+    repsRangeMin,
+    repsRangeMax,
+    dynamicTarget,
+    autoCompleteTime,
+    totalExercises,
+    globalExerciseIndex,
+    progressBars,
+    exerciseName,
+    executionSteps,
+    exerciseGoal,
+    muscleGroups,
+    exerciseVideoUrl,
+    nextExercise,
+    repsOrDurationText,
+    lastSavedReps,
+    setsForCurrentExercise,
+  } = useExerciseDerivedValues({
+    workout,
+    currentSegmentIndex,
+    currentExerciseIndex,
+    currentSetIndex,
+    activeExercise,
+    currentSegment,
+    exerciseHistoryMap,
+    pyramidStep,
+    logVersion,
+    exerciseLogRef,
+    getExercises,
+    getSetsForExercise,
+  });
 
-  const isUnilateralTimed = activeExercise?.symmetry === 'unilateral' && exerciseType === 'time';
-
+  // ── Unilateral side-tracking effect (side-effect; stays in orchestrator) ─
   useEffect(() => {
     if (isUnilateralTimed) {
       setCurrentSide('right');
@@ -578,349 +645,6 @@ export function useWorkoutStateMachine(
     }
   }, [activeExercise?.id, isUnilateralTimed]);
 
-  const segmentRestTime = useMemo(() => {
-    if (isFollowAlongMode) return 0;
-    const exerciseRest = (activeExercise as any)?.restSeconds;
-    if (typeof exerciseRest === 'number' && exerciseRest > 0) return exerciseRest;
-    const segment = workout.segments[currentSegmentIndex];
-    if (typeof segment?.restBetweenExercises === 'number') return segment.restBetweenExercises;
-    return 90;
-  }, [workout, currentSegmentIndex, isFollowAlongMode, activeExercise]);
-
-  const exerciseDuration = useMemo(() => {
-    if (exerciseType === 'time' || exerciseType === 'follow-along') {
-      if (currentSegment?.target?.type === 'time') return currentSegment.target.value;
-      const durationStr = activeExercise?.duration;
-      if (durationStr) {
-        const match = durationStr.match(/(\d+)/);
-        return match ? parseInt(match[1], 10) : 30;
-      }
-      return 30;
-    }
-    return 0;
-  }, [exerciseType, currentSegment, activeExercise]);
-
-  /**
-   * Strip round multiplier ("3x8" → "8", "3x6-8" → "6-8") before parsing.
-   */
-  const strippedReps = useMemo(() => {
-    const raw = activeExercise?.reps;
-    if (!raw) return raw;
-    return raw.replace(/^\d+\s*[xX×]\s*/, '');
-  }, [activeExercise]);
-
-  const targetReps = useMemo(() => {
-    if (exerciseType === 'reps') {
-      // Exercise-level reps string takes priority — the generator sets the real range
-      // (e.g. "8-12 חזרות"). The segment target is a generic fallback and must not override.
-      if (strippedReps) {
-        const match = strippedReps.match(/(\d+)/);
-        return match ? parseInt(match[1], 10) : null;
-      }
-      if (currentSegment?.target?.type === 'reps') return currentSegment.target.value;
-    }
-    return null;
-  }, [exerciseType, currentSegment, strippedReps]);
-
-  /**
-   * Upper bound of the reps range.
-   * Prefers the structured repsRange object from the exercise (set by WorkoutGenerator),
-   * falls back to parsing the formatted string "8-12 חזרות".
-   */
-  const repsRangeMax = useMemo(() => {
-    if (exerciseType !== 'reps') return null;
-    // Prefer structured data from the engine
-    const structured = (activeExercise as any)?.repsRange?.max as number | undefined;
-    if (typeof structured === 'number') return structured;
-    // Fall back to string parsing
-    if (!strippedReps) return null;
-    const match = strippedReps.match(/(\d+)\s*[-–]\s*(\d+)/);
-    if (!match) return null;
-    return parseInt(match[2], 10);
-  }, [exerciseType, activeExercise, strippedReps]);
-
-  /**
-   * Lower bound of the reps range — the strict minimum the user should hit.
-   * Prefers the structured repsRange.min, falls back to targetReps (first number in string).
-   */
-  const repsRangeMin = useMemo(() => {
-    if (exerciseType !== 'reps') return null;
-    const structured = (activeExercise as any)?.repsRange?.min as number | undefined;
-    if (typeof structured === 'number') return structured;
-    return targetReps;
-  }, [exerciseType, activeExercise, targetReps]);
-
-  /**
-   * Smart target: if the user hit targetReps on every set last session,
-   * nudge them up by 1 (clamped to repsRangeMax). Otherwise stay at targetReps (= repsRange.min).
-   */
-  const dynamicTarget = useMemo(() => {
-    if (targetReps === null) return null;
-    if (!activeExercise || !exerciseHistoryMap) return targetReps;
-    const lastReps = exerciseHistoryMap[activeExercise.id];
-    if (!lastReps || lastReps.length === 0) return targetReps;
-    const allHitTarget = lastReps.every((r) => r >= targetReps);
-    if (!allHitTarget) return targetReps;
-    const ceiling = repsRangeMax ?? targetReps;
-    return Math.min(targetReps + 1, ceiling);
-  }, [targetReps, activeExercise, exerciseHistoryMap, repsRangeMax]);
-
-  const autoCompleteTime = useMemo(() => {
-    if (exerciseType === 'time' && exerciseDuration > 0) {
-      return exerciseDuration;
-    }
-    if (exerciseType === 'reps' && targetReps && targetReps > 0) {
-      return Math.max(targetReps * 2.5 + 5, 10);
-    }
-    return 30;
-  }, [exerciseType, targetReps, exerciseDuration]);
-
-  /**
-   * Total "steps" = sum of (sets per exercise) across all segments.
-   * Each exercise contributes its own set count.
-   */
-  const totalExercises = useMemo(
-    () =>
-      workout.segments.reduce((total, segment) => {
-        const exercises = getExercises(segment);
-        if (!exercises) return total;
-        return total + exercises.reduce((sum, ex) => sum + getSetsForExercise(ex), 0);
-      }, 0),
-    [workout, getExercises, getSetsForExercise],
-  );
-
-  const globalExerciseIndex = useMemo(() => {
-    let index = 0;
-    for (let i = 0; i < currentSegmentIndex; i++) {
-      const exercises = getExercises(workout.segments[i]);
-      if (exercises) {
-        index += exercises.reduce((sum, ex) => sum + getSetsForExercise(ex), 0);
-      }
-    }
-    const currentExercises = getExercises(currentSegment);
-    if (currentExercises) {
-      for (let j = 0; j < currentExerciseIndex; j++) {
-        index += getSetsForExercise(currentExercises[j]);
-      }
-    }
-    index += currentSetIndex;
-    return index;
-  }, [workout, currentSegmentIndex, currentExerciseIndex, currentSetIndex, currentSegment, getExercises, getSetsForExercise]);
-
-  const progressBars = useMemo(
-    () =>
-      Array.from({ length: totalExercises }, (_, i) => ({
-        isActive: i < globalExerciseIndex,
-        isCurrent: i === globalExerciseIndex,
-      })),
-    [totalExercises, globalExerciseIndex],
-  );
-
-  const exerciseName = useMemo(() => activeExercise?.name || 'טוען...', [activeExercise]);
-
-  const executionSteps = useMemo(() => {
-    if (Array.isArray(activeExercise?.highlights)) return activeExercise!.highlights;
-    if (Array.isArray(activeExercise?.instructions)) return activeExercise!.instructions;
-    return [];
-  }, [activeExercise]);
-
-  const exerciseGoal = useMemo(
-    () => activeExercise?.goal || activeExercise?.description || null,
-    [activeExercise],
-  );
-
-  const muscleGroups = useMemo(() => {
-    if (!activeExercise?.muscleGroups || !Array.isArray(activeExercise.muscleGroups)) {
-      return { primary: [], secondary: [] };
-    }
-    return {
-      primary: activeExercise.muscleGroups[0] ? [activeExercise.muscleGroups[0]] : [],
-      secondary: activeExercise.muscleGroups.slice(1),
-    };
-  }, [activeExercise]);
-
-  /**
-   * Exhaustive media resolution (5-level search):
-   * 1. exercise.videoUrl (pre-resolved by home/page.tsx)
-   * 2. All execution_methods / methods — first mainVideoUrl or videoUrl
-   * 3. exercise-level media.videoUrl / media.mainVideoUrl
-   * 4. exercise.imageUrl (still-frame fallback)
-   * 5. Firestore field aliases (coverImage, thumbnailUrl)
-   */
-  const exerciseVideoUrl = useMemo(() => {
-    if (activeExercise?.videoUrl) return activeExercise.videoUrl;
-    const raw = activeExercise as any;
-    const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
-    for (const m of methods) {
-      const url = m?.media?.mainVideoUrl || m?.media?.videoUrl;
-      if (url) return url;
-    }
-    if (raw?.media?.videoUrl) return raw.media.videoUrl;
-    if (raw?.media?.mainVideoUrl) return raw.media.mainVideoUrl;
-    if (activeExercise?.imageUrl) return activeExercise.imageUrl;
-    if (raw?.media?.imageUrl) return raw.media.imageUrl;
-    if (raw?.coverImage) return raw.coverImage;
-    if (raw?.thumbnailUrl) return raw.thumbnailUrl;
-
-    const name = typeof activeExercise?.name === 'string'
-      ? activeExercise.name
-      : (raw?.name?.he || activeExercise?.id || 'unknown');
-    console.error(`[Media FAIL] No media found for active exercise: ${name}`);
-    return null;
-  }, [activeExercise]);
-
-  /**
-   * nextExercise — Straight Sets prediction:
-   * - If more sets remain for current exercise → same exercise (next set)
-   * - Else if more exercises in segment → next exercise (set 1)
-   * - Else → first exercise of next valid segment, or "סיום האימון"
-   */
-  const nextExercise = useMemo<NextExerciseInfo>(() => {
-    const currentExercises = getExercises(currentSegment);
-    let exercise: WorkoutExercise | null = null;
-
-    const currentEx = currentExercises?.[currentExerciseIndex] ?? null;
-    const setsForCurrent = getSetsForExercise(currentEx);
-
-    // ── Superset: predict next based on pair position ──
-    const pairedId = (currentEx as any)?.pairedWith as string | null | undefined;
-    if (pairedId && currentExercises) {
-      const pairedIndex = currentExercises.findIndex((e) => e.id === pairedId);
-      if (pairedIndex !== -1) {
-        const isFirstInPair = pairedIndex > currentExerciseIndex;
-        if (isFirstInPair) {
-          // On A → next is B (same round)
-          exercise = currentExercises[pairedIndex];
-        } else {
-          // On B → if more rounds, next is A; else next after B
-          if (currentSetIndex < setsForCurrent - 1) {
-            exercise = currentExercises[pairedIndex]; // back to A
-          } else {
-            exercise = currentExercises[currentExerciseIndex + 1] ?? null;
-            if (!exercise) {
-              for (let i = currentSegmentIndex + 1; i < workout.segments.length; i++) {
-                const nextExercises = getExercises(workout.segments[i]);
-                if (nextExercises && nextExercises.length > 0) { exercise = nextExercises[0]; break; }
-              }
-            }
-          }
-        }
-      }
-    } else if (currentSetIndex < setsForCurrent - 1) {
-      // ── Straight sets: more sets of same exercise ──
-      exercise = currentEx;
-    } else if (currentExercises && currentExerciseIndex + 1 < currentExercises.length) {
-      exercise = currentExercises[currentExerciseIndex + 1];
-    } else {
-      for (let i = currentSegmentIndex + 1; i < workout.segments.length; i++) {
-        const nextExercises = getExercises(workout.segments[i]);
-        if (nextExercises && nextExercises.length > 0) {
-          exercise = nextExercises[0];
-          break;
-        }
-      }
-    }
-
-    const nextSteps: string[] = (() => {
-      if (Array.isArray(exercise?.highlights)) return exercise!.highlights;
-      if (Array.isArray(exercise?.instructions)) return exercise!.instructions;
-      return [];
-    })();
-
-    const nextMuscles = (() => {
-      if (!exercise?.muscleGroups || !Array.isArray(exercise.muscleGroups)) {
-        return { primary: [] as string[], secondary: [] as string[] };
-      }
-      return {
-        primary: exercise.muscleGroups[0] ? [exercise.muscleGroups[0]] : [],
-        secondary: exercise.muscleGroups.slice(1),
-      };
-    })();
-
-    const resolvedMedia = (() => {
-      if (!exercise) return { video: null, image: null };
-      const raw = exercise as any;
-      const methods = raw.execution_methods || raw.executionMethods || [];
-      let video = exercise.videoUrl || null;
-      let image = exercise.imageUrl || null;
-      if (!video || !image) {
-        for (const m of methods) {
-          if (!video) video = m?.media?.mainVideoUrl || m?.media?.videoUrl || null;
-          if (!image) image = m?.media?.imageUrl || null;
-        }
-      }
-      if (!image && raw.media?.imageUrl) image = raw.media.imageUrl;
-      if (!image && video) image = video;
-      return { video, image };
-    })();
-
-    return {
-      name: exercise?.name || 'סיום האימון',
-      videoUrl: resolvedMedia.video,
-      imageUrl: resolvedMedia.image,
-      equipment: exercise?.equipment || [],
-      reps: exercise?.reps,
-      duration: exercise?.duration,
-      exerciseType: exercise?.exerciseType || 'reps',
-      executionSteps: nextSteps,
-      muscleGroups: nextMuscles,
-      exerciseGoal: exercise?.goal || exercise?.description || null,
-      notificationText: (() => {
-        const methods =
-          (exercise as any)?.execution_methods ||
-          (exercise as any)?.executionMethods ||
-          [];
-        for (const m of methods) {
-          const nt = m.notificationText;
-          if (!nt) continue;
-          if (typeof nt === 'string') return nt;
-          // LocalizedText (current shape) — prefer he, fall back to en
-          if (typeof nt.he === 'string' && nt.he.trim()) return nt.he as string;
-          if (typeof nt.en === 'string' && nt.en.trim()) return nt.en as string;
-          // Legacy GenderedText
-          if (typeof nt.male === 'string' && nt.male.trim()) return nt.male as string;
-          if (typeof nt.female === 'string' && nt.female.trim()) return nt.female as string;
-        }
-        return null;
-      })(),
-    };
-  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises]);
-
-  const repsOrDurationText = useMemo(() => {
-    if (exerciseType === 'time') return activeExercise?.duration || '';
-    if (exerciseType === 'reps') return strippedReps || '';
-    return '';
-  }, [activeExercise, exerciseType, strippedReps]);
-
-  /**
-   * Last confirmed reps for the current exercise (most recent entry in the log).
-   * Used by the picker to default to the last saved value on subsequent sets.
-   */
-  const lastSavedReps = useMemo(() => {
-    if (!activeExercise) return null;
-    const segId = workout.segments[currentSegmentIndex]?.id || String(currentSegmentIndex);
-    const entry = exerciseLogRef.current.find(
-      (e) => e.exerciseId === activeExercise.id && e.segmentId === segId,
-    );
-    if (entry && entry.confirmedReps.length > 0) {
-      return entry.confirmedReps[entry.confirmedReps.length - 1];
-    }
-    return null;
-  }, [activeExercise, workout.segments, currentSegmentIndex, currentSetIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isSupersetActive = useMemo(() => {
-    if (!activeExercise) return false;
-    return !!(activeExercise as any)?.pairedWith;
-  }, [activeExercise]);
-
-  const supersetPartnerName = useMemo(() => {
-    if (!isSupersetActive || !activeExercise) return null;
-    const pairedId = (activeExercise as any)?.pairedWith as string;
-    const currentExercises = getExercises(currentSegment);
-    const partner = currentExercises?.find((e) => e.id === pairedId);
-    return partner?.name || null;
-  }, [isSupersetActive, activeExercise, currentSegment, getExercises]);
-
   // --------------------------------------------------------------------------
   // CALLBACKS — State Machine Transitions
   // --------------------------------------------------------------------------
@@ -929,11 +653,12 @@ export function useWorkoutStateMachine(
    * Exercise complete — triggered by FillingButton auto-fill or manual tap.
    *
    * For reps/time exercises:
-   *   1. Enter RESTING state
-   *   2. Start rest timer immediately
-   *   3. Open log drawer
+   *   1. Log the just-completed set (via `autoSaveTargetReps`)
+   *   2. Arm the clocked rest countdown (`setRestTimeLeft`)
+   *   3. Flip to RESTING — cursor stays put until `handleRestTimerDone`
+   *      or `skipRest` fires
    *
-   * For follow-along: skip rest and advance directly.
+   * For warmup/cooldown follow-along: log silently + advance directly.
    */
   const handleExerciseComplete = useCallback(
     (reps?: number) => {
@@ -944,45 +669,69 @@ export function useWorkoutStateMachine(
         return;
       }
 
-      const msSinceActive = Date.now() - lastActiveStartTime.current;
-      if (msSinceActive < 800) {
-        console.warn(`[Engine] BLOCKED — mount shield (${msSinceActive}ms since ACTIVE start)`);
-        return;
-      }
-
       transitionLock.current = true;
       console.log('[Engine] Lock ENGAGED — exercise complete', {
         exerciseType,
         segmentRestTime,
         exercise: activeExercise?.name,
-        msSinceActive,
       });
 
       switch (exerciseType) {
         case 'follow-along': {
-          if (activeExercise) {
-            const followAlongReps = reps ?? targetReps ?? exerciseDuration ?? 30;
-            const existing = exerciseLogRef.current.find(
-              (e) => e.exerciseId === activeExercise.id,
-            );
-            if (existing) {
-              existing.confirmedReps.push(followAlongReps);
-            } else {
-              exerciseLogRef.current.push({
-                exerciseId: activeExercise.id,
-                exerciseName: activeExercise.name,
-                segmentId:
-                  workout.segments[currentSegmentIndex]?.id || String(currentSegmentIndex),
-                confirmedReps: [followAlongReps],
-                targetReps: followAlongReps,
-              });
+          // Warmup/cooldown exercises advance immediately on user tap —
+          // no rest screen, no log drawer. Main-segment follow-along
+          // (e.g. a skill demo) routes through RESTING + log drawer.
+          const segTitle = workout.segments[currentSegmentIndex]?.title || '';
+          const isWarmupCooldown =
+            activeExercise?.exerciseRole === 'warmup' ||
+            activeExercise?.exerciseRole === 'cooldown' ||
+            segTitle.includes('חימום') || segTitle.toLowerCase().includes('warmup') ||
+            segTitle.includes('שחרור') || segTitle.includes('קירור') ||
+            segTitle.toLowerCase().includes('cooldown');
+
+          if (isWarmupCooldown) {
+            // Silent log + immediate advance on single user tap.
+            if (activeExercise) {
+              const followAlongReps = reps ?? exerciseDuration ?? 30;
+              const segId =
+                workout.segments[currentSegmentIndex]?.id || String(currentSegmentIndex);
+              const existing = exerciseLogRef.current.find(
+                (e) => e.exerciseId === activeExercise.id && e.segmentId === segId,
+              );
+              if (existing) {
+                existing.confirmedReps.push(followAlongReps);
+              } else {
+                exerciseLogRef.current.push({
+                  exerciseId: activeExercise.id,
+                  exerciseName: activeExercise.name,
+                  segmentId: segId,
+                  confirmedReps: [followAlongReps],
+                  targetReps: followAlongReps,
+                });
+              }
+              bumpLog();
             }
-            bumpLog();
+            setFadeIn(false);
+            setTimeout(() => {
+              moveToNextRef.current();
+              setFadeIn(true);
+            }, 150);
+            break;
           }
+
+          // Main-segment follow-along: show INPUT overlay so user can
+          // confirm before rest begins.
+          const defaultVal = reps ?? exerciseDuration ?? 30;
+          setCompletedReps(defaultVal);
           setFadeIn(false);
           setTimeout(() => {
-            moveToNextRef.current();
+            setWorkoutState('INPUT');
             setFadeIn(true);
+            // Release the lock immediately — the lock-release useEffect only
+            // fires when exercise/set indices change, which won't happen until
+            // handleRepetitionSave later advances the cursor.
+            transitionLock.current = false;
+            console.log('[Engine] follow-along → INPUT (awaiting user confirmation)');
           }, 150);
           break;
         }
@@ -1004,31 +753,32 @@ export function useWorkoutStateMachine(
             const effective = Math.min(rightElapsed, leftElapsed);
             setCompletedReps(effective);
             setPendingSideData({ right: rightElapsed, left: leftElapsed });
-
-            setIsLogDrawerOpen(true);
+            // INPUT: rest clock NOT armed yet — user must confirm first.
             setFadeIn(false);
             setTimeout(() => {
-              setWorkoutState('RESTING');
+              setWorkoutState('INPUT');
               setFadeIn(true);
               transitionLock.current = false;
-              console.log(`[Engine] Unilateral timed: Both sides done (R:${rightElapsed}s L:${leftElapsed}s) → RESTING`);
+              console.log(`[Engine] Unilateral timed: Both sides done (R:${rightElapsed}s L:${leftElapsed}s) → INPUT (awaiting confirmation)`);
             }, 150);
             break;
           }
 
           // ── Normal (bilateral / reps) flow ───────────────────────────
+          // Pre-fill `completedReps` so the wheel can anchor to the
+          // timer/CTA value, but do NOT write to the log or start rest
+          // — handleRepetitionSave does both when user confirms.
           const defaultVal = exerciseType === 'time'
             ? (reps ?? exerciseDuration ?? 30)
             : (reps ?? targetReps ?? 0);
           setCompletedReps(defaultVal);
 
-          setIsLogDrawerOpen(true);
           setFadeIn(false);
           setTimeout(() => {
-            setWorkoutState('RESTING');
+            setWorkoutState('INPUT');
             setFadeIn(true);
             transitionLock.current = false;
-            console.log('[Engine] → RESTING + drawer open (rest timer deferred to Save)');
+            console.log('[Engine] → INPUT (awaiting user confirmation before rest)');
           }, 150);
           break;
         }
@@ -1036,12 +786,14 @@ export function useWorkoutStateMachine(
     },
     [
       exerciseType,
-      segmentRestTime,
       targetReps,
       exerciseDuration,
       activeExercise,
       currentSegmentIndex,
       workout.segments,
+      isUnilateralTimed,
+      currentSide,
+      bumpLog,
     ],
   );
 
@@ -1119,7 +871,19 @@ export function useWorkoutStateMachine(
 
       setIsLogDrawerOpen(false);
 
-      if (forceSkipRest || segmentRestTime <= 0) {
+      // ── Superset physiology: A→B = micro-rest, B→A = full rest ──────────
+      // computeEffectiveRestTime (from useSupersetPredicates) encapsulates the
+      // pairedWith index comparison and returns SUPERSET_TRANSITION_REST (10s)
+      // for A→B transitions, or `segmentRestTime` for everything else.
+      const effectiveRestTime = computeEffectiveRestTime(segmentRestTime);
+
+      // Diagnostic: confirm rest physiology at save time
+      console.log(
+        `[Engine][Save] "${activeExercise?.name}" seg=${currentSegmentIndex} ex=${currentExerciseIndex} ` +
+        `pairedWith=${(activeExercise as any)?.pairedWith ?? 'NONE'} isNextPartner=${isNextPartnerExercise} effectiveRest=${effectiveRestTime}s`,
+      );
+
+      if (forceSkipRest || effectiveRestTime <= 0) {
         console.log(`[Engine] ${forceSkipRest ? 'Forced skip rest (warmup/cooldown)' : 'Zero rest'} — advancing immediately`);
         setFadeIn(false);
         setTimeout(() => {
@@ -1130,17 +894,22 @@ export function useWorkoutStateMachine(
         setFadeIn(false);
         setTimeout(() => {
           setWorkoutState('RESTING');
-          setRestTimeLeft(segmentRestTime);
+          setRestTimeLeft(effectiveRestTime);
           setFadeIn(true);
-          console.log(`[Engine] Rest timer started: ${segmentRestTime}s | workoutState → RESTING`);
+          console.log(
+            `[Engine] Rest timer started: ${effectiveRestTime}s` +
+            `${isNextPartnerExercise ? ' (A→B micro-rest)' : ' (full rest)'}` +
+            ` | workoutState → RESTING`,
+          );
         }, 100);
       }
     },
-    [activeExercise, workout.segments, currentSegmentIndex, targetReps, bumpLog, segmentRestTime, setRestTimeLeft],
+    [activeExercise, workout.segments, currentSegmentIndex, currentExerciseIndex, targetReps, bumpLog, segmentRestTime, setRestTimeLeft, computeEffectiveRestTime, isNextPartnerExercise],
   );
 
   /**
-   * Skip rest — auto-saves reps if drawer is still open, advances immediately.
+   * Skip rest — advances immediately.  Log is already committed by
+   * `handleExerciseComplete` before RESTING, so no save needed here.
    */
   const skipRest = useCallback(() => {
     if (transitionLock.current) {
@@ -1149,17 +918,12 @@ export function useWorkoutStateMachine(
     }
     transitionLock.current = true;
 
-    if (isLogDrawerOpen) {
-      autoSaveTargetReps();
-      setIsLogDrawerOpen(false);
-    }
-
     setFadeIn(false);
     setTimeout(() => {
       moveToNextRef.current();
       setFadeIn(true);
     }, 150);
-  }, [isLogDrawerOpen, autoSaveTargetReps]);
+  }, []);
 
   const togglePause = useCallback(() => {
     if (isPaused) {
@@ -1187,17 +951,6 @@ export function useWorkoutStateMachine(
       }, 150);
     },
     [],
-  );
-
-  const getExerciseLog = useCallback(
-    (): ExerciseResultLog[] => [...exerciseLogRef.current],
-    [],
-  );
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const exerciseLogSnapshot = useMemo(
-    () => exerciseLogRef.current.map(e => ({ ...e, confirmedReps: [...e.confirmedReps] })),
-    [logVersion],
   );
 
   // --------------------------------------------------------------------------
@@ -1251,6 +1004,9 @@ export function useWorkoutStateMachine(
     lastSavedReps,
     isSupersetActive,
     supersetPartnerName,
+    isNextPartnerExercise,
+    pyramidStep,
+    isPyramidActive,
 
     handleExerciseComplete,
     handleRepetitionSave,

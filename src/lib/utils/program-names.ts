@@ -22,7 +22,7 @@ export const PROGRAM_NAME_HE: Record<string, string> = {
   full_body: 'כל הגוף', fullbody: 'כל הגוף',
   upper_body: 'פלג גוף עליון', push: 'דחיפה', pushing: 'דחיפה',
   lower_body: 'רגליים', legs: 'רגליים',
-  pull: 'משיכה', pulling: 'משיכה', calisthenics: 'קליסטניקס',
+  pull: 'משיכה', pulling: 'משיכה', core: 'ליבה', abs: 'ליבה', calisthenics: 'קליסטניקס',
   running: 'ריצה', cardio: 'קרדיו',
   pilates: 'פילאטיס', yoga: 'יוגה',
   healthy_lifestyle: 'אורח חיים בריא', pull_up_pro: 'מתח מקצועי',

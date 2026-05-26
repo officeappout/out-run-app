@@ -106,7 +106,11 @@ export function calculateProfileCompletion(
       id: 'location',
       label: 'מיקום ועיר',
       completed:
+        // Explicit authority picked in onboarding
         !!profile.core?.authorityId ||
+        // Modern path: city affiliation written by addAffiliation() / persistResolvedCity()
+        !!(profile.core?.affiliations?.some((a) => a.type === 'city')) ||
+        // Legacy path: top-level affiliations object (old schema)
         !!((profile as any).affiliations && Object.keys((profile as any).affiliations).length > 0),
       weight: 5,
       bucket: 'basic',
@@ -125,7 +129,7 @@ export function calculateProfileCompletion(
     {
       id: 'gpsAccess',
       label: 'אפשר גישה ל-GPS',
-      completed: !!(profile as any)?.core?.gpsEnabled,
+      completed: !!profile.core?.gpsEnabled,
       weight: 5,
       bucket: 'basic',
       step: 'GPS_PERMISSION' as OnboardingStepId,

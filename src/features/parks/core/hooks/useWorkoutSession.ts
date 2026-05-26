@@ -35,8 +35,8 @@ export interface WorkoutSessionState {
   setIsNavigationMode: (v: boolean) => void;
   workoutStartTime: number | null;
   setWorkoutStartTime: (v: number | null) => void;
+  /** Computed from useRunningPlayer.routeCoords — not local state. */
   livePath: [number, number][];
-  setLivePath: (p: [number, number][]) => void;
   showSummary: boolean;
   setShowSummary: (v: boolean) => void;
   showDopamine: boolean;
@@ -89,8 +89,12 @@ export function useWorkoutSession(
   const [isWorkoutPaused, setIsWorkoutPaused] = useState(false);
   const [isNavigationMode, setIsNavigationMode] = useState(false);
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
-  const [livePath, setLivePath] = useState<[number, number][]>([]);
   const [showSummary, setShowSummary] = useState(false);
+
+  // livePath is derived from the authoritative Zustand store — no local state copy.
+  // Reading routeCoords directly means MapShell always sees the store's truth
+  // with zero extra re-render from a mirroring useState + useEffect.
+  const livePath = routeCoords as [number, number][];
   const [showDopamine, setShowDopamine] = useState(false);
   const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -101,14 +105,37 @@ export function useWorkoutSession(
   // No more formatPace(runDistance, elapsedTime) — that passed elapsedTime as pace.
   const runPace = formatPaceFromMinKm(currentPace);
 
-  // ── Fix #1: livePath is now a mirror of routeCoords from useRunningPlayer ──
-  // The store's startGPSTracking() is the ONLY GPS watcher; this effect keeps
-  // the local livePath in sync so MapShell/AppMap can read it normally.
+  // ── Mount reconciliation ──────────────────────────────────────────────────
+  // When the user navigates away from /map mid-workout (Home tab, Feed, etc.)
+  // this hook unmounts and every local useState above resets to its default.
+  // The authoritative session lives in two global Zustand stores that survive
+  // remounts:
+  //   • useSessionStore.status        — 'active' | 'paused' if a session is live
+  //   • useSessionStore.startTime     — epoch ms set by startSession()
+  //   • useRunningPlayer.routeCoords  — accumulated GPS trail
+  // Without this effect the UI gates (isWorkoutActive, livePath, etc.) come
+  // back as `false / []` even though the GPS watcher and coord trail are
+  // still alive in the store, so the polyline disappears and MapShell's
+  // mode-sync effects flip back to 'discover'. This one-shot reconciliation
+  // restores the local UI flags from the stores so the session resumes
+  // visually intact. livePath is now a computed value from routeCoords —
+  // no setLivePath step needed here.
+  const didReconcileRef = useRef(false);
   useEffect(() => {
-    if (isWorkoutActive && routeCoords.length > 0) {
-      setLivePath(routeCoords as [number, number][]);
-    }
-  }, [isWorkoutActive, routeCoords]);
+    if (didReconcileRef.current) return;
+    didReconcileRef.current = true;
+    const sessionStatus = useSessionStore.getState().status;
+    if (sessionStatus !== 'active' && sessionStatus !== 'paused') return;
+    setIsWorkoutActive(true);
+    setIsNavigationMode(true);
+    setIsWorkoutPaused(sessionStatus === 'paused');
+    const t = useSessionStore.getState().startTime;
+    if (t) setWorkoutStartTime(t);
+    // livePath is now derived from routeCoords — no setLivePath needed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // livePath is computed from routeCoords — no sync effect needed.
 
   // Timer — local HUD-only ticker for `elapsedTime` (wall-clock since start).
   //
@@ -213,13 +240,7 @@ export function useWorkoutSession(
     setIsWorkoutActive(true);
     setIsNavigationMode(true);
     setElapsedTime(0);
-    // Seed livePath with starting point; the store-sync effect will take over
-    // as real coords come in.
-    if (currentUserPos) {
-      setLivePath([[currentUserPos.lng, currentUserPos.lat]]);
-    } else {
-      setLivePath([]);
-    }
+    // livePath is now computed from routeCoords — no seed needed here.
   }, [focusedRoute, workoutMode, currentUserPos, startSession]);
 
   /**
@@ -250,7 +271,7 @@ export function useWorkoutSession(
     isWorkoutPaused, setIsWorkoutPaused,
     isNavigationMode, setIsNavigationMode,
     workoutStartTime, setWorkoutStartTime,
-    livePath, setLivePath,
+    livePath,
     showSummary, setShowSummary,
     showDopamine, setShowDopamine,
     showDetailsDrawer, setShowDetailsDrawer,

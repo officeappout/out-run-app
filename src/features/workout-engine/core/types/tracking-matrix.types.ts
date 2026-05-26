@@ -39,6 +39,7 @@ export type MovementPattern =
   | 'planche'              // Planche progressions
   | 'muscle_up'            // Muscle-up progressions
   | 'one_arm_pull'         // One Arm Pull-up progressions
+  | 'hspu'                 // Handstand Push-up progressions
   // Mobility
   | 'mobility_upper'       // Shoulder/Thoracic mobility
   | 'mobility_lower';      // Hip/Ankle mobility
@@ -121,6 +122,7 @@ export const MOVEMENT_PATTERN_MAPPINGS: MovementPatternMapping[] = [
   { pattern: 'planche', exerciseTags: ['planche'], movementGroup: 'horizontal_push' },
   { pattern: 'muscle_up', exerciseTags: ['muscle up', 'muscle-up'], movementGroup: 'vertical_pull' },
   { pattern: 'one_arm_pull', exerciseTags: ['one arm', 'oac', 'oap'], movementGroup: 'vertical_pull' },
+  { pattern: 'hspu', exerciseTags: ['handstand pushup', 'hspu', 'overhead'], movementGroup: 'vertical_push' },
   { pattern: 'mobility_upper', exerciseTags: ['mobility', 'stretch', 'shoulder'], movementGroup: 'core' },
   { pattern: 'mobility_lower', exerciseTags: ['mobility', 'stretch', 'hip'], movementGroup: 'core' },
 ];
@@ -134,7 +136,7 @@ export function calculateDisplayLevel(matrix: TrackingMatrix): number {
   if (patterns.length === 0) return 1;
   
   // Weight skill patterns higher (they take longer to develop)
-  const skillPatterns = ['handstand_balance', 'front_lever', 'back_lever', 'planche', 'muscle_up', 'one_arm_pull'];
+  const skillPatterns = ['handstand_balance', 'front_lever', 'back_lever', 'planche', 'muscle_up', 'one_arm_pull', 'hspu'];
   
   let totalWeight = 0;
   let weightedSum = 0;
@@ -179,4 +181,49 @@ export function getMovementLevel(
     };
   }
   return matrix.movements[pattern]!;
+}
+
+// ── Questionnaire ↔ Engine pattern bridges ──────────────────────────
+//
+// The onboarding questionnaire, progression.tracks, and the admin panel
+// all use "user-facing" skill slugs (e.g. "handstand", "one_arm_pullup").
+// The workout engine's tracking matrix uses its own internal identifiers
+// (e.g. "handstand_balance", "one_arm_pull"). These maps allow any layer
+// that receives a questionnaire slug to safely translate it to the engine
+// pattern and vice-versa, without touching the canonical Firestore keys.
+// ────────────────────────────────────────────────────────────────────
+
+/**
+ * Maps questionnaire / progression.tracks slug → engine MovementPattern.
+ * Keys are the raw skill IDs stored in the DB; values are what the
+ * tracking matrix expects. Unmapped slugs should be passed through as-is.
+ */
+export const SKILL_SLUG_TO_MOVEMENT_PATTERN: Record<string, MovementPattern> = {
+  handstand:      'handstand_balance',
+  one_arm_pullup: 'one_arm_pull',
+  front_lever:    'front_lever',
+  muscle_up:      'muscle_up',
+  planche:        'planche',
+  hspu:           'hspu',
+};
+
+/**
+ * Reverse of SKILL_SLUG_TO_MOVEMENT_PATTERN.
+ * Maps engine MovementPattern → canonical questionnaire slug.
+ */
+export const MOVEMENT_PATTERN_TO_SKILL_SLUG: Partial<Record<MovementPattern, string>> = {
+  handstand_balance: 'handstand',
+  one_arm_pull:      'one_arm_pullup',
+  front_lever:       'front_lever',
+  muscle_up:         'muscle_up',
+  planche:           'planche',
+  hspu:              'hspu',
+};
+
+/**
+ * Translate a questionnaire/progression slug to the engine MovementPattern.
+ * Returns the original value unchanged if no bridge entry exists.
+ */
+export function toMovementPattern(slug: string): MovementPattern | string {
+  return SKILL_SLUG_TO_MOVEMENT_PATTERN[slug] ?? slug;
 }

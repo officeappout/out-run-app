@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 type TimerWorkoutState =
   | 'PREPARING'
   | 'ACTIVE'
+  | 'INPUT'
   | 'RESTING'
   | 'PAUSED';
 

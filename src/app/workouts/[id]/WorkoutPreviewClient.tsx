@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Home, Link2 } from 'lucide-react';
+import { Play, Home, Link2, X } from 'lucide-react';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import WorkoutPreviewHeader from '@/features/workout-engine/components/WorkoutPreviewHeader';
 import StrengthExerciseCard from '@/features/workout-engine/components/cards/StrengthExerciseCard';
 import RunningSegmentCard from '@/features/workout-engine/components/cards/RunningSegmentCard';
@@ -310,6 +311,74 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData
 }
 
 // ============================================================================
+// Smart App Banner
+// Shown only in web-browser context (hidden inside the Capacitor native app).
+// Dismissible within the session via sessionStorage.
+// ============================================================================
+
+const BANNER_DISMISSED_KEY = 'smart_app_banner_dismissed';
+
+interface SmartAppBannerProps {
+  onDismiss: () => void;
+}
+
+function SmartAppBanner({ onDismiss }: SmartAppBannerProps) {
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 bg-white border-b border-gray-100 shadow-sm"
+      dir="rtl"
+      role="banner"
+      aria-label="הורדת האפליקציה"
+    >
+      {/* Dismiss */}
+      <button
+        onClick={onDismiss}
+        className="flex-shrink-0 text-gray-400 active:text-gray-600 transition-colors p-1 -ml-1"
+        aria-label="סגור"
+      >
+        <X size={15} strokeWidth={2.5} />
+      </button>
+
+      {/* App icon */}
+      <div className="flex-shrink-0 w-11 h-11 rounded-[12px] overflow-hidden shadow border border-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/logo/logo (1).png"
+          alt="Out"
+          width={44}
+          height={44}
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-black text-gray-900 leading-tight truncate">
+          רוצה לבצע את האימון הזה?
+        </p>
+        <p className="text-[11px] text-gray-500 leading-snug mt-0.5 line-clamp-1">
+          עקוב אחרי הסטים, המנוחות וההתקדמות שלך באפליקציה
+        </p>
+      </div>
+
+      {/* CTA */}
+      <a
+        href={APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-shrink-0 px-4 py-[9px] rounded-full text-white text-[12px] font-extrabold tracking-wide active:scale-95 transition-transform shadow-md"
+        style={{
+          background: 'linear-gradient(to left, #0CF2E3, #00BAF7)',
+          boxShadow: '0 2px 12px rgba(0,186,247,0.35)',
+        }}
+      >
+        להורדה חינם
+      </a>
+    </div>
+  );
+}
+
+// ============================================================================
 // Props from Server Component
 // ============================================================================
 
@@ -334,6 +403,32 @@ export default function WorkoutPreviewClient({
   serverDuration,
 }: WorkoutPreviewClientProps) {
   const router = useRouter();
+
+  // ── Smart App Banner state ───────────────────────────────────────────────
+  // Hidden when: (a) inside the Capacitor native shell, or (b) user dismissed.
+  const [showBanner, setShowBanner] = useState(false);
+
+  useEffect(() => {
+    const isNative =
+      typeof window !== 'undefined' &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).Capacitor?.isNativePlatform?.() === true;
+
+    const wasDismissed =
+      typeof sessionStorage !== 'undefined' &&
+      sessionStorage.getItem(BANNER_DISMISSED_KEY) === '1';
+
+    setShowBanner(!isNative && !wasDismissed);
+  }, []);
+
+  const handleBannerDismiss = () => {
+    setShowBanner(false);
+    try {
+      sessionStorage.setItem(BANNER_DISMISSED_KEY, '1');
+    } catch { /* ignore if storage is unavailable */ }
+  };
+  // ────────────────────────────────────────────────────────────────────────
+
   const [workout, setWorkout] = useState<WorkoutData | null>(
     serverTitle
       ? {
@@ -469,6 +564,9 @@ export default function WorkoutPreviewClient({
       dir="rtl"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
+      {/* ── Smart App Banner — web-only, not shown inside native app ── */}
+      {showBanner && <SmartAppBanner onDismiss={handleBannerDismiss} />}
+
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <WorkoutPreviewHeader
         title={workout?.title || 'אימון כוח מותאם'}

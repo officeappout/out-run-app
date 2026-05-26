@@ -82,7 +82,19 @@ export default function ShareAsLiveToggle({
   useEffect(() => {
     return () => {
       if (shareAsLiveRef.current && auth.currentUser) {
-        clearPresence(auth.currentUser.uid).catch(() => {});
+        // Surface the failure rather than swallowing it. A
+        // permission-denied here means the user's "live" pin lingers
+        // on every other client's map until something else overwrites
+        // it; without a log, that bug is invisible. We use console.warn
+        // (not throw) because effect cleanups can't surface errors any
+        // other way and we don't want to crash an unmount path.
+        clearPresence(auth.currentUser.uid).catch((err) => {
+          console.warn(
+            '[ShareAsLiveToggle] unmount clearPresence failed — ' +
+              'presence/{uid} may linger until next heartbeat:',
+            err,
+          );
+        });
       }
     };
   }, []);
@@ -122,7 +134,13 @@ export default function ShareAsLiveToggle({
           ageGroup: profile?.core?.ageGroup ?? 'adult',
           isVerified: false,
           schoolName: null,
-          authorityId: null,
+          // Read the user's actual authority from their profile rather
+          // than hardcoding null. Previously this clobbered any real
+          // authorityId already merged onto the doc by the map / workout
+          // heartbeat layers, briefly removing the user from city-scoped
+          // heatmap and partner-finder filters until the next heartbeat
+          // tick re-wrote it.
+          authorityId: profile?.core?.authorityId ?? null,
           activity: {
             status: activityType,
             workoutTitle,

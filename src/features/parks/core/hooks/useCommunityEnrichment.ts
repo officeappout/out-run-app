@@ -9,6 +9,7 @@ import {
   getDocs,
   orderBy,
   limit as firestoreLimit,
+  Timestamp,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -28,6 +29,13 @@ export interface SessionEnrichment {
   isRecurring?: boolean;
   /** Source group ID (only set for recurring group sessions) */
   groupId?: string;
+  /**
+   * True for personal "I'm heading to this park" arrivals sourced from
+   * `planned_sessions` (vs. organized community_events / community_groups).
+   * Consumer UIs render these without a "Join" CTA — they're individual
+   * announcements, not group sessions.
+   */
+  isPersonalArrival?: boolean;
 }
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -562,17 +570,21 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
 export function useParkEvents(parkId: string | null | undefined) {
   const [eventSessions, setEventSessions] = useState<SessionEnrichment[]>([]);
   const [groupSessions, setGroupSessions] = useState<SessionEnrichment[]>([]);
+  const [arrivalSessions, setArrivalSessions] = useState<SessionEnrichment[]>([]);
   const [loading, setLoading] = useState(false);
   const unsubEvRef = useRef<Unsubscribe | null>(null);
   const unsubGrpRef = useRef<Unsubscribe | null>(null);
+  const unsubArrRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
     if (unsubEvRef.current) { unsubEvRef.current(); unsubEvRef.current = null; }
     if (unsubGrpRef.current) { unsubGrpRef.current(); unsubGrpRef.current = null; }
+    if (unsubArrRef.current) { unsubArrRef.current(); unsubArrRef.current = null; }
 
     if (!parkId) {
       setEventSessions([]);
       setGroupSessions([]);
+      setArrivalSessions([]);
       setLoading(false);
       return;
     }
@@ -632,23 +644,74 @@ export function useParkEvents(parkId: string | null | undefined) {
       (err) => console.warn('[useParkEvents] groups error:', err),
     );
 
+    // ── Personal arrivals (planned_sessions for this park) ──
+    // This is the read counterpart of `createPlannedSession({ parkId })`
+    // invoked from ParkDetailSheet's "אני מגיע ב..." button. Without this
+    // listener the published doc never re-surfaces in the same UI list,
+    // which is exactly the bug that left users staring at "אף אחד עוד לא
+    // פרסם..." after publishing their own arrival.
+    const arrQ = query(
+      collection(db, 'planned_sessions'),
+      where('parkId', '==', parkId),
+      where('expiresAt', '>=', Timestamp.now()),
+    );
+
+    const unsubArr = onSnapshot(
+      arrQ,
+      (snapshot) => {
+        const results: SessionEnrichment[] = [];
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          if (data.status === 'cancelled') continue;
+          const start = safeDate(data.startTime);
+          if (!start) continue;
+
+          const displayName = data.displayName ?? 'משתמש';
+          results.push({
+            eventId: `arrival_${docSnap.id}`,
+            eventLabel: displayName,
+            nextStartTime: start.toISOString(),
+            currentRegistrations: 1,
+            plannedCount: 1,
+            avatars: [{
+              uid: data.userId ?? '',
+              name: displayName,
+              photoURL: data.photoURL ?? undefined,
+            }],
+            isPersonalArrival: true,
+          });
+        }
+        results.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
+        console.log('[useParkEvents] Arrivals resolved:', results.length, 'personal arrivals for park', parkId);
+        setArrivalSessions(results);
+      },
+      (err) => console.warn('[useParkEvents] arrivals error:', err),
+    );
+
     unsubEvRef.current = unsubEv;
     unsubGrpRef.current = unsubGrp;
+    unsubArrRef.current = unsubArr;
 
     return () => {
       unsubEv();
       unsubGrp();
+      unsubArr();
       unsubEvRef.current = null;
       unsubGrpRef.current = null;
+      unsubArrRef.current = null;
     };
   }, [parkId]);
 
   const events = useMemo(() => {
-    const merged = [...eventSessions, ...groupSessions];
+    // Group/event dedup uses date+hour keys; personal arrivals are
+    // *individual* announcements that should never be deduped against
+    // organized sessions, so they bypass the dedup pass entirely and
+    // are appended after.
+    const orgMerged = [...eventSessions, ...groupSessions];
 
     const realSlotKeys = new Set<string>();
     const realGroupIds = new Set<string>();
-    for (const s of merged) {
+    for (const s of orgMerged) {
       if (s.isRecurring) continue;
       const d = new Date(s.nextStartTime);
       if (!isNaN(d.getTime())) {
@@ -657,8 +720,8 @@ export function useParkEvents(parkId: string | null | undefined) {
       if (s.groupId) realGroupIds.add(s.groupId);
     }
 
-    const deduped = (realSlotKeys.size > 0 || realGroupIds.size > 0)
-      ? merged.filter((s) => {
+    const dedupedOrg = (realSlotKeys.size > 0 || realGroupIds.size > 0)
+      ? orgMerged.filter((s) => {
           if (!s.isRecurring) return true;
           if (s.groupId && realGroupIds.has(s.groupId)) {
             const d = new Date(s.nextStartTime);
@@ -671,11 +734,12 @@ export function useParkEvents(parkId: string | null | undefined) {
           if (isNaN(d.getTime())) return true;
           return !realSlotKeys.has(`${toISODate(d)}_${String(d.getHours()).padStart(2, '0')}`);
         })
-      : merged;
+      : orgMerged;
 
-    deduped.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
-    return deduped;
-  }, [eventSessions, groupSessions]);
+    const merged = [...dedupedOrg, ...arrivalSessions];
+    merged.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
+    return merged;
+  }, [eventSessions, groupSessions, arrivalSessions]);
 
   return { events, loading };
 }

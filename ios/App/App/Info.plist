@@ -22,13 +22,22 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>OUT FIT מבקשת גישה לנתוני הבריאות שלך כדי לסנכרן את הצעדים, המרחקים והאימונים שלך ישירות לתוך הקהילה והליגה.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>OUT FIT מבקשת רשות לעדכן את נתוני הכושר שלך כדי לשמור ולסנכרן את האימונים שביצעת באפליקציה.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>AppOut משתמשת במיקום שלך כדי להציג פארקים בקרבת מקום, לעקוב אחרי מסלולי ריצה ולחבר אותך לקהילות כושר מקומיות.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>OUT FIT מבקשת גישה למצלמה שלך כדי לאפשר עדכון תמונת פרופיל.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>OUT FIT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>OUT FIT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 		<string>fetch</string>
-		<string>processing</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

@@ -13,14 +13,14 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-import { Flame } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { useDailyActivity } from '@/features/activity';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChange } from '@/lib/auth.service';
 import type { ActivityType } from '@/features/activity/types/activity.types';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import AnimatedFlame from '@/components/ui/AnimatedFlame';
 
 // ============================================================================
 // TYPES
@@ -35,142 +35,6 @@ interface UserHeaderPillProps {
   showFlame?: boolean;
   /** Compact mode (smaller sizing) */
   compact?: boolean;
-}
-
-// ============================================================================
-// FLAME COLORS
-// ============================================================================
-
-const FLAME_CONFIG: Record<ActivityType, {
-  color: string;
-  glowColor: string;
-  glowIntensity: string;
-  show: boolean;
-}> = {
-  super: {
-    color: '#06B6D4', // Cyan-500
-    glowColor: 'rgba(6, 182, 212, 0.4)',
-    glowIntensity: '0 0 20px',
-    show: true,
-  },
-  micro: {
-    color: '#F59E0B', // Amber-500
-    glowColor: 'rgba(245, 158, 11, 0.3)',
-    glowIntensity: '0 0 12px',
-    show: true,
-  },
-  survival: {
-    color: '#84CC16', // Lime-500
-    glowColor: 'rgba(132, 204, 22, 0.2)',
-    glowIntensity: '0 0 8px',
-    show: true,
-  },
-  rest: {
-    color: '#94A3B8', // Slate-400
-    glowColor: 'transparent',
-    glowIntensity: 'none',
-    show: false,
-  },
-  none: {
-    color: '#CBD5E1', // Slate-300
-    glowColor: 'transparent',
-    glowIntensity: 'none',
-    show: false,
-  },
-};
-
-// ============================================================================
-// ANIMATED FLAME COMPONENT
-// ============================================================================
-
-function AnimatedFlame({ 
-  activityType, 
-  previousType 
-}: { 
-  activityType: ActivityType; 
-  previousType: ActivityType | null;
-}) {
-  const controls = useAnimation();
-  const config = FLAME_CONFIG[activityType];
-  const prevConfig = previousType ? FLAME_CONFIG[previousType] : null;
-  
-  // Determine if this is a "level up" transition
-  const isLevelUp = previousType && 
-    (previousType === 'none' || previousType === 'rest') && 
-    (activityType === 'micro' || activityType === 'super');
-  
-  const isSuperLevelUp = previousType === 'micro' && activityType === 'super';
-  
-  // Trigger animation on level up
-  useEffect(() => {
-    if (isLevelUp || isSuperLevelUp) {
-      controls.start({
-        scale: [1, 1.4, 1.2, 1.3, 1],
-        rotate: [0, -15, 15, -10, 0],
-        transition: { 
-          duration: 0.6, 
-          ease: "easeOut",
-          times: [0, 0.2, 0.4, 0.6, 1]
-        }
-      });
-    }
-  }, [activityType, isLevelUp, isSuperLevelUp, controls]);
-  
-  if (!config.show) {
-    return (
-      <div className="w-5 h-5 flex items-center justify-center opacity-30">
-        <Flame className="w-4 h-4 text-slate-300" />
-      </div>
-    );
-  }
-  
-  return (
-    <motion.div
-      animate={controls}
-      className="relative flex items-center justify-center"
-      style={{
-        filter: `drop-shadow(${config.glowIntensity} ${config.glowColor})`,
-      }}
-    >
-      {/* Glow background for 'super' state */}
-      <AnimatePresence>
-        {activityType === 'super' && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            className="absolute inset-0 rounded-full"
-            style={{
-              background: `radial-gradient(circle, ${config.glowColor} 0%, transparent 70%)`,
-              width: '28px',
-              height: '28px',
-              top: '-4px',
-              left: '-4px',
-            }}
-          />
-        )}
-      </AnimatePresence>
-      
-      {/* The flame icon */}
-      <motion.div
-        animate={{ 
-          y: activityType === 'super' ? [0, -2, 0] : 0,
-        }}
-        transition={{ 
-          duration: 1.5, 
-          repeat: activityType === 'super' ? Infinity : 0,
-          ease: "easeInOut"
-        }}
-      >
-        <Flame 
-          className="w-5 h-5 relative z-10"
-          style={{ color: config.color }}
-          fill={activityType === 'super' ? config.color : 'none'}
-          strokeWidth={activityType === 'super' ? 1.5 : 2}
-        />
-      </motion.div>
-    </motion.div>
-  );
 }
 
 // ============================================================================

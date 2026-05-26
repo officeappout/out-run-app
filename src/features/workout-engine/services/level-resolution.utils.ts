@@ -124,11 +124,59 @@ export function buildUserProgramLevels(
   }
 
   for (const ap of profile.progression?.activePrograms ?? []) {
-    if (ap.templateId && !levels.has(ap.templateId) && !masterProgramIds.has(ap.templateId)) {
+    if (!ap.templateId || masterProgramIds.has(ap.templateId) || levels.has(ap.templateId)) continue;
+    // Before defaulting to L1, resolve the hash to its canonical slug and check
+    // if that slug is already in the map with the real level.  This prevents the
+    // split-brain where:
+    //   progression.domains / tracks holds  'planche' → L10
+    //   activePrograms.templateId holds     'pCI5NHXpowu2ySucqDn8' (Firestore hash)
+    // Without this check the hash gets silently keyed at L1, causing every
+    // admin-created exercise tagged with the hash to be filtered out by the
+    // pre-filter (|adminLevel - 1| > 3 for any non-beginner exercise).
+    const slug = resolveToSlug(ap.templateId);
+    const slugLevel = (slug !== ap.templateId) ? levels.get(slug) : undefined;
+    if (slugLevel !== undefined) {
+      levels.set(ap.templateId, slugLevel);
+      console.log(
+        `${logPrefix} Hash "${ap.templateId}" → slug "${slug}" reverse dual-keyed at L${slugLevel} ` +
+        `(from activePrograms fallback — prevents L1 split-brain)`,
+      );
+    } else {
       levels.set(ap.templateId, 1);
       console.warn(
         `${logPrefix} Program mapping not found for "${ap.templateId}" — defaulting to Level 1. ` +
-        `Check progression.tracks and progression.domains.`
+        `Check progression.tracks and progression.domains.`,
+      );
+    }
+  }
+
+  // ── Healing pass: elevate stale hash-ID entries that shadow a real slug ──────
+  // Context: onboarding-sync used to key initialDomains with prog.id (Firestore
+  // hash) instead of the canonical slug.  This wrote e.g.
+  //   domains.pCI5NHXpowu2ySucqDn8 = { currentLevel: 0 }   ← from cmsMaxLevels[prog.id]
+  //   domains.planche              = { currentLevel: 10 }   ← from quizTracks mirror
+  //
+  // When the main loop above processes pCI5NHXpowu2ySucqDn8 from userDomains it
+  // reads currentLevel=0 → effectiveLevel=1 → Source:Default.  The slug 'planche'
+  // is already in levels at L10, but the existing dual-key guard skips because
+  // levels.has('planche') is true — so the hash entry stays poisoned at L1.
+  //
+  // This pass detects those stale hash entries (level=1, slug resolves to a higher
+  // level already in the map) and overwrites them with the slug's real level so
+  // that every downstream lookup — resolveUserLevelForProgram, getUserLevelForExercise,
+  // filterByTolerance — returns the correct value regardless of whether it hits
+  // the hash key or the slug key first.
+  for (const [domainId, level] of Array.from(levels.entries())) {
+    if (level > 1) continue; // already has real data — nothing to heal
+    const slug = resolveToSlug(domainId);
+    if (slug === domainId) continue; // already a slug — not a hash entry
+    if (masterProgramIds.has(domainId) || masterProgramIds.has(slug)) continue;
+    const slugLevel = levels.get(slug);
+    if (slugLevel !== undefined && slugLevel > 1) {
+      levels.set(domainId, slugLevel);
+      console.log(
+        `${logPrefix} [HealingPass] Hash '${domainId}' elevated L1 → L${slugLevel} ` +
+        `(slug='${slug}' already at L${slugLevel} — stale hash entry from initialDomains)`,
       );
     }
   }

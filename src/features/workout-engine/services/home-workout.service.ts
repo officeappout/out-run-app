@@ -47,6 +47,8 @@ import {
   DifficultyLevel,
   WorkoutExercise,
 } from '../logic/WorkoutGenerator';
+import { createPipelineOrchestrator } from '../core/pipeline/PipelineOrchestrator';
+import { createPoolFactory } from '../core/pipeline/PoolFactory';
 
 // -- Sibling service imports --
 import {
@@ -76,11 +78,17 @@ import {
   mapPersonaIdToLifestylePersona,
   calculateDaysInactive,
   extractInjuryShield,
-  resolveEquipment,
   collectLifestyles,
 } from './user-profile.utils';
-import { ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
+import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
+import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
+import {
+  normalizeEquipmentArray,
+  buildActiveProgramFilters,
+  resolveExercisePool,
+} from '../core/middleware/InputSanitizerMiddleware';
 import { getBaseUserLevel, buildUserProgramLevels } from './level-resolution.utils';
+import { getHistoryMapForExercises } from './exercise-history.service';
 import {
   getCachedPrograms,
   FULL_BODY_CHILD_DOMAINS,
@@ -91,6 +99,16 @@ import {
 } from './program-hierarchy.utils';
 import { prependWarmupExercises } from './warmup.service';
 import { appendCooldownExercises } from './cooldown.service';
+import {
+  annotateRepRanges,
+  enforceVolumeCap,
+  sortAndPair,
+} from '../core/presentation/PresentationFormatter';
+import {
+  derivePeriodizationWeek,
+  resolveSessionPolicy,
+  type SessionPolicy,
+} from './periodization.service';
 import type {
   HomeWorkoutOptions,
   HomeWorkoutResult,
@@ -133,6 +151,30 @@ export { detectTimeOfDay, TIME_OF_DAY_OPTIONS } from './workout-metadata.service
  */
 const DEFAULT_LOCATION: ExecutionLocation = 'park';
 
+// ── Skill ID normalisation ─────────────────────────────────────────────────
+// ScheduleStep.tsx (and the UTS recurringTemplate) stores SKILL_DISPLAY
+// uppercase keys (PLANCHE, FRONT_LEVER, UPPER_CALISTHENICS) in programIds.
+// The workout engine's KNOWN_SLUGS, MG_TO_DOMAIN, and resolveToSlug all
+// operate on lowercase slugs, so we normalise at the service boundary —
+// once, early in _buildSharedPipeline — before any resolve/filter calls.
+const SKILL_ID_NORMALIZATION: Record<string, string> = {
+  UPPER_CALISTHENICS: 'calisthenics_upper',
+  PLANCHE:            'planche',
+  FRONT_LEVER:        'front_lever',
+  MUSCLE_UP:          'muscle_up',
+  HANDSTAND:          'handstand',
+  HSPU:               'hspu',
+  OAPU:               'oap',
+  UPPER_BODY:         'upper_body',
+  FULL_BODY:          'full_body',
+};
+
+/** Normalise a single program ID: maps known SKILL_DISPLAY uppercase keys to
+ *  their engine slug; everything else falls back to toLowerCase(). */
+function normalizeProgramId(id: string): string {
+  return SKILL_ID_NORMALIZATION[id] ?? id.toLowerCase();
+}
+
 // ============================================================================
 // MAIN ORCHESTRATOR — Thin Wrapper (delegates to Trio pipeline)
 // ============================================================================
@@ -158,6 +200,9 @@ export async function generateHomeWorkout(
   options: HomeWorkoutOptions,
 ): Promise<HomeWorkoutResult> {
   const trio = await generateHomeWorkoutTrio(options);
+  // When targetDifficulty is set the trio loop generates only that one option
+  // and pads slots 1 & 2 with the same result.  Slot 0 is always the real one.
+  if (options.targetDifficulty != null) return trio.options[0].result;
   return trio.options[1].result;
 }
 
@@ -255,6 +300,168 @@ async function generateRecoveryWorkout(
 }
 
 // ============================================================================
+// RECOVERY VIDEO TRIO — Admin-tagged rest-day follow-along videos
+// ============================================================================
+
+/**
+ * Attempt to build a rest-day trio from admin-tagged recovery video exercises.
+ *
+ * Returns null when no matching exercises are found so the caller falls
+ * through to the existing REST_DAY_CONFIGS cooldown loop without any change
+ * in behaviour.
+ *
+ * Filtering rules (all must pass):
+ *   1. exerciseRole === 'recovery'
+ *   2. showOnRestDays === true
+ *   3. restDayProgramIds intersects scheduledProgramIds
+ *      (if scheduledProgramIds is empty, all recovery videos are eligible)
+ *
+ * --------------------------------------------------------------------------
+ * CANONICAL VIDEO SLOT — `execution_methods[0].media` ONLY
+ * --------------------------------------------------------------------------
+ * The recovery video URL and its duration are sourced exclusively from the
+ * first execution method's media object:
+ *
+ *   - `execution_methods[0].media.mainVideoUrl`        → the follow-along clip
+ *   - `execution_methods[0].media.videoDurationSeconds` → timer sync duration
+ *
+ * Exercise-root media slots (`exercise.media.videoUrl`, `exercise.media.previewVideo`,
+ * `exercise.media.fullTutorial`) are INTENTIONALLY IGNORED here. Those legacy
+ * fields exist only as a fallback cascade for the runtime player (see
+ * `resolveExerciseMedia()` levels 3–4) and are never trusted for rest-day
+ * delivery. This single-source-of-truth rule lets the same Exercise carry
+ * different videos per execution method (e.g. park vs. gym, or — soon —
+ * strength vs. running segments) without schema branching.
+ *
+ * Why: The Lego-block architecture binds the video to the EXECUTION METHOD,
+ * not to the abstract exercise archetype. The admin UI surfaces this constraint
+ * via the teal Recovery Settings panel in `BasicsSection.tsx`, which warns when
+ * either field is missing on the first execution method.
+ */
+async function tryBuildRecoveryVideoTrio(
+  allExercises: Exercise[],
+  options: HomeWorkoutOptions,
+): Promise<HomeWorkoutTrioResult | null> {
+  const { scheduledProgramIds = [], userProfile } = options;
+
+  // --- 1. Filter bank ---
+  let pool = allExercises.filter((ex) => {
+    if ((ex as any).exerciseRole !== 'recovery') return false;
+    if (!(ex as any).showOnRestDays) return false;
+    return true;
+  });
+
+  // Program-affinity filter: strict match first, broad fallback
+  if (scheduledProgramIds.length > 0) {
+    const programMatched = pool.filter((ex) => {
+      const ids: string[] = (ex as any).restDayProgramIds ?? [];
+      return ids.some((id) => scheduledProgramIds.includes(id));
+    });
+    if (programMatched.length > 0) pool = programMatched;
+  }
+
+  if (pool.length === 0) return null;
+
+  // --- 2. Shuffle and pick up to 3 (pad with last if fewer available) ---
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const picked = shuffled.slice(0, 3);
+  while (picked.length < 3) picked.push(picked[picked.length - 1]);
+
+  // --- 3. Build trio options ---
+  const { labels } = await fetchTrioLabels();
+  const labelKeys: Array<keyof typeof labels.restDayLabels> = [
+    'option1Label', 'option2Label', 'option3Label',
+  ];
+
+  const location = (options.location ?? DEFAULT_LOCATION);
+  const daysInactive = calculateDaysInactive(userProfile);
+  const persona = mapPersonaIdToLifestylePersona(
+    (userProfile as any).lifestyle?.selectedPersona ?? null,
+  );
+  const timeOfDay = detectTimeOfDay();
+
+  const trio: WorkoutTrioOption[] = picked.map((ex, i) => {
+    const method = ex.execution_methods?.[0] ?? (ex as any).executionMethods?.[0] ?? {};
+    const durationSeconds = (method as any)?.media?.videoDurationSeconds ?? null;
+    const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : 10;
+
+    const exName = ex.name;
+    const title = typeof exName === 'object'
+      ? ((exName as any).he || (exName as any).en || '')
+      : String(exName ?? '');
+
+    const workoutExercise: WorkoutExercise = {
+      exercise: ex,
+      method: method as any,
+      mechanicalType: (ex.mechanicalType || 'none') as any,
+      sets: 1,
+      reps: 1,
+      repsRange: { min: 1, max: 1 },
+      isTimeBased: true,
+      restSeconds: 0,
+      priority: 'isolation' as const,
+      score: 0,
+      reasoning: ['recovery_video_rest_day'],
+      programLevel: 1,
+      isOverLevel: false,
+      tier: 'flow' as const,
+      levelDelta: 0,
+      isGoalExercise: false,
+      exerciseRole: 'main' as const,
+    };
+
+    const workout: GeneratedWorkout = {
+      title,
+      description: '',
+      exercises: [workoutExercise],
+      estimatedDuration: durationMin,
+      structure: 'standard',
+      difficulty: 1 as DifficultyLevel,
+      mechanicalBalance: { straightArm: 0, bentArm: 0, hybrid: 0, ratio: '0:0', isBalanced: true },
+      stats: { calories: 0, coins: 0, totalReps: 0, totalHoldTime: 0, difficultyMultiplier: 1 },
+      isRecovery: true,
+      totalPlannedSets: 1,
+      pipelineLog: ['recovery_video_rest_day'],
+    };
+
+    return {
+      label: labels.restDayLabels[labelKeys[i]] ?? 'התאוששות',
+      result: {
+        workout,
+        meta: {
+          daysInactive,
+          persona,
+          location,
+          timeOfDay,
+          injuryAreas: [],
+          exercisesConsidered: pool.length,
+          exercisesExcluded: 0,
+        },
+      },
+    };
+  });
+
+  console.log(
+    `[WorkoutTrio] Recovery video trio: ${trio.length} options from pool of ${pool.length}`,
+  );
+
+  return {
+    options: trio as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
+    isRestDay: true,
+    labelsSource: 'firestore',
+    meta: {
+      daysInactive,
+      persona,
+      location,
+      timeOfDay,
+      injuryAreas: [],
+      exercisesConsidered: pool.length,
+      exercisesExcluded: 0,
+    },
+  };
+}
+
+// ============================================================================
 // WARMUP & COOLDOWN — Delegated to ./warmup.service.ts & ./cooldown.service.ts
 // ============================================================================
 
@@ -277,6 +484,24 @@ async function generateRecoveryWorkout(
  *   [1] Standard recovery (center)
  *   [2] Mobility (flow)
  */
+// ── Bolt-specific duration caps ─────────────────────────────────────────────
+// These are the hard time ceilings for each bolt option.
+//   Bolt 1 (Easy / Flow)     → 30 min
+//   Bolt 2 (Normal / Mastery) → 45 min
+//   Bolt 3 (Intense / Power)  → 60 min
+//
+// The caps control two things:
+//   1. availableTime passed to WorkoutGenerator → determines exercise count
+//      via getExerciseCountForDuration so each bolt gets a pool sized for
+//      its target duration.
+//   2. Post-generation Volume Guard → trims sets (≥2 minimum) if the
+//      estimated duration still exceeds the cap after warmup/cooldown.
+const BOLT_DURATION_CAPS: Record<DifficultyLevel, number> = {
+  1: 30,
+  2: 45,
+  3: 60,
+};
+
 const TRAINING_DAY_CONFIGS: TrioOptionConfig[] = [
   { key: 'option3Label', difficulty: 1, postProcess: 'flow_regression' },
   { key: 'option1Label', difficulty: 2 },
@@ -311,9 +536,50 @@ export async function generateHomeWorkoutTrio(
   // ── 1. SHARED PIPELINE: fetch + context + score (ONCE) ────────────────
   const pipeline = await _buildSharedPipeline(options);
 
+  // ── Recovery Video Trio: admin-tagged follow-along videos for rest days ─
+  // Checked before Budget Floor and the normal REST_DAY_CONFIGS loop.
+  // Falls through silently when no recovery videos are published yet.
+  if (isRestDay) {
+    const recoveryVideoTrio = await tryBuildRecoveryVideoTrio(
+      pipeline.allExercises,
+      options,
+    );
+    if (recoveryVideoTrio) {
+      console.groupEnd();
+      return recoveryVideoTrio;
+    }
+    console.log('[WorkoutTrio] No tagged recovery videos found — falling through to REST_DAY_CONFIGS');
+  }
+
   // ── Budget Floor: if weekly budget is critically low, all 3 options become recovery
   const trioRemainingBudget = options.remainingWeeklyBudget;
-  if (trioRemainingBudget != null && trioRemainingBudget < 6) {
+
+  // First-week bypass: a user whose active program was started within the past
+  // 7 days (i.e. they just completed onboarding) cannot legitimately have
+  // exhausted their weekly budget. Any remainingWeeklyBudget < 6 in that
+  // window is stale Zustand store data from a same-UID test or a concurrent
+  // store-reset race and must be ignored — skip recovery mode entirely.
+  const activeProgramStartRaw =
+    options.userProfile?.progression?.activePrograms?.[0]?.startDate;
+  // startDate is typed as Date but may arrive as a Firestore Timestamp or
+  // ISO string after JSON serialisation — coerce safely.
+  const activeProgramStartMs = activeProgramStartRaw
+    ? (activeProgramStartRaw instanceof Date
+        ? activeProgramStartRaw.getTime()
+        : new Date(activeProgramStartRaw as unknown as string).getTime())
+    : 0;
+  const isFirstProgramWeek =
+    activeProgramStartMs > 0 &&
+    Date.now() - activeProgramStartMs < 7 * 24 * 60 * 60 * 1000;
+
+  if (isFirstProgramWeek && trioRemainingBudget != null && trioRemainingBudget < 6) {
+    console.log(
+      `[WorkoutTrio] Budget Floor bypassed — first-week user (program started ${Math.round((Date.now() - activeProgramStartMs) / 3_600_000)}h ago). ` +
+      `Stale remainingBudget=${trioRemainingBudget} ignored; proceeding with normal workout generation.`,
+    );
+  }
+
+  if (trioRemainingBudget != null && trioRemainingBudget < 6 && !isFirstProgramWeek) {
     console.log(
       `[WorkoutTrio] recovery_mode: switching all options due to low budget (remaining: ${trioRemainingBudget})`,
     );
@@ -352,9 +618,26 @@ export async function generateHomeWorkoutTrio(
   const sessionBlacklist = new Set<string>();
   const usedTitles = new Set<string>();
 
-  const generator = createWorkoutGenerator();
+  // PipelineOrchestrator replaces the raw WorkoutGenerator call.
+  // A fresh orchestrator instance is created once per trio — it is stateless
+  // and safe to reuse across all 3 options.
+  const orchestrator = createPipelineOrchestrator();
 
   for (let i = 0; i < 3; i++) {
+    // When the Custom Builder requests a specific difficulty, skip the other
+    // two iteration slots to avoid generating workouts that are immediately
+    // discarded, saving significant device processing overhead.
+    if (options.targetDifficulty != null && configs[i].difficulty !== options.targetDifficulty) {
+      continue;
+    }
+
+    // Fast-path: when the result feeds a preview drawer (schedule-card tap),
+    // only the middle Balanced option (D2) is ever displayed — skip D1 and D3
+    // to cut Firestore reads and generation latency by ~66%.
+    if (options.generateSingleOption && configs[i].difficulty !== 2) {
+      continue;
+    }
+
     const cfg = configs[i];
     const label = modeLabels[cfg.key];
 
@@ -375,17 +658,25 @@ export async function generateHomeWorkoutTrio(
       }
     }
 
-    // Resolve effective difficulty (respect intensity gating)
-    let optionDifficulty: DifficultyLevel = cfg.difficulty;
-    if (optionDifficulty === 3 && pipeline.gatingResult.isIntenseLocked) {
-      optionDifficulty = 2;
-      console.log(`[WorkoutTrio] Option ${i + 1}: Intense locked → clamped to D2`);
-    }
+    // Resolve effective difficulty — cfg.difficulty is always honoured.
+    // Intensity gating (isIntenseLocked) controls UI availability only;
+    // it must not silently degrade a D3 generation to D2 after the user
+    // has already chosen Intense.
+    const optionDifficulty: DifficultyLevel = cfg.difficulty;
+
+    // ── Bolt-specific availableTime override ──────────────────────────────
+    // Each bolt gets its own time budget so WorkoutGenerator's
+    // getExerciseCountForDuration sizes the exercise pool correctly:
+    //   Bolt 1 → 30 min → 4-5 exercises
+    //   Bolt 2 → 45 min → 6-8 exercises
+    //   Bolt 3 → 60 min → 7-10 exercises
+    const boltDurationCap = BOLT_DURATION_CAPS[optionDifficulty];
 
     // Build per-option generator context (inherits all Sprint 3 context)
     const optionContext: WorkoutGenerationContext = {
       ...pipeline.baseGeneratorContext,
       difficulty: optionDifficulty,
+      availableTime: boltDurationCap,
       recentExerciseIds: sessionBlacklist.size > 0
         ? new Set([
             ...Array.from(pipeline.baseGeneratorContext.recentExerciseIds ?? []),
@@ -394,15 +685,38 @@ export async function generateHomeWorkoutTrio(
         : pipeline.baseGeneratorContext.recentExerciseIds,
     };
 
-    // Generate workout from the shared scored pool
-    const workout = generator.generateWorkout(optionPool, optionContext);
+    // RULE 3 — Guaranteed Pyramid for Bolt-3 (Option 3 — עצים ומהיר)
+    //
+    // The intense-day option must always deliver a heavy pyramid block so
+    // advanced users get structured progressive overload rather than a
+    // randomly-chosen protocol.  We override the protocol lottery by pinning
+    // preferredProtocols to ['pyramid'] at probability=1.0.  This bypasses
+    // the random roll inside WorkoutGenerator.selectProtocol() while leaving
+    // the pyramid-target selection logic (selectPyramidTargets) untouched so
+    // it still picks the most appropriate elite compound exercise.
+    //
+    // Applies to training days only — rest-day configs have no "intense" slot.
+    if (i === 2 && !isRestDay) {
+      optionContext.preferredProtocols  = ['pyramid'];
+      optionContext.protocolProbability = 1.0;
+      console.log('[WorkoutTrio] Option 3 (Bolt3 — intense): pyramid protocol forced (p=1.0)');
+    }
+
+    // Generate workout via PipelineOrchestrator (empty-pool guard + blueprint-aware shim)
+    const orchResult = orchestrator.run(optionPool, optionContext);
+    const workout = orchResult.workout;
 
     // Attach AI cue fallback
     if (!workout.aiCue && pipeline.aiCue) {
       workout.aiCue = pipeline.aiCue;
     }
 
-    // Warmup (using shared allExercises, userProgramLevels, childDomains)
+    // Warmup — use the FULL allExercises pool (not scoredExercises) so that
+    // exercises with exerciseRole === 'warmup' are always available for Stage 1.
+    // scoredExercises is filtered by ContextualEngine for the *main* workout and
+    // intentionally excludes warmup-role exercises; allExercises retains them.
+    // warmup.service.ts has its own independent filter stack (passesEquipmentAndLocation,
+    // isSpecificPotentiationCandidate, etc.) so passing the full pool is safe.
     const mainExercises = workout.exercises.filter(
       ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
     );
@@ -413,6 +727,8 @@ export async function generateHomeWorkoutTrio(
       pipeline.effectiveFilterLocation,
       pipeline.resolvedChildDomains,
       mainExercises,
+      workout.difficulty,
+      pipeline.baseGeneratorContext.availableEquipment,
     );
 
     // Cooldown
@@ -425,14 +741,33 @@ export async function generateHomeWorkoutTrio(
 
     // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
     if (cfg.postProcess === 'intense') {
-      applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises);
+      applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation);
     } else if (cfg.postProcess === 'flow_regression') {
-      applyFlowRegression(workout, pipeline.userProgramLevels, pipeline.allExercises, sessionBlacklist, pipeline.effectiveFilterLocation);
+      applyFlowRegression(
+        workout,
+        pipeline.userProgramLevels,
+        pipeline.allExercises,
+        sessionBlacklist,
+        pipeline.effectiveFilterLocation,
+        pipeline.baseGeneratorContext.activeProgramId,
+      );
     } else if (cfg.postProcess === 'mobility_tag') {
       applyTagPreference(workout, 'mobility', sessionBlacklist);
     } else if (cfg.postProcess === 'flexibility_tag') {
       applyTagPreference(workout, 'flexibility', sessionBlacklist);
     }
+
+    // ── Volume Cap: enforce bolt duration ceiling (Tier-3 PresentationFormatter) ──
+    //
+    // Runs AFTER all post-processing (warmup, cooldown, intense/flow
+    // modifiers) so the final plan reflects real timing.  Phase A prunes
+    // expendable exercises (core → isolation → extra legs); Phase B trims
+    // sets down to a floor of 2 by ascending tier priority.  Rest seconds
+    // are never touched — the staircase is physiologically fixed.
+    enforceVolumeCap(workout, {
+      durationCap: boltDurationCap,
+      diagnosticLabel: `Bolt${optionDifficulty}`,
+    });
 
     // Resolve dynamic title/description/logicCue from Firestore metadata
     try {
@@ -541,6 +876,28 @@ export async function generateHomeWorkoutTrio(
     }
     if (workout.title) usedTitles.add(workout.title);
 
+    // ── Locked Final Ordering: antagonist re-pair → domain-priority sort ──
+    //
+    // sortAndPair() owns the two-step locked chain (Tier-3 PresentationFormatter):
+    //   1. Re-apply antagonist pairing when the session is NOT single-domain
+    //      AND either the generator's probability roll fired internally OR
+    //      the Firestore admin config explicitly listed 'antagonist_pair'.
+    //   2. Apply the strict Domain-Priority Sort (Step 5f-prime) — the
+    //      ABSOLUTE last mutation on `workout.exercises` so legs / core
+    //      can never jump above push / pull and break the CNS contract.
+    sortAndPair(workout, {
+      isSingleDomain: pipeline.isSingleDomain,
+      adminPreferredProtocols: pipeline.adminPreferredProtocols,
+      diagnosticLabel: label,
+    });
+
+    // ── Pre-compute UI-ready rep range strings ───────────────────────────
+    // After every mutation has settled, stamp `formattedRepRange` on every
+    // exercise so React cards (StatsOverview, StrengthExerciseCard, etc.)
+    // can read a pre-computed Hebrew string instead of re-formatting on
+    // every render.  Idempotent — safe to re-run later if needed.
+    annotateRepRanges(workout.exercises);
+
     // Collect main exercise IDs into blacklist for next iteration
     workout.exercises
       .filter(ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown')
@@ -560,8 +917,28 @@ export async function generateHomeWorkoutTrio(
     );
   }
 
+  // When a single difficulty was requested (Custom Builder OR drawer fast-path),
+  // only one result was generated.  Pad slots 1 & 2 so the HomeWorkoutTrioResult
+  // type contract is satisfied.  Callers always read results[focusIdx] (D2 = idx 1),
+  // so the duplicates are never surfaced to the user.
+  if ((options.targetDifficulty != null || options.generateSingleOption) && results.length === 1) {
+    results.push(results[0]);
+    results.push(results[0]);
+    console.log('[WorkoutTrio] Single-option path — padded 3 slots with the same workout');
+  }
+
   // ── 4. Summary log ────────────────────────────────────────────────────
   logTrioSummary(results, isRestDay);
+
+  // ── 5. Cycle Restart (Rebuild path) ───────────────────────────────────
+  // When the gap >= 21 days, the policy flagged shouldRestartCycle = true.
+  // We persist a fresh startDate to Firestore so the next session begins
+  // a new 5-week cycle from Build (Week 1).
+  if (pipeline.sessionPolicy.shouldRestartCycle) {
+    await _persistCycleRestart(options.userProfile).catch(err =>
+      console.warn('[Periodization] Cycle restart write failed (non-blocking):', err),
+    );
+  }
 
   console.groupEnd();
 
@@ -569,8 +946,43 @@ export async function generateHomeWorkoutTrio(
     options: results as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
     isRestDay,
     labelsSource,
-    meta: pipeline.resultMeta,
+    meta: {
+      ...pipeline.resultMeta,
+      periodizationWeek: pipeline.sessionPolicy.periodizationWeek,
+      coachCue: pipeline.sessionPolicy.coachCue,
+      defaultFocusIndex: pipeline.sessionPolicy.defaultFocusIndex,
+    },
   };
+}
+
+/**
+ * Resets the active program's startDate to today, restarting the
+ * 5-week periodization cycle. Triggered after long inactivity gaps (21+ days).
+ */
+async function _persistCycleRestart(userProfile: UserFullProfile): Promise<void> {
+  const activePrograms = userProfile.progression?.activePrograms;
+  if (!activePrograms?.length || !userProfile.id) {
+    console.log('[Periodization] Cycle restart skipped — no active program or user ID');
+    return;
+  }
+
+  const updated = activePrograms.map((ap, idx) =>
+    idx === 0 ? { ...ap, startDate: new Date(), currentWeek: 1 } : ap,
+  );
+
+  // Lazy-import Firestore primitives to keep this hot path lean.
+  const { doc, updateDoc } = await import('firebase/firestore');
+  const { db } = await import('@/lib/firebase');
+
+  const userDocRef = doc(db, 'users', userProfile.id);
+  await updateDoc(userDocRef, {
+    'progression.activePrograms': updated,
+  });
+
+  console.log(
+    `[Periodization] Cycle restarted: ${activePrograms[0]?.name ?? 'active program'} ` +
+    `→ startDate reset to ${new Date().toISOString().slice(0, 10)}, currentWeek=1`,
+  );
 }
 
 // ============================================================================
@@ -591,6 +1003,16 @@ interface SharedPipelineState {
   aiCue?: string;
   resultMeta: HomeWorkoutResult['meta'];
   metadataCtxBase: WorkoutMetadataContext;
+  /** Resilient Smart Coach session policy (Periodization + Gap handling). */
+  sessionPolicy: SessionPolicy;
+  /** Protocol IDs preferred by the Firestore admin config for this session. */
+  adminPreferredProtocols?: string[];
+  /**
+   * True when exactly one baseline domain is active (e.g. pure Pull, pure Push).
+   * Used downstream to gate antagonist pairing — single-domain sessions must
+   * render a clean flat sequence with no cross-domain pairedWith coupling.
+   */
+  isSingleDomain: boolean;
 }
 
 /**
@@ -635,7 +1057,9 @@ async function _buildSharedPipeline(
     remainingScheduleDays,
     recentExerciseIds,
     requiredDomains: requiredDomainsOverride,
+    strictDomains,
     parkEquipmentIds,
+    isManualOverride,
   } = options;
 
   const WEEKLY_SA_CAP = 6;
@@ -655,31 +1079,66 @@ async function _buildSharedPipeline(
 
   // ── 0. UTS Schedule Override ──────────────────────────────────────────
   const fallbackProgram = userProfile.progression?.activePrograms?.[0]?.templateId;
-  const effectiveProgramIds = scheduledProgramIds?.length ? scheduledProgramIds : fallbackProgram ? [fallbackProgram] : [];
+  // ── 0a. Normalise scheduled program IDs ───────────────────────────────
+  // SKILL_DISPLAY (ScheduleStep / recurringTemplate) stores uppercase keys —
+  // PLANCHE, FRONT_LEVER, UPPER_CALISTHENICS — in entry.programIds.
+  // The engine (KNOWN_SLUGS, MG_TO_DOMAIN, resolveToSlug) expects lowercase
+  // slugs (planche, front_lever, calisthenics_upper).
+  // Normalise here, once, before any downstream calls.
+  const rawScheduledIds = scheduledProgramIds?.length
+    ? scheduledProgramIds.map(normalizeProgramId)
+    : fallbackProgram ? [normalizeProgramId(fallbackProgram)] : [];
+
+  console.log(
+    `[HomeWorkout] scheduledProgramIds normalised: [${(scheduledProgramIds ?? []).join(',')}]` +
+    ` → [${rawScheduledIds.join(',')}]`,
+  );
+
+  const effectiveIsRecovery = isScheduledRestDay ? true : (isRecoveryDay ?? false);
+
+  // ── 1. Fetch data ─────────────────────────────────────────────────────
+  // getBaseUserLevel reads tracks/domains, not activePrograms — safe to call
+  // with the original profile before the effective override is built.
+  const baseUserLevel = getBaseUserLevel(userProfile);
+  const [allExercises, gymEquipmentList, allPrograms] = await Promise.all([
+    getAllExercises(),
+    getAllGymEquipment(),
+    getCachedPrograms(),
+    ensureEquipmentCachesLoaded(),
+  ]);
+
+  // ── 1b. Build Firestore ID → slug map ─────────────────────────────────
+  // CRITICAL: must happen before ANY resolveToSlug call.  On the first
+  // invocation the module-level _idToSlugMap is null; calling resolveToSlug
+  // before this point logs "ID→Slug map is NULL" and returns the raw ID —
+  // which breaks master-program detection and child-domain resolution.
+  const idToSlug = buildIdToSlugMapFromPrograms(allPrograms);
+
+  // ── 1c. Master-program identity guard (safe now — map is populated) ───
+  // WorkoutBuilderSheet passes the master ID first when the user selects a
+  // master program (e.g. ['calisthenics_upper', 'planche', 'front_lever']).
+  // The service derives child domains independently via resolveChildDomainsForParent,
+  // so effectiveProfile.activePrograms must contain ONLY the master entry —
+  // adding children would confuse downstream consumers keying on activePrograms[0].
+  const MASTER_PROGRAM_SLUGS = new Set(['calisthenics_upper', 'full_body', 'upper_body', 'lower_body']);
+  const firstId = rawScheduledIds[0] ?? '';
+  const isLeadingMaster =
+    MASTER_PROGRAM_SLUGS.has(firstId) ||
+    MASTER_PROGRAM_SLUGS.has(resolveToSlug(firstId));
+  const effectiveActiveIds = isLeadingMaster
+    ? rawScheduledIds.slice(0, 1)   // master only — children via resolveChildDomainsForParent
+    : rawScheduledIds;
 
   const effectiveProfile: typeof userProfile = {
     ...userProfile,
     progression: {
       ...userProfile.progression,
-      activePrograms: effectiveProgramIds.map(id => ({
+      activePrograms: effectiveActiveIds.map(id => ({
         id, templateId: id, name: id,
         startDate: new Date(), durationWeeks: 52, currentWeek: 1, focusDomains: [],
       })),
     },
   };
-
-  const effectiveIsRecovery = isScheduledRestDay ? true : (isRecoveryDay ?? false);
-
-  // ── 1. Fetch data ─────────────────────────────────────────────────────
-  const baseUserLevel = getBaseUserLevel(effectiveProfile);
-  const [allExercises, gymEquipmentList, allPrograms] = await Promise.all([
-    getAllExercises(),
-    getAllGymEquipment(),
-    getCachedPrograms(),
-  ]);
-
-  // ── 1b. Build Firestore ID → slug map (bridges exercise doc IDs to track slugs)
-  const idToSlug = buildIdToSlugMapFromPrograms(allPrograms);
 
   // Master programs (display-only) are excluded from the engine's level map.
   const masterProgramIds = new Set(
@@ -688,142 +1147,88 @@ async function _buildSharedPipeline(
   const { levels: userProgramLevels } = buildUserProgramLevels(effectiveProfile, masterProgramIds, '[HomeWorkout:Trio]');
 
   const activeProgramId = effectiveProfile.progression?.activePrograms?.[0]?.templateId;
-  const resolvedChildDomains = resolveChildDomainsForParent(activeProgramId, userProfile);
+  let resolvedChildDomains = resolveChildDomainsForParent(activeProgramId, userProfile);
 
-  // Slug alias map: handles 'pulling'→'pull', 'pushing'→'push', etc.
-  const SLUG_ALIAS: Record<string, string[]> = {
-    pulling: ['pull'],
-    pushing: ['push'],
-    upper_body: ['push', 'pull'],
-    lower_body: ['legs'],
-    full_body: ['push', 'pull', 'legs', 'core'],
-  };
-
-  /**
-   * Resolve the user's effective level for an exercise's programId.
-   * Handles three layers of indirection:
-   *   1. Direct lookup (programId is already a slug like 'push')
-   *   2. Firestore ID → slug (e.g. 'J0fLpmJhG0KDN2tQouxh' → 'push')
-   *   3. Slug alias (e.g. 'pulling' → 'pull')
-   * Falls back to baseUserLevel (NOT L1) when no mapping exists.
-   */
-  const resolveUserLevelForProgram = (programId: string): number => {
-    // 1. Direct slug match
-    const direct = userProgramLevels.get(programId);
-    if (direct !== undefined) return direct;
-    // 2. Firestore ID → slug
-    const slug = idToSlug.get(programId);
-    if (slug) {
-      const slugLevel = userProgramLevels.get(slug);
-      if (slugLevel !== undefined) return slugLevel;
-      // 2b. The slug itself might be an alias (e.g. 'pulling')
-      const aliases = SLUG_ALIAS[slug];
-      if (aliases) {
-        const aliasLevels = aliases.map(a => userProgramLevels.get(a)).filter((l): l is number => l !== undefined);
-        if (aliasLevels.length > 0) return Math.max(...aliasLevels);
-      }
-    }
-    // 3. Direct slug alias (programId itself is an alias like 'pulling')
-    const aliases = SLUG_ALIAS[programId];
-    if (aliases) {
-      const aliasLevels = aliases.map(a => userProgramLevels.get(a)).filter((l): l is number => l !== undefined);
-      if (aliasLevels.length > 0) return Math.max(...aliasLevels);
-    }
-    return baseUserLevel;
-  };
-
-  let exercises: Exercise[];
-  if (userProgramLevels.size > 0 || resolvedChildDomains.length > 0) {
-    const validProgramIds = new Set([
-      ...Array.from(userProgramLevels.keys()),
-      ...resolvedChildDomains,
+  // ── 1d. UPPER_CALISTHENICS child domain normalisation ─────────────────
+  // When the scheduled day is a hybrid session (UPPER_CALISTHENICS, normalised
+  // to 'calisthenics_upper'), resolveChildDomainsForParent reads
+  // profile.progression.skillFocusIds which may:
+  //   a) Contain Firestore hash IDs (old admin-panel assignment)  → resolve via idToSlug
+  //   b) Be empty / return ['calisthenics_upper']                 → derive from tracks/activePrograms
+  //   c) Already contain valid slugs (planche, front_lever, …)    → keep as-is
+  // Without this normalisation the DomainBudget allocator looks for
+  // programLevelSettings docs with hash-ID keys that don't exist, producing
+  // an empty exercise pool.
+  if (activeProgramId === 'calisthenics_upper') {
+    const SKILL_SLUGS = new Set([
+      'planche', 'front_lever', 'muscle_up', 'handstand', 'hspu', 'oap',
     ]);
-    const filterByTolerance = (tolerance: number) =>
-      allExercises.filter(ex => {
-        if (ex.targetPrograms?.length) {
-          return ex.targetPrograms.some(tp => {
-            const userLevel = resolveUserLevelForProgram(tp.programId);
-            return Math.abs(tp.level - userLevel) <= tolerance;
-          });
-        }
-        if (ex.programIds?.length) {
-          return ex.programIds.some(pid =>
-            validProgramIds.has(pid) || validProgramIds.has(resolveToSlug(pid)),
-          );
-        }
-        return false;
-      });
 
-    const domainHasExercises = (pool: Exercise[], domain: string): boolean =>
-      pool.some(ex =>
-        ex.targetPrograms?.some(tp =>
-          tp.programId === domain || resolveToSlug(tp.programId) === domain,
-        ) ||
-        ex.programIds?.some(pid =>
-          pid === domain || resolveToSlug(pid) === domain,
-        ),
+    // Pass A: try to resolve every child ID through the now-built idToSlug map.
+    const sluggedFromMap = resolvedChildDomains
+      .map((id) => idToSlug.get(id) ?? id)
+      .filter((s) => SKILL_SLUGS.has(s));
+
+    if (sluggedFromMap.length > 0) {
+      resolvedChildDomains = sluggedFromMap;
+      console.log(
+        `[HomeWorkout] calisthenics_upper: child domains resolved via idToSlug → [${sluggedFromMap.join(', ')}]`,
       );
-
-    const allDomainsHaveExercises = (pool: Exercise[]): boolean =>
-      resolvedChildDomains.every(d => domainHasExercises(pool, d));
-
-    let levelMatched = filterByTolerance(1);
-    if (!allDomainsHaveExercises(levelMatched) || levelMatched.length < 4) {
-      levelMatched = filterByTolerance(2);
-    }
-    if (!allDomainsHaveExercises(levelMatched) || levelMatched.length < 4) {
-      levelMatched = filterByTolerance(3);
-    }
-    // If some domains still have 0 exercises at ±3, merge in the full pool
-    // for the missing domains while keeping the level-matched pool for the rest.
-    if (!allDomainsHaveExercises(levelMatched) && resolvedChildDomains.length > 0) {
-      const missingDomains = resolvedChildDomains.filter(d => !domainHasExercises(levelMatched, d));
-      const domainRescue = allExercises.filter(ex =>
-        missingDomains.some(d =>
-          ex.targetPrograms?.some(tp =>
-            tp.programId === d || resolveToSlug(tp.programId) === d,
-          ) ||
-          ex.programIds?.some(pid =>
-            pid === d || resolveToSlug(pid) === d,
-          ),
-        ),
+    } else {
+      // Pass B: extract recognised skill slugs from the user's progression data.
+      const trackSkills = Object.keys(userProfile.progression?.tracks ?? {}).filter(
+        (k) => SKILL_SLUGS.has(k),
       );
-      if (domainRescue.length > 0) {
+      const programSkills = (userProfile.progression?.activePrograms ?? [])
+        .map((ap) => normalizeProgramId(ap.templateId ?? ap.id ?? ''))
+        .filter((s) => SKILL_SLUGS.has(s));
+      const derivedSet = new Set([...trackSkills, ...programSkills]);
+      const derived = Array.from(derivedSet);
+
+      if (derived.length > 0) {
+        resolvedChildDomains = derived;
         console.log(
-          `[HomeWorkout:Trio] Domain rescue: domains [${missingDomains.join(', ')}] had 0 exercises at ±3. ` +
-          `Injecting ${domainRescue.length} exercises from full pool.`,
+          `[HomeWorkout] calisthenics_upper: child domains derived from profile tracks → [${derived.join(', ')}]`,
         );
-        levelMatched = [...levelMatched, ...domainRescue];
+      } else {
+        // Pass C: hardcoded last-resort so the session still generates something.
+        resolvedChildDomains = ['planche', 'front_lever'];
+        console.warn(
+          '[HomeWorkout] calisthenics_upper: could not derive child skills from profile — ' +
+          'falling back to [planche, front_lever]',
+        );
       }
     }
-    exercises = levelMatched.length >= 4 ? levelMatched : allExercises;
-  } else {
-    exercises = allExercises;
   }
+
+  // ── 1c. Resolve candidate exercise pool ──────────────────────────────
+  // Tier 1 middleware applies the ±3 level tolerance + per-domain rescue
+  // and falls back to allExercises when fewer than 4 candidates survive.
+  const exercises: Exercise[] = resolveExercisePool(
+    allExercises,
+    userProgramLevels,
+    resolvedChildDomains,
+    idToSlug,
+    baseUserLevel,
+  );
 
   // ── 2. Derive contextual values ──────────────────────────────────────
   const daysInactive = daysInactiveOverride ?? calculateDaysInactive(userProfile);
   const injuries = extractInjuryShield(userProfile, injuryOverride);
   const persona = mapPersonaIdToLifestylePersona(userProfile, personaOverride);
   const lifestyles = collectLifestyles(userProfile, persona);
-  const ESSENTIAL_CALISTHENICS_GEAR = Array.from(ESSENTIAL_PARK_GEAR);
-  let availableEquipment = [
-    ...resolveEquipment(userProfile, location, equipmentOverride),
-    ...gymEquipmentList.map(eq => eq.id),
-    // Essential calisthenics fixtures are ALWAYS available regardless of the
-    // user's personal gear profile (naked or otherwise).
-    ...ESSENTIAL_CALISTHENICS_GEAR,
-  ];
-  if (location === 'park' || location === 'street') {
-    const parkGear = ['park_bench', 'park_step', ...ESSENTIAL_CALISTHENICS_GEAR];
-    availableEquipment = Array.from(new Set([...availableEquipment, ...parkGear]));
-    if (parkEquipmentIds?.length) {
-      availableEquipment = Array.from(new Set([...availableEquipment, ...parkEquipmentIds]));
-      console.log(`[HomeWorkout] 🏞️ Park inventory merged: [${parkEquipmentIds.join(', ')}]`);
-    }
-    console.log(`[HomeWorkout] 🏞️ Park equipment guaranteed: [${ESSENTIAL_CALISTHENICS_GEAR.join(', ')}] — Pull/Dip exercises will not be filtered`);
-  }
-  availableEquipment = Array.from(new Set(availableEquipment));
+
+  // Tier 1 middleware: equipment normalization is the canonical place where
+  // gym catalog injection, real park inventory, and the ESSENTIAL_PARK_GEAR
+  // catastrophic fallback are composed and deduplicated.  After this, the
+  // engine receives a non-empty array of canonical (raw) gear IDs.
+  const availableEquipment: string[] = normalizeEquipmentArray(
+    userProfile,
+    location,
+    parkEquipmentIds,
+    gymEquipmentList,
+    equipmentOverride,
+  );
   const timeOfDay = timeOfDayOverride ?? detectTimeOfDay();
 
   // ── 2b. Lead Program Budget ──────────────────────────────────────────
@@ -834,16 +1239,39 @@ async function _buildSharedPipeline(
 
   // ── 2c. Split Decision Engine ────────────────────────────────────────
   const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 3;
+
+  // Full-body master: the static push/pull/legs/core quartet.
   const isFullBodyMaster =
     resolvedChildDomains.length >= 4 &&
     ['push', 'pull', 'legs', 'core'].every(d => resolvedChildDomains.includes(d));
+
+  // Calisthenics-upper master: dynamic skill-track hybrid (e.g. planche + front_lever).
+  // Requires at least one resolved child skill so the budget builder has data to work with.
+  const activeProgramSlug = resolveToSlug(activeProgramId ?? '');
+  const isCalisthenicsUpperMaster =
+    (activeProgramId === 'calisthenics_upper' || activeProgramSlug === 'calisthenics_upper') &&
+    resolvedChildDomains.length > 0;
+
+  // Unified gate: either master type triggers the per-domain budget infrastructure.
+  const isMasterSession = isFullBodyMaster || isCalisthenicsUpperMaster;
+
+  console.log(
+    `[DomainBudget] activeProgramId="${activeProgramId}" ` +
+    `resolvedChildDomains=[${resolvedChildDomains.join(', ')}] ` +
+    `isFullBodyMaster=${isFullBodyMaster} isCalisthenicsUpperMaster=${isCalisthenicsUpperMaster}`,
+  );
 
   let splitContext: SplitWorkoutContext;
   let resolvedDomainBudgets: Array<{ domain: string; level: number; weekly: number; daily: number }> | undefined;
 
   if (isFullBodyMaster) {
+    // ── Full-Body master path (push/pull/legs/core) ─────────────────────
+    // Fetches per-domain weeklyVolumeTarget from ProgramLevelSettings (Firestore).
     const aggregate = await resolveAggregateFullBodyBudget(scheduleDays, userProgramLevels, allPrograms);
     resolvedDomainBudgets = aggregate.domainBudgets;
+    console.log(
+      `[DomainBudget] resolvedDomainBudgets set: [${resolvedDomainBudgets.map(db => `${db.domain}=L${db.level}`).join(', ')}]`,
+    );
     splitContext = getWorkoutContext({
       userProfile: effectiveProfile,
       selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
@@ -859,13 +1287,95 @@ async function _buildSharedPipeline(
         return { ...db, daily: Math.max(1, Math.ceil(remaining / remainingScheduleDays)) };
       });
     }
-  } else {
+  } else if (isCalisthenicsUpperMaster) {
+    // ── Calisthenics-Upper master path (skill-track hybrid) ──────────────
+    //
+    // Reuses the full-body domain-budget infrastructure without calling
+    // resolveAggregateFullBodyBudget (which only iterates the static push/pull/
+    // legs/core MovementPattern quartet).  Instead, we build per-skill budgets
+    // directly from userProgramLevels so that:
+    //
+    //   getUserLevelForExercise → resolvedDomainBudgets lookup → db.level
+    //
+    // returns planche=L5 / front_lever=L5 rather than the inflated foundational
+    // track level (push=L16) that the legacy Master Unpack fallback was producing.
+    //
+    // The split context deliberately stays on the normal Path C path so
+    // SplitDecisionService.resolvePrioritySkillIds can apply skill rotation
+    // (Dominance Day / Dynamic Rotation / Pendulum) unmodified.
+    // ── Skill-track budget entries (planche=L5, front_lever=L5, …) ─────────
+    // Biomechanical parent map — mirrors _SKILL_PARENT_MAP defined later in
+    // this file; duplicated here to avoid a forward-reference dependency.
+    const _CU_SKILL_PARENT: Record<string, string> = {
+      planche: 'push', handstand: 'push', handstand_pushup: 'push',
+      front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
+    };
+    const skillBudgetEntries = resolvedChildDomains.map(skillId => {
+      const level = userProgramLevels.get(skillId) ?? baseUserLevel;
+      const weekly = calculateWeeklyBudget(level, scheduleDays);
+      const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
+      return { domain: skillId, level, weekly, daily };
+    });
+
+    // ── Parent foundational domain entries (push=L14, pull=L14, …) ─────────
+    // Without these, the Bolt caps in WorkoutGenerator use
+    //   max(planche=L5, front_lever=L5) + 1 = L6
+    // as a single global ceiling, which excludes 100% of the user's actual
+    // pull/push exercises (e.g. L14 pull candidates → 39 exercises dropped).
+    // Adding push/pull at their real foundational levels lets the per-domain
+    // Bolt cap apply L6 for planche exercises and L15 for pull exercises.
+    const _cuParentsSeen = new Set<string>();
+    const parentBudgetEntries: Array<{ domain: string; level: number; weekly: number; daily: number }> = [];
+    for (const skillId of resolvedChildDomains) {
+      const parent = _CU_SKILL_PARENT[skillId];
+      if (parent && !_cuParentsSeen.has(parent)) {
+        _cuParentsSeen.add(parent);
+        const parentLevel = userProgramLevels.get(parent) ?? baseUserLevel;
+        const weekly = calculateWeeklyBudget(parentLevel, scheduleDays);
+        const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
+        parentBudgetEntries.push({ domain: parent, level: parentLevel, weekly, daily });
+      }
+    }
+
+    resolvedDomainBudgets = [...skillBudgetEntries, ...parentBudgetEntries];
+    console.log(
+      `[DomainBudget] calisthenics_upper budgets (skills + parents): [${resolvedDomainBudgets.map(db => `${db.domain}=L${db.level}`).join(', ')}]`,
+    );
+    // Deficit-aware daily budget adjustment (mirrors full-body Phase 4 logic).
+    // Skipped for manual-override sessions — the Custom Builder must never
+    // receive domain daily budgets clamped to 0 by an exhausted weekly quota.
+    if (!isManualOverride && domainSetsCompletedThisWeek && remainingScheduleDays && remainingScheduleDays > 0) {
+      resolvedDomainBudgets = resolvedDomainBudgets.map(db => {
+        const completed = domainSetsCompletedThisWeek[db.domain] ?? 0;
+        const remaining = Math.max(0, db.weekly - completed);
+        return { ...db, daily: Math.max(1, Math.ceil(remaining / remainingScheduleDays)) };
+      });
+    }
     const weeklyBudgetForSplit =
       leadBudget?.weeklyVolumeTarget ?? calculateWeeklyBudget(baseUserLevel, Math.max(1, scheduleDays));
     splitContext = getWorkoutContext({
       userProfile: effectiveProfile,
       weeklyBudget: weeklyBudgetForSplit,
       selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
+      domainSetsCompletedThisWeek,
+      remainingScheduleDays,
+      isManualOverride,
+    });
+  } else {
+    // ── Single-track / standard path ────────────────────────────────────
+    const weeklyBudgetForSplit =
+      leadBudget?.weeklyVolumeTarget ?? calculateWeeklyBudget(baseUserLevel, Math.max(1, scheduleDays));
+    // Phase 4 parity: single-track programs now receive the same deficit-aware
+    // redistribution as Full Body.  domainSetsCompletedThisWeek and
+    // remainingScheduleDays were already available in _buildSharedPipeline but
+    // were never forwarded to Path B — fix that here.
+    splitContext = getWorkoutContext({
+      userProfile: effectiveProfile,
+      weeklyBudget: weeklyBudgetForSplit,
+      selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
+      domainSetsCompletedThisWeek,
+      remainingScheduleDays,
+      isManualOverride,
     });
   }
 
@@ -879,44 +1389,75 @@ async function _buildSharedPipeline(
     maxIntenseWorkoutsPerWeek: resolvedMaxIntense,
   });
 
-  let detrainingLock = false;
-  let volumeReductionOverride: number | undefined;
-  if (daysInactive > 3) {
-    detrainingLock = true;
-    volumeReductionOverride = 0.40;
-  }
+  // ── Resilient Smart Coach: Periodization Clock + Gap Policy ──────────
+  // Derives the current 5-week cycle position from the active program's
+  // startDate, then resolves a unified SessionPolicy that bridges:
+  //   - Build/Peak/Deload weeks (cycle-driven volume + delta + protocols)
+  //   - Detraining (4-7 day gap → existing -40% logic preserved)
+  //   - Long-gap deload (8-21 day gap → forces deload mode)
+  //   - Rebuild (21+ day gap → forces deload + cycle restart hint)
+  const activeProgramForCycle = userProfile.progression?.activePrograms?.[0];
+  const cycleWeek = derivePeriodizationWeek(activeProgramForCycle);
+  const sessionPolicy: SessionPolicy = resolveSessionPolicy(cycleWeek, daysInactive);
+
+  const detrainingLock = sessionPolicy.detrainingLock;
+  const volumeReductionOverride = sessionPolicy.volumeReductionOverride;
 
   // ── 3. Build ContextualEngine context + run scoring (ONCE) ───────────
-  const activeProgramFilters: string[] = [];
-  if (shadowMatrix?.programs) {
-    for (const [programKey, po] of Object.entries(shadowMatrix.programs)) {
-      if (po?.override) activeProgramFilters.push(programKey);
-    }
-  }
-  if (activeProgramFilters.length === 0) {
-    const ap = effectiveProfile.progression?.activePrograms?.[0];
-    const parentId = ap?.templateId ?? ap?.id;
-    const resolvedDomains = resolveChildDomainsForParent(parentId, userProfile);
-    if (resolvedDomains.length > 0) {
-      activeProgramFilters.push(...resolvedDomains);
-    } else if (ap?.focusDomains?.length) {
-      activeProgramFilters.push(...ap.focusDomains);
-    } else {
-      const derived = [...new Set([
-        ...Object.keys(userProfile.progression?.domains ?? {}),
-        ...(userProfile.progression?.activePrograms ?? []).map(p => p.templateId).filter(Boolean),
-      ])];
-      for (const pid of derived) {
-        const prog = allPrograms.find(p => p.id === pid);
-        if (prog?.isMaster && prog.subPrograms?.length) {
-          for (const child of prog.subPrograms) {
-            if (!derived.includes(child)) derived.push(child);
-          }
-        }
-      }
-      if (derived.length > 0) activeProgramFilters.push(...derived);
-    }
-  }
+  // Tier 1 middleware: shadow-matrix overrides + child-domain expansion +
+  // skill-track sibling expansion are all consolidated here.  The result
+  // exposes both the expanded filter array and the original
+  // `baseDomainCount` (pre-expansion) so the caller can derive
+  // `isSingleDomain` and pool strategy from the user's true intent.
+  //
+  // calisthenics_upper bridge: resolvedChildDomains was slug-normalised
+  // in step 1d but lives only as a local variable — buildActiveProgramFilters
+  // independently calls resolveChildDomainsForParent which may return raw
+  // hash IDs or ['calisthenics_upper'].  Propagate the pre-normalised slugs
+  // (PLUS their parent biomechanical domains — push/pull) through the first
+  // active program's focusDomains so the Sanitizer's priority path picks them
+  // up directly without relying on the inverse expansion that runs later.
+  // This aligns the automated calisthenics_upper path with the working manual
+  // multi-skill Smart Workout path where skillFocusIds already contain valid
+  // slugs, ensuring both push movements (planche) and pull movements (front_lever)
+  // survive ContextualEngine's exerciseMatchesProgram gate.
+
+  // Biomechanical parent lookup for calisthenics skill-track slugs.
+  const _SKILL_PARENT_MAP: Record<string, string> = {
+    planche: 'push', handstand: 'push', handstand_pushup: 'push',
+    front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
+  };
+
+  const profileForFilters: typeof effectiveProfile =
+    isCalisthenicsUpperMaster && resolvedChildDomains.length > 0
+      ? (() => {
+          // Spread child skill slugs + their parent domains into focusDomains
+          // so buildActiveProgramFilters receives the complete filter set
+          // without needing to reconstruct it from raw profile data.
+          const parentDomains = Array.from(new Set(
+            resolvedChildDomains
+              .map((d) => _SKILL_PARENT_MAP[d])
+              .filter((p): p is string => !!p && !resolvedChildDomains.includes(p)),
+          ));
+          const fullFocusDomains = [...resolvedChildDomains, ...parentDomains];
+          console.log(
+            `[HomeWorkout] calisthenics_upper focusDomains: [${fullFocusDomains.join(', ')}]`,
+          );
+          return {
+            ...effectiveProfile,
+            progression: {
+              ...effectiveProfile.progression,
+              activePrograms: [{
+                ...effectiveProfile.progression!.activePrograms![0],
+                focusDomains: fullFocusDomains as any,
+              }],
+            },
+          };
+        })()
+      : effectiveProfile;
+
+  const { filters: activeProgramFilters, baseDomainCount } =
+    buildActiveProgramFilters(profileForFilters, userProfile, allPrograms, shadowMatrix);
 
   const effectiveFilterLocation = location;
 
@@ -926,23 +1467,120 @@ async function _buildSharedPipeline(
     injuryShield: injuries,
     intentMode,
     availableEquipment,
-    getUserLevelForExercise: (exercise: Exercise) =>
-      getEffectiveLevelForExercise(exercise, userProfile, shadowMatrix, baseUserLevel),
+    getUserLevelForExercise: (exercise: Exercise) => {
+      if (resolvedDomainBudgets?.length) {
+        // ── Pass 1: movementGroup → domain ──────────────────────────────────
+        // Fast path using the canonical MG_TO_DOMAIN map (foundational MGs
+        // resolve to push/pull/legs/core; skill MGs resolve to their own
+        // program slug — e.g. 'planche', 'muscle_up').
+        const mgDomain = MG_TO_DOMAIN[exercise.movementGroup ?? ''];
+        let db = resolvedDomainBudgets.find(d => d.domain === mgDomain);
+
+        // ── Pass 2: targetPrograms → domain ─────────────────────────────────
+        // Handles exercises whose movementGroup is non-standard (e.g. HSPU /
+        // handstand_push, planche, etc.) by reading their program associations
+        // instead. This mirrors the logic in applyDifficultyFilter so that the
+        // SCORING level and the TIER level are always computed from the same
+        // domain — preventing the "HSPU appears near-match at L18 but resolves
+        // to flow against push-L22" discrepancy.
+        if (!db && exercise.targetPrograms?.length) {
+          for (const tp of exercise.targetPrograms) {
+            const slug = resolveToSlug(tp.programId);
+            db = resolvedDomainBudgets.find(d => d.domain === slug || d.domain === tp.programId);
+            if (db) break;
+          }
+        }
+
+        if (db) return db.level;
+      }
+      // ── Master Unpacking fallback (legacy / edge-case path) ────────────
+      // For calisthenics_upper sessions, this block is now bypassed:
+      // resolvedDomainBudgets is always populated (isCalisthenicsUpperMaster branch
+      // above), so Pass 1 (MG_TO_DOMAIN → skill slug) and Pass 2 (targetPrograms)
+      // in the block above return the correct granular skill level before we reach
+      // here.  This fallback remains for future programs that may be master-like
+      // but don't match either the full-body quartet or the calisthenics_upper gate,
+      // and as a safety net for exercises with no MG and no matching targetPrograms.
+      const rawTemplateId =
+        effectiveProfile.progression?.activePrograms?.[0]?.templateId
+        ?? effectiveProfile.progression?.activePrograms?.[0]?.id;
+
+      let resolvedActiveProgramId: string | undefined = rawTemplateId;
+
+      if (rawTemplateId === 'calisthenics_upper' && resolvedChildDomains.length > 0) {
+        // Pick the first skill focus child whose programId matches one of the
+        // exercise's targetPrograms entries — this is the exact track the
+        // exercise belongs to, and the one that carries the correct user level.
+        const matchingChild = resolvedChildDomains.find(child =>
+          exercise.targetPrograms?.some(
+            tp => tp.programId === child || resolveToSlug(tp.programId) === child,
+          ),
+        );
+        resolvedActiveProgramId = matchingChild ?? resolvedChildDomains[0];
+      }
+
+      return getEffectiveLevelForExercise(
+        exercise,
+        userProfile,
+        shadowMatrix,
+        baseUserLevel,
+        resolvedActiveProgramId,
+      );
+    },
     levelTolerance: 3,
     activeProgramFilters: activeProgramFilters.length > 0 ? activeProgramFilters : undefined,
     activeDomains: activeProgramFilters.length > 0 ? activeProgramFilters : undefined,
+    // Primary active program (the user's headline training track, e.g. `planche`).
+    // Forwarded to resolveExerciseLevelForDomains as the tiebreaker so multi-
+    // assigned exercises resolve to the skill-level entry instead of being
+    // hijacked by a foundational baseline (push/pull) indexed earlier.
+    activeProgramId:
+      effectiveProfile.progression?.activePrograms?.[0]?.templateId
+      ?? effectiveProfile.progression?.activePrograms?.[0]?.id
+      ?? undefined,
     excludedMuscleGroups:
       splitContext.excludedMuscleGroups.length > 0 ? splitContext.excludedMuscleGroups : undefined,
   };
 
-  // ── 4. Run ContextualEngine (SINGLE PASS — shared across all 3 options) ─
-  const engine = createContextualEngine();
-  const filterResult = engine.filterAndScore(exercises, filterContext);
+  // ── 4. Run ContextualEngine via PoolFactory (SINGLE PASS — shared across all 3 options) ─
+  // PoolFactory encapsulates filterAndScore + PoolRescue retry + profileStale guard.
+  // The strategy is derived from the original base-domain count (before sibling
+  // expansion) so PoolRescue fires correctly for single-domain sessions.
+  const poolStrategy = baseDomainCount === 1 ? 'single_domain'
+    : baseDomainCount === 2 ? 'antagonist_split'
+    : 'full_body';
+
+  const candidatePool = createPoolFactory().build(
+    exercises,
+    filterContext,
+    userProgramLevels,
+    poolStrategy,
+  );
+
+  const scoredExercises = candidatePool.candidates.get('__shared__') ?? [];
+  const filterResult = {
+    exercises: scoredExercises,
+    excludedCount: candidatePool.excludedCount,
+    filterCounts: candidatePool.filterCounts,
+  };
 
   console.log(
     `[WorkoutTrio] Shared pipeline: ${filterResult.exercises.length} scored exercises ` +
-    `(${filterResult.excludedCount} excluded), ${allExercises.length} total in DB`,
+    `(${filterResult.excludedCount} excluded), ${allExercises.length} total in DB` +
+    `${candidatePool.toleranceExpanded ? ' [tolerance expanded ±5]' : ''}`,
   );
+  if (filterResult.filterCounts) {
+    const fc = filterResult.filterCounts;
+    console.log(
+      `[WorkoutTrio] Filter breakdown — ` +
+      `program_filter: ${fc.excluded_program_filter}, ` +
+      `level_tolerance: ${fc.excluded_level_tolerance}, ` +
+      `skill_gate: ${fc.excluded_skill_gate}, ` +
+      `location: ${fc.excluded_location}, ` +
+      `injury: ${fc.excluded_injury_shield}, ` +
+      `passed: ${fc.after_hard_filters}`,
+    );
+  }
 
   // ── 5a. Progressive Overload goals ───────────────────────────────────
   let goalExerciseIds: Set<string> | undefined;
@@ -956,35 +1594,175 @@ async function _buildSharedPipeline(
   let adminPreferredProtocols: string[] | undefined;
   let adminProtocolProbability: number | undefined;
 
-  if (primaryProgramId) {
+  // ── Protocol & Goal lookup: scan ALL enrolled programs, not just the first ──
+  // userProgramLevels keys are domain SLUGS (e.g. 'push', 'pull') coming from
+  // progression.tracks / progression.domains. But programLevelSettings documents
+  // are stored with the Firestore PROGRAM ID (e.g. 'calisthenics-push-v2').
+  // We must resolve slug → real Firestore program ID before the Firestore fetch,
+  // otherwise the lookup always returns null for any program whose ID ≠ its slug.
+
+  // Build slug → Firestore program ID reverse map from the full programs list.
+  const slugToFirestoreId = new Map<string, string>();
+  for (const prog of allPrograms) {
+    const slug = prog.slug ?? prog.movementPattern ?? prog.name.toLowerCase().replace(/[\s-]+/g, '_');
+    // Map both the slug AND the raw ID to the program ID (handles both cases).
+    if (!slugToFirestoreId.has(slug)) slugToFirestoreId.set(slug, prog.id);
+    slugToFirestoreId.set(prog.id, prog.id);
+  }
+
+  // Sort order for scanning:
+  //   Tier 0 — explicitly scheduled programs (highest relevance to today's session)
+  //   Tier 1 — programs with the highest user level (most advanced = richest settings)
+  //   Tier 2 — primary program (first entry in userProgramLevels map)
+  //   Tier 3 — everything else
+  // This guarantees Push L18 is checked before Full Body L10 when settings are absent
+  // on the Full Body document, and the highest-level program's protocols are inherited.
+  const allProgramEntries = Array.from(userProgramLevels.entries())
+    .sort(([idA, lvlA], [idB, lvlB]) => {
+      const tierA = scheduledProgramIds?.includes(idA) ? 0
+        : idA === primaryProgramId ? 2
+        : 3;
+      const tierB = scheduledProgramIds?.includes(idB) ? 0
+        : idB === primaryProgramId ? 2
+        : 3;
+      if (tierA !== tierB) return tierA - tierB;
+      // Within same tier: higher level first (Push L18 beats Full Body L10)
+      return lvlB - lvlA;
+    });
+
+  console.log(
+    `[WorkoutTrio] Protocol scan order (${allProgramEntries.length} domains): ` +
+    allProgramEntries.map(([id, lvl]) => {
+      const firestoreId = slugToFirestoreId.get(id);
+      const tag = scheduledProgramIds?.includes(id) ? '📅' : id === primaryProgramId ? '⭐' : '';
+      return `${tag}${id}@L${lvl}${firestoreId && firestoreId !== id ? `(→${firestoreId})` : ''}`;
+    }).join(' → '),
+  );
+
+  // Deduplicate: avoid fetching the same Firestore document twice
+  // (slug key and raw ID key can point to the same doc after slug→ID resolution).
+  const lookedUpDocs = new Set<string>();
+  // Track which program supplied goals and which supplied protocols (for the inheritance log).
+  let goalsSource: string | undefined;
+  let protocolSource: string | undefined;
+
+  for (const [domainKey, domainLevel] of allProgramEntries) {
+    // Goals are already found — and protocols too → nothing left to look for.
+    if (goalExerciseIds && adminPreferredProtocols) break;
+
+    // Resolve the domain slug to the actual Firestore program document ID.
+    const firestoreProgId = slugToFirestoreId.get(domainKey) ?? domainKey;
+    const docKey = `${firestoreProgId}_level_${domainLevel}`;
+
+    if (lookedUpDocs.has(docKey)) continue;
+    lookedUpDocs.add(docKey);
+
     try {
-      const levelSettings = await getProgramLevelSetting(primaryProgramId, primaryProgramLevel);
-      if (levelSettings?.targetGoals?.length) {
-        goalExerciseIds = new Set(levelSettings.targetGoals.map(g => g.exerciseId));
+      // ── Document ID transparency ─────────────────────────────────────────
+      // Log exactly what we're fetching so a mismatch between slug resolution
+      // and the Admin Panel save path is immediately visible.
+      console.log(
+        `[WorkoutTrio] 🔍 Fetching: collection=programLevelSettings` +
+        ` docId="${firestoreProgId}_level_${domainLevel}"` +
+        ` (domain slug="${domainKey}" → resolved firestoreId="${firestoreProgId}")`,
+      );
+
+      const levelSettings = await getProgramLevelSetting(firestoreProgId, domainLevel);
+      const hasProtocols = !!(levelSettings?.preferredProtocols?.length);
+      const hasGoals    = !!(levelSettings?.targetGoals?.length);
+
+      if (!levelSettings) {
+        console.log(`[WorkoutTrio] ❌ ${docKey} → no document in programLevelSettings`);
+        continue;
+      }
+
+      // ── Schema support warning ───────────────────────────────────────────
+      // The document exists but has no protocol data — either it was saved
+      // before the Admin Panel added protocol support, or the checkboxes were
+      // never saved.  Check the RAW log above for the actual field names.
+      if (!hasProtocols) {
+        console.warn(
+          `[WorkoutTrio] ⚠️  Document "${docKey}" found but 'preferredProtocols' field is ` +
+          `missing or empty. Please open the Admin Panel → Programs → ${domainKey} → ` +
+          `Level ${domainLevel} and click Save to write the protocol settings.`,
+        );
+      }
+
+      console.log(
+        `[WorkoutTrio] ✅ ${docKey} found — ` +
+        `protocols=[${(levelSettings.preferredProtocols ?? []).join(', ')}], ` +
+        `probability=${levelSettings.protocolProbability ?? 'unset'}, ` +
+        `goals=${levelSettings.targetGoals?.length ?? 0}`,
+      );
+
+      // ── Goals: take from the first (highest-priority) program that has them ──
+      if (!goalExerciseIds && hasGoals) {
+        goalExerciseIds = new Set(levelSettings.targetGoals!.map(g => g.exerciseId));
         goalTargets = new Map(
-          levelSettings.targetGoals.map(g => [g.exerciseId, { targetValue: g.targetValue, unit: g.unit }]),
+          levelSettings.targetGoals!.map(g => [g.exerciseId, { targetValue: g.targetValue, unit: g.unit }]),
         );
+        goalsSource = `${domainKey}@L${domainLevel}`;
       }
-      if (levelSettings?.preferredProtocols?.length) {
+
+      // ── Protocols: take from the first (highest-priority) program that has them ──
+      if (!adminPreferredProtocols && hasProtocols) {
         adminPreferredProtocols = levelSettings.preferredProtocols;
-        // Force-test: antagonist_pair must ALWAYS fire when enabled in Admin
-        // so pairing logic and sorting can be verified end-to-end.
-        const hasAntagonistPair = adminPreferredProtocols.includes('antagonist_pair');
+        const hasAntagonistPair = adminPreferredProtocols!.includes('antagonist_pair');
         adminProtocolProbability = hasAntagonistPair ? 1.0 : (levelSettings.protocolProbability ?? 1.0);
+        protocolSource = `${domainKey}@L${domainLevel}`;
+
+        const inheritMsg = (domainKey !== primaryProgramId && primaryProgramId)
+          ? ` (primary "${primaryProgramId}" had no protocol settings — inheriting from "${domainKey}" L${domainLevel})`
+          : '';
         console.log(
-          `[WorkoutTrio] Admin protocols from Firestore: [${adminPreferredProtocols.join(', ')}] ` +
-          `probability=${adminProtocolProbability}${hasAntagonistPair ? ' (antagonist_pair FORCED 100%)' : ''}`,
+          `[WorkoutTrio] ✅ Protocols resolved from "${firestoreProgId}" L${domainLevel}:` +
+          ` [${adminPreferredProtocols!.join(', ')}] probability=${adminProtocolProbability}` +
+          `${hasAntagonistPair ? ' (antagonist_pair → 100%)' : ''}${inheritMsg}`,
         );
-      } else if (levelSettings?.protocolProbability != null) {
+      } else if (!adminProtocolProbability && levelSettings.protocolProbability != null) {
         adminProtocolProbability = levelSettings.protocolProbability;
-        console.log(`[WorkoutTrio] Admin protocol probability from Firestore: ${adminProtocolProbability}`);
       }
-    } catch { /* non-critical */ }
+    } catch (err) {
+      console.warn(`[WorkoutTrio] Non-critical error fetching ${docKey}:`, err);
+    }
+  }
+
+  // Summary log — always visible, makes the inheritance chain explicit.
+  console.log(
+    `[WorkoutTrio] Settings resolved → ` +
+    `protocols: ${adminPreferredProtocols ? `[${adminPreferredProtocols.join(', ')}] from ${protocolSource}` : '⚠️  none (straight sets — check Firestore doc)'} | ` +
+    `goals: ${goalExerciseIds ? `${goalExerciseIds.size} exercises from ${goalsSource}` : 'none'}`,
+  );
+
+  // Progression tracking: use primary program
+  if (primaryProgramId) {
     const track = userProfile.progression?.tracks?.[primaryProgramId];
     if (track) {
       levelProgressPercent = track.percent ?? 0;
       workoutsCompletedInLevel = track.totalWorkoutsCompleted ?? 0;
     }
+  }
+
+  // ── 5a-bis. Per-exercise history map (for the David Staircase floor) ─
+  // Fetched ONCE for the post-filter exercise pool so that `assignVolume`
+  // can clamp `reps` upward to whatever the user actually performed last
+  // session — preventing regressions when the user is mid-level (e.g.
+  // 50%+ progress with a strong prior session). Empty map when offline.
+  let exerciseHistoryMap: Record<string, number[]> = {};
+  try {
+    const userIdForHistory = effectiveProfile.id;
+    if (userIdForHistory) {
+      const historyIds = filterResult.exercises
+        .filter(se => se.method != null)
+        .map(se => se.exercise.id);
+      exerciseHistoryMap = await getHistoryMapForExercises(userIdForHistory, historyIds);
+      console.log(
+        `[WorkoutTrio] Exercise history loaded: ${Object.keys(exerciseHistoryMap).length}/${historyIds.length} exercises ` +
+        `have prior session data (David Staircase floor active).`,
+      );
+    }
+  } catch (e) {
+    console.warn('[WorkoutTrio] Exercise history fetch failed (non-critical):', e);
   }
 
   // ── 5b. Base generator context (Sprint 3 integrity preserved) ────────
@@ -1005,9 +1783,42 @@ async function _buildSharedPipeline(
     isRecoveryDay: effectiveIsRecovery,
     detrainingLock,
     volumeReductionOverride,
-    protocolProbability: adminProtocolProbability ?? protocolProbability,
+    periodizationWeek: sessionPolicy.periodizationWeek,
+    // Scale admin protocol probability by the policy multiplier (Peak ×1.5, Deload ×0).
+    protocolProbability: (() => {
+      const baseProb = adminProtocolProbability ?? protocolProbability ?? 0;
+      const scaled = Math.min(1.0, baseProb * sessionPolicy.protocolMultiplier);
+      if (sessionPolicy.protocolMultiplier === 0) {
+        console.log(
+          `[WorkoutTrio] ⛔ PROTOCOLS KILLED by periodization: ` +
+          `baseProb=${baseProb} × multiplier=0 = 0 ` +
+          `(reason: ${(sessionPolicy as any).reason ?? 'deload/rebuild'}, week=${sessionPolicy.periodizationWeek})`,
+        );
+      } else if (sessionPolicy.protocolMultiplier !== 1.0) {
+        console.log(
+          `[Periodization] Protocol probability: ${baseProb} × ${sessionPolicy.protocolMultiplier} = ${scaled.toFixed(2)}`,
+        );
+      } else {
+        console.log(
+          `[WorkoutTrio] Protocol probability passed to generator: ${scaled.toFixed(2)} ` +
+          `(base=${baseProb}, multiplier=${sessionPolicy.protocolMultiplier}, week=${sessionPolicy.periodizationWeek})`,
+        );
+      }
+      return scaled;
+    })(),
     preferredProtocols: (adminPreferredProtocols ?? preferredProtocols) as any,
-    straightArmRatio,
+    // Apply straight-arm cap on Deload weeks for tendon protection.
+    straightArmRatio: (() => {
+      if (sessionPolicy.straightArmCap == null) return straightArmRatio;
+      const baseSAR = straightArmRatio ?? 0.4;
+      const capped = Math.min(baseSAR, sessionPolicy.straightArmCap);
+      if (capped !== baseSAR) {
+        console.log(
+          `[Periodization] Straight-arm ratio capped: ${baseSAR} → ${capped} (Deload tendon protection)`,
+        );
+      }
+      return capped;
+    })(),
     weeklySASets,
     weeklySACap: WEEKLY_SA_CAP,
     levelDefaultRestSeconds,
@@ -1020,7 +1831,20 @@ async function _buildSharedPipeline(
     priority3SkillIds: splitContext.priority3SkillIds,
     dailySetBudget: splitContext.dailySetBudget,
     requiredDomains: requiredDomainsOverride ?? (resolvedChildDomains.length > 0 ? resolvedChildDomains : undefined),
-    globalExercisePool: allExercises,
+    strictDomains,
+    // Use the contextually filtered pool (post-applyParkGating / equipment gating)
+    // rather than the raw allExercises dump.  Every rescue pass (DavidRule,
+    // HorizontalGuarantee, FullBodyGuarantee, domain-quota rescue) reads from
+    // this pool — handing it the raw list was the zombie-exercise loophole.
+    //
+    // Belt-and-suspenders: explicitly exclude any ScoredExercise whose resolved
+    // method is null.  After the strict-park ContextualEngine enforcement this
+    // should never happen, but this guard future-proofs against regressions where
+    // a null-method exercise somehow survives the filter step and would otherwise
+    // be resurrected by findLevelAppropriateSubstitute via executionMethods[0].
+    globalExercisePool: filterResult.exercises
+      .filter(se => se.method != null)
+      .map(se => se.exercise),
     userProgramLevels,
     userId: effectiveProfile.id,
     selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
@@ -1031,6 +1855,10 @@ async function _buildSharedPipeline(
     domainBudgets: resolvedDomainBudgets,
     recentExerciseIds: recentExerciseIds?.length ? new Set(recentExerciseIds) : undefined,
     filterCounts: filterResult.filterCounts,
+    gender: (userProfile.core?.gender as 'male' | 'female') ?? undefined,
+    activeProgramId,
+    availableEquipment,
+    exerciseHistoryMap,
   };
 
   // ── Build metadata context base for per-option title/description resolution ─
@@ -1107,7 +1935,10 @@ async function _buildSharedPipeline(
     resolvedChildDomains,
     effectiveFilterLocation,
     gatingResult,
-    aiCue: filterResult.aiCue,
+    aiCue: undefined,
+    // Expose so generateHomeWorkoutTrio can read them without crossing function scopes.
+    adminPreferredProtocols,
+    isSingleDomain: baseDomainCount === 1,
     resultMeta: {
       daysInactive,
       persona,
@@ -1118,6 +1949,7 @@ async function _buildSharedPipeline(
       exercisesExcluded: filterResult.excludedCount,
     },
     metadataCtxBase,
+    sessionPolicy,
   };
 }
 
@@ -1137,7 +1969,8 @@ async function _buildSharedPipeline(
 //   fetchTrioLabels → fetchTrioLabels (trio-labels.service.ts)
 //   _computeLogicTagOverrides → computeLogicTagOverrides (trio-labels.service.ts)
 //   _computeFallbackLogicCue → computeFallbackLogicCue (trio-labels.service.ts)
-// ESSENTIAL_GEAR_IDS, collectAllGearIds, isGearFree, etc. → trio-modifiers.service.ts
+// ESSENTIAL_GEAR_IDS, isGearFree, etc. → trio-modifiers.service.ts
+// collectMethodGear → shared/constants/domain-mapping.constants.ts
 
 // NOTE: This trailing comment block replaces ~520 lines of moved code.
 

@@ -8,9 +8,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        
-        FirebaseApp.configure()
-        // Override point for customization after application launch.
+
+        // Configure Firebase only once. Guard against missing GoogleService-Info.plist
+        // which would otherwise cause a fatal crash in Release/TestFlight builds.
+        if FirebaseApp.app() == nil {
+            guard Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
+                assertionFailure("[AppDelegate] GoogleService-Info.plist not found in bundle — Firebase not configured.")
+                return true
+            }
+            FirebaseApp.configure()
+        }
+
         return true
     }
 
