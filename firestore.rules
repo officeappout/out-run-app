@@ -197,6 +197,32 @@ service cloud.firestore {
       // promoted/demoted and how tenants are assigned in tooling.
       allow write: if isRootAdmin() || isAdmin();
 
+      // ──────────────────────────────────────────────────────────────
+      // notification_clicks — push CTR analytics sub-collection.
+      //
+      // Written by the Capacitor push listener in src/lib/native/push.ts
+      // (notificationActionPerformed → addDoc) whenever the user taps an
+      // OS-delivered notification banner. Each doc carries:
+      //   { messageId, channel, authorityId, clickedAt }
+      //
+      // Admins aggregate clicks via a collectionGroup query:
+      //   collectionGroup('notification_clicks').where('messageId', '==', id)
+      //
+      // We declare this rule EXPLICITLY (not relying on the wildcard
+      // below) so the collectionGroup query path is unambiguously
+      // authorized at the security-rules level. The wildcard at depth
+      // /{allPaths=**} also matches, but having a named rule for the
+      // exact sub-collection makes intent clear and survives any
+      // future narrowing of the wildcard.
+      //
+      // SECURITY: owners may only CREATE (no update / delete) so that
+      // clients cannot inflate or rewrite their own CTR history.
+      // ──────────────────────────────────────────────────────────────
+      match /notification_clicks/{clickId} {
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow read:   if isRootAdmin() || isAdmin();
+      }
+
       // Recursive wildcard — covers ALL sub-collections at ANY depth under users/{userId}.
       // This is required for nested paths like:
       //   exerciseHistory/{exerciseId}/sessions/{sessionId}   (getExerciseTrend)
@@ -1025,6 +1051,28 @@ service cloud.firestore {
 
     match /push_messages/{docId} {
       allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // MARKETING LINKS — UTM Registry (Growth Hub)
+    //
+    // Written and managed EXCLUSIVELY by authenticated admins via
+    // the Admin Panel at /admin/links. The anonymous click-tracking
+    // API route (`/api/links/[id]/click`) uses the Admin SDK, which
+    // bypasses these rules entirely — anonymous browser visits must
+    // NEVER reach this collection directly via the client SDK.
+    //
+    // Security rationale:
+    //   • No `allow create/update/delete: if isAuthenticated()` —
+    //     regular users have zero write access. Any leaked link ID
+    //     cannot be used to inflate clicksCount from the client.
+    //   • No public read — campaign URLs are an internal asset; a
+    //     competitor or bot should not be able to enumerate them.
+    //   • The Admin SDK route is the only path that bumps clicksCount,
+    //     ensuring counter integrity without exposing a write surface.
+    // ============================================================
+    match /marketing_links/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
     }
 
     // ============================================================

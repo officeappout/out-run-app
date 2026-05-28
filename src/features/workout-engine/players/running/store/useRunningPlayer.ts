@@ -16,6 +16,7 @@ import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
 // instead of the previous `require()`-inside-try/catch eliminates the silent
 // failure path that left totalDistance stuck at 0 when bundler cache hiccuped.
 import { useSessionStore } from '../../../core/store/useSessionStore';
+import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 
 // ── Module-level coordinate buffers ──────────────────────────────────────────
 // Accumulate GPS samples in a flat buffer and flush to Zustand every
@@ -1258,7 +1259,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           // commutes are private by default (a school-run shouldn't
           // become a public broadcast). When/if we add a "share my
           // commute" toggle, gate this branch on that opt-in flag.
-          if (workoutSaved && !isCommute) {
+          // COMMUNITY_FEED_PAUSED: Also gated by IS_COMMUNITY_FEED_ENABLED to
+          // stop ghost Firestore writes during the MVP freeze.
+          if (IS_COMMUNITY_FEED_ENABLED && workoutSaved && !isCommute) {
             import('@/features/social/services/feed.service').then(async ({ createWorkoutPost }) => {
               const { extractFeedScope, extractGroupIds } = await import('@/features/social/services/feed-scope.utils');
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');

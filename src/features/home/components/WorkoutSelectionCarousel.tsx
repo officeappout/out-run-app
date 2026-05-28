@@ -226,6 +226,27 @@ export default function WorkoutSelectionCarousel({
         </motion.div>
       </div>
 
+      {/* ── Pagination dots — one per workout option, tracks active card ─── */}
+      <div className="flex justify-center items-center gap-2 mt-2 mb-8">
+        {options.map((_, i) => (
+          <button
+            key={i}
+            aria-label={`כרטיס אימון ${i + 1}`}
+            onClick={() => handleSelect(i)}
+            className="transition-all duration-300 rounded-full"
+            style={{
+              width: i === activeIndex ? 16 : 6,
+              height: 6,
+              background:
+                i === activeIndex ? '#00BAF7' : 'rgba(0,186,247,0.28)',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+            }}
+          />
+        ))}
+      </div>
+
       {onBuildCustom && (
         <BuildCustomButton
           onTap={onBuildCustom}
@@ -486,7 +507,7 @@ function BuildCustomButton({
   }, [messages.length]);
 
   return (
-    <div className="px-4 pb-3" dir="rtl">
+    <div className="px-4 pb-3 relative" dir="rtl">
       <style>{`
         @keyframes shimmerBorder {
           0%   { background-position: 0% 50%; }
@@ -498,9 +519,22 @@ function BuildCustomButton({
         }
       `}</style>
 
+      {/* Ambient glow — brand-colored radial blur behind the button */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 70% at 50% 60%, rgba(0,186,247,0.22) 0%, rgba(12,242,227,0.14) 50%, transparent 80%)',
+          filter: 'blur(20px)',
+          zIndex: 0,
+        }}
+      />
+
       {/* Gradient border wrapper */}
       <div
         style={{
+          position: 'relative',
+          zIndex: 1,
           padding: 2,
           borderRadius: 50,
           background: 'linear-gradient(90deg, #00BAF7, #0CF2E3, #00BAF7, #0CF2E3)',
@@ -552,22 +586,6 @@ function BuildCustomButton({
             {messages[msgIdx]}
           </span>
         </div>
-      </div>
-
-      {/* Navigation dots */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 8 }}>
-        {messages.map((_, i) => (
-          <div
-            key={i}
-            style={{
-              width: i === msgIdx ? 12 : 4,
-              height: 4,
-              borderRadius: 2,
-              background: i === msgIdx ? '#00BAF7' : 'rgba(0,186,247,0.25)',
-              transition: 'width 0.3s ease, background 0.3s ease',
-            }}
-          />
-        ))}
       </div>
     </div>
   );

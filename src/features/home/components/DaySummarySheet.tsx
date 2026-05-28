@@ -92,7 +92,7 @@ export default function DaySummarySheet({ isOpen, onClose, date, entry }: DaySum
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl overflow-hidden"
-            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 24px))' }}
             dir="rtl"
           >
             {/* Handle */}
@@ -146,7 +146,7 @@ export default function DaySummarySheet({ isOpen, onClose, date, entry }: DaySum
             )}
 
             {/* Category rows */}
-            <div className="px-5 space-y-2 pb-4">
+            <div className="px-5 pb-4 max-h-[60dvh] overflow-y-auto overscroll-contain pr-[1.125rem]">
               {gapData.map(({ cat, spent, goal, remaining }) => {
                 const Icon = CAT_ICONS[cat];
                 const color = ACTIVITY_COLORS[cat].hex;

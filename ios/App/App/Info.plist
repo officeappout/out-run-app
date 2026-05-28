@@ -23,17 +23,17 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>OUT FIT מבקשת גישה לנתוני הבריאות שלך כדי לסנכרן את הצעדים, המרחקים והאימונים שלך ישירות לתוך הקהילה והליגה.</string>
+	<string>אפליקציית OUT מבקשת גישה לנתוני הבריאות שלך (צעדים, קלוריות ודקות פעילות) כדי להציג את ההתקדמות האישית שלך בלבד. הנתונים לא ישותפו עם אף גורם חיצוני.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>OUT FIT מבקשת רשות לעדכן את נתוני הכושר שלך כדי לשמור ולסנכרן את האימונים שביצעת באפליקציה.</string>
+	<string>אפליקציית OUT מבקשת רשות לכתוב נתוני אימון (סוג, משך, קלוריות) ל-HealthKit כדי לשמור את האימונים שביצעת דרך האפליקציה. הנתונים לא ישותפו עם אף גורם חיצוני.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AppOut משתמשת במיקום שלך כדי להציג פארקים בקרבת מקום, לעקוב אחרי מסלולי ריצה ולחבר אותך לקהילות כושר מקומיות.</string>
+	<string>אפליקציית OUT משתמשת במיקום שלך בזמן שימוש בלבד — כדי להציג פארקי כושר בקרבת מקום, לעקוב אחרי מסלולי ריצה שבחרת להקליט, ולחבר אותך לקהילות כושר מקומיות.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>OUT FIT מבקשת גישה למצלמה שלך כדי לאפשר עדכון תמונת פרופיל.</string>
+	<string>אפליקציית OUT מבקשת גישה למצלמה שלך כדי לאפשר צילום תמונת פרופיל אישית. הגישה מתבצעת רק לאחר אישורך המפורש.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>OUT FIT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל.</string>
+	<string>אפליקציית OUT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל. האפליקציה אינה סורקת או אוספת תמונות אחרות בגלריה.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>OUT FIT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
+	<string>אפליקציית OUT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

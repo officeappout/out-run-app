@@ -115,6 +115,36 @@ export interface TagResolverContext {
   weeklyCompletedSets?: number;
   /** Defined weekly set quota (target) */
   weeklySetQuota?: number;
+
+  // ── Social Engagement Engine: League Context (League_Overtake) ────
+  /** Display name of the peer who just overtook the recipient on the
+   *  weekly leaderboard. Resolved into `@שם_עוקף`. */
+  overtakingUserName?: string;
+  /** Recipient's new rank position after being overtaken. Integer. */
+  newLeaderboardRank?: number;
+  /** Step / point delta needed to retake the previous rank. */
+  stepDelta?: number;
+
+  // ── Social Engagement Engine: Geo-Community (Community_Group_New) ─
+  /** Display name of the newly launched community group. */
+  groupName?: string;
+  /** Hebrew label for the group's activity category, e.g. 'קבוצת הליכה'. */
+  groupTypeLabel?: string;
+  /** Address or park name of the meeting fixture. */
+  meetingLocationName?: string;
+  /** Pre-formatted meeting time as HH:MM (already converted to local TZ). */
+  meetingTimeFormatted?: string;
+  /** Pre-formatted Hebrew day string, e.g. 'יום שלישי'. */
+  meetingDayFormatted?: string;
+
+  // ── Social Engagement Engine: Matchmaking (Social_Matchmaking +
+  //    Future_Partner_Plan) ────────────────────────────────────────
+  /** Profile name of the matched workout partner. */
+  partnerName?: string;
+  /** Global progression level string of the partner, e.g. 'רמה 7'. */
+  partnerLevel?: string;
+  /** Pre-formatted planned arrival time of the partner as HH:MM. */
+  partnerArrivalTime?: string;
 }
 
 /**
@@ -166,7 +196,45 @@ export function resolveNotificationText(
       return context.daysInactive!.toString();
     });
   }
-  
+
+  // ── Social Engagement Engine: League_Overtake tags ────────────────
+  // Gated on triggerType so a literal string like "@מיקום_חדש" in a
+  // non-league notification never gets accidentally substituted with
+  // an unrelated rank value from a stale context.
+  if (context.triggerType === 'League_Overtake') {
+    resolved = resolved.replace(/@שם_עוקף/g, () => context.overtakingUserName || 'שחקן');
+    resolved = resolved.replace(/@מיקום_חדש/g, () => (
+      typeof context.newLeaderboardRank === 'number'
+        ? String(context.newLeaderboardRank)
+        : '—'
+    ));
+    resolved = resolved.replace(/@פער_צעדים/g, () => (
+      typeof context.stepDelta === 'number' && Number.isFinite(context.stepDelta)
+        ? context.stepDelta.toLocaleString('he-IL')
+        : 'כמה'
+    ));
+  }
+
+  // ── Social Engagement Engine: Community_Group_New tags ────────────
+  if (context.triggerType === 'Community_Group_New') {
+    resolved = resolved.replace(/@שם_קבוצה/g, () => context.groupName || 'קבוצה חדשה');
+    resolved = resolved.replace(/@סוג_קבוצה/g, () => context.groupTypeLabel || 'קבוצת כושר');
+    resolved = resolved.replace(/@מיקום_מפגש/g, () => context.meetingLocationName || 'המיקום');
+    resolved = resolved.replace(/@שעת_מפגש/g, () => context.meetingTimeFormatted || 'שעה קרובה');
+    resolved = resolved.replace(/@יום_מפגש/g, () => context.meetingDayFormatted || 'בקרוב');
+  }
+
+  // ── Social Engagement Engine: Matchmaking tags (both matchmaking
+  //    triggers share the same partner-context vocabulary) ───────────
+  if (
+    context.triggerType === 'Social_Matchmaking' ||
+    context.triggerType === 'Future_Partner_Plan'
+  ) {
+    resolved = resolved.replace(/@שם_שותף/g, () => context.partnerName || 'שותף');
+    resolved = resolved.replace(/@רמת_שותף/g, () => context.partnerLevel || 'רמה זהה');
+    resolved = resolved.replace(/@שעת_הגעה_שותף/g, () => context.partnerArrivalTime || 'בקרוב');
+  }
+
   // Persona tags
   const personaLabels: Record<string, string> = {
     parent: 'הורה',
@@ -363,21 +431,98 @@ export function getAvailableTags(triggerType?: NotificationTriggerType): Array<{
       example: 'זמן ל-@מטרה!',
     },
   ];
-  
+
+  // ── Social Engagement Engine vocabularies ─────────────────────────
+  const leagueTags = [
+    {
+      tag: '@שם_עוקף',
+      description: 'שם המשתמש שעקף אותך בדירוג השבועי',
+      example: '@שם_עוקף הקדים אותך! זמן לחזור לפסגה',
+    },
+    {
+      tag: '@מיקום_חדש',
+      description: 'המיקום החדש שלך בטבלת הליגה',
+      example: 'אתה עכשיו במקום @מיקום_חדש',
+    },
+    {
+      tag: '@פער_צעדים',
+      description: 'פער הצעדים/נקודות לחזרה לפסגה',
+      example: 'רק @פער_צעדים צעדים לחזור למקום',
+    },
+  ];
+
+  const socialMatchTags = [
+    {
+      tag: '@שם_שותף',
+      description: 'שם השותף המתאים מבחינת רמה ותוכנית',
+      example: '@שם_שותף מתאמן ליד הפארק עכשיו',
+    },
+    {
+      tag: '@רמת_שותף',
+      description: 'רמת ההתקדמות של השותף',
+      example: 'ברמה @רמת_שותף כמוך',
+    },
+    {
+      tag: '@שעת_הגעה_שותף',
+      description: 'שעת ההגעה המתוכננת של השותף',
+      example: 'יגיע ב-@שעת_הגעה_שותף',
+    },
+  ];
+
+  const communityGroupTags = [
+    {
+      tag: '@שם_קבוצה',
+      description: 'שם הקבוצה החדשה שנפתחה באזור',
+      example: 'הצטרף ל-@שם_קבוצה',
+    },
+    {
+      tag: '@סוג_קבוצה',
+      description: 'סוג פעילות הקבוצה (הליכה, ריצה, יוגה…)',
+      example: '@סוג_קבוצה נפתחה ליד הבית',
+    },
+    {
+      tag: '@מיקום_מפגש',
+      description: 'מיקום המפגש הקבוצתי',
+      example: 'מפגש ב-@מיקום_מפגש',
+    },
+    {
+      tag: '@שעת_מפגש',
+      description: 'שעת המפגש הקרוב (HH:MM)',
+      example: 'מתחילים ב-@שעת_מפגש',
+    },
+    {
+      tag: '@יום_מפגש',
+      description: 'יום המפגש הקרוב בעברית',
+      example: '@יום_מפגש הקרוב נפגשים',
+    },
+  ];
+
   let tags = [...commonTags];
-  
+
   if (triggerType === 'Inactivity') {
     tags = [...tags, ...inactivityTags];
   }
-  
+
   if (triggerType === 'Location_Based') {
     tags = [...tags, ...locationTags];
   }
-  
+
   if (triggerType === 'Scheduled' || triggerType === 'Habit_Maintenance') {
     tags = [...tags, ...workoutTags];
   }
-  
+
+  if (triggerType === 'League_Overtake') {
+    tags = [...tags, ...leagueTags];
+  }
+
+  if (triggerType === 'Social_Matchmaking' || triggerType === 'Future_Partner_Plan') {
+    tags = [...tags, ...socialMatchTags];
+  }
+
+  if (triggerType === 'Community_Group_New') {
+    tags = [...tags, ...communityGroupTags];
+  }
+
   return tags;
 }
 

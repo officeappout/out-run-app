@@ -81,6 +81,8 @@ const MESSAGE_TYPE_COLORS: Record<MessageType, string> = {
   streak_milestone: 'bg-orange-100 text-orange-700 border-orange-200',
   level_up: 'bg-cyan-100 text-cyan-700 border-cyan-200',
   first_workout: 'bg-pink-100 text-pink-700 border-pink-200',
+  community_session: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  missed_workout: 'bg-rose-100 text-rose-700 border-rose-200',
   default: 'bg-gray-100 text-gray-700 border-gray-200',
 };
 
@@ -92,6 +94,8 @@ const MESSAGE_TYPE_ICONS: Record<MessageType, string> = {
   streak_milestone: '🔥',
   level_up: '⬆️',
   first_workout: '🌟',
+  community_session: '👥',
+  missed_workout: '⏰',
   default: '💬',
 };
 
@@ -528,7 +532,7 @@ export default function MessagesAdminPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<SmartMessage | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
+
   // Subscribe to messages (use localStorage for instant sync + Firestore for persistence)
   useEffect(() => {
     // First, load from localStorage for instant display
@@ -554,7 +558,7 @@ export default function MessagesAdminPage() {
       localUnsubscribe();
     };
   }, []);
-  
+
   // Filter messages
   const filteredMessages = filter === 'all' 
     ? messages 

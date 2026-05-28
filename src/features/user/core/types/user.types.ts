@@ -82,6 +82,24 @@ export interface UserProgression {
   totalCaloriesBurned: number;
   hasUnlockedAdvancedStats: boolean;
 
+  /**
+   * Growth Hub — flat lifetime workout counter. Incremented atomically
+   * via Firestore `increment(1)` inside `syncWorkoutCompletion`
+   * (single chokepoint for every workout type: strength, running, etc.).
+   *
+   * Why this field exists separately from `progression.tracks.*.totalWorkoutsCompleted`:
+   * the per-track counter lives inside a dynamic-keyed map and is NOT
+   * addressable by Firestore `where()` queries — making it unusable for
+   * server-side aggregation (`getCountFromServer`). This flat counter is
+   * the canonical signal for the funnel dashboard's Activation (>=1)
+   * and Retention (>=3) stages.
+   *
+   * Undefined / 0 for legacy users who completed workouts before this
+   * field was introduced — funnel queries treat absence as 0, which is
+   * the correct semantic (no proof of activation).
+   */
+  workoutCount?: number;
+
   // --- Lemur Evolution (NEW in Wave 4) ---
   daysActive: number;        // Total days user has been active (persistence metric)
   lastActiveDate?: string;   // Last activity date 'YYYY-MM-DD' (to prevent double-counting)

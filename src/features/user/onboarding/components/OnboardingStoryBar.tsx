@@ -14,6 +14,11 @@ interface OnboardingStoryBarProps {
   phaseLabel?: string;
   /** Fires once when the currentPhase increases (phase completed). */
   onPhaseComplete?: () => void;
+  /**
+   * When true, removes the built-in outer padding so the parent flex row
+   * controls all spacing (used by profile/page.tsx unified header row).
+   */
+  noPadding?: boolean;
 }
 
 const COMPLETED_COLOR = '#10b981';
@@ -26,6 +31,7 @@ export default function OnboardingStoryBar({
   phaseFillPercent = 100,
   phaseLabel,
   onPhaseComplete,
+  noPadding = false,
 }: OnboardingStoryBarProps) {
   const prevPhaseRef = useRef(currentPhase);
 
@@ -37,12 +43,7 @@ export default function OnboardingStoryBar({
   }, [currentPhase, onPhaseComplete]);
 
   return (
-    <div className="w-full px-5 pt-3 pb-3 flex-shrink-0">
-      {phaseLabel && (
-        <p className="text-[13px] font-bold text-slate-500 text-center mb-2 tracking-wide">
-          {phaseLabel}
-        </p>
-      )}
+    <div className={`w-full flex-shrink-0 ${noPadding ? '' : 'px-4 pt-3 pb-3'}`}>
       <div className="flex gap-1 items-center">
         {Array.from({ length: totalPhases }, (_, i) => {
           const phaseIndex = i + 1;

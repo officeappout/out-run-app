@@ -30,6 +30,7 @@ import { Users, RefreshCw, Share2 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
@@ -95,8 +96,14 @@ export default function CommunityPage() {
   const openChat = useChatStore((s) => s.open);
 
   // ── Top-level tab from URL param ─────────────────────────────────────────
+  // When the feed is compile-time disabled, force 'leagues' as the default so
+  // the user never lands on the empty feed view, even without a ?tab= param.
   const tabParam = searchParams.get('tab');
-  const topTab: CommunityTopTab = tabParam === 'leagues' ? 'leagues' : 'feed';
+  const topTab: CommunityTopTab =
+    tabParam === 'leagues' ? 'leagues'
+    : tabParam === 'feed' && IS_COMMUNITY_FEED_ENABLED ? 'feed'
+    : IS_COMMUNITY_FEED_ENABLED ? 'feed'
+    : 'leagues';
 
   const setTopTab = useCallback(
     (next: CommunityTopTab) => {
@@ -419,19 +426,21 @@ export default function CommunityPage() {
             role="tablist"
             aria-label="קהילה"
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={topTab === 'feed'}
-              onClick={() => setTopTab('feed')}
-              className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
-                topTab === 'feed'
-                  ? 'text-[#00ADEF] border-[#00ADEF]'
-                  : 'text-slate-400 dark:text-slate-500 border-transparent'
-              }`}
-            >
-              פיד
-            </button>
+            {IS_COMMUNITY_FEED_ENABLED && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={topTab === 'feed'}
+                onClick={() => setTopTab('feed')}
+                className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
+                  topTab === 'feed'
+                    ? 'text-[#00ADEF] border-[#00ADEF]'
+                    : 'text-slate-400 dark:text-slate-500 border-transparent'
+                }`}
+              >
+                פיד
+              </button>
+            )}
             <button
               type="button"
               role="tab"

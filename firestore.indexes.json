@@ -517,6 +517,64 @@
         { "fieldPath": "groupIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+
+    // ── Growth Hub: Push CTR Analytics ────────────────────────────────────
+    // Required by the Admin Dashboard CTR panel and the Funnel Analytics
+    // service (`funnel-analytics.service.ts`) which query notification_clicks
+    // across ALL users via:
+    //   collectionGroup('notification_clicks')
+    //     .where('messageId', '==', id)
+    //     .where('clickedAt', '>=', since)
+    // Without this index the query falls back to a full sub-collection scan
+    // and Firebase Console shows a "Missing index" error link.
+    {
+      "collectionGroup": "notification_clicks",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "messageId", "order": "ASCENDING" },
+        { "fieldPath": "clickedAt", "order": "DESCENDING" }
+      ]
+    },
+    // Secondary index: filter by channel for per-channel CTR breakdowns.
+    {
+      "collectionGroup": "notification_clicks",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "messageId",   "order": "ASCENDING" },
+        { "fieldPath": "channel",     "order": "ASCENDING" },
+        { "fieldPath": "clickedAt",   "order": "DESCENDING" }
+      ]
+    },
+
+    // ── Growth Hub: Marketing Links (UTM Registry) ────────────────────────
+    // Used by `getMarketingLinks()` in marketing-links.service.ts:
+    //   collection('marketing_links').orderBy('createdAt', 'desc')
+    // Also supports filtering by isActive in the Admin Panel table.
+    {
+      "collectionGroup": "marketing_links",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+
+    // ── Growth Hub: Onboarding Drop-off Dispatcher ────────────────────────
+    // Required by the scheduled Cloud Function `onboardingDropoffDispatcher`
+    // which queries:
+    //   collection('users')
+    //     .where('onboardingStatus', '==', 'IN_PROGRESS')
+    //     .where('createdAt', '<=', staleBefore)      ← range on createdAt
+    // Firestore requires a composite index when combining equality + range
+    // filters on different fields.
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",        "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

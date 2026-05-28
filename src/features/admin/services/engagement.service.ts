@@ -88,6 +88,22 @@ export interface PushMessage {
   processedAt?: Date;
   /** Pipeline error message (only present when `status === 'failed'`). */
   error?: string;
+
+  /**
+   * Social Engagement Engine — optional in-app deep-link path that the
+   * native push handler (`src/lib/native/push.ts`) navigates to after the
+   * user taps the notification.
+   *
+   * Examples:
+   *   • '/league'                            — League_Overtake trigger
+   *   • '/chat/<chatId>'                     — Future_Partner_Plan trigger
+   *   • '/community/groups/<groupId>'        — Community_Group_New trigger
+   *
+   * Spread directly into the FCM `data` payload inside
+   * `functions/src/sendPushFromQueue.ts` so the value round-trips through
+   * the queue → device pipeline without transformation.
+   */
+  deepLink?: string;
 }
 
 /**
@@ -210,6 +226,13 @@ export async function sendEncouragementPush(
     sentBy: { adminId: string; adminName: string };
     /** Optional override; defaults to 'encouragement'. */
     channel?: PushChannel;
+    /**
+     * Optional deep-link path the native push handler navigates to on tap.
+     * See `PushMessage.deepLink` for examples; the value is persisted on
+     * the queued doc and spread into the FCM `data` payload by
+     * `sendPushFromQueue.ts`.
+     */
+    deepLink?: string;
   }
 ): Promise<string> {
   try {
@@ -229,6 +252,8 @@ export async function sendEncouragementPush(
       tokensRemoved: 0,
       recipientCount: 0,
       tokenCount: 0,
+      // ── Social Engagement Engine: optional deep-link payload ────
+      ...(data.deepLink ? { deepLink: data.deepLink } : {}),
     });
 
     // Mark related notification as action taken

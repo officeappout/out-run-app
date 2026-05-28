@@ -21,6 +21,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronUp, Dumbbell } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -368,17 +369,30 @@ export default function StrengthExerciseCard({
                           {/* Step row: thumbnail (right in RTL) + content */}
                           <div className="flex items-center gap-2.5">
                             {/* Per-step thumbnail */}
-                            <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-700 shadow-sm">
+                            <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-700 shadow-sm">
                               {stepThumb ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={stepThumb}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
-                                  }}
-                                />
+                                stepThumb.startsWith('blob:') ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={stepThumb}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
+                                    }}
+                                  />
+                                ) : (
+                                  <Image
+                                    src={stepThumb}
+                                    alt=""
+                                    fill
+                                    className="object-cover"
+                                    sizes="48px"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
+                                    }}
+                                  />
+                                )
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                   <Dumbbell size={14} className="text-slate-400" />
@@ -451,17 +465,31 @@ export default function StrengthExerciseCard({
                 /* ── Standard (non-pyramid): shared thumbnail + content ── */
                 <div className="flex items-start gap-3">
                   {/* Shared thumbnail */}
-                  <div className="w-24 h-24 rounded-xl bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
+                  <div className="relative w-24 h-24 rounded-xl bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
                     {thumbnailSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={thumbnailSrc}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
-                        }}
-                      />
+                      thumbnailSrc.startsWith('blob:') ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={thumbnailSrc}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
+                          }}
+                        />
+                      ) : (
+                        <Image
+                          src={thumbnailSrc}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="96px"
+                          priority={isTurnActive}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
+                          }}
+                        />
+                      )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Dumbbell size={22} className="text-slate-400" />

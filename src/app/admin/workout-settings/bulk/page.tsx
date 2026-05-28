@@ -31,7 +31,18 @@ interface RowDiagnostic {
 
 const VALID_DAY_PERIODS = ['start_of_week', 'mid_week', 'weekend', 'all', ''];
 const VALID_GENDERS = ['male', 'female', 'both', ''];
-const VALID_TRIGGER_TYPES = ['Inactivity', 'Scheduled', 'Location_Based', 'Habit_Maintenance', 'Proximity'];
+const VALID_TRIGGER_TYPES = [
+  'Inactivity',
+  'Scheduled',
+  'Location_Based',
+  'Habit_Maintenance',
+  'Proximity',
+  // ── Social Engagement Engine triggers ─────────────────────────────
+  'League_Overtake',
+  'Social_Matchmaking',
+  'Future_Partner_Plan',
+  'Community_Group_New',
+];
 const VALID_LOCATIONS = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport', 'library', 'desk', 'any', ''];
 const VALID_VARIANTS = ['balanced', 'intense', 'naked', 'easy', 'all', ''];
 

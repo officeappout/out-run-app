@@ -22,7 +22,8 @@ import {
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
   Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
-  FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft, Shuffle
+  FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft, Shuffle,
+  Bell, BellOff, Smartphone
 } from 'lucide-react';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import dynamicImport from 'next/dynamic';
@@ -44,13 +45,62 @@ import Pagination from '@/features/admin/components/shared/Pagination';
 import { formatFirebaseTimestamp } from '@/lib/utils/date-formatter';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 
+// ────────────────────────────────────────────────────────────────────────────
+// Growth Hub — Timeline tab module-level constants.
+//
+// Defined at module scope (not inside UserDetailModal) so they are allocated
+// exactly once per page load instead of on every modal render. The label
+// dictionary keys mirror OnboardingStepId values (src/features/user/onboarding/types.ts)
+// and STEP_ORDER keys in onboarding-sync.service.ts, so any new onboarding
+// step added to the canonical type union should be added here too.
+// ────────────────────────────────────────────────────────────────────────────
+const ONBOARDING_STEP_LABELS: Record<string, string> = {
+  ACCESS_CODE: 'קוד גישה',
+  PERSONA: 'בחירת פרסונה',
+  PERSONAL_STATS: 'נתונים אישיים',
+  LOCATION: 'מיקום ואזור',
+  EQUIPMENT: 'ציוד זמין',
+  SCHEDULE: 'לוח אימונים',
+  HEALTH_DECLARATION: 'הצהרת בריאות',
+  ACCOUNT_SECURE: 'אבטחת חשבון',
+  COMPLETED: 'הסתיים',
+};
+
+/**
+ * Visual identity for each AnalyticsEvent type rendered in the timeline.
+ * Tailwind classes — `dot` paints the stepper bullet, `text` colors the
+ * event title. Unknown event types fall back to the `default` slot.
+ */
+const EVENT_TIMELINE_STYLE: Record<
+  string,
+  { dot: string; text: string }
+> = {
+  app_open: { dot: 'bg-gray-300', text: 'text-gray-500' },
+  app_close: { dot: 'bg-gray-300', text: 'text-gray-500' },
+  login: { dot: 'bg-slate-400', text: 'text-slate-600' },
+  logout: { dot: 'bg-slate-400', text: 'text-slate-600' },
+  onboarding_start: { dot: 'bg-blue-500', text: 'text-blue-700' },
+  onboarding_step_complete: { dot: 'bg-green-500', text: 'text-green-700' },
+  onboarding_step_completed: { dot: 'bg-green-500', text: 'text-green-700' },
+  onboarding_completed: { dot: 'bg-emerald-600', text: 'text-emerald-700' },
+  workout_start: { dot: 'bg-[#5BC2F2]', text: 'text-[#1e88c4]' },
+  workout_session_started: { dot: 'bg-[#5BC2F2]', text: 'text-[#1e88c4]' },
+  workout_complete: { dot: 'bg-green-600', text: 'text-green-700' },
+  workout_abandoned: { dot: 'bg-amber-500', text: 'text-amber-700' },
+  profile_created: { dot: 'bg-purple-500', text: 'text-purple-700' },
+  profile_updated: { dot: 'bg-purple-400', text: 'text-purple-600' },
+  permission_location_status: { dot: 'bg-cyan-500', text: 'text-cyan-700' },
+  error_occurred: { dot: 'bg-red-500', text: 'text-red-700' },
+  default: { dot: 'bg-gray-400', text: 'text-gray-600' },
+};
+
 interface UserDetailModalProps {
   user: AdminUserListItem | null;
   onClose: () => void;
 }
 
 function UserDetailModal({ user, onClose }: UserDetailModalProps) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'progression' | 'onboarding' | 'history'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'progression' | 'onboarding' | 'history' | 'timeline'>('profile');
   const [fullProfile, setFullProfile] = useState<UserFullProfile | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
@@ -831,6 +881,85 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                           })()}
                         </span>
                       )}
+                      {/* Growth Hub — Lifecycle KPI badges (lastActive, pushEnabled, fcmTokenCount) */}
+                      {user.lastActive && (
+                        <span
+                          className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold flex items-center gap-1"
+                          title={user.lastActive.toLocaleString('he-IL')}
+                        >
+                          <Clock size={12} />
+                          פעיל לאחרונה: {user.lastActive.toLocaleDateString('he-IL')}
+                        </span>
+                      )}
+                      {user.pushEnabled ? (
+                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1">
+                          <Bell size={12} />
+                          התראות פעילות
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold flex items-center gap-1">
+                          <BellOff size={12} />
+                          התראות כבויות
+                        </span>
+                      )}
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                          user.fcmTokenCount > 0
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                        title={`${user.fcmTokenCount} מכשיר${user.fcmTokenCount === 1 ? '' : 'ים'} רשומ${user.fcmTokenCount === 1 ? '' : 'ים'} ל-FCM`}
+                      >
+                        <Smartphone size={12} />
+                        {user.fcmTokenCount} מכשירים
+                      </span>
+                      {/*
+                        Growth Hub — Tier 3 Marketing Attribution badges.
+                        Three render branches, in priority order:
+                          1. user.marketingAttribution missing entirely
+                             → legacy user, render nothing.
+                          2. source === 'organic'
+                             → single calm gray chip — no paid acquisition.
+                          3. source is a real platform string
+                             → triple chip set (campaign · source · medium),
+                               each guarded with a ?? 'לא ידוע' fallback so
+                               partial attribution docs still render cleanly.
+                      */}
+                      {user.marketingAttribution && (
+                        user.marketingAttribution.source === 'organic' ? (
+                          <span
+                            className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold flex items-center gap-1"
+                            title="המשתמש הגיע ישירות (ללא קמפיין שיווקי)"
+                          >
+                            <span aria-hidden="true">🟢</span>
+                            הגעה: אורגני
+                          </span>
+                        ) : (
+                          <>
+                            <span
+                              className="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold flex items-center gap-1"
+                              title={`קמפיין שיווקי: ${user.marketingAttribution.campaign ?? 'ללא'}`}
+                            >
+                              <span aria-hidden="true">📢</span>
+                              קמפיין: {user.marketingAttribution.campaign ?? 'ללא'}
+                            </span>
+                            <span
+                              className="px-2.5 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-bold flex items-center gap-1"
+                              title={`מקור תנועה: ${user.marketingAttribution.source ?? 'לא ידוע'}`}
+                            >
+                              <span aria-hidden="true">📍</span>
+                              מקור: {user.marketingAttribution.source ?? 'לא ידוע'}
+                            </span>
+                            <span
+                              className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold flex items-center gap-1"
+                              title={`מדיה: ${user.marketingAttribution.medium ?? 'לא ידוע'}`}
+                            >
+                              <span aria-hidden="true">📱</span>
+                              מדיה: {user.marketingAttribution.medium ?? 'לא ידוע'}
+                            </span>
+                          </>
+                        )
+                      )}
                     </div>
                   )}
                 </div>
@@ -845,7 +974,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
 
             {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
-              {(['profile', 'stats', 'progression', 'onboarding', 'history'] as const).map((tab) => (
+              {(['profile', 'stats', 'progression', 'onboarding', 'history', 'timeline'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -860,6 +989,12 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                   {tab === 'progression' && 'התקדמות'}
                   {tab === 'onboarding' && 'נתוני הקליטה'}
                   {tab === 'history' && 'היסטוריה'}
+                  {tab === 'timeline' && (
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={14} />
+                      ציר זמן
+                    </span>
+                  )}
                   {activeTab === tab && (
                     <motion.div
                       layoutId="activeTab"
@@ -2463,6 +2598,190 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                               </div>
                             );
                           })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─────────────────────────────────────────────────────
+                    Growth Hub — Timeline Tab (Tier 1)
+                    Renders the user's full chronological event stream
+                    (analytics_events already loaded into analyticsEvents
+                    state during loadUserDetails(), sorted timestamp desc
+                    by getUserEvents). Onboarding step events are
+                    humanized via ONBOARDING_STEP_LABELS.
+                   ───────────────────────────────────────────────────── */}
+                {activeTab === 'timeline' && (
+                  <div className="space-y-6">
+                    {/* Lifecycle KPI summary strip — recapped here for
+                        instant context when an operator opens the timeline */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <div className="text-[11px] text-slate-500 font-bold mb-1">פעיל לאחרונה</div>
+                        <div className="text-sm font-black text-slate-800">
+                          {user.lastActive
+                            ? user.lastActive.toLocaleDateString('he-IL')
+                            : 'ללא נתון'}
+                        </div>
+                      </div>
+                      <div
+                        className={`border rounded-xl p-3 ${
+                          user.pushEnabled
+                            ? 'bg-emerald-50 border-emerald-200'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div
+                          className={`text-[11px] font-bold mb-1 ${
+                            user.pushEnabled ? 'text-emerald-600' : 'text-gray-500'
+                          }`}
+                        >
+                          התראות פוש
+                        </div>
+                        <div
+                          className={`text-sm font-black ${
+                            user.pushEnabled ? 'text-emerald-800' : 'text-gray-700'
+                          }`}
+                        >
+                          {user.pushEnabled ? 'מופעל' : 'כבוי'}
+                        </div>
+                      </div>
+                      <div
+                        className={`border rounded-xl p-3 ${
+                          user.fcmTokenCount > 0
+                            ? 'bg-blue-50 border-blue-200'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div
+                          className={`text-[11px] font-bold mb-1 ${
+                            user.fcmTokenCount > 0 ? 'text-blue-600' : 'text-gray-500'
+                          }`}
+                        >
+                          מכשירים רשומים (FCM)
+                        </div>
+                        <div
+                          className={`text-sm font-black ${
+                            user.fcmTokenCount > 0 ? 'text-blue-800' : 'text-gray-700'
+                          }`}
+                        >
+                          {user.fcmTokenCount}
+                        </div>
+                      </div>
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+                        <div className="text-[11px] text-purple-600 font-bold mb-1">סה״כ אירועים</div>
+                        <div className="text-sm font-black text-purple-800">
+                          {analyticsEvents.length}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vertical Stepper */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                        <Clock size={20} className="text-[#5BC2F2]" />
+                        ציר זמן כרונולוגי (חדש → ישן)
+                      </h3>
+
+                      {analyticsEvents.length === 0 ? (
+                        <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                          <Activity size={32} className="mx-auto text-gray-300 mb-2" />
+                          <div className="text-gray-500 text-sm font-simpler">
+                            אין אירועים מתועדים למשתמש זה
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          {/* Vertical line — RTL: line sits on the right edge */}
+                          <div className="absolute top-2 bottom-2 right-[11px] w-px bg-gray-200" />
+
+                          <div className="space-y-4 max-h-[600px] overflow-y-auto pe-2">
+                            {analyticsEvents.map((event) => {
+                              const style =
+                                EVENT_TIMELINE_STYLE[event.eventName] ??
+                                EVENT_TIMELINE_STYLE.default;
+
+                              // Humanize onboarding step events using the
+                              // module-level dictionary. Falls back to the
+                              // generic label helper for non-onboarding events.
+                              const isOnboardingStep =
+                                event.eventName === 'onboarding_step_complete' ||
+                                event.eventName === 'onboarding_step_completed';
+
+                              const rawStepName =
+                                isOnboardingStep && 'step_name' in event
+                                  ? (event as { step_name?: string }).step_name
+                                  : undefined;
+
+                              const title = isOnboardingStep && rawStepName
+                                ? `שלב Onboarding: ${
+                                    ONBOARDING_STEP_LABELS[rawStepName] ?? rawStepName
+                                  }`
+                                : getEventLabel(event.eventName);
+
+                              // Optional payload chips: time_spent + step_index
+                              // for onboarding, plus the generic detail string
+                              // for non-onboarding events.
+                              const stepIndex =
+                                isOnboardingStep && 'step_index' in event
+                                  ? (event as { step_index?: number }).step_index
+                                  : undefined;
+                              const timeSpent =
+                                isOnboardingStep && 'time_spent' in event
+                                  ? (event as { time_spent?: number }).time_spent
+                                  : undefined;
+
+                              return (
+                                <div
+                                  key={event.id}
+                                  className="relative pe-8"
+                                >
+                                  {/* Stepper dot */}
+                                  <div
+                                    className={`absolute top-1.5 right-[5px] w-3.5 h-3.5 rounded-full ring-4 ring-white ${style.dot}`}
+                                  />
+
+                                  <div className="bg-white border border-gray-200 rounded-xl p-3 hover:shadow-sm transition-shadow">
+                                    <div className="flex items-start justify-between gap-2 mb-1">
+                                      <div className={`font-bold text-sm font-simpler ${style.text}`}>
+                                        {title}
+                                      </div>
+                                      <div className="text-[11px] text-gray-400 font-simpler whitespace-nowrap">
+                                        {new Date(event.timestamp).toLocaleString('he-IL', {
+                                          dateStyle: 'short',
+                                          timeStyle: 'short',
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* Onboarding payload chips */}
+                                    {isOnboardingStep && (stepIndex !== undefined || timeSpent !== undefined) && (
+                                      <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {stepIndex !== undefined && (
+                                          <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-bold border border-green-200">
+                                            שלב #{stepIndex + 1}
+                                          </span>
+                                        )}
+                                        {typeof timeSpent === 'number' && timeSpent > 0 && (
+                                          <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-200">
+                                            {Math.floor(timeSpent)} שניות
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Generic details for non-onboarding events */}
+                                    {!isOnboardingStep && (
+                                      <div className="text-xs text-gray-600 font-simpler mt-1">
+                                        {getEventDetails(event)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>

@@ -42,6 +42,7 @@ import { createWorkoutGenerator } from '../../logic/WorkoutGenerator';
 import { createBudgetDistributor } from './BudgetDistributor';
 import { createStructureDirector } from './StructureDirector';
 import { filterForDomain, PoolFactory } from './PoolFactory';
+import { resolveToSlug } from '../../services/program-hierarchy.utils';
 
 // ============================================================================
 // REST-DAY FALLBACK
@@ -176,12 +177,25 @@ export class PipelineOrchestrator {
     const PUSH_SKILL_SLUGS = ['planche', 'handstand', 'handstand_pushup'];
     const PULL_SKILL_SLUGS = ['front_lever', 'muscle_up', 'back_lever'];
 
-    // Bypass flag: calisthenics_upper master sessions must skip the
-    // single-domain gate to preserve both skill-track exercise pools.
-    const isCalisthenicsUpperMaster = context.activeProgramId === 'calisthenics_upper';
+    // Master-program bypass set:
+    //   • calisthenics_upper — dynamic skill-track hybrid (planche/front_lever/…)
+    //   • upper_body        — static push + pull wrapper
+    //   • full_body         — static push + pull + legs + core wrapper
+    //
+    // These programs have no exercises directly tagged with their own slug.
+    // All their exercises are keyed to child domains (push, pull, legs, core).
+    // The ContextualEngine shared pass already filtered the pool via the
+    // expanded child-domain set, so a second single-domain gate here would
+    // evaluate every exercise against a master slug that no exercise carries,
+    // purging the entire pool and producing a cooldown-only fallback.
+    const MASTER_PROGRAM_SLUGS = new Set(['calisthenics_upper', 'upper_body', 'full_body']);
+    const resolvedActiveProgramSlug = resolveToSlug(context.activeProgramId ?? '');
+    const isMasterProgram =
+      MASTER_PROGRAM_SLUGS.has(resolvedActiveProgramSlug) ||
+      MASTER_PROGRAM_SLUGS.has(context.activeProgramId ?? '');
 
     let filteredPool = scoredExercises;
-    if (blueprint.strategy === 'single_domain' && !isCalisthenicsUpperMaster) {
+    if (blueprint.strategy === 'single_domain' && !isMasterProgram) {
       const primaryBlock = blueprint.blocks.find(b => b.domain);
       const domain = primaryBlock?.domain;
       const userDomainLevel = domain
@@ -237,14 +251,14 @@ export class PipelineOrchestrator {
           );
         }
       }
-    } else if (isCalisthenicsUpperMaster) {
+    } else if (isMasterProgram) {
       console.log(
-        `[PipelineOrchestrator] 🔓 calisthenics_upper master bypass: skipping single-domain ` +
-        `tolerance gate — ContextualEngine shared pass already scoped pool to all skill-track ` +
-        `domains. Pool size preserved: ${scoredExercises.length} exercises.`,
+        `[PipelineOrchestrator] 🔓 Master-program bypass (${resolvedActiveProgramSlug}): ` +
+        `skipping single-domain tolerance gate — ContextualEngine shared pass already scoped ` +
+        `pool to all child domains. Pool size preserved: ${scoredExercises.length} exercises.`,
       );
       log.push(
-        `domain_filter: bypassed for calisthenics_upper master ` +
+        `domain_filter: bypassed for master program "${resolvedActiveProgramSlug}" ` +
         `(pool=${scoredExercises.length} exercises preserved from shared filter pass)`,
       );
     }

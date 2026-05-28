@@ -1252,13 +1252,23 @@ async function _buildSharedPipeline(
     (activeProgramId === 'calisthenics_upper' || activeProgramSlug === 'calisthenics_upper') &&
     resolvedChildDomains.length > 0;
 
-  // Unified gate: either master type triggers the per-domain budget infrastructure.
-  const isMasterSession = isFullBodyMaster || isCalisthenicsUpperMaster;
+  // Upper-body master: static push + pull wrapper program.
+  // Recognised by slug OR by the fact that resolvedChildDomains resolved to exactly
+  // ['push', 'pull'] (as returned by UPPER_BODY_CHILD_DOMAINS).
+  const isUpperBodyMaster =
+    (activeProgramId === 'upper_body' || activeProgramSlug === 'upper_body') &&
+    resolvedChildDomains.includes('push') &&
+    resolvedChildDomains.includes('pull') &&
+    !isFullBodyMaster;
+
+  // Unified gate: any master type triggers the per-domain budget infrastructure.
+  const isMasterSession = isFullBodyMaster || isCalisthenicsUpperMaster || isUpperBodyMaster;
 
   console.log(
-    `[DomainBudget] activeProgramId="${activeProgramId}" ` +
+    `[DomainBudget] activeProgramId="${activeProgramId}" slug="${activeProgramSlug}" ` +
     `resolvedChildDomains=[${resolvedChildDomains.join(', ')}] ` +
-    `isFullBodyMaster=${isFullBodyMaster} isCalisthenicsUpperMaster=${isCalisthenicsUpperMaster}`,
+    `isFullBodyMaster=${isFullBodyMaster} isCalisthenicsUpperMaster=${isCalisthenicsUpperMaster} ` +
+    `isUpperBodyMaster=${isUpperBodyMaster}`,
   );
 
   let splitContext: SplitWorkoutContext;
@@ -1344,6 +1354,50 @@ async function _buildSharedPipeline(
     // Deficit-aware daily budget adjustment (mirrors full-body Phase 4 logic).
     // Skipped for manual-override sessions — the Custom Builder must never
     // receive domain daily budgets clamped to 0 by an exhausted weekly quota.
+    if (!isManualOverride && domainSetsCompletedThisWeek && remainingScheduleDays && remainingScheduleDays > 0) {
+      resolvedDomainBudgets = resolvedDomainBudgets.map(db => {
+        const completed = domainSetsCompletedThisWeek[db.domain] ?? 0;
+        const remaining = Math.max(0, db.weekly - completed);
+        return { ...db, daily: Math.max(1, Math.ceil(remaining / remainingScheduleDays)) };
+      });
+    }
+    const weeklyBudgetForSplit =
+      leadBudget?.weeklyVolumeTarget ?? calculateWeeklyBudget(baseUserLevel, Math.max(1, scheduleDays));
+    splitContext = getWorkoutContext({
+      userProfile: effectiveProfile,
+      weeklyBudget: weeklyBudgetForSplit,
+      selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
+      domainSetsCompletedThisWeek,
+      remainingScheduleDays,
+      isManualOverride,
+    });
+  } else if (isUpperBodyMaster) {
+    // ── Upper-Body master path (push + pull) ─────────────────────────────
+    //
+    // upper_body is a display-only parent that wraps the push and pull tracks.
+    // No programLevelSettings documents exist for the master slug itself (e.g.
+    // upper_body_level_6) — volume budgets are sourced from the child tracks
+    // exactly as calisthenics_upper sources them from its skill-track children.
+    const pushLevel = userProgramLevels.get('push') ?? baseUserLevel;
+    const pullLevel = userProgramLevels.get('pull') ?? baseUserLevel;
+    resolvedDomainBudgets = [
+      {
+        domain: 'push',
+        level: pushLevel,
+        weekly: calculateWeeklyBudget(pushLevel, scheduleDays),
+        daily: Math.max(1, Math.ceil(calculateWeeklyBudget(pushLevel, scheduleDays) / Math.max(1, scheduleDays))),
+      },
+      {
+        domain: 'pull',
+        level: pullLevel,
+        weekly: calculateWeeklyBudget(pullLevel, scheduleDays),
+        daily: Math.max(1, Math.ceil(calculateWeeklyBudget(pullLevel, scheduleDays) / Math.max(1, scheduleDays))),
+      },
+    ];
+    console.log(
+      `[DomainBudget] upper_body budgets: [${resolvedDomainBudgets.map(db => `${db.domain}=L${db.level}`).join(', ')}]`,
+    );
+    // Deficit-aware daily adjustment (mirrors calisthenics_upper Phase 4 logic).
     if (!isManualOverride && domainSetsCompletedThisWeek && remainingScheduleDays && remainingScheduleDays > 0) {
       resolvedDomainBudgets = resolvedDomainBudgets.map(db => {
         const completed = domainSetsCompletedThisWeek[db.domain] ?? 0;

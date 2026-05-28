@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
+import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
+import { useDayStatus } from '@/features/activity/hooks/useDayStatus';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
@@ -53,6 +55,8 @@ import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import AppHeader from '@/components/ui/AppHeader';
+import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 
 
 // ════════════════════════════════════════════════════════════════════
@@ -217,60 +221,61 @@ function ActivityCard() {
   );
 }
 
-/** Today's steps card — tappable. Clicking navigates to /activity/steps.
- *  On Android the first tap checks Health Connect permission; if not yet
- *  granted it triggers the native permission flow and shows a hint toast
- *  instead of navigating away. */
+/** Today's steps card — tappable. On first tap, runs the disclosure →
+ *  native OS permission flow (HealthKit / Health Connect). Only navigates
+ *  to /activity/steps once permissions are confirmed or already granted. */
 function StepsCard() {
   const router = useRouter();
   const { stepsToday, todayActivity } = useLiveDailyActivity();
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const barPct = goal > 0 ? Math.min(100, (stepsToday / goal) * 100) : 0;
 
-  const handlePress = useCallback(() => {
-    router.push('/activity/steps');
-  }, [router]);
+  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
+    onGranted: () => router.push('/activity/steps'),
+  });
 
   return (
-    <div
-      className="bg-white dark:bg-[#1E1E1E] w-full h-full flex flex-col justify-between relative overflow-hidden"
-      style={{ ...HEALTH_CARD_STYLE, cursor: 'pointer' }}
-      dir="rtl"
-      onClick={handlePress}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handlePress(); }}
-      aria-label={`צעדים היום: ${stepsToday.toLocaleString()} מתוך ${goal.toLocaleString()}`}
-    >
-      <div className="p-4 flex flex-col justify-between h-full">
-        <div>
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-            צעדים היום
-          </p>
-          <p style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }} className="text-gray-900 dark:text-white tabular-nums">
-            {stepsToday.toLocaleString()}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-            מתוך {goal.toLocaleString()} צעדים
-          </p>
-        </div>
-        <div
-          className="w-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
-          style={{ height: 4, borderRadius: 2, marginTop: 10 }}
-        >
+    <>
+      <div
+        className="bg-white dark:bg-[#1E1E1E] w-full h-full flex flex-col justify-between relative overflow-hidden"
+        style={{ ...HEALTH_CARD_STYLE, cursor: 'pointer' }}
+        dir="rtl"
+        onClick={triggerHealthPermission}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') triggerHealthPermission(); }}
+        aria-label={`צעדים היום: ${stepsToday.toLocaleString()} מתוך ${goal.toLocaleString()}`}
+      >
+        <div className="p-4 flex flex-col justify-between h-full">
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+              צעדים היום
+            </p>
+            <p style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }} className="text-gray-900 dark:text-white tabular-nums">
+              {stepsToday.toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              מתוך {goal.toLocaleString()} צעדים
+            </p>
+          </div>
           <div
-            style={{
-              width: `${barPct}%`,
-              height: '100%',
-              borderRadius: 2,
-              backgroundColor: '#1D9E75',
-              transition: 'width 0.4s ease',
-            }}
-          />
+            className="w-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
+            style={{ height: 4, borderRadius: 2, marginTop: 10 }}
+          >
+            <div
+              style={{
+                width: `${barPct}%`,
+                height: '100%',
+                borderRadius: 2,
+                backgroundColor: '#1D9E75',
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
         </div>
       </div>
-
-    </div>
+      <HealthConnectDisclosureModal {...disclosureProps} />
+    </>
   );
 }
 
@@ -342,6 +347,55 @@ export default function HomePage() {
   // Home page tabs ("כוח" / "בריאות") — below the schedule strip
   const [homeTab, setHomeTab] = useState<'strength' | 'health'>('strength');
 
+  // ── Missed Workout Recovery Banner ──────────────────────────────────────
+  // Shown once per calendar day when:
+  //   1. Yesterday was a scheduled training day (per lifestyle.scheduleDays or recurringTemplate)
+  //   2. No activity was logged for yesterday (useDayStatus bridge)
+  //   3. The per-day localStorage dismiss key is NOT set
+  const yesterdayISO = useMemo(() => {
+    const d = new Date(Date.now() - 86_400_000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const MISSED_BANNER_KEY = `missed_banner_dismissed_${yesterdayISO}`;
+  const [showMissedWorkoutBanner, setShowMissedWorkoutBanner] = useState(false);
+
+  const getDayStatus = useDayStatus();
+
+  useEffect(() => {
+    if (!profile || typeof window === 'undefined') return;
+
+    // Already dismissed today
+    if (localStorage.getItem(MISSED_BANNER_KEY) === '1') return;
+
+    // Check if yesterday was a scheduled day
+    const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+    const yesterdayDayLetter = HEBREW_DAYS[new Date(yesterdayISO + 'T00:00:00').getDay()];
+    const scheduleDays = (profile.lifestyle?.scheduleDays as string[] | undefined) ?? [];
+    const recurringTemplate = profile.lifestyle?.recurringTemplate as Record<string, string[]> | undefined;
+    const wasScheduledDay =
+      scheduleDays.includes(yesterdayDayLetter) ||
+      (recurringTemplate?.[yesterdayDayLetter]?.length ?? 0) > 0;
+
+    if (!wasScheduledDay) return;
+
+    // Check activity bridge — was any workout actually logged yesterday?
+    const { isCompleted } = getDayStatus(yesterdayISO);
+    if (!isCompleted) {
+      setShowMissedWorkoutBanner(true);
+    }
+  }, [profile, yesterdayISO, MISSED_BANNER_KEY, getDayStatus]);
+
+  const dismissMissedBanner = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(MISSED_BANNER_KEY, '1');
+    }
+    setShowMissedWorkoutBanner(false);
+  }, [MISSED_BANNER_KEY]);
+
   // ── Gear Toast (one-time after onboarding) ──
   const [showGearToast, setShowGearToast] = useState(false);
   useEffect(() => {
@@ -363,7 +417,14 @@ export default function HomePage() {
     workoutType: string; durationMinutes: number; completedAt: string;
     workoutTitle?: string; streak?: number; thumbnailUrl?: string;
   } | null>(null);
+  // Persistent completion gate — reads Firestore `dailyProgress/{uid}_{today}`.
+  // Survives page refreshes / re-mounts and elapsed time within the same
+  // calendar day, so the workout generator stays hidden until midnight once
+  // the user has logged a session.
+  const todayProgress = useDailyProgress();
+  const todayWorkoutDone = !!todayProgress?.workoutCompleted;
   const postWorkoutMsg = useSmartMessage('post_workout');
+  const missedWorkoutMsg = useSmartMessage('missed_workout');
   const { celebrate } = useGoalCelebration();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
@@ -401,6 +462,13 @@ export default function HomePage() {
     }
   }, [postWorkoutData, celebrate]);
 
+  // Celebration data has two sources, in priority order:
+  //   1. `postWorkoutData` — fresh sessionStorage payload from the workout
+  //      summary screen (rich: title, streak, thumbnail). Used for the first
+  //      30-min window right after completion.
+  //   2. `todayProgress` (Firestore) — persistent fallback that survives
+  //      refreshes / re-mounts / >30 min elapsed. Carries only `workoutType`,
+  //      so the card renders in a minimal "done for today" state.
   const completionData: CompletionData | undefined = postWorkoutData
     ? {
         workoutType: postWorkoutData.workoutType,
@@ -409,7 +477,12 @@ export default function HomePage() {
         streak: postWorkoutData.streak,
         thumbnailUrl: postWorkoutData.thumbnailUrl,
       }
-    : undefined;
+    : todayWorkoutDone
+      ? {
+          workoutType: todayProgress?.workoutType ?? 'strength',
+          durationMinutes: 0,
+        }
+      : undefined;
 
   const handleDismissCelebration = useCallback(() => {
     setPostWorkoutData(null);
@@ -788,6 +861,11 @@ export default function HomePage() {
       return;
     }
 
+    // Future-date launches are intentionally allowed (premium ahead-of-time
+    // training). The completion-sync pipeline anchors all writes to the
+    // device's current calendar day via `new Date()` / `serverTimestamp()`,
+    // so credit lands on today's slot even when a future card is tapped.
+
     if (hasProgram) {
       // When a different date is tapped, flush the stale cached workout
       // immediately — before the async generator evaluates the new date.
@@ -918,16 +996,16 @@ export default function HomePage() {
   const realSchedule: DaySchedule[] = WEEK_DAYS.map((day, i) => {
     const isToday = i === todayIndex;
     const isTrainingDay = userScheduleDays.includes(day);
-    const isPast = i < todayIndex;
-    // Running mode: never auto-mark past days as completed — the running
-    // schedule entries carry their own status (pending / completed / skipped).
+    // Past training days are NOT auto-marked 'completed'. The real
+    // completion state is resolved downstream by `useDayStatus`, which
+    // reads `weekActivities` (Zustand/Firestore) + `dailyProgress.workoutCompleted`.
+    // Hard-coding 'completed' here would force a flame icon for any past
+    // scheduled day, regardless of whether the user actually trained.
     const status: DaySchedule['status'] = isToday
       ? 'today'
-      : isPast && isTrainingDay && !isRunningMode
-        ? 'completed'
-        : isTrainingDay
-          ? 'scheduled'
-          : 'rest';
+      : isTrainingDay
+        ? 'scheduled'
+        : 'rest';
     return { day, date: i + 1, status };
   });
   const primaryTrack = (profile?.lifestyle as any)?.primaryTrack;
@@ -990,8 +1068,59 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* ── Missed Workout Recovery Banner (4th slot) ── */}
+      <AnimatePresence>
+        {showMissedWorkoutBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3 }}
+            className="max-w-md mx-auto px-4 pt-3"
+          >
+            <div
+              className="relative flex items-start gap-3 px-4 py-3"
+              dir="rtl"
+              style={{
+                background: '#FFF5F5',
+                border: '1px solid #FECACA',
+                borderRadius: 14,
+              }}
+            >
+              <span className="text-xl flex-shrink-0 mt-0.5">⏰</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-gray-800 leading-snug">
+                  {missedWorkoutMsg.text}
+                </p>
+                {missedWorkoutMsg.subText && (
+                  <p className="text-[12px] text-gray-500 mt-0.5 leading-snug">
+                    {missedWorkoutMsg.subText}
+                  </p>
+                )}
+                <button
+                  onClick={() => {
+                    dismissMissedBanner();
+                    handleHeroPress();
+                  }}
+                  className="mt-2 text-[13px] font-bold text-rose-600 underline underline-offset-2 active:opacity-70 transition-opacity"
+                >
+                  בוא נעשה אימון!
+                </button>
+              </div>
+              <button
+                onClick={dismissMissedBanner}
+                className="flex-shrink-0 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label="סגור"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Main Content: Clean Execution Zone ── */}
-      <div className="max-w-md mx-auto px-4 pt-2 pb-4 space-y-2">
+      <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
 
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
         {hasCompletedAssessment && (
@@ -1116,11 +1245,12 @@ export default function HomePage() {
                 onWorkoutGenerated={handleWorkoutGenerated}
                 selectedDate={selectedDate}
                 hasCompletedAssessment={hasCompletedAssessment}
-                hideWorkoutSection={!!postWorkoutData}
+                hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
                 enableRunningPrograms={featureFlags.enableRunningPrograms}
                 scheduleVersion={scheduleVersion}
                 onBuildCustom={handleBuildCustom}
                 generateSingleOption={isWorkoutLoading}
+                isViewingFutureDate={selectedDate > toISODate(new Date())}
               />
             </div>
           );
@@ -1131,8 +1261,13 @@ export default function HomePage() {
           workoutType={isRunningMode ? 'running' : 'strength'}
         />
 
-        {/* Post-Workout Celebration Card — replaces the workout trio when just completed */}
-        {postWorkoutData && completionData && (
+        {/* Post-Workout Celebration Card — replaces the workout trio when completed.
+            Two render modes:
+              • Fresh celebration (postWorkoutData): full title + streak + thumbnail.
+              • Persistent "done for today" (todayWorkoutDone only): minimal restful
+                card driven solely by Firestore `dailyProgress.workoutCompleted`.
+            Either path keeps the action zone replaced — no empty layout gap. */}
+        {(postWorkoutData || todayWorkoutDone) && completionData && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}

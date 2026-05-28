@@ -11,3 +11,5 @@ export { cleanupEphemeralDocs } from './cleanupEphemeralDocs';
 export { requestAccountDeletion, onUserDelete } from './onUserDelete';
 export { sendPushFromQueue } from './sendPushFromQueue';
 export { fixAuthorityCoordinates } from './fixAuthorityCoordinates';
+// ── Social Engagement Engine — Lifecycle Dispatchers ──────────────────────────
+export { onboardingDropoffDispatcher } from './onboardingDropoffDispatcher';

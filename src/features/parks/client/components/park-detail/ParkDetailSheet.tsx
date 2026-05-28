@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check, Dumbbell } from 'lucide-react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useUserStore } from '@/features/user';
@@ -33,7 +34,10 @@ const DAY_FILTER_LABELS: Record<DayFilter, string> = {
 };
 
 const DRAWER_HEIGHT = '92vh';
-const CLOSE_THRESHOLD = 180;
+/** px the sheet is offset at initial open to show ~85 vh (92 - 85 = 7 vh). */
+const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.07) : 57;
+const CLOSE_THRESHOLD = 120;
+const EXPAND_THRESHOLD = 60;
 
 const FACILITY_LABELS: Record<string, string> = {
   gym_park: 'גינת כושר', court: 'מגרש ספורט', route: 'מסלול',
@@ -84,10 +88,39 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   const { selectedPark } = useMapStore();
   const { profile } = useUserStore();
   const y = useMotionValue(0);
-  const rawOpacity = useTransform(y, [0, 300], [1, 0]);
-  const opacity = useTransform(rawOpacity, (v) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1));
+  // Opacity fades only as the user drags past the resting (85vh) anchor.
+  const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrollY, setScrollY] = useState(0);
+  const dragControls = useDragControls();
+
+  // ── GPU-threaded scroll animation (no React re-renders) ──────────────────
+  const scrollYMV = useMotionValue(0);
+  const maxScroll = 200;
+
+  const imageOpacity = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / maxScroll, 1);
+    return Math.max(1 - progress * 0.7, 0.3);
+  });
+  const imageScale = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / maxScroll, 1);
+    return Math.max(1 - progress * 0.2, 0.8);
+  });
+  const headerOpacity = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / maxScroll, 1);
+    return Math.min(progress * 2, 1);
+  });
+  const heroHeight = useTransform(scrollYMV, (v) => `${Math.max(280 - v * 0.8, 60)}px`);
+  const headerPointerEvents = useTransform(
+    headerOpacity,
+    (v) => (v < 0.05 ? 'none' : 'auto') as 'none' | 'auto',
+  );
+  const heroControlsPointerEvents = useTransform(
+    imageOpacity,
+    (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
+  );
+
+  // Instagram-style scroll chain: intercepts down-swipe at scrollTop=0
+  useSheetScrollChain({ isOpen, y, onClose, scrollRef, snapBackY: PEEK_Y_PX });
 
   const [reviews, setReviews] = useState<UserContribution[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -403,33 +436,33 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     if (isOpen) document.body.style.overflow = 'hidden';
     else {
       document.body.style.overflow = '';
-      // Reset optimistic state when the sheet closes so the next park
-      // opens with a clean slate (otherwise the previous park's local
-      // arrival pill would briefly appear under a different header).
       setLocalArrivals([]);
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  // Track scroll
+  // Keep scrollYMV in sync with the scroll container (no React re-renders)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isOpen) return;
-    const handler = () => setScrollY(el.scrollTop);
+    scrollYMV.set(0);
+    const handler = () => scrollYMV.set(el.scrollTop);
     el.addEventListener('scroll', handler, { passive: true });
     return () => el.removeEventListener('scroll', handler);
-  }, [isOpen]);
-
-  const safe = (v: number, fb: number) => Number.isFinite(v) ? v : fb;
-  const maxScroll = 200;
-  const scrollProgress = safe(Math.min(safe(scrollY, 0) / maxScroll, 1), 0);
-  const imageOpacity = safe(Math.max(1 - scrollProgress * 0.7, 0), 1);
-  const imageScale = safe(Math.max(1 - scrollProgress * 0.2, 0.8), 1);
-  const headerOpacity = safe(Math.min(scrollProgress * 2, 1), 0);
-  const heroHeight = safe(Math.max(280 - safe(scrollY, 0) * 0.8, 60), 60);
+  }, [isOpen, scrollYMV]);
 
   const handleDragEnd = (_: any, info: any) => {
-    if (info.offset.y > CLOSE_THRESHOLD || info.velocity.y > 500) onClose();
+    const offset = info.offset.y;
+    const velocity = info.velocity.y;
+    const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
+
+    if (offset > CLOSE_THRESHOLD || velocity > 500) {
+      onClose();
+    } else if (offset < -EXPAND_THRESHOLD) {
+      animate(y, 0, SPRING);
+    } else {
+      animate(y, PEEK_Y_PX, SPRING);
+    }
   };
 
   const handleNavigate = useCallback(() => {
@@ -478,28 +511,33 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
             {/* Bottom Sheet */}
             <motion.div
               drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.2}
+              dragControls={dragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0, bottom: 500 }}
+              dragElastic={{ top: 0.08, bottom: 0 }}
+              dragMomentum={false}
               onDragEnd={handleDragEnd}
               initial={{ y: '100%' }}
-              animate={{ y: 0 }}
+              animate={{ y: PEEK_Y_PX }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
               className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
               dir="rtl"
             >
-              {/* Drag Handle */}
-              <div className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
+              {/* Drag handle — full-width touch target */}
+              <div
+                className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-4 cursor-grab active:cursor-grabbing"
+                onPointerDown={(e) => dragControls.start(e)}
+                style={{ touchAction: 'none' }}
+              >
                 <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
               </div>
 
-              {/* Sticky Header — appears on scroll */}
-              <div
-                className={`absolute top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 transition-opacity duration-300 ${
-                  headerOpacity > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-                style={{ opacity: headerOpacity }}
+              {/* Sticky Header — compositor-threaded opacity */}
+              <motion.div
+                className="absolute top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800"
+                style={{ opacity: headerOpacity, pointerEvents: headerPointerEvents }}
               >
                 <div className="flex items-center justify-between px-4 pt-10 pb-3">
                   <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center active:scale-90 transition-transform">
@@ -510,14 +548,14 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   </h1>
                   <div className="w-10" />
                 </div>
-              </div>
+              </motion.div>
 
               {/* Scrollable body */}
-              <div ref={scrollRef} className="h-full overflow-y-auto pb-36">
-                {/* Hero image — collapsing */}
-                <div
+              <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain pb-36">
+                {/* Hero image — overflow-hidden prevents bleed on overscroll */}
+                <motion.div
                   className="relative w-full overflow-hidden"
-                  style={{ height: `${heroHeight}px`, opacity: imageOpacity, transform: `scale(${imageScale})` }}
+                  style={{ height: heroHeight, opacity: imageOpacity, scale: imageScale }}
                 >
                   {(park.image || park.imageUrl || park.images?.[0]) ? (
                     <img
@@ -536,18 +574,20 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                     style={{ background: 'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)' }}
                   />
 
-                  {/* Top controls — safe-area-aware padding so the X button
-                      clears the iOS notch / Android status bar when the sheet
-                      is fully expanded. */}
-                  <div
-                    className={`absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10 transition-opacity duration-300 ${imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                    style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+                  {/* Top controls — fade with hero, pointer-events gated */}
+                  <motion.div
+                    className="absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10"
+                    style={{
+                      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
+                      opacity: imageOpacity,
+                      pointerEvents: heroControlsPointerEvents,
+                    }}
                   >
                     <button onClick={onClose} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform">
                       <X size={20} />
                     </button>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
 
                 {/* Title + category badge — pulled OUTSIDE the hero so they
                     escape the hero's `overflow-hidden` (and its scroll-driven

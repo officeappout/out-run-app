@@ -7,13 +7,13 @@ import {
   User,
   updateProfile,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
+  signInWithCredential,
   signInAnonymously,
   linkWithPopup,
   linkWithCredential,
   EmailAuthProvider,
-  getRedirectResult,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
@@ -165,41 +165,130 @@ export async function signIn(email: string, password: string) {
 
 
 /**
- * Sign in with Google (Redirect)
+ * Sign in with Google — native Android/iOS or web fallback.
+ *
+ * Native (iOS / Android Capacitor):
+ *   1. `@capacitor-firebase/authentication` presents the native Google
+ *      sign-in sheet (no external browser required).
+ *   2. The plugin returns a Google OAuthCredential (idToken + accessToken).
+ *   3. We replay that credential into the WEB firebase/auth instance via
+ *      `signInWithCredential` so Firestore rules and web-SDK listeners
+ *      see an authenticated user.
+ *
+ * Web fallback (browser / dev server):
+ *   Uses `signInWithPopup` with `GoogleAuthProvider`.
+ *   Requires "Google" to be enabled in Firebase Console
+ *   Authentication → Sign-in method.
  */
-export async function signInWithGoogle() {
+export async function signInWithGoogle(): Promise<{ user: User | null; error: string | null }> {
   try {
-    const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
-    // Redirect happens immediately.
-    return { user: null, error: null };
+    if (isNativePlatform()) {
+      // ── Native iOS / Android path ─────────────────────────────────────
+      // Only the Capacitor plugin is lazy-loaded; Firebase SDK classes come
+      // from the top-level static import so they share the same module
+      // instance as `auth` and pass Firebase's internal instanceof checks.
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+
+      const result = await FirebaseAuthentication.signInWithGoogle();
+
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
+      }
+
+      const credential = GoogleAuthProvider.credential(
+        result.credential.idToken,
+        result.credential.accessToken ?? undefined,
+      );
+
+      const webResult = await signInWithCredential(auth, credential);
+      return { user: webResult.user, error: null };
+    } else {
+      // ── Web / browser fallback ────────────────────────────────────────
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      return { user: result.user, error: null };
+    }
   } catch (error: any) {
-    return { user: null, error: error.message };
+    // User dismissed the Google sheet — not an error worth surfacing
+    const msg: string = error?.message ?? String(error);
+    if (
+      error?.code === 'ERR_CANCELED' ||
+      msg.includes('cancel') ||
+      msg.includes('dismiss') ||
+      msg.includes('sign_in_canceled')
+    ) {
+      return { user: null, error: 'google_canceled' };
+    }
+    console.error('[Auth Service] Google sign-in error:', error);
+    return { user: null, error: msg };
   }
 }
 
 /**
- * Sign in with Google (Popup) - Better for dedicated login pages
+ * Sign in with Apple — native iOS or web fallback.
+ *
+ * Native (iOS Capacitor):
+ *   1. `@capacitor-firebase/authentication` presents the native
+ *      ASAuthorizationController sheet.
+ *   2. The plugin signs in to the native Firebase SDK and returns the
+ *      Apple OAuthCredential (idToken + nonce).
+ *   3. We immediately replay that credential into the WEB firebase/auth
+ *      instance via `signInWithCredential` so Firestore security rules
+ *      and all web-SDK listeners see an authenticated user.
+ *
+ * Web fallback (browser / dev server):
+ *   Uses `signInWithPopup` with `OAuthProvider('apple.com')`.
+ *   Requires "Sign in with Apple" to be enabled in Firebase Console
+ *   Authentication → Sign-in method, and the service-ID / redirect
+ *   URL configured in the Apple Developer Portal.
  */
-export async function signInWithGooglePopup() {
+export async function signInWithApple(): Promise<{ user: User | null; error: string | null }> {
   try {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    return { user: result.user, error: null };
-  } catch (error: any) {
-    return { user: null, error: error.message };
-  }
-}
+    if (isNativePlatform()) {
+      // ── Native iOS path ──────────────────────────────────────────────
+      // Only the Capacitor plugin is lazy-loaded; Firebase SDK classes come
+      // from the top-level static import so they share the same module
+      // instance as `auth` and pass Firebase's internal instanceof checks.
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
 
-/**
- * Handle Google Redirect Result
- */
-export async function getGoogleRedirectResult() {
-  try {
-    const result = await getRedirectResult(auth);
-    return { user: result?.user || null, error: null };
+      const result = await FirebaseAuthentication.signInWithApple();
+
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
+      }
+
+      // Build a web-SDK OAuthCredential from the Apple token + nonce
+      // so the web firebase/auth instance is also authenticated.
+      const appleProvider = new OAuthProvider('apple.com');
+      const credential = appleProvider.credential({
+        idToken: result.credential.idToken,
+        rawNonce: result.credential.nonce,
+      });
+
+      const webResult = await signInWithCredential(auth, credential);
+      return { user: webResult.user, error: null };
+    } else {
+      // ── Web / browser fallback ───────────────────────────────────────
+      const provider = new OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+
+      const result = await signInWithPopup(auth, provider);
+      return { user: result.user, error: null };
+    }
   } catch (error: any) {
-    return { user: null, error: error.message };
+    // User dismissed the Apple sheet — not an error worth surfacing
+    const msg: string = error?.message ?? String(error);
+    if (
+      error?.code === 'ERR_CANCELED' ||
+      msg.includes('cancel') ||
+      msg.includes('dismiss') ||
+      msg.includes('com.apple.AuthenticationServices.AuthorizationError error 1001')
+    ) {
+      return { user: null, error: 'apple_canceled' };
+    }
+    console.error('[Auth Service] Apple sign-in error:', error);
+    return { user: null, error: msg };
   }
 }
 
@@ -259,6 +348,68 @@ export async function linkWithGoogleAccount() {
     }
     
     return { user: null, error: error.message };
+  }
+}
+
+/**
+ * Link anonymous account with Apple — native iOS or web fallback.
+ *
+ * Native path: presents the ASAuthorizationController sheet via
+ * `@capacitor-firebase/authentication`, then replays the credential
+ * into the WEB firebase/auth instance with `linkWithCredential`.
+ *
+ * Web fallback: uses `linkWithPopup` with `OAuthProvider('apple.com')`.
+ */
+export async function linkWithAppleAccount(): Promise<{ user: User | null; error: string | null }> {
+  try {
+    if (!auth.currentUser) throw new Error('No user signed in');
+    if (!auth.currentUser.isAnonymous) {
+      return { user: null, error: 'not_anonymous' };
+    }
+
+    if (isNativePlatform()) {
+      // Only the Capacitor plugin is lazy-loaded; Firebase SDK classes come
+      // from the top-level static import so they share the same module
+      // instance as `auth` and pass Firebase's internal instanceof checks.
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+
+      const result = await FirebaseAuthentication.signInWithApple();
+
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
+      }
+
+      const appleProvider = new OAuthProvider('apple.com');
+      const credential = appleProvider.credential({
+        idToken: result.credential.idToken,
+        rawNonce: result.credential.nonce,
+      });
+
+      const linkResult = await linkWithCredential(auth.currentUser, credential);
+      return { user: linkResult.user, error: null };
+    } else {
+      const provider = new OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+
+      const result = await linkWithPopup(auth.currentUser, provider);
+      return { user: result.user, error: null };
+    }
+  } catch (error: any) {
+    console.error('[Auth Service] Apple link error:', error);
+    const msg: string = error?.message ?? String(error);
+    if (
+      error?.code === 'ERR_CANCELED' ||
+      msg.includes('cancel') ||
+      msg.includes('dismiss') ||
+      msg.includes('com.apple.AuthenticationServices.AuthorizationError error 1001')
+    ) {
+      return { user: null, error: 'apple_canceled' };
+    }
+    if (error.code === 'auth/credential-already-in-use') {
+      return { user: null, error: 'apple_account_exists' };
+    }
+    return { user: null, error: msg };
   }
 }
 

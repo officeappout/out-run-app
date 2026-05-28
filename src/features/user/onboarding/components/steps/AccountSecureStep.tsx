@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, AlertTriangle, X } from 'lucide-react';
-import { linkWithGoogleAccount } from '@/lib/auth.service';
+import { linkWithGoogleAccount, linkWithAppleAccount } from '@/lib/auth.service';
 
 interface AccountSecureStepProps {
   onNext: (secured: boolean, method?: string, email?: string) => void;
@@ -53,16 +53,38 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
     }
   };
 
-  // Handle Apple account linking (placeholder)
+  // Handle Apple account linking — native ASAuthorizationController sheet
   const handleAppleLink = async () => {
     setLoading('apple');
     setError(null);
 
-    // Apple sign-in not yet implemented
-    setTimeout(() => {
-      setError('התחברות עם Apple תהיה זמינה בקרוב');
+    try {
+      const { user, error: linkError } = await linkWithAppleAccount();
+
+      if (linkError) {
+        if (linkError === 'apple_canceled') {
+          setLoading(null);
+          return;
+        }
+        if (linkError === 'apple_account_exists') {
+          setError('חשבון Apple זה כבר בשימוש. אנא השתמש בחשבון אחר.');
+        } else if (linkError === 'not_anonymous') {
+          onNext(true, 'apple');
+          return;
+        } else {
+          setError('שגיאה בחיבור ל-Apple. אנא נסה שוב.');
+        }
+        setLoading(null);
+        return;
+      }
+
+      if (user) {
+        onNext(true, 'apple', user.email || undefined);
+      }
+    } catch {
+      setError('שגיאה בלתי צפויה. אנא נסה שוב.');
       setLoading(null);
-    }, 500);
+    }
   };
 
   // Handle skip (show warning modal)

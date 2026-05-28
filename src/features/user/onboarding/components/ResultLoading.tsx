@@ -97,44 +97,46 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
 
       {/* Central Content */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* Pulsing OUT Logo */}
+        {/* Pulsing Brand Logo */}
         <motion.div
-          className="relative mb-12"
-          animate={{
-            scale: [1, 1.05, 1],
-          }}
+          className="relative mb-12 flex items-center justify-center"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: [1, 1.05, 1] }}
           transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
+            opacity: { duration: 0.5, ease: 'easeOut' },
+            scale: { duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.5 },
           }}
         >
-          {/* Outer glow ring */}
+          {/* Ambient cyan + brand-gradient glow halo */}
           <motion.div
-            className="absolute inset-0 rounded-full"
+            className="absolute rounded-full pointer-events-none"
             style={{
-              width: '160px',
-              height: '160px',
+              width: '220px',
+              height: '120px',
               left: '50%',
               top: '50%',
               transform: 'translate(-50%, -50%)',
-              background: 'radial-gradient(circle, rgba(91, 194, 242, 0.3) 0%, transparent 70%)',
+              background: 'radial-gradient(ellipse, rgba(0,186,247,0.28) 0%, rgba(12,242,226,0.12) 50%, transparent 75%)',
+              filter: 'blur(12px)',
             }}
             animate={{
-              scale: [1, 1.4, 1],
-              opacity: [0.3, 0.6, 0.3],
+              scale: [1, 1.35, 1],
+              opacity: [0.35, 0.65, 0.35],
             }}
             transition={{
-              duration: 1.5,
+              duration: 1.8,
               repeat: Infinity,
               ease: 'easeInOut',
             }}
           />
-          
-          {/* OUT Logo */}
-          <h1 className="text-6xl font-black text-[#5BC2F2] tracking-tight italic drop-shadow-lg">
-            OUT
-          </h1>
+
+          {/* Official OUT brand logotype */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/logo/Kind=logotype.svg"
+            alt="OUT"
+            className="relative w-44 drop-shadow-lg"
+          />
         </motion.div>
 
         {/* Dynamic Analysis Text */}

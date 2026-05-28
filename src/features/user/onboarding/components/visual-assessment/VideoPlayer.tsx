@@ -37,11 +37,11 @@ export default function VideoPlayer({
   }, []);
 
   return (
-    <div className={`relative flex items-center justify-center ${className}`}>
-      {/* Fixed aspect-ratio container prevents layout shift while video loads */}
-      <div className="relative w-full aspect-[3/4] max-h-[480px]">
+    <div className={`relative ${className}`}>
+      {/* Fill parent container — height is controlled by the flex-1 parent in VisualSlider */}
+      <div className="relative w-full h-full">
 
-        {hasSources ? (
+        {hasSources && (
           /* ── Video — preload="auto" causes the browser to buffer and paint
                frame 0 directly from cache, with zero overlay or fade flash. ── */
           <video
@@ -54,33 +54,21 @@ export default function VideoPlayer({
             preload="auto"
             onCanPlay={handleCanPlay}
             onError={handleError}
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{ background: 'transparent' }}
           >
             {videoUrlWebm && <source src={videoUrlWebm} type="video/webm" />}
             {videoUrlMov  && <source src={videoUrlMov}  type="video/quicktime" />}
             {videoUrl     && <source src={videoUrl} />}
           </video>
-        ) : (
-          /* ── No-source / error placeholder ── */
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center rounded-2xl">
-            <div className="text-center">
-              <div className="text-5xl mb-2 opacity-40">🏋️</div>
-              <p className="text-xs text-slate-400 font-medium">
-                אין וידאו — הזיזו את הסליידר
-              </p>
-            </div>
-          </div>
         )}
 
-        {/* 4-sided white gradient — video melts into white from every direction */}
+        {/* Bottom gradient only — top gradient lives outside overflow-hidden in VisualSlider */}
         {whiteGradient && hasSources && (
-          <>
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white via-transparent via-25% to-transparent" />
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-white via-transparent via-20% to-transparent" />
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-white via-transparent via-15% to-transparent" />
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-l from-white via-transparent via-15% to-transparent" />
-          </>
+          <div
+            className="absolute bottom-[-2px] left-0 right-0 h-[82px] pointer-events-none"
+            style={{ background: 'linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.9), rgba(255,255,255,0.7), rgba(255,255,255,0))' }}
+          />
         )}
       </div>
     </div>

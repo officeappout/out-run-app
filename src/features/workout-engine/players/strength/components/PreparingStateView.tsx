@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { OFFLINE_PLACEHOLDER } from '../hooks/usePlayerMedia';
 
 /**
@@ -49,12 +50,25 @@ export default function PreparingStateView({
       {(safeVideoUrl || safeImageUrl) && (
         <div className="absolute inset-0">
           {safeImageUrl && safeImageUrl !== OFFLINE_PLACEHOLDER ? (
-            <img
-              src={safeImageUrl}
-              alt=""
-              className="w-full h-full object-cover blur-2xl scale-110 opacity-30"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
+            safeImageUrl.startsWith('blob:') ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={safeImageUrl}
+                alt=""
+                className="w-full h-full object-cover blur-2xl scale-110 opacity-30"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <Image
+                src={safeImageUrl}
+                alt=""
+                fill
+                className="object-cover blur-2xl scale-110 opacity-30"
+                priority
+                sizes="100vw"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )
           ) : safeVideoUrl ? (
             <video
               src={safeVideoUrl}

@@ -4,25 +4,36 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/useAppStore';
 import { useUserStore } from '@/features/user';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
-import { signInGuest, signInWithGooglePopup } from '@/lib/auth.service';
+import { signInGuest, signInWithGoogle, signInWithApple } from '@/lib/auth.service';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 import { Loader2, ChevronLeft, Sparkles } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
+import { captureMarketingAttribution } from '@/lib/marketingAttribution';
 
 export default function SelectionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language: storeLanguage, setLanguage: setStoreLanguage } = useAppStore();
   const { hasCompletedOnboarding, profile } = useUserStore();
   const { reset: resetOnboarding } = useOnboardingStore();
+
+  // ── Growth Hub Phase 3 — Marketing Attribution capture ────────────────
+  // Covers the deep-link case where an ad lands the user directly on
+  // /onboarding-new/selection without first hitting /intro. The capture
+  // util is idempotent, so users who do hit /intro first won't have their
+  // original attribution overwritten by a later visit to this page.
+  useEffect(() => {
+    captureMarketingAttribution(searchParams);
+  }, [searchParams]);
   
   // Loading states
   const [isStartingTraining, setIsStartingTraining] = useState(false);
@@ -97,7 +108,7 @@ export default function SelectionPage() {
     setIsGoogleLoading(true);
     
     try {
-      const { user, error: authError } = await signInWithGooglePopup();
+      const { user, error: authError } = await signInWithGoogle();
       
       if (authError || !user) {
         setError(authError || 'שגיאה בהתחברות עם Google. אנא נסה שוב.');
@@ -137,19 +148,58 @@ export default function SelectionPage() {
   };
 
   /**
-   * Apple Sign In - For Returning Users
-   * Similar flow to Google
+   * Apple Sign In — native iOS sheet (Capacitor) or web popup fallback.
+   * Returning users with a completed profile are sent directly to /home.
+   * New / incomplete users continue with onboarding.
    */
   const handleAppleSignIn = async () => {
     setError(null);
     setIsAppleLoading(true);
-    
-    // Apple sign-in not yet implemented
-    // Show coming soon message
-    setTimeout(() => {
-      setError('התחברות עם Apple תהיה זמינה בקרוב');
+
+    try {
+      const { user, error: authError } = await signInWithApple();
+
+      // User dismissed the Apple sheet — silent no-op
+      if (authError === 'apple_canceled') {
+        setIsAppleLoading(false);
+        return;
+      }
+
+      if (authError || !user) {
+        setError(authError || 'שגיאה בהתחברות עם Apple. אנא נסה שוב.');
+        setIsAppleLoading(false);
+        return;
+      }
+
+      console.log('[Selection] Apple sign-in successful:', user.uid);
+
+      // Check if the user has a completed Firestore profile (returning user)
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const hasCompleted =
+          userData?.onboardingStatus === 'COMPLETED' ||
+          (userData?.lifestyle?.scheduleDays && userData.lifestyle.scheduleDays.length > 0);
+
+        if (hasCompleted) {
+          console.log('[Selection] Returning Apple user, redirecting to /home');
+          router.push('/home');
+          return;
+        }
+      }
+
+      // New user or incomplete onboarding — continue the flow
+      console.log('[Selection] New Apple user or incomplete onboarding, continuing...');
+      await syncOnboardingToFirestore('LOCATION', {});
+      router.push('/onboarding-new/roadmap');
+
+    } catch (err: any) {
+      console.error('[Selection] Error with Apple sign-in:', err);
+      setError('שגיאה בהתחברות עם Apple. אנא נסה שוב.');
       setIsAppleLoading(false);
-    }, 500);
+    }
   };
   
   /**

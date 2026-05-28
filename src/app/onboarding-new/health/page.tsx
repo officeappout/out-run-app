@@ -9,9 +9,7 @@ import HealthDeclarationStep from '@/features/user/onboarding/components/HealthD
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
-import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
-import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 
 export default function HealthDeclarationPage() {
   const router = useRouter();
@@ -130,16 +128,13 @@ export default function HealthDeclarationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col">
-      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-        <OnboardingStoryBar
-          totalPhases={STRENGTH_PHASES.TOTAL}
-          currentPhase={STRENGTH_PHASES.HEALTH}
-          phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.HEALTH]}
-          onPhaseComplete={firePhaseConfetti}
-        />
-      </div>
+    <OnboardingLayout
+      totalSegments={STRENGTH_PHASES.TOTAL}
+      currentSegment={STRENGTH_PHASES.HEALTH}
+      phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.HEALTH]}
+      hideContinueButton
+    >
       {content}
-    </div>
+    </OnboardingLayout>
   );
 }

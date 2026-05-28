@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import {
   X,
   Clock,
@@ -50,6 +51,11 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: s
   cycling:      { label: 'רכיבה',      icon: '🚴', gradient: 'from-lime-500 to-green-600' },
   other:        { label: 'אחר',        icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
+
+/** px the sheet is offset at initial open to show ~85 vh (95 - 85 = 10 vh). */
+const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.10) : 80;
+const CLOSE_THRESHOLD = 100;
+const EXPAND_THRESHOLD = 50;
 
 const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -111,12 +117,17 @@ export default function GroupDetailsDrawer({
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [codeUnlocked, setCodeUnlocked] = useState(false);
-  // Invite-code entry state (private groups, non-members)
   const [inviteInput, setInviteInput] = useState('');
   const [inviteError, setInviteError] = useState(false);
   const [inviteCodeMode, setInviteCodeMode] = useState(false);
-  // Copy-to-clipboard feedback (member invite panel)
   const [inviteCopied, setInviteCopied] = useState(false);
+
+  // Sheet gesture state
+  const y = useMotionValue(0);
+  // Opacity fades only as the user drags past the resting (85vh) anchor.
+  const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
+  const dragControls = useDragControls();
+  const { scrollRef } = useSheetScrollChain({ isOpen, y, onClose, snapBackY: PEEK_Y_PX });
   const { showToast } = useToast();
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
@@ -308,20 +319,35 @@ export default function GroupDetailsDrawer({
             />
             <motion.div
               initial={{ y: '100%' }}
-              animate={{ y: 0 }}
+              animate={{ y: PEEK_Y_PX }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
               drag="y"
-              dragConstraints={{ top: 0 }}
-              dragElastic={0.15}
+              dragControls={dragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0, bottom: 500 }}
+              dragElastic={{ top: 0.08, bottom: 0 }}
+              dragMomentum={false}
               onDragEnd={(_, info) => {
-                if (info.offset.y > 120 || info.velocity.y > 500) onClose();
+                const offset = info.offset.y;
+                const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
+                if (offset > CLOSE_THRESHOLD || info.velocity.y > 500) {
+                  onClose();
+                } else if (offset < -EXPAND_THRESHOLD) {
+                  animate(y, 0, SPRING);
+                } else {
+                  animate(y, PEEK_Y_PX, SPRING);
+                }
               }}
               className="fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
-              style={{ height: '85vh' }}
+              style={{ height: '95vh', y, opacity }}
             >
-              {/* ── Hero image — full-bleed top section ──────────── */}
-              <div className="relative flex-shrink-0 h-56 rounded-t-3xl overflow-hidden">
+              {/* ── Hero image — drag target + bounding box ───────── */}
+              <div
+                className="relative flex-shrink-0 h-56 rounded-t-3xl overflow-hidden cursor-grab active:cursor-grabbing"
+                onPointerDown={(e) => dragControls.start(e)}
+                style={{ touchAction: 'none' }}
+              >
                 {coverImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={coverImage} alt={group.name} className="w-full h-full object-cover" decoding="async" />
@@ -340,6 +366,7 @@ export default function GroupDetailsDrawer({
                 {/* Close button — overlaid top-right */}
                 <button
                   onClick={onClose}
+                  onPointerDown={(e) => e.stopPropagation()}
                   className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center"
                 >
                   <X size={16} className="text-white" />
@@ -353,7 +380,7 @@ export default function GroupDetailsDrawer({
               </div>
 
               {/* ── Scrollable content ─────────────────────────── */}
-              <div className="flex-1 overflow-y-auto px-5 pt-4 pb-8 space-y-5" dir="rtl">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
                 {/* Title */}
                 <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
                   {group.name}

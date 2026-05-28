@@ -32,7 +32,7 @@
  *     accurate even after manual chip toggles deviate from a preset.
  */
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Home, MapPin, Building, PersonStanding, Loader2 } from 'lucide-react';
@@ -66,8 +66,23 @@ interface Props {
    *   • hides location presets and ציוד פארק section
    *   • saves to Firestore users/{uid}.equipment.home on confirm
    *   • footer button reads "שמור שינויים"
+   * 'inline-onboarding' — embedded inside a parent screen (no sheet chrome):
+   *   • renders content inline (no portal, no overlay, no footer)
+   *   • hides location presets and ציוד פארק section
+   *   • calls onChange(ids) on every chip toggle (sentinel stripped)
+   *   • parent owns persistence via the onboarding store
    */
-  mode?: 'filter' | 'profile';
+  mode?: 'filter' | 'profile' | 'inline-onboarding';
+  /** Fired on every chip toggle when mode === 'inline-onboarding'. The
+   *  __bodyweight__ sentinel is always stripped before calling. */
+  onChange?: (ids: string[]) => void;
+  /**
+   * When provided, the sheet auto-selects the matching location preset on open
+   * if the initial equipment selection is empty. This keeps the internal preset
+   * UI in sync with the parent builder's active location chip (בבית / חדר כושר / בחוץ).
+   * If initialIds is non-empty, the preset is derived from that selection as usual.
+   */
+  activeLocation?: 'park' | 'gym' | 'home';
 }
 
 type PresetId = 'home' | 'park' | 'gym';
@@ -92,8 +107,9 @@ function isPersonalGear(g: GearDefinition): boolean {
   return !isParkGear(g) && !isImprovisedGear(g);
 }
 
-export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initialIds, mode = 'filter' }: Props) {
+export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initialIds, mode = 'filter', onChange, activeLocation }: Props) {
   const isProfileMode = mode === 'profile';
+  const isInlineMode = mode === 'inline-onboarding';
   const filterIds = useExerciseLibraryStore((s) => s.filters.equipmentIds);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
   const { profile } = useUserStore();
@@ -141,6 +157,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   }, [isOpen]);
 
   // ── Derived: gear partitioned into 3 sections ────────────────────────
+  // Declared before any effects that depend on idSets to avoid TDZ errors.
   const sections = useMemo(() => {
     const parkArr: GearDefinition[] = [];
     const improvisedArr: GearDefinition[] = [];
@@ -173,6 +190,32 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
     ]);
     return { park, improvised, personal, all };
   }, [sections]);
+
+  // ── Auto-apply location preset when the sheet opens with an empty draft ──
+  // Declared after idSets so the dependency array can safely reference it
+  // without triggering a temporal dead zone ReferenceError.
+  // When activeLocation is passed from the parent builder, and the draft is
+  // empty after loading from initialIds (no saved equipment for this location),
+  // we pre-select the matching preset so the user sees their current location
+  // context reflected in the sheet's preset buttons immediately on open.
+  // The ref gates this to a single application per open/close cycle.
+  const initialPresetAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) { initialPresetAppliedRef.current = false; }
+  }, [isOpen]);
+  useEffect(() => {
+    if (!isOpen || !activeLocation || gear.length === 0) return;
+    if (initialPresetAppliedRef.current) return;
+    initialPresetAppliedRef.current = true;
+    setDraft(prev => {
+      if (prev.size > 0) return prev; // respect a non-empty selection from initialIds
+      const next = new Set<string>([BODYWEIGHT_SENTINEL]);
+      if (activeLocation === 'home') idSets.improvised.forEach(id => next.add(id));
+      else if (activeLocation === 'park') idSets.park.forEach(id => next.add(id));
+      else /* gym */ idSets.all.forEach(id => next.add(id));
+      return next;
+    });
+  }, [isOpen, activeLocation, gear.length, idSets]);
 
   // ── Active preset detection ──────────────────────────────────────────
   // A preset is "active" when the draft is exactly {sentinel + the section's
@@ -215,6 +258,23 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
     });
   };
 
+  // ── Inline-onboarding: fire onChange on every chip change ────────────
+  // Keep a ref so the effect never goes stale on onChange identity changes.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; });
+  // Skip the very first render (draft matches initialIds — parent already has it).
+  const hasInitializedInlineRef = useRef(false);
+  useEffect(() => {
+    if (!isInlineMode) return;
+    if (!hasInitializedInlineRef.current) {
+      hasInitializedInlineRef.current = true;
+      return;
+    }
+    const safeIds = Array.from(draft).filter(id => id !== BODYWEIGHT_SENTINEL);
+    onChangeRef.current?.(safeIds);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, isInlineMode]);
+
   // ── Footer summary text ──────────────────────────────────────────────
   const summary = useMemo(() => {
     const totalChips = draft.size; // includes sentinel
@@ -242,16 +302,21 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
       } finally {
         setSaving(false);
       }
+    } else if (isInlineMode) {
+      // Onboarding path — parent owns persistence; strip the filter sentinel.
+      const safeIds = ids.filter(id => id !== BODYWEIGHT_SENTINEL);
+      onApply?.(safeIds);
+      onClose();
     } else {
       setEquipmentIds(ids);
       onApply?.(ids);
       onClose();
     }
-  }, [draft, isProfileMode, profile?.id, setEquipmentIds, onApply, onClose]);
+  }, [draft, isProfileMode, isInlineMode, profile?.id, setEquipmentIds, onApply, onClose]);
 
   const clear = () => {
     setDraft(new Set());
-    if (!isProfileMode) setEquipmentIds([]);
+    if (!isProfileMode && !isInlineMode) setEquipmentIds([]);
     onClose();
   };
 
@@ -396,12 +461,22 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
                   type="button"
                   onClick={apply}
                   disabled={saving}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-1.5"
+                  className={`flex-1 font-bold text-white disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
+                    isInlineMode
+                      ? 'h-14 rounded-full text-base'
+                      : 'py-2.5 rounded-lg text-sm bg-primary hover:opacity-90 transition-opacity'
+                  }`}
+                  style={isInlineMode ? {
+                    background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
+                    boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
+                  } : undefined}
                 >
                   {saving ? (
                     <><Loader2 size={14} className="animate-spin" /><span>שומר...</span></>
                   ) : isProfileMode ? (
                     'שמור שינויים'
+                  ) : isInlineMode ? (
+                    'בואו נעדכן ציוד'
                   ) : (
                     'החל סינון'
                   )}

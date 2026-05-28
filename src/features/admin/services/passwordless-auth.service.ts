@@ -195,6 +195,22 @@ export async function sendAdminMagicLink(
       return { sent: true, error: null };
     }
 
+    // Localhost dev bypass — Firestore security rules block unauthenticated
+    // reads on the `users` collection, so checkAdminEmail always throws
+    // permission-denied before the user has a session. Skip the role check
+    // entirely in local development and send the magic link directly.
+    const isLocalhost =
+      typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    if (isLocalhost) {
+      console.log('[sendAdminMagicLink] localhost detected — skipping Firestore role check, sending magic link directly.');
+      const result = await sendMagicLink(email, continueUrl);
+      if (result.error) {
+        console.error('[sendAdminMagicLink] sendMagicLink error on localhost:', result.error);
+        return { sent: false, error: `שגיאה בשליחת הקישור: ${result.error}` };
+      }
+      return { sent: true, error: null };
+    }
+
     // First, verify the email exists and has the required role
     const adminCheck = await checkAdminEmail(email);
     

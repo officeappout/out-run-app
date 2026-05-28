@@ -117,7 +117,10 @@ export default function PersonaSelectionPage() {
   }
 
   return (
-    <OnboardingLayout>
+    <OnboardingLayout
+      onContinue={handleContinue}
+      canContinue={!!selectedPersona}
+    >
       <div className="flex flex-col items-center justify-center min-h-screen px-6 py-12" dir={direction}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -278,25 +281,6 @@ export default function PersonaSelectionPage() {
             </motion.div>
           )}
 
-          {/* Continue Button */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: selectedPersona ? 1 : 0.5 }}
-            transition={{ duration: 0.3 }}
-            className="flex justify-center pt-8"
-          >
-            <button
-              onClick={handleContinue}
-              disabled={!selectedPersona}
-              className={`px-8 py-4 rounded-2xl font-black text-lg transition-all ${
-                selectedPersona
-                  ? 'bg-cyan-500 text-white hover:bg-cyan-600 shadow-xl hover:scale-105'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              המשך
-            </button>
-          </motion.div>
         </motion.div>
       </div>
     </OnboardingLayout>

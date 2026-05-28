@@ -1,83 +1,97 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { useMotionValue, useTransform, type MotionValue } from 'framer-motion';
 
-interface ScrollAnimationValues {
-  /** Hero image opacity (1 → 0.3 across the 200px scroll range). */
-  imageOpacity: number;
-  /** Hero image scale (1 → 0.8). */
-  imageScale: number;
-  /** Sticky header opacity (0 → 1 across the first ~100px). */
-  headerOpacity: number;
-  /** Hero container height in px (320 → 64 as the user scrolls down). */
-  dynamicHeight: number;
-  /** Workout-title scale (1 → 0.7 to mirror iOS collapsing-title behaviour). */
-  titleScale: number;
-  /** Workout-title y-offset in px (0 → 20). */
-  titleY: number;
-}
-
-interface UseScrollAnimationReturn extends ScrollAnimationValues {
+export interface UseScrollAnimationReturn {
   /** Attach to the scrollable container; the hook subscribes to its `scroll` event. */
   scrollContainerRef: React.RefObject<HTMLDivElement>;
-  /** Current `scrollTop` value — exposed for consumers that need the raw number. */
-  scrollY: number;
+  /** Hero image opacity: 1 → 0 across the first 200px of scroll. */
+  imageOpacity: MotionValue<number>;
+  /** Hero image scale: 1 → 0.8 across the first 200px of scroll. */
+  imageScale: MotionValue<number>;
+  /** Sticky header opacity: 0 → 1 across the first 100px of scroll. */
+  headerOpacity: MotionValue<number>;
+  /** Hero container height as a CSS string: '320px' → '64px'. */
+  dynamicHeight: MotionValue<string>;
+  /** Workout title scale: 1 → 0.7 (iOS collapsing-title behaviour). */
+  titleScale: MotionValue<number>;
+  /** Workout title y-offset: 0 → 20px. */
+  titleY: MotionValue<number>;
 }
 
-/** Clamp the input to a finite number; fall back when NaN / Infinity slips through. */
-const safe = (v: number, fallback: number): number =>
-  Number.isFinite(v) ? v : fallback;
-
 /**
- * Tracks the drawer's scroll position and derives the 6 hero / header
- * animation values from it.
+ * Tracks the drawer's scroll position and derives hero / header animation
+ * values using Framer Motion MotionValues + `useTransform`.
  *
- * The derivations are wrapped in a single `useMemo` so they only
- * re-evaluate when `scrollY` actually changes — not on every unrelated
- * parent re-render (audio toggle, favorites mutations, share state, …).
- * This resolves Hotspot (c) from the discovery report.
+ * **Why MotionValues instead of React state:**
+ * The previous `useState`-based implementation called `setScrollY` on every
+ * scroll tick (60–120 fps on ProMotion devices), which triggered a full React
+ * re-render chain: `WorkoutPreviewDrawer` → `useMemo` recalculate 6 values →
+ * hero re-render → `DrawerHeader` re-render → layout recalculation.  Under
+ * time pressure this caused the jitter visible during fast scrolling.
+ *
+ * With MotionValues the scroll listener now calls `scrollYMV.set(n)`, which
+ * propagates exclusively through Framer's internal subscriber graph on the
+ * compositor thread — zero React re-renders, zero layout recalculations.
  */
 export function useScrollAnimation(isOpen: boolean): UseScrollAnimationReturn {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [scrollY, setScrollY] = useState(0);
+  const scrollYMV = useMotionValue(0);
 
   useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || !isOpen) return;
+    const el = scrollContainerRef.current;
+    if (!el || !isOpen) return;
 
-    const handleScroll = () => {
-      setScrollY(scrollContainer.scrollTop);
-    };
+    // Reset on each open so the hero always starts fully visible.
+    scrollYMV.set(0);
 
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [isOpen]);
+    const handler = () => scrollYMV.set(el.scrollTop);
+    el.addEventListener('scroll', handler, { passive: true });
+    return () => el.removeEventListener('scroll', handler);
+  }, [isOpen, scrollYMV]);
 
-  const values = useMemo<ScrollAnimationValues>(() => {
-    const safeScrollY = safe(scrollY, 0);
-    const maxScroll = 200;
-    const scrollProgress = safe(Math.min(safeScrollY / maxScroll, 1), 0);
+  // All transform formulae mirror the original clamp expressions exactly so
+  // the visual output is identical; only the execution path changes.
 
-    const imageOpacity = safe(Math.max(1 - scrollProgress * 0.7, 0), 1);
-    const imageScale = safe(Math.max(1 - scrollProgress * 0.2, 0.8), 1);
-    const headerOpacity = safe(Math.min(scrollProgress * 2, 1), 0);
+  const imageOpacity = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / 200, 1);
+    return Math.max(1 - progress * 0.7, 0);
+  });
 
-    const initialHeight = 320;
-    const minHeight = 64;
-    const dynamicHeight = safe(
-      Math.max(initialHeight - safeScrollY * 0.8, minHeight),
-      minHeight,
-    );
+  const imageScale = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / 200, 1);
+    return Math.max(1 - progress * 0.2, 0.8);
+  });
 
-    const titleScale = safe(Math.max(1 - scrollProgress * 0.3, 0.7), 1);
-    const titleY = safe(scrollProgress * 20, 0);
+  const headerOpacity = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / 200, 1);
+    return Math.min(progress * 2, 1);
+  });
 
-    return { imageOpacity, imageScale, headerOpacity, dynamicHeight, titleScale, titleY };
-  }, [scrollY]);
+  // Returns a CSS string so it can be used directly with `style={{ height }}`.
+  const dynamicHeight = useTransform(
+    scrollYMV,
+    (v) => `${Math.max(320 - v * 0.8, 64)}px`,
+  );
+
+  const titleScale = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / 200, 1);
+    return Math.max(1 - progress * 0.3, 0.7);
+  });
+
+  const titleY = useTransform(scrollYMV, (v) => {
+    const progress = Math.min(v / 200, 1);
+    return progress * 20;
+  });
 
   return {
     scrollContainerRef,
-    scrollY,
-    ...values,
+    imageOpacity,
+    imageScale,
+    headerOpacity,
+    dynamicHeight,
+    titleScale,
+    titleY,
   };
 }

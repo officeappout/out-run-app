@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle2, MapPin, Lock, Coins, ArrowRight } from 'lucide-react';
+import { CheckCircle2, MapPin, Lock } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
@@ -81,10 +81,12 @@ export default function Phase2IntroPage() {
   return (
     <OnboardingLayout
       headerType="progress"
-      currentStep={7} // Approximate step in overall flow (after Phase 1)
+      currentStep={7}
       totalSteps={15}
-      initialProgress={45} // Show we're about halfway through
+      initialProgress={45}
       showBack={false}
+      onContinue={handleContinue}
+      continueLabel={locale.phase2Intro.continueButton}
     >
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 py-8">
         {/* Title */}
@@ -182,37 +184,6 @@ export default function Phase2IntroPage() {
           })}
         </motion.div>
 
-        {/* Continue Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="w-full max-w-md"
-        >
-          <button
-            onClick={handleContinue}
-            className="relative w-full bg-[#5BC2F2] hover:bg-[#4ab0e0] text-white font-black py-5 rounded-3xl text-lg shadow-lg shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] overflow-hidden"
-          >
-            {/* Coin Reward Badge - Top Left */}
-            <div className="absolute top-2 left-3 z-10 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
-              <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
-              <span className="text-xs font-bold font-simpler">+10</span>
-            </div>
-
-            <span className="relative z-10 font-black font-simpler">
-              {locale.phase2Intro.continueButton}
-            </span>
-
-            {/* Arrow Icon */}
-            <ArrowRight
-              size={20}
-              className={`absolute top-1/2 -translate-y-1/2 z-10 ${
-                direction === 'rtl' ? 'left-4 rotate-180' : 'right-4'
-              }`}
-              strokeWidth={2.5}
-            />
-          </button>
-        </motion.div>
       </div>
     </OnboardingLayout>
   );

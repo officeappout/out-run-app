@@ -10,7 +10,7 @@ const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
-const WHITE_FADE = 'linear-gradient(to top, white 0%, white 15%, rgba(255,255,255,0.4) 40%, transparent 100%)';
+const WHITE_FADE = 'linear-gradient(to top, white 0%, white 8%, rgba(255,255,255,0.2) 28%, transparent 100%)';
 
 const MUSCLE_ICON_PATHS: Record<string, string> = {
   chest: '/icons/muscles/male/chest.svg',
@@ -176,30 +176,20 @@ export default function ExerciseDetailContent({
             />
           )}
 
-          {/* White fade — video melts seamlessly into the white content sheet */}
+          {/* Slim bottom-edge fade — just enough to blend video into white content */}
           <div
-            className="absolute bottom-0 inset-x-0 h-[85%] pointer-events-none"
+            className="absolute bottom-0 inset-x-0 h-[28%] pointer-events-none"
             style={{ background: WHITE_FADE }}
           />
-
-          {/* Exercise name — sits inside the solid-white zone of the fade */}
-          <div className="absolute bottom-0 inset-x-0 z-10 px-4 pb-2">
-            <h2
-              className="text-[20px] font-bold text-gray-900 dark:text-white text-right leading-snug"
-              style={SECTION_FONT}
-            >
-              {exerciseName}
-            </h2>
-          </div>
         </div>
       )}
 
       {/* ── White content area ── */}
       <div className="bg-white dark:bg-slate-900 px-4 pt-4 pb-12">
-        {/* Exercise Title — only when hero is hidden (StrengthRunner already shows it in the card header) */}
-        {hideHeroVideo && !hideTitle && (
+        {/* Exercise title — always shown unless explicitly hidden */}
+        {!hideTitle && (
           <h2
-            className="text-[20px] font-bold text-gray-900 dark:text-white text-right mb-4"
+            className="text-[20px] font-bold text-gray-900 dark:text-white text-right mb-4 leading-snug"
             style={SECTION_FONT}
           >
             {exerciseName}
@@ -209,7 +199,7 @@ export default function ExerciseDetailContent({
         {/* ── YouTube Technical Video — directly below title ── */}
         {ytId && (
           <section style={{ marginBottom: 16 }}>
-            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+            <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
               סרטון טכניקה מפורט
             </h3>
             <div className="relative w-full rounded-lg overflow-hidden bg-black" style={{ aspectRatio: '16 / 9' }}>
@@ -320,7 +310,7 @@ export default function ExerciseDetailContent({
             {/* Primary Muscle — original asset color, 36px */}
             {resolvedPrimary && (
               <div style={{ marginBottom: resolvedSecondary.length > 0 ? 12 : 0 }}>
-                <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+                <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
                   שריר ראשי
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -342,7 +332,7 @@ export default function ExerciseDetailContent({
             {/* Secondary Muscles — original asset color, 36px, font-normal */}
             {resolvedSecondary.length > 0 && (
               <div>
-                <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+                <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
                   שרירים משניים
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -366,7 +356,7 @@ export default function ExerciseDetailContent({
         {/* ── Description (תיאור) ── */}
         {description && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+            <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
               תיאור
             </h3>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed" style={SECTION_FONT}>
@@ -378,7 +368,7 @@ export default function ExerciseDetailContent({
         {/* ── Goal (מטרות) ── */}
         {goal && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+            <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
               מטרות
             </h3>
             <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4" style={{ border: PILL_BORDER }}>
@@ -393,7 +383,7 @@ export default function ExerciseDetailContent({
         {/* ── Instructions (הוראות ביצוע) ── */}
         {instructions && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+            <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
               הוראות ביצוע
             </h3>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line" style={SECTION_FONT}>
@@ -405,7 +395,7 @@ export default function ExerciseDetailContent({
         {/* ── Cues (דגשים) ── */}
         {hasCues && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+            <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
               דגשים
             </h3>
             <ol className="space-y-2.5">
@@ -426,7 +416,7 @@ export default function ExerciseDetailContent({
         {/* ── Notes (טיפים) ── */}
         {hasNotes && (
           <section className="mb-6">
-            <h3 className="text-right text-[16px] font-semibold mb-3" style={SECTION_FONT}>
+            <h3 className="text-right text-[16px] font-semibold mb-3 text-gray-900 dark:text-white" style={SECTION_FONT}>
               טיפים
             </h3>
             <ul className="space-y-2">

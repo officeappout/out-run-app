@@ -110,6 +110,40 @@ export interface AdminUserListItem {
   cityName?: string;
   /** Birth date for display */
   birthDate?: unknown;
+  /**
+   * Last recorded user activity timestamp (from users.lastActive).
+   * Undefined when the user has no recorded activity (legacy doc or
+   * brand-new account that has not yet triggered an active session).
+   */
+  lastActive?: Date;
+  /**
+   * Whether push notifications are enabled in the user's settings.
+   * Defaults to `false` when settings.pushEnabled is missing — safer to
+   * treat ambiguous accounts as unreachable than to assume opt-in.
+   */
+  pushEnabled: boolean;
+  /**
+   * Count of registered FCM tokens on the user document. 0 means the
+   * user has no active push channel (signed out of all devices, denied
+   * permission, or never installed the native shell).
+   */
+  fcmTokenCount: number;
+  /**
+   * Growth Hub — Tier 3 (Marketing Attribution). Populated at the
+   * onboarding-completion write gate from sessionStorage-captured UTM /
+   * click-id parameters. Undefined for legacy users who completed
+   * onboarding before this pipeline shipped — every consumer MUST guard
+   * with optional chaining before reading sub-fields.
+   *
+   *  • source === 'organic'  → no inbound ad signal was present
+   *  • source === <string>   → utm_source value (e.g. 'facebook', 'google')
+   */
+  marketingAttribution?: {
+    source: string | null;
+    medium: string | null;
+    campaign: string | null;
+    adId: string | null;
+  };
 }
 
 /**
@@ -135,6 +169,23 @@ export async function getAllUsers(): Promise<AdminUserListItem[]> {
         }
       }
 
+      const settings = data?.settings || {};
+      const fcmTokens = data?.fcmTokens;
+
+      // Growth Hub — Tier 3 attribution projection. Defensive shape:
+      // legacy docs return undefined; partial docs are normalised so
+      // every property is at minimum null (not missing) — that keeps the
+      // UI guards simple and consistent.
+      const rawAttribution = data?.marketingAttribution;
+      const marketingAttribution = rawAttribution && typeof rawAttribution === 'object'
+        ? {
+            source:   typeof rawAttribution.source   === 'string' ? rawAttribution.source   : null,
+            medium:   typeof rawAttribution.medium   === 'string' ? rawAttribution.medium   : null,
+            campaign: typeof rawAttribution.campaign === 'string' ? rawAttribution.campaign : null,
+            adId:     typeof rawAttribution.adId     === 'string' ? rawAttribution.adId     : null,
+          }
+        : undefined;
+
       return {
         id: docSnap.id,
         name: core.name || 'Unknown',
@@ -150,6 +201,13 @@ export async function getAllUsers(): Promise<AdminUserListItem[]> {
         onboardingStep: data?.onboardingStep || undefined,
         onboardingStatus: data?.onboardingStatus || undefined,
         isAnonymous: core.isAnonymous === true,
+        // Growth Hub — Tier 1 projections (pure in-memory reads, no extra Firestore cost):
+        lastActive: toDate(data?.lastActive),
+        pushEnabled:
+          typeof settings.pushEnabled === 'boolean' ? settings.pushEnabled : false,
+        fcmTokenCount: Array.isArray(fcmTokens) ? fcmTokens.length : 0,
+        // Growth Hub — Tier 3 projection (also a pure in-memory read):
+        marketingAttribution,
       };
     });
   } catch (error) {

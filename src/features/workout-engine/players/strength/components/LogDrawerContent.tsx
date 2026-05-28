@@ -114,7 +114,7 @@ export default function LogDrawerContent({
     <div
       className="bg-white dark:bg-[#0F172A] rounded-t-[24px] px-4 pt-2.5 shadow-2xl"
       dir="rtl"
-      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
+      style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
     >
       <h2
         className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
@@ -190,9 +190,10 @@ export default function LogDrawerContent({
 
       <button
         onClick={isUnilateral ? handleUnilateralClick : handleBilateralClick}
-        className="w-full mt-3 h-12 rounded-full font-bold text-base text-white shadow-lg active:scale-[0.97] transition-transform"
+        className="w-full mt-3 h-14 rounded-full font-bold text-base text-white active:scale-[0.97] transition-transform"
         style={{
           background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
+          boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
           fontFamily: 'var(--font-simpler)',
         }}
       >

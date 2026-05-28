@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithGooglePopup, onAuthStateChange } from '@/lib/auth.service';
+import { signInWithGoogle, signInWithApple, onAuthStateChange } from '@/lib/auth.service';
 import { db } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -119,13 +119,17 @@ function LoginDrawer({
   open,
   onClose,
   onGoogleLogin,
-  loading,
+  onAppleLogin,
+  loadingProvider,
 }: {
   open: boolean;
   onClose: () => void;
   onGoogleLogin: () => void;
-  loading: boolean;
+  onAppleLogin: () => void;
+  /** Which provider is currently authenticating, or null if idle. */
+  loadingProvider: 'google' | 'apple' | null;
 }) {
+  const loading = loadingProvider !== null;
   // Prevent body scroll when drawer is open
   useEffect(() => {
     if (open) {
@@ -198,36 +202,41 @@ function LoginDrawer({
                 className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 48 48" className="flex-shrink-0">
-                  <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.9 33.5 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.9 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.2-2.7-.4-3.9z"/>
-                  <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.5 18.8 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.9 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-                  <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.8 13.4-5l-6.2-5.2C29.2 35.2 26.7 36 24 36c-5.3 0-9.8-3.5-11.4-8.3l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
-                  <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.2 5.2C36.8 39.2 44 34 44 24c0-1.3-.2-2.7-.4-3.9z"/>
-                </svg>
-                המשך עם Google
+                {loadingProvider === 'google' ? (
+                  <svg className="animate-spin w-5 h-5 text-slate-400 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 48 48" className="flex-shrink-0">
+                    <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.9 33.5 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.9 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.2-2.7-.4-3.9z"/>
+                    <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.5 18.8 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 5.9 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.8 13.4-5l-6.2-5.2C29.2 35.2 26.7 36 24 36c-5.3 0-9.8-3.5-11.4-8.3l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+                    <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.2 5.2C36.8 39.2 44 34 44 24c0-1.3-.2-2.7-.4-3.9z"/>
+                  </svg>
+                )}
+                {loadingProvider === 'google' ? 'מתחבר...' : 'המשך עם Google'}
               </button>
 
-              {/* Apple Login (placeholder) */}
+              {/* Apple Login — native ASAuthorizationController sheet */}
               <button
-                disabled={true}
-                className="w-full flex items-center justify-center gap-3 bg-black text-white font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-40"
+                onClick={onAppleLogin}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 bg-black hover:bg-gray-900 text-white font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
-                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                </svg>
-                המשך עם Apple
-                <span className="text-[10px] font-normal opacity-60 mr-1">(בקרוב)</span>
+                {loadingProvider === 'apple' ? (
+                  <svg className="animate-spin w-5 h-5 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  </svg>
+                )}
+                {loadingProvider === 'apple' ? 'מתחבר...' : 'המשך עם Apple'}
               </button>
-
-              {loading && (
-                <p
-                  className="text-[#5BC2F2] animate-pulse text-sm"
-                  style={{ fontFamily: 'var(--font-simpler)' }}
-                >
-                  מתחבר...
-                </p>
-              )}
             </div>
           </motion.div>
         </>
@@ -242,7 +251,7 @@ function LoginDrawer({
 
 export default function LandingPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // ── Unified carousel index — drives both background AND tagline ──
@@ -395,39 +404,52 @@ export default function LandingPage() {
     setDrawerOpen(true);
   }, []);
 
-  // ── Google Login inside drawer ──
-  const handleGoogleLogin = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { user } = await signInWithGooglePopup();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // Check if user exists in Firestore
-      const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
-      const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
-
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        const status = userData?.onboardingStatus;
-
-        if (status === 'COMPLETED' || userData?.onboardingComplete) {
-          router.push('/home');
-        } else {
-          router.push('/gateway');
-        }
+  // ── Shared post-auth redirect ──
+  const redirectAfterAuth = useCallback(async (uid: string) => {
+    const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
+    const userDocSnap = await getDoc(firestoreDoc(db, 'users', uid));
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data();
+      const status = userData?.onboardingStatus;
+      if (status === 'COMPLETED' || userData?.onboardingComplete) {
+        router.push('/home');
       } else {
-        // New Google user — preserve their identity, send to gateway
         router.push('/gateway');
       }
+    } else {
+      router.push('/gateway');
+    }
+  }, [router]);
+
+  // ── Google Login inside drawer ──
+  const handleGoogleLogin = useCallback(async () => {
+    setLoadingProvider('google');
+    try {
+      const { user } = await signInWithGoogle();
+      if (!user) { setLoadingProvider(null); return; }
+      await redirectAfterAuth(user.uid);
     } catch (error) {
       console.error('[Landing] Google login error:', error);
     }
-    setLoading(false);
+    setLoadingProvider(null);
     setDrawerOpen(false);
-  }, [router]);
+  }, [router, redirectAfterAuth]);
+
+  // ── Apple Login inside drawer ──
+  const handleAppleLogin = useCallback(async () => {
+    setLoadingProvider('apple');
+    try {
+      const { user, error } = await signInWithApple();
+      // User dismissed the native sheet — silent no-op
+      if (error === 'apple_canceled') { setLoadingProvider(null); return; }
+      if (!user) { setLoadingProvider(null); return; }
+      await redirectAfterAuth(user.uid);
+    } catch (err) {
+      console.error('[Landing] Apple login error:', err);
+    }
+    setLoadingProvider(null);
+    setDrawerOpen(false);
+  }, [router, redirectAfterAuth]);
 
   // Splash gate: while Firebase restores the session OR while the
   // post-restore redirect is in flight, render the branded splash.
@@ -521,7 +543,8 @@ export default function LandingPage() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onGoogleLogin={handleGoogleLogin}
-        loading={loading}
+        onAppleLogin={handleAppleLogin}
+        loadingProvider={loadingProvider}
       />
     </div>
   );

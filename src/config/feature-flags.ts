@@ -8,6 +8,10 @@
 // COIN_SYSTEM_PAUSED: Set to true to re-enable the coin economy system
 export const IS_COIN_SYSTEM_ENABLED = false;
 
+// COMMUNITY_FEED_PAUSED: Social feed is hidden for the MVP.
+// Set to true to re-enable automatic post creation on workout completion.
+export const IS_COMMUNITY_FEED_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

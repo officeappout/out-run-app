@@ -1,13 +1,29 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useMemo, useRef } from 'react';
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+  useDragControls,
+  animate,
+} from 'framer-motion';
+import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { getLocalizedText } from '@/features/content/exercises';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import ExerciseDetailContent, {
   type ProgramRef,
 } from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
+
+// ── Snap / gesture constants ─────────────────────────────────────────────────
+/** px below the fully-expanded anchor at initial open (≈ 10 vh → 85 vh visible of 95 vh sheet). */
+const PEEK_Y_PX =
+  typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.10) : 81;
+const CLOSE_THRESHOLD = 120;  // px dragged down from wherever to dismiss
+const EXPAND_THRESHOLD = 60;  // px dragged up to snap fully open
+const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
 
 interface ExerciseDetailDrawerProps {
   /**
@@ -170,27 +186,45 @@ function buildDetailView(
 /**
  * Animated bottom-sheet showing rich detail for one exercise.
  *
- * Wrapped in `React.memo` and gated on `detailExercise !== null`.  The
- * heavy field resolution (`buildDetailView`) is wrapped in `useMemo` so
- * it runs exactly once per opened exercise — no more re-evaluating
- * 100+ lines of string parsing on every scroll-Y tick.
+ * Architecture: 85vh initial peek → drag up to 95vh expansion → drag down to dismiss.
+ * Opacity fades only after the user drags past the 85vh resting anchor.
+ * Scroll-chain gesture (pull-to-dismiss from scrollTop=0) is handled by
+ * `useSheetScrollChain` on the inner scroll container.
  */
 function ExerciseDetailDrawerImpl({
   detailExercise,
   programMap,
   onDismiss,
 }: ExerciseDetailDrawerProps) {
-  // Drag-to-dismiss: trigger close on a deep drag-down or fast flick.
+  const isOpen = detailExercise !== null;
+
+  // ── MotionValues (GPU compositor thread, zero React re-renders) ────────────
+  const y = useMotionValue(0);
+  // Opacity is 1.0 at the resting 85vh anchor; fades only as the user drags past it.
+  const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
+
+  // ── Drag controls — only the handle pill initiates dragging ───────────────
+  const dragControls = useDragControls();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useSheetScrollChain({ isOpen, y, onClose: onDismiss, scrollRef, snapBackY: PEEK_Y_PX });
+
+  // ── Three-state snap: expand (y→0) · peek (y→PEEK_Y) · dismiss ───────────
   const handleDragEnd = useCallback(
-    (_: any, info: { offset: { y: number }; velocity: { y: number } }) => {
-      if (info.offset.y > 100 || info.velocity.y > 350) {
+    (_: any, info: any) => {
+      const offset = info.offset.y;
+      const velocity = info.velocity.y;
+      if (offset > CLOSE_THRESHOLD || velocity > 500) {
         onDismiss();
+      } else if (offset < -EXPAND_THRESHOLD) {
+        animate(y, 0, SPRING);
+      } else {
+        animate(y, PEEK_Y_PX, SPRING);
       }
     },
-    [onDismiss],
+    [onDismiss, y],
   );
 
-  // Resolve only when `detailExercise` is present; result is `null` when closed.
+  // ── View-model: heavy string resolution, memoised per exercise ────────────
   const view = useMemo<ResolvedDetailView | null>(
     () => (detailExercise ? buildDetailView(detailExercise, programMap) : null),
     [detailExercise, programMap],
@@ -211,46 +245,53 @@ function ExerciseDetailDrawerImpl({
           />
 
           {/*
-            Detail Drawer — Dynamic Height (Fit Content, capped at 90vh).
-            ─────────────────────────────────────────────────────────────
-            • motion.div is `flex flex-col` with NO explicit height; the
-              browser sizes it to its children up to `maxHeight: 90vh`.
-            • Drag handle is `flex-shrink-0` — keeps its 24px no matter what.
-            • Scroll container is the natural-flex child with `min-h-0`
-              + `overflow-y-auto` → it reports content height to the parent
-              while still allowing internal scrolling once the cap is hit.
-            • A short, lean exercise (only video + muscles) opens as a small
-              drawer; rich exercises grow up to 90vh and scroll past that.
+            Detail Drawer — 95vh height, rests at 85vh via PEEK_Y_PX y-offset.
+            ──────────────────────────────────────────────────────────────────
+            • Outer motion.div owns `drag="y"` but only listens via dragControls
+              so the drag handle is the sole gesture entry point.
+            • Inner scroll container has overscroll-contain + useSheetScrollChain
+              for pull-to-dismiss from content top.
+            • Opacity fades only when dragging below the 85vh anchor.
           */}
           <motion.div
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 500 }}
+            dragElastic={{ top: 0.08, bottom: 0 }}
+            dragMomentum={false}
+            onDragEnd={handleDragEnd}
             initial={{ y: '100%' }}
-            animate={{ y: 0 }}
+            animate={{ y: PEEK_Y_PX }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
-            className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[20px] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[24px] flex flex-col overflow-hidden"
             style={{
-              maxHeight: '90vh',
+              height: '95vh',
               fontFamily: 'var(--font-simpler)',
+              y,
+              opacity,
+              willChange: 'transform',
             }}
           >
-            {/* Drag handle — only dismisses (no snap toggle); part of flex layout */}
-            <motion.div
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.5}
-              onDragEnd={handleDragEnd}
-              onClick={onDismiss}
-              className="flex-shrink-0 flex justify-center pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing select-none"
+            {/* Background shield — fills the overflow gap above the rounded edge
+                so rapid downward drags never expose the raw white viewport beneath */}
+            <div className="absolute -top-12 left-0 right-0 h-12 bg-white dark:bg-slate-900 rounded-t-[24px] pointer-events-none" />
+
+            {/* Drag handle pill — absolute-positioned so it never shifts content */}
+            <div
+              className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-3 pb-4 cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => dragControls.start(e)}
               style={{ touchAction: 'none' }}
             >
               <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-            </motion.div>
+            </div>
 
-            {/* Scroll container — fits content; scrolls internally past 90vh.
-                WHITE_FADE on ExerciseDetailContent's hero already smooths
-                the boundary as the user scrolls text content over it. */}
+            {/* Scroll container — video is the first child, flush to the top edge.
+                The absolute handle pill floats over it (same pattern as WorkoutPreviewDrawer). */}
             <div
-              className="overflow-y-auto overscroll-contain pb-6"
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto overscroll-contain pb-12"
               style={{ minHeight: 0 }}
             >
               <ExerciseDetailContent

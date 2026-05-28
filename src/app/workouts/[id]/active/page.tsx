@@ -31,6 +31,7 @@ import { saveWorkout } from '@/features/workout-engine/core/services/storage.ser
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
+import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -1059,7 +1060,9 @@ export default function ActiveWorkoutPage() {
     }
 
     // 2. Publish to social feed (with scope fields for leaderboard)
-    if (currentUser && profile?.core?.name) {
+    // COMMUNITY_FEED_PAUSED: Gated by IS_COMMUNITY_FEED_ENABLED to stop ghost
+    // Firestore writes during the MVP freeze. Re-enable alongside the feed tab.
+    if (IS_COMMUNITY_FEED_ENABLED && currentUser && profile?.core?.name) {
       const diffLabel =
         workoutStats.difficulty === 'easy' ? 'קלה' :
         workoutStats.difficulty === 'hard' ? 'גבוהה' : 'בינונית';
@@ -1249,7 +1252,7 @@ export default function ActiveWorkoutPage() {
   // === LOADING STATE ===
   if (isLoading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
+      <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">טוען את האימון...</p>
@@ -1262,7 +1265,7 @@ export default function ActiveWorkoutPage() {
   // === ERROR STATE ===
   if (error || !stableWorkoutPlan) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-gradient-to-b from-white to-gray-50" dir="rtl">
+      <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50" dir="rtl">
         <div className="text-center px-6">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">😕</span>

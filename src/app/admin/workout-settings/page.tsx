@@ -14,14 +14,25 @@ import {
   writeBatch,
   serverTimestamp,
   Timestamp,
+  query,
+  where,
+  orderBy,
+  limit,
+  collectionGroup,
+  getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Plus, Edit2, Trash2, Save, X, MessageSquareQuote, Target, Heart, BarChart3, Bell, Eye, Upload, Download, AlertTriangle, ShieldAlert } from 'lucide-react';
+import {
+  Plus, Edit2, Trash2, Save, X, MessageSquareQuote, Target, Heart, BarChart3,
+  Bell, Eye, Upload, Download, AlertTriangle, ShieldAlert,
+  BarChart2, Send, Users, TrendingUp, Clock, XCircle, RefreshCw,
+} from 'lucide-react';
 import Link from 'next/link';
 import { resolveNotificationText, getAvailableTags, resolveDescription, getAvailableDescriptionTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { injectParentPersonaData } from './inject-parent-data';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
+import type { PushMessage, PushMessageStatus, PushChannel } from '@/features/admin/services/engagement.service';
 // Brand fields removed per David's request
 
 // ============================================================================
@@ -229,9 +240,94 @@ const LOGIC_CUE_TAGS = [
   { tag: '@שם_תוכנית', description: 'שם תוכנית', example: 'Full Body' },
 ];
 
+// ============================================================================
+// PUSH HISTORY — Growth Hub Tier 2 (CTR analytics)
+// Mounted at the bottom of this page rather than under /admin/messages so the
+// admin sees Smart Messages CRUD and Push delivery telemetry in separate
+// workspaces. All helpers are module-level (allocated once per page load).
+// ============================================================================
+
+/**
+ * Compute Click-Through Rate as a percentage (0–100, rounded to 1 decimal).
+ *
+ * Safety guards:
+ *  1. `recipientCount` undefined/null → returns null (pre-pipeline-schema
+ *     messages written before recipientCount was added to PushMessage).
+ *  2. `recipientCount === 0` → returns null (zero-audience push: dividing
+ *     would produce Infinity).
+ *  3. Computed value capped at 100 — handles data inconsistencies where
+ *     the same messageId received clicks from users not in the original
+ *     audience (re-targeted campaigns, click amplification, etc.).
+ *
+ * Returning `null` lets the UI render an "N/A" gray badge instead of
+ * NaN%, 0%, or Infinity%.
+ */
+function computeCTR(
+  clicksCount: number,
+  recipientCount: number | undefined | null,
+): number | null {
+  if (recipientCount === undefined || recipientCount === null) return null;
+  if (recipientCount === 0) return null;
+  const raw = (clicksCount / recipientCount) * 100;
+  return Math.min(100, Math.round(raw * 10) / 10);
+}
+
+/** Tailwind class for a CTR badge given its numeric value (or null). */
+function ctrBadgeClass(ctr: number | null): string {
+  if (ctr === null) return 'bg-gray-100 text-gray-500 border-gray-200';
+  if (ctr > 10) return 'bg-green-100 text-green-700 border-green-200';
+  if (ctr >= 3) return 'bg-amber-100 text-amber-700 border-amber-200';
+  return 'bg-red-100 text-red-700 border-red-200';
+}
+
+const PUSH_STATUS_STYLE: Record<PushMessageStatus, { label: string; cls: string }> = {
+  pending: { label: 'ממתין', cls: 'bg-gray-100 text-gray-600 border-gray-200' },
+  processing: { label: 'בעיבוד', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  sent: { label: 'נשלח', cls: 'bg-green-100 text-green-700 border-green-200' },
+  failed: { label: 'נכשל', cls: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+const PUSH_CHANNEL_LABEL: Record<PushChannel, string> = {
+  encouragement: 'עידוד',
+  health_milestone: 'אבן דרך בריאות',
+  training_reminder: 'תזכורת אימון',
+  system: 'מערכת',
+};
+
+/**
+ * Convert a Firestore Timestamp / Date / string / undefined to a Date
+ * suitable for toLocaleString. Returns null if unparseable.
+ */
+function toDateSafe(value: unknown): Date | null {
+  if (value == null) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'object' && 'toDate' in value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    try {
+      const d = (value as { toDate: () => Date }).toDate();
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 export default function WorkoutSettingsPage() {
   const [activeTab, setActiveTab] = useState<'titles' | 'phrases' | 'notifications' | 'descriptions' | 'logicCues'>('titles');
   const [loading, setLoading] = useState(true);
+
+  // ── Growth Hub — Tier 2 (push history + CTR aggregation) ───────────────
+  // pushCTRMap entries:
+  //   number → resolved CTR percentage (0–100)
+  //   null   → cannot compute (recipientCount missing or 0)
+  //   absent → click query still in flight (or failed silently)
+  const [pushHistory, setPushHistory] = useState<PushMessage[]>([]);
+  const [pushCTRMap, setPushCTRMap] = useState<Record<string, number | null>>({});
+  const [pushHistoryLoading, setPushHistoryLoading] = useState(false);
   
   // Titles state
   const [titles, setTitles] = useState<WorkoutTitle[]>([]);
@@ -398,6 +494,102 @@ export default function WorkoutSettingsPage() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // ── Push history + CTR loader (Growth Hub Tier 2) ──────────────────────
+  // Lifecycle:
+  //  1. Mount — fetch the latest 20 processed push_messages (orderBy
+  //     processedAt desc; this intentionally excludes pending messages
+  //     because they have no recipientCount / CTR yet).
+  //  2. For each row, fan out a `getCountFromServer` aggregation query
+  //     against the collectionGroup('notification_clicks'). This returns
+  //     ONLY a count — no document payloads are transferred, so the
+  //     network cost stays flat regardless of click volume.
+  //  3. Promise.allSettled guarantees a single failed row never aborts
+  //     the rest of the CTR map.
+  //  4. Single setState at the end → exactly one React re-render even
+  //     with 20 parallel aggregation queries.
+  //
+  // The `cancelled` flag prevents setState on an unmounted component
+  // (the page can be navigated away from while clicks are still
+  // resolving in the background).
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPushHistory = async () => {
+      setPushHistoryLoading(true);
+      try {
+        const historyQuery = query(
+          collection(db, 'push_messages'),
+          orderBy('processedAt', 'desc'),
+          limit(20),
+        );
+        const historySnap = await getDocs(historyQuery);
+
+        const rows: PushMessage[] = historySnap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          return {
+            id: d.id,
+            authorityId: (data.authorityId as string) ?? '',
+            parkId: (data.parkId as string | undefined) ?? undefined,
+            title: (data.title as string) ?? '',
+            message: (data.message as string) ?? '',
+            sentBy: (data.sentBy as string) ?? '',
+            sentAt: toDateSafe(data.sentAt) ?? new Date(0),
+            targetAudience: (data.targetAudience as PushMessage['targetAudience']) ?? 'all',
+            channel: data.channel as PushChannel | undefined,
+            status: data.status as PushMessageStatus | undefined,
+            deliveredCount: typeof data.deliveredCount === 'number' ? data.deliveredCount : undefined,
+            failedCount: typeof data.failedCount === 'number' ? data.failedCount : undefined,
+            tokensRemoved: typeof data.tokensRemoved === 'number' ? data.tokensRemoved : undefined,
+            recipientCount: typeof data.recipientCount === 'number' ? data.recipientCount : undefined,
+            tokenCount: typeof data.tokenCount === 'number' ? data.tokenCount : undefined,
+            processedAt: toDateSafe(data.processedAt) ?? undefined,
+            error: (data.error as string | undefined) ?? undefined,
+          };
+        });
+
+        if (cancelled) return;
+        setPushHistory(rows);
+
+        // Aggregate CTR per message via server-side count (zero payload).
+        const ctrResults = await Promise.allSettled(
+          rows.map(async (msg) => {
+            const clicksQuery = query(
+              collectionGroup(db, 'notification_clicks'),
+              where('messageId', '==', msg.id),
+            );
+            const agg = await getCountFromServer(clicksQuery);
+            const clicksCount = agg.data().count;
+            return {
+              id: msg.id,
+              ctr: computeCTR(clicksCount, msg.recipientCount),
+            };
+          }),
+        );
+
+        if (cancelled) return;
+
+        // Build the complete map in memory, then commit in a single
+        // setState call — avoids the N-re-render mapping trap.
+        const nextCTRMap: Record<string, number | null> = {};
+        ctrResults.forEach((r) => {
+          if (r.status === 'fulfilled') {
+            nextCTRMap[r.value.id] = r.value.ctr;
+          }
+        });
+        setPushCTRMap(nextCTRMap);
+      } catch (err) {
+        console.error('[workout-settings/push-history] load failed:', err);
+      } finally {
+        if (!cancelled) setPushHistoryLoading(false);
+      }
+    };
+
+    loadPushHistory();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const loadData = async () => {
@@ -3111,6 +3303,167 @@ export default function WorkoutSettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* ================================================================== */}
+      {/* GROWTH HUB — TIER 2: PUSH HISTORY & CTR PERFORMANCE PANEL          */}
+      {/* Lists the latest 20 processed push_messages and computes a live    */}
+      {/* CTR by aggregating the user-scoped notification_clicks via         */}
+      {/* getCountFromServer (zero document payloads transferred).           */}
+      {/* ================================================================== */}
+      <section>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* Section header */}
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-gradient-to-l from-cyan-50 via-white to-white">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center">
+                <BarChart2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  היסטוריית הודעות פוש וביצועים
+                </h2>
+                <p className="text-xs text-gray-500">
+                  20 ההודעות האחרונות שעובדו · CTR מחושב לפי {`<clicks/recipients>`}
+                </p>
+              </div>
+            </div>
+            {pushHistoryLoading && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                טוען נתונים
+              </div>
+            )}
+          </div>
+
+          {/* Body — empty state, loading skeleton, or data table */}
+          {pushHistoryLoading && pushHistory.length === 0 ? (
+            <div className="p-8 text-center">
+              <RefreshCw className="w-6 h-6 text-gray-300 mx-auto animate-spin" />
+              <p className="text-sm text-gray-400 mt-2">טוען היסטוריית פוש...</p>
+            </div>
+          ) : pushHistory.length === 0 ? (
+            <div className="p-8 text-center">
+              <Send className="w-8 h-8 text-gray-300 mx-auto" />
+              <p className="text-sm text-gray-500 mt-2 font-bold">אין הודעות מעובדות</p>
+              <p className="text-xs text-gray-400 mt-1">
+                הודעות מופיעות כאן לאחר ש-Cloud Function עיבד אותן
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs font-bold">
+                  <tr>
+                    <th className="text-start px-3 py-2">הודעה</th>
+                    <th className="text-start px-3 py-2">ערוץ</th>
+                    <th className="text-start px-3 py-2">סטטוס</th>
+                    <th className="text-start px-3 py-2">נמענים</th>
+                    <th className="text-start px-3 py-2">נמסר</th>
+                    <th className="text-start px-3 py-2">נכשל</th>
+                    <th className="text-start px-3 py-2">CTR</th>
+                    <th className="text-start px-3 py-2">תאריך</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pushHistory.map((msg) => {
+                    const ctr = msg.id in pushCTRMap ? pushCTRMap[msg.id] : null;
+                    const ctrIsLoading = !(msg.id in pushCTRMap);
+                    const status = msg.status ?? 'pending';
+                    const statusStyle = PUSH_STATUS_STYLE[status];
+                    const channelLabel = msg.channel
+                      ? PUSH_CHANNEL_LABEL[msg.channel] ?? msg.channel
+                      : '—';
+                    const processed = msg.processedAt ?? msg.sentAt;
+
+                    return (
+                      <tr key={msg.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-3 py-2 max-w-[220px]">
+                          <div className="font-bold text-gray-900 truncate" title={msg.title}>
+                            {msg.title || '—'}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate" title={msg.message}>
+                            {msg.message || '—'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
+                            {channelLabel}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold border ${statusStyle.cls}`}>
+                            {statusStyle.label}
+                          </span>
+                          {msg.error && (
+                            <div className="text-[10px] text-red-500 mt-1 flex items-center gap-1" title={msg.error}>
+                              <XCircle className="w-3 h-3" />
+                              <span className="truncate max-w-[120px]">{msg.error}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1 text-gray-700">
+                            <Users className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="font-bold">{msg.recipientCount ?? 0}</span>
+                          </div>
+                          {typeof msg.tokenCount === 'number' && msg.tokenCount !== msg.recipientCount && (
+                            <div className="text-[10px] text-gray-400">
+                              {msg.tokenCount} מכשירים
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="font-bold text-green-700">
+                            {msg.deliveredCount ?? 0}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`font-bold ${(msg.failedCount ?? 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                            {msg.failedCount ?? 0}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {ctrIsLoading ? (
+                            <span className="text-xs text-gray-300 inline-flex items-center gap-1">
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              ...
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-bold border ${ctrBadgeClass(ctr)}`}
+                              title={
+                                ctr === null
+                                  ? 'אין נתוני נמענים — לא ניתן לחשב CTR'
+                                  : `CTR מחושב: ${ctr}%`
+                              }
+                            >
+                              <TrendingUp className="w-3 h-3" />
+                              {ctr === null ? 'N/A' : `${ctr}%`}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
+                          {processed ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {processed.toLocaleString('he-IL', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ================================================================== */}
       {/* CLEAN SLATE MODAL                                                  */}

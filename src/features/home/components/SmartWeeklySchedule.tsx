@@ -23,10 +23,6 @@ import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/fea
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
-import {
-  generateCommunityICS,
-  downloadICS,
-} from '@/features/user/scheduling/services/communitySchedule.service';
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { 
   ACTIVITY_COLORS, 
@@ -742,45 +738,6 @@ export default function SmartWeeklySchedule({
     }
   }, [calendarMode, onCalendarModeChange]);
 
-  const [syncing, setSyncing] = useState(false);
-
-  const handleCalendarSync = useCallback(async () => {
-    if (!userId || syncing) return;
-    setSyncing(true);
-    try {
-      const sundayISO = getSundayWeekStart(new Date());
-      const entries = await getWeekEntries(userId, sundayISO);
-      const communityEvents: Parameters<typeof generateCommunityICS>[0] = [];
-      const seenSlots = new Set<string>();
-      // After the entries[] migration, community sessions are first-class
-      // entries with `source: 'community'` carrying groupId/groupName/startTime
-      // directly.  The deprecated top-level `communitySessions[]` is gone.
-      for (const entry of entries) {
-        if (entry.source !== 'community' || !entry.groupId || !entry.groupName || !entry.startTime) continue;
-        const key = `${entry.groupId}-${entry.startTime}`;
-        if (seenSlots.has(key)) continue;
-        seenSlots.add(key);
-        const dayOfWeek = new Date(entry.date + 'T00:00:00').getDay();
-        const category = entry.scheduledCategories?.[0] ?? '';
-        communityEvents.push({
-          groupName: entry.groupName,
-          category,
-          dayOfWeek,
-          time: entry.startTime,
-        });
-      }
-      if (communityEvents.length === 0) {
-        alert('אין מפגשים קהילתיים בלוז כרגע');
-        return;
-      }
-      const ics = generateCommunityICS(communityEvents);
-      downloadICS(ics);
-    } catch (err) {
-      console.error('[SmartWeeklySchedule] calendar sync failed:', err);
-    } finally {
-      setSyncing(false);
-    }
-  }, [userId, syncing]);
 
   const isHealthMode = currentTrack === 'wellness';
   const isRunningMode = currentTrack === 'running';
@@ -1404,20 +1361,17 @@ export default function SmartWeeklySchedule({
 
       {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
       {!showOverlay && <div className="flex items-center justify-between mb-2 px-1">
-        <button
-          onClick={handleCalendarSync}
-          disabled={syncing}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
-            syncing
-              ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600'
-              : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
-          }`}
+        {/* webcal:// deep-link — iOS opens Apple Calendar, Android opens Google Calendar */}
+        <a
+          href={userId ? `webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/calendar/${userId}` : undefined}
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
-          <img src="/icons/schedule/sync-calendar.svg" alt="" className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+          <img src="/icons/schedule/sync-calendar.svg" alt="" className="w-4 h-4" />
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-            {syncing ? 'מסנכרן...' : 'סנכרון ליומן'}
+            סנכרון ליומן
           </span>
-        </button>
+        </a>
         <button
           onClick={onOpenPlanner ?? toggleCalendarMode}
           className="inline-flex items-center gap-1 font-medium hover:underline"

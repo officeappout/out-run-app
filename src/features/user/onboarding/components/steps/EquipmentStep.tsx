@@ -1,17 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Dumbbell, Circle, Search, X,
-  Coins, Check, Home, Building
-} from 'lucide-react';
+import { Coins } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
-import { getAllGearDefinitions } from '@/features/content/equipment/gear';
-import { GearDefinition } from '@/features/content/equipment/gear';
-import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
-import StickyActionButton from '@/components/ui/StickyActionButton';
+import EquipmentFilterSheet from '@/features/content/exercises/client/components/EquipmentFilterSheet';
 
 interface EquipmentStepProps {
   onNext: () => void;
@@ -19,336 +13,53 @@ interface EquipmentStepProps {
   isLastStep?: boolean;
 }
 
-const EQUIPMENT_SVG_MAP: Record<string, string> = {
-  // Rings
-  rings:            '/assets/icons/equipment/rings.svg',
-  gymnastic_rings:  '/assets/icons/equipment/rings.svg',
-  ring_park:        '/assets/icons/equipment/ring_park.svg',
-  // Resistance bands — all aliases point to the actual file on disk
-  bands:            '/assets/icons/equipment/long_resistance_band.svg',
-  resistance_band:  '/assets/icons/equipment/long_resistance_band.svg',
-  resistance_bands: '/assets/icons/equipment/long_resistance_band.svg',
-  long_resistance_band: '/assets/icons/equipment/long_resistance_band.svg',
-  // Pull-up bar — use the park variant (verified on disk)
-  pull_up_bar:      '/assets/icons/equipment/pullupbar_park.svg',
-  pullup_bar:       '/assets/icons/equipment/pullupbar_park.svg',
-  pullUpBar:        '/assets/icons/equipment/pullupbar_park.svg',
-  pullupbar_park:   '/assets/icons/equipment/pullupbar_park.svg',
-  pullup_bar_park:  '/assets/icons/equipment/pullupbar_park.svg',
-  pullup_bar_door:  '/assets/icons/equipment/pullup_bar_door.svg',
-  // Parallel bars / dip station
-  dip_station:      '/assets/icons/equipment/parallel_bars.svg',
-  parallettes:      '/assets/icons/equipment/parallel_bars.svg',
-  parallel_bars:    '/assets/icons/equipment/parallel_bars.svg',
-  parallel_bars_home: '/assets/icons/equipment/parallel_bars_home.svg',
-  // TRX
-  trx:              '/assets/icons/equipment/trx.svg',
-};
-
-function getSvgIconPath(gear: GearDefinition): string | null {
-  if (EQUIPMENT_SVG_MAP[gear.id]) return EQUIPMENT_SVG_MAP[gear.id];
-
-  const nameEn = (gear.name?.en || '').toLowerCase();
-  const nameHe = (gear.name?.he || '').toLowerCase();
-
-  if (nameEn.includes('ring') || nameHe.includes('טבעות')) return EQUIPMENT_SVG_MAP.rings;
-  if (nameEn.includes('band') || nameEn.includes('resistance') || nameHe.includes('גומי')) return EQUIPMENT_SVG_MAP.resistance_bands;
-  if (nameEn.includes('pull') && nameEn.includes('bar') || nameHe.includes('מתח')) return EQUIPMENT_SVG_MAP.pull_up_bar;
-  if (nameEn.includes('parallel') || nameEn.includes('dip') || nameHe.includes('מקביל')) return EQUIPMENT_SVG_MAP.dip_station;
-  if (nameEn.includes('trx') || nameHe.includes('trx')) return EQUIPMENT_SVG_MAP.trx;
-
-  return null;
-}
-
-function EquipmentIcon({ gear, isSelected, size = 22 }: { gear: GearDefinition; isSelected: boolean; size?: number }) {
-  const svgPath = getSvgIconPath(gear);
-
-  if (svgPath) {
-    return (
-      <img
-        src={svgPath}
-        alt=""
-        className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-50'}`}
-        style={{ width: size, height: size, objectFit: 'contain' }}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-      />
-    );
-  }
-
-  const nameEn = (gear.name?.en || '').toLowerCase();
-  const nameHe = (gear.name?.he || '').toLowerCase();
-
-  let emoji = '🏋️';
-  if (nameEn.includes('mat') || nameHe.includes('מזרן')) emoji = '🧘';
-  else if (nameEn.includes('bench') || nameHe.includes('ספסל') || nameHe.includes('כיסא')) emoji = '🪑';
-  else if (nameEn.includes('kettlebell') || nameHe.includes('קטלבל')) emoji = '🔔';
-  else if (nameEn.includes('dumbbell') || nameEn.includes('weight') || nameHe.includes('משקול') || nameHe.includes('דמבל')) emoji = '🏋️';
-  else if (nameEn.includes('rope') || nameEn.includes('jump') || nameHe.includes('חבל') || nameHe.includes('קפיצה')) emoji = '⏱️';
-  else if (nameEn.includes('foam') || nameEn.includes('roller') || nameHe.includes('רולר')) emoji = '🧴';
-  else if (nameEn.includes('ab') && nameEn.includes('wheel') || nameHe.includes('גלגל')) emoji = '⭕';
-
-  return <span style={{ fontSize: size - 4 }}>{emoji}</span>;
-}
-
 /**
- * Get popular equipment items (first 6-8 items)
+ * EquipmentStep — renders the EquipmentFilterSheet as a full bottom drawer.
+ *
+ * The sheet opens immediately when this step is active, its dark backdrop
+ * covers the story-bar and any content behind it, presenting a clean
+ * "ציוד ומיקום" picker with all sections (presets, park, improvised, personal).
+ *
+ * Tapping "בואו נעדכן ציוד" (or the X / backdrop) writes selections to the
+ * onboarding store and advances to the next step.
  */
-function getPopularEquipment(equipment: GearDefinition[]): GearDefinition[] {
-  // Return first 6 items as "popular"
-  return equipment.slice(0, 6);
-}
-
-/**
- * Group equipment by category (family)
- */
-function groupByCategory(equipment: GearDefinition[]): Record<string, GearDefinition[]> {
-  return equipment.reduce((acc, gear) => {
-    const category = gear.category || 'other';
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(gear);
-    return acc;
-  }, {} as Record<string, GearDefinition[]>);
-}
-
-/**
- * Category display names (Hebrew)
- */
-const categoryNames: Record<string, string> = {
-  suspension: 'תלייה',
-  resistance: 'התנגדות',
-  weights: 'משקולות',
-  stationary: 'סטטי',
-  accessories: 'אביזרים',
-  cardio: 'קרדיו',
-  other: 'אחר',
-};
-
-export default function EquipmentStep({ onNext, isJIT, isLastStep }: EquipmentStepProps) {
-  // Store destructuring - must come first
+export default function EquipmentStep({ onNext }: EquipmentStepProps) {
   const { updateData, data, addCoins } = useOnboardingStore();
-  
-  // All state declarations - must come after store, before const declarations
-  const [allEquipment, setAllEquipment] = useState<GearDefinition[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showMoreModal, setShowMoreModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<'NONE' | 'HOME' | 'GYM' | null>(null);
   const [showCoinAnimation, setShowCoinAnimation] = useState(false);
-  const [coinsEarned, setCoinsEarned] = useState(false);
   const [hasEarnedReward, setHasEarnedReward] = useState(false);
-  
-  // All const declarations - must come before useEffect hooks that use them
-  // Get selected equipment IDs from store
-  const selectedEquipmentIds = data.equipmentList || [];
-  const hasEquipment = data.hasEquipment ?? false;
-  const hasGym = data.hasGym ?? false;
 
-  // Get gender from sessionStorage
-  const gender = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_personal_gender') || 'male') as 'male' | 'female'
-    : 'male';
-  
-  // Gender-aware translation helper
-  const t = (male: string, female: string) => gender === 'female' ? female : male;
+  const selectedEquipmentIds = data.equipmentList ?? [];
 
-  // Get current language
-  const savedLanguage = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_language') || 'he') as OnboardingLanguage
-    : 'he';
-  const locale = getOnboardingLocale(savedLanguage);
-
-  // All useEffect hooks - must come after all const declarations they depend on
-  // Check if coins should be earned (user has made a selection)
-  useEffect(() => {
-    if (selectedType !== null || selectedEquipmentIds.length > 0) {
-      setCoinsEarned(true);
-    }
-  }, [selectedType, selectedEquipmentIds]);
-
-  // Fetch equipment on mount
-  useEffect(() => {
-    async function fetchEquipment() {
-      try {
-        const equipment = await getAllGearDefinitions();
-        setAllEquipment(equipment);
-      } catch (error) {
-        console.error('Error fetching equipment:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchEquipment();
-  }, []);
-
-  // Get popular equipment (first 6)
-  const popularEquipment = useMemo(() => getPopularEquipment(allEquipment), [allEquipment]);
-
-  // Get remaining equipment (for modal)
-  const remainingEquipment = useMemo(() => {
-    return allEquipment.slice(6);
-  }, [allEquipment]);
-
-  // Filter equipment by search query
-  const filteredRemainingEquipment = useMemo(() => {
-    if (!searchQuery.trim()) return remainingEquipment;
-
-    const query = searchQuery.toLowerCase();
-    return remainingEquipment.filter((gear) => {
-      const nameHe = gear.name?.he?.toLowerCase() || '';
-      const nameEn = gear.name?.en?.toLowerCase() || '';
-      const descriptionHe = gear.description?.he?.toLowerCase() || '';
-      const descriptionEn = gear.description?.en?.toLowerCase() || '';
-      const category = gear.category?.toLowerCase() || '';
-
-      return (
-        nameHe.includes(query) ||
-        nameEn.includes(query) ||
-        descriptionHe.includes(query) ||
-        descriptionEn.includes(query) ||
-        category.includes(query) ||
-        categoryNames[category]?.includes(query)
-      );
-    });
-  }, [remainingEquipment, searchQuery]);
-
-  // Group filtered equipment by category
-  const groupedEquipment = useMemo(() => {
-    return groupByCategory(filteredRemainingEquipment);
-  }, [filteredRemainingEquipment]);
-
-  // Toggle equipment selection
-  const toggleEquipment = (gearId: string) => {
-    const currentList = selectedEquipmentIds || [];
-    const isAdding = !currentList.includes(gearId);
-    const newList = isAdding
-      ? [...currentList, gearId]
-      : currentList.filter((id) => id !== gearId);
-
-    updateData({
-      equipmentList: newList,
-      hasEquipment: newList.length > 0,
-    });
-
-    // Show coin animation and add coins immediately when adding equipment (only once)
-    if (isAdding && !hasEarnedReward) {
-      setShowCoinAnimation(true);
-      addCoins(10); // Real-time coin update
-      setHasEarnedReward(true);
-      setTimeout(() => setShowCoinAnimation(false), 1000);
-    }
+  const triggerCoinReward = () => {
+    if (hasEarnedReward) return;
+    setShowCoinAnimation(true);
+    addCoins(10);
+    setHasEarnedReward(true);
+    setTimeout(() => setShowCoinAnimation(false), 1000);
   };
 
-  // Handle no equipment toggle
-  const handleNoEquipment = () => {
-    const newSelectedType = selectedType === 'NONE' ? null : 'NONE';
-    setSelectedType(newSelectedType);
-    updateData({
-      hasEquipment: false,
-      equipmentList: [],
-    });
-    // Add coins immediately when selecting this option (only once)
-    if (newSelectedType === 'NONE' && !hasEarnedReward) {
-      setShowCoinAnimation(true);
-      addCoins(10); // Real-time coin update
-      setHasEarnedReward(true);
-      setTimeout(() => setShowCoinAnimation(false), 1000);
-    }
+  // Live store updates as the user toggles chips (before tapping confirm).
+  const handleEquipmentChange = (ids: string[]) => {
+    const wasEmpty = (data.equipmentList ?? []).length === 0;
+    updateData({ equipmentList: ids, hasEquipment: ids.length > 0 });
+    if (wasEmpty && ids.length > 0) triggerCoinReward();
   };
 
-  // Handle home equipment toggle (accordion)
-  const handleHomeEquipmentToggle = () => {
-    const newSelectedType = selectedType === 'HOME' ? null : 'HOME';
-    setSelectedType(newSelectedType);
-    if (newSelectedType === 'HOME') {
-      // Expand accordion - no need to update store until equipment is selected
-    } else {
-      // Collapse accordion - clear selections if needed
-      if (selectedEquipmentIds.length === 0) {
-        updateData({
-          hasEquipment: false,
-          equipmentList: [],
-        });
-      }
-    }
-  };
-
-  // Handle gym toggle
-  const handleGymToggle = () => {
-    const newSelectedType = selectedType === 'GYM' ? null : 'GYM';
-    setSelectedType(newSelectedType);
-    updateData({
-      hasGym: newSelectedType === 'GYM',
-    });
-    // Add coins immediately when selecting this option (only once)
-    if (newSelectedType === 'GYM' && !hasEarnedReward) {
-      setShowCoinAnimation(true);
-      addCoins(10); // Real-time coin update
-      setHasEarnedReward(true);
-      setTimeout(() => setShowCoinAnimation(false), 1000);
-    }
-  };
-
-  // Handle continue
-  const handleContinue = () => {
-    // Don't add coins again if already earned
-    if (!hasEarnedReward) {
-      addCoins(10);
-    }
+  // Called when the user taps "בואו נעדכן ציוד" — ids already stripped of sentinel.
+  const handleApply = (ids: string[]) => {
+    updateData({ equipmentList: ids, hasEquipment: ids.length > 0 });
+    triggerCoinReward();
     onNext();
   };
 
-  // Get equipment name in current language
-  const getEquipmentName = (gear: GearDefinition): string => {
-    if (savedLanguage === 'he') {
-      return gear.name?.he || gear.name?.en || '';
-    }
-    if (savedLanguage === 'en') {
-      return gear.name?.en || gear.name?.he || '';
-    }
-    // Russian - fallback to English
-    return gear.name?.en || gear.name?.he || '';
+  // Tapping the X button or backdrop = skip equipment step.
+  const handleClose = () => {
+    onNext();
   };
-
-  // Check if equipment is selected
-  const isEquipmentSelected = (gearId: string): boolean => {
-    return selectedEquipmentIds.includes(gearId);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-slate-600">טוען ציוד...</div>
-      </div>
-    );
-  }
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-6 pb-8 space-y-4 flex flex-col min-h-screen">
-      {/* Header with Icon */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-4"
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-          className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-[#5BC2F2] to-[#4AADE3] rounded-full mb-4 shadow-lg shadow-[#5BC2F2]/30"
-        >
-          <Dumbbell size={28} className="text-white" />
-        </motion.div>
-        <h2 className="text-2xl font-black text-slate-900 mb-2">
-          {locale.equipment.title}
-        </h2>
-        <p className="text-sm text-slate-500">
-          {savedLanguage === 'he' ? 'בחר את הציוד הזמין לך' : 'Select your available equipment'}
-        </p>
-      </motion.div>
-
-      {/* Coin Animation - COIN_SYSTEM_PAUSED */}
+    <>
+      {/* Coin reward — floats above the sheet at z-[100] */}
       {IS_COIN_SYSTEM_ENABLED && (
         <AnimatePresence>
           {showCoinAnimation && (
@@ -357,7 +68,7 @@ export default function EquipmentStep({ onNext, isJIT, isLastStep }: EquipmentSt
               animate={{ opacity: 0, y: -30, scale: 1.2 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
-              className="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none z-50"
+              className="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none z-[100]"
             >
               <div className="flex items-center gap-1 bg-amber-200 text-amber-800 rounded-full px-3 py-2 shadow-lg border border-amber-300">
                 <Coins size={18} className="text-amber-800" strokeWidth={2.5} />
@@ -368,280 +79,20 @@ export default function EquipmentStep({ onNext, isJIT, isLastStep }: EquipmentSt
         </AnimatePresence>
       )}
 
-      {/* Card A: No Equipment - Premium Styling */}
-      <motion.button
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        onClick={handleNoEquipment}
-        className={`w-full bg-white p-5 rounded-[24px] transition-all duration-300 min-h-[80px] flex items-center gap-4 ${
-          selectedType === 'NONE'
-            ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
-            : 'border-2 border-transparent shadow-md hover:shadow-lg hover:border-slate-200'
-        }`}
-      >
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-          selectedType === 'NONE' ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
-        }`}>
-          <Circle size={24} className={selectedType === 'NONE' ? 'text-[#5BC2F2]' : 'text-slate-500'} />
-        </div>
-        <div className="flex-1 text-right">
-          <p className={`text-base font-bold ${selectedType === 'NONE' ? 'text-slate-900' : 'text-slate-700'}`}>
-            {t('אין לי ציוד', 'אין לי ציוד')}
-          </p>
-          <p className="text-sm text-slate-500">
-            {t('מתאמן בבית בלי אביזרים', 'מתאמנת בבית בלי אביזרים')}
-          </p>
-        </div>
-        {selectedType === 'NONE' && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center"
-          >
-            <Check size={14} className="text-white" strokeWidth={3} />
-          </motion.div>
-        )}
-      </motion.button>
-
-      {/* Card B: Home Equipment (Accordion) - Premium Styling */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className={`bg-white rounded-[24px] transition-all duration-300 ${
-          selectedEquipmentIds.length > 0 || selectedType === 'HOME'
-            ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
-            : 'border-2 border-transparent shadow-md'
-        }`}
-      >
-        {/* Accordion Header - Always visible */}
-        <motion.button
-          onClick={handleHomeEquipmentToggle}
-          className="w-full p-5 min-h-[80px] flex items-center gap-4"
-        >
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-            selectedType === 'HOME' || selectedEquipmentIds.length > 0 ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
-          }`}>
-            <Home size={24} className={selectedType === 'HOME' || selectedEquipmentIds.length > 0 ? 'text-[#5BC2F2]' : 'text-slate-500'} />
-          </div>
-          <div className="flex-1 text-right">
-            <p className={`text-base font-bold ${selectedType === 'HOME' || selectedEquipmentIds.length > 0 ? 'text-slate-900' : 'text-slate-700'}`}>
-              {t('יש לי ציוד אישי בבית', 'יש לי ציוד אישי בבית')}
-            </p>
-            <p className="text-sm text-slate-500">
-              {selectedEquipmentIds.length > 0 
-                ? `${selectedEquipmentIds.length} פריטים נבחרו`
-                : t('מתאמן בבית עם אביזרים', 'מתאמנת בבית עם אביזרים')
-              }
-            </p>
-          </div>
-          {selectedEquipmentIds.length > 0 && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center"
-            >
-              <Check size={14} className="text-white" strokeWidth={3} />
-            </motion.div>
-          )}
-        </motion.button>
-
-        {/* Accordion Content - Only visible when expanded */}
-        <AnimatePresence>
-          {selectedType === 'HOME' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="overflow-hidden px-5 pb-5"
-            >
-              <p className="text-slate-600 text-sm mb-4 text-center font-simpler">
-                {locale.equipment.selectEquipment}
-              </p>
-
-              {/* Dynamic Equipment Grid - From API/Store */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {popularEquipment.map((gear) => {
-                  const isSelected = isEquipmentSelected(gear.id);
-
-                    return (
-                    <motion.button
-                      key={gear.id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleEquipment(gear.id)}
-                      className={`flex items-center justify-between p-3 rounded-2xl transition-all h-14 ${
-                        isSelected
-                          ? 'bg-[#5BC2F2]/10 border-2 border-[#5BC2F2] shadow-[0_4px_15px_rgba(91,194,242,0.15)]'
-                          : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
-                      }`}
-                    >
-                      <span
-                        className={`text-sm font-simpler ${
-                          isSelected ? 'font-bold text-[#5BC2F2]' : 'font-medium text-slate-700'
-                        }`}
-                      >
-                        {getEquipmentName(gear)}
-                      </span>
-                      <EquipmentIcon gear={gear} isSelected={isSelected} size={22} />
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
-      {/* Card C: Gym - Premium Styling */}
-      <motion.button
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        onClick={handleGymToggle}
-        className={`w-full bg-white p-5 rounded-[24px] transition-all duration-300 min-h-[80px] flex items-center gap-4 ${
-          selectedType === 'GYM'
-            ? 'border-2 border-[#5BC2F2] shadow-[0_10px_40px_rgba(91,194,242,0.12)]'
-            : 'border-2 border-transparent shadow-md hover:shadow-lg hover:border-slate-200'
-        }`}
-      >
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-          selectedType === 'GYM' ? 'bg-[#5BC2F2]/15' : 'bg-slate-100'
-        }`}>
-          <Building size={24} className={selectedType === 'GYM' ? 'text-[#5BC2F2]' : 'text-slate-500'} />
-        </div>
-        <div className="flex-1 text-right">
-          <p className={`text-base font-bold ${selectedType === 'GYM' ? 'text-slate-900' : 'text-slate-700'}`}>
-            {t('מתאמן גם בחדר כושר', 'מתאמנת גם בחדר כושר')}
-          </p>
-          <p className="text-sm text-slate-500">
-            {savedLanguage === 'he' ? 'יש לי גישה לציוד מקצועי' : 'I have access to gym equipment'}
-          </p>
-        </div>
-        {selectedType === 'GYM' && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="w-6 h-6 rounded-full bg-[#5BC2F2] flex items-center justify-center"
-          >
-            <Check size={14} className="text-white" strokeWidth={3} />
-          </motion.div>
-        )}
-      </motion.button>
-
-      {/* Spacer to push button to bottom */}
-      <div className="flex-grow"></div>
-
-      <StickyActionButton
-        label={isJIT
-          ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
-          : isLastStep
-            ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
-            : locale.common.continue}
-        successLabel={isJIT
-          ? (savedLanguage === 'he' ? 'הציוד עודכן!' : 'Equipment Updated!')
-          : undefined}
-        onPress={handleContinue}
+      {/*
+       * The sheet renders as a fixed bottom drawer with a dark backdrop.
+       * isOpen={true} means it springs open immediately when this step mounts.
+       * mode="inline-onboarding" enables the full layout (presets + all sections)
+       * with the pill-shaped "בואו נעדכן ציוד" confirm button, no Firestore write.
+       */}
+      <EquipmentFilterSheet
+        isOpen={true}
+        onClose={handleClose}
+        mode="inline-onboarding"
+        initialIds={selectedEquipmentIds}
+        onChange={handleEquipmentChange}
+        onApply={handleApply}
       />
-
-      {/* More Equipment Modal */}
-      <AnimatePresence>
-        {showMoreModal && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowMoreModal(false)}
-              className="fixed inset-0 bg-black/50 z-40"
-            />
-
-            {/* Bottom Sheet Modal */}
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-50 max-h-[80vh] flex flex-col"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-slate-200">
-                <h2 className="text-xl font-bold font-simpler text-slate-900">{locale.equipment.selectEquipment}</h2>
-                <button
-                  onClick={() => setShowMoreModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X size={24} className="text-slate-600" />
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="p-4 border-b border-slate-200">
-                <div className="relative">
-                  <Search size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={locale.equipment.searchPlaceholder}
-                    className="w-full pr-10 pl-4 py-3 rounded-xl border border-slate-200 bg-white text-right font-simpler text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#60A5FA]"
-                  />
-                </div>
-              </div>
-
-              {/* Equipment List by Category */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {Object.entries(groupedEquipment).map(([category, equipment]) => (
-                  <div key={category}>
-                    {/* Category Header */}
-                    <h3 className="text-sm font-bold text-slate-600 mb-3 font-simpler">
-                      {categoryNames[category] || category}
-                    </h3>
-
-                    {/* Equipment Grid */}
-                    <div className="grid grid-cols-2 gap-3">
-                      {equipment.map((gear) => {
-                        const isSelected = isEquipmentSelected(gear.id);
-
-                        return (
-                          <motion.button
-                            key={gear.id}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => toggleEquipment(gear.id)}
-                            className={`flex items-center justify-between p-3 rounded-xl transition-all border h-14 ${
-                              isSelected
-                                ? 'bg-[#60A5FA]/5 border-2 border-[#60A5FA]'
-                                : 'bg-white border border-slate-200 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span
-                              className={`text-sm font-simpler text-slate-900 ${
-                                isSelected ? 'font-bold text-[#60A5FA]' : 'font-medium'
-                              }`}
-                            >
-                              {getEquipmentName(gear)}
-                            </span>
-                            <EquipmentIcon gear={gear} isSelected={isSelected} size={20} />
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-
-                {Object.keys(groupedEquipment).length === 0 && (
-                  <div className="text-center py-8 text-slate-600 font-simpler">
-                    {locale.equipment.noResults}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
+    </>
   );
 }

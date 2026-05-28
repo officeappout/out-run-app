@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
@@ -33,7 +34,10 @@ import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { useExerciseSwap } from './hooks/useExerciseSwap';
 
 const DRAWER_HEIGHT = '95vh';
-const CLOSE_THRESHOLD = 200; // pixels to drag down before closing
+/** px the sheet is offset from its fully-expanded anchor at initial open (≈ 10 vh → 85 vh visible). */
+const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.10) : 81;
+const CLOSE_THRESHOLD = 120; // px dragged DOWN from wherever to dismiss
+const EXPAND_THRESHOLD = 60; // px dragged UP from peek to snap to expanded
 
 /**
  * Skeleton shimmer shown while the workout engine calculates a new workout.
@@ -79,10 +83,9 @@ export default function WorkoutPreviewDrawer({
   const router = useRouter();
   const { profile } = useUserStore();
   const y = useMotionValue(0);
-  const rawOpacity = useTransform(y, [0, 300], [1, 0]);
-  const opacity = useTransform(rawOpacity, (v) =>
-    Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1,
-  );
+  // Opacity fades only as the user drags past the resting (85vh) anchor —
+  // at PEEK_Y_PX the sheet is fully opaque; fade completes 220px later.
+  const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
 
   // ── Hook bus — every async / state concern lives here. ──
   const {
@@ -93,6 +96,19 @@ export default function WorkoutPreviewDrawer({
     dynamicHeight,
     titleScale,
   } = useScrollAnimation(isOpen);
+
+  const dragControls = useDragControls();
+
+  // Instagram-style gesture chain: intercepts down-swipe at scrollTop=0 and
+  // drives the sheet's y MotionValue directly, no React re-renders.
+  useSheetScrollChain({ isOpen, y, onClose, scrollRef: scrollContainerRef, snapBackY: PEEK_Y_PX });
+
+  // Gate pointer-events on the hero close button using a compositor-thread
+  // transform so it never blocks taps when faded out.
+  const heroClosePointerEvents = useTransform(
+    imageOpacity,
+    (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
+  );
 
   const { heroMedia, cachedHeroThumb, cachedHeroVideo } = useDrawerMediaState(
     workout?.coverImage,
@@ -263,13 +279,24 @@ export default function WorkoutPreviewDrawer({
     onStartWorkout,
   });
 
+  const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
+
   const handleDragEnd = useCallback(
     (_event: any, info: any) => {
-      if (info.offset.y > CLOSE_THRESHOLD || info.velocity.y > 500) {
+      const offset = info.offset.y; // positive = dragged down, negative = dragged up
+      const velocity = info.velocity.y;
+
+      if (offset > CLOSE_THRESHOLD || velocity > 500) {
         onClose();
+      } else if (offset < -EXPAND_THRESHOLD) {
+        // Intentional upward swipe → snap to fully expanded
+        animate(y, 0, SPRING);
+      } else {
+        // Default: return to peek
+        animate(y, PEEK_Y_PX, SPRING);
       }
     },
-    [onClose],
+    [onClose, y, SPRING],
   );
 
   return (
@@ -287,11 +314,14 @@ export default function WorkoutPreviewDrawer({
 
             <motion.div
               drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.2}
+              dragControls={dragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0, bottom: 500 }}
+              dragElastic={{ top: 0.08, bottom: 0 }}
+              dragMomentum={false}
               onDragEnd={handleDragEnd}
               initial={{ y: '100%' }}
-              animate={{ y: 0 }}
+              animate={{ y: PEEK_Y_PX }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{
@@ -305,8 +335,12 @@ export default function WorkoutPreviewDrawer({
               className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
               dir="rtl"
             >
-              {/* Drag handle — always visible */}
-              <div className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-1 pointer-events-none">
+              {/* Drag handle — full-width touch target; starts framer drag via dragControls */}
+              <div
+                className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-4 cursor-grab active:cursor-grabbing"
+                onPointerDown={(e) => dragControls.start(e)}
+                style={{ touchAction: 'none' }}
+              >
                 <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
               </div>
 
@@ -317,18 +351,18 @@ export default function WorkoutPreviewDrawer({
                 onEditEntry={onEditEntry}
               />
 
-              {/* Unified scrollable container — hero is full-bleed under drag handle */}
+              {/* Unified scrollable container */}
               <div
                 ref={scrollContainerRef}
-                className="h-full overflow-y-auto pb-36"
+                className="h-full overflow-y-auto overscroll-contain pb-36"
               >
-                {/* Hero with attached title — collapsing on scroll */}
-                <div
-                  className="relative w-full overflow-hidden transition-all duration-300"
+                {/* Hero — overflow-hidden prevents image bleed on overscroll */}
+                <motion.div
+                  className="relative w-full overflow-hidden"
                   style={{
-                    height: `${dynamicHeight}px`,
+                    height: dynamicHeight,
                     opacity: imageOpacity,
-                    transform: `scale(${imageScale})`,
+                    scale: imageScale,
                   }}
                 >
                   {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
@@ -364,12 +398,14 @@ export default function WorkoutPreviewDrawer({
                     </div>
                   )}
 
-                  {/* Hero close button — RTL leading */}
-                  <div
-                    className={`absolute top-0 right-0 px-3 pb-3 z-10 transition-opacity duration-300 ${
-                      imageOpacity > 0.5 ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                    }`}
-                    style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+                  {/* Hero close button — fades with hero */}
+                  <motion.div
+                    className="absolute top-0 right-0 px-3 pb-3 z-10"
+                    style={{
+                      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+                      opacity: imageOpacity,
+                      pointerEvents: heroClosePointerEvents,
+                    }}
                   >
                     <button
                       onClick={onClose}
@@ -378,16 +414,16 @@ export default function WorkoutPreviewDrawer({
                     >
                       <X size={20} strokeWidth={2.5} />
                     </button>
-                  </div>
-                </div>
+                    </motion.div>
+                </motion.div>
 
-                {/* Workout title — pulled outside hero so it escapes the transform stacking context */}
-                <div
+                {/* Workout title — compositor-thread scale collapse */}
+                <motion.div
                   className="relative z-20 -mt-14 px-6 pb-2"
                   style={{
-                    transform: `scale(${titleScale})`,
-                    transformOrigin: 'bottom right',
-                    transition: 'transform 0.3s ease',
+                    scale: titleScale,
+                    originX: 1,
+                    originY: 1,
                   }}
                 >
                   <div className="flex items-start gap-2">
@@ -404,7 +440,7 @@ export default function WorkoutPreviewDrawer({
                       {displayTitle}
                     </h1>
                   </div>
-                </div>
+                </motion.div>
 
                 <div className="bg-white dark:bg-slate-900 relative z-10 px-4 pt-4 pb-8">
                   {/* Priority: skeleton while loading → generated list → legacy overview */}

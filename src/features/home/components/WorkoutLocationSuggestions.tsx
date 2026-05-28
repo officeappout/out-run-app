@@ -154,6 +154,8 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
       .slice(0, MAX_SUGGESTIONS);
   }, [userPos, parks, routes, workoutType]);
 
+  const isStrength = workoutType === 'strength';
+
   // Avoid the classic "widget pops in" jump: render a skeleton while GPS
   // resolves and parks are fetched. Empty-state still returns null because
   // by then the user has likely already scrolled past.
@@ -164,6 +166,55 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
     return <WorkoutLocationSuggestionsSkeleton workoutType={workoutType} />;
   }
   if (loaded && suggestions.length === 0) return null;
+
+  // Real GPS was not available — position came from a city/default fallback.
+  // Never show distance badges computed from fake coordinates. Instead render
+  // a compact, tappable permission prompt that re-requests real geolocation.
+  if (usingFallback) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        dir="rtl"
+      >
+        <h3 className="text-[15px] font-bold text-gray-800 flex items-center gap-1.5 mb-2">
+          {isStrength
+            ? <Dumbbell size={15} className="text-cyan-500" />
+            : <RouteIcon size={15} className="text-cyan-500" />}
+          {isStrength ? 'גינות כושר קרובות' : 'מסלולים קרובים'}
+        </h3>
+        <button
+          onClick={() => {
+            if (!('geolocation' in navigator)) return;
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                setUsingFallback(false);
+                setLoaded(false);
+              },
+              () => {}, // permission still denied — silently no-op
+              { maximumAge: 0, timeout: 10000 },
+            );
+          }}
+          className="w-full flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-start active:scale-[0.98] transition-transform"
+        >
+          <div className="w-9 h-9 rounded-xl bg-cyan-100 flex items-center justify-center flex-shrink-0">
+            <MapPin size={18} className="text-cyan-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-800">הפעל גישת מיקום</p>
+            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+              {isStrength
+                ? 'כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך'
+                : 'כדי למצוא מסלולים קרובים, נדרשת גישה למיקומך'}
+            </p>
+          </div>
+          <ChevronLeft size={16} className="text-slate-400 flex-shrink-0" />
+        </button>
+      </motion.div>
+    );
+  }
 
   const handleTap = (item: (typeof suggestions)[0]) => {
     if (item.type === 'park') {
@@ -187,7 +238,6 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
     router.push('/map');
   };
 
-  const isStrength = workoutType === 'strength';
   const title = isStrength ? 'גינות כושר קרובות' : 'מסלולים קרובים';
 
   return (

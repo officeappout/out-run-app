@@ -18,6 +18,7 @@
 import 'server-only';
 import { cert, getApps, initializeApp, applicationDefault, App } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { decodeJwt } from 'jose';
 
 let _adminApp: App | null = null;
@@ -56,6 +57,11 @@ function ensureApp(): App {
 
 export function getAdminAuth(): Auth {
   return getAuth(ensureApp());
+}
+
+/** Privileged Firestore instance — use only in Next.js API routes (Node runtime). */
+export function getAdminDb(): Firestore {
+  return getFirestore(ensureApp());
 }
 
 /**

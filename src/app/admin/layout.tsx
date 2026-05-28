@@ -43,6 +43,7 @@ import {
     Trophy,
     KeyRound,
     Globe,
+    Link2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -92,8 +93,8 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
         appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
         running: ['/admin/running'],
         production: ['/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
-        brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator'],
-        system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings'],
+        brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links'],
+        system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics'],
     };
     
     const paths = sectionPaths[sectionId];
@@ -793,6 +794,7 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
                                             <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראות" />
                                             <SidebarLink href="/admin/workout-simulator" icon={FlaskConical} label="סימולטור אימונים" />
+                                            <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
                                         </div>
                                     )}
                                 </>
@@ -807,6 +809,9 @@ function AdminLayoutInner({
                     )}
                     {!isSystemAdminOnly && (
                         <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
+                    )}
+                    {!isSystemAdminOnly && (
+                        <SidebarLink href="/admin/analytics" icon={BarChart3} label="משפך המרות ואנליטיקס" />
                     )}
                     <SidebarLink href="/admin/users" icon={Shield} label="אישורים ממתינים" />
                     <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />

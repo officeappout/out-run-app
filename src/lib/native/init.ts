@@ -172,7 +172,12 @@ async function attachPushAuthBridge(): Promise<void> {
       // ensure we have a fresh token for THIS uid.
       lastUid = user.uid;
       try {
-        await initPushNotifications(user.uid);
+        // FIX 1 — silent:true prevents the OS permission dialog from
+        // firing automatically on cold-start before the user has reached
+        // the LifestyleWizard notifications step. For returning users who
+        // already granted permission the call proceeds normally (status is
+        // 'granted', not 'prompt') and the token is refreshed as expected.
+        await initPushNotifications(user.uid, { silent: true });
       } catch (err) {
         console.warn('[native] initPushNotifications failed:', err);
       }

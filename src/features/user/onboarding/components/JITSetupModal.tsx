@@ -13,7 +13,23 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Heart, Dumbbell } from 'lucide-react';
+import { Shield, Heart } from 'lucide-react';
+
+function RingsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path d="M5 2L5 9" stroke="currentColor" strokeWidth="1.76471" strokeLinejoin="round" />
+      <circle cx="5.20542" cy="12.2645" r="3.08824" stroke="currentColor" strokeWidth="1.76471" strokeLinejoin="round" />
+      <path d="M15 2L15 9" stroke="currentColor" strokeWidth="1.76471" strokeLinejoin="round" />
+      <circle cx="14.912" cy="12.2645" r="3.08824" stroke="currentColor" strokeWidth="1.76471" strokeLinejoin="round" />
+    </svg>
+  );
+}
 import type { MissingRequirement } from '../hooks/useRequiredSetup';
 import HealthDeclarationStep from './HealthDeclarationStep';
 
@@ -28,7 +44,7 @@ interface JITSetupModalProps {
 const REQUIREMENT_ICONS: Record<string, React.ReactNode> = {
   health: <Heart className="w-6 h-6 text-red-500" />,
   account: <Shield className="w-6 h-6 text-blue-500" />,
-  equipment: <Dumbbell className="w-6 h-6 text-amber-500" />,
+  equipment: <RingsIcon className="w-6 h-6 text-amber-500" />,
 };
 
 const REQUIREMENT_DESCRIPTIONS: Record<string, string> = {
@@ -150,13 +166,16 @@ export function JITSetupModal({
             </div>
           )}
 
-          {/* Primary CTA — Brand Cyan gradient matching StopWorkoutModal */}
+          {/* Primary CTA — Brand Cyan gradient pill */}
           <button
             onClick={handleCompleteNow}
-            className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
-            style={{ fontFamily: 'var(--font-simpler)' }}
+            className="w-full h-14 rounded-full font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] border border-white/20 active:scale-[0.98] transition-transform"
+            style={{
+              fontFamily: 'var(--font-simpler)',
+              boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
+            }}
           >
-            {hasHardBlock ? 'השלם עכשיו' : 'בואו נשלים'}
+            {hasHardBlock ? 'השלם עכשיו' : 'בואו נעדכן ציוד'}
           </button>
 
           {/* Secondary dismiss — plain text link */}

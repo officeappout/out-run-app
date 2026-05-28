@@ -52,16 +52,13 @@
          (triggered from src/lib/native/push.ts → requestPermissions()). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Camera & media (profile photo upload via @capacitor/camera).
-         Runtime prompts are owned by the plugin: Camera.requestPermissions().
-         READ_MEDIA_IMAGES is the Android 13+ scoped replacement for the
-         legacy READ_EXTERNAL_STORAGE; the latter is still required for
-         devices on API ≤ 32. -->
+    <!-- Camera (profile photo upload via @capacitor/camera).
+         Runtime prompt is owned by the plugin: Camera.requestPermissions().
+         Gallery read permissions (READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE)
+         are intentionally omitted: @capacitor/camera uses the system photo
+         picker (ACTION_PICK / PhotoPicker API) which grants one-time scoped
+         URI access without requiring a broad storage permission. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
 
     <!-- Health Connect — step / calorie / exercise tracking.
          Mirrored here from plugins/health-bridge/android/AndroidManifest.xml

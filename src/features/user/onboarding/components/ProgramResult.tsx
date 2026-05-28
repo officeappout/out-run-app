@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Dumbbell, ChevronsUp, Footprints, Activity } from 'lucide-react';
 import { getProgramByTemplateId, getLevel } from '@/features/content/programs';
 import type { Program, Level } from '@/features/content/programs';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
@@ -41,10 +41,10 @@ const BRAND_GRADIENT = 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)';
 // Authoritative source: src/features/user/onboarding/components/visual-assessment/VisualSlider.tsx
 // Do NOT change these without updating VisualSlider.tsx simultaneously.
 const CATEGORY_DISPLAY = [
-  { key: 'push' as const, en: 'Push', he: 'דחיפה',          emoji: '💪', color: '#5BC2F2', lightBg: '#5BC2F212' },
-  { key: 'pull' as const, en: 'Pull', he: 'משיכה',          emoji: '🤸', color: '#8b5cf6', lightBg: '#8b5cf612' },
-  { key: 'legs' as const, en: 'Legs', he: 'פלג גוף תחתון', emoji: '🦵', color: '#10b981', lightBg: '#10b98112' },
-  { key: 'core' as const, en: 'Core', he: 'ליבה',           emoji: '🔥', color: '#f59e0b', lightBg: '#f59e0b12' },
+  { key: 'push' as const, en: 'Push', he: 'דחיפה',          emoji: '💪', color: '#5BC2F2', lightBg: '#5BC2F212', Icon: Dumbbell   },
+  { key: 'pull' as const, en: 'Pull', he: 'משיכה',          emoji: '🤸', color: '#8b5cf6', lightBg: '#8b5cf612', Icon: ChevronsUp },
+  { key: 'legs' as const, en: 'Legs', he: 'פלג גוף תחתון', emoji: '🦵', color: '#10b981', lightBg: '#10b98112', Icon: Footprints  },
+  { key: 'core' as const, en: 'Core', he: 'ליבה',           emoji: '🔥', color: '#f59e0b', lightBg: '#f59e0b12', Icon: Activity   },
 ];
 
 // ── Calisthenics skill display metadata ────────────────────────────
@@ -88,6 +88,13 @@ interface ProgramResultProps {
   assessmentLevels?: Partial<Record<'push' | 'pull' | 'legs' | 'core', number>>;
   /** For skills path: map of skillId → assessed level (e.g. { front_lever: 9 }) */
   skillLevels?: Record<string, number>;
+  /**
+   * Explicit list of categories the user actually interacted with via VisualSlider.
+   * When provided, only cards for these categories are rendered — unassessed
+   * categories filled in by toFullAssessmentLevels (e.g. pull=1 on a push-only
+   * body_focus path) are suppressed entirely.
+   */
+  assessedCategories?: string[];
 }
 
 // ── Confetti particle ──────────────────────────────────────────────
@@ -143,8 +150,8 @@ const CircularGauge = ({
   const [arcPct, setArcPct] = useState(0);
   const countCompleteRef    = useRef(false);
 
-  const size          = 220;
-  const strokeWidth   = 14;
+  const size          = 160;
+  const strokeWidth   = 10;
   const radius        = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (arcPct / 100) * circumference;
@@ -168,12 +175,14 @@ const CircularGauge = ({
         {/* Glow pulse */}
         <motion.div
           className="absolute inset-0 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(91,194,242,0.25) 0%, transparent 65%)' }}
-          animate={{ scale: [1, 1.12, 1], opacity: [0.5, 0.8, 0.5] }}
+          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.2) 0%, transparent 60%)' }}
+          animate={{ scale: [1, 1.12, 1], opacity: [0.4, 0.8, 0.4] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         />
         <svg width={size} height={size} className="-rotate-90">
+          {/* Track — light gray, matching home screen */}
           <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E2E8F0" strokeWidth={strokeWidth} />
+          {/* Progress arc */}
           <circle
             cx={size / 2} cy={size / 2} r={radius} fill="none"
             stroke="url(#pgGradient)" strokeWidth={strokeWidth} strokeLinecap="round"
@@ -190,32 +199,24 @@ const CircularGauge = ({
           </defs>
         </svg>
 
-        {/* CENTER: Level number is THE HERO */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <motion.span
-            className="text-[11px] font-bold text-slate-400 uppercase tracking-widest"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            רמה
-          </motion.span>
-          <motion.span
-            className="text-7xl font-black leading-none"
-            style={{ color: '#5BC2F2' }}
+        {/* CENTER: percentage (always 1% — the start line) + level label */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+          <motion.div
+            className="flex items-baseline leading-none"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.3, type: 'spring', stiffness: 180, damping: 14 }}
           >
-            {levelNumber}
-          </motion.span>
+            <span className="text-4xl font-black text-slate-950">{STARTING_PROGRESS}</span>
+            <span className="text-xl font-bold text-slate-950">%</span>
+          </motion.div>
           <motion.span
-            className="text-sm font-semibold text-slate-400 mt-0.5"
+            className="text-[11px] font-semibold text-slate-500 leading-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
+            transition={{ delay: 0.6 }}
           >
-            / {maxLevel}
+            רמה {levelNumber} מתוך {maxLevel}
           </motion.span>
         </div>
       </div>
@@ -243,11 +244,16 @@ const CircularGauge = ({
 
 // ── Summary Card — used for both muscle-focus and skill cards ────────
 // Visually identical across categories; brand gradient accent stripe on top.
-const SummaryCard = ({ emoji, label, levelValue, delay }: {
+const SummaryCard = ({
+  emoji, label, levelValue, delay,
+  Icon, iconColor,
+}: {
   emoji: string;
   label: string;
   levelValue: number | undefined;
   delay: number;
+  Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; className?: string }>;
+  iconColor?: string;
 }) => (
   <motion.div
     className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl overflow-hidden"
@@ -265,10 +271,13 @@ const SummaryCard = ({ emoji, label, levelValue, delay }: {
     {/* Card body */}
     <div className="flex flex-col items-center py-3 px-2 gap-1.5">
       <div
-        className="w-9 h-9 rounded-full flex items-center justify-center text-[18px] leading-none shrink-0 bg-slate-100"
+        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-slate-50"
         aria-label={label}
       >
-        {emoji}
+        {Icon
+          ? <Icon size={20} color={iconColor} strokeWidth={1.8} />
+          : <span className="text-[18px] leading-none">{emoji}</span>
+        }
       </div>
       <span className="text-[9px] font-bold text-slate-400 text-center leading-tight tracking-wide">
         {label}
@@ -291,6 +300,7 @@ export default function ProgramResult({
   onContinue,
   assessmentLevels,
   skillLevels,
+  assessedCategories,
 }: ProgramResultProps) {
   void getOnboardingLocale(language); // keep import used
 
@@ -374,7 +384,39 @@ export default function ProgramResult({
     ?? 25;
 
   const getProgramName = () => {
+    // Skills path: Firestore name takes precedence
+    if (isSkillsPath) {
+      if (program?.name) return program.name;
+      if (level?.name)   return language === 'he' ? `תוכנית ${level.name}` : `${level.name} Program`;
+      return language === 'he' ? 'תוכנית מיומנויות מותאמת' : 'Custom Skills Program';
+    }
+
+    // health / full-body path override
     if (programPath === 'health') return language === 'he' ? 'תוכנית גוף מלא' : 'Full Body Program';
+
+    // Compute name from assessed categories when available
+    if (assessedCategories?.length) {
+      const HE_LABELS: Record<string, string> = {
+        push: 'דחיפה', pull: 'משיכה', legs: 'פלג גוף תחתון', core: 'ליבה',
+      };
+      const ALL_FOUR = ['push', 'pull', 'legs', 'core'];
+      const isFullBody = ALL_FOUR.every(k => assessedCategories.includes(k));
+
+      if (isFullBody) return language === 'he' ? 'תוכנית כל הגוף' : 'Full Body Program';
+
+      const heLabels = assessedCategories.filter(k => HE_LABELS[k]).map(k => HE_LABELS[k]);
+
+      if (language !== 'he') {
+        return `${assessedCategories.map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(' & ')} Program`;
+      }
+      if (heLabels.length === 1) return `תוכנית ${heLabels[0]}`;
+      // Two or more: "תוכנית דחיפה ומשיכה" / "תוכנית דחיפה, משיכה ורגליים"
+      const last = heLabels[heLabels.length - 1];
+      const rest = heLabels.slice(0, -1);
+      return `תוכנית ${rest.join(', ')} ו${last}`;
+    }
+
+    // Firestore fallback
     if (program?.name) return program.name;
     if (level?.name)   return language === 'he' ? `תוכנית ${level.name}` : `${level.name} Program`;
     return language === 'he' ? 'תוכנית אימונים מותאמת אישית' : 'Personalized Training Program';
@@ -383,9 +425,17 @@ export default function ProgramResult({
   /** True when the user is on a calisthenics skills path with real skill levels. */
   const isSkillsPath = skillLevels != null && Object.keys(skillLevels).length > 0;
 
+  // Filter to only categories the user actually slid through.
+  // If assessedCategories is provided (body_focus / skills paths), suppress any
+  // category absent from the list — prevents toFullAssessmentLevels' minLevel=1
+  // fill-ins from appearing as phantom "רמה 1" cards.
+  const visibleCategoryDisplay = assessedCategories?.length
+    ? CATEGORY_DISPLAY.filter(c => assessedCategories.includes(c.key))
+    : CATEGORY_DISPLAY;
+
   const hasCategoryData = !isSkillsPath &&
     assessmentLevels != null &&
-    CATEGORY_DISPLAY.some(c => (assessmentLevels[c.key] ?? 0) > 0);
+    visibleCategoryDisplay.some(c => (assessmentLevels[c.key] ?? 0) > 0);
 
   // Gender-aware social proof — aligned with the "1% start line" narrative
   const gender = typeof window !== 'undefined'
@@ -398,8 +448,9 @@ export default function ProgramResult({
 
   const continueLabel =
     language === 'ru' ? 'Продолжим: Адаптация к стилю жизни'
-    : language === 'en' ? "Let's continue: Lifestyle Adaptation"
-    : 'בואו נמשיך: התאמה לסגנון החיים';
+    : language === 'en' ? "Let's continue"
+    : gender === 'female' ? 'בואי נמשיך'
+    : 'בוא נמשיך';
 
   // ── Confetti ────────────────────────────────────────────────────
   const confettiColors = [
@@ -482,9 +533,9 @@ export default function ProgramResult({
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4 }}
           >
-            {/* Pulsing icon cluster */}
+            {/* Pulsing icon cluster — only assessed categories */}
             <div className="flex gap-3">
-              {CATEGORY_DISPLAY.map((cat, i) => (
+              {visibleCategoryDisplay.map((cat, i) => (
                 <motion.div
                   key={cat.key}
                   className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl"
@@ -543,18 +594,20 @@ export default function ProgramResult({
                     );
                   })
                 : hasCategoryData
-                  // Muscle-focus path: push / pull / legs / core
-                  ? CATEGORY_DISPLAY.map((cat, i) => (
+                  // Muscle-focus path: only assessed categories (visibleCategoryDisplay)
+                  ? visibleCategoryDisplay.map((cat, i) => (
                       <SummaryCard
                         key={cat.key}
                         emoji={cat.emoji}
                         label={cat.he}
                         levelValue={assessmentLevels?.[cat.key]}
                         delay={i * 0.18}
+                        Icon={cat.Icon}
+                        iconColor={cat.color}
                       />
                     ))
-                  // No data yet — render skeletons
-                  : CATEGORY_DISPLAY.map((cat, i) => (
+                  // No data yet — render skeletons only for assessed categories
+                  : visibleCategoryDisplay.map((cat, i) => (
                       <motion.div
                         key={cat.key}
                         className="flex-1 rounded-2xl h-20 bg-slate-100"
@@ -635,12 +688,14 @@ export default function ProgramResult({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
             >
-              {/* Progression education copy */}
+              {/* Progression education copy — gender-conjugated */}
               <p
                 className="text-center text-base text-slate-500 leading-relaxed px-2 font-medium"
                 dir="rtl"
               >
-                המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע/י לרמה הבאה.
+                {gender === 'female'
+                  ? 'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיעי לרמה הבאה. 🚀'
+                  : 'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה. 🚀'}
               </p>
 
               <button

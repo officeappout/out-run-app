@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
@@ -60,6 +61,7 @@ interface VisualSliderProps {
   demographics: UserDemographics;
   lang?: string;
   onLevelConfirm: (level: number) => void;
+  onBack?: () => void;
   stepIndex: number;
   totalSteps: number;
   minLevel?: number;
@@ -75,6 +77,7 @@ export default function VisualSlider({
   demographics,
   lang = 'he',
   onLevelConfirm,
+  onBack,
   stepIndex,
   totalSteps,
   minLevel = 1,
@@ -215,8 +218,18 @@ export default function VisualSlider({
   const sliderRange = sliderMax - sliderMin;
   const fillPct = sliderRange > 0 ? ((sliderVal - sliderMin) / sliderRange) * 100 : 0;
 
+  const isFemale = demographics.gender === 'female';
+
+  // Resolves CMS slash patterns like "דוחף/ת" → "דוחפת" (female) or "דוחף" (male).
+  // Pattern: base/suffix — suffix appended for female, stripped for male.
+  const resolveGenderedText = (text: string): string =>
+    text.replace(/(\S+)\/(\S+)/g, (_, base: string, suffix: string) =>
+      isFemale ? base + suffix : base,
+    );
+
   // Bubble text: ONLY show admin-set onboardingBubbleText (no fallback)
-  const bubbleText = resolved?.onboardingBubbleText || null;
+  const rawBubbleText = resolved?.onboardingBubbleText || null;
+  const bubbleText = rawBubbleText ? resolveGenderedText(rawBubbleText) : null;
 
   // Exercise name for below-video label: ONLY exerciseName (no fallback)
   const exerciseLabel = resolved?.exerciseName || null;
@@ -227,13 +240,11 @@ export default function VisualSlider({
   const verb = unitType === 'seconds' ? 'להחזיק' : 'לבצע';
   const unitWord = unitType === 'seconds' ? 'שניות' : 'חזרות';
   const repsLabel = targetReps
-    ? demographics.gender === 'female'
+    ? isFemale
       ? `מסוגלת ${verb} ${targetReps} ${unitWord}`
       : `מסוגל ${verb} ${targetReps} ${unitWord}`
     : null;
 
-  // Bubble position: track slider thumb (account for thumb width offset)
-  const bubbleLeftPct = fillPct;
 
   if (stepsLoading) {
     return (
@@ -247,104 +258,107 @@ export default function VisualSlider({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* ── Shared story bar — 5-phase with partial fill for assessment ── */}
-      <OnboardingStoryBar
-        totalPhases={STRENGTH_PHASES.TOTAL}
-        currentPhase={STRENGTH_PHASES.ASSESSMENT}
-        phaseFillPercent={assessmentFillPercent}
-        phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.ASSESSMENT]}
-      />
+      {/* ── Unified header: back button + story bar ── */}
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 pb-2">
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation"
+            aria-label="חזרה"
+          >
+            <ChevronRight size={22} className="text-slate-600" />
+          </button>
+        ) : (
+          <div className="flex-shrink-0 w-9" aria-hidden />
+        )}
+        <div className="flex-1 min-h-[36px] flex flex-col justify-center">
+          <OnboardingStoryBar
+            totalPhases={STRENGTH_PHASES.TOTAL}
+            currentPhase={STRENGTH_PHASES.ASSESSMENT}
+            phaseFillPercent={assessmentFillPercent}
+            phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.ASSESSMENT]}
+            noPadding
+          />
+        </div>
+        <div className="flex-shrink-0 w-9" aria-hidden />
+      </header>
 
       {/* ── Instruction text — Large, Black, Bold ── */}
       <div className="px-6 pt-3 pb-1 flex-shrink-0">
         <p className="text-xl font-black text-slate-900 text-center leading-snug">
-          בואו נבין איפה אתם עומדים
+          {isFemale
+            ? 'בואי נבדוק מה מצב הכושר שלך כיום '
+            : 'בוא נבדוק מה מצב הכושר שלך כיום '}
         </p>
-        <p className="text-sm font-medium text-slate-500 text-center mt-1">
-          הזיזו את הסליידר עד שתמצאו את התרגיל שלכם
+        <p className="text-sm font-medium text-slate-500 text-center mt-1 leading-relaxed">
+          {isFemale
+            ? 'הזיזי את הסליידר למה שהכי קרוב אלייך. לא בטוחה? תבחרי בערך, והמערכת כבר תדע לעשות את ההתאמות המדויקות לרמת הכושר שלך באימונים 🤍'
+            : 'הזיז את הסליידר למה שהכי קרוב אליך. לא בטוח? תבחר בערך, והמערכת כבר תדע לעשות את ההתאמות המדויקות לרמת הכושר שלך באימונים'}
         </p>
       </div>
 
-      {/* ── Hero video — fills maximum available space ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-0 min-h-0 relative">
-        <div className="w-full max-w-md mx-auto">
+      {/* ── Hero video — outer wrapper is NOT overflow-hidden so top gradient can bleed up freely ── */}
+      <div className="flex-1 min-h-0 w-full relative">
+        {/* Inner clip box — keeps video pixels inside its bounds */}
+        <div className="absolute inset-0 overflow-hidden">
           <VideoPlayer
             videoUrl={resolved?.videoUrl ?? null}
             videoUrlMov={resolved?.videoUrlMov ?? null}
             videoUrlWebm={resolved?.videoUrlWebm ?? null}
             thumbnailUrl={resolved?.thumbnailUrl ?? null}
-            className="w-full"
+            className="w-full h-full"
             whiteGradient
           />
         </div>
+        {/* Top gradient — sibling of clip box, escapes overflow-hidden, bleeds into header */}
+        <div
+          className="absolute top-[-6px] left-0 right-0 h-[86px] pointer-events-none z-10"
+          style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.9), rgba(255,255,255,0.7), rgba(255,255,255,0))' }}
+        />
+      </div>
 
-        {/* Exercise name + reps label below the faded video */}
-        <AnimatePresence mode="wait">
-          {(exerciseLabel || repsLabel) && (
-            <motion.div
-              key={`${exerciseLabel}_${targetReps}`}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.25 }}
-              className="text-center px-6 mt-1 space-y-0.5"
-            >
+      {/* ── Description card — exercise name + strength description + reps ── */}
+      <AnimatePresence mode="wait">
+        {(exerciseLabel || bubbleText || repsLabel) && (
+          <motion.div
+            key={`${exerciseLabel}_${bubbleText}_${targetReps}`}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.25 }}
+            className="flex-shrink-0 px-6 pb-3"
+          >
+            <div className="bg-[#00BAF7]/6 border border-[#00BAF7]/20 rounded-2xl px-4 py-3 text-center space-y-0.5">
+              {/* 1 — Exercise name */}
               {exerciseLabel && (
-                <h3 className="text-lg font-black text-slate-800 leading-snug">
+                <h3 className="text-2xl font-bold text-slate-950 leading-snug">
                   {exerciseLabel}
                 </h3>
               )}
+              {/* 2 — Performance benchmark (reps/seconds) */}
               {repsLabel && (
-                <p className="text-sm font-semibold text-[#5BC2F2] leading-snug">
+                <p className="text-lg font-normal text-slate-950 leading-snug">
                   {repsLabel}
                 </p>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              {/* 3 — Dynamic strength description sentence */}
+              {bubbleText && (
+                <p className="text-sm font-normal text-slate-950 leading-snug">
+                  {bubbleText}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* ── Bottom controls — anchored to safe area ── */}
+      {/* ── Bottom controls — flex-shrink-0, anchored above safe area ── */}
       <div
         className="flex-shrink-0 px-6"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
-        {/* Following bubble — tracks the slider thumb */}
-        <div className="relative h-10 mb-1">
-          <AnimatePresence>
-            {bubbleText && (
-              <motion.div
-                key={bubbleText}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.25 }}
-                className="absolute bottom-0 z-30"
-                style={{
-                  right: `${bubbleLeftPct}%`,
-                  transform: 'translateX(50%)',
-                  maxWidth: '240px',
-                }}
-              >
-                <span
-                  className="inline-block px-4 py-1.5 rounded-xl text-[13px] font-semibold text-white shadow-md whitespace-nowrap"
-                  style={{
-                    background: `linear-gradient(135deg, ${meta.color}, ${meta.color}cc)`,
-                  }}
-                >
-                  {bubbleText}
-                </span>
-                <div
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45"
-                  style={{ backgroundColor: meta.color }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Range slider */}
-        <div className="relative px-1">
+        {/* Range slider — px-0 so the track endpoints align exactly with dot paddingLeft/Right: 14 */}
+        <div className="relative px-0">
           <input
             ref={sliderRef}
             type="range"
@@ -355,15 +369,17 @@ export default function VisualSlider({
             onChange={e => handleSliderChange(Number(e.target.value))}
             className="w-full h-2 rounded-full appearance-none cursor-pointer slider-thumb relative z-10"
             style={{
-              background: `linear-gradient(to left, ${meta.color} 0%, ${meta.color} ${fillPct}%, #e2e8f0 ${fillPct}%, #e2e8f0 100%)`,
+              background: `linear-gradient(to left, #00BAF7 0%, #00BAF7 ${fillPct}%, #e2e8f0 ${fillPct}%, #e2e8f0 100%)`,
             }}
           />
 
-          {/* Step dot markers — visible in simple mode only */}
+          {/* Step dot markers — visible in simple mode only.
+               left/right: 14px = thumb half-width, so right:0% lands exactly on the
+               right-end thumb center and right:100% on the left-end thumb center. */}
           {isSimple && steps && steps.length > 1 && (
             <div
-              className="absolute top-1/2 -translate-y-1/2 inset-x-0 pointer-events-none z-[5]"
-              style={{ paddingLeft: 14, paddingRight: 14 }}
+              className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-[5]"
+              style={{ left: 14, right: 14 }}
             >
               {steps.map((_, i) => {
                 const pct = (i / (steps.length - 1)) * 100;
@@ -375,8 +391,8 @@ export default function VisualSlider({
                     style={{
                       top: '50%',
                       right: `${pct}%`,
-                      backgroundColor: active ? meta.color : 'white',
-                      borderColor: active ? meta.color : '#cbd5e1',
+                      backgroundColor: active ? '#00BAF7' : 'white',
+                      borderColor: active ? '#00BAF7' : '#cbd5e1',
                     }}
                   />
                 );
@@ -402,17 +418,30 @@ export default function VisualSlider({
             )}
           </AnimatePresence>
 
-          <div className="flex justify-between mt-2 px-0.5">
-            <span className="text-[10px] font-bold text-slate-400">קל</span>
-            <span className="text-[10px] font-bold text-slate-400">קשה</span>
+          {/* 3-point proficiency labels — gender-aware, aligned under first/mid/last dots */}
+          <div className="flex items-center mt-2 px-1">
+            <span className="text-[10px] font-medium text-slate-400 text-right" style={{ width: '33.33%' }}>
+              {isFemale ? 'מתחילה' : 'מתחיל'}
+            </span>
+            <span className="text-[10px] font-medium text-slate-400 text-center" style={{ width: '33.33%' }}>
+              בינוני
+            </span>
+            <span className="text-[10px] font-medium text-slate-400 text-left" style={{ width: '33.33%' }}>
+              {isFemale ? 'מתקדמת' : 'מתקדם'}
+            </span>
           </div>
         </div>
 
-        {/* Confirm button */}
+        {/* Confirm button — gradient fill + AI glow */}
         <button
           onClick={handleConfirm}
-          className="w-full py-4 mt-3 rounded-2xl font-bold text-lg text-white active:scale-[0.97] shadow-lg transition-all flex items-center justify-center gap-2"
-          style={{ backgroundColor: meta.color }}
+          className="w-full py-4 mt-3 rounded-full font-black text-lg text-white active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+          style={{
+            backgroundImage: 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)',
+            fontFamily: 'var(--font-simpler)',
+            boxShadow:
+              '0 8px 20px rgba(0,186,247,0.25), 0 0 40px rgba(112,0,255,0.10), 0 0 0 1px rgba(0,186,247,0.12)',
+          }}
         >
           {stepIndex < totalSteps - 1 ? (
             <>
@@ -433,8 +462,8 @@ export default function VisualSlider({
           height: 28px;
           border-radius: 50%;
           background: white;
-          border: 3px solid ${meta.color};
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          border: 3px solid #00BAF7;
+          box-shadow: 0 2px 8px rgba(0, 186, 247, 0.25);
           cursor: pointer;
           transition: transform 0.15s ease;
         }
@@ -446,8 +475,8 @@ export default function VisualSlider({
           height: 28px;
           border-radius: 50%;
           background: white;
-          border: 3px solid ${meta.color};
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          border: 3px solid #00BAF7;
+          box-shadow: 0 2px 8px rgba(0, 186, 247, 0.25);
           cursor: pointer;
         }
       `}</style>

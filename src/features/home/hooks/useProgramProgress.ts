@@ -162,9 +162,12 @@ export function useProgramProgress(): ProgramProgressData | null {
       track?.currentLevel ??
       domain?.currentLevel ??
       1;
-    const resolvedPercent =
+    // Display floor: never show 0% on day one — cosmetic only, Firestore is untouched.
+    const resolvedPercent = Math.max(
+      1,
       derivedPercent ??
-      (track?.percent != null ? Math.round(track.percent) : 0);
+      (track?.percent != null ? Math.round(track.percent) : 0),
+    );
 
     return {
       currentLevel: resolvedCurrentLevel,

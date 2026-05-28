@@ -65,6 +65,16 @@ interface PushQueueDoc {
   targetAudience?: TargetAudience;
   channel?: PushChannel;
   status?: 'pending' | 'processing' | 'sent' | 'failed';
+  /**
+   * Social Engagement Engine — optional in-app deep-link path. When set,
+   * the value is forwarded as a string field on the outgoing FCM `data`
+   * payload and the native push handler (`src/lib/native/push.ts`)
+   * navigates the web view to it on tap.
+   *
+   * Examples:
+   *   '/league', '/chat/<chatId>', '/community/groups/<groupId>'
+   */
+  deepLink?: string;
 }
 
 export const sendPushFromQueue = functions
@@ -167,6 +177,11 @@ export const sendPushFromQueue = functions
         authorityId,
         channel,
         ...(data.parkId ? { parkId: String(data.parkId) } : {}),
+        // ── Social Engagement Engine deep-link payload ─────────────
+        // The native push handler (src/lib/native/push.ts) reads
+        // `notification.data.deepLink` inside `notificationActionPerformed`
+        // and navigates the web view to the parsed path.
+        ...(data.deepLink ? { deepLink: String(data.deepLink) } : {}),
       },
       apns: {
         payload: {

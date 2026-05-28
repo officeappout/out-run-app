@@ -3,13 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Check, CheckCircle2, UserCircle } from 'lucide-react';
+import { Check, CheckCircle2, UserCircle } from 'lucide-react';
 import {
   type MuscleGroup,
 } from '@/features/content/exercises/core/exercise.types';
-import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
+import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
-import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 
 /** Muscle icon paths — used inside chips */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -245,37 +244,24 @@ export default function ProgramPathPage() {
   }
 
   return (
-    <div
-      className="h-[100dvh] flex flex-col overflow-hidden"
-      style={{ backgroundColor: '#F4FAFD' }}
-      dir="rtl"
+    <OnboardingLayout
+      totalSegments={STRENGTH_PHASES.TOTAL}
+      currentSegment={STRENGTH_PHASES.PROGRAM_PATH}
+      phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROGRAM_PATH]}
+      onBack={() => {
+        const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
+        if (hasHistory) router.back();
+        else router.push('/onboarding-new/profile');
+      }}
+      onContinue={handleContinue}
+      canContinue={canContinue}
+      continueLabel={
+        showRecommendation
+          ? (isFemale ? 'המשיכי בכל זאת' : 'המשך בכל זאת')
+          : (isFemale ? 'המשכי' : 'המשך')
+      }
     >
-      {/* Story bar — layout-locked, never scrolls */}
-      <div
-        className="relative flex-shrink-0 bg-white/80"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <OnboardingStoryBar
-          totalPhases={STRENGTH_PHASES.TOTAL}
-          currentPhase={STRENGTH_PHASES.PROGRAM_PATH}
-          phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROGRAM_PATH]}
-          onPhaseComplete={firePhaseConfetti}
-        />
-        {/* Back button — returns to profile page */}
-        <button
-          onClick={() => {
-            const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
-            if (hasHistory) router.back();
-            else router.push('/onboarding-new/profile');
-          }}
-          className="absolute right-3 top-0 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-white/70 shadow-sm active:scale-95 transition-transform"
-          style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
-          aria-label="חזרה"
-        >
-          <ChevronRight size={22} className="text-slate-600" />
-        </button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-md mx-auto px-4 py-6 pb-8 flex flex-col">
+      <div className="w-full max-w-md mx-auto px-4 py-6 flex flex-col">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -663,37 +649,7 @@ export default function ProgramPathPage() {
           </AnimatePresence>
         </motion.div>
 
-        <div className="flex-grow" />
-
-        {/* Continue Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="mt-6 pt-4"
-        >
-          <button
-            onClick={handleContinue}
-            disabled={!canContinue}
-            className={`w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-xl ${
-              canContinue
-                ? 'bg-[#5BC2F2] hover:bg-[#4AADE3] text-white shadow-[#5BC2F2]/30 hover:scale-[1.02] active:scale-[0.98]'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            }`}
-          >
-            <span>
-              {showRecommendation
-                ? isFemale
-                  ? 'המשיכי בכל זאת'
-                  : 'המשך בכל זאת'
-                : isFemale
-                  ? 'המשכי'
-                  : 'המשך'}
-            </span>
-            <ChevronLeft size={20} />
-          </button>
-        </motion.div>
       </div>
-    </div>
+    </OnboardingLayout>
   );
 }

@@ -109,6 +109,17 @@ const BOLT_FILTER_EMPTY_ACTIVE   = 'brightness(0) invert(1) opacity(0.35)';
 const ACTIVE_PILL   = 'bg-[#00BAF7] border-[#00BAF7] text-white shadow-md shadow-cyan-400/30';
 const INACTIVE_PILL = 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
 
+// ── Leaf-program slug allowlist for enrollment detection ─────────────────────
+// Only track keys matching these known leaf slugs count as explicit enrollment.
+// Excludes master-derived slugs written by recalculateMasterLevel (e.g.
+// 'full_body', 'upper_body') so aggregate shells never appear as "enrolled"
+// for a user who tracks only a single split like "push".
+const LEAF_SLUGS = new Set([
+  'push', 'pull', 'legs', 'core',
+  'planche', 'front_lever', 'handstand', 'handstand_pushup',
+  'muscle_up', 'back_lever', 'one_arm_pullup',
+]);
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getNextFullHour(): string {
@@ -328,10 +339,21 @@ export default function WorkoutBuilderSheet({
 
   // ── Build display program list ─────────────────────────────────────────
   // enrolledIds is lifted here so toggleChip can access it for enrollment gating.
-  const enrolledIds = useMemo(() => new Set<string>([
-    ...Object.keys(profile?.progression?.tracks ?? {}),
-    ...(profile?.progression?.activePrograms?.map(p => p.templateId) ?? []),
-  ]), [profile]);
+  const enrolledIds = useMemo(() => {
+    // Seed from explicit activePrograms templateIds — this is the ground truth
+    // for "the user consciously chose this program during onboarding/evolution".
+    const ids = new Set<string>(
+      profile?.progression?.activePrograms?.map(p => p.templateId) ?? [],
+    );
+    // Supplement with track keys, but ONLY for known leaf-level slugs.
+    // Master-derived track entries written by recalculateMasterLevel
+    // (e.g. 'full_body', 'upper_body') are intentionally excluded so a
+    // Push-only user is never treated as enrolled in aggregate programs.
+    for (const key of Object.keys(profile?.progression?.tracks ?? {})) {
+      if (LEAF_SLUGS.has(key)) ids.add(key);
+    }
+    return ids;
+  }, [profile]);
 
   const displayPrograms: DisplayProgram[] = useMemo(() => {
     const tracks  = profile?.progression?.tracks  ?? {};
@@ -364,6 +386,27 @@ export default function WorkoutBuilderSheet({
       return b.level - a.level;
     });
 
+    // ── Master-program containment gate ──────────────────────────────────
+    // A master program (isMaster === true) is shown only when:
+    //   a. The user's activePrograms explicitly lists it as a templateId, OR
+    //   b. At least 2 of its declared child splits appear in enrolledIds.
+    // This prevents aggregate shells like "כל הגוף" (full_body children:
+    // push/pull/legs/core) or "פלג גוף עליון" (upper_body children: push/pull)
+    // from polluting the slider for a user tracking only a single split.
+    // Leaf programs (planche, front_lever, individual splits) always pass.
+    const isMasterEligible = (prog: DisplayProgram): boolean => {
+      if (!prog.isMaster) return true;
+      const isExplicitlyActive = profile?.progression?.activePrograms?.some(ap =>
+        ap.templateId === prog.id || resolveToSlug(ap.templateId) === prog.id,
+      ) ?? false;
+      if (isExplicitlyActive) return true;
+      const enrolledChildCount = prog.children.filter(childId => {
+        const slug = resolveToSlug(childId) || childId;
+        return enrolledIds.has(childId) || enrolledIds.has(slug);
+      }).length;
+      return enrolledChildCount >= 2;
+    };
+
     // Deduplicate by resolved Hebrew label: if two programs resolve to the
     // exact same display string (e.g., a Firestore-doc-name duplicate and a
     // SLUG_HEBREW_FALLBACK entry both yield "כל הגוף"), keep only the first
@@ -371,7 +414,7 @@ export default function WorkoutBuilderSheet({
     // Skills like 'planche' and 'front_lever' have their own distinct labels
     // and are intentionally preserved alongside their master program pill.
     const seenLabels = new Set<string>();
-    return allProgs.filter(p => {
+    return allProgs.filter(isMasterEligible).filter(p => {
       if (seenLabels.has(p.label)) return false;
       seenLabels.add(p.label);
       return true;
@@ -625,7 +668,10 @@ export default function WorkoutBuilderSheet({
     >
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 pt-12 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
+      <div
+        className="flex items-center gap-3 px-4 pb-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top, 24px))' }}
+      >
         <button
           onClick={onClose}
           className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700"
@@ -829,11 +875,16 @@ export default function WorkoutBuilderSheet({
                     isSuggested={suggestedProgramId === prog.id}
                     onSelect={prog.isUnenrolled
                       ? () => setShowUnlockModal(true)
-                      : () => setSelectedProgramIds(prev =>
-                          prev.includes(prog.id)
-                            ? prev.filter(id => id !== prog.id)
-                            : [...prev, prog.id]
-                        )
+                      : () => {
+                          setSelectedProgramIds(prev =>
+                            prev.includes(prog.id)
+                              ? prev.filter(id => id !== prog.id)
+                              : [...prev, prog.id],
+                          );
+                          // Auto-expand muscle panel so the auto-selected
+                          // chip highlights are immediately visible.
+                          setMuscleExpanded(true);
+                        }
                     }
                   />
                 ))}
@@ -1116,6 +1167,7 @@ export default function WorkoutBuilderSheet({
             ?? []
         }
         onApply={(ids) => setEquipmentOverride(ids)}
+        activeLocation={location}
       />
 
       {/* ── Preview drawer (normal mode only) ── */}

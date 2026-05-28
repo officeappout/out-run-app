@@ -15,7 +15,7 @@
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import { X, CalendarDays, ChevronDown } from 'lucide-react';
+import { X, CalendarDays } from 'lucide-react';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import RollingAgenda from './agenda/RollingAgenda';
 import AddWorkoutModal from './AddWorkoutModal';
@@ -254,8 +254,11 @@ export default function TrainingPlannerOverlay({
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             {/* ── Header ── */}
-            <div className="flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-100">
-              <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between" dir="rtl">
+            <div
+              className="flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-100"
+              style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 24px))' }}
+            >
+              <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between" dir="rtl">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-5 h-5 text-[#00C9F2]" />
                   <h2 className="text-base font-black text-gray-900">תכנון אימונים</h2>
@@ -283,9 +286,15 @@ export default function TrainingPlannerOverlay({
                 either 1 row (collapsed) or 6 rows (expanded); the clip does
                 the rest. No framer-motion height animation here — plain CSS
                 transition avoids fighting framer's own layout engine.
+
+                Visual model: the calendar is the panel "dropping down" from
+                above. Heavy bottom corner radius + soft downward shadow give
+                it the feel of a header card resting on top of the agenda.
+                `relative z-[1]` lifts its shadow above the agenda below
+                instead of letting later DOM siblings paint over it.
               */}
               <div
-                className="flex-shrink-0 bg-white overflow-hidden"
+                className="flex-shrink-0 bg-white overflow-hidden rounded-b-3xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] relative z-[1]"
                 style={{
                   height: isCalendarCollapsed ? CAL_HEIGHT_COLLAPSED : CAL_HEIGHT_EXPANDED,
                   transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -359,55 +368,62 @@ export default function TrainingPlannerOverlay({
                 </motion.div>
               </div>
 
-              {/* ── Drag handle ── */}
               {/*
-                Pattern mirrors FreeRunDrawer.tsx: pointer capture on the
-                handle element, touchAction: none so iOS doesn't intercept.
-                Tap toggles; drag up/down by DRAG_THRESHOLD_PX changes state.
+                ── Calendar trailing baseline: capsule handle pill ────────
+                Logically belongs to the calendar (it's the calendar's drag
+                handle), so it lives between the calendar panel and the
+                agenda. Pointer handlers and view-state (isCalendarCollapsed
+                toggle / drag-threshold collapse) are unchanged — only the
+                physical placement and visual chrome changed.
               */}
               <div
-                className="flex-shrink-0 flex flex-col items-center justify-center bg-white border-t border-gray-100 select-none cursor-pointer"
+                className="flex-shrink-0 flex justify-center items-start pt-3 pb-2 bg-white select-none cursor-pointer"
                 onPointerDown={handleHandlePointerDown}
                 onPointerMove={handleHandlePointerMove}
                 onPointerUp={handleHandlePointerUp}
                 onPointerCancel={handleHandlePointerCancel}
-                style={{ touchAction: 'none', paddingTop: 5, paddingBottom: 4 }}
+                style={{ touchAction: 'none' }}
                 aria-label={isCalendarCollapsed ? 'הרחב לוח שנה' : 'כווץ לוח שנה'}
                 role="button"
               >
-                <div className="rounded-full bg-gray-300" style={{ width: 32, height: 4 }} />
-                <ChevronDown
-                  className="w-3 h-3 text-gray-400 transition-transform duration-300"
-                  style={{ transform: isCalendarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
-                />
+                <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto" />
               </div>
 
-              {/* Cyan separator */}
-              <div className="flex-shrink-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+              {/* Ultra-thin hairline divider between handle row and agenda */}
+              <div className="flex-shrink-0 h-[1px] bg-gray-100/70" />
 
-              {/* ── Scrollable agenda ── */}
-              <div
-                className="flex-1 overflow-y-auto pb-6"
-                style={{
-                  opacity:    agendaFade ? 0.65 : 1,
-                  transition: 'opacity 0.15s ease',
-                }}
-              >
-                <RollingAgenda
-                  selectedDate={selectedDate}
-                  onDaySelect={handleDaySelect}
-                  userId={userId}
-                  recurringTemplate={recurringTemplate}
-                  onStartWorkout={onStartWorkout}
-                  filterMode="planner"
-                  onAddWorkout={handleInlineAdd}
-                  refreshKey={refreshKey}
-                  onScheduleChanged={handleSaved}
-                  weekStart={isCalendarCollapsed ? weekStart : undefined}
-                  onEditEntry={handleEditEntry}
-                  onPreviewEntry={onPreviewEntry}
-                  onCommunityTap={onCommunityTap}
-                />
+              {/*
+                ── Agenda list ────────────────────────────────────────────
+                Flat top edges — sits naturally in the background flow under
+                the calendar panel. No top radius, no upward shadow: the
+                visual elevation now lives on the calendar above (rounded
+                bottom + downward shadow), so the agenda just receives it.
+              */}
+              <div className="flex-1 flex flex-col overflow-hidden bg-white">
+                {/* ── Scrollable agenda ── */}
+                <div
+                  className="flex-1 overflow-y-auto pb-6"
+                  style={{
+                    opacity:    agendaFade ? 0.65 : 1,
+                    transition: 'opacity 0.15s ease',
+                  }}
+                >
+                  <RollingAgenda
+                    selectedDate={selectedDate}
+                    onDaySelect={handleDaySelect}
+                    userId={userId}
+                    recurringTemplate={recurringTemplate}
+                    onStartWorkout={onStartWorkout}
+                    filterMode="planner"
+                    onAddWorkout={handleInlineAdd}
+                    refreshKey={refreshKey}
+                    onScheduleChanged={handleSaved}
+                    weekStart={isCalendarCollapsed ? weekStart : undefined}
+                    onEditEntry={handleEditEntry}
+                    onPreviewEntry={onPreviewEntry}
+                    onCommunityTap={onCommunityTap}
+                  />
+                </div>
               </div>
             </div>
           </motion.div>

@@ -220,9 +220,13 @@ export function resolveToSlug(programId: string): string {
 /** Static Master: full_body child domains (push, pull, legs, core) */
 export const FULL_BODY_CHILD_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
 
+/** Static Master: upper_body child domains (push, pull) */
+export const UPPER_BODY_CHILD_DOMAINS = ['push', 'pull'] as const;
+
 /**
  * Resolve parent program to child domains for exercise filtering.
  * - Static Master (full_body): strictly ['push', 'pull', 'legs', 'core']
+ * - Static Master (upper_body): strictly ['push', 'pull']
  * - Dynamic Hybrid (calisthenics_upper): from profile.progression.skillFocusIds
  * - Other: returns [activeProgramId] (no delegation)
  */
@@ -235,6 +239,10 @@ export function resolveChildDomainsForParent(
   const activeProgramSlug = resolveToSlug(activeProgramId);
   if (activeProgramSlug === 'full_body' || activeProgramId === 'full_body') {
     return [...FULL_BODY_CHILD_DOMAINS];
+  }
+
+  if (activeProgramSlug === 'upper_body' || activeProgramId === 'upper_body') {
+    return [...UPPER_BODY_CHILD_DOMAINS];
   }
 
   if (activeProgramSlug === 'calisthenics_upper' || activeProgramId === 'calisthenics_upper') {

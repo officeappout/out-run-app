@@ -191,6 +191,14 @@ export const CATEGORY_COLORS = {
   missed:      '#9CA3AF',  // gray-400
 } as const;
 
+/**
+ * "Beast Mode" accent color — applied to flames on scheduled rest days that
+ * the user nonetheless trained on. A vibrant violet that visually outranks
+ * the standard category palette so the bonus achievement reads as a premium
+ * accomplishment rather than a routine training completion.
+ */
+export const BONUS_WORKOUT_COLOR = '#A855F7';
+
 export type DayDisplayCategory = keyof typeof CATEGORY_COLORS;
 
 /**
@@ -553,12 +561,56 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
 
   // ── TODAY: solid category fill + shadow-md (applied by DayIconCell) ─────
   //
-  // Two sub-states:
-  //   • Not yet completed → white program icon (motivational "you can do it")
-  //   • Completed today   → flame icon (medal, immediate satisfaction)
+  // Sub-states:
+  //   • Rest day, not yet completed → Zz with rest-colour background
+  //   • Rest day, workout logged    → fall through to flame (made up on a rest day)
+  //   • Training, not yet completed → white program icon (motivational "you can do it")
+  //   • Training, completed         → flame icon (medal, immediate satisfaction)
   //
-  // Both keep the 100 % opaque background so the cell always reads as TODAY.
+  // All keep the 100 % opaque background so the cell always reads as TODAY.
   if (input.state === 'today') {
+    // ── Rest day with no activity yet → Zz (mirrors the future-rest branch) ──
+    // This prevents a leaked activeProgram (from the engine fallback) from
+    // rendering a muscle-arm icon on an unscheduled off-day.
+    if (input.isRest && !input.isCompleted) {
+      return {
+        ...echo,
+        container: {
+          bgColor: CATEGORY_COLORS.rest,
+          bgOpacity: 1,
+          borderColor: CATEGORY_COLORS.rest,
+          borderWidth: 0,
+        },
+        icon: { type: 'zz' },
+        label: { text: 'מנוחה', color: '#FFFFFF' },
+        dots: [],
+      };
+    }
+    // ── Rest day with a logged workout TODAY → Beast Mode flame ──
+    // The user trained on a scheduled rest day right now. Render the
+    // premium violet bonus treatment immediately so the cell celebrates
+    // the surprise effort instead of mimicking a routine training day.
+    if (input.isRest && input.isCompleted) {
+      return {
+        ...echo,
+        container: {
+          bgColor: BONUS_WORKOUT_COLOR,
+          bgOpacity: 0,
+          borderColor: BONUS_WORKOUT_COLOR,
+          borderWidth: 2,
+        },
+        icon: {
+          type: 'img',
+          src: resolveFlameSrc(input),
+          overrideSizePx: 28,
+          glow: true,
+          color: BONUS_WORKOUT_COLOR,
+        },
+        label: { text: labelText || 'בונוס', color: BONUS_WORKOUT_COLOR },
+        dots: [{ color: BONUS_WORKOUT_COLOR }],
+      };
+    }
+
     // Two visual sub-states:
     //   Pending   → solid fill bg + white program icon (motivational)
     //   Completed → transparent bg + 2px category-colour border + colored flame with subtle glow
@@ -633,16 +685,23 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
       };
     }
 
-    // Rest-day BONUS: rest day with a completed workout → branded flame
-    // (not Lemur). Wins over the steps flame because a logged session
-    // outranks step-only achievements.
+    // Rest-day BEAST MODE: scheduled rest day with a logged workout.
+    // The user voluntarily trained on a planned off-day, so we honor the
+    // bonus effort with a premium violet glow that visually outranks the
+    // routine training-day flame. Container ring + label both adopt the
+    // bonus hue so the cell reads as a distinct achievement at a glance.
     if (input.isRest && input.isCompleted) {
       return {
         ...echo,
-        container: selectableContainer(color, selForChrome),
-        icon: { type: 'img', src: resolveFlameSrc(input) },
-        label: { text: labelText, color },
-        dots: [{ color }],
+        container: selectableContainer(BONUS_WORKOUT_COLOR, selForChrome),
+        icon: {
+          type: 'img',
+          src: resolveFlameSrc(input),
+          glow: true,
+          color: BONUS_WORKOUT_COLOR,
+        },
+        label: { text: labelText || 'בונוס', color: BONUS_WORKOUT_COLOR },
+        dots: [{ color: BONUS_WORKOUT_COLOR }],
       };
     }
 

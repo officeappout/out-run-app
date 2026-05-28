@@ -689,7 +689,7 @@ export default function VisualAssessmentPage() {
 
   return (
     <div
-      className="min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col"
+      className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden"
       dir="rtl"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
@@ -736,6 +736,7 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleSliderConfirm}
+                onBack={() => router.back()}
                 stepIndex={categoryIndex}
                 totalSteps={categories.length}
                 minLevel={pathConfig.minLevel}
@@ -808,6 +809,7 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleFollowUpConfirm}
+                onBack={() => router.back()}
                 stepIndex={followUpIndex}
                 totalSteps={followUpCategories.length}
                 mode="simple"
@@ -861,6 +863,7 @@ export default function VisualAssessmentPage() {
                     ? result.skillLevels
                     : undefined
                 }
+                assessedCategories={categories}
               />
             </motion.div>
           )}

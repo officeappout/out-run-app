@@ -4,21 +4,30 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/useAppStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
-import { Coins } from 'lucide-react';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
+import { captureMarketingAttribution } from '@/lib/marketingAttribution';
 
 export default function OnboardingIntroPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language: storeLanguage, setLanguage: setStoreLanguage } = useAppStore();
   const { coins, addCoins } = useOnboardingStore();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [localCoins, setLocalCoins] = useState(coins); // Local state for immediate UI update
+
+  // ── Growth Hub Phase 3 — Marketing Attribution capture ────────────────
+  // Inspect the inbound URL query for UTM tags / ad click IDs and stash
+  // them into sessionStorage. Idempotent — re-renders within the same
+  // session never overwrite the original click attribution.
+  useEffect(() => {
+    captureMarketingAttribution(searchParams);
+  }, [searchParams]);
   
   // Local language state (supports 'ru' which store doesn't yet)
   const [selectedLanguage, setSelectedLanguage] = useState<OnboardingLanguage>(() => {
@@ -94,6 +103,11 @@ export default function OnboardingIntroPage() {
       currentStep={1}
       totalSteps={15}
       showBack={false}
+      onContinue={() => {
+        handleCoinReward(10);
+        router.push('/onboarding-new/selection');
+      }}
+      continueLabel={locale.intro.continue}
     >
       <div className="relative w-full">
         {/* Language Selector - Fixed Segmented Control (Top-Right) */}
@@ -192,23 +206,6 @@ export default function OnboardingIntroPage() {
           </div>
         </div>
 
-        {/* כפתור המשך */}
-        <div className="mt-auto w-full px-6 pb-10">
-          <button 
-            onClick={() => {
-              handleCoinReward(10); // Add coins when starting
-              router.push('/onboarding-new/selection');
-            }}
-            className="relative w-full bg-[#5BC2F2] hover:bg-[#4ab0e0] text-white font-bold py-5 rounded-2xl text-xl shadow-lg shadow-[#5BC2F2]/20 transition-all active:scale-[0.98]"
-          >
-            {/* Coin Reward Badge - Top Left */}
-            <div className="absolute top-2 left-3 z-10 bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 flex items-center gap-1 shadow-md">
-              <Coins size={12} className="text-yellow-700" strokeWidth={2.5} />
-              <span className="text-xs font-bold font-simpler">+10</span>
-            </div>
-            {locale.intro.continue}
-          </button>
-        </div>
       </div>
     </OnboardingLayout>
   );

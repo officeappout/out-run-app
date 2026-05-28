@@ -52,6 +52,7 @@ export type MessageType =
   | 'level_up'
   | 'first_workout'
   | 'community_session'
+  | 'missed_workout'
   | 'default';
 
 export interface SmartMessage {
@@ -119,6 +120,7 @@ export const MESSAGE_TYPE_LABELS: Record<MessageType, string> = {
   level_up: 'עליית רמה',
   first_workout: 'אימון ראשון',
   community_session: 'מפגשים',
+  missed_workout: 'פספוס אימון',
   default: 'ברירת מחדל',
 };
 
@@ -163,6 +165,10 @@ export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
     { id: 'default-cs-1', type: 'community_session', text: 'מפגש קהילתי היום!', subText: 'אשר הגעה ובוא להתאמן עם הקהילה', priority: 8, isActive: true },
     { id: 'default-cs-2', type: 'community_session', text: 'מחכים לך!', subText: 'יש לך מפגש קהילתי בקרוב', priority: 7, isActive: true },
     { id: 'default-cs-3', type: 'community_session', text: 'מפגש מחר!', subText: 'אל תשכח לאשר הגעה', priority: 6, isActive: true },
+  ],
+  missed_workout: [
+    { id: 'default-mw-1', type: 'missed_workout', text: 'אתמול היה אמור להיות לך אימון בתוכנית, אבל לא נורא!', subText: 'רוצה להשלים אותו עכשיו ולקבל את הקרדיט?', priority: 7, isActive: true },
+    { id: 'default-mw-2', type: 'missed_workout', text: 'פספסת את האימון של אתמול? 💪', subText: 'שום דבר לא קרה — הלו"ז מחכה לך כאן למטה:', priority: 6, isActive: true },
   ],
   default: [
     { id: 'default-def-1', type: 'default', text: 'היי!', subText: 'מוכן להתאמן?', priority: 5, isActive: true },
@@ -509,8 +515,14 @@ class MessageService {
    */
   async createMessage(input: SmartMessageInput): Promise<SmartMessage | null> {
     try {
+      // Strip every key whose value is undefined or empty string before
+      // reaching Firestore — addDoc rejects undefined field values.
+      const sanitized = Object.fromEntries(
+        Object.entries({ ...input }).filter(([, v]) => v !== undefined && v !== ''),
+      ) as SmartMessageInput;
+
       const docData = {
-        ...input,
+        ...sanitized,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -519,7 +531,7 @@ class MessageService {
       
       const newMessage: SmartMessage = {
         id: docRef.id,
-        ...input,
+        ...sanitized,
       };
       
       // Sync to localStorage
@@ -547,10 +559,15 @@ class MessageService {
    */
   async updateMessage(id: string, updates: Partial<SmartMessageInput>): Promise<boolean> {
     try {
+      // Strip undefined / empty-string values — updateDoc rejects them.
+      const sanitized = Object.fromEntries(
+        Object.entries(updates).filter(([, v]) => v !== undefined && v !== ''),
+      ) as Partial<SmartMessageInput>;
+
       // Update Firestore
       const docRef = doc(this.collectionRef, id);
       await updateDoc(docRef, {
-        ...updates,
+        ...sanitized,
         updatedAt: serverTimestamp(),
       });
       

@@ -16,7 +16,7 @@
  */
 
 import React, { useMemo, useRef, useEffect } from 'react';
-import { motion, LayoutGroup } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
 import type { ExerciseResultLog } from '../hooks/useWorkoutStateMachine';
 import WorkoutBlockCard from './WorkoutBlockCard';
@@ -195,8 +195,7 @@ export default function WorkoutPlaylist({
           {flatExercises.length} תרגילים · {workout.name}
         </p>
 
-        <LayoutGroup>
-          <div className="space-y-5">
+        <div className="space-y-5">
             {groupedSegments.map(
               ({ segmentIndex, segmentTitle, segmentIcon, exercises }) => {
                 const isWarmupGroup =
@@ -248,8 +247,7 @@ export default function WorkoutPlaylist({
                 );
               },
             )}
-          </div>
-        </LayoutGroup>
+        </div>
       </div>
     </div>
   );
@@ -284,11 +282,7 @@ export default function WorkoutPlaylist({
     });
 
     return (
-      <motion.div
-        layout="position"
-        layoutId={`seg-${segmentIndex}`}
-        ref={isCardActive ? activeCardRef : undefined}
-      >
+      <div ref={isCardActive ? activeCardRef : undefined}>
         <WorkoutBlockCard
           exercises={entries}
           segmentTitle={segmentTitle}
@@ -301,7 +295,7 @@ export default function WorkoutPlaylist({
           isSuperSet={false}
           onSkipRest={onSkipRest}
         />
-      </motion.div>
+      </div>
     );
   }
 
@@ -337,10 +331,8 @@ export default function WorkoutPlaylist({
           // ── Superset dispatch ──────────────────────────────
           if (group.isSuperSet && entries.length >= 2) {
             return (
-              <motion.div
+              <div
                 key={group.key}
-                layout="position"
-                layoutId={`grp-${group.key}`}
                 ref={isCardActive ? activeCardRef : undefined}
               >
                 <SupersetBlockGroup
@@ -351,11 +343,11 @@ export default function WorkoutPlaylist({
                   restTimeLeft={isCardResting ? restTimeLeft : undefined}
                   formatTime={formatTime}
                   onSkipRest={onSkipRest}
-                  onSaveSet={(_exerciseIdx, setIndex, reps, sideData) =>
+                onSaveSet={(_exerciseIdx, setIndex, reps, sideData) =>
                     handleRepetitionSave(reps, sideData, undefined, setIndex)
                   }
-                />
-              </motion.div>
+              />
+              </div>
             );
           }
 
@@ -363,10 +355,8 @@ export default function WorkoutPlaylist({
           const soloEntry = entries[0];
           if (!soloEntry) return null;
           return (
-            <motion.div
+            <div
               key={group.key}
-              layout="position"
-              layoutId={`grp-${group.key}`}
               ref={isCardActive ? activeCardRef : undefined}
             >
               <StrengthExerciseCard
@@ -381,7 +371,7 @@ export default function WorkoutPlaylist({
                 formatTime={formatTime}
                 onSkipRest={onSkipRest}
               />
-            </motion.div>
+            </div>
           );
         })}
       </div>

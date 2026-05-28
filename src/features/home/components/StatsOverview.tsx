@@ -29,7 +29,7 @@ import {
 } from '@/features/workout-engine/core/services/workout-completion.service';
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dumbbell, Footprints, SlidersHorizontal, Lock } from 'lucide-react';
+import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-react';
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
 import type { HomeWorkoutTrioResult } from '@/features/workout-engine/services/home-workout.types';
@@ -258,6 +258,14 @@ interface StatsOverviewProps {
    * Controlled by the parent when the preview drawer is loading a card tap.
    */
   generateSingleOption?: boolean;
+  /**
+   * True when `selectedDate` is strictly after today (a future calendar slot).
+   * Used to lock the Start CTA — the trio is still rendered as a planning
+   * preview, but tapping a card cannot launch the active workout flow.
+   * Completion is always anchored to the real device day, so allowing a
+   * future-day start would log activity under "today" and confuse the user.
+   */
+  isViewingFutureDate?: boolean;
 }
 
 /** Context forwarded to the workout builder when the custom card is tapped. */
@@ -283,6 +291,7 @@ export default function StatsOverview({
   scheduleVersion,
   onBuildCustom,
   generateSingleOption,
+  isViewingFutureDate = false,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
@@ -696,7 +705,7 @@ export default function StatsOverview({
           entry = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
         }
 
-        const isRestDay = entry?.type === 'rest';
+        const isExplicitRestDay = entry?.type === 'rest';
         const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
 
         // When both getScheduleEntries AND hydrateFromTemplate returned null
@@ -713,8 +722,28 @@ export default function StatsOverview({
             ? (profile.lifestyle.recurringTemplate[templateDayLetter] as string[]).filter(Boolean)
             : null;
 
-        const scheduledProgramIds =
-          entry?.type === 'training' && entry.programIds?.length
+        // ── Off-day detection ─────────────────────────────────────────────────
+        // A user with a configured recurring schedule (scheduleDays or
+        // recurringTemplate) who has NO Firestore entry AND no template programs
+        // for the target date is on an unscheduled/off day.  We must NOT fall
+        // back to activePrograms[0] in this case — doing so leaks the active
+        // program ID into the engine's context and causes it to emit a full
+        // TRAINING DAY trio (muscle-arm icon, intense options) instead of a
+        // REST/RECOVERY trio.
+        const hasScheduleConfigured =
+          (profile.lifestyle?.scheduleDays?.length ?? 0) > 0 ||
+          Object.keys(profile.lifestyle?.recurringTemplate ?? {}).length > 0;
+        // Implicit off-day: schedule is configured but nothing is planned here.
+        const isImplicitOffDay =
+          !entry && !templateFallbackIds?.length && hasScheduleConfigured;
+        // Effective rest-day flag fed to the workout engine.
+        const isRestDay = isExplicitRestDay || isImplicitOffDay;
+
+        // Off-days get an empty program list so the engine can apply
+        // REST_DAY_CONFIGS cleanly, without an activeProgram sneaking in.
+        const scheduledProgramIds: string[] = isRestDay
+          ? []
+          : entry?.type === 'training' && entry.programIds?.length
             ? entry.programIds
             : templateFallbackIds?.length
               ? templateFallbackIds
@@ -722,7 +751,9 @@ export default function StatsOverview({
 
         scheduledProgramIdsRef.current = scheduledProgramIds;
         console.log(
-          `[UTS] Schedule for ${targetDate}: type=${entry?.type ?? 'none'}` +
+          `[UTS] Schedule for ${targetDate}: type=${
+            entry?.type ?? (isImplicitOffDay ? 'off-day' : 'none')
+          }` +
           ` programs=[${scheduledProgramIds.join(',')}]` +
           ` lateNight=${lateNight}`,
         );
@@ -874,8 +905,23 @@ export default function StatsOverview({
     if (trioResult) {
       onWorkoutGenerated?.(trioResult.options[idx].result.workout);
     }
+    // Viewing a future/different date → intercept and ask the user to confirm
+    // "train ahead" before launching.  The completion pipeline still anchors
+    // writes to today's slot regardless.
+    if (isViewingFutureDate) {
+      setPendingTrainAheadIndex(idx);
+      setIsTrainAheadModalOpen(true);
+      return;
+    }
     onStartWorkout?.();
-  }, [trioResult, onWorkoutGenerated, onStartWorkout]);
+  }, [trioResult, onWorkoutGenerated, onStartWorkout, isViewingFutureDate]);
+
+  // Confirm from the Train-Ahead modal — launch the workout normally.
+  const handleConfirmTrainAhead = useCallback(() => {
+    setIsTrainAheadModalOpen(false);
+    setPendingTrainAheadIndex(null);
+    onStartWorkout?.();
+  }, [onStartWorkout]);
 
   // Wraps onBuildCustom to forward the current trio context (location, programs,
   // duration, difficulty) so the builder opens pre-filled.
@@ -894,6 +940,18 @@ export default function StatsOverview({
 
   // ── Nudge popup state (for locked widgets) — must be before any early return ──
   const [showNudge, setShowNudge] = useState(false);
+
+  // ── Train-Ahead modal state ───────────────────────────────────────────────
+  const [isTrainAheadModalOpen, setIsTrainAheadModalOpen] = useState(false);
+  const [pendingTrainAheadIndex, setPendingTrainAheadIndex] = useState<number | null>(null);
+
+  // Hebrew name for the target date's day of week (e.g. "חמישי")
+  const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const targetDayName = useMemo(() => {
+    const d = new Date(targetDate + 'T00:00:00');
+    return HEBREW_DAY_NAMES[d.getDay()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetDate]);
 
   const handleLockedWidgetTap = () => {
     if (!hasCompletedAssessment) {
@@ -983,17 +1041,8 @@ export default function StatsOverview({
     <div>
       {/* Header + description — padded */}
       <div className="px-5" dir="rtl">
-        <div className="relative flex items-center justify-between mb-1">
+        <div className="relative mb-1">
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
-          {isGenerated && hasCompletedAssessment && (
-            <button
-              onClick={() => setIsUserAdjusterOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 transition-all hover:bg-gray-200 dark:hover:bg-slate-700 active:scale-95"
-            >
-              <SlidersHorizontal size={14} className="text-cyan-600" />
-              התאם
-            </button>
-          )}
           {!hasCompletedAssessment && (
             <img
               src="/assets/lemur/lemur_curious_peek.png"
@@ -1076,6 +1125,72 @@ export default function StatsOverview({
         />
       )}
       <ProcessingOverlay isVisible={showProcessing} onComplete={handleProcessingComplete} />
+
+      {/* ── Train-Ahead confirmation modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {isTrainAheadModalOpen && (
+          <motion.div
+            key="train-ahead-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center p-6"
+            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.40)' }}
+            onClick={() => setIsTrainAheadModalOpen(false)}
+          >
+            <motion.div
+              key="train-ahead-card"
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Clock icon */}
+              <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center">
+                <Clock className="w-7 h-7 text-cyan-500" />
+              </div>
+
+              <h2
+                className="text-xl font-black text-gray-900 dark:text-white mb-3 leading-snug"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                רוצה להקדים את האימון שלך?
+              </h2>
+
+              <p
+                className="text-sm text-slate-500 dark:text-slate-400 mb-7 leading-relaxed"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                האימון הזה מתוכן ליום {targetDayName}. רוצה לבצע אותו עכשיו ולשמור להיום?
+              </p>
+
+              {/* Primary CTA */}
+              <button
+                onClick={handleConfirmTrainAhead}
+                className="w-full h-14 rounded-2xl font-bold text-black text-base mb-4 active:scale-[0.98] transition-transform shadow-lg shadow-cyan-500/20"
+                style={{
+                  fontFamily: 'var(--font-simpler)',
+                  background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)',
+                }}
+              >
+                אני רוצה לעשות את האימון היום!
+              </button>
+
+              {/* Secondary — dismiss */}
+              <button
+                onClick={() => setIsTrainAheadModalOpen(false)}
+                className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                תשאירו ביום המקורי
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 

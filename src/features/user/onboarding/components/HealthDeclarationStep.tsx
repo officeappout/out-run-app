@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldCheck, Zap, X, Loader2, Info } from 'lucide-react';
 import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
 import { useOnboardingStore } from '../store/useOnboardingStore';
-import SignaturePad from './SignaturePad';
 // pdf-service is NOT statically imported here — see the preload useEffect below.
 // Keeping it out of the static import graph prevents pdf-lib (~600 KB) from being
 // bundled into this page's initial JS chunk, eliminating the main-thread freeze
@@ -71,6 +70,90 @@ export default function HealthDeclarationStep({
       });
   }, []);
 
+  // ── Canvas: DPR sizing + non-passive touch listeners ──────────────────────
+  // Touch listeners MUST be registered via addEventListener({ passive: false })
+  // so that e.preventDefault() can lock the viewport during signing.
+  // React's synthetic onTouch* handlers are passive by default and cannot call
+  // preventDefault — this native approach avoids that browser warning entirely.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // DPR-aware sizing — rerun whenever the element is resized
+    const init = () => {
+      const dpr  = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width) return;
+      canvas.width  = rect.width  * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr); }
+    };
+    const ro = new ResizeObserver(init);
+    ro.observe(canvas);
+
+    // Helpers scoped to this effect — refs are stable so no stale-closure risk
+    const getTPos = (e: TouchEvent) => {
+      const rect  = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      return touch ? { x: touch.clientX - rect.left, y: touch.clientY - rect.top } : null;
+    };
+    const drawSegment = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.beginPath();
+      ctx.lineWidth   = 3;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      ctx.strokeStyle = '#0f172a';
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x,   to.y);
+      ctx.stroke();
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const pos = getTPos(e);
+      if (!pos) return;
+      isDrawingRef.current = true;
+      lastPosRef.current   = pos;
+      setHasSigned(true);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+      }
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (!isDrawingRef.current || !lastPosRef.current) return;
+      const pos = getTPos(e);
+      if (!pos) return;
+      drawSegment(lastPosRef.current, pos);
+      lastPosRef.current = pos;
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      if (!isDrawingRef.current) return;
+      isDrawingRef.current = false;
+      lastPosRef.current   = null;
+      setSignatureData(canvas.toDataURL('image/png'));
+    };
+
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove',  handleTouchMove,  { passive: false });
+    canvas.addEventListener('touchend',   handleTouchEnd,   { passive: false });
+
+    return () => {
+      ro.disconnect();
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove',  handleTouchMove);
+      canvas.removeEventListener('touchend',   handleTouchEnd);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── State ──
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -81,9 +164,13 @@ export default function HealthDeclarationStep({
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSafetyInfoModal, setShowSafetyInfoModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSigned,    setHasSigned]    = useState(false);
 
-  const signatureRef = useRef<HTMLDivElement>(null);
+  const signatureRef       = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const canvasRef          = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef       = useRef(false);
+  const lastPosRef         = useRef<{ x: number; y: number } | null>(null);
 
   // ── Derived state ──
   const allAnswered = useMemo(
@@ -96,7 +183,7 @@ export default function HealthDeclarationStep({
     [answers]
   );
 
-  const canSubmit = allAnswered && !!signatureData && termsAccepted && !hasMedicalIssue;
+  const canSubmit = allAnswered && hasSigned && !!signatureData && termsAccepted && !hasMedicalIssue;
 
   // ── Handlers ──
   const handleAnswer = useCallback((id: string, answerIsYes: boolean) => {
@@ -143,9 +230,6 @@ export default function HealthDeclarationStep({
     }, 300);
   }, []);
 
-  const handleSignatureEnd = useCallback((data: string | null) => {
-    setSignatureData(data);
-  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit || !signatureData || isSubmitting) return;
@@ -222,6 +306,62 @@ export default function HealthDeclarationStep({
       setIsSubmitting(false);
     }
   }, [canSubmit, signatureData, isSubmitting, updateData, answers, termsAccepted, usedFastTrack, userName, gender, onContinue, onComplete]);
+
+  // ── Native canvas drawing helpers ──────────────────────────────────────────
+  function getMousePos(e: React.MouseEvent<HTMLCanvasElement>) {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  function applyStroke(from: { x: number; y: number }, to: { x: number; y: number }) {
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.lineWidth   = 3;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.strokeStyle = '#0f172a';
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x,   to.y);
+    ctx.stroke();
+  }
+
+  function startDrawing(pos: { x: number; y: number }) {
+    isDrawingRef.current = true;
+    lastPosRef.current   = pos;
+    setHasSigned(true);
+    // Paint a tiny dot so a single tap is visible
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+    }
+  }
+
+  function continueDrawing(pos: { x: number; y: number }) {
+    if (!isDrawingRef.current || !lastPosRef.current) return;
+    applyStroke(lastPosRef.current, pos);
+    lastPosRef.current = pos;
+  }
+
+  function finishDrawing() {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    lastPosRef.current   = null;
+    const canvas = canvasRef.current;
+    if (canvas) setSignatureData(canvas.toDataURL('image/png'));
+  }
+
+  function clearCanvas() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const ctx  = canvas.getContext('2d');
+    ctx?.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+    setSignatureData(null);
+    setHasSigned(false);
+  }
 
   return (
     <div className="flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50" dir="rtl">
@@ -323,8 +463,8 @@ export default function HealthDeclarationStep({
                 <h1 className="font-bold leading-snug mb-1.5" style={{ fontSize: '17px', color: '#000000' }}>
                   {(() => {
                     const sentence = isFemale
-                      ? 'רגע לפני שיוצאים לדרך — חשוב לנו לוודא שאנחנו שומרות עלייך ב-100%.'
-                      : 'רגע לפני שיוצאים לדרך — חשוב לנו לוודא שאנחנו שומרים עליך ב-100%.';
+                      ? 'רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרות עלייך ב100%.'
+                      : 'רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרים עליך ב100%.';
                     const words = userName
                       ? [`${userName},`, ...sentence.split(' ')]
                       : [(title || 'הצהרת בריאות')];
@@ -505,73 +645,97 @@ export default function HealthDeclarationStep({
         </div>
 
         {/* ── Signature Section ── */}
-        <div ref={signatureRef} className="mt-8 pt-6 border-t border-slate-100">
+        <div ref={signatureRef} className="mt-8 pt-6 border-t border-slate-100 space-y-4" style={{ fontFamily: 'var(--font-simpler)' }}>
+
+          {/* Title + gender-responsive subtitle */}
+          <div className="space-y-1" dir="rtl">
+            <h3 className="font-black text-slate-900 text-lg">הצהרת בריאות ואישור תוכנית 📋</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              {isFemale
+                ? 'אנא קראי ואשרי את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית'
+                : 'אנא קרא ואשר את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית'}
+            </p>
+          </div>
+
+          {/* Scrollable legal declaration text */}
           <div
-            className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4"
-            style={{ fontFamily: 'var(--font-simpler)' }}
+            className="max-h-40 overflow-y-auto bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed"
+            dir="rtl"
           >
-            <div className="space-y-2">
-              <h3 className="font-bold text-slate-900 text-base">חתימה על הצהרת בריאות</h3>
-              <p className="text-xs text-slate-500 leading-relaxed text-justify">
-                {LEGAL_TEXT}
-                </p>
-            </div>
+            {LEGAL_TEXT}
+          </div>
 
-            {/* Signature Canvas */}
-            <SignaturePad onEnd={handleSignatureEnd} />
-
-            {/* Terms & Privacy Checkbox */}
-            <div className="pt-2 border-t border-slate-100">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="relative flex items-center mt-0.5">
-                        <input
-                            type="checkbox"
-                            className="peer sr-only"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                        />
-                  <div className="w-5 h-5 border-2 border-slate-300 rounded-md peer-checked:bg-[#5BC2F2] peer-checked:border-[#5BC2F2] transition-all group-hover:border-[#5BC2F2]"></div>
-                        <div className="absolute inset-0 flex items-center justify-center text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity">
-                    <svg width="12" height="9" viewBox="0 0 12 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 4L4 7L11 1" />
-                            </svg>
-                        </div>
-                    </div>
-                <p className="text-sm text-slate-700 leading-relaxed flex-1">
-                  קראתי ואני מסכים/ה ל
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowTermsModal(true);
-                    }}
-                    className="text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium"
-                    type="button"
-                  >
-                    תנאי השימוש
-                  </button>
-                  ול
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowPrivacyModal(true);
-                    }}
-                    className="text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium"
-                    type="button"
-                  >
-                    מדיניות הפרטיות
-                  </button>
-                </p>
-                </label>
-            </div>
-
-            {/* Signature status indicator */}
-            <div
-              className={`text-xs text-center transition-colors font-bold ${
-                signatureData ? 'text-emerald-600' : 'text-slate-400'
-              }`}
+          {/* ── Native HTML5 Canvas Signature Pad ── */}
+          {/* dir="ltr" so the canvas coordinate system is left-to-right regardless of page direction */}
+          <div dir="ltr" className="w-full h-44 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl relative">
+            <canvas
+              ref={canvasRef}
+              className="w-full h-full rounded-2xl cursor-crosshair touch-none select-none"
+              onMouseDown={(e) => { e.preventDefault(); startDrawing(getMousePos(e)); }}
+              onMouseMove={(e) => { e.preventDefault(); continueDrawing(getMousePos(e)); }}
+              onMouseUp={finishDrawing}
+              onMouseLeave={finishDrawing}
+            />
+            {/* Placeholder hint — hidden once the user starts drawing */}
+            {!hasSigned && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" dir="rtl">
+                <span className="text-slate-300 text-sm">חתום/י כאן עם האצבע</span>
+              </div>
+            )}
+            {/* Clear button — bottom-right corner */}
+            <button
+              type="button"
+              onClick={clearCanvas}
+              className="absolute bottom-2.5 right-3 text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium"
             >
-              {signatureData ? '✓ החתימה התקבלה' : 'יש לחתום בתיבה למעלה'}
-            </div>
+              ניקוי חתימה
+            </button>
+          </div>
+
+          {/* Signature status pill */}
+          <div className={`text-xs text-center font-bold transition-colors ${signatureData ? 'text-emerald-600' : 'text-slate-400'}`}>
+            {signatureData ? '✓ החתימה התקבלה' : 'יש לחתום בתיבה למעלה'}
+          </div>
+
+          {/* ── Confirmation Checkbox — disabled until the user has signed ── */}
+          <div
+            className={`pt-3 border-t border-slate-100 transition-opacity duration-300 ${hasSigned ? 'opacity-100' : 'opacity-35 pointer-events-none'}`}
+          >
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="relative flex items-center mt-0.5 flex-shrink-0">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  disabled={!hasSigned}
+                />
+                <div className="w-5 h-5 border-2 border-slate-300 rounded-md peer-checked:bg-[#5BC2F2] peer-checked:border-[#5BC2F2] transition-all group-hover:border-[#5BC2F2]" />
+                <div className="absolute inset-0 flex items-center justify-center text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity">
+                  <svg width="12" height="9" viewBox="0 0 12 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 4L4 7L11 1" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-sm text-slate-700 leading-relaxed flex-1" dir="rtl">
+                {isFemale ? 'אני מצהירה' : 'אני מצהיר'} כי כל הנתונים נכונים {isFemale ? 'ומסכימה' : 'ומסכים'} ל
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
+                  className="text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium"
+                >
+                  תנאי השימוש
+                </button>
+                ול
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }}
+                  className="text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium"
+                >
+                  מדיניות הפרטיות
+                </button>
+              </p>
+            </label>
           </div>
         </div>
 
@@ -612,12 +776,18 @@ export default function HealthDeclarationStep({
           disabled={!canSubmit || isSubmitting}
           animate={canSubmit && !isSubmitting ? { scale: [1, 1.01, 1] } : {}}
           transition={canSubmit && !isSubmitting ? { repeat: Infinity, duration: 1.5, ease: 'easeInOut' } : {}}
-          className={`w-full font-bold py-4 rounded-2xl shadow-lg transition-all text-base flex items-center justify-center gap-2
+          className={`w-full font-bold py-4 rounded-2xl transition-all text-base flex items-center justify-center gap-2
             ${canSubmit && !isSubmitting
-              ? 'bg-[#4FB4F7] text-white shadow-[#4FB4F7]/30 hover:bg-[#3DA5E8] active:scale-[0.98]'
-              : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+              ? 'text-white active:scale-[0.98]'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
-          style={{ fontFamily: 'var(--font-simpler)' }}
+          style={{
+            fontFamily: 'var(--font-simpler)',
+            ...(canSubmit && !isSubmitting ? {
+              background: 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)',
+              boxShadow: '0 8px 28px rgba(0,186,247,0.4), 0 3px 10px rgba(139,92,246,0.18)',
+            } : {}),
+          }}
         >
           {isSubmitting ? (
             <>

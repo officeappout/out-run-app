@@ -3,9 +3,48 @@
  * Defines the structure for workout metadata, messaging, and psychological triggers
  */
 
-export type PsychologicalTrigger = 'FOMO' | 'Challenge' | 'Support' | 'Reward';
+/**
+ * Psychological trigger families.
+ * The first 4 are the original motivational angles applied to any notification
+ * type; the last 2 ('Social_Proof', 'Loss_Aversion') were added with the
+ * Social Engagement Engine and pair specifically with the social triggers
+ * below (e.g. League_Overtake → Loss_Aversion, Social_Matchmaking → Social_Proof).
+ */
+export type PsychologicalTrigger =
+  | 'FOMO'
+  | 'Challenge'
+  | 'Support'
+  | 'Reward'
+  | 'Social_Proof'
+  | 'Loss_Aversion';
 
-export type NotificationTriggerType = 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance' | 'Proximity';
+/**
+ * All supported notification trigger categories.
+ *
+ * Legacy (single-user behavioural) triggers:
+ *   • Inactivity        — user has been offline N days
+ *   • Scheduled         — fixed calendar/cron reminder
+ *   • Location_Based    — geofence on a park or gym
+ *   • Habit_Maintenance — routine reinforcement / streak defence
+ *   • Proximity         — proximate to a specific equipment fixture
+ *
+ * Social Engagement Engine triggers (introduced for the gamified
+ * community mechanics in Duolingo/Strava style retention loops):
+ *   • League_Overtake      — peer overtook the user on the weekly leaderboard
+ *   • Social_Matchmaking   — peer with matching level/program is exercising nearby
+ *   • Future_Partner_Plan  — peer scheduled the user's primary park at a future slot
+ *   • Community_Group_New  — a new public group launched in the user's geofence
+ */
+export type NotificationTriggerType =
+  | 'Inactivity'
+  | 'Scheduled'
+  | 'Location_Based'
+  | 'Habit_Maintenance'
+  | 'Proximity'
+  | 'League_Overtake'
+  | 'Social_Matchmaking'
+  | 'Future_Partner_Plan'
+  | 'Community_Group_New';
 
 export type DaysInactive = 1 | 2 | 7 | 30;
 
@@ -35,6 +74,62 @@ export interface Notification {
 export interface InactivityNotification extends Notification {
   daysInactive: DaysInactive;
   triggerType: 'Inactivity';
+}
+
+/**
+ * Social Notification — extends the base Notification with the contextual
+ * payload fields required by the four Social Engagement Engine triggers.
+ *
+ * Every field is optional because a single SocialNotification document only
+ * uses the subset relevant to its `triggerType`:
+ *   • League_Overtake      → overtakingUserId, newRank, stepDelta
+ *   • Social_Matchmaking   → matchedUserId, matchedUserName, matchedUserLevel
+ *   • Future_Partner_Plan  → matchedUser* + plannedWorkoutTime
+ *   • Community_Group_New  → groupId, groupName, groupCategory,
+ *                            meetingLocationName, meetingTime, meetingDay
+ *
+ * Timestamps are stored as ISO strings (not Firestore Timestamp) so the
+ * document round-trips cleanly through the push queue without server-side
+ * timestamp coercion.
+ */
+export interface SocialNotification extends Notification {
+  triggerType:
+    | 'League_Overtake'
+    | 'Social_Matchmaking'
+    | 'Future_Partner_Plan'
+    | 'Community_Group_New';
+
+  // ── League_Overtake context ─────────────────────────────────────────
+  /** UID of the peer who just passed the recipient on the leaderboard. */
+  overtakingUserId?: string;
+  /** Recipient's new rank position (integer). */
+  newRank?: number;
+  /** Step/point delta needed to retake the previous rank. */
+  stepDelta?: number;
+
+  // ── Matchmaking / Partner-Plan context ─────────────────────────────
+  /** UID of the matched peer (Matchmaking or Future_Partner_Plan). */
+  matchedUserId?: string;
+  /** Display name of the matched peer. */
+  matchedUserName?: string;
+  /** Global progression level of the matched peer. */
+  matchedUserLevel?: number;
+  /** ISO timestamp of the peer's planned workout slot (Future_Partner_Plan). */
+  plannedWorkoutTime?: string;
+
+  // ── Community_Group_New context ────────────────────────────────────
+  /** Firestore ID of the newly launched community group. */
+  groupId?: string;
+  /** Display name of the newly launched group. */
+  groupName?: string;
+  /** Group activity category (walking / running / yoga / ...). */
+  groupCategory?: import('@/types/community.types').CommunityGroupCategory;
+  /** Display name or address of the meeting fixture. */
+  meetingLocationName?: string;
+  /** ISO timestamp of the next scheduled meeting. */
+  meetingTime?: string;
+  /** Pre-formatted Hebrew day string (e.g. "יום שלישי"). */
+  meetingDay?: string;
 }
 
 /**

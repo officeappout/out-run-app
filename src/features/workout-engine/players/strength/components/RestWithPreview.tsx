@@ -64,7 +64,7 @@ export default function RestWithPreview({
           >
             <div
               className="px-6 pt-4"
-              style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 16px))' }}
+              style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
             >
               {/* "מנוחה" label */}
               <p

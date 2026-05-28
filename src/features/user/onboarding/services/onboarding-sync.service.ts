@@ -30,6 +30,7 @@ import {
 } from './assessment-path-config.service';
 import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
 import { getProgramByTemplateId } from '@/features/content/programs';
+import { buildAttributionPayload } from '@/lib/marketingAttribution';
 
 // ── Canonical program slug allow-list ──────────────────────────────
 //
@@ -257,6 +258,33 @@ export async function syncOnboardingToFirestore(
       updatedAt: serverTimestamp(),
     };
 
+    // ── Growth Hub Phase 3 — Marketing Attribution flush ──────────────
+    // Run exactly once per user at the COMPLETED write gate. We do this
+    // here (not on the initial create) so that:
+    //   • The attribution document is written alongside the canonical
+    //     "user has activated" signal, keeping growth analytics in sync
+    //     with the funnel completion event.
+    //   • Users who abandon mid-onboarding are not counted in CAC
+    //     calculations — we only attribute spend to converted users.
+    //
+    // `buildAttributionPayload()` returns a fully-formed object even
+    // when sessionStorage is empty (organic fallback), so the write
+    // never throws and the `marketingAttribution` field is always
+    // well-shaped. `onboardingCompletedAt` is a server timestamp so the
+    // funnel-activation-velocity report can compute (completedAt -
+    // createdAt) reliably.
+    if (step === 'COMPLETED') {
+      try {
+        updateData.marketingAttribution = buildAttributionPayload();
+        updateData.onboardingCompletedAt = serverTimestamp();
+      } catch (attrError) {
+        // Never let attribution capture block onboarding completion —
+        // a missing/corrupt sessionStorage entry is a non-fatal degraded
+        // state, not a reason to fail the user's account activation.
+        console.warn('[OnboardingSync] Marketing attribution flush failed:', attrError);
+      }
+    }
+
     // If this is a new user (first time syncing), create initial structure
     if (!exists) {
       // Get authority ID from sessionStorage if set during city selection
@@ -418,10 +446,10 @@ export async function syncOnboardingToFirestore(
     }
 
     // Update with onboarding data
-    if (data.equipmentList && data.equipmentList.length > 0) {
+    if (data.equipmentList !== undefined) {
       updateData.equipment = {
         ...updateData.equipment,
-        home: data.equipmentList || [],
+        home: data.equipmentList,
       };
     }
 
@@ -965,24 +993,59 @@ export async function syncOnboardingToFirestore(
             focusDomains,
           );
         }
-        // Path B: Override primaryProgramId and focusDomains from muscle selection
+        // Path B: Multi-track expansion from muscle selection
+        //
+        // Previous behaviour: collapse push+pull → one master result ('upper_body')
+        //   activePrograms: [upper_body]  tracks: {upper_body, push, pull}
+        //
+        // New behaviour: one result PER assessed child domain
+        //   activePrograms: [push, pull]  tracks: {push, pull}
+        //
+        // Single-domain selections (chest only → push) continue to write a
+        // single entry with that domain's own slug. Multi-domain selections
+        // (chest+back → push+pull) now write one entry per slug so the home
+        // screen renders separate cards and the split engine rotates them.
         else if (isPathBBodyFocus) {
-          const activeProgramId = deriveActiveProgramFromMuscleFocus(muscleIds);
           const focusDomains = getFocusDomainsForMuscleFocus(muscleIds);
           const primaryResult = effectiveResults[0];
-          const masterSub = primaryResult.masterProgramSubLevels ?? { push: 0, pull: 0, legs: 0, core: 0 };
-          const maxLevel = Math.max(masterSub.push ?? 0, masterSub.pull ?? 0, masterSub.legs ?? 0, masterSub.core ?? 0) || 1;
-          effectiveResults = [{
-            ...primaryResult,
-            programId: activeProgramId,
-            levelId: `${activeProgramId}_level_${maxLevel}`,
-            masterProgramSubLevels: masterSub,
-          }];
-          console.log(
-            '[OnboardingSync] Path B override: activeProgram=', activeProgramId,
-            'focusDomains=', focusDomains,
-            'masterSubLevels=', masterSub,
-          );
+          const masterSub: Record<string, number> =
+            primaryResult.masterProgramSubLevels ?? { push: 0, pull: 0, legs: 0, core: 0 };
+
+          // Only expand domains that have a real assessed level (> 0).
+          const assessedDomains = focusDomains.filter(d => (masterSub[d] ?? 0) > 0);
+
+          if (assessedDomains.length > 1) {
+            // ── Multi-domain: one independent result per assessed domain ──────
+            // masterProgramSubLevels is intentionally omitted — each domain is
+            // its own leaf program, not a master with children.
+            effectiveResults = assessedDomains.map(domain => ({
+              programId: domain,
+              levelId: `${domain}_level_${masterSub[domain]}`,
+              masterProgramSubLevels: undefined,
+            }));
+            console.log(
+              '[OnboardingSync] Path B multi-track expansion: ' +
+              `muscleIds=[${muscleIds.join(', ')}] → ` +
+              assessedDomains.map(d => `${d}=L${masterSub[d]}`).join(', '),
+            );
+          } else {
+            // ── Single-domain: keep current single-result behaviour ────────────
+            // Use the specific leaf slug (e.g. 'push') rather than a master slug
+            // so the active program card is labelled correctly.
+            const singleDomain = assessedDomains[0] ?? focusDomains[0] ?? 'push';
+            const singleLevel = (masterSub[singleDomain] ?? 0)
+              || Math.max(...Object.values(masterSub)) || 1;
+            effectiveResults = [{
+              ...primaryResult,
+              programId: singleDomain,
+              levelId: `${singleDomain}_level_${singleLevel}`,
+              masterProgramSubLevels: undefined,
+            }];
+            console.log(
+              '[OnboardingSync] Path B single-domain: ' +
+              `muscleIds=[${muscleIds.join(', ')}] → ${singleDomain}=L${singleLevel}`,
+            );
+          }
         }
 
         // ✅ USE DYNAMIC QUESTIONNAIRE RESULTS (Highest Priority)
@@ -1128,10 +1191,20 @@ export async function syncOnboardingToFirestore(
               );
               continue;
             }
+            // focusDomains resolution:
+            //   • Path C calisthenics_upper: skill focus IDs (e.g. [planche, front_lever])
+            //   • Path B multi-track:        [result.programId] — each leaf program
+            //                                owns only its own domain so the workout
+            //                                engine doesn't receive a cross-domain
+            //                                filter list for a single-track program.
+            //   • All other paths:           [result.programId] (same as before)
+            const PRIMARY_DOMAIN_SLUGS = new Set(['push', 'pull', 'legs', 'core']);
             const focusDomains =
               isPathCSkills && result.programId === 'calisthenics_upper'
                 ? skillIds
-                : isPathBBodyFocus
+                : isPathBBodyFocus && !PRIMARY_DOMAIN_SLUGS.has(result.programId)
+                  // Fallback: Path B result is still a master slug (shouldn't happen
+                  // after the multi-track expansion, but kept for safety).
                   ? getFocusDomainsForMuscleFocus(muscleIds)
                   : [result.programId];
             activeProgramEntries.push({
@@ -1274,30 +1347,49 @@ export async function syncOnboardingToFirestore(
         // Used only when no dynamic questionnaire results are available
         // ============================================================
         console.log('[OnboardingSync] No assignedResults found, falling back to GOAL_TO_PROGRAM mapping');
-        
-        const primaryGoal = (data as any).selectedGoalIds?.[0] || (data as any).selectedGoal || 'healthy_lifestyle';
-        const assignedProgramId = GOAL_TO_PROGRAM[primaryGoal] || 'full_body';
+
+        // ── Resolve ALL selected goals to unique program IDs ──────────────────
+        // selectedGoalIds may contain multiple goals (e.g. ['aesthetics', 'fitness']).
+        // Map each to its program, deduplicate, then validate every candidate
+        // before writing to activePrograms so no corrupt ID sneaks through.
+        const rawGoalIds: string[] =
+          (data as any).selectedGoalIds?.length
+            ? (data as any).selectedGoalIds
+            : (data as any).selectedGoal
+              ? [(data as any).selectedGoal]
+              : ['healthy_lifestyle'];
+
+        // Deduplicated program IDs preserving goal order
+        const goalProgramIds: string[] = [];
+        const _goalSeen = new Set<string>();
+        for (const goalId of rawGoalIds) {
+          const pid = GOAL_TO_PROGRAM[goalId] || 'full_body';
+          if (!_goalSeen.has(pid)) { _goalSeen.add(pid); goalProgramIds.push(pid); }
+        }
+        // Primary = first goal's mapped program (backwards-compat for currentProgramId)
+        const assignedProgramId = goalProgramIds[0] ?? 'full_body';
 
         updateData.currentProgramId = assignedProgramId;
         updateData.fitnessLevel = fitnessLevel;
 
-        // Initialize tracks for the assigned program
-        const initialTracks: Record<string, { currentLevel: number; percent: number }> = {
-          [assignedProgramId]: { currentLevel: initialLevel, percent: 0 },
-        };
+        // Build tracks for every mapped program
+        const initialTracks: Record<string, { currentLevel: number; percent: number }> = {};
+        for (const pid of goalProgramIds) {
+          initialTracks[pid] = { currentLevel: initialLevel, percent: 0 };
+        }
 
-        // Validate the GOAL_TO_PROGRAM fallback id resolves before we
-        // seed activePrograms with it. If it doesn't, leave activePrograms
-        // empty so downstream consumers (WorkoutTrio, ActiveProgramsCarousel)
-        // surface "no program assigned" instead of inheriting a corrupt
-        // templateId that silently produces 0 exercises.
-        const assignedProgramIdValid = await isValidProgramTemplateId(assignedProgramId);
-        if (!assignedProgramIdValid) {
-          console.warn(
-            '🚨 [OnboardingSync] GOAL_TO_PROGRAM produced an unresolvable id — ' +
-            'refusing to seed activePrograms with it:',
-            JSON.stringify(assignedProgramId),
-          );
+        // Validate each candidate; reject any whose templateId can't be resolved
+        const validatedGoalPrograms: string[] = [];
+        for (const pid of goalProgramIds) {
+          if (await isValidProgramTemplateId(pid)) {
+            validatedGoalPrograms.push(pid);
+          } else {
+            console.warn(
+              '🚨 [OnboardingSync] GOAL_TO_PROGRAM produced an unresolvable id — ' +
+              'refusing to seed activePrograms with it:',
+              JSON.stringify(pid),
+            );
+          }
         }
 
         // Also set the main active program in progression if not already set
@@ -1307,15 +1399,15 @@ export async function syncOnboardingToFirestore(
             ...updateData.progression,
             domains: initialDomains,
             tracks: initialTracks,
-            activePrograms: assignedProgramIdValid ? [{
-              id: assignedProgramId,
-              templateId: assignedProgramId,
-              name: assignedProgramId.replace(/_/g, ' '),
+            activePrograms: validatedGoalPrograms.map(pid => ({
+              id: pid,
+              templateId: pid,
+              name: pid.replace(/_/g, ' '),
               startDate: new Date().toISOString(),
               durationWeeks: 52,
               currentWeek: 1,
-              focusDomains: [assignedProgramId] as any,
-            }] : [],
+              focusDomains: [pid] as any,
+            })),
           };
         } else {
           // At minimum, ensure domains and tracks are populated

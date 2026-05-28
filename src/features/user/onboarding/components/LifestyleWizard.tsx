@@ -8,7 +8,13 @@ import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
-import { initPushNotifications } from '@/lib/native/push';
+import {
+  initPushNotifications,
+  requestWebPush,
+  isNativePlatform,
+  isIOSDevice,
+  isStandalonePWA,
+} from '@/lib/native/push';
 import { saveNotificationPrefs } from '@/features/notifications/services/notification-prefs.service';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import PersonaStep from './steps/PersonaStep';
@@ -36,6 +42,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   const { data: onboardingData } = useOnboardingStore();
   const [currentStep, setCurrentStep] = useState<WizardStep>('persona');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showIOSModal, setShowIOSModal] = useState(false);
 
   // Gender-aware copy — sessionStorage is populated earlier in the
   // onboarding flow (see PersonalStatsStep), with 'male' as the safe
@@ -115,21 +122,17 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
   // Notifications-step handler.
   //
-  // Pipeline (per implementation plan):
-  //   1. If the user accepted, request the native OS permission and
-  //      register the FCM token via `initPushNotifications`. The helper
-  //      is a no-op on the pure-web Vercel build (gated by
-  //      `isNativePlatform()`), so this is safe everywhere.
-  //   2. Persist the canonical preference schema
-  //      (`settings.pushEnabled` + `settings.notificationPrefs`) via
-  //      `saveNotificationPrefs`. This is the ONLY path the server-side
-  //      `sendPushFromQueue` reads — the legacy `lifestyle.pushEnabled`
-  //      key was removed in this same edit.
-  //   3. Run the existing persona/schedule/status final submit.
+  // Platform dispatch matrix:
+  //   • Capacitor native (iOS/Android app) → `initPushNotifications` via FCM plugin
+  //   • iOS Safari, NOT installed as PWA   → show "Add to Home Screen" instructions
+  //                                          (Apple Web Push requires standalone mode)
+  //   • Web browser (Android Chrome, desktop, iOS standalone PWA)
+  //       → `Notification.requestPermission()` called first (MUST be the first
+  //          await to satisfy browser user-activation requirements), then
+  //          `requestWebPush` obtains the FCM web token via firebase/messaging.
   //
   // The `system` channel is force-true regardless of the user's choice;
-  // it carries operational/security messages that the Cloud Function
-  // always delivers.
+  // it carries operational/security messages the Cloud Function always delivers.
   const handleNotificationsNext = async (enabled: boolean) => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -140,22 +143,43 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
     try {
       if (enabled) {
-        // Native FCM token registration (idempotent; no-op on web).
-        await initPushNotifications(uid);
+        if (isNativePlatform()) {
+          // ── Native Capacitor path (iOS app, Android app) ──────────────
+          await initPushNotifications(uid);
+        } else if (isIOSDevice() && !isStandalonePWA()) {
+          // ── iOS Safari outside PWA — Apple blocks Web Push ────────────
+          // Show instructions instead of attempting a doomed permission
+          // request. The modal gives the user steps to add the app to the
+          // home screen so the next attempt will succeed.
+          setShowIOSModal(true);
+          return; // Pause here; the modal's CTA resumes the flow.
+        } else {
+          // ── Web browser (Android Chrome, desktop, iOS PWA) ────────────
+          // IMPORTANT: Notification.requestPermission() MUST be the first
+          // await in this block so it sits directly on the user-gesture
+          // call stack. Browsers reject permission prompts that follow
+          // any prior await that isn't also a user-gesture bridge.
+          const permission: NotificationPermission =
+            'Notification' in window
+              ? await Notification.requestPermission()
+              : 'denied';
+
+          await requestWebPush(uid, permission);
+        }
       }
 
       await saveNotificationPrefs(uid, {
         pushEnabled: enabled,
         channels: {
-          encouragement: enabled,
+          encouragement:    enabled,
           health_milestone: enabled,
           training_reminder: enabled,
-          system: true,
+          system: true, // always on — operational/security messages
         },
       });
     } catch (err) {
-      // Never block onboarding completion on a push-setup failure —
-      // the user can adjust prefs later from Settings.
+      // Never block onboarding completion on a push failure —
+      // the user can re-enable from Settings at any time.
       console.warn('[LifestyleWizard] Push setup failed (non-fatal):', err);
     }
 
@@ -293,6 +317,117 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── iOS "Add to Home Screen" instructions modal ────────────────────
+          Shown when the user taps "enable notifications" on iOS Safari while
+          the app is NOT installed as a standalone PWA. Apple Web Push only
+          works once the user has added the app to their home screen. */}
+      <AnimatePresence>
+        {showIOSModal && (
+          <motion.div
+            key="ios-modal-overlay"
+            className="fixed inset-0 z-[120] flex items-end justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Scrim */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+              onClick={() => setShowIOSModal(false)}
+            />
+
+            {/* Sheet */}
+            <motion.div
+              key="ios-modal-sheet"
+              className="relative bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0,  opacity: 1 }}
+              exit={{ y: 80,   opacity: 0 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+            >
+              {/* Header */}
+              <div className="text-center mb-5">
+                <div className="text-5xl mb-3">📱</div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">
+                  לקבלת התראות באייפון
+                </h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Apple מאפשרת התראות רק לאפליקציות שמותקנות על מסך הבית.
+                  זה לוקח פחות מדקה ✨
+                </p>
+              </div>
+
+              {/* Step-by-step instructions */}
+              <div className="space-y-3.5 mb-6">
+                <div className="flex items-start gap-3 bg-slate-50 rounded-2xl px-4 py-3">
+                  <span
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+                    style={{ background: 'linear-gradient(135deg,#00BAF7,#0CF2E3)' }}
+                  >
+                    1
+                  </span>
+                  <span className="text-sm text-slate-700 leading-snug">
+                    פתח את ספארי ולחץ על סמל השיתוף{' '}
+                    <span className="font-semibold">⬜↑</span>{' '}
+                    בסרגל התחתון
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-3 bg-slate-50 rounded-2xl px-4 py-3">
+                  <span
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+                    style={{ background: 'linear-gradient(135deg,#00BAF7,#0CF2E3)' }}
+                  >
+                    2
+                  </span>
+                  <span className="text-sm text-slate-700 leading-snug">
+                    גלול מטה ובחר{' '}
+                    <span className="font-semibold">"הוסף למסך הבית"</span>
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-3 bg-slate-50 rounded-2xl px-4 py-3">
+                  <span
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
+                    style={{ background: 'linear-gradient(135deg,#00BAF7,#0CF2E3)' }}
+                  >
+                    3
+                  </span>
+                  <span className="text-sm text-slate-700 leading-snug">
+                    פתח את{' '}
+                    <span className="font-semibold">Out</span>{' '}
+                    מהסמל החדש על מסך הבית ואשר את ההתראות
+                  </span>
+                </div>
+              </div>
+
+              {/* CTAs */}
+              <button
+                onClick={() => setShowIOSModal(false)}
+                className="w-full py-3.5 rounded-full font-semibold text-sm text-black transition-opacity active:opacity-80"
+                style={{
+                  background: 'linear-gradient(98deg,#0CF2E3 0%,#00BAF7 98%)',
+                  boxShadow: '0 6px 20px rgba(0,186,247,0.35)',
+                }}
+              >
+                הבנתי, אוסיף למסך הבית
+              </button>
+
+              <button
+                onClick={async () => {
+                  setShowIOSModal(false);
+                  // Skip push, continue onboarding
+                  await handleNotificationsNext(false);
+                }}
+                className="w-full mt-2.5 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {t('דלג בשלב זה', 'דלגי בשלב זה')}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

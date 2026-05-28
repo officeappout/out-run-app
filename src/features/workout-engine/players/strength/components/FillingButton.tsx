@@ -114,14 +114,14 @@ export default function FillingButton({
       onClick={handleClick}
       disabled={disabled || isComplete}
       className={`
-        relative w-full h-16 
-        bg-white dark:bg-gray-800 
-        border-2 border-gray-200 dark:border-gray-700 
-        rounded-2xl 
-        flex items-center justify-center gap-3 
-        font-bold text-gray-900 dark:text-white 
-        shadow-sm 
-        active:scale-[0.98] 
+        relative w-full h-14
+        bg-white dark:bg-slate-900
+        border border-slate-200/80 dark:border-slate-700/60
+        rounded-full
+        flex items-center justify-center gap-3
+        font-bold text-gray-900 dark:text-white
+        shadow-sm
+        active:scale-[0.98]
         transition-transform duration-150
         overflow-hidden
         ${disabled || isComplete ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -144,16 +144,13 @@ export default function FillingButton({
           {label}
         </span>
         <Check
-          size={24}
-          className="text-[#00AEEF] dark:text-[#00AEEF]"
-          style={{
-            filter: fillProgress > 0 ? 'none' : 'none',
-          }}
+          size={22}
+          className="text-slate-600 dark:text-slate-300"
         />
       </div>
 
       {/* Border overlay to maintain border visibility */}
-      <div className="absolute inset-0 rounded-2xl border-2 border-gray-200 dark:border-gray-700 pointer-events-none" />
+      <div className="absolute inset-0 rounded-full border border-slate-200/80 dark:border-slate-700/60 pointer-events-none" />
     </button>
   );
 }
