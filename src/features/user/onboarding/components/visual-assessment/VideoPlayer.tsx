@@ -9,7 +9,7 @@ interface VideoPlayerProps {
   videoUrlMov?: string | null;
   /** VP9 with Alpha for Android / Chrome / Firefox (.webm). */
   videoUrlWebm?: string | null;
-  /** Accepted but intentionally unused — kept so callers don't need updating. */
+  /** Poster frame shown while the video buffers — prevents the gray native placeholder on Android. */
   thumbnailUrl?: string | null;
   className?: string;
   /** When true, renders white gradient overlays on all 4 sides so the video melts into white. */
@@ -20,6 +20,7 @@ export default function VideoPlayer({
   videoUrl,
   videoUrlMov,
   videoUrlWebm,
+  thumbnailUrl,
   className = '',
   whiteGradient = false,
 }: VideoPlayerProps) {
@@ -52,10 +53,11 @@ export default function VideoPlayer({
             muted
             playsInline
             preload="auto"
+            poster={thumbnailUrl ?? undefined}
             onCanPlay={handleCanPlay}
             onError={handleError}
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ background: 'transparent' }}
+            style={{ background: 'transparent', WebkitAppearance: 'none' }}
           >
             {videoUrlWebm && <source src={videoUrlWebm} type="video/webm" />}
             {videoUrlMov  && <source src={videoUrlMov}  type="video/quicktime" />}
@@ -66,8 +68,11 @@ export default function VideoPlayer({
         {/* Bottom gradient only — top gradient lives outside overflow-hidden in VisualSlider */}
         {whiteGradient && hasSources && (
           <div
-            className="absolute bottom-[-2px] left-0 right-0 h-[82px] pointer-events-none"
-            style={{ background: 'linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.9), rgba(255,255,255,0.7), rgba(255,255,255,0))' }}
+            className="absolute bottom-[-2px] left-0 right-0 pointer-events-none"
+            style={{
+              height: 'clamp(56px, 20%, 110px)',
+              background: 'linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.85), rgba(255,255,255,0.5), rgba(255,255,255,0))',
+            }}
           />
         )}
       </div>

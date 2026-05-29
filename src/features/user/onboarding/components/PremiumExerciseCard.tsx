@@ -42,11 +42,13 @@ export default function PremiumExerciseCard({
           loop
           muted
           playsInline
+          preload="auto"
           onCanPlay={handleCanPlay}
           onError={() => setError(true)}
           className={`w-full h-full object-cover transition-opacity duration-500 ${
             loaded ? 'opacity-100' : 'opacity-0'
           }`}
+          style={{ WebkitAppearance: 'none' }}
         />
       ) : (
         <div className="w-full aspect-video bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">

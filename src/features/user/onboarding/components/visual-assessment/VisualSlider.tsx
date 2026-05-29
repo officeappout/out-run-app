@@ -312,8 +312,11 @@ export default function VisualSlider({
         </div>
         {/* Top gradient — sibling of clip box, escapes overflow-hidden, bleeds into header */}
         <div
-          className="absolute top-[-6px] left-0 right-0 h-[86px] pointer-events-none z-10"
-          style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.9), rgba(255,255,255,0.7), rgba(255,255,255,0))' }}
+          className="absolute top-[-6px] left-0 right-0 pointer-events-none z-10"
+          style={{
+            height: 'clamp(56px, 20%, 110px)',
+            background: 'linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.85), rgba(255,255,255,0.5), rgba(255,255,255,0))',
+          }}
         />
       </div>
 
