@@ -63,3 +63,4 @@ plugins/**/node_modules/
 android/keystore.properties
 google-services*.json
 # GoogleService-Info.plist is intentionally committed so CI/TestFlight builds work.
+firebase-key.json
