@@ -166,7 +166,7 @@ export default function WorkoutSummaryPage({
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 z-[100] bg-gray-50 text-gray-900 flex flex-col h-[100dvh] overflow-y-auto"
+      className="fixed inset-0 z-[100] bg-gray-50 text-gray-900 flex flex-col h-[100dvh] overflow-hidden"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {/* Scrollable Content */}

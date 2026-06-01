@@ -46,6 +46,12 @@ export const MASTER_LEVEL_CAP = 15;
 export interface ProgramProgressData {
   /** Hebrew program name resolved from Firestore (or falls back to the ID alias). */
   programName: string;
+  /**
+   * True while the Firestore CMS fetch is still in-flight AND no static Hebrew alias
+   * exists for the program ID. Consumers can render a skeleton instead of the name
+   * to avoid showing a placeholder string that then snaps to the real name.
+   */
+  programNameLoading: boolean;
   /** Icon key for `getProgramIcon` lookup. */
   iconKey: string | undefined;
   /** Current level (1-based). */
@@ -95,19 +101,27 @@ export function useProgramProgress(): ProgramProgressData | null {
   // or stale (e.g. admin updated `programs/full_body.maxLevels` from 25 → 15 after onboarding).
   const [hebrewProgramName, setHebrewProgramName] = useState<string | null>(null);
   const [cmsMaxLevel, setCmsMaxLevel] = useState<number | null>(null);
+  // Becomes true once the Firestore fetch resolves (success or failure).
+  const [nameSettled, setNameSettled] = useState(false);
   useEffect(() => {
     const programId = activeProgram?.templateId || primaryDomainId;
-    if (!programId) return;
+    if (!programId) {
+      setNameSettled(true);
+      return;
+    }
     let cancelled = false;
     getProgramByTemplateId(programId)
       .then((prog) => {
-        if (cancelled || !prog) return;
-        if (prog.name) setHebrewProgramName(prog.name);
-        if (prog.maxLevels != null && prog.maxLevels > 0) {
+        if (cancelled) return;
+        if (prog?.name) setHebrewProgramName(prog.name);
+        if (prog?.maxLevels != null && prog.maxLevels > 0) {
           setCmsMaxLevel(prog.maxLevels);
         }
+        setNameSettled(true);
       })
-      .catch(() => {/* fall back silently to alias map + seeded domain.maxLevel */});
+      .catch(() => {
+        if (!cancelled) setNameSettled(true);
+      });
     return () => { cancelled = true; };
   }, [activeProgram?.templateId, primaryDomainId]);
 
@@ -178,15 +192,17 @@ export function useProgramProgress(): ProgramProgressData | null {
 
   if (!hasStrengthSurvey(profile)) return null;
 
-  const programName = hebrewProgramName
-    || (primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined)
-    || activeProgram?.name
-    || 'תוכנית אימון';
+  const staticAlias = primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined;
+  const programName = hebrewProgramName || staticAlias || 'תוכנית אימון';
+  // Show a skeleton in the card only when the Firestore fetch is still pending
+  // AND we have no static Hebrew alias to display — avoids a placeholder-to-name snap.
+  const programNameLoading = !nameSettled && !staticAlias;
 
   const iconKey = resolveIconKey(undefined, primaryDomainId ?? undefined);
 
   return {
     programName,
+    programNameLoading,
     iconKey,
     currentLevel,
     maxLevel,

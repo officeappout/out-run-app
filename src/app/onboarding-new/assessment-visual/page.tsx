@@ -10,6 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
+import BlurredWhyStep, { calcAgeGroup } from '@/features/user/onboarding/components/visual-assessment/BlurredWhyStep';
 import TierSelectionCard from '@/features/user/onboarding/components/visual-assessment/TierSelectionCard';
 import VisualSlider from '@/features/user/onboarding/components/visual-assessment/VisualSlider';
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
@@ -25,6 +26,7 @@ import {
 import {
   clearContentCache,
   resolveText,
+  prefetchCategoryVideos,
 } from '@/features/user/onboarding/services/visual-content-resolver.service';
 import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/onboarding-sync.service';
 import {
@@ -45,6 +47,7 @@ import {
 } from '@/features/user/onboarding/services/assessment-path-config.service';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import { useAndroidBack } from '@/hooks/useAndroidBack';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -52,6 +55,7 @@ const PRIMARY_CATEGORIES = ['push', 'pull', 'legs', 'core'] as const;
 
 type FlowStep =
   | 'loading'
+  | 'why'
   | 'tier'
   | 'sliders'
   | 'evaluating'
@@ -108,6 +112,13 @@ export default function VisualAssessmentPage() {
   const [demographics, setDemographics] = useState<UserDemographics | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // ── User selection state (read from sessionStorage on mount) ──
+  // Used by BlurredWhyStep for personalised intro text.
+
+  const [programPath, setProgramPath] = useState<string | null>(null);
+  const [muscleFocus, setMuscleFocus] = useState<string[]>([]);
+  const [skillFocus, setSkillFocus] = useState<string[]>([]);
+
   useEffect(() => {
     const dob = sessionStorage.getItem('onboarding_personal_dob');
     const gender = sessionStorage.getItem('onboarding_personal_gender') as
@@ -122,6 +133,21 @@ export default function VisualAssessmentPage() {
       if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
       setDemographics({ age, gender });
     }
+
+    // Program path + focus selections
+    const rawPath = sessionStorage.getItem('onboarding_program_path');
+    if (rawPath) setProgramPath(rawPath);
+
+    try {
+      const rawMuscle = sessionStorage.getItem('onboarding_muscle_focus');
+      if (rawMuscle) setMuscleFocus(JSON.parse(rawMuscle) as string[]);
+    } catch { /* non-fatal */ }
+
+    try {
+      const rawSkill = sessionStorage.getItem('onboarding_skill_focus');
+      if (rawSkill) setSkillFocus(JSON.parse(rawSkill) as string[]);
+    } catch { /* non-fatal */ }
+
     setIsHydrated(true);
   }, []);
 
@@ -152,6 +178,39 @@ export default function VisualAssessmentPage() {
   // Result state
   const [result, setResult] = useState<ResultData | null>(null);
   const [selectedTier, setSelectedTier] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+
+  // ── In-memory back navigation ────────────────────────────────
+  // Rolls the FlowStep state machine back one sub-step. Returns true when the
+  // back action was consumed (so the Android hardware back / in-app back button
+  // does NOT pop the route and destroy assessment progress), false for the
+  // initial/loading states where falling through to history.back() is correct.
+  const handleStepBack = useCallback((): boolean => {
+    switch (step) {
+      case 'tier':
+        setStep('why');
+        return true;
+      case 'sliders':
+        if (categoryIndex > 0) {
+          setCategoryIndex((prev) => prev - 1);
+        } else {
+          setStep(pathConfig?.skipTier ? 'why' : 'tier');
+        }
+        return true;
+      case 'follow-up':
+        if (followUpIndex > 0) {
+          setFollowUpIndex((prev) => prev - 1);
+        } else {
+          setStep('sliders');
+        }
+        return true;
+      default:
+        // 'loading' | 'why' | 'evaluating' | 'resultLoading' | 'result' | 'saving'
+        return false;
+    }
+  }, [step, categoryIndex, followUpIndex, pathConfig]);
+
+  // Map the Android hardware/gesture back button to the same state rollback.
+  useAndroidBack(handleStepBack);
 
   // User name (for the ProgramResult screen)
   const userName = useMemo(() => {
@@ -193,7 +252,7 @@ export default function VisualAssessmentPage() {
     if (!pathConfig) return;
 
     if (pathConfig.skipTier && pathConfig.categories.length > 0) {
-      // Path 3: skip tier, go straight to sliders
+      // Path 3: skip tier — pre-compute starting levels now, but show 'why' first
       const initialLevels: Record<string, number> = {};
       for (const cat of pathConfig.categories) {
         const max = getMaxLevelForCategory(pathConfig, cat);
@@ -201,10 +260,8 @@ export default function VisualAssessmentPage() {
       }
       setLevels(initialLevels);
       setCategoryIndex(0);
-      setStep('sliders');
-    } else {
-      setStep('tier');
     }
+    setStep('why');
   }, [authReady, isHydrated, demographics, pathConfig, router]);
 
   // ── Diagnostic: log categories fed to sliders ───────────────
@@ -229,6 +286,31 @@ export default function VisualAssessmentPage() {
     router.prefetch('/onboarding-new/health');
   }, [router]);
 
+  // ── Background video preload ─────────────────────────────────────
+  // Fires the moment pathConfig + demographics are both available
+  // (typically while the user is still reading the tier screen).
+  // Resolves the first 2 onboarding levels for every category and warms
+  // both the in-memory content cache and the browser HTTP cache via
+  // fetch force-cache — so VideoPlayer starts playing instantly.
+  useEffect(() => {
+    if (!pathConfig || !demographics) return;
+    const cats = pathConfig.categories ?? [...PRIMARY_CATEGORIES];
+    cats.forEach((cat) => {
+      const max = getMaxLevelForCategory(pathConfig, cat);
+      prefetchCategoryVideos(cat, demographics, 'he', pathConfig.minLevel, max).catch(() => {});
+    });
+  }, [pathConfig, demographics]);
+
+  // ── BlurredWhyStep → tier or sliders (How step removed) ────────
+
+  const handleWhyNext = useCallback(() => {
+    if (pathConfig?.skipTier) {
+      setStep('sliders');
+    } else {
+      setStep('tier');
+    }
+  }, [pathConfig]);
+
   // ── Tier selection handler ───────────────────────────────────
 
   const handleTierSelect = useCallback(
@@ -244,13 +326,36 @@ export default function VisualAssessmentPage() {
       setSelectedTier(tierId as 'beginner' | 'intermediate' | 'advanced');
       setCategoryIndex(0);
       setStep('sliders');
+
+      // Pin-point prefetch: now we know the exact starting level for every
+      // category — warm those specific content + video entries immediately,
+      // before the first VisualSlider even mounts.
+      if (demographics && pathConfig) {
+        const cats = pathConfig.categories ?? [...PRIMARY_CATEGORIES];
+        cats.forEach((cat) => {
+          const max = getMaxLevelForCategory(pathConfig, cat);
+          prefetchCategoryVideos(cat, demographics, 'he', clamped, max).catch(() => {});
+        });
+      }
     },
-    [pathConfig],
+    [pathConfig, demographics],
   );
 
   // ── Primary slider confirm ───────────────────────────────────
 
   const categories = pathConfig?.categories ?? [...PRIMARY_CATEGORIES];
+
+  // ── Derived props for BlurredWhyStep ────────────────────────
+
+  const exerciseCount = categories.length;
+  const ageGroup = demographics ? calcAgeGroup(demographics.age) : '26-50';
+  const introGender = (demographics?.gender ?? 'male') as 'male' | 'female';
+  const targetArea: string | null =
+    programPath === 'skills'
+      ? (skillFocus[0] ?? null)
+      : programPath === 'body_focus'
+        ? (muscleFocus[0] ?? null)
+        : null;
 
   /** Fill missing push/pull/legs/core with path default for rule engine */
   const toFullAssessmentLevels = useCallback(
@@ -699,6 +804,29 @@ export default function VisualAssessmentPage() {
       {/* Flow content — fills all available space */}
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto overflow-hidden min-h-0">
         <AnimatePresence mode="wait">
+          {/* ── Why step (intro before assessment) ──────────── */}
+          {step === 'why' && (
+            <motion.div
+              key="why"
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.3 }}
+              className="flex-1 flex flex-col"
+            >
+              <BlurredWhyStep
+                gender={introGender}
+                ageGroup={ageGroup}
+                goal={programPath}
+                targetArea={targetArea}
+                exerciseCount={exerciseCount}
+                onNext={handleWhyNext}
+                onBack={() => router.back()}
+              />
+            </motion.div>
+          )}
+
           {/* ── Tier Selection ─────────────────────────────────── */}
           {step === 'tier' && pathConfig && (
             <motion.div
@@ -736,7 +864,7 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleSliderConfirm}
-                onBack={() => router.back()}
+                onBack={() => { handleStepBack(); }}
                 stepIndex={categoryIndex}
                 totalSteps={categories.length}
                 minLevel={pathConfig.minLevel}
@@ -809,7 +937,7 @@ export default function VisualAssessmentPage() {
                 }
                 demographics={demographics}
                 onLevelConfirm={handleFollowUpConfirm}
-                onBack={() => router.back()}
+                onBack={() => { handleStepBack(); }}
                 stepIndex={followUpIndex}
                 totalSteps={followUpCategories.length}
                 mode="simple"

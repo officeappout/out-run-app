@@ -66,6 +66,11 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
           setLoading(null);
           return;
         }
+        if (linkError === 'apple_timeout') {
+          setError('חלון Apple לא נפתח. אנא נסה שוב או בחר שיטת התחברות אחרת.');
+          setLoading(null);
+          return;
+        }
         if (linkError === 'apple_account_exists') {
           setError('חשבון Apple זה כבר בשימוש. אנא השתמש בחשבון אחר.');
         } else if (linkError === 'not_anonymous') {

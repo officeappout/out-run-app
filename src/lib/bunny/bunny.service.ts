@@ -277,6 +277,49 @@ export async function getBunnyVideoStatus(
   };
 }
 
+/**
+ * Instruct Bunny to pull a video from an externally-accessible URL directly
+ * into the library — no binary upload through our server required.
+ *
+ * Designed for server-side migration jobs (e.g. Firebase Storage → Bunny).
+ * After this returns, poll `getBunnyVideoStatus` until `status === 'finished'`
+ * before using the CDN URLs.
+ *
+ * Docs: https://docs.bunny.net/reference/video_fetchnewvideo
+ */
+export async function bunnyFetchFromUrl(
+  videoId: string,
+  sourceUrl: string,
+): Promise<void> {
+  const { apiKey, libraryId } = assertConfigured();
+  const endpoint = `POST ${BUNNY_API_BASE_URL}/library/${libraryId}/videos/${videoId}/fetch`;
+
+  const res = await fetch(
+    `${BUNNY_API_BASE_URL}/library/${libraryId}/videos/${videoId}/fetch`,
+    {
+      method: 'POST',
+      headers: {
+        AccessKey: apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ url: sourceUrl }),
+    },
+  );
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    // eslint-disable-next-line no-console
+    console.error(`[Bunny] ${endpoint} → ${res.status}\n body: ${body || '<empty>'}`);
+    throw new BunnyApiError(
+      `bunnyFetchFromUrl failed: ${res.status} ${body}`,
+      res.status,
+      body,
+      endpoint,
+    );
+  }
+}
+
 /** Hard-delete a video from the Bunny library. */
 export async function deleteBunnyVideo(videoId: string): Promise<void> {
   const { apiKey, libraryId } = assertConfigured();

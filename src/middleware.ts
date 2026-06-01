@@ -44,10 +44,35 @@ function isAdminPublic(pathname: string): boolean {
   return ADMIN_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Public guest-accessible routes.
+//
+// These are standalone, unauthenticated pages (e.g. the parent-facing Photo
+// Release / consent forms shared via WhatsApp). They live OUTSIDE the
+// logged-in app dashboard and MUST be reachable without any auth cookie or
+// redirect to a login screen. We short-circuit the middleware for any path
+// under `/public/` so no future admin/domain gating can accidentally block a
+// parent from opening the link.
+// ──────────────────────────────────────────────────────────────────────────
+const PUBLIC_PATHS = [
+  '/public/forms/photo-release',
+  '/public',
+];
+
+function isPublicGuestPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
   const domain = hostname.split(':')[0].toLowerCase();
+
+  // Public guest forms (Photo Release, etc.) bypass ALL gating — these links
+  // are opened by unauthenticated parents and must never redirect to login.
+  if (isPublicGuestPath(pathname)) {
+    return NextResponse.next();
+  }
 
   const isAdminDomain = domain === 'admin.outrun.co.il' || domain === 'admin.outrun.local';
   const isAuthorityDomain = domain === 'portal.outrun.co.il' || domain === 'portal.outrun.local';

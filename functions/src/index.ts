@@ -13,3 +13,5 @@ export { sendPushFromQueue } from './sendPushFromQueue';
 export { fixAuthorityCoordinates } from './fixAuthorityCoordinates';
 // ── Social Engagement Engine — Lifecycle Dispatchers ──────────────────────────
 export { onboardingDropoffDispatcher } from './onboardingDropoffDispatcher';
+// ── Chat Push Notifications ───────────────────────────────────────────────────
+export { chatMessageNotification } from './chatMessageNotification';

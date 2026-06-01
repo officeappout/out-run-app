@@ -20,6 +20,7 @@
  */
 
 import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
+import { BackStack } from './backStack';
 import { initPushNotifications, unregisterPushNotifications } from './push';
 
 let installed = false;
@@ -110,7 +111,14 @@ export async function initNativeShell(): Promise<void> {
     // 2. Android back-button → web router. Without this the WebView pops
     //    out of the app instead of navigating back through Next.js
     //    history.
+    //
+    //    Before touching browser history we give the BackStack a chance to
+    //    consume the event. In-memory step flows (e.g. the visual assessment
+    //    sliders) and overlays register handlers there so hardware back rolls
+    //    their internal state back instead of ejecting the user to a previous
+    //    route and destroying their progress.
     App.addListener('backButton', ({ canGoBack }) => {
+      if (BackStack.dispatch()) return;
       if (canGoBack) {
         window.history.back();
       } else {
@@ -166,31 +174,32 @@ async function attachPushAuthBridge(): Promise<void> {
   const { onAuthStateChanged } = await import('firebase/auth');
   const { auth } = await import('@/lib/firebase');
 
-  onAuthStateChanged(auth, async (user) => {
+  onAuthStateChanged(auth, (user) => {
     if (user) {
       // First sign-in OR auth state hand-off (e.g. after re-auth):
       // ensure we have a fresh token for THIS uid.
       lastUid = user.uid;
-      try {
-        // FIX 1 — silent:true prevents the OS permission dialog from
-        // firing automatically on cold-start before the user has reached
-        // the LifestyleWizard notifications step. For returning users who
-        // already granted permission the call proceeds normally (status is
-        // 'granted', not 'prompt') and the token is refreshed as expected.
-        await initPushNotifications(user.uid, { silent: true });
-      } catch (err) {
-        console.warn('[native] initPushNotifications failed:', err);
-      }
+
+      // Fire-and-forget — push registration MUST NOT block or await here.
+      // A hanging checkPermissions() / getToken() call (e.g. APNs not yet
+      // provisioned on TestFlight, no network, misconfigured certificate)
+      // would otherwise keep this async callback pending indefinitely,
+      // which can appear to freeze the Sync button and other UI actions
+      // that depend on the Capacitor native bridge being responsive.
+      // withTimeout() in push.ts bounds the maximum hang to 15 s, but
+      // making this fire-and-forget ensures profile loading, Firestore
+      // listeners, and the rest of the native shell proceed immediately.
+      void initPushNotifications(user.uid, { silent: true }).catch((err) => {
+        console.error('[native] initPushNotifications (silent) unhandled:', err);
+      });
     } else if (lastUid) {
       // Sign-out: drop the previous owner's token from THEIR doc so a
       // queued notification can't reach the next user of this device.
       const previousUid = lastUid;
       lastUid = null;
-      try {
-        await unregisterPushNotifications(previousUid);
-      } catch (err) {
+      void unregisterPushNotifications(previousUid).catch((err) => {
         console.warn('[native] unregisterPushNotifications failed:', err);
-      }
+      });
     }
   });
 }

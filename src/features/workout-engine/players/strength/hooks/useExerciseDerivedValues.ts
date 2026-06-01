@@ -29,6 +29,8 @@ import type { PyramidStep } from '@/features/workout-engine/logic/workout-genera
 export interface NextExerciseInfo {
   name: string;
   videoUrl: string | null;
+  /** Bare Bunny video UUID — used by useNetworkAwareStreamUrl for quality selection. */
+  bunnyVideoId: string | null;
   imageUrl: string | null;
   equipment: string[];
   reps?: string;
@@ -91,6 +93,8 @@ export interface ExerciseDerivedValuesResult {
   exerciseGoal: string | null;
   muscleGroups: { primary: string[]; secondary: string[] };
   exerciseVideoUrl: string | null;
+  /** Bare Bunny video UUID for the active exercise — drives network-aware resolution. */
+  exerciseBunnyVideoId: string | null;
   nextExercise: NextExerciseInfo;
   repsOrDurationText: string;
   /** Last confirmed reps for the current exercise (previous set), for picker pre-fill. */
@@ -354,6 +358,29 @@ export function useExerciseDerivedValues({
   }, [activeExercise, pyramidStep]);
 
   /**
+   * Bare Bunny video UUID for the active exercise.
+   * Primary source: method.media.previewVideo.he.videoId (written by sync-media-status.js).
+   * Fallback: UUID extracted from mainVideoUrl path segment.
+   * Null for YouTube / legacy URLs — the network-aware hook is a no-op in those cases.
+   */
+  const exerciseBunnyVideoId = useMemo((): string | null => {
+    const raw = activeExercise as any;
+    const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
+    for (const m of methods) {
+      const vid = m?.media?.previewVideo?.he?.videoId ?? m?.media?.bunnyVideoId_mainVideoUrl;
+      if (vid && typeof vid === 'string') return vid;
+    }
+    // Fallback: extract UUID from the mainVideoUrl path
+    const mainUrl: string | undefined =
+      raw?.media?.mainVideoUrl || methods[0]?.media?.mainVideoUrl;
+    if (mainUrl) {
+      const m = mainUrl.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i);
+      if (m) return m[1];
+    }
+    return null;
+  }, [activeExercise]);
+
+  /**
    * nextExercise — look-ahead for the rest-screen preview.
    *
    * Priority order:
@@ -432,25 +459,38 @@ export function useExerciseDerivedValues({
     })();
 
     const resolvedMedia = (() => {
-      if (!exercise) return { video: null, image: null };
+      if (!exercise) return { video: null, image: null, bunnyVideoId: null };
       const raw = exercise as any;
-      const methods = raw.execution_methods || raw.executionMethods || [];
+      const methods: any[] = raw.execution_methods || raw.executionMethods || [];
       let video: string | null = exercise.videoUrl || null;
       let image: string | null = exercise.imageUrl || null;
-      if (!video || !image) {
+      let bunnyVideoId: string | null = null;
+      if (!video || !image || !bunnyVideoId) {
         for (const m of methods) {
           if (!video) video = m?.media?.mainVideoUrl || m?.media?.videoUrl || null;
           if (!image) image = m?.media?.imageUrl || null;
+          if (!bunnyVideoId) {
+            bunnyVideoId =
+              m?.media?.previewVideo?.he?.videoId ??
+              m?.media?.bunnyVideoId_mainVideoUrl ??
+              null;
+          }
         }
+      }
+      // Fallback: extract UUID from mainVideoUrl path
+      if (!bunnyVideoId && video) {
+        const match = video.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i);
+        if (match) bunnyVideoId = match[1];
       }
       if (!image && raw.media?.imageUrl) image = raw.media.imageUrl;
       if (!image && video) image = video;
-      return { video, image };
+      return { video, image, bunnyVideoId };
     })();
 
     return {
       name: nextPyramidStep?.name || exercise?.name || 'סיום האימון',
       videoUrl: nextPyramidStep?.videoSrc || resolvedMedia.video,
+      bunnyVideoId: resolvedMedia.bunnyVideoId,
       imageUrl: resolvedMedia.image,
       equipment: exercise?.equipment || [],
       reps: exercise?.reps,
@@ -531,6 +571,7 @@ export function useExerciseDerivedValues({
     exerciseGoal,
     muscleGroups,
     exerciseVideoUrl,
+    exerciseBunnyVideoId,
     nextExercise,
     repsOrDurationText,
     lastSavedReps,

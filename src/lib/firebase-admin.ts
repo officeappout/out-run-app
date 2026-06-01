@@ -23,12 +23,34 @@ import { decodeJwt } from 'jose';
 
 let _adminApp: App | null = null;
 
+/**
+ * Resolve the Firebase project ID.
+ *
+ * Priority:
+ *   1. FIREBASE_PROJECT_ID (server-only, most explicit)
+ *   2. NEXT_PUBLIC_FIREBASE_PROJECT_ID (shared with client SDK config)
+ *   3. Hard-coded fallback — the known project for this app.
+ *
+ * Passing projectId explicitly prevents @google-cloud/firestore from trying to
+ * auto-detect it via the GCP metadata server, which only exists on actual GCP
+ * infrastructure (Cloud Run, App Hosting, GCE) and always fails on localhost.
+ */
+function resolveProjectId(): string {
+  return (
+    process.env.FIREBASE_PROJECT_ID ||
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
+    'appout-1'
+  );
+}
+
 function ensureApp(): App {
   if (_adminApp) return _adminApp;
   if (getApps().length > 0) {
     _adminApp = getApps()[0]!;
     return _adminApp;
   }
+
+  const projectId = resolveProjectId();
 
   const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (rawJson) {
@@ -40,6 +62,7 @@ function ensureApp(): App {
           clientEmail: parsed.client_email,
           privateKey: String(parsed.private_key).replace(/\\n/g, '\n'),
         }),
+        projectId: parsed.project_id ?? projectId,
       });
       return _adminApp;
     } catch (err) {
@@ -48,10 +71,15 @@ function ensureApp(): App {
   }
 
   // Fallback: Application Default Credentials.
-  // Works on Cloud Run / Cloud Functions / GCE without any env var.
+  // Works on Cloud Run / Cloud Functions / App Hosting without a service account
+  // key file. projectId must be explicit here because the ADC credential does NOT
+  // carry project information on its own — without it Firestore throws
+  // "Unable to detect a Project Id in the current environment" on localhost.
   _adminApp = initializeApp({
     credential: applicationDefault(),
+    projectId,
   });
+  console.log('[firebase-admin] Initialized with ADC, projectId:', projectId);
   return _adminApp;
 }
 

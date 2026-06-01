@@ -475,7 +475,6 @@ export default function StatsOverview({
   };
   const resolvedProgramName = hebrewProgramName
     || (primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined)
-    || activeProgram?.name
     || 'תוכנית אימון';
 
   // Resolve icon key for ProgramProgressCard (full_body vs muscle vs heart etc.)

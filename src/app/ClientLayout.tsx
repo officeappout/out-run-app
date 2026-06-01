@@ -31,7 +31,7 @@ function MidnightClock() {
 // of the screen, so the global BottomNavbar can coexist at the bottom.
 // '/privacy' and '/terms' are standalone public compliance pages that must
 // render as clean web documents without any mobile app chrome.
-const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms'];
+const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/public'];
 
 export default function ClientLayout({
   children,
@@ -76,7 +76,7 @@ export default function ClientLayout({
             work unchanged; new code using m.* will benefit from tree-shaking. */}
         <LazyMotion features={domAnimation}>
           <main
-            className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-y-contain"
+            className="h-[100dvh] overflow-y-auto overflow-x-hidden overscroll-none"
             style={{
               // Matches BottomNavbar's actual height: pt-0.5 (2px) +
               // min-h-[44px] = 46px, rounded up to 3rem (48px) for breathing

@@ -96,6 +96,8 @@ export interface WorkoutStateMachineResult {
   exerciseGoal: string | null;
   muscleGroups: { primary: string[]; secondary: string[] };
   exerciseVideoUrl: string | null;
+  /** Bare Bunny UUID for the active exercise — drives network-aware resolution. */
+  exerciseBunnyVideoId: string | null;
   nextExercise: NextExerciseInfo;
   repsOrDurationText: string;
 
@@ -613,6 +615,7 @@ export function useWorkoutStateMachine(
     exerciseGoal,
     muscleGroups,
     exerciseVideoUrl,
+    exerciseBunnyVideoId,
     nextExercise,
     repsOrDurationText,
     lastSavedReps,
@@ -997,6 +1000,7 @@ export function useWorkoutStateMachine(
     exerciseGoal,
     muscleGroups,
     exerciseVideoUrl,
+    exerciseBunnyVideoId,
     nextExercise,
     repsOrDurationText,
     currentRound: currentSetIndex + 1,

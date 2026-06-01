@@ -74,12 +74,12 @@ export function GhostUpsell({
   if (variant === 'silent') {
     return (
       <div
-        className={`relative w-full text-right h-full ${className}`}
+        className={`relative w-full text-right ${className}`}
         dir="rtl"
       >
         {/* Blurred ghost of the underlying bars/cards. */}
         <div
-          className="filter blur-[3px] opacity-50 pointer-events-none select-none h-full"
+          className="filter blur-[3px] opacity-50 pointer-events-none select-none"
           aria-hidden="true"
         >
           {children}

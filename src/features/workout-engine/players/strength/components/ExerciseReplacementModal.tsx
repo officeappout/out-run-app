@@ -201,7 +201,7 @@ export default function ExerciseReplacementModal({
     LEVEL_ICONS[c] ?? LEVEL_ICONS.same;
 
   const resolveGearBadges = (option: AlternativeExerciseOption) => {
-    const m = option.selectedExecutionMethod || option.exercise.execution_methods?.find((em) => em.location === location);
+    const m = option.selectedExecutionMethod || option.exercise.execution_methods?.find((em) => em.location === location || em.locationMapping?.includes(location));
     if (!m) return [];
     const rawIds: string[] = [
       ...((m as any).gearIds ?? []),

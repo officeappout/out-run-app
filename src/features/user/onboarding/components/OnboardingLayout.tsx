@@ -231,8 +231,10 @@ export default function OnboardingLayout({
 
   // ── Unified top navigation header ────────────────────────────────────────
   //
-  // RULE 1 — all three render paths use h-[100dvh] overflow-hidden on the root,
-  //           so this header is flex-shrink-0 in the column (not fixed-positioned).
+  // RULE 1 — all three render paths use h-full overflow-hidden on the root so
+  //           the wrapper inherits the body height (which Capacitor keyboard.resize:'body'
+  //           shrinks when the native keyboard opens). This header is flex-shrink-0
+  //           in the column (not fixed-positioned).
   //
   // RULE 2 — Single row: [back-btn (w-9)] [bars+phaseLabel (flex-1)] [coins (w-9)]
   //           Both end slots are fixed-width so the bars stay visually centered
@@ -416,9 +418,11 @@ export default function OnboardingLayout({
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER PATHS
   //
-  // Every path enforces RULE 1: h-[100dvh] + overflow-hidden on the root so
-  // the viewport is strictly locked — no elastic bounce, no white-background
-  // drag exposure. Only designated overflow-y-auto regions scroll internally.
+  // Every path enforces RULE 1: h-full + overflow-hidden on the root so the
+  // wrapper inherits the body height. When Capacitor keyboard.resize:'body'
+  // shrinks the body on keyboard open, this flex column shrinks with it,
+  // pushing the pinned footer CTA into the visible frame automatically.
+  // Only designated overflow-y-auto regions scroll internally.
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── SIMPLE MODE: title/subtitle card (Setup Wizard intro screens) ─────────
@@ -426,7 +430,7 @@ export default function OnboardingLayout({
     return (
       <div
         dir={direction}
-        className="h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col overflow-hidden"
+        className="h-full bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col overflow-hidden"
       >
         {renderUnifiedHeader(true)}
 
@@ -467,12 +471,12 @@ export default function OnboardingLayout({
   // The header is in-flow (flex-shrink-0) — replaces the old fixed+paddingTop hack.
   // The content wrapper is overflow-y-auto so that StickyActionButton (sticky bottom-0)
   // inside child steps has a proper scroll container to stick within.
-  // The h-[100dvh] overflow-hidden root blocks elastic page-level bounce.
+  // The h-full overflow-hidden root inherits body height (shrinks with keyboard).
   if (useSegmentedStoryBar && !isDynamicMode) {
     return (
       <div
         dir={direction}
-        className="h-[100dvh] flex flex-col overflow-hidden"
+        className="h-full flex flex-col overflow-hidden"
       >
         {renderUnifiedHeader(false)}
 
@@ -487,9 +491,9 @@ export default function OnboardingLayout({
 
   // ── DYNAMIC / PROGRESS MODE: Dynamic Questionnaire, OnboardingWizard steps ─
   return (
-    <div
+      <div
       dir={direction}
-      className="h-[100dvh] bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col overflow-hidden"
+      className="h-full bg-gradient-to-b from-[#D8F3FF] via-[#F8FDFF] to-white flex flex-col overflow-hidden"
     >
       {renderUnifiedHeader(true)}
 

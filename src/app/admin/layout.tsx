@@ -88,7 +88,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
         strategy: ['/admin', '/admin/roadmap'],
         municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
         military: ['/admin/authority/readiness'],
-        educational: ['/admin/authority/grades'],
+        educational: ['/admin/authority/grades', '/admin/photo-release'],
         platform: ['/admin/admin-directory', '/admin/access-codes', '/admin/organizations'],
         appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
         running: ['/admin/running'],
@@ -383,6 +383,7 @@ function AdminLayoutInner({
                     '/admin/authority/readiness',
                     '/admin/authority/units',
                     '/admin/authority/grades',
+                    '/admin/photo-release',
                     '/admin/heatmap',
                     '/admin/access-codes',
                     '/admin/admin-directory',
@@ -701,6 +702,7 @@ function AdminLayoutInner({
                                                 isActive={pathname?.startsWith('/admin/authority/units') && (urlVerticalType === 'educational' || (!urlVerticalType && orgCtx.selectedOrgType === 'educational'))}
                                             />
                                             <SidebarLink href="/admin/authority/grades" icon={ClipboardCheck} label="ציוני חנ״ג" />
+                                            <SidebarLink href="/admin/photo-release" icon={Camera} label="אישורי צילום 📷" />
                                         </div>
                                     )}
                                 </>

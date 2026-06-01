@@ -421,6 +421,18 @@ function sanitizeExecutionMethodForSave(method: any): any {
       ) as ExecutionLocation[];
     }
   }
+
+  // Self-healing: sync the scalar `location` to match locationMapping[0].
+  // The CMS location picker only ever writes `locationMapping`, leaving the
+  // legacy scalar stale (it keeps its creation-time value, usually 'home').
+  // Syncing here on every write guarantees consumers that still read the
+  // scalar `m.location` get the admin's current intent instead of stale data.
+  if (
+    Array.isArray(sanitizedMethod.locationMapping) &&
+    sanitizedMethod.locationMapping.length > 0
+  ) {
+    sanitizedMethod.location = sanitizedMethod.locationMapping[0];
+  }
   
   // Ensure lifestyleTags is an array
   if (sanitizedMethod.lifestyleTags !== undefined) {

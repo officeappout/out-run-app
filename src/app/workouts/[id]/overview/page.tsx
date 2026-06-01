@@ -10,7 +10,7 @@ import { ArrowRight, Share2 } from 'lucide-react';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
 import { WorkoutPlan } from '@/features/parks';
 import { useUserStore } from '@/features/user';
-import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
+import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 /**
@@ -31,7 +31,7 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
     const cooldownExercises = exercises.filter((ex) => ex.exerciseRole === 'cooldown');
 
     const mergeEquipment = (ex: FirestoreExercise): string[] => {
-      const method = ex.execution_methods?.find((m: any) => m.location === 'home') || ex.execution_methods?.[0];
+      const method = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
       const raw = [
         ...((ex as any).equipment || []),
         ...((method as any)?.gearIds || []),

@@ -34,10 +34,7 @@ import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { useExerciseSwap } from './hooks/useExerciseSwap';
 
 const DRAWER_HEIGHT = '95vh';
-/** px the sheet is offset from its fully-expanded anchor at initial open (≈ 10 vh → 85 vh visible). */
-const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.10) : 81;
-const CLOSE_THRESHOLD = 120; // px dragged DOWN from wherever to dismiss
-const EXPAND_THRESHOLD = 60; // px dragged UP from peek to snap to expanded
+const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
 
 /**
  * Skeleton shimmer shown while the workout engine calculates a new workout.
@@ -83,9 +80,8 @@ export default function WorkoutPreviewDrawer({
   const router = useRouter();
   const { profile } = useUserStore();
   const y = useMotionValue(0);
-  // Opacity fades only as the user drags past the resting (85vh) anchor —
-  // at PEEK_Y_PX the sheet is fully opaque; fade completes 220px later.
-  const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
+  // Opacity fades as the user drags the sheet down — starts immediately, completes at 220 px.
+  const opacity = useTransform(y, [0, 220], [1, 0]);
 
   // ── Hook bus — every async / state concern lives here. ──
   const {
@@ -101,7 +97,7 @@ export default function WorkoutPreviewDrawer({
 
   // Instagram-style gesture chain: intercepts down-swipe at scrollTop=0 and
   // drives the sheet's y MotionValue directly, no React re-renders.
-  useSheetScrollChain({ isOpen, y, onClose, scrollRef: scrollContainerRef, snapBackY: PEEK_Y_PX });
+  useSheetScrollChain({ isOpen, y, onClose, scrollRef: scrollContainerRef });
 
   // Gate pointer-events on the hero close button using a compositor-thread
   // transform so it never blocks taps when faded out.
@@ -283,17 +279,13 @@ export default function WorkoutPreviewDrawer({
 
   const handleDragEnd = useCallback(
     (_event: any, info: any) => {
-      const offset = info.offset.y; // positive = dragged down, negative = dragged up
+      const offset = info.offset.y;
       const velocity = info.velocity.y;
 
       if (offset > CLOSE_THRESHOLD || velocity > 500) {
         onClose();
-      } else if (offset < -EXPAND_THRESHOLD) {
-        // Intentional upward swipe → snap to fully expanded
-        animate(y, 0, SPRING);
       } else {
-        // Default: return to peek
-        animate(y, PEEK_Y_PX, SPRING);
+        animate(y, 0, SPRING);
       }
     },
     [onClose, y, SPRING],
@@ -321,7 +313,7 @@ export default function WorkoutPreviewDrawer({
               dragMomentum={false}
               onDragEnd={handleDragEnd}
               initial={{ y: '100%' }}
-              animate={{ y: PEEK_Y_PX }}
+              animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{

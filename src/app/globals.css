@@ -102,12 +102,13 @@ html {
   /* Must match body background so any WKWebView bounce-scroll / edge bleed
      doesn't expose a white stripe behind the home indicator or status bar. */
   background-color: #F8FAFC;
-  overflow-x: hidden;
+  overflow: hidden;                /* lock both axes — scroll lives in <main> */
+  overscroll-behavior: none;       /* stop overscroll propagation at the root */
 }
 
 body {
   height: 100%;
-  overflow-x: hidden;
+  overflow: hidden;                /* lock both axes — scroll lives in <main> */
   overscroll-behavior: none;       /* kill iOS rubber-band bounce on the body */
   -webkit-tap-highlight-color: transparent;
   color: var(--foreground);
@@ -379,4 +380,26 @@ video::-webkit-media-controls-overlay-enclosure {
   100% {
     transform: rotate(360deg);
   }
+}
+
+/* ============================================
+   NATIVE APP GESTURE RESTRICTIONS
+   Eliminates text-selection highlights, long-press
+   callouts, and tap flash overlays globally.
+   ============================================ */
+*, *::before, *::after {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Restore full text manipulation inside editable fields */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }

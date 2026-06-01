@@ -17,6 +17,7 @@ import {
 import {
   Exercise as FirestoreExercise,
   getLocalizedText,
+  findMethodForLocation,
 } from '@/features/content/exercises';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -30,7 +31,7 @@ export async function convertExercisesToWorkoutPlan(
   exercises: FirestoreExercise[],
 ): Promise<WorkoutPlan> {
   const mergeEquipment = (ex: FirestoreExercise): string[] => {
-    const method = ex.execution_methods?.find((m: any) => m.location === 'home') || ex.execution_methods?.[0];
+    const method = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
     const raw = [
       ...((method as any)?.gearIds || []),
       ...((method as any)?.equipmentIds || []),
@@ -56,7 +57,7 @@ export async function convertExercisesToWorkoutPlan(
   const segments: ParkWorkoutSegment[] = [];
 
   const resolveImageUrl = (ex: FirestoreExercise): string | undefined => {
-    const method = ex.execution_methods?.find((m) => m.location === 'home') || ex.execution_methods?.[0];
+    const method = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
     const { imageUrl } = resolveExerciseMedia(ex as any, method as any);
     return imageUrl;
   };
@@ -64,7 +65,7 @@ export async function convertExercisesToWorkoutPlan(
   // Warm-up segment
   if (warmupExercises.length > 0) {
     const warmupWorkoutExercises: WorkoutExercise[] = warmupExercises.map((ex) => {
-      const executionMethod = ex.execution_methods?.find((m) => m.location === 'home') || ex.execution_methods?.[0];
+      const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
       const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
       const imageUrl = resolveImageUrl(ex);
 
@@ -120,7 +121,7 @@ export async function convertExercisesToWorkoutPlan(
   // Strength segment(s)
   if (mainExercises.length > 0) {
     const strengthWorkoutExercises: WorkoutExercise[] = mainExercises.map((ex) => {
-      const executionMethod = ex.execution_methods?.find((m) => m.location === 'home') || ex.execution_methods?.[0];
+      const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
       const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
       const imageUrl = resolveImageUrl(ex);
 
@@ -169,7 +170,7 @@ export async function convertExercisesToWorkoutPlan(
   // Cool-down segment
   if (cooldownExercises.length > 0) {
     const cooldownWorkoutExercises: WorkoutExercise[] = cooldownExercises.map((ex) => {
-      const executionMethod = ex.execution_methods?.find((m) => m.location === 'home') || ex.execution_methods?.[0];
+      const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
       const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
       const imageUrl = resolveImageUrl(ex);
 

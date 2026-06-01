@@ -12,11 +12,15 @@ import {
   getExercisesByProgram,
   getExerciseProductionReadiness,
   bulkAssignBaseMovementIds,
+  diagnoseSmartSwapGaps,
+  EXECUTION_LOCATION_LABELS,
+  LOCATION_OPTIONS_ARRAY,
+  Exercise,
+  getLocalizedText,
+  MovementGroup,
+  ExecutionLocation,
 } from '@/features/content/exercises';
-import { diagnoseSmartSwapGaps } from '@/features/content/exercises';
-import { getAllPrograms } from '@/features/content/programs';
-import { Exercise, getLocalizedText, MovementGroup } from '@/features/content/exercises';
-import { Program } from '@/features/content/programs';
+import { getAllPrograms, Program } from '@/features/content/programs';
 import {
   Plus, Edit2, Trash2, Copy, Search, Eye, HelpCircle,
   PlayCircle, Download, AlertCircle, CheckCircle, Camera,
@@ -255,6 +259,7 @@ export default function ExercisesAdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [programFilter, setProgramFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<number | 'all'>('all');
+  const [locationFilter, setLocationFilter] = useState<ExecutionLocation | 'all'>('all');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Non-blocking toast notification
@@ -367,17 +372,19 @@ export default function ExercisesAdminPage() {
     searchTerm.trim() !== '' ||
     programFilter !== 'all' ||
     levelFilter !== 'all' ||
+    locationFilter !== 'all' ||
     filterMissingIds;
 
   const clearAllFilters = useCallback(() => {
     setSearchTerm('');
     setProgramFilter('all');
     setLevelFilter('all');
+    setLocationFilter('all');
     setFilterMissingIds(false);
   }, []);
 
-  // ── Client-side filtering (instant, zero network) ──
-  // All filters combine with AND logic.
+  // ── Client-side filtering + sorting (instant, zero network) ──
+  // All filters combine with AND logic. Result is sorted א→ת by default.
   const filteredExercises = useMemo(() => {
     let list = allExercises;
 
@@ -413,8 +420,23 @@ export default function ExercisesAdminPage() {
       );
     }
 
-    return list;
-  }, [allExercises, searchTerm, filterMissingIds, programFilter, levelFilter]);
+    // Execution method / location filter
+    if (locationFilter !== 'all') {
+      list = list.filter((ex) => {
+        const methods = ex.execution_methods ?? ex.executionMethods ?? [];
+        return methods.some(
+          (m) =>
+            m.location === locationFilter ||
+            m.locationMapping?.includes(locationFilter),
+        );
+      });
+    }
+
+    // Sort א→ת (Hebrew locale, ascending) by default
+    return [...list].sort((a, b) =>
+      (a.name?.he ?? '').localeCompare(b.name?.he ?? '', 'he'),
+    );
+  }, [allExercises, searchTerm, filterMissingIds, programFilter, levelFilter, locationFilter]);
 
   // ── Pre-compute thumbnail URLs once when source data changes ──
   const thumbnailMap = useMemo(() => {
@@ -710,6 +732,20 @@ export default function ExercisesAdminPage() {
             <option value="all">כל הרמות</option>
             {availableLevels.map((lv) => (
               <option key={lv} value={lv}>רמה {lv}</option>
+            ))}
+          </select>
+
+          {/* Execution method / location filter */}
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value as ExecutionLocation | 'all')}
+            className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="all">כל המיקומים</option>
+            {LOCATION_OPTIONS_ARRAY.map(({ id, label, icon }) => (
+              <option key={id} value={id}>
+                {icon} {label} / {EXECUTION_LOCATION_LABELS[id].en}
+              </option>
             ))}
           </select>
 

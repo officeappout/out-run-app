@@ -97,7 +97,10 @@ export function appendCooldownExercises(
     let score = 0;
     if (ex.primaryMuscle && usedMuscles.has(ex.primaryMuscle)) score += 2;
     const methods = ex.execution_methods || ex.executionMethods || [];
-    let bestMethod = methods.find(m => m.location === location) || methods.find(m => m.location === 'home') || methods[0];
+    let bestMethod =
+      methods.find(m => m.location === location || m.locationMapping?.includes(location)) ||
+      methods.find(m => m.location === 'home' || m.locationMapping?.includes('home')) ||
+      methods[0];
     // Absolute fallback: exercises from nuke pool may have no methods — use minimal placeholder
     if (!bestMethod) {
       bestMethod = {

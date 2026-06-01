@@ -23,5 +23,14 @@ class ViewController: CAPBridgeViewController {
         // This mirrors the Android hardware-back behaviour wired in
         // src/lib/native/init.ts (window.history.back / App.minimizeApp).
         webView?.allowsBackForwardNavigationGestures = true
+
+        // Disable the native WKWebView rubber-band / elastic overscroll.
+        // CSS `overscroll-behavior: none` cannot fully suppress the bounce
+        // at the platform level on iOS, so we turn it off on the underlying
+        // UIScrollView. Internal scrollable regions in the web layer keep
+        // working — only the viewport-edge bounce is removed.
+        webView?.scrollView.bounces = false
+        webView?.scrollView.alwaysBounceVertical = false
+        webView?.scrollView.alwaysBounceHorizontal = false
     }
 }

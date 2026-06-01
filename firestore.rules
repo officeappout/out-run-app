@@ -1220,6 +1220,46 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // PHOTO RELEASE SUBMISSIONS — public, unauthenticated consent forms
+    //
+    // Parents open a standalone WhatsApp link (/public/forms/photo-release)
+    // and submit a signed photo/video release for their child WITHOUT
+    // logging in. Therefore:
+    //   • create → open to anyone (guest parents), but the payload shape is
+    //     validated so the collection cannot be abused as arbitrary storage.
+    //   • read / update / delete → admins only. Submissions are an immutable
+    //     legal record; nobody can read or tamper with them from the client.
+    //
+    // App Check (reCAPTCHA Enterprise on web) still attests every write, and
+    // the validation below caps the signature/string sizes to keep documents
+    // small and prevent write-bombing.
+    // ============================================================
+    function isValidPhotoRelease() {
+      return request.resource.data.formType == 'photo_release'
+          && request.resource.data.consentAccepted == true
+          && request.resource.data.studentName is string
+          && request.resource.data.studentName.size() > 0
+          && request.resource.data.studentName.size() <= 200
+          && request.resource.data.school is string
+          && request.resource.data.school.size() <= 200
+          && request.resource.data.studentClass is string
+          && request.resource.data.studentClass.size() <= 100
+          && request.resource.data.parentName is string
+          && request.resource.data.parentName.size() > 0
+          && request.resource.data.parentName.size() <= 200
+          && request.resource.data.parentId is string
+          && request.resource.data.parentId.size() <= 20
+          && request.resource.data.signatureData is string
+          && request.resource.data.signatureData.size() > 0
+          && request.resource.data.signatureData.size() < 700000;
+    }
+
+    match /photo_release_submissions/{docId} {
+      allow create: if isValidPhotoRelease();
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
     // ADMIN FALLBACK — אדמין יכול לגשת לכל מסמך
     // ============================================================
     match /{document=**} {

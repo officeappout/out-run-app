@@ -175,11 +175,31 @@ export async function signIn(email: string, password: string) {
  *      `signInWithCredential` so Firestore rules and web-SDK listeners
  *      see an authenticated user.
  *
+ * A 30-second timeout guards against a hang if the native account-picker
+ * sheet fails to appear (e.g. missing REVERSED_CLIENT_ID URL scheme,
+ * Google Play Services crash on Android, or a misconfigured OAuth client).
+ *
  * Web fallback (browser / dev server):
  *   Uses `signInWithPopup` with `GoogleAuthProvider`.
  *   Requires "Google" to be enabled in Firebase Console
  *   Authentication → Sign-in method.
  */
+
+/** Maximum ms to wait for the native Google sign-in flow to resolve. */
+const GOOGLE_SIGNIN_TIMEOUT_MS = 30_000;
+
+function withGoogleTimeout<T>(promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('GOOGLE_SIGNIN_TIMEOUT')),
+        GOOGLE_SIGNIN_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
+
 export async function signInWithGoogle(): Promise<{ user: User | null; error: string | null }> {
   try {
     if (isNativePlatform()) {
@@ -189,7 +209,7 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
       // instance as `auth` and pass Firebase's internal instanceof checks.
       const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
 
-      const result = await FirebaseAuthentication.signInWithGoogle();
+      const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
 
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
@@ -209,8 +229,15 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
       return { user: result.user, error: null };
     }
   } catch (error: any) {
-    // User dismissed the Google sheet — not an error worth surfacing
     const msg: string = error?.message ?? String(error);
+
+    // Native / plugin timeout — surface a clear, actionable message
+    if (msg === 'GOOGLE_SIGNIN_TIMEOUT') {
+      console.error('[Auth Service] Google sign-in timed out (REVERSED_CLIENT_ID URL scheme missing, or account-picker failed to present)');
+      return { user: null, error: 'google_timeout' };
+    }
+
+    // User dismissed the Google sheet — not an error worth surfacing
     if (
       error?.code === 'ERR_CANCELED' ||
       msg.includes('cancel') ||
@@ -219,6 +246,7 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
     ) {
       return { user: null, error: 'google_canceled' };
     }
+
     console.error('[Auth Service] Google sign-in error:', error);
     return { user: null, error: msg };
   }
@@ -227,7 +255,7 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
 /**
  * Sign in with Apple — native iOS or web fallback.
  *
- * Native (iOS Capacitor):
+ * Native (iOS / iPadOS Capacitor):
  *   1. `@capacitor-firebase/authentication` presents the native
  *      ASAuthorizationController sheet.
  *   2. The plugin signs in to the native Firebase SDK and returns the
@@ -236,33 +264,56 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
  *      instance via `signInWithCredential` so Firestore security rules
  *      and all web-SDK listeners see an authenticated user.
  *
+ * A 30-second timeout guards against a known iPad issue where
+ * ASAuthorizationController can fail to present its sheet silently
+ * (missing presentationAnchor), leaving the promise pending forever.
+ *
  * Web fallback (browser / dev server):
  *   Uses `signInWithPopup` with `OAuthProvider('apple.com')`.
  *   Requires "Sign in with Apple" to be enabled in Firebase Console
  *   Authentication → Sign-in method, and the service-ID / redirect
  *   URL configured in the Apple Developer Portal.
  */
+
+/** Maximum ms to wait for the native Apple sign-in sheet to resolve. */
+const APPLE_SIGNIN_TIMEOUT_MS = 30_000;
+
+function withAppleTimeout<T>(promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('APPLE_SIGNIN_TIMEOUT')),
+        APPLE_SIGNIN_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
+
 export async function signInWithApple(): Promise<{ user: User | null; error: string | null }> {
   try {
     if (isNativePlatform()) {
-      // ── Native iOS path ──────────────────────────────────────────────
+      // ── Native iOS / iPadOS path ─────────────────────────────────────
       // Only the Capacitor plugin is lazy-loaded; Firebase SDK classes come
       // from the top-level static import so they share the same module
       // instance as `auth` and pass Firebase's internal instanceof checks.
       const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
 
-      const result = await FirebaseAuthentication.signInWithApple();
+      // withAppleTimeout prevents an indefinite hang on iPad when
+      // ASAuthorizationController silently fails to present its sheet.
+      const result = await withAppleTimeout(FirebaseAuthentication.signInWithApple());
 
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
 
-      // Build a web-SDK OAuthCredential from the Apple token + nonce
-      // so the web firebase/auth instance is also authenticated.
+      // Build a web-SDK OAuthCredential from the Apple token + nonce.
+      // rawNonce is only present on the first sign-in; subsequent ones
+      // may omit it — both cases are valid for Apple's token exchange.
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        rawNonce: result.credential.nonce,
+        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
       });
 
       const webResult = await signInWithCredential(auth, credential);
@@ -277,8 +328,15 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       return { user: result.user, error: null };
     }
   } catch (error: any) {
-    // User dismissed the Apple sheet — not an error worth surfacing
     const msg: string = error?.message ?? String(error);
+
+    // iPad / plugin timeout — surface a clear, actionable message
+    if (msg === 'APPLE_SIGNIN_TIMEOUT') {
+      console.error('[Auth Service] Apple sign-in timed out (iPad presentationAnchor issue?)');
+      return { user: null, error: 'apple_timeout' };
+    }
+
+    // User dismissed the Apple sheet — not an error worth surfacing
     if (
       error?.code === 'ERR_CANCELED' ||
       msg.includes('cancel') ||
@@ -287,6 +345,7 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
     ) {
       return { user: null, error: 'apple_canceled' };
     }
+
     console.error('[Auth Service] Apple sign-in error:', error);
     return { user: null, error: msg };
   }
@@ -373,7 +432,7 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
       // instance as `auth` and pass Firebase's internal instanceof checks.
       const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
 
-      const result = await FirebaseAuthentication.signInWithApple();
+      const result = await withAppleTimeout(FirebaseAuthentication.signInWithApple());
 
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
@@ -382,7 +441,7 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        rawNonce: result.credential.nonce,
+        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
       });
 
       const linkResult = await linkWithCredential(auth.currentUser, credential);
@@ -398,6 +457,10 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
   } catch (error: any) {
     console.error('[Auth Service] Apple link error:', error);
     const msg: string = error?.message ?? String(error);
+
+    if (msg === 'APPLE_SIGNIN_TIMEOUT') {
+      return { user: null, error: 'apple_timeout' };
+    }
     if (
       error?.code === 'ERR_CANCELED' ||
       msg.includes('cancel') ||

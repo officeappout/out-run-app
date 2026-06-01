@@ -109,7 +109,26 @@ export default function SelectionPage() {
     
     try {
       const { user, error: authError } = await signInWithGoogle();
-      
+
+      // User dismissed the account picker — silent no-op
+      if (authError === 'google_canceled') {
+        setIsGoogleLoading(false);
+        return;
+      }
+
+      // Native sheet timed out — show a clear, actionable message
+      if (authError === 'google_timeout') {
+        setError(
+          selectedLanguage === 'he'
+            ? 'חלון Google לא נפתח. אנא נסה שוב או בחר שיטת התחברות אחרת.'
+            : selectedLanguage === 'ru'
+            ? 'Окно Google не открылось. Попробуйте снова.'
+            : 'The Google sign-in sheet did not appear. Please try again.',
+        );
+        setIsGoogleLoading(false);
+        return;
+      }
+
       if (authError || !user) {
         setError(authError || 'שגיאה בהתחברות עם Google. אנא נסה שוב.');
         setIsGoogleLoading(false);
@@ -161,6 +180,19 @@ export default function SelectionPage() {
 
       // User dismissed the Apple sheet — silent no-op
       if (authError === 'apple_canceled') {
+        setIsAppleLoading(false);
+        return;
+      }
+
+      // iPad / plugin timeout — sheet never appeared
+      if (authError === 'apple_timeout') {
+        setError(
+          selectedLanguage === 'he'
+            ? 'חלון Apple לא נפתח. אנא נסה שוב או בחר שיטת התחברות אחרת.'
+            : selectedLanguage === 'ru'
+            ? 'Окно Apple не открылось. Попробуйте снова.'
+            : 'The Apple sign-in sheet did not appear. Please try again.',
+        );
         setIsAppleLoading(false);
         return;
       }

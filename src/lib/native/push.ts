@@ -109,6 +109,39 @@ function getPlatformLabel(): 'ios' | 'android' | 'web' {
   return 'web';
 }
 
+// ─── Timeout helper ───────────────────────────────────────────────────────────
+
+/**
+ * Race a native plugin Promise against a deadline so a non-resolving
+ * Capacitor call (e.g. `getToken()` stuck waiting for APNs registration)
+ * cannot freeze the caller indefinitely.
+ *
+ * On iOS, `FirebaseMessaging.getToken()` awaits APNs token provisioning.
+ * Under TestFlight or in conditions with poor connectivity / misconfigured
+ * push certificates, APNs can take many minutes or never respond, leaving
+ * the Promise pending forever. Without this guard the entire
+ * `initPushNotifications()` chain hangs, blocking the LifestyleWizard CTA
+ * and making the app appear frozen.
+ */
+const NATIVE_CALL_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`[push] ${label} timed out after ${ms}ms — APNs/FCM unreachable?`)),
+      ms,
+    );
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 // ─── Firestore token helpers ──────────────────────────────────────────────────
 
 /**
@@ -220,7 +253,11 @@ export async function initPushNotifications(
     const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
 
     // ── Step 1: Permission check ──────────────────────────────────────
-    const status = await FirebaseMessaging.checkPermissions();
+    const status = await withTimeout(
+      FirebaseMessaging.checkPermissions(),
+      NATIVE_CALL_TIMEOUT_MS,
+      'checkPermissions',
+    );
     let granted = status.receive === 'granted';
 
     if (!granted && status.receive === 'prompt') {
@@ -237,7 +274,11 @@ export async function initPushNotifications(
       }
       // Non-silent call (from LifestyleWizard "accept" button) — show
       // the native OS permission dialog now.
-      const requested = await FirebaseMessaging.requestPermissions();
+      const requested = await withTimeout(
+        FirebaseMessaging.requestPermissions(),
+        NATIVE_CALL_TIMEOUT_MS,
+        'requestPermissions',
+      );
       granted = requested.receive === 'granted';
     }
 
@@ -248,7 +289,12 @@ export async function initPushNotifications(
 
     // ── Step 2: Install listeners exactly once ────────────────────────
     if (!listenersInstalled) {
-      listenersInstalled = true;
+      // IMPORTANT: listenersInstalled is set to true only AFTER all three
+      // addListener calls complete successfully. The previous pattern set
+      // it to true at the top of this block, which permanently skipped
+      // retrying listener setup if any call failed (e.g. plugin not yet
+      // ready on first cold-start) — leaving the app with no foreground
+      // toast, no token-refresh handler, and no click-tracking.
 
       // Token rotation — FCM may issue a new token at any time. Swap out
       // the stale one so the sender doesn't waste quota on a dead handle.
@@ -363,10 +409,20 @@ export async function initPushNotifications(
           console.warn('[push] click-tracking write failed:', err);
         }
       });
+
+      // All three listeners registered successfully — mark as installed.
+      // If any addListener above threw, we never reach this line and
+      // listenersInstalled stays false, allowing a clean retry on the
+      // next initPushNotifications() invocation.
+      listenersInstalled = true;
     }
 
     // ── Step 3: Fetch current token and persist ───────────────────────
-    const { token } = await FirebaseMessaging.getToken();
+    const { token } = await withTimeout(
+      FirebaseMessaging.getToken(),
+      NATIVE_CALL_TIMEOUT_MS,
+      'getToken',
+    );
     if (!token) {
       console.warn('[push] FirebaseMessaging.getToken returned empty');
       return false;
@@ -375,9 +431,12 @@ export async function initPushNotifications(
     await saveTokenToFirestore(uid, token);
     lastRegisteredUid   = uid;
     lastRegisteredToken = token;
+    console.info(`[push] registered uid=${uid} platform=${getPlatformLabel()}`);
     return true;
   } catch (err) {
-    console.warn('[push] initPushNotifications failed:', err);
+    // console.error (not warn) so this is always visible in Xcode / logcat
+    // during TestFlight / internal testing without requiring log-level filters.
+    console.error('[push] initPushNotifications failed:', err);
     return false;
   }
 }

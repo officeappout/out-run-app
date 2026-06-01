@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ArrowRight, Trees, Home, Dumbbell, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock } from 'lucide-react';
+import { ArrowRight, Trees, Home, Dumbbell, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench } from 'lucide-react';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
 import { useUserStore } from '@/features/user';
@@ -290,8 +290,12 @@ export default function WorkoutBuilderSheet({
   // ── Schedule-mode only: start time ──────────────────────────────────────
   const [startTime, setStartTime] = useState(() => getNextFullHour());
 
-  // ── Equipment filter sheet ───────────────────────────────────────────────
+  // ── Equipment filter sheet (builder-local override) ─────────────────────
   const [showEquipmentSheet, setShowEquipmentSheet] = useState(false);
+
+  // ── Gear nudge drawer — global profile equipment editor ──────────────────
+  // Opened by the inline GearNudgeBanner when the user has no equipment saved.
+  const [showGearNudgeSheet, setShowGearNudgeSheet] = useState(false);
 
   // ── Unlock modal (unenrolled program discovery) ─────────────────────────
   const [showUnlockModal, setShowUnlockModal] = useState(false);
@@ -691,6 +695,39 @@ export default function WorkoutBuilderSheet({
 
       {/* ── Scrollable form ── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-7">
+
+        {/* ── Gear nudge banner ─────────────────────────────────────────────
+            Shown only when the user has no equipment configured in their
+            profile. Tapping opens an in-place EquipmentFilterSheet so they
+            never leave this screen. Hides automatically once the profile is
+            saved (useUserStore re-hydrates and the condition becomes false). */}
+        {(() => {
+          const eq = profile?.equipment as Record<string, string[] | undefined> | undefined;
+          const hasAnyEquipment =
+            (eq?.home?.length ?? 0) > 0 ||
+            (eq?.outdoor?.length ?? 0) > 0 ||
+            (eq?.office?.length ?? 0) > 0;
+          if (hasAnyEquipment) return null;
+          return (
+            <button
+              type="button"
+              onClick={() => setShowGearNudgeSheet(true)}
+              className="w-full flex items-start gap-3 px-4 py-3.5 bg-cyan-50 rounded-2xl border border-cyan-100 text-right active:scale-[0.99] transition-transform"
+              aria-label="הגדר ציוד לאימון מותאם"
+            >
+              <Wrench size={18} className="flex-shrink-0 mt-0.5 text-cyan-500" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-cyan-700 leading-snug">
+                  רוצים אימון מותאם ב-100% לציוד שלכם?
+                </p>
+                <p className="text-xs text-cyan-500 mt-0.5">
+                  לחצו כאן כדי לסמן מה יש לכם בסביבה
+                </p>
+              </div>
+              <ArrowRight size={15} className="flex-shrink-0 mt-1 text-cyan-400 rotate-180" />
+            </button>
+          );
+        })()}
 
         {/* ── Schedule mode: date + time ── */}
         {isScheduleMode && scheduleDateParam && (
@@ -1157,7 +1194,7 @@ export default function WorkoutBuilderSheet({
         </div>
       )}
 
-      {/* ── Equipment filter sheet ── */}
+      {/* ── Equipment filter sheet (builder-local override, mode=filter) ── */}
       <EquipmentFilterSheet
         isOpen={showEquipmentSheet}
         onClose={() => setShowEquipmentSheet(false)}
@@ -1168,6 +1205,20 @@ export default function WorkoutBuilderSheet({
         }
         onApply={(ids) => setEquipmentOverride(ids)}
         activeLocation={location}
+      />
+
+      {/* ── Gear nudge sheet (global profile equipment editor, mode=profile) ─
+          Writes to Firestore users/{uid}.equipment.home and re-hydrates
+          useUserStore automatically. The GearNudgeBanner above will hide
+          itself on next render because the profile now has equipment. ── */}
+      <EquipmentFilterSheet
+        isOpen={showGearNudgeSheet}
+        onClose={() => setShowGearNudgeSheet(false)}
+        initialIds={
+          (profile?.equipment as Record<string, string[] | undefined> | undefined)?.home ?? []
+        }
+        mode="profile"
+        onApply={() => setShowGearNudgeSheet(false)}
       />
 
       {/* ── Preview drawer (normal mode only) ── */}

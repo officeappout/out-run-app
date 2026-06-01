@@ -40,6 +40,13 @@ export interface LibraryFilters {
   level: number | null;
   /** Gear/equipment IDs the exercise must use (any-of). */
   equipmentIds: string[];
+  /**
+   * Location context derived from the last applied preset (בית / פארק / חדר כושר).
+   * `null` = no preset active; media resolution defaults to 'park' as a fallback.
+   * This drives which execution-method media (thumbnail + video) is shown in cards
+   * and the detail sheet.
+   */
+  location: 'home' | 'park' | 'gym' | null;
 }
 
 interface ExerciseLibraryState {
@@ -68,6 +75,8 @@ interface ExerciseLibraryState {
    */
   setProgressionFilter: (programId: string | null, level: number | null) => void;
   setEquipmentIds: (ids: string[]) => void;
+  /** Persist the location context derived from the active preset. */
+  setFilterLocation: (location: 'home' | 'park' | 'gym' | null) => void;
   resetFilters: () => void;
   openDetail: (exercise: Exercise) => void;
   closeDetail: () => void;
@@ -79,6 +88,7 @@ const INITIAL_FILTERS: LibraryFilters = {
   programId: null,
   level: null,
   equipmentIds: [],
+  location: null,
 };
 
 export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
@@ -122,6 +132,9 @@ export const useExerciseLibraryStore = create<ExerciseLibraryState>((set) => ({
 
   setEquipmentIds: (ids) =>
     set((s) => ({ filters: { ...s.filters, equipmentIds: ids } })),
+
+  setFilterLocation: (location) =>
+    set((s) => ({ filters: { ...s.filters, location } })),
 
   resetFilters: () => set({ filters: { ...INITIAL_FILTERS } }),
 

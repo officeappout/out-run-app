@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Home, Trees, Building } from 'lucide-react';
 import FilterSheet from './FilterSheet';
 import ProgressionFilterSheet from './ProgressionFilterSheet';
 import EquipmentFilterSheet from './EquipmentFilterSheet';
@@ -18,6 +18,13 @@ import {
   useExerciseLibraryStore,
   BODYWEIGHT_SENTINEL,
 } from '../store/useExerciseLibraryStore';
+import type { LucideIcon } from 'lucide-react';
+
+const LOCATION_PILL_META: Record<'home' | 'park' | 'gym', { label: string; Icon: LucideIcon }> = {
+  home: { label: 'בית',       Icon: Home },
+  park: { label: 'פארק',      Icon: Trees },
+  gym:  { label: 'חדר כושר',  Icon: Building },
+};
 import { MUSCLE_GROUP_LABELS, type MuscleGroup } from '../../core/exercise.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
@@ -47,6 +54,7 @@ function muscleIconPath(m: MuscleGroup): string {
 export default function FilterPills() {
   const filters = useExerciseLibraryStore((s) => s.filters);
   const setMuscles = useExerciseLibraryStore((s) => s.setMuscles);
+  const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
 
   const [active, setActive] = useState<ActiveSheet>(null);
 
@@ -114,12 +122,18 @@ export default function FilterPills() {
           onClick={() => setActive('progression')}
         />
         {/* ── Equipment + Location ── */}
-        <Pill
-          label="ציוד ומיקום"
-          active={equipmentActive}
-          count={equipmentRealCount > 0 ? equipmentRealCount : undefined}
-          onClick={() => setActive('equipment')}
-        />
+        {(() => {
+          const locMeta = filterLocation ? LOCATION_PILL_META[filterLocation] : null;
+          return (
+            <Pill
+              label={locMeta ? locMeta.label : 'ציוד ומיקום'}
+              icon={locMeta ? locMeta.Icon : undefined}
+              active={equipmentActive}
+              count={!locMeta && equipmentRealCount > 0 ? equipmentRealCount : undefined}
+              onClick={() => setActive('equipment')}
+            />
+          );
+        })()}
       </div>
 
       {/* Muscles sheet */}
@@ -192,11 +206,13 @@ export default function FilterPills() {
 
 function Pill({
   label,
+  icon: Icon,
   active,
   count,
   onClick,
 }: {
   label: string;
+  icon?: LucideIcon;
   active: boolean;
   count?: number;
   onClick: () => void;
@@ -211,6 +227,7 @@ function Pill({
           : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
       }`}
     >
+      {Icon && <Icon size={12} />}
       <span>{label}</span>
       {count != null && count > 0 && (
         <span className="bg-primary text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">

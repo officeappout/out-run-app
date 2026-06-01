@@ -137,12 +137,25 @@ export default function ProgramPathPage() {
     (id: string) => {
       setSelectedMuscles((prev) => {
         if (id === FULL_BODY_ID) {
-          return prev.includes(FULL_BODY_ID) ? [] : [FULL_BODY_ID];
+          // ON  → include the full_body tag plus every individual muscle so each
+          //       chip renders in its active/selected visual state.
+          // OFF → clear everything.
+          return prev.includes(FULL_BODY_ID)
+            ? []
+            : [FULL_BODY_ID, ...MUSCLE_FOCUS_IDS];
         }
-        if (prev.includes(FULL_BODY_ID)) {
-          return [id];
-        }
-        return prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id];
+
+        // Individual chip tapped — always strip the full_body tag first so the
+        // "כל הגוף" button deactivates when the set is no longer complete.
+        const withoutFullBody = prev.filter((m) => m !== FULL_BODY_ID);
+        const next = withoutFullBody.includes(id)
+          ? withoutFullBody.filter((m) => m !== id)
+          : [...withoutFullBody, id];
+
+        // Auto-upgrade: if the user has now manually selected every individual
+        // muscle, flip the full_body tag back on so the UI stays in sync.
+        const allSelected = MUSCLE_FOCUS_IDS.every((m) => next.includes(m));
+        return allSelected ? [FULL_BODY_ID, ...MUSCLE_FOCUS_IDS] : next;
       });
     },
     []

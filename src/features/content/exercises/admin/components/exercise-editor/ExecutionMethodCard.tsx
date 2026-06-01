@@ -37,8 +37,6 @@ import {
   Languages,
 } from 'lucide-react';
 import type { AppLanguage, ExerciseLang, LocalizedText, ExternalVideo } from '../../../core/exercise.types';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { safeRenderText } from '@/utils/render-helpers';
 import VideoPreview from './helpers/VideoPreview';
 import ImagePreview from './helpers/ImagePreview';
@@ -89,8 +87,6 @@ export default function ExecutionMethodCard({
 
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
   const [isCuesExpanded, setIsCuesExpanded] = useState(true); // Start expanded
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
@@ -421,42 +417,6 @@ export default function ExecutionMethodCard({
       return improvisedList;
     }
     return [];
-  };
-
-  const handleVideoUpload = (file: File) => {
-    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    const safeLocation = typeof method.location === 'string' ? method.location : String(method.location || 'home');
-    const path = `exercise-videos/${safeLocation}/${Date.now()}-${safeName}`;
-    const storageRef = ref(storage, path);
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    setUploading(true);
-    setUploadProgress(0);
-
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setUploadProgress(Math.round(progress));
-      },
-      (error) => {
-        console.error('Error uploading video:', error);
-        setUploading(false);
-      },
-      async () => {
-        try {
-          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-          safeUpdate({
-            ...method,
-            media: { ...method.media, mainVideoUrl: downloadUrl },
-          });
-        } catch (err) {
-          console.error('Error getting download URL:', err);
-        } finally {
-          setUploading(false);
-        }
-      }
-    );
   };
 
   // Note: availableGear was removed as we now use individual lists for mixed selection
@@ -1064,6 +1024,15 @@ export default function ExecutionMethodCard({
               <label className="block text-xs font-bold text-gray-500 mb-1.5">
                 סרטון ראשי {isFollowAlong && <span className="text-blue-600">(Follow-Along)</span>}
               </label>
+
+              {/* ── Firebase deprecation warning ────────────────────────────── */}
+              <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-300 px-3 py-2 mb-2 text-xs text-amber-800 font-medium">
+                <span className="shrink-0 mt-px">⚠️</span>
+                <span>
+                  שדה זה מיושן. נא לא להדביק כאן קישורים! יש להשתמש בסקציית Bunny CDN למטה כדי שהסרטונים יטענו במהירות הבזק.
+                </span>
+              </div>
+
               {isFollowAlong && (
                 <p className="text-[10px] text-blue-600 mb-1.5">
                   ⚠️ עבור Follow-Along, השתמש בסרטון מלא (לא לולאה קצרה)
@@ -1079,7 +1048,7 @@ export default function ExecutionMethodCard({
                       media: { ...method.media, mainVideoUrl: e.target.value },
                     })
                   }
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  className="flex-1 px-3 py-1.5 text-sm border border-amber-200 rounded-lg bg-amber-50/50 focus:ring-2 focus:ring-amber-400 focus:border-transparent text-gray-500"
                   placeholder="https://..."
                 />
                 <button
@@ -1097,11 +1066,6 @@ export default function ExecutionMethodCard({
                   בחר/העלה מדיה
                 </button>
               </div>
-              {uploading && (
-                <span className="text-[11px] text-gray-500 mt-1 block">
-                  מעלה וידאו... {uploadProgress}%
-                </span>
-              )}
               {isFollowAlong && (
                 <div className="mt-2">
                   <label className="block text-xs font-bold text-gray-500 mb-1.5">

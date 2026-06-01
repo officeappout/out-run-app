@@ -25,7 +25,7 @@ import { db } from '@/lib/firebase';
 import {
   Plus, Edit2, Trash2, Save, X, MessageSquareQuote, Target, Heart, BarChart3,
   Bell, Eye, Upload, Download, AlertTriangle, ShieldAlert,
-  BarChart2, Send, Users, TrendingUp, Clock, XCircle, RefreshCw,
+  BarChart2, Send, Users, TrendingUp, Clock, XCircle, RefreshCw, MessageSquare,
 } from 'lucide-react';
 import Link from 'next/link';
 import { resolveNotificationText, getAvailableTags, resolveDescription, getAvailableDescriptionTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
@@ -328,6 +328,11 @@ export default function WorkoutSettingsPage() {
   const [pushHistory, setPushHistory] = useState<PushMessage[]>([]);
   const [pushCTRMap, setPushCTRMap] = useState<Record<string, number | null>>({});
   const [pushHistoryLoading, setPushHistoryLoading] = useState(false);
+
+  // ── Global Feature Flags ─────────────────────────────────────────────────
+  const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(false);
+  const [chatNotifLoading, setChatNotifLoading] = useState(true);
+  const [chatNotifSaving, setChatNotifSaving] = useState(false);
   
   // Titles state
   const [titles, setTitles] = useState<WorkoutTitle[]>([]);
@@ -591,6 +596,43 @@ export default function WorkoutSettingsPage() {
       cancelled = true;
     };
   }, []);
+
+  // ── Global Feature Flags loader ─────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const loadFeatureFlags = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'app_config', 'feature_flags'));
+        if (!cancelled) {
+          const data = snap.data() as Record<string, unknown> | undefined;
+          setChatNotificationsEnabled(data?.chatNotificationsEnabled === true);
+        }
+      } catch (err) {
+        console.error('[workout-settings/feature-flags] load failed:', err);
+      } finally {
+        if (!cancelled) setChatNotifLoading(false);
+      }
+    };
+    loadFeatureFlags();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleChatNotifToggle = async (enabled: boolean) => {
+    setChatNotifSaving(true);
+    try {
+      await setDoc(
+        doc(db, 'app_config', 'feature_flags'),
+        { chatNotificationsEnabled: enabled },
+        { merge: true },
+      );
+      setChatNotificationsEnabled(enabled);
+    } catch (err) {
+      console.error('[workout-settings/feature-flags] save failed:', err);
+      alert('שגיאה בשמירת ההגדרה');
+    } finally {
+      setChatNotifSaving(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -3303,6 +3345,71 @@ export default function WorkoutSettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* ================================================================== */}
+      {/* GLOBAL NOTIFICATION SETTINGS                                        */}
+      {/* ================================================================== */}
+      <section className="mt-8">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-gradient-to-l from-cyan-50 via-white to-white">
+            <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">הגדרות התראות גלובליות</h2>
+              <p className="text-xs text-gray-500">
+                שליטה בהתנהגות Cloud Functions הקשורות להתראות
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4">
+            {chatNotifLoading ? (
+              <div className="flex items-center gap-2 py-2 text-sm text-gray-400">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                טוען הגדרות...
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4 py-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">
+                      התראות צ&apos;אט אוטומטיות
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Cloud Function שולח התראה לנמען בכל הודעת צ&apos;אט חדשה ·{' '}
+                      <span className="font-mono text-gray-400">
+                        chats/&#123;chatId&#125;/messages
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  dir="ltr"
+                  onClick={() => handleChatNotifToggle(!chatNotificationsEnabled)}
+                  disabled={chatNotifSaving}
+                  aria-checked={chatNotificationsEnabled}
+                  role="switch"
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    chatNotificationsEnabled ? 'bg-cyan-500' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ${
+                      chatNotificationsEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* ================================================================== */}
       {/* GROWTH HUB — TIER 2: PUSH HISTORY & CTR PERFORMANCE PANEL          */}

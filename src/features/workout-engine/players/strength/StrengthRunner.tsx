@@ -79,11 +79,13 @@ export default function StrengthRunner({
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap);
 
-  // ── Offline-cached media URLs (extracted to usePlayerMedia, Step R-1) ────
+  // ── Offline-cached + network-aware media URLs ──────────────────────────
   const { safeVideoUrl, safeImageUrl, safeNextVideoUrl } = usePlayerMedia({
     exerciseVideoUrl: sm.exerciseVideoUrl,
+    bunnyVideoId: sm.exerciseBunnyVideoId,
     exerciseImageUrl: sm.activeExercise?.imageUrl,
     nextExerciseVideoUrl: sm.nextExercise.videoUrl,
+    nextBunnyVideoId: sm.nextExercise.bunnyVideoId,
   });
 
   // NOTE: usePlayerMediaSession is declared AFTER handleBigScreenInputSave
@@ -224,6 +226,7 @@ export default function StrengthRunner({
     currentExerciseSnapshotRef.current = {
       name: sm.exerciseName,
       videoUrl: safeVideoUrl,
+      bunnyVideoId: sm.exerciseBunnyVideoId,
       imageUrl: safeImageUrl ?? null,
       equipment: sm.activeExercise.equipment
         ? (Array.isArray(sm.activeExercise.equipment) ? sm.activeExercise.equipment : [sm.activeExercise.equipment])

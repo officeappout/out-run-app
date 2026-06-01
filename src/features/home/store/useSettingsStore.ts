@@ -8,6 +8,10 @@ export interface SettingsData {
   tipsAlerts: boolean;
   units: 'km' | 'miles';
   healthBridgeEnabled: boolean;
+  /** Master push switch — mirrors `users/{uid}.settings.pushEnabled` */
+  pushEnabled: boolean;
+  /** Per-channel chat toggle — mirrors `users/{uid}.settings.notificationPrefs.chat` */
+  chatNotifEnabled: boolean;
 }
 
 interface SettingsState extends SettingsData {
@@ -27,6 +31,8 @@ const DEFAULTS: SettingsData = {
   tipsAlerts: true,
   units: 'km',
   healthBridgeEnabled: false,
+  pushEnabled: true,
+  chatNotifEnabled: true,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

@@ -157,11 +157,18 @@ export default function IdentityProfilePage() {
   }, [formData.birthDay, formData.birthMonth, formData.birthYear, validateDOB]);
 
   // Completion gates
+  // Use parseInt range checks for day/month so single-digit entries (e.g. '5'
+  // for May) are accepted without requiring a leading zero. The onBlur handler
+  // below will auto-pad to '05' on field exit, but the gate must not block
+  // the user before that normalisation runs.
+  const _parsedGateDay   = parseInt(formData.birthDay,   10);
+  const _parsedGateMonth = parseInt(formData.birthMonth, 10);
+  const _parsedGateYear  = parseInt(formData.birthYear,  10);
   const isFormComplete =
     formData.name.trim().length > 0 &&
-    formData.birthDay.length === 2 &&
-    formData.birthMonth.length === 2 &&
-    formData.birthYear.length === 4 &&
+    _parsedGateDay   >= 1 && _parsedGateDay   <= 31 &&
+    _parsedGateMonth >= 1 && _parsedGateMonth <= 12 &&
+    formData.birthYear.length === 4 && _parsedGateYear >= 1900 && _parsedGateYear <= new Date().getFullYear() &&
     formData.gender !== '' &&
     !hasDobError;
 
@@ -267,7 +274,7 @@ export default function IdentityProfilePage() {
   if (!resolvedUid) {
     return (
       <div
-        className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center overflow-hidden"
+        className="h-full bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center overflow-hidden"
         dir={direction}
       >
         <Loader2 size={36} className="text-[#5BC2F2] animate-spin mb-4" />
@@ -286,7 +293,7 @@ export default function IdentityProfilePage() {
 
   return (
     <div
-      className="h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden"
+      className="h-full bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden"
       dir={direction}
     >
       {/* Navigation header — in-flow flex row, never absolutely positioned */}
@@ -485,6 +492,14 @@ export default function IdentityProfilePage() {
                   setFormData(prev => ({ ...prev, birthDay: value }));
                   if (value.length === 2) monthInputRef.current?.focus();
                 }}
+                onBlur={() => {
+                  // Normalise single-digit day to '05' style on field exit.
+                  // This restores the auto-tab focus chain and satisfies the
+                  // submit gate for users who don't type a leading zero.
+                  if (formData.birthDay.length === 1) {
+                    setFormData(prev => ({ ...prev, birthDay: prev.birthDay.padStart(2, '0') }));
+                  }
+                }}
                 placeholder="יום"
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
@@ -505,9 +520,20 @@ export default function IdentityProfilePage() {
                   setFormData(prev => ({ ...prev, birthMonth: value }));
                   if (value.length === 2) yearInputRef.current?.focus();
                 }}
+                onBlur={() => {
+                  // Normalise single-digit month to '05' style on field exit.
+                  if (formData.birthMonth.length === 1) {
+                    setFormData(prev => ({ ...prev, birthMonth: prev.birthMonth.padStart(2, '0') }));
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Backspace' && formData.birthMonth === '')
                     dayInputRef.current?.focus();
+                }}
+                onFocus={() => {
+                  setTimeout(() => {
+                    monthInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 150);
                 }}
                 placeholder="חודש"
                 className={`w-16 ${dateInputClass(hasDobError)}`}
@@ -540,6 +566,11 @@ export default function IdentityProfilePage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Backspace' && formData.birthYear === '')
                     monthInputRef.current?.focus();
+                }}
+                onFocus={() => {
+                  setTimeout(() => {
+                    yearInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 150);
                 }}
                 placeholder="שנה"
                 className={`w-20 ${dateInputClass(hasDobError)}`}
@@ -576,6 +607,11 @@ export default function IdentityProfilePage() {
                   e.preventDefault();
                   if (canSubmit && !loading) handleContinue();
                 }
+              }}
+              onFocus={() => {
+                setTimeout(() => {
+                  nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 150);
               }}
               className="w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right"
               placeholder="השם שלך כאן..."

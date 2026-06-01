@@ -2,19 +2,23 @@
 
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/hooks/useNetworkAwareStreamUrl';
 
 /**
- * usePlayerMedia — offline-aware media URL resolver for the live workout player.
+ * usePlayerMedia — offline-aware, network-quality-adaptive media URL resolver
+ * for the live workout player.
  *
- * Wraps three `useCachedMediaUrl` lookups and a single `useOnlineStatus` probe,
- * then gates each result so the player never hits the network while offline:
- *   • blob: URLs (locally cached) always pass through.
- *   • Network URLs pass through only when `isOnline` is true.
- *   • Images fall back to a local placeholder when offline & uncached.
- *   • Videos resolve to `null` when offline & uncached (consumer renders fallback).
+ * Resolution order for Bunny videos (bunnyVideoId is provided):
+ *   1. IndexedDB blob (720p cache hit) → immediate offline playback.
+ *   2. Live Bunny MP4 at network-appropriate resolution (1080p / 720p / 360p).
  *
- * Pure side-effect-free hook — no state, no refs, no listeners beyond the two
- * underlying hooks.  Extracted from StrengthRunner.tsx (Decoupling Step R-1).
+ * Resolution order for legacy / non-Bunny videos (no bunnyVideoId):
+ *   1. IndexedDB blob (cached at original URL).
+ *   2. Original network URL (only when online).
+ *
+ * Images always fall back to a placeholder when offline and uncached.
+ *
+ * Extracted from StrengthRunner.tsx (Decoupling Step R-1).
  */
 
 const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
@@ -22,10 +26,14 @@ const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 export interface PlayerMediaInput {
   /** Raw video URL of the currently active exercise (from state machine). */
   exerciseVideoUrl: string | null | undefined;
+  /** Bare Bunny UUID for the active exercise — enables network-aware resolution. */
+  bunnyVideoId?: string | null;
   /** Raw image URL of the currently active exercise. */
   exerciseImageUrl: string | null | undefined;
   /** Raw video URL of the next exercise (for preload). */
   nextExerciseVideoUrl: string | null | undefined;
+  /** Bare Bunny UUID for the next exercise — enables network-aware preload. */
+  nextBunnyVideoId?: string | null;
 }
 
 export interface PlayerMediaResult {
@@ -36,31 +44,56 @@ export interface PlayerMediaResult {
 
 export function usePlayerMedia({
   exerciseVideoUrl,
+  bunnyVideoId,
   exerciseImageUrl,
   nextExerciseVideoUrl,
+  nextBunnyVideoId,
 }: PlayerMediaInput): PlayerMediaResult {
   const isOnline = useOnlineStatus();
+
+  // Network-aware Bunny URLs (cache-first → dynamic resolution).
+  // The hook returns null while it resolves; the player renders the poster
+  // meanwhile and then transitions to the stream URL automatically.
+  const { streamUrl: bunnyStreamUrl } = useNetworkAwareStreamUrl(bunnyVideoId ?? null);
+  const { streamUrl: nextBunnyStreamUrl } = useNetworkAwareStreamUrl(nextBunnyVideoId ?? null);
+
+  // Legacy path — blob lookup keyed by the original Firestore URL.
   const cachedVideoUrl = useCachedMediaUrl(exerciseVideoUrl ?? null);
   const cachedImageUrl = useCachedMediaUrl(exerciseImageUrl ?? null);
   const cachedNextVideoUrl = useCachedMediaUrl(nextExerciseVideoUrl ?? null);
 
-  const safeVideoUrl = cachedVideoUrl?.startsWith('blob:')
-    ? cachedVideoUrl
-    : isOnline
+  // Active exercise video
+  const safeVideoUrl = (() => {
+    if (bunnyVideoId) {
+      // Bunny path: hook resolves to blob (cached) or live network URL.
+      return bunnyStreamUrl;
+    }
+    // Legacy path: blob always works; network URL only when online.
+    return cachedVideoUrl?.startsWith('blob:')
       ? cachedVideoUrl
-      : null;
+      : isOnline
+        ? cachedVideoUrl
+        : null;
+  })();
 
+  // Image (not network-quality-dependent)
   const safeImageUrl = cachedImageUrl?.startsWith('blob:')
     ? cachedImageUrl
     : isOnline
       ? cachedImageUrl
       : OFFLINE_PLACEHOLDER;
 
-  const safeNextVideoUrl = cachedNextVideoUrl?.startsWith('blob:')
-    ? cachedNextVideoUrl
-    : isOnline
+  // Next-exercise preload video
+  const safeNextVideoUrl = (() => {
+    if (nextBunnyVideoId) {
+      return nextBunnyStreamUrl;
+    }
+    return cachedNextVideoUrl?.startsWith('blob:')
       ? cachedNextVideoUrl
-      : null;
+      : isOnline
+        ? cachedNextVideoUrl
+        : null;
+  })();
 
   return { safeVideoUrl, safeImageUrl, safeNextVideoUrl };
 }

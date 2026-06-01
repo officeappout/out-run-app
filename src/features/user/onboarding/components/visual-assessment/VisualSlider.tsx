@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import VideoPlayer from './VideoPlayer';
+import clsx from 'clsx';
+import VideoPlayer, { type VideoTier } from './VideoPlayer';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
 import type { UserDemographics } from '../../types/visual-assessment.types';
@@ -88,12 +89,24 @@ export default function VisualSlider({
   const [stepsLoading, setStepsLoading] = useState(mode === 'simple');
   const [level, setLevel] = useState(Math.max(minLevel, Math.min(maxLevel, initialLevel)));
   const [sliderVal, setSliderVal] = useState(0);
+  // `resolved` carries text metadata only (exerciseName, bubbleText, reps, etc.).
+  // Video rendering is handled by the tier carousel below.
   const [resolved, setResolved] = useState<ResolvedContent | null>(null);
+  // Carousel state: every level visited (or pre-fetched) gets a permanent VideoTier entry.
+  // Tiers are never removed mid-session — switching is pure CSS opacity toggling.
+  const [mountedTiers, setMountedTiers] = useState<VideoTier[]>([]);
+  const [activeTierId, setActiveTierId] = useState<string | null>(null);
   const [contentFading, setContentFading] = useState(false);
   const [showHint, setShowHint] = useState(true);
   const [userInteracted, setUserInteracted] = useState(false);
+  // Show the JIT tutorial overlay only on the very first slider (stepIndex === 0).
+  // Dismissed by tapping the dark mask OR by the first drag gesture.
+  const [showTutorial, setShowTutorial] = useState(stepIndex === 0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  // Monotonically-incrementing counter used to discard stale fetchContent completions
+  // when the slider moves faster than the resolver can respond.
+  const fetchCounterRef = useRef(0);
   const sliderRef = useRef<HTMLInputElement>(null);
   const prevSliderValRef = useRef<number | null>(null);
 
@@ -143,6 +156,9 @@ export default function VisualSlider({
     mountedRef.current = true;
     setShowHint(true);
     setUserInteracted(false);
+    // Clear the tier carousel so no stale video from the previous category bleeds through.
+    setMountedTiers([]);
+    setActiveTierId(null);
     const sv = isSimple ? 0 : minLevel;
     const realLvl = isSimple ? steps![0] : minLevel;
     setLevel(realLvl);
@@ -165,17 +181,57 @@ export default function VisualSlider({
 
   const fetchContent = useCallback(
     async (cat: string, lvl: number) => {
+      // Stamp this invocation so stale completions from rapid slider movement
+      // cannot overwrite a newer result that already landed.
+      const myCount = ++fetchCounterRef.current;
       try {
         setContentFading(true);
         const content = await resolveContent(cat, lvl, demographics, lang);
-        if (!mountedRef.current) return;
+
+        // Bail if unmounted OR if a newer fetch has since been dispatched.
+        if (!mountedRef.current || myCount !== fetchCounterRef.current) return;
+
         setResolved(content);
         setTimeout(() => setContentFading(false), 50);
 
+        // ── Tier carousel: register this level as a permanently mounted video node ──
+        const tierId = String(lvl);
+        const newTier: VideoTier = {
+          id: tierId,
+          videoUrlWebm: content.videoUrlWebm ?? null,
+          videoUrlMov:  content.videoUrlMov  ?? null,
+          videoUrl:     content.videoUrl     ?? null,
+          thumbnailUrl: content.thumbnailUrl ?? null,
+        };
+        setMountedTiers(prev => prev.some(t => t.id === tierId) ? prev : [...prev, newTier]);
+        setActiveTierId(tierId);
+
+        // Secondary HTTP cache warm-up (still useful as a byte-level layer).
         prefetchAdjacent(cat, lvl, demographics, lang, minLevel, maxLevel);
         if (content.videoUrlWebm) prefetchVideoUrl(content.videoUrlWebm);
-        if (content.videoUrlMov) prefetchVideoUrl(content.videoUrlMov);
-        if (content.videoUrl) prefetchVideoUrl(content.videoUrl);
+        if (content.videoUrlMov)  prefetchVideoUrl(content.videoUrlMov);
+        if (content.videoUrl)     prefetchVideoUrl(content.videoUrl);
+
+        // Pre-mount the adjacent level's video node so it is already buffered and
+        // at frame 0 before the user slides to it.  prefetchAdjacent above likely
+        // populated the in-memory service cache, so this resolveContent is instant.
+        const adjLvl = lvl < maxLevel ? lvl + 1 : lvl > minLevel ? lvl - 1 : null;
+        if (adjLvl !== null) {
+          resolveContent(cat, adjLvl, demographics, lang)
+            .then(adj => {
+              if (!mountedRef.current) return;
+              const adjId = String(adjLvl);
+              const adjTier: VideoTier = {
+                id: adjId,
+                videoUrlWebm: adj.videoUrlWebm ?? null,
+                videoUrlMov:  adj.videoUrlMov  ?? null,
+                videoUrl:     adj.videoUrl     ?? null,
+                thumbnailUrl: adj.thumbnailUrl ?? null,
+              };
+              setMountedTiers(prev => prev.some(t => t.id === adjId) ? prev : [...prev, adjTier]);
+            })
+            .catch(() => { /* preload-only — silent failure is acceptable */ });
+        }
       } catch (err) {
         console.error('[VisualSlider] resolve error:', err);
         setContentFading(false);
@@ -187,6 +243,8 @@ export default function VisualSlider({
   const handleSliderChange = useCallback(
     (newSliderVal: number) => {
       if (!userInteracted) { setUserInteracted(true); setShowHint(false); }
+      // First drag dismisses the tutorial overlay permanently.
+      setShowTutorial(false);
       const clamped = Math.max(sliderMin, Math.min(sliderMax, newSliderVal));
 
       // Haptic feedback — only fires when the step actually changes
@@ -257,9 +315,9 @@ export default function VisualSlider({
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* ── Unified header: back button + story bar ── */}
-      <header className="flex-shrink-0 flex items-center gap-2 px-3 pb-2">
+    <div className="flex flex-col h-full bg-white relative">
+      {/* ── Unified header: back button + story bar + Kelly avatar slot ── */}
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 pb-1">
         {onBack ? (
           <button
             onClick={onBack}
@@ -283,17 +341,13 @@ export default function VisualSlider({
         <div className="flex-shrink-0 w-9" aria-hidden />
       </header>
 
-      {/* ── Instruction text — Large, Black, Bold ── */}
-      <div className="px-6 pt-3 pb-1 flex-shrink-0">
-        <p className="text-xl font-black text-slate-900 text-center leading-snug">
-          {isFemale
-            ? 'בואי נבדוק מה מצב הכושר שלך כיום '
-            : 'בוא נבדוק מה מצב הכושר שלך כיום '}
+      {/* ── Instruction text — compact 1-line layout ── */}
+      <div className="px-6 pt-1 pb-1 flex-shrink-0">
+        <p className="text-lg font-black text-slate-900 text-center leading-snug">
+          מה מצב הכושר שלך?
         </p>
-        <p className="text-sm font-medium text-slate-500 text-center mt-1 leading-relaxed">
-          {isFemale
-            ? 'הזיזי את הסליידר למה שהכי קרוב אלייך. לא בטוחה? תבחרי בערך, והמערכת כבר תדע לעשות את ההתאמות המדויקות לרמת הכושר שלך באימונים 🤍'
-            : 'הזיז את הסליידר למה שהכי קרוב אליך. לא בטוח? תבחר בערך, והמערכת כבר תדע לעשות את ההתאמות המדויקות לרמת הכושר שלך באימונים'}
+        <p className="text-xs font-medium text-slate-400 text-center mt-0.5 leading-snug">
+          {isFemale ? 'הזיזי את הסליידר לרמה שהכי קרובה אלייך' : 'הזז את הסליידר לרמה שהכי קרובה אליך'}
         </p>
       </div>
 
@@ -302,10 +356,8 @@ export default function VisualSlider({
         {/* Inner clip box — keeps video pixels inside its bounds */}
         <div className="absolute inset-0 overflow-hidden">
           <VideoPlayer
-            videoUrl={resolved?.videoUrl ?? null}
-            videoUrlMov={resolved?.videoUrlMov ?? null}
-            videoUrlWebm={resolved?.videoUrlWebm ?? null}
-            thumbnailUrl={resolved?.thumbnailUrl ?? null}
+            tiers={mountedTiers}
+            activeTierId={activeTierId}
             className="w-full h-full"
             whiteGradient
           />
@@ -320,125 +372,132 @@ export default function VisualSlider({
         />
       </div>
 
-      {/* ── Description card — exercise name + strength description + reps ── */}
-      <AnimatePresence mode="wait">
-        {(exerciseLabel || bubbleText || repsLabel) && (
-          <motion.div
-            key={`${exerciseLabel}_${bubbleText}_${targetReps}`}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.25 }}
-            className="flex-shrink-0 px-6 pb-3"
-          >
-            <div className="bg-[#00BAF7]/6 border border-[#00BAF7]/20 rounded-2xl px-4 py-3 text-center space-y-0.5">
-              {/* 1 — Exercise name */}
-              {exerciseLabel && (
-                <h3 className="text-2xl font-bold text-slate-950 leading-snug">
-                  {exerciseLabel}
-                </h3>
-              )}
-              {/* 2 — Performance benchmark (reps/seconds) */}
-              {repsLabel && (
-                <p className="text-lg font-normal text-slate-950 leading-snug">
-                  {repsLabel}
-                </p>
-              )}
-              {/* 3 — Dynamic strength description sentence */}
-              {bubbleText && (
-                <p className="text-sm font-normal text-slate-950 leading-snug">
-                  {bubbleText}
-                </p>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/*
+        ── Unified punch-through spotlight: description card + slider track ─────────
+        When the tutorial is active, `relative z-40` lifts this entire block above
+        the z-30 frosted mask, keeping the exercise info and slider crisp and
+        interactive while the video above and the Next button below stay masked.
+      */}
+      <div className={clsx(showTutorial && 'relative z-40')}>
 
-      {/* ── Bottom controls — flex-shrink-0, anchored above safe area ── */}
-      <div
-        className="flex-shrink-0 px-6"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
-      >
-        {/* Range slider — px-0 so the track endpoints align exactly with dot paddingLeft/Right: 14 */}
-        <div className="relative px-0">
-          <input
-            ref={sliderRef}
-            type="range"
-            min={sliderMin}
-            max={sliderMax}
-            step={1}
-            value={sliderVal}
-            onChange={e => handleSliderChange(Number(e.target.value))}
-            className="w-full h-2 rounded-full appearance-none cursor-pointer slider-thumb relative z-10"
-            style={{
-              background: `linear-gradient(to left, #00BAF7 0%, #00BAF7 ${fillPct}%, #e2e8f0 ${fillPct}%, #e2e8f0 100%)`,
-            }}
-          />
-
-          {/* Step dot markers — visible in simple mode only.
-               left/right: 14px = thumb half-width, so right:0% lands exactly on the
-               right-end thumb center and right:100% on the left-end thumb center. */}
-          {isSimple && steps && steps.length > 1 && (
-            <div
-              className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-[5]"
-              style={{ left: 14, right: 14 }}
+        {/* ── Description card — exercise name + reps only ── */}
+        <AnimatePresence mode="wait">
+          {(exerciseLabel || repsLabel) && (
+            <motion.div
+              key={`${exerciseLabel}_${targetReps}`}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: contentFading ? 0 : 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25 }}
+              className="flex-shrink-0 px-6 pb-3"
             >
-              {steps.map((_, i) => {
-                const pct = (i / (steps.length - 1)) * 100;
-                const active = i <= sliderVal;
-                return (
-                  <div
-                    key={i}
-                    className="absolute -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full border-2 transition-colors duration-150"
-                    style={{
-                      top: '50%',
-                      right: `${pct}%`,
-                      backgroundColor: active ? '#00BAF7' : 'white',
-                      borderColor: active ? '#00BAF7' : '#cbd5e1',
-                    }}
-                  />
-                );
-              })}
-            </div>
+              <div className="bg-[#00BAF7]/6 border border-[#00BAF7]/20 rounded-2xl px-4 py-3 text-center space-y-0.5">
+                {/* 1 — Exercise name */}
+                {exerciseLabel && (
+                  <h3 className="text-2xl font-bold text-slate-950 leading-snug">
+                    {exerciseLabel}
+                  </h3>
+                )}
+                {/* 2 — Performance benchmark (reps/seconds) */}
+                {repsLabel && (
+                  <p className="text-lg font-normal text-slate-950 leading-snug">
+                    {repsLabel}
+                  </p>
+                )}
+              </div>
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* Sliding hand hint — plays twice on mount, larger & slower */}
-          <AnimatePresence>
-            {showHint && !userInteracted && (
-              <motion.div
-                className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-20"
-                initial={{ right: '15%', opacity: 0 }}
-                animate={{
-                  right: ['15%', '75%', '15%', '75%', '40%'],
-                  opacity: [0, 0.9, 0.3, 0.9, 0],
-                }}
-                transition={{ duration: 5, ease: 'easeInOut' }}
-                onAnimationComplete={() => setShowHint(false)}
+        {/* ── Slider track + proficiency labels ── */}
+        <div className="flex-shrink-0 px-6 pb-1">
+          {/* Range slider — px-0 so the track endpoints align exactly with dot paddingLeft/Right: 14 */}
+          <div className="relative px-0">
+            <input
+              ref={sliderRef}
+              type="range"
+              min={sliderMin}
+              max={sliderMax}
+              step={1}
+              value={sliderVal}
+              onChange={e => handleSliderChange(Number(e.target.value))}
+              className="w-full h-2 rounded-full appearance-none cursor-pointer slider-thumb relative z-10"
+              style={{
+                background: `linear-gradient(to left, #00BAF7 0%, #00BAF7 ${fillPct}%, #e2e8f0 ${fillPct}%, #e2e8f0 100%)`,
+              }}
+            />
+
+            {/* Step dot markers — visible in simple mode only.
+                 left/right: 14px = thumb half-width, so right:0% lands exactly on the
+                 right-end thumb center and right:100% on the left-end thumb center. */}
+            {isSimple && steps && steps.length > 1 && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-[5]"
+                style={{ left: 14, right: 14 }}
               >
-                <span className="text-4xl drop-shadow-lg">👆</span>
-              </motion.div>
+                {steps.map((_, i) => {
+                  const pct = (i / (steps.length - 1)) * 100;
+                  const active = i <= sliderVal;
+                  return (
+                    <div
+                      key={i}
+                      className="absolute -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full border-2 transition-colors duration-150"
+                      style={{
+                        top: '50%',
+                        right: `${pct}%`,
+                        backgroundColor: active ? '#00BAF7' : 'white',
+                        borderColor: active ? '#00BAF7' : '#cbd5e1',
+                      }}
+                    />
+                  );
+                })}
+              </div>
             )}
-          </AnimatePresence>
 
-          {/* 3-point proficiency labels — gender-aware, aligned under first/mid/last dots */}
-          <div className="flex items-center mt-2 px-1">
-            <span className="text-[10px] font-medium text-slate-400 text-right" style={{ width: '33.33%' }}>
-              {isFemale ? 'מתחילה' : 'מתחיל'}
-            </span>
-            <span className="text-[10px] font-medium text-slate-400 text-center" style={{ width: '33.33%' }}>
-              בינוני
-            </span>
-            <span className="text-[10px] font-medium text-slate-400 text-left" style={{ width: '33.33%' }}>
-              {isFemale ? 'מתקדמת' : 'מתקדם'}
-            </span>
+            {/* Sliding hand hint — plays twice on mount, larger & slower */}
+            <AnimatePresence>
+              {showHint && !userInteracted && (
+                <motion.div
+                  className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-20"
+                  initial={{ right: '15%', opacity: 0 }}
+                  animate={{
+                    right: ['15%', '75%', '15%', '75%', '40%'],
+                    opacity: [0, 0.9, 0.3, 0.9, 0],
+                  }}
+                  transition={{ duration: 5, ease: 'easeInOut' }}
+                  onAnimationComplete={() => setShowHint(false)}
+                >
+                  <span className="text-4xl drop-shadow-lg">👆</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* 3-point proficiency labels — gender-aware, aligned under first/mid/last dots */}
+            <div className="flex items-center mt-2 px-1">
+              <span className="text-[10px] font-medium text-slate-400 text-right" style={{ width: '33.33%' }}>
+                {isFemale ? 'מתחילה' : 'מתחיל'}
+              </span>
+              <span className="text-[10px] font-medium text-slate-400 text-center" style={{ width: '33.33%' }}>
+                בינוני
+              </span>
+              <span className="text-[10px] font-medium text-slate-400 text-left" style={{ width: '33.33%' }}>
+                {isFemale ? 'מתקדמת' : 'מתקדם'}
+              </span>
+            </div>
           </div>
         </div>
 
+      </div>{/* end punch-through */}
+
+      {/* ── Confirm button — separate wrapper, stays behind z-30 overlay during tutorial ── */}
+      <div
+        className="flex-shrink-0 px-6 pt-3"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+      >
         {/* Confirm button — gradient fill + AI glow */}
         <button
           onClick={handleConfirm}
-          className="w-full py-4 mt-3 rounded-full font-black text-lg text-white active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-full font-black text-lg text-white active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
           style={{
             backgroundImage: 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)',
             fontFamily: 'var(--font-simpler)',
@@ -456,6 +515,89 @@ export default function VisualSlider({
           )}
         </button>
       </div>
+
+      {/* ── JIT Spotlight Tutorial Overlay ───────────────────────────
+          Shown only on the first slider (stepIndex === 0).
+          Single full-screen frosted layer:
+            • Covers the entire viewport INCLUDING the Next button
+              so the user cannot skip before interacting.
+            • `onPointerDown` fires on the very first touch/tap anywhere
+              (whether on the dark area or on the slider zone) and
+              dismisses the overlay instantly, letting the subsequent
+              pointer-move continue as a normal slider drag.
+            • `handleSliderChange` also calls `setShowTutorial(false)`
+              as a belt-and-suspenders fallback.
+      ─────────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showTutorial && (
+          <>
+            {/* Full-screen light frosted mask — blocks Next button + catches first tap */}
+            <motion.div
+              key="tutorial-mask"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+              className="absolute inset-0 z-30 bg-white/50 backdrop-blur-3xl"
+              onPointerDown={() => setShowTutorial(false)}
+              aria-hidden
+            />
+
+            {/* Speech bubble — floats above the unified exercise card + slider spotlight zone */}
+            <motion.div
+              key="tutorial-bubble"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.4, delay: 0.12, ease: 'easeOut' }}
+              className="absolute left-4 right-4 z-50 pointer-events-none"
+              style={{ bottom: 245 }}
+              dir="rtl"
+            >
+              {/* Bubble card */}
+              <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-6 border border-slate-100 shadow-xl">
+                <div className="space-y-6">
+                  <p className="text-lg font-medium text-slate-800 text-center leading-snug">
+                    {isFemale
+                      ? 'גררי כדי לשנות את הקושי והתרגיל'
+                      : 'גרור כדי לשנות את הקושי והתרגיל'
+                    }
+                  </p>
+                  <p className="text-lg font-medium text-slate-800 text-center leading-snug">
+                    {isFemale
+                      ? 'בדקי את המינימום: הזמן והחזרות יופיעו כאן'
+                      : 'בדוק את המינימום: הזמן והחזרות יופיעו כאן'
+                    }
+                  </p>
+                </div>
+
+                {/* Divider + anxiety-relief note */}
+                <div className="mt-5 pt-4 border-t border-slate-100">
+                  <p className="text-sm font-normal text-slate-500 text-center leading-loose px-2">
+                    {isFemale
+                      ? 'לא בטוחה ב-100%? לא מצליחה? תבחרי בערך, המערכת תלמד אותך ותתקן בהמשך'
+                      : 'לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Arrow pointing down → toward the top edge of the illuminated spotlight block */}
+              <div className="flex justify-center mt-3" aria-hidden>
+                <div
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '10px solid transparent',
+                    borderRight: '10px solid transparent',
+                    borderTop: '12px solid rgba(255,255,255,0.95)',
+                  }}
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <style jsx>{`
         .slider-thumb::-webkit-slider-thumb {

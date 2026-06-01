@@ -161,8 +161,8 @@ export function ConsistencyWidget() {
 
   return (
     <div
-      className="bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-4 overflow-hidden"
-      style={WIDGET_CARD_STYLE}
+      className="bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden"
+      style={{ ...WIDGET_CARD_STYLE, padding: 10 }}
       dir="rtl"
     >
       {strengthDone ? (

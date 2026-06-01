@@ -5,6 +5,7 @@ import { Loader2, Share2, Heart, ArrowDownCircle } from 'lucide-react';
 import {
   type Exercise as FirestoreExercise,
   getLocalizedText,
+  findMethodForLocation,
 } from '@/features/content/exercises';
 import type {
   GeneratedWorkout,
@@ -130,8 +131,13 @@ export default function GeneratedWorkoutExerciseList({
         onExerciseTap(parent);
         return;
       }
+      // Resolve the step's own method using the parent's active location
+      // context (scalar or locationMapping[0]) so the synthesized exercise
+      // inherits the right variant instead of always defaulting to 'home'.
+      const parentLoc =
+        parent.method?.location ?? parent.method?.locationMapping?.[0] ?? null;
       const stepMethod =
-        stepExercise.execution_methods?.find((m) => m.location === 'home') ??
+        findMethodForLocation(stepExercise, parentLoc) ??
         stepExercise.execution_methods?.[0] ??
         parent.method;
       const synthesized: EngineWorkoutExercise = {

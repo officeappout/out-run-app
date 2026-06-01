@@ -9,14 +9,13 @@ import AlertModal from '@/features/home/components/AlertModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
-import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
-import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
+import type { MessageType } from '@/features/messages/services/MessageService';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import { useDayStatus } from '@/features/activity/hooks/useDayStatus';
@@ -34,6 +33,7 @@ import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
@@ -362,16 +362,44 @@ export default function HomePage() {
 
   const MISSED_BANNER_KEY = `missed_banner_dismissed_${yesterdayISO}`;
   const [showMissedWorkoutBanner, setShowMissedWorkoutBanner] = useState(false);
+  const [bannerType, setBannerType] = useState<MessageType>('missed_workout');
 
   const getDayStatus = useDayStatus();
 
   useEffect(() => {
     if (!profile || typeof window === 'undefined') return;
 
-    // Already dismissed today
+    // Already dismissed today — respect per-day dismiss key for all banner variants
     if (localStorage.getItem(MISSED_BANNER_KEY) === '1') return;
 
-    // Check if yesterday was a scheduled day
+    // Condition A: New-user protection (0–48 h after registration)
+    // createdAt may arrive as a Firebase Timestamp, a Date, a string, or a number.
+    const rawCreatedAt = (profile as any).createdAt;
+    if (rawCreatedAt) {
+      let createdAtMs: number | null = null;
+      if (typeof rawCreatedAt.toDate === 'function') {
+        createdAtMs = (rawCreatedAt.toDate() as Date).getTime();
+      } else if (rawCreatedAt instanceof Date) {
+        createdAtMs = rawCreatedAt.getTime();
+      } else if (typeof rawCreatedAt === 'string' || typeof rawCreatedAt === 'number') {
+        createdAtMs = new Date(rawCreatedAt).getTime();
+      }
+      if (createdAtMs !== null && Date.now() - createdAtMs < 48 * 60 * 60 * 1000) {
+        return;
+      }
+    }
+
+    const daysInactive = calculateDaysInactive(profile);
+
+    // Condition B: Long inactivity (4+ days) → re-engagement banner
+    if (daysInactive >= 4) {
+      setBannerType('re_engagement');
+      setShowMissedWorkoutBanner(true);
+      return;
+    }
+
+    // Condition C: Short inactivity (0–3 days) → only show if yesterday was
+    // a scheduled day that the user actually missed.
     const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
     const yesterdayDayLetter = HEBREW_DAYS[new Date(yesterdayISO + 'T00:00:00').getDay()];
     const scheduleDays = (profile.lifestyle?.scheduleDays as string[] | undefined) ?? [];
@@ -382,9 +410,9 @@ export default function HomePage() {
 
     if (!wasScheduledDay) return;
 
-    // Check activity bridge — was any workout actually logged yesterday?
     const { isCompleted } = getDayStatus(yesterdayISO);
     if (!isCompleted) {
+      setBannerType('missed_workout');
       setShowMissedWorkoutBanner(true);
     }
   }, [profile, yesterdayISO, MISSED_BANNER_KEY, getDayStatus]);
@@ -424,7 +452,7 @@ export default function HomePage() {
   const todayProgress = useDailyProgress();
   const todayWorkoutDone = !!todayProgress?.workoutCompleted;
   const postWorkoutMsg = useSmartMessage('post_workout');
-  const missedWorkoutMsg = useSmartMessage('missed_workout');
+  const missedWorkoutMsg = useSmartMessage(bannerType);
   const { celebrate } = useGoalCelebration();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
@@ -511,8 +539,6 @@ export default function HomePage() {
     }
   }, []);
 
-  // JIT Setup Hook
-  const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
 
   // Lifestyle Bridge Logic
   const shouldShowBridge =
@@ -880,9 +906,8 @@ export default function HomePage() {
         }
       }
 
-      // Pass dateToUse into openWorkoutPreview so the uniqueWorkoutId and any
-      // future date-aware preview logic use the synchronously resolved date.
-      interceptWorkoutStart(() => openWorkoutPreview(dateToUse));
+      // Open workout preview directly — no blocking equipment gate.
+      openWorkoutPreview(dateToUse);
     } else {
       if (typeof window !== 'undefined') {
         // onboarding_path persists via onboardingPrefs so a hard close
@@ -902,7 +927,7 @@ export default function HomePage() {
       }
       router.push('/onboarding-new/assessment-visual');
     }
-  }, [hasProgram, isMapOnlyUser, interceptWorkoutStart, openWorkoutPreview, profile, router, selectedDate]);
+  }, [hasProgram, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate]);
 
   const handleBuildCustom = useCallback((ctx?: BuilderContext) => {
     const props: Omit<WorkoutBuilderSheetProps, 'onClose'> = {};
@@ -1218,18 +1243,22 @@ export default function HomePage() {
 
               {/* ── Tab content ──────────────────────────────────────── */}
               {homeTab === 'strength' ? (
-                /* התקדמות שבועית — program ring (right 65%) + consistency bars (left 35%) */
+                /* התקדמות שבועית — program ring (flex-1) + consistency bars (111px) */
                 <div
-                  className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
-                  style={{ gridTemplateColumns: '8fr 5fr', direction: 'rtl' }}
+                  className="flex flex-row items-stretch gap-4 w-full px-4 overflow-hidden"
+                  dir="rtl"
                 >
-                  <ProgramProgressRow />
-                  <ConsistencyWidget />
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <ProgramProgressRow />
+                  </div>
+                  <div className="w-[111px] flex-shrink-0 flex flex-col">
+                    <ConsistencyWidget />
+                  </div>
                 </div>
               ) : (
                 /* מדדי בריאות — activity minutes (right) + steps (left) */
                 <div
-                  className="w-full max-w-[358px] mx-auto grid gap-3 items-stretch"
+                  className="w-full px-4 grid gap-4 items-stretch"
                   style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
                 >
                   <ActivityCard />
@@ -1375,14 +1404,6 @@ export default function HomePage() {
           />
         );
       })()}
-
-      <JITSetupModal
-        isOpen={jitState.isModalOpen}
-        requirements={jitState.requirements}
-        onComplete={jitState.onComplete}
-        onDismiss={dismissJIT}
-        onCancel={cancelJIT}
-      />
 
       {builderOpen && (
         <WorkoutBuilderSheet

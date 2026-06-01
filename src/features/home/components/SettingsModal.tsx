@@ -7,7 +7,7 @@ import {
   X, User, Lock, Bell, Shield, Wrench, FileText, LogOut, Trash2,
   ChevronLeft, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Clock, Plus, Dumbbell, Eye,
-  BarChart3, Mail, Pencil, Check, Tag, CreditCard,
+  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -28,6 +28,12 @@ import { requestAccountDeletion } from '@/lib/requestAccountDeletion';
 import ProfilePhotoUploader from '@/components/ui/ProfilePhotoUploader';
 import { applyAnalyticsConsent } from '@/features/analytics/consent';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import {
+  getNotificationPrefs,
+  setPushEnabled,
+  setChannelEnabled,
+} from '@/features/notifications/services/notification-prefs.service';
+import { initPushNotifications } from '@/lib/native/push';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -343,6 +349,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [locationRequesting, setLocationRequesting] = useState(false);
   const [cameraRequesting,   setCameraRequesting]   = useState(false);
 
+  // ── Push notification saving guards (prevent double-tap) ─────────────────
+  const [pushSaving,      setPushSaving]      = useState(false);
+  const [chatNotifSaving, setChatNotifSaving] = useState(false);
+
   // ── Debounce ref ─────────────────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -386,6 +396,28 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     void readHealthBridgeEnabled().then((enabled) => {
       store.patch({ healthBridgeEnabled: enabled });
     });
+
+    // Load push notification prefs from Firestore (async patch — avoids flash)
+    const pushUid = auth.currentUser?.uid;
+    if (pushUid) {
+      void getNotificationPrefs(pushUid)
+        .then((prefs) => {
+          store.patch({
+            pushEnabled: prefs.pushEnabled,
+            chatNotifEnabled: prefs.channels.chat ?? true,
+          });
+        })
+        .catch(() => {
+          // Fallback: derive from profile store if Firestore read fails
+          const s = (profile as Record<string, unknown> | null | undefined)
+            ?.settings as Record<string, unknown> | undefined;
+          const np = s?.notificationPrefs as Record<string, unknown> | undefined;
+          store.patch({
+            pushEnabled: typeof s?.pushEnabled === 'boolean' ? s.pushEnabled : true,
+            chatNotifEnabled: typeof np?.chat === 'boolean' ? np.chat : true,
+          });
+        });
+    }
 
     // Hydrate already-working toggles from profile
     setAnalyticsOptOut(profile?.core?.analyticsOptOut === true);
@@ -599,6 +631,55 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     store.patch({ tipsAlerts: v });
     scheduleSave({ 'settings.notifications.tips': v });
   }, [store, scheduleSave]);
+
+  // ── Push-enabled master toggle ─────────────────────────────────────────────
+  const handlePushEnabledToggle = useCallback(async (v: boolean) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || pushSaving) return;
+
+    store.patch({ pushEnabled: v });
+    setPushSaving(true);
+
+    try {
+      if (v && isNativeApp()) {
+        // On native: attempt permission request (shows OS dialog if status is
+        // 'prompt'; no-ops if already 'granted'; returns false if 'denied').
+        const registered = await initPushNotifications(uid);
+        if (!registered) {
+          // OS denied — revert toggle and guide user to system settings.
+          store.patch({ pushEnabled: false });
+          showToast('error', 'לא ניתן לאפשר התראות. אפשר גישה בהגדרות המכשיר.');
+          return;
+        }
+      }
+      await setPushEnabled(uid, v);
+    } catch (err) {
+      console.error('[Settings] pushEnabled write failed:', err);
+      store.patch({ pushEnabled: !v });
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setPushSaving(false);
+    }
+  }, [store, pushSaving, showToast]);
+
+  // ── Chat notification channel toggle ─────────────────────────────────────
+  const handleChatNotifToggle = useCallback(async (v: boolean) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || chatNotifSaving) return;
+
+    store.patch({ chatNotifEnabled: v });
+    setChatNotifSaving(true);
+
+    try {
+      await setChannelEnabled(uid, 'chat', v);
+    } catch (err) {
+      console.error('[Settings] chatNotifEnabled write failed:', err);
+      store.patch({ chatNotifEnabled: !v });
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setChatNotifSaving(false);
+    }
+  }, [store, chatNotifSaving, showToast]);
 
   // ── Units (debounced Firestore) ──────────────────────────────────────────
 
@@ -1120,6 +1201,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     4. התראות
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="התראות">
+                  {/* Master push switch — gates ALL push; triggers OS prompt on native */}
+                  <SettingsRow
+                    icon={
+                      pushSaving
+                        ? <Loader2 size={18} className="text-purple-500 animate-spin" />
+                        : <Bell size={18} className="text-purple-500" />
+                    }
+                    iconBg="bg-purple-50"
+                    label="התראות פוש"
+                    sublabel={isNativeApp() ? 'הפעלה תבקש הרשאת מערכת' : 'ניהול מרכזי של כל ההתראות'}
+                    right={
+                      <Toggle
+                        checked={store.pushEnabled}
+                        onChange={(v) => { void handlePushEnabledToggle(v); }}
+                        disabled={!store.isLoaded || pushSaving}
+                      />
+                    }
+                  />
                   <SettingsRow
                     icon={<Bell size={18} className="text-orange-500" />}
                     iconBg="bg-orange-50"
@@ -1156,6 +1255,25 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         checked={store.tipsAlerts}
                         onChange={handleTipsToggle}
                         disabled={!store.isLoaded}
+                      />
+                    }
+                  />
+
+                  {/* Chat notification channel toggle */}
+                  <SettingsRow
+                    icon={
+                      chatNotifSaving
+                        ? <Loader2 size={18} className="text-blue-500 animate-spin" />
+                        : <MessageSquare size={18} className="text-blue-500" />
+                    }
+                    iconBg="bg-blue-50"
+                    label="התראות צ׳אט"
+                    sublabel="קבל הודעה כשמישהו כותב לך"
+                    right={
+                      <Toggle
+                        checked={store.chatNotifEnabled}
+                        onChange={(v) => { void handleChatNotifToggle(v); }}
+                        disabled={!store.isLoaded || !store.pushEnabled || chatNotifSaving}
                       />
                     }
                   />

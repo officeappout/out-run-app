@@ -100,7 +100,7 @@ export default function ExerciseVideoPlayer({
 
   // Extract YouTube video ID
   const youtubeVideoId = useMemo(() => {
-    if (!isYouTubeVideo) return null;
+    if (!isYouTubeVideo || !effectiveVideoUrl) return null;
     return getYouTubeId(effectiveVideoUrl);
   }, [effectiveVideoUrl, isYouTubeVideo]);
 

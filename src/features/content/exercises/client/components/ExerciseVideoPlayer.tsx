@@ -20,9 +20,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Video as VideoIcon } from 'lucide-react';
 import {
   buildBunnyEmbedUrl,
-  buildBunnyStreamUrl,
   buildBunnyThumbnailUrl,
 } from '@/lib/bunny/bunny.config';
+import { useNetworkAwareStreamUrl } from '../hooks/useNetworkAwareStreamUrl';
 import type { ExternalVideo } from '../../core/exercise.types';
 
 interface ExerciseVideoPlayerProps {
@@ -49,6 +49,17 @@ function extractYoutubeId(url: string): string | null {
   const re =
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
   const m = url.match(re);
+  return m ? m[1] : null;
+}
+
+/**
+ * Detect a Bunny CDN video UUID from a raw URL.
+ * Matches paths like: /<uuid>/play_360p.mp4 or /<uuid>/playlist.m3u8
+ */
+function extractBunnyVideoIdFromUrl(url: string): string | null {
+  const m = url.match(
+    /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i,
+  );
   return m ? m[1] : null;
 }
 
@@ -117,17 +128,56 @@ export default function ExerciseVideoPlayer({
   // (they're singletons inside the detail sheet).
   const allowMount = !lazyPlay || mode === 'tutorial' || hasBeenVisible;
 
+  // ── Pre-detect Bunny UUID from legacyVideoUrl ─────────────────────────
+  // Done before the hook call so the hook always runs with the right id
+  // (React rules prohibit conditional hook calls).
+  const legacyBunnyId =
+    !video?.provider && legacyVideoUrl
+      ? extractBunnyVideoIdFromUrl(legacyVideoUrl)
+      : null;
+
+  // ── Network-aware stream URLs (always called — React rules of hooks) ────
+  //
+  // TWO hook calls are needed because the same videoId drives different render
+  // branches for the two modes:
+  //
+  //  • bunnyPreviewId  — active in preview mode for any Bunny source (explicit
+  //    ExternalVideo prop OR auto-detected legacy URL).  Feeds the muted loop.
+  //
+  //  • bunnyHeroId     — active in tutorial mode ONLY for auto-detected legacy
+  //    Bunny URLs (i.e. exercises that have a mainVideoUrl but no fullTutorial).
+  //    These are short movement-demo videos that must use object-cover layout,
+  //    so we render a native <video> at network-aware quality rather than a
+  //    Bunny embed iframe (which letterboxes and ignores object-cover).
+  //    Explicit fullTutorial ExternalVideo objects keep the iframe path (Bunny's
+  //    own ABR + full player controls) — their videoId goes to bunnyPreviewId=null
+  //    in preview mode, iframe handles quality itself in tutorial mode.
+  const effectiveBunnyId =
+    (video?.provider === 'bunny' ? (video.videoId ?? null) : null) ?? legacyBunnyId;
+  const bunnyPreviewId = effectiveBunnyId && mode === 'preview' ? effectiveBunnyId : null;
+  // Only fire the hero hook for the "legacy URL → tutorial mode" case.
+  const bunnyHeroId = legacyBunnyId && mode === 'tutorial' ? legacyBunnyId : null;
+  const { streamUrl: bunnyPreviewUrl } = useNetworkAwareStreamUrl(bunnyPreviewId);
+  const { streamUrl: bunnyHeroUrl }    = useNetworkAwareStreamUrl(bunnyHeroId);
+
   // ── Resolve provider + URLs ────────────────────────────────────────────
   let provider = video?.provider;
   let videoId = video?.videoId;
   let resolvedLegacy = legacyVideoUrl ?? undefined;
 
-  // Auto-detect YouTube from a legacy URL if no ExternalVideo was provided.
+  // Auto-detect provider from a legacy URL when no ExternalVideo was passed.
   if (!provider && resolvedLegacy) {
     const yt = extractYoutubeId(resolvedLegacy);
     if (yt) {
       provider = 'youtube';
       videoId = yt;
+    } else if (legacyBunnyId) {
+      // Bunny CDN URL — promote to first-class Bunny provider:
+      //   tutorial mode → Bunny embed iframe (Bunny's own adaptive bitrate, HQ)
+      //   preview mode  → network-aware MP4 via useNetworkAwareStreamUrl
+      provider = 'bunny';
+      videoId = legacyBunnyId;
+      resolvedLegacy = undefined;
     } else {
       provider = 'internal';
     }
@@ -148,11 +198,50 @@ export default function ExerciseVideoPlayer({
   // ── Bunny ──────────────────────────────────────────────────────────────
   if (provider === 'bunny' && videoId) {
     if (mode === 'tutorial') {
-      // `loading="eager"` — the iframe is already in a detail sheet (singleton,
-      // intentionally opened), so we want it to start fetching immediately.
-      // The poster overlay prevents the dark-background flash while the Bunny
-      // player SDK initialises; it fades out once the iframe fires `onLoad`.
-      const bunnyPoster = posterUrl ?? video?.thumbnailUrl ?? buildBunnyThumbnailUrl(videoId);
+      const heroPoster = posterUrl ?? video?.thumbnailUrl ?? buildBunnyThumbnailUrl(videoId);
+
+      // ── Legacy Bunny URL (promoted from mainVideoUrl, no explicit fullTutorial)
+      // These are short exercise demo clips — they MUST use object-cover layout so
+      // the hero area fills correctly without letterboxing. We render a native
+      // <video> driven by useNetworkAwareStreamUrl (1080p WiFi, 720p 4G, …)
+      // instead of the Bunny embed iframe which applies its own internal aspect
+      // ratio and creates black bars inside the portrait/square hero container.
+      // While the smart URL is resolving asynchronously, the poster image fills the
+      // space — identical dimensions, zero layout shift on transition.
+      if (legacyBunnyId) {
+        return (
+          <div ref={containerRef} className={`${className ?? ''} relative overflow-hidden`}>
+            {bunnyHeroUrl ? (
+              <video
+                ref={videoRef}
+                src={bunnyHeroUrl}
+                poster={heroPoster ?? undefined}
+                className="absolute inset-0 w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+              />
+            ) : (
+              // Poster placeholder while the network-aware URL resolves.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={heroPoster ?? ''}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                decoding="async"
+              />
+            )}
+          </div>
+        );
+      }
+
+      // ── Explicit fullTutorial ExternalVideo (long-form, full controls)
+      // Render the Bunny embed iframe — Bunny's own ABR delivers the right
+      // bitrate automatically. `loading="eager"` since this is a singleton sheet
+      // the user intentionally opened. Poster overlay hides the dark blank frame
+      // while the Bunny player SDK initialises.
       return (
         <div ref={containerRef} className={`${className ?? ''} relative`}>
           <iframe
@@ -164,13 +253,12 @@ export default function ExerciseVideoPlayer({
             allowFullScreen
             title="Exercise tutorial"
           />
-          {/* Poster — covers the blank iframe while it loads. pointer-events-none
-              so the iframe behind it can still receive focus/interaction events
-              the moment it finishes painting its first frame. */}
-          {!iframeLoaded && bunnyPoster && (
+          {/* Poster — pointer-events-none so the iframe can receive focus the
+              moment it finishes painting its first frame. */}
+          {!iframeLoaded && heroPoster && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={bunnyPoster}
+              src={heroPoster}
               alt=""
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               style={{ zIndex: 1, backgroundColor: '#0f172a' }}
@@ -182,15 +270,22 @@ export default function ExerciseVideoPlayer({
     // preview mode — direct CDN MP4 (lightweight, native loop).
     // Strict lazy: render only the poster <img> until the card has been
     // visible at least once; then mount the <video src> for real playback.
+    //
+    // Quality selection: `bunnyPreviewUrl` comes from useNetworkAwareStreamUrl
+    // and is either a `blob:` from the offline cache (always 720p) or a Bunny
+    // CDN MP4 picked from { 1080p WiFi | 720p 4G | 360p slow / unknown }.
+    // While the async lookup is in flight we keep showing the poster — no
+    // layout shift and no flash because the wrapper dimensions are stable.
     const poster = video?.thumbnailUrl ?? buildBunnyThumbnailUrl(videoId);
     return (
       <div ref={containerRef} className={className}>
-        {allowMount ? (
+        {allowMount && bunnyPreviewUrl ? (
           <video
             ref={videoRef}
-            src={buildBunnyStreamUrl(videoId, 360)}
+            src={bunnyPreviewUrl}
             poster={poster}
             className="w-full h-full object-cover"
+            autoPlay
             muted
             loop
             playsInline
@@ -285,6 +380,7 @@ export default function ExerciseVideoPlayer({
           src={src}
           poster={mode === 'tutorial' ? (posterUrl ?? undefined) : undefined}
           className="w-full h-full object-cover"
+          autoPlay={mode === 'preview'}
           muted={mode === 'preview'}
           loop={mode === 'preview'}
           playsInline

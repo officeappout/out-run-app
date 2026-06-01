@@ -420,6 +420,51 @@ export async function getOnboardingLevelsForCategory(category: string): Promise<
 }
 
 /**
+ * Background-preload the first two onboarding levels for a single category.
+ *
+ * Resolves the admin-configured level list for the category, then warms both
+ * the content cache (in-memory) and the browser HTTP cache (via fetch
+ * force-cache) for the first and second levels. All work is fire-and-forget —
+ * failures are swallowed so this never blocks the UI.
+ *
+ * Designed to be called at page initialisation (while the user is on the tier
+ * screen) so that by the time they reach the slider step the video byte range
+ * is already in the browser cache.
+ */
+export async function prefetchCategoryVideos(
+  category: string,
+  demographics: UserDemographics,
+  lang = 'he',
+  minLevel = 1,
+  maxLevel = 25,
+): Promise<void> {
+  try {
+    const allLevels = await getOnboardingLevelsForCategory(category);
+    const filtered = allLevels.filter((l) => l >= minLevel && l <= maxLevel);
+    const levelsToFetch = filtered.length >= 2
+      ? [filtered[0], filtered[1]]
+      : filtered.length === 1
+        ? [filtered[0]]
+        : [minLevel];
+
+    await Promise.all(
+      levelsToFetch.map(async (lvl) => {
+        try {
+          const content = await resolveContent(category, lvl, demographics, lang);
+          if (content.videoUrlWebm) prefetchVideoUrl(content.videoUrlWebm);
+          if (content.videoUrlMov) prefetchVideoUrl(content.videoUrlMov);
+          if (content.videoUrl) prefetchVideoUrl(content.videoUrl);
+        } catch {
+          // individual level failures are non-fatal
+        }
+      }),
+    );
+  } catch {
+    // category-level failures are non-fatal
+  }
+}
+
+/**
  * Clear the in-memory content cache (e.g. on unmount).
  */
 export function clearContentCache(): void {

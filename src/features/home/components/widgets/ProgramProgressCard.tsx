@@ -17,6 +17,8 @@ export interface GoalItem {
 
 export interface ProgramProgressCardProps {
   programName: string;
+  /** When true, renders a shimmer skeleton in place of the program name while the CMS fetch is pending. */
+  programNameLoading?: boolean;
   iconKey?: string;
   currentLevel: number;
   maxLevel: number;
@@ -93,6 +95,7 @@ function GoalCheckIcon({ completed }: { completed: boolean }) {
 
 export function ProgramProgressCard({
   programName,
+  programNameLoading = false,
   iconKey,
   currentLevel,
   maxLevel,
@@ -114,7 +117,7 @@ export function ProgramProgressCard({
 
   return (
     <div
-      className={`bg-white dark:bg-slate-800 overflow-hidden w-full max-w-[358px] mx-auto ${className}`}
+      className={`bg-white dark:bg-slate-800 overflow-hidden w-full ${className}`}
       style={{
         ...cardStyle,
         borderRadius: 12,
@@ -142,9 +145,13 @@ export function ProgramProgressCard({
             <span className="text-gray-900 dark:text-white flex-shrink-0">
               {getProgramIcon(iconKey, 'w-5 h-5')}
             </span>
-            <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
-              {programName}
-            </h3>
+            {programNameLoading ? (
+              <div className="h-5 w-28 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
+            ) : (
+              <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
+                {programName}
+              </h3>
+            )}
           </div>
 
           <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold mb-0.5">
@@ -152,11 +159,17 @@ export function ProgramProgressCard({
           </p>
 
           {nextLevel <= maxLevel && (
-            <div className="flex items-center gap-1" style={{ color: '#374151' }}>
-              <span className="text-xs">
-                עוד {remainingPercent}% לרמה {nextLevel}
-              </span>
-              <ChevronUp className="w-3 h-3" />
+            <div className="flex items-center gap-1 min-w-0 overflow-hidden" style={{ color: '#374151' }}>
+              {programNameLoading ? (
+                <div className="h-3.5 w-20 rounded-md bg-gray-100 dark:bg-zinc-700 animate-pulse" />
+              ) : (
+                <>
+                  <span className="text-xs whitespace-normal break-words min-w-0">
+                    עוד {remainingPercent}% לרמה {nextLevel}
+                  </span>
+                  <ChevronUp className="w-3 h-3 flex-shrink-0" />
+                </>
+              )}
             </div>
           )}
         </div>

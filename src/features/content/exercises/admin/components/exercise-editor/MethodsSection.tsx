@@ -230,6 +230,11 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
 
   const createNewMethod = (): ExecutionMethod => ({
     methodName: '',
+    // The scalar `location` is a required field on the type but is NOT the
+    // source of truth — the admin sets location via the `locationMapping`
+    // picker, and sanitizeExecutionMethodForSave syncs this scalar from
+    // locationMapping[0] on save. We seed it as an empty-state placeholder
+    // only; it must NOT be treated as a real "home" selection.
     location: 'home',
     requiredGearType: 'user_gear',
     gearIds: [],
@@ -256,6 +261,14 @@ const MethodsSection = forwardRef<MethodsSectionRef, MethodsSectionProps>(({
     const clonedMethod = deepClone(originalMethod);
     const originalName = clonedMethod.methodName || `Method ${index + 1}`;
     clonedMethod.methodName = `${originalName} (עותק)`;
+
+    // Sync the scalar `location` from locationMapping[0] at clone time so the
+    // duplicate displays the correct location in the CMS UI immediately,
+    // before the admin saves (which would otherwise re-sync it). Prevents
+    // perpetuating a stale scalar from the source method into the copy.
+    if (clonedMethod.locationMapping?.[0]) {
+      clonedMethod.location = clonedMethod.locationMapping[0];
+    }
     
     const newMethods = [...executionMethods];
     newMethods.splice(index + 1, 0, clonedMethod);

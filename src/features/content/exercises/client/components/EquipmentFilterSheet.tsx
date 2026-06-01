@@ -112,6 +112,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   const isInlineMode = mode === 'inline-onboarding';
   const filterIds = useExerciseLibraryStore((s) => s.filters.equipmentIds);
   const setEquipmentIds = useExerciseLibraryStore((s) => s.setEquipmentIds);
+  const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
   const { profile } = useUserStore();
   const [saving, setSaving] = useState(false);
 
@@ -309,14 +310,21 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
       onClose();
     } else {
       setEquipmentIds(ids);
+      // Persist the location context so cards and the detail sheet resolve the
+      // correct execution-method media (activePreset is null when the user has
+      // deviated from a preset via manual chip toggles).
+      setFilterLocation(activePreset ?? null);
       onApply?.(ids);
       onClose();
     }
-  }, [draft, isProfileMode, isInlineMode, profile?.id, setEquipmentIds, onApply, onClose]);
+  }, [draft, isProfileMode, isInlineMode, profile?.id, setEquipmentIds, setFilterLocation, activePreset, onApply, onClose]);
 
   const clear = () => {
     setDraft(new Set());
-    if (!isProfileMode && !isInlineMode) setEquipmentIds([]);
+    if (!isProfileMode && !isInlineMode) {
+      setEquipmentIds([]);
+      setFilterLocation(null);
+    }
     onClose();
   };
 

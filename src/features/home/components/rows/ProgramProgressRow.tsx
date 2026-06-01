@@ -23,12 +23,12 @@ import { GhostUpsell } from './GhostUpsell';
 const STRENGTH_ONBOARDING_HREF = '/onboarding-new/profile';
 
 /**
- * `!max-w-none` (Tailwind important modifier) overrides the internal
- * `max-w-[358px]` cap baked into `ProgramProgressCard`, and `h-full`
- * lets it stretch to match the height of the neighbouring
- * `ConsistencyWidget` inside the Row 2 65/35 grid (`items-stretch`).
+ * `h-full` lets the card stretch to match the height of the neighbouring
+ * `ConsistencyWidget` inside the Row 2 flex row (`items-stretch` default).
+ * No max-width override needed — `ProgramProgressCard` no longer has a
+ * `max-w` baked into its default className.
  */
-const FIT_PARENT_CLASS = '!max-w-none h-full';
+const FIT_PARENT_CLASS = 'h-full';
 
 export function ProgramProgressRow() {
   const router = useRouter();
@@ -58,6 +58,7 @@ export function ProgramProgressRow() {
   return (
     <ProgramProgressCard
       programName={data.programName}
+      programNameLoading={data.programNameLoading}
       iconKey={data.iconKey}
       currentLevel={data.currentLevel}
       maxLevel={data.maxLevel}
