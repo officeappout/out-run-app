@@ -6,6 +6,7 @@ import {
   initializeAuth,
   indexedDBLocalPersistence,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   Auth,
 } from "firebase/auth";
 import { capacitorPreferencesPersistence } from './capacitorAuthPersistence';
@@ -326,14 +327,20 @@ function buildAuth(firebaseApp: FirebaseApp): Auth {
     return getAuth(firebaseApp);
   }
 
-  const persistence = detectNativePlatform()
+  const isNative = detectNativePlatform();
+  const persistence = isNative
     // Native: Preferences first (survives hard close), then IndexedDB/localStorage as fallbacks.
     ? [capacitorPreferencesPersistence, indexedDBLocalPersistence, browserLocalPersistence]
     // Web: standard Firebase defaults.
     : [indexedDBLocalPersistence, browserLocalPersistence];
 
+  // Include browserPopupRedirectResolver on web so signInWithPopup works
+  // without passing the resolver at every call site. On native we use the
+  // Capacitor bridge instead of popups, so it is omitted there.
+  const popupRedirectResolver = isNative ? undefined : browserPopupRedirectResolver;
+
   try {
-    return initializeAuth(firebaseApp, { persistence });
+    return initializeAuth(firebaseApp, { persistence, popupRedirectResolver });
   } catch {
     // Auth was already initialized (e.g. HMR in development) — reuse existing instance.
     return getAuth(firebaseApp);

@@ -23,6 +23,18 @@
  * existing token from IndexedDB / localStorage into this adapter on first run,
  * so users who are already signed in are not signed out on update.
  *
+ * FIREBASE 12.x API CHANGE
+ * ────────────────────────
+ * Starting with @firebase/auth@1.12.0 (firebase@12.x), initializeAuth() expects
+ * persistence entries to be CLASS CONSTRUCTORS (not instances). It internally
+ * calls `_getInstance(cls)` which asserts `cls instanceof Function`. Passing a
+ * plain object (POJO) used to work in older versions but now throws:
+ *   "INTERNAL ASSERTION FAILED: Expected a class definition"
+ *
+ * Fix: export the CLASS itself as `capacitorPreferencesPersistence`, not an
+ * instance of it. Firebase will call `new CapacitorPreferencesPersistence()`
+ * and cache the resulting instance.
+ *
  * USAGE
  * ─────
  * Pass as the first entry in initializeAuth({ persistence: [...] }).
@@ -52,14 +64,22 @@ interface InternalPersistence extends Persistence {
   _shouldAllowMigration: boolean;
 }
 
-const impl: InternalPersistence = {
-  type: 'LOCAL',
+/**
+ * Firebase Auth persistence adapter backed by @capacitor/preferences.
+ *
+ * Exported as the CLASS ITSELF (not an instance) because firebase@12.x
+ * expects class constructors in the initializeAuth persistence array.
+ * Firebase internally calls `new CapacitorPreferencesPersistence()` and
+ * caches the instance via its `_getInstance` helper.
+ */
+class CapacitorPreferencesPersistence implements InternalPersistence {
+  readonly type = 'LOCAL' as const;
 
   /**
    * Allow Firebase to migrate an existing token from IndexedDB / localStorage
    * into this adapter automatically on first run after updating.
    */
-  _shouldAllowMigration: true,
+  readonly _shouldAllowMigration = true;
 
   async _isAvailable(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
@@ -71,7 +91,7 @@ const impl: InternalPersistence = {
     } catch {
       return false;
     }
-  },
+  }
 
   async _set(key: string, value: PersistenceValue): Promise<void> {
     const { Preferences } = await import('@capacitor/preferences');
@@ -79,7 +99,7 @@ const impl: InternalPersistence = {
       key: `${KEY_PREFIX}${key}`,
       value: JSON.stringify(value),
     });
-  },
+  }
 
   async _get(key: string): Promise<PersistenceValue | null> {
     const { Preferences } = await import('@capacitor/preferences');
@@ -90,27 +110,33 @@ const impl: InternalPersistence = {
     } catch {
       return null;
     }
-  },
+  }
 
   async _remove(key: string): Promise<void> {
     const { Preferences } = await import('@capacitor/preferences');
     await Preferences.remove({ key: `${KEY_PREFIX}${key}` });
-  },
+  }
 
   // Cross-process storage change listeners are not applicable to
   // NSUserDefaults / SharedPreferences — Firebase falls back to polling
   // internally when no listener is registered.
   _addListener(_key: string, _listener: StorageEventListener): void {
     // intentionally no-op
-  },
+  }
+
   _removeListener(_key: string, _listener: StorageEventListener): void {
     // intentionally no-op
-  },
-};
+  }
+}
 
 /**
- * Ready-to-use adapter. Cast to the public `Persistence` type so it can be
- * passed directly to `initializeAuth({ persistence: [...] })`.
- * Firebase reads the underscore methods from this object at runtime.
+ * The class constructor exported for use in initializeAuth({ persistence: [...] }).
+ *
+ * Firebase@12.x maps this through `_getInstance(cls)` which:
+ *   1. asserts `cls instanceof Function` — passes because this is a class ✓
+ *   2. calls `new cls()` and caches the resulting instance ✓
+ *
+ * Do NOT instantiate this yourself — pass the class reference directly.
  */
-export const capacitorPreferencesPersistence = impl as unknown as Persistence;
+export const capacitorPreferencesPersistence =
+  CapacitorPreferencesPersistence as unknown as Persistence;
