@@ -8,8 +8,7 @@ const config: CapacitorConfig = {
 
   server: {
     androidScheme: 'https',
-    // הכרחנו את הכתובת להיות האתר שלך כדי שזה יעבוד באייפון
-    url: 'https://out-run-app.vercel.app', 
+    url: 'https://out-run-app.vercel.app',
     allowNavigation: ['*.vercel.app'],
     cleartext: false,
   },

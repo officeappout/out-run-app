@@ -5,6 +5,32 @@ import {
   verifyAdminSession,
 } from '@/lib/admin-session';
 
+// ─────────────────────────────────────────────────────────────────────────
+// Capacitor CORS — allowed origins for the native iOS / Android shell
+//
+// When the app is built for TestFlight / production (server.url commented
+// out in capacitor.config.ts), the WebView loads from the local bundle and
+// its Origin header is:
+//   • iOS   → capacitor://localhost
+//   • Android (androidScheme: 'https') → https://localhost
+//
+// Both must be whitelisted so WKWebView / Android WebView allow the
+// cross-origin fetch to https://out-run-app.vercel.app/api/*.
+// ─────────────────────────────────────────────────────────────────────────
+const CAPACITOR_ORIGINS = new Set([
+  'capacitor://localhost',
+  'https://localhost',
+  'http://localhost',
+]);
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers':
+    'Content-Type, Authorization, X-Firebase-AppCheck, X-Requested-With',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400',
+};
+
 /**
  * Middleware — Domain routing AND server-side admin gating.
  *
@@ -65,6 +91,40 @@ function isPublicGuestPath(pathname: string): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── Capacitor CORS ──────────────────────────────────────────────────────
+  // Handle cross-origin requests from the native Capacitor shell to /api/*.
+  // Must run before any redirect or auth logic so preflight OPTIONS requests
+  // are never accidentally redirected (a redirect on OPTIONS causes the real
+  // request to be blocked by the browser).
+  if (pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin') ?? '';
+    const isCapacitorOrigin = CAPACITOR_ORIGINS.has(origin);
+
+    // Respond to preflight immediately — no further middleware logic needed.
+    if (request.method === 'OPTIONS' && isCapacitorOrigin) {
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': origin,
+          ...CORS_HEADERS,
+        },
+      });
+    }
+
+    // Attach CORS header to actual requests from Capacitor and let them pass.
+    if (isCapacitorOrigin) {
+      const response = NextResponse.next();
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      Object.entries(CORS_HEADERS).forEach(([k, v]) => response.headers.set(k, v));
+      return response;
+    }
+
+    // Non-Capacitor origin — pass through unchanged (same-origin Vercel requests).
+    return NextResponse.next();
+  }
+  // ───────────────────────────────────────────────────────────────────────
+
   const hostname = request.headers.get('host') || '';
   const domain = hostname.split(':')[0].toLowerCase();
 
@@ -177,12 +237,15 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (public folder)
+     * - public static assets (svg, png, jpg, etc.)
+     *
+     * NOTE: /api/* is intentionally included (removed from the exclusion list)
+     * so the Capacitor CORS branch above can handle preflight OPTIONS requests
+     * and attach Access-Control-Allow-Origin headers for native builds.
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|mp3|otf|woff|woff2)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|mp3|otf|woff|woff2)$).*)',
   ],
 };
