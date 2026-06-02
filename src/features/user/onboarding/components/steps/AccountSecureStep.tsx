@@ -29,6 +29,16 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
       const { user, error: linkError } = await linkWithGoogleAccount();
 
       if (linkError) {
+        if (linkError === 'google_canceled') {
+          // User dismissed the native sheet — silent no-op
+          setLoading(null);
+          return;
+        }
+        if (linkError === 'google_timeout') {
+          setError('חלון Google לא נפתח. אנא נסה שוב או בחר שיטת התחברות אחרת.');
+          setLoading(null);
+          return;
+        }
         if (linkError === 'google_account_exists') {
           setError('חשבון Google זה כבר בשימוש. אנא השתמש בחשבון אחר.');
         } else if (linkError === 'popup_closed') {

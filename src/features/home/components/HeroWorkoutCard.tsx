@@ -109,6 +109,7 @@ export function HeroMediaBackground({
           loop
           muted
           playsInline
+          {...{"webkit-playsinline": "true"}}
           preload="auto"
           onCanPlayThrough={handleCanPlay}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${

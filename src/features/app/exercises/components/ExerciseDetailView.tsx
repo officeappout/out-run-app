@@ -151,6 +151,7 @@ export default function ExerciseDetailView({
             loop
             muted
             playsInline
+            {...{"webkit-playsinline": "true"}}
             onLoadedData={() => setVideoLoaded(true)}
             onError={() => setVideoError(true)}
           />

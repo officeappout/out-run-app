@@ -255,6 +255,7 @@ export default function ExerciseVideoPlayer({
               loop={exerciseType !== 'follow-along'}
               muted={!isAudioEnabled}
               playsInline
+              {...{"webkit-playsinline": "true"}}
               preload="auto"
               onLoadedData={() => handleLoadingChange(false)}
               onLoadStart={() => handleLoadingChange(true)}

@@ -18,22 +18,35 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.google.reverseClientId</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.371293978848-mdfli8sgahvqkkih9aonksul4g9o393l</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>אפליקציית OUT מבקשת גישה למצלמה שלך כדי לאפשר צילום תמונת פרופיל אישית. הגישה מתבצעת רק לאחר אישורך המפורש.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>אפליקציית OUT מבקשת גישה לנתוני הבריאות שלך (צעדים, קלוריות ודקות פעילות) כדי להציג את ההתקדמות האישית שלך בלבד. הנתונים לא ישותפו עם אף גורם חיצוני.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>אפליקציית OUT מבקשת רשות לכתוב נתוני אימון (סוג, משך, קלוריות) ל-HealthKit כדי לשמור את האימונים שביצעת דרך האפליקציה. הנתונים לא ישותפו עם אף גורם חיצוני.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>אפליקציית OUT משתמשת במיקום שלך בזמן שימוש בלבד — כדי להציג פארקי כושר בקרבת מקום, לעקוב אחרי מסלולי ריצה שבחרת להקליט, ולחבר אותך לקהילות כושר מקומיות.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>אפליקציית OUT מבקשת גישה למצלמה שלך כדי לאפשר צילום תמונת פרופיל אישית. הגישה מתבצעת רק לאחר אישורך המפורש.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>אפליקציית OUT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל. האפליקציה אינה סורקת או אוספת תמונות אחרות בגלריה.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>אפליקציית OUT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>אפליקציית OUT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל. האפליקציה אינה סורקת או אוספת תמונות אחרות בגלריה.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -62,18 +75,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>com.google.reverseClientId</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.371293978848-mdfli8sgahvqkkih9aonksul4g9o393l</string>
-			</array>
-		</dict>
-	</array>
 </dict>
 </plist>

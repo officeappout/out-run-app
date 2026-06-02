@@ -176,6 +176,7 @@ export default function CalculatingProfileScreen({
               loop
               muted
               playsInline
+              {...{"webkit-playsinline": "true"}}
               className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
               style={{
                 filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.15))',

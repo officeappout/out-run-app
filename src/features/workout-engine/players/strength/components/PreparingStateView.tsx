@@ -77,6 +77,7 @@ export default function PreparingStateView({
               loop
               muted
               playsInline
+              {...{"webkit-playsinline": "true"}}
             />
           ) : null}
           <div className="absolute inset-0 bg-black/50" />

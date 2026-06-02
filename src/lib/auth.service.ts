@@ -364,26 +364,66 @@ export async function signInGuest() {
 }
 
 /**
- * Link current anonymous account with Google
+ * Link current anonymous account with Google — native iOS/Android or web fallback.
+ * Used by AuthModal when upgrading a guest session to a Google-backed account.
  */
 export async function linkGoogleAccount() {
   try {
     if (!auth.currentUser) throw new Error('No user is currently signed in');
 
-    const provider = new GoogleAuthProvider();
-    const result = await linkWithPopup(auth.currentUser, provider);
-    return { user: result.user, error: null };
+    if (isNativePlatform()) {
+      // ── Native iOS / Android path ─────────────────────────────────────
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+
+      const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
+
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
+      }
+
+      const credential = GoogleAuthProvider.credential(
+        result.credential.idToken,
+        result.credential.accessToken ?? undefined,
+      );
+
+      const linkResult = await linkWithCredential(auth.currentUser, credential);
+      return { user: linkResult.user, error: null };
+    } else {
+      // ── Web / browser fallback ────────────────────────────────────────
+      const provider = new GoogleAuthProvider();
+      const result = await linkWithPopup(auth.currentUser, provider);
+      return { user: result.user, error: null };
+    }
   } catch (error: any) {
     console.error("Link Error:", error);
-    // If credential already exists, we might need to sign in with credential instead
-    // But for MVP, we return the error
-    return { user: null, error: error.message };
+    const msg: string = error?.message ?? String(error);
+
+    if (msg === 'GOOGLE_SIGNIN_TIMEOUT') {
+      return { user: null, error: 'google_timeout' };
+    }
+    if (
+      error?.code === 'ERR_CANCELED' ||
+      msg.includes('cancel') ||
+      msg.includes('dismiss') ||
+      msg.includes('sign_in_canceled')
+    ) {
+      return { user: null, error: 'google_canceled' };
+    }
+
+    return { user: null, error: msg };
   }
 }
 
 /**
- * Link anonymous account with Google (using linkWithCredential)
- * Enhanced version with better error handling for account security step
+ * Link anonymous account with Google — native iOS/Android or web fallback.
+ *
+ * Native (Capacitor): presents the native Google sign-in sheet via
+ * `@capacitor-firebase/authentication`, then replays the credential into
+ * the WEB firebase/auth instance with `linkWithCredential`.
+ *
+ * Web fallback: uses `linkWithPopup`. signInWithPopup / linkWithPopup are
+ * blocked by iOS WKWebView when loading remote content, so the native
+ * path is essential for TestFlight / App Store builds.
  */
 export async function linkWithGoogleAccount() {
   try {
@@ -392,21 +432,53 @@ export async function linkWithGoogleAccount() {
       return { user: null, error: 'not_anonymous' };
     }
 
-    const provider = new GoogleAuthProvider();
-    const result = await linkWithPopup(auth.currentUser, provider);
-    return { user: result.user, error: null };
+    if (isNativePlatform()) {
+      // ── Native iOS / Android path ─────────────────────────────────────
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+
+      const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
+
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'לא התקבל פרטי זיהוי מ-Google Sign In.' };
+      }
+
+      const credential = GoogleAuthProvider.credential(
+        result.credential.idToken,
+        result.credential.accessToken ?? undefined,
+      );
+
+      const linkResult = await linkWithCredential(auth.currentUser, credential);
+      return { user: linkResult.user, error: null };
+    } else {
+      // ── Web / browser fallback ────────────────────────────────────────
+      const provider = new GoogleAuthProvider();
+      const result = await linkWithPopup(auth.currentUser, provider);
+      return { user: result.user, error: null };
+    }
   } catch (error: any) {
     console.error('[Auth Service] Google link error:', error);
-    
-    // Handle specific error codes
+    const msg: string = error?.message ?? String(error);
+
+    if (msg === 'GOOGLE_SIGNIN_TIMEOUT') {
+      console.error('[Auth Service] Google link timed out (REVERSED_CLIENT_ID URL scheme missing?)');
+      return { user: null, error: 'google_timeout' };
+    }
+    if (
+      error?.code === 'ERR_CANCELED' ||
+      msg.includes('cancel') ||
+      msg.includes('dismiss') ||
+      msg.includes('sign_in_canceled')
+    ) {
+      return { user: null, error: 'google_canceled' };
+    }
     if (error.code === 'auth/credential-already-in-use') {
       return { user: null, error: 'google_account_exists' };
     }
     if (error.code === 'auth/popup-closed-by-user') {
       return { user: null, error: 'popup_closed' };
     }
-    
-    return { user: null, error: error.message };
+
+    return { user: null, error: msg };
   }
 }
 

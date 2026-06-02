@@ -83,6 +83,7 @@ export default function VideoPlayer({
                   loop
                   muted
                   playsInline
+                  {...{"webkit-playsinline": "true"}}
                   preload="auto"
                   onLoadedMetadata={(e) => {
                     // Anchor the decoder to the first frame so the hardware

@@ -221,6 +221,7 @@ export default function ExerciseVideoPlayer({
                 loop
                 muted
                 playsInline
+                {...{"webkit-playsinline": "true"}}
                 preload="auto"
               />
             ) : (
@@ -289,6 +290,7 @@ export default function ExerciseVideoPlayer({
             muted
             loop
             playsInline
+            {...{"webkit-playsinline": "true"}}
             preload="none"
           />
         ) : (
@@ -384,6 +386,7 @@ export default function ExerciseVideoPlayer({
           muted={mode === 'preview'}
           loop={mode === 'preview'}
           playsInline
+          {...{"webkit-playsinline": "true"}}
           controls={mode === 'tutorial'}
           preload={mode === 'preview' ? 'none' : 'auto'}
         />

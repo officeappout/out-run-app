@@ -155,18 +155,96 @@ if (typeof window !== "undefined") {
     // SDK via a CustomProvider so callable Cloud Functions see a valid
     // X-Firebase-AppCheck header on every request — same as on the web
     // path, just attested by the OS instead of reCAPTCHA.
+    //
+    // IMPORTANT: The try/catch around initializeAppCheck() below does NOT
+    // protect against errors inside getToken() — those occur later, each
+    // time Firebase needs to attach a token to a request. Without
+    // protection inside getToken(), a failed/hanging DeviceCheck call
+    // (e.g. HTTP 400 "Too many attempts", "App not registered",
+    // TestFlight rate-limit) blocks signInWithCredential indefinitely,
+    // freezing the entire sign-in flow.
+    //
+    // Fix: three-layer guard inside getToken():
+    //   1. Hard 10-second timeout — guarantees the call always resolves.
+    //   2. try/catch — swallows DeviceCheck API errors that escape the timeout.
+    //   3. Circuit breaker — after any failure, returns a dummy token
+    //      immediately for the next 60 s so we don't hammer the rate-
+    //      limited DeviceCheck/App Attest API and compound the problem.
+    //
+    // On failure we return `{ token: '', expireTimeMillis: now + 5s }`.
+    // Firebase Auth sign-in does not require App Check by default, so it
+    // will proceed normally. App-Check-enforced Firestore rules and Cloud
+    // Function calls may return permission-denied until attestation
+    // recovers — a clean failure is far better than a frozen UI.
     // ───────────────────────────────────────────────────────────────
+
+    /** Maximum ms to wait for the native DeviceCheck / App Attest call. */
+    const APP_CHECK_TOKEN_TIMEOUT_MS = 10_000;
+    /**
+     * How long (ms) to suppress further getToken() calls after a failure.
+     * DeviceCheck imposes a per-device rate limit; retrying faster than
+     * this window is what produces the "Too many attempts" HTTP 400.
+     */
+    const APP_CHECK_BACKOFF_MS = 60_000;
+
+    /** Timestamp of the most recent getToken() failure, or null if healthy. */
+    let appCheckFailedAt: number | null = null;
+
     try {
       const customProvider = new CustomProvider({
         getToken: async () => {
-          const { FirebaseAppCheck } = await import('@capacitor-firebase/app-check');
-          const { token } = await FirebaseAppCheck.getToken({ forceRefresh: false });
-          // The web SDK needs an expiry timestamp. The capacitor-firebase
-          // plugin returns an opaque token; we conservatively report a
-          // 50-minute TTL (App Check tokens are 1h) so the SDK requests
-          // a fresh one well before expiry.
-          const expireTimeMillis = Date.now() + 50 * 60 * 1000;
-          return { token, expireTimeMillis };
+          // ── Circuit breaker ────────────────────────────────────────────
+          // If the previous call failed recently, return a dummy token
+          // immediately rather than hammering the DeviceCheck API again.
+          if (appCheckFailedAt !== null && Date.now() - appCheckFailedAt < APP_CHECK_BACKOFF_MS) {
+            const remainingSec = Math.ceil((APP_CHECK_BACKOFF_MS - (Date.now() - appCheckFailedAt)) / 1000);
+            console.warn(
+              `[firebase] App Check in backoff for ${remainingSec}s; ` +
+              'returning empty token so sign-in can proceed.',
+            );
+            return { token: '', expireTimeMillis: Date.now() + 5_000 };
+          }
+
+          try {
+            const { FirebaseAppCheck } = await import('@capacitor-firebase/app-check');
+
+            // ── Hard timeout ───────────────────────────────────────────
+            // If the native bridge hangs (DeviceCheck unreachable, retry
+            // loop inside the iOS SDK), this ensures the promise resolves
+            // within 10 s instead of blocking forever.
+            const tokenPromise = FirebaseAppCheck.getToken({ forceRefresh: false });
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(
+                () => reject(new Error('APP_CHECK_TOKEN_TIMEOUT')),
+                APP_CHECK_TOKEN_TIMEOUT_MS,
+              ),
+            );
+
+            const { token } = await Promise.race([tokenPromise, timeoutPromise]);
+
+            // Success — clear any previous backoff marker.
+            appCheckFailedAt = null;
+            // The web SDK needs an expiry timestamp. The capacitor-firebase
+            // plugin returns an opaque token; we conservatively report a
+            // 50-minute TTL (App Check tokens are 1h) so the SDK requests
+            // a fresh one well before expiry.
+            const expireTimeMillis = Date.now() + 50 * 60 * 1000;
+            return { token, expireTimeMillis };
+
+          } catch (err) {
+            // ── Graceful failure ───────────────────────────────────────
+            // Record failure time for the circuit breaker, then return an
+            // empty token with a 5-second expiry so the SDK schedules a
+            // retry soon without blocking the current Firebase operation.
+            appCheckFailedAt = Date.now();
+            const msg = (err as Error)?.message ?? String(err);
+            console.warn(
+              '[firebase] Native App Check getToken() failed' +
+              (msg === 'APP_CHECK_TOKEN_TIMEOUT' ? ' (timed out after 10 s)' : `: ${msg}`) +
+              ` — will retry after ${APP_CHECK_BACKOFF_MS / 1000}s backoff.`,
+            );
+            return { token: '', expireTimeMillis: Date.now() + 5_000 };
+          }
         },
       });
       appCheck = initializeAppCheck(app, {
@@ -175,7 +253,7 @@ if (typeof window !== "undefined") {
       });
     } catch (err) {
       console.warn(
-        '[firebase] Native App Check initialization failed; falling back to debug-only mode:',
+        '[firebase] Native App Check initialization failed; falling back to no App Check:',
         err,
       );
     }

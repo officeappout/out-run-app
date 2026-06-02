@@ -42,6 +42,7 @@ export default function PremiumExerciseCard({
           loop
           muted
           playsInline
+          {...{"webkit-playsinline": "true"}}
           preload="auto"
           onCanPlay={handleCanPlay}
           onError={() => setError(true)}

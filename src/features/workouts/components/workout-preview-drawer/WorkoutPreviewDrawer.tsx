@@ -375,6 +375,7 @@ export default function WorkoutPreviewDrawer({
                           loop
                           muted
                           playsInline
+                          {...{"webkit-playsinline": "true"}}
                           preload="auto"
                           className="absolute inset-0 w-full h-full object-cover"
                         />

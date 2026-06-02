@@ -60,7 +60,7 @@ export default function MiniPlayerBar({
     >
       <div className="w-11 h-11 rounded-lg bg-slate-700 overflow-hidden flex-shrink-0">
         {safeVideoUrl ? (
-          <video src={safeVideoUrl} className="w-full h-full object-cover" muted playsInline />
+          <video src={safeVideoUrl} className="w-full h-full object-cover" muted playsInline {...{"webkit-playsinline": "true"}} />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Dumbbell size={18} className="text-slate-400" />

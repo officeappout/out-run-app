@@ -179,7 +179,7 @@ export default function OnboardingIntroPage() {
               </div>
             </div>
             
-            <div className="flex-1 mr-6 flex flex-col items-start">
+            <div className="flex-1 me-6 flex flex-col items-start">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="text-lg font-black text-slate-900 leading-tight">
                   {slides[currentSlide].title}

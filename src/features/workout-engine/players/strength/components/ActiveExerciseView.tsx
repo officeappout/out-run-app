@@ -152,7 +152,7 @@ export default function ActiveExerciseView({
 
       {/* Pre-fetch next exercise video (uses cached blob when offline) */}
       {cachedNextVideoUrl && (
-        <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline />
+        <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
       )}
 
       {/* Isometric timer drawer — bottom sheet for time-based exercises */}

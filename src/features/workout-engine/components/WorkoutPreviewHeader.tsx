@@ -61,6 +61,7 @@ function LazyVideoLayer({ videoUrl }: { videoUrl: string }) {
       loop
       muted
       playsInline
+      {...{"webkit-playsinline": "true"}}
       preload="auto"
       onCanPlayThrough={onCanPlay}
       className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${

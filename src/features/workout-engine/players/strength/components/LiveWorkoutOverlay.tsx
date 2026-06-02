@@ -189,6 +189,7 @@ export default function LiveWorkoutOverlay({
                         loop
                         muted={typeof window !== 'undefined' ? sessionStorage.getItem('isAudioEnabled') !== 'true' : true}
                         playsInline
+                        {...{"webkit-playsinline": "true"}}
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent h-32" />
                 </div>
