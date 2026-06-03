@@ -307,23 +307,16 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       console.log('[DEBUG Apple] credential keys:', Object.keys(result.credential || {}));
       console.log('[DEBUG Apple] nonce value:', result.credential?.nonce);
 
-      // Fast path: if the native Firebase SDK already signed in (skipNativeAuth: false),
-      // the plugin returns a populated result.user. Use it directly and skip the
-      // web-SDK signInWithCredential call, avoiding the nonce round-trip entirely.
-      if (result.user) {
-        console.log('[DEBUG Apple] native auth succeeded, using result.user directly');
-        return { user: result.user as unknown as User, error: null };
-      }
-
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
 
-      // Fallback: native user was not returned — sign in to the web Firebase SDK
-      // manually using the Apple credential + rawNonce.
       // The Capacitor plugin ALWAYS generates a nonce and embeds its SHA256
       // hash in the Apple ID token. Firebase requires rawNonce (the pre-hash
       // value) to verify the token — omitting it causes auth/missing-or-invalid-nonce.
+      // We MUST call signInWithCredential on the web Firebase SDK (not use the
+      // native plugin user directly) so that auth.currentUser is set and
+      // subsequent Firestore reads have a valid auth token.
       const rawNonce = result.credential.nonce;
       if (!rawNonce) {
         console.error('[Auth Service] Apple sign-in: plugin returned no nonce. Cannot create a valid Firebase credential.');
