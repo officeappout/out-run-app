@@ -30,4 +30,28 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Fix: @capacitor-firebase/authentication@6.3.1 passes the iOS clientID as
+  # serverClientID in GIDConfiguration, which causes GoogleSignIn 7.x to request
+  # a server auth-code exchange that Google rejects with gRPC status 12
+  # ("UNIMPLEMENTED"). We rewrite only that one line — if it's already been
+  # corrected upstream, the gsub is a no-op and nothing changes.
+  google_handler = File.expand_path(
+    '../../node_modules/@capacitor-firebase/authentication/ios/Plugin/Handlers/GoogleAuthProviderHandler.swift',
+    __dir__
+  )
+  if File.exist?(google_handler)
+    content = File.read(google_handler)
+    fixed = content.gsub(
+      'let config = GIDConfiguration(clientID: clientId, serverClientID: clientId)',
+      "let serverClientId = FirebaseApp.app()?.options.serverClientID\n" \
+      "        let config = serverClientId != nil\n" \
+      "            ? GIDConfiguration(clientID: clientId, serverClientID: serverClientId!)\n" \
+      "            : GIDConfiguration(clientID: clientId)"
+    )
+    if fixed != content
+      File.write(google_handler, fixed)
+      puts "✔ Applied Google Sign-In serverClientID fix to GoogleAuthProviderHandler.swift"
+    end
+  end
 end
