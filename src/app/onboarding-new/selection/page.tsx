@@ -26,6 +26,13 @@ export default function SelectionPage() {
   const { hasCompletedOnboarding, profile } = useUserStore();
   const { reset: resetOnboarding } = useOnboardingStore();
 
+  // Hide Apple Sign-In on Android — ASAuthorizationController is iOS-only.
+  const [isAndroid, setIsAndroid] = useState(false);
+  useEffect(() => {
+    const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
+    setIsAndroid(cap?.getPlatform?.() === 'android');
+  }, []);
+
   // ── Growth Hub Phase 3 — Marketing Attribution capture ────────────────
   // Covers the deep-link case where an ad lands the user directly on
   // /onboarding-new/selection without first hitting /intro. The capture
@@ -384,25 +391,27 @@ export default function SelectionPage() {
             </span>
           </button>
 
-          {/* Apple Button */}
-          <button 
-            onClick={handleAppleSignIn}
-            disabled={isLoading}
-            className={`w-full bg-black flex items-center justify-center gap-3 py-4 px-6 rounded-2xl shadow-md shadow-slate-300/50 transition-all active:scale-[0.98] hover:bg-gray-900 ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isAppleLoading ? (
-              <Loader2 className="animate-spin text-white" size={20} />
-            ) : (
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="white">
-                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-              </svg>
-            )}
-            <span className="font-bold text-white">
-              {selectedLanguage === 'he' ? 'המשך עם Apple' : selectedLanguage === 'ru' ? 'Продолжить с Apple' : 'Continue with Apple'}
-            </span>
-          </button>
+          {/* Apple Button — iOS only */}
+          {!isAndroid && (
+            <button 
+              onClick={handleAppleSignIn}
+              disabled={isLoading}
+              className={`w-full bg-black flex items-center justify-center gap-3 py-4 px-6 rounded-2xl shadow-md shadow-slate-300/50 transition-all active:scale-[0.98] hover:bg-gray-900 ${
+                isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {isAppleLoading ? (
+                <Loader2 className="animate-spin text-white" size={20} />
+              ) : (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="white">
+                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                </svg>
+              )}
+              <span className="font-bold text-white">
+                {selectedLanguage === 'he' ? 'המשך עם Apple' : selectedLanguage === 'ru' ? 'Продолжить с Apple' : 'Continue with Apple'}
+              </span>
+            </button>
+          )}
         </motion.div>
       </div>
 

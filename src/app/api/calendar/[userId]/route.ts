@@ -8,8 +8,8 @@
  *   - Android: Opens Google Calendar / any calendar app
  *   - Desktop: Opens Outlook, macOS Calendar, etc.
  *
- * The feed covers a rolling 7-day window starting today so calendar apps
- * always show upcoming sessions without stale recurring events.
+ * The feed covers a rolling 90-day window starting today so calendar apps
+ * always show the full training plan without stale recurring events.
  *
  * Security: The userId is the opaque Firebase UID (28-char base62 string).
  * For a public calendar subscription the URL itself is the credential,
@@ -160,15 +160,19 @@ export async function GET(
   try {
     const db = getAdminDb();
 
-    // Build a rolling 7-day window starting today
+    // Build a rolling 90-day window (covers any standard 4–12 week training plan).
+    // Calendar apps re-poll hourly via REFRESH-INTERVAL, so new scheduled days
+    // appear within an hour of the user updating their plan.
     const now   = new Date();
-    const dates = Array.from({ length: 7 }, (_, i) => {
+    const DAYS  = 90;
+    const dates = Array.from({ length: DAYS }, (_, i) => {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
       return toISODate(d);
     });
 
-    // Fetch all 7 schedule day-documents in parallel
+    // Firestore allows up to 500 reads in a single batch; 90 is well within that.
+    // Fetch all schedule day-documents in parallel.
     // Collection: userSchedule / Document ID: {userId}_{YYYY-MM-DD}
     const refs  = dates.map((d) => db.collection('userSchedule').doc(`${userId}_${d}`));
     const snaps = await Promise.all(refs.map((r) => r.get()));
@@ -187,7 +191,7 @@ export async function GET(
       headers: {
         'Content-Type':        'text/calendar; charset=utf-8',
         'Content-Disposition': 'attachment; filename="outrun-schedule.ics"',
-        // No caching — always serve a fresh 7-day window on every poll
+        // No caching — always serve a fresh 90-day window on every poll
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma':        'no-cache',
       },

@@ -7,6 +7,8 @@ import type {
   RequestPermissionsResult,
   SyncSinceOptions,
   SyncSinceResult,
+  WriteWorkoutOptions,
+  WriteWorkoutResult,
 } from './definitions';
 
 /**
@@ -38,6 +40,10 @@ export class HealthBridgeWeb extends WebPlugin implements HealthBridgePlugin {
 
   async syncSince(_options?: SyncSinceOptions): Promise<SyncSinceResult> {
     return { samples: [], cursorISO: new Date().toISOString() };
+  }
+
+  async writeWorkout(_options: WriteWorkoutOptions): Promise<WriteWorkoutResult> {
+    return { saved: false, uuid: '' };
   }
 
   async enableBackgroundDelivery(): Promise<void> {

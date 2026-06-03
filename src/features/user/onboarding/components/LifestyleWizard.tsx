@@ -82,6 +82,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
       const storePersonaId = (onboardingData as any)?.selectedPersonaId || '';
       const storeScheduleDays = (onboardingData as any)?.scheduleDays || [];
       const storeLifestyleTags = (onboardingData as any)?.lifestyleTags || [];
+      const calendarSyncEnabled = (onboardingData as any)?.calendarSyncEnabled ?? true;
 
       await setDoc(doc(db, 'users', uid), {
         personaId: storePersonaId || null,
@@ -91,6 +92,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
           trainingHistory: (onboardingData as any)?.historyFrequency || 'none',
           scheduleDays: storeScheduleDays,
         },
+        settings: {
+          calendarSync: calendarSyncEnabled,
+        },
         onboardingStatus: 'COMPLETED',
         onboardingStep: 'COMPLETED',
         updatedAt: serverTimestamp(),
@@ -98,6 +102,19 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('skipped_bridge');
+      }
+
+      // On native: auto-request HealthKit permissions so users don't have to
+      // discover the setting manually. Fire-and-forget — a failure here must
+      // never block onboarding completion.
+      try {
+        const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } };
+        if (w.Capacitor?.isNativePlatform?.() && w.Capacitor?.getPlatform?.() === 'ios') {
+          const { requestHealthPermissions } = await import('@/lib/healthBridge/init');
+          void requestHealthPermissions();
+        }
+      } catch {
+        // HealthBridge not available or permissions already granted — ignore.
       }
 
       onComplete();
@@ -189,7 +206,10 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
+      <div
+        className="flex items-center justify-between px-4 pb-4 border-b"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 1rem)' }}
+      >
         <button
           onClick={onSkip}
           className="p-2 hover:bg-slate-100 rounded-full transition-colors"
@@ -226,7 +246,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <AnimatePresence mode="wait">
           {currentStep === 'persona' && (
             <motion.div

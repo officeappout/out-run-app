@@ -345,7 +345,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             {/* Story Bar header — drag handle area */}
             <header
               className="shrink-0 z-30 bg-white"
-              style={{ touchAction: 'none' }}
+              style={{ paddingTop: 'env(safe-area-inset-top, 0px)', touchAction: 'none' }}
               onPointerDown={handleHeaderPointerDown}
             >
               {/* Compact top row: drag handle + back button */}

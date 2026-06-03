@@ -50,6 +50,52 @@ function isNativePlatform(): boolean {
 }
 
 /**
+ * Sync Firebase Auth provider data to the user's Firestore document after a
+ * successful social sign-in (Apple / Google). Runs fire-and-forget so it
+ * never blocks the return of the calling sign-in function.
+ *
+ * Writes:
+ *   core.email          — real or relay email from the provider
+ *   core.isAnonymous    — always false for social sign-ins
+ *   accountStatus       — 'secured' (used by ProfileCompletionWidget)
+ *   accountMethod       — 'apple' | 'google' | 'email'
+ *
+ * Uses merge:true so no existing field is overwritten unless explicitly set.
+ * This ensures returning users whose email changed at the provider side always
+ * have an up-to-date record in the admin panel.
+ */
+async function syncProviderDataToFirestore(user: User): Promise<void> {
+  try {
+    const providerId = user.providerData[0]?.providerId ?? null;
+    const accountMethod =
+      providerId === 'apple.com' ? 'apple'
+      : providerId === 'google.com' ? 'google'
+      : providerId === 'password' ? 'email'
+      : 'social';
+
+    const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    await setDoc(
+      doc(db, 'users', user.uid),
+      {
+        core: {
+          ...(user.email ? { email: user.email } : {}),
+          isAnonymous: false,
+        },
+        accountStatus: 'secured',
+        accountMethod,
+        lastSignInAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (err) {
+    // Non-critical — never throw. The user is authenticated regardless;
+    // the admin panel will show stale data until the next sign-in attempt.
+    console.warn('[Auth Service] syncProviderDataToFirestore failed (non-critical):', err);
+  }
+}
+
+/**
  * Write the session hint to localStorage AND — on native — to
  * @capacitor/preferences so it survives WebView storage eviction.
  */
@@ -221,11 +267,13 @@ export async function signInWithGoogle(): Promise<{ user: User | null; error: st
       );
 
       const webResult = await signInWithCredential(auth, credential);
+      syncProviderDataToFirestore(webResult.user);
       return { user: webResult.user, error: null };
     } else {
       // ── Web / browser fallback ────────────────────────────────────────
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      syncProviderDataToFirestore(result.user);
       return { user: result.user, error: null };
     }
   } catch (error: any) {
@@ -291,6 +339,14 @@ function withAppleTimeout<T>(promise: Promise<T>): Promise<T> {
 }
 
 export async function signInWithApple(): Promise<{ user: User | null; error: string | null }> {
+  // Apple Sign-In is not supported on Android — the ASAuthorizationController
+  // sheet only exists on iOS/macOS. Return early before touching the plugin.
+  if (typeof window !== 'undefined') {
+    const cap = window as unknown as { Capacitor?: { getPlatform?: () => string } };
+    if (cap.Capacitor?.getPlatform?.() === 'android') {
+      return { user: null, error: 'Apple Sign-In is not available on Android' };
+    }
+  }
   try {
     if (isNativePlatform()) {
       // ── Native iOS / iPadOS path ─────────────────────────────────────
@@ -330,6 +386,7 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       });
 
       const webResult = await signInWithCredential(auth, credential);
+      syncProviderDataToFirestore(webResult.user);
       return { user: webResult.user, error: null };
     } else {
       // ── Web / browser fallback ───────────────────────────────────────
@@ -338,6 +395,7 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       provider.addScope('name');
 
       const result = await signInWithPopup(auth, provider);
+      syncProviderDataToFirestore(result.user);
       return { user: result.user, error: null };
     }
   } catch (error: any) {
@@ -505,6 +563,13 @@ export async function linkWithGoogleAccount() {
  * Web fallback: uses `linkWithPopup` with `OAuthProvider('apple.com')`.
  */
 export async function linkWithAppleAccount(): Promise<{ user: User | null; error: string | null }> {
+  // Apple Sign-In is not supported on Android.
+  if (typeof window !== 'undefined') {
+    const cap = window as unknown as { Capacitor?: { getPlatform?: () => string } };
+    if (cap.Capacitor?.getPlatform?.() === 'android') {
+      return { user: null, error: 'Apple Sign-In is not available on Android' };
+    }
+  }
   try {
     if (!auth.currentUser) throw new Error('No user signed in');
     if (!auth.currentUser.isAnonymous) {

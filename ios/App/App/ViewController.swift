@@ -32,5 +32,13 @@ class ViewController: CAPBridgeViewController {
         webView?.scrollView.bounces = false
         webView?.scrollView.alwaysBounceVertical = false
         webView?.scrollView.alwaysBounceHorizontal = false
+
+        // Allow all media — including <video autoplay>, <video muted>, and
+        // programmatic play() calls — without requiring a prior user gesture.
+        // iOS 10+ defaults to `.all`, which blocks the workout player's
+        // autoplay loop and the exercise detail video from starting without
+        // an explicit tap. Setting to [] mirrors the web/desktop behaviour
+        // where muted autoplaying videos work without user interaction.
+        webView?.configuration.mediaTypesRequiringUserActionForPlayback = []
     }
 }

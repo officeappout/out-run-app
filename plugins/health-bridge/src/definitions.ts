@@ -37,6 +37,40 @@ export interface HealthSample {
 
 export type HealthPermission = 'steps' | 'activeEnergy' | 'exerciseTime';
 
+export type HKWorkoutActivityType =
+  | 'running'
+  | 'walking'
+  | 'cycling'
+  | 'swimming'
+  | 'hiking'
+  | 'yoga'
+  | 'traditionalStrengthTraining'
+  | 'functionalStrengthTraining'
+  | 'crossTraining'
+  | 'coreTraining'
+  | 'jumpRope'
+  | 'stairClimbing'
+  | 'other';
+
+export interface WriteWorkoutOptions {
+  /** HKWorkoutActivityType string (e.g. 'traditionalStrengthTraining', 'running'). */
+  workoutType: HKWorkoutActivityType;
+  /** ISO-8601 workout start time. */
+  startISO: string;
+  /** ISO-8601 workout end time. */
+  endISO: string;
+  /** Active energy burned in kcal (integer ≥ 0). */
+  calories: number;
+  /** Optional distance in metres (running / cycling). */
+  distanceMeters?: number;
+}
+
+export interface WriteWorkoutResult {
+  saved: boolean;
+  /** UUID of the HKWorkout object saved in the Health store. */
+  uuid: string;
+}
+
 export interface RequestPermissionsOptions {
   permissions: HealthPermission[];
 }
@@ -85,6 +119,13 @@ export interface HealthBridgePlugin {
    * 1000 samples; caller must page if more are needed.
    */
   syncSince(options?: SyncSinceOptions): Promise<SyncSinceResult>;
+
+  /**
+   * Write a completed workout to Apple Health (iOS only).
+   * Saves an HKWorkout with the given activity type, duration, and
+   * active calories. No-op on Android / web (returns { saved: false }).
+   */
+  writeWorkout(options: WriteWorkoutOptions): Promise<WriteWorkoutResult>;
 
   /**
    * Enable observer queries (iOS) / periodic WorkManager job (Android)

@@ -137,7 +137,17 @@ export function calculateProfileCompletion(
     {
       id: 'account',
       label: 'חשבון מאובטח',
-      completed: !!profile.core?.email,
+      // A user is "secured" when ANY of the following is true:
+      //   1. core.email is set (classic email-based account)
+      //   2. accountStatus === 'secured' (written by onboarding ACCOUNT_SECURE step
+      //      or by the post-sign-in Firestore sync in auth.service.ts)
+      //   3. core.isAnonymous === false — any non-anonymous Firebase Auth user
+      //      (Apple Sign-In, Google Sign-In) has a real persistent identity
+      //      regardless of whether we stored their email locally.
+      completed:
+        !!profile.core?.email ||
+        (profile as any)?.accountStatus === 'secured' ||
+        (profile.core as any)?.isAnonymous === false,
       weight: 0,
       bucket: 'basic',
       step: 'ACCOUNT_SECURE',

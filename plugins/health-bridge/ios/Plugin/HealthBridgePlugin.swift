@@ -10,6 +10,9 @@ import HealthKit
  *   • HKQuantityTypeIdentifier.activeEnergyBurned
  *   • HKQuantityTypeIdentifier.appleExerciseTime
  *
+ * Writes completed workouts to HealthKit:
+ *   • HKWorkoutType — with activity type, duration, and active calories
+ *
  * Background delivery is enabled per type via `enableBackgroundDelivery`,
  * which causes `HKObserverQuery` callbacks to fire even when the app is
  * suspended. On wake we emit a `samplesAvailable` event so the WebView
@@ -40,6 +43,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "hasPermissions", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncSince", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeWorkout", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableBackgroundDelivery", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "disableBackgroundDelivery", returnType: CAPPluginReturnPromise),
     ]
@@ -50,9 +54,14 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     private var stepType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .stepCount)! }
     private var caloriesType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)! }
     private var exerciseType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .appleExerciseTime)! }
+    private var workoutType: HKWorkoutType { HKObjectType.workoutType() }
 
     private var readTypes: Set<HKObjectType> {
         return [stepType, caloriesType, exerciseType]
+    }
+
+    private var shareTypes: Set<HKSampleType> {
+        return [workoutType, caloriesType]
     }
 
     // MARK: - isAvailable
@@ -93,8 +102,9 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("HealthKit unavailable on this device")
             return
         }
-        // We never write — read-only request.
-        healthStore.requestAuthorization(toShare: nil, read: readTypes) { [weak self] success, error in
+        // Request both read (steps/calories/exercise) and write (workouts/calories)
+        // so that completed workouts are saved back to Apple Health.
+        healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { [weak self] success, error in
             if let error = error {
                 call.reject("Authorization failed: \(error.localizedDescription)")
                 return
@@ -103,6 +113,130 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             // denied — iOS does this on purpose to avoid leaking
             // authorization state. Probe with a tiny query to decide.
             self?.hasPermissions(call)
+        }
+    }
+
+    // MARK: - writeWorkout
+
+    /**
+     * Saves a completed workout to HealthKit.
+     *
+     * Expected JS call:
+     *   HealthBridge.writeWorkout({
+     *     workoutType: 'traditionalStrengthTraining' | 'running' | 'walking' | 'cycling' | 'other',
+     *     startISO: '2026-06-03T07:00:00Z',
+     *     endISO:   '2026-06-03T08:00:00Z',
+     *     calories: 320,   // active kcal (integer)
+     *     distanceMeters: 5200,  // optional (running / cycling)
+     *   })
+     *
+     * Returns { saved: true, uuid: '<HKWorkout uuid>' } on success.
+     */
+    @objc func writeWorkout(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.reject("HealthKit unavailable on this device")
+            return
+        }
+
+        let activityTypeStr = call.getString("workoutType") ?? "other"
+        let startISO  = call.getString("startISO") ?? ""
+        let endISO    = call.getString("endISO") ?? ""
+        let calories  = call.getInt("calories") ?? 0
+        let distanceM = call.getDouble("distanceMeters")
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoFallback = ISO8601DateFormatter()
+
+        guard
+            let startDate = isoFormatter.date(from: startISO) ?? isoFallback.date(from: startISO),
+            let endDate   = isoFormatter.date(from: endISO)   ?? isoFallback.date(from: endISO)
+        else {
+            call.reject("Invalid startISO or endISO: \(startISO) / \(endISO)")
+            return
+        }
+
+        let activityType = Self.hkActivityType(from: activityTypeStr)
+
+        // Build the workout metadata
+        var samples: [HKSample] = []
+
+        if calories > 0 {
+            let energyQty = HKQuantity(unit: .kilocalorie(), doubleValue: Double(calories))
+            let energySample = HKQuantitySample(
+                type: caloriesType,
+                quantity: energyQty,
+                start: startDate,
+                end: endDate
+            )
+            samples.append(energySample)
+        }
+
+        var workoutEvents: [HKWorkoutEvent] = []
+
+        // HKWorkout builder (iOS 12+)
+        let config = HKWorkoutConfiguration()
+        config.activityType = activityType
+
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
+
+        builder.beginCollection(withStart: startDate) { success, error in
+            guard success else {
+                call.reject("beginCollection failed: \(error?.localizedDescription ?? "unknown")")
+                return
+            }
+
+            let group = DispatchGroup()
+            var addError: Error?
+
+            if !samples.isEmpty {
+                group.enter()
+                builder.add(samples) { ok, err in
+                    if let err = err { addError = err }
+                    group.leave()
+                }
+            }
+
+            if let dist = distanceM, dist > 0 {
+                group.enter()
+                let distQty = HKQuantity(unit: .meter(), doubleValue: dist)
+                let distType: HKQuantityType
+                switch activityType {
+                case .cycling:
+                    distType = HKObjectType.quantityType(forIdentifier: .distanceCycling)!
+                default:
+                    distType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
+                }
+                let distSample = HKQuantitySample(type: distType, quantity: distQty, start: startDate, end: endDate)
+                builder.add([distSample]) { ok, err in
+                    if let err = err { addError = err }
+                    group.leave()
+                }
+            }
+
+            group.notify(queue: .main) {
+                if let err = addError {
+                    call.reject("addSamples failed: \(err.localizedDescription)")
+                    return
+                }
+                builder.endCollection(withEnd: endDate) { success, error in
+                    guard success else {
+                        call.reject("endCollection failed: \(error?.localizedDescription ?? "unknown")")
+                        return
+                    }
+                    builder.finishWorkout { workout, error in
+                        DispatchQueue.main.async {
+                            if let error = error {
+                                call.reject("finishWorkout failed: \(error.localizedDescription)")
+                            } else if let workout = workout {
+                                call.resolve(["saved": true, "uuid": workout.uuid.uuidString])
+                            } else {
+                                call.reject("finishWorkout returned nil workout")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -242,5 +376,24 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone.current
         return f.string(from: date)
+    }
+
+    /// Maps the JS workout type string to the closest HKWorkoutActivityType.
+    private static func hkActivityType(from string: String) -> HKWorkoutActivityType {
+        switch string {
+        case "running":                       return .running
+        case "walking":                       return .walking
+        case "cycling":                       return .cycling
+        case "swimming":                      return .swimming
+        case "hiking":                        return .hiking
+        case "yoga":                          return .yoga
+        case "functionalStrengthTraining":    return .functionalStrengthTraining
+        case "traditionalStrengthTraining":   return .traditionalStrengthTraining
+        case "crossTraining":                 return .crossTraining
+        case "coreTraining":                  return .coreTraining
+        case "jumpRope":                      return .jumpRope
+        case "stairClimbing":                 return .stairClimbing
+        default:                              return .other
+        }
     }
 }

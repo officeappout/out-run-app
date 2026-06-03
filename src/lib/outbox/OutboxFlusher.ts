@@ -41,6 +41,24 @@ import { awardWorkoutXP } from '@/lib/awardWorkoutXP';
 const MAX_HEALTH_BATCH = 200;
 const MAX_ATTEMPTS = 8;
 
+/**
+ * Returns true when the thrown error looks like an App Check token failure.
+ * These are transient infrastructure errors (not data errors) and should NOT
+ * consume retry attempts so the outbox isn't permanently exhausted in dev/
+ * TestFlight builds where DeviceCheck / AppAttest is misconfigured.
+ */
+function isAppCheckError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? '');
+  const code = String((err as any)?.code ?? '');
+  return (
+    code === 'unauthenticated' && (
+      msg.toLowerCase().includes('app check') ||
+      msg.toLowerCase().includes('appcheck') ||
+      msg.toLowerCase().includes('firebase app check')
+    )
+  );
+}
+
 type FlushReason = 'online' | 'app-active' | 'auth' | 'manual' | 'enqueue';
 
 class FlusherImpl {
@@ -170,13 +188,26 @@ class FlusherImpl {
           source: s.source,
           deviceModel: s.deviceModel,
         }));
-        const result = await ingestHealthSamples({ date, samples: payload });
-        if (result) {
-          // accepted + deduped are both "safely ingested" from the client's POV.
-          await deleteHealthSamples(chunk.map((c) => c.sampleUUID));
-        } else {
-          allOk = false;
-          await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+        try {
+          const result = await ingestHealthSamples({ date, samples: payload });
+          if (result) {
+            // accepted + deduped are both "safely ingested" from the client's POV.
+            await deleteHealthSamples(chunk.map((c) => c.sampleUUID));
+          } else {
+            allOk = false;
+            await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+          }
+        } catch (err) {
+          // App Check errors are transient infrastructure failures — do not
+          // consume retry attempts so the outbox isn't permanently exhausted
+          // in debug / TestFlight builds.
+          if (isAppCheckError(err)) {
+            console.warn('[OutboxFlusher] App Check error — skipping attempt bump, will retry on next flush');
+            allOk = false;
+          } else {
+            allOk = false;
+            await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+          }
         }
       }
     }

@@ -206,6 +206,57 @@ function buildOutboxSample(
 }
 
 /**
+ * Public: write a completed workout to Apple Health (iOS only).
+ *
+ * Translates the app's workout types into HKWorkoutActivityType strings and
+ * saves the HKWorkout via the native plugin. Silently no-ops on Android and
+ * web — callers don't need to platform-guard.
+ *
+ * startISO / endISO are derived from durationMinutes if not provided.
+ */
+export async function writeWorkoutToHealth(params: {
+  workoutType: 'strength' | 'running' | 'walking' | 'cycling' | 'hybrid';
+  durationMinutes: number;
+  calories: number;
+  distanceKm?: number;
+  startISO?: string;
+  endISO?: string;
+}): Promise<void> {
+  if (!isNative()) return;
+  // Removed platformIsIOS() guard — Health Connect on Android supports
+  // workout writes via writeWorkout() since plugin v2.
+  try {
+    const HealthBridge = await loadPlugin();
+    const endDate = params.endISO ? new Date(params.endISO) : new Date();
+    const startDate = params.startISO
+      ? new Date(params.startISO)
+      : new Date(endDate.getTime() - params.durationMinutes * 60_000);
+
+    const activityMap: Record<string, string> = {
+      strength: 'traditionalStrengthTraining',
+      running: 'running',
+      walking: 'walking',
+      cycling: 'cycling',
+      hybrid: 'crossTraining',
+    };
+
+    const result = await (HealthBridge as any).writeWorkout({
+      workoutType: activityMap[params.workoutType] ?? 'other',
+      startISO: startDate.toISOString(),
+      endISO: endDate.toISOString(),
+      calories: Math.round(params.calories),
+      ...(params.distanceKm ? { distanceMeters: Math.round(params.distanceKm * 1000) } : {}),
+    });
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[healthBridge] writeWorkout →', result);
+    }
+  } catch (err) {
+    console.warn('[healthBridge] writeWorkout failed (non-critical):', err);
+  }
+}
+
+/**
  * Public: idempotent first-time install.
  * Subscribes to `samplesAvailable`, enables background delivery if the
  * user has previously granted permissions (we cache that in

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import FillingButton from './FillingButton';
 import IsometricTimerCard from './IsometricTimerCard';
@@ -132,6 +132,17 @@ export default function ActiveExerciseView({
   onSwap,
   onSetVideoProgress,
 }: ActiveExerciseViewProps) {
+  // Gate the hidden prefetch <video> until the main video has started loading.
+  // On iOS WKWebView, two concurrent video decoders can exhaust the system
+  // media budget and cause the primary video to fail. Waiting for the main
+  // video's `loadeddata` event before mounting the prefetch avoids this race.
+  const [mainVideoReady, setMainVideoReady] = useState(false);
+
+  // Reset the gate on every set remount so the prefetch is re-deferred.
+  useEffect(() => {
+    setMainVideoReady(false);
+  }, [activeKey]);
+
   return (
     <div
       key={activeKey}
@@ -148,10 +159,15 @@ export default function ActiveExerciseView({
         hasAudio={false}
         onVideoProgress={onSetVideoProgress}
         onVideoEnded={isTimeExercise ? undefined : () => onComplete()}
+        onLoadingChange={(loading) => {
+          if (!loading) setMainVideoReady(true);
+        }}
       />
 
-      {/* Pre-fetch next exercise video (uses cached blob when offline) */}
-      {cachedNextVideoUrl && (
+      {/* Pre-fetch next exercise video — deferred until the main video has fired
+          loadeddata. On iOS WKWebView, mounting two <video> elements simultaneously
+          exhausts the concurrent decoder budget and can block the primary video. */}
+      {mainVideoReady && cachedNextVideoUrl && (
         <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
       )}
 
@@ -174,7 +190,7 @@ export default function ActiveExerciseView({
           className="absolute inset-0 overflow-y-auto overscroll-contain z-10"
         >
           {/* Spacer — pushes card to bottom; maximises visible video */}
-          <div className="pointer-events-none" style={{ height: 'calc(100dvh - 180px)' }} />
+          <div className="pointer-events-none" style={{ height: 'calc(100dvh - 220px)' }} />
 
           {/* Card — compact, content-hugging */}
           <div

@@ -108,4 +108,23 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
       }),
     );
   }
+
+  // 4. Apple Health — write the completed workout to HealthKit (iOS only).
+  // Fire-and-forget: a HealthKit write failure must never block the user's
+  // celebration screen or XP award. Lazy import keeps the web bundle slim.
+  void (async () => {
+    try {
+      const { writeWorkoutToHealth } = await import('@/lib/healthBridge/init');
+      const endISO = new Date().toISOString();
+      await writeWorkoutToHealth({
+        workoutType: payload.workoutType,
+        durationMinutes: payload.durationMinutes,
+        calories: payload.calories,
+        distanceKm: payload.distanceKm,
+        endISO,
+      });
+    } catch {
+      // HealthBridge not available (web, Android, or not initialised) — ignore.
+    }
+  })();
 }

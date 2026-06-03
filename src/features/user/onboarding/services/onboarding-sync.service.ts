@@ -646,6 +646,16 @@ export async function syncOnboardingToFirestore(
     if ((data as any).accountMethod) {
       updateData.accountMethod = (data as any).accountMethod;
     }
+
+    // ── Calendar sync preference ──────────────────────────────────────
+    // calendarSyncEnabled is set by ScheduleStep / RunningScheduleStep.
+    // Write it to settings.calendarSync so the app and admin can read it.
+    if ((data as any).calendarSyncEnabled !== undefined) {
+      updateData.settings = {
+        ...(updateData.settings ?? {}),
+        calendarSync: Boolean((data as any).calendarSyncEnabled),
+      };
+    }
     if ((data as any).securedEmail) {
       updateData.core = {
         ...updateData.core,

@@ -184,7 +184,7 @@ export function usePresenceLayer(
   const photoURL = profile?.core?.photoURL ?? undefined;
   const runningLevel = profile?.running?.level ?? undefined;
 
-  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel });
+  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel, currentLocation });
   stateRef.current = {
     privacyMode,
     following,
@@ -197,6 +197,7 @@ export function usePresenceLayer(
     lemurStage,
     photoURL,
     runningLevel,
+    currentLocation,
   };
 
   // Load social connections
@@ -224,7 +225,7 @@ export function usePresenceLayer(
 
     console.log('[PresenceHeartbeat] mount OK — heartbeat will tick now and every 2 min', {
       userId,
-      currentLocation,
+      currentLocation: stateRef.current.currentLocation,
       privacyMode: stateRef.current.privacyMode,
       ageGroup: stateRef.current.ageGroup,
     });
@@ -233,11 +234,15 @@ export function usePresenceLayer(
     const getPayload = (): PresencePayload | null => {
       tickCount += 1;
       const s = stateRef.current;
-      if (!currentLocation || !s.userId) {
+      // Read location from stateRef so the heartbeat always uses the latest
+      // GPS coordinates without needing to restart the effect on every position
+      // change. stateRef.current is updated every render.
+      const loc = s.currentLocation;
+      if (!loc || !s.userId) {
         console.log('[PresenceHeartbeat] tick SKIPPED', {
           tickCount,
-          reason: !currentLocation ? 'no currentLocation (GPS pending?)' : 'no userId in stateRef',
-          currentLocation,
+          reason: !loc ? 'no currentLocation (GPS pending?)' : 'no userId in stateRef',
+          currentLocation: loc,
         });
         return null;
       }
@@ -247,7 +252,7 @@ export function usePresenceLayer(
       // permission flips, or simulated-mode swaps. Writing those raw
       // would either trigger Firebase's "Expected number" assertion or
       // pin the user to [0,0] in the Gulf of Guinea.
-      const { lat, lng } = currentLocation;
+      const { lat, lng } = loc;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
         console.log('[PresenceHeartbeat] tick SKIPPED', {
           tickCount,
@@ -297,7 +302,7 @@ export function usePresenceLayer(
       if (userId) clearPresence(userId).catch(() => {});
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, currentLocation?.lat, currentLocation?.lng]);
+  }, [userId]);
 
   // ── Real-time Firestore listener (single onSnapshot) ─────────────────────
   useEffect(() => {

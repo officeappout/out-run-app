@@ -6,6 +6,27 @@ import { Geolocation } from '@capacitor/geolocation';
 
 const FALLBACK_SDEROT = { lat: 31.525, lng: 34.5955 };
 
+// Minimum elapsed time (ms) between GPS state updates. iOS CLLocationManager
+// with enableHighAccuracy can fire at ~1 Hz or faster. Throttling to 2 Hz
+// max prevents excessive re-renders and Mapbox repaints on WKWebView.
+const GPS_MIN_INTERVAL_MS = 500;
+
+// Minimum distance (metres) to move before accepting a new position update.
+// Filters out GPS jitter when the user is stationary.
+const GPS_MIN_DISTANCE_M = 3;
+
+function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6_371_000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /**
  * Validates a raw browser `GeolocationPosition.coords` payload before it
  * enters React state. Browsers (and especially mobile WebViews) occasionally
@@ -57,6 +78,10 @@ export function useGPS(): GPSState {
   // For the Capacitor (native) path — watchPosition returns a string callbackId
   const capWatchId = useRef<string | null>(null);
   const hasFallback = useRef(false);
+
+  // GPS throttle state — shared between native and web paths
+  const lastGPSTime = useRef<number>(0);
+  const lastGPSPos = useRef<{ lat: number; lng: number } | null>(null);
 
   const isNative = Capacitor.isNativePlatform();
 
@@ -119,8 +144,17 @@ export function useGPS(): GPSState {
                 console.warn('[useGPS] Dropping invalid Capacitor GPS sample:', pos.coords);
                 return;
               }
+              // Throttle: skip updates that arrive too soon or haven't moved enough.
+              const now = Date.now();
+              const newLat = pos.coords.latitude;
+              const newLng = pos.coords.longitude;
+              const prev = lastGPSPos.current;
+              if (now - lastGPSTime.current < GPS_MIN_INTERVAL_MS) return;
+              if (prev && haversineMetres(prev.lat, prev.lng, newLat, newLng) < GPS_MIN_DISTANCE_M) return;
+              lastGPSTime.current = now;
+              lastGPSPos.current = { lat: newLat, lng: newLng };
               setLocationError(null);
-              setCurrentUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+              setCurrentUserPos({ lat: newLat, lng: newLng });
               if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
                 setUserBearing(pos.coords.heading);
               }
@@ -166,8 +200,17 @@ export function useGPS(): GPSState {
           console.warn('[useGPS] Dropping invalid GPS sample:', pos.coords);
           return;
         }
+        // Throttle: skip updates that arrive too soon or haven't moved enough.
+        const now = Date.now();
+        const newLat = pos.coords.latitude;
+        const newLng = pos.coords.longitude;
+        const prev = lastGPSPos.current;
+        if (now - lastGPSTime.current < GPS_MIN_INTERVAL_MS) return;
+        if (prev && haversineMetres(prev.lat, prev.lng, newLat, newLng) < GPS_MIN_DISTANCE_M) return;
+        lastGPSTime.current = now;
+        lastGPSPos.current = { lat: newLat, lng: newLng };
         setLocationError(null);
-        setCurrentUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setCurrentUserPos({ lat: newLat, lng: newLng });
         if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
           setUserBearing(pos.coords.heading);
         }

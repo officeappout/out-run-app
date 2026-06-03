@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { MapPin, Dumbbell, Route as RouteIcon, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { haversineKm } from '@/features/parks/core/services/geoUtils';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -67,27 +69,41 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
       setUsingFallback(true);
     };
 
+    // ── Native path (iOS / Android) ──────────────────────────────────────
+    // navigator.permissions is either absent or session-scoped in WKWebView
+    // and will falsely return 'prompt' even after the native iOS location
+    // permission has been granted. Use the Capacitor Geolocation plugin
+    // directly — it calls CLLocationManager and reflects the real system
+    // permission state without touching the web permission layer.
+    if (Capacitor.isNativePlatform()) {
+      Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 })
+        .then((pos) => {
+          const { latitude, longitude } = pos.coords;
+          if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            setUserPos({ lat: latitude, lng: longitude });
+          } else {
+            applyFallback();
+          }
+        })
+        .catch(() => applyFallback());
+      return;
+    }
+
+    // ── Web / browser path ───────────────────────────────────────────────
+    // Attempt getCurrentPosition directly — if the permission was already
+    // granted the browser resolves it instantly. If it was denied or not
+    // yet decided, it errors and we fall back to the city-coord heuristic.
+    // This avoids the Permissions API entirely (unreliable on some browsers).
     if (!('geolocation' in navigator)) {
       applyFallback();
       return;
     }
 
-    const permissionsAPI = navigator.permissions;
-    if (permissionsAPI) {
-      permissionsAPI.query({ name: 'geolocation' }).then((status) => {
-        if (status.state === 'granted') {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            () => applyFallback(),
-            { maximumAge: 60_000, timeout: 8000 },
-          );
-        } else {
-          applyFallback();
-        }
-      }).catch(() => applyFallback());
-    } else {
-      applyFallback();
-    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => applyFallback(),
+      { maximumAge: 60_000, timeout: 8000 },
+    );
   }, [profile]);
 
   useEffect(() => {
@@ -186,6 +202,19 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
         </h3>
         <button
           onClick={() => {
+            if (Capacitor.isNativePlatform()) {
+              Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 })
+                .then((pos) => {
+                  const { latitude, longitude } = pos.coords;
+                  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+                    setUserPos({ lat: latitude, lng: longitude });
+                    setUsingFallback(false);
+                    setLoaded(false);
+                  }
+                })
+                .catch(() => {});
+              return;
+            }
             if (!('geolocation' in navigator)) return;
             navigator.geolocation.getCurrentPosition(
               (pos) => {

@@ -12,7 +12,9 @@
  *   3. Pick a resolution and return the Bunny CDN MP4 URL.
  *
  * Resolution policy:
- *   wifi                                  → 1080p
+ *   iOS native (WKWebView)                → 360p (matches REST player; avoids
+ *                                            1080p concurrent decode failures)
+ *   wifi (non-native)                     → 1080p
  *   cellular + effectiveType === '4g'     → 720p
  *   cellular + 3g / 2g / slow-2g          → 360p
  *   cellular (sub-type unknown)           → 720p
@@ -20,6 +22,11 @@
  *
  * Format is intentionally kept as a single whole-file MP4 so the existing
  * IndexedDB blob-cache (`useCachedMediaUrl` / `getMediaBlob`) keeps working.
+ *
+ * Null-URL behaviour:
+ *   The previous `streamUrl` is kept visible while the new videoId resolves,
+ *   eliminating the flash-of-nothing between set remounts on iOS. The old
+ *   blob: URL is revoked only after the new URL is ready (or on unmount).
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -29,7 +36,7 @@ import { getMediaBlob } from '@/features/favorites/services/favorites-db';
 type BunnyResolution = 240 | 360 | 480 | 720 | 1080;
 
 export interface NetworkAwareStreamResult {
-  /** The URL to feed into <video src>. `null` while the async resolution is in flight. */
+  /** The URL to feed into <video src>. `null` only before first resolution or when videoId is null. */
   streamUrl: string | null;
   /** True when the URL is a `blob:` served from the IndexedDB cache. */
   fromCache: boolean;
@@ -41,6 +48,15 @@ interface NavigatorConnection {
   effectiveType?: 'slow-2g' | '2g' | '3g' | '4g';
 }
 
+/** True when running inside Capacitor on iOS (WKWebView). Safe to call on server (returns false). */
+function isIosNative(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    (window as unknown as { Capacitor?: { getPlatform?: () => string } })
+      .Capacitor?.getPlatform?.() === 'ios'
+  );
+}
+
 /**
  * Pick a streaming resolution based on the current connection.
  * Pure function so it's trivial to unit-test in isolation.
@@ -48,7 +64,12 @@ interface NavigatorConnection {
 function pickResolution(
   connectionType: string | undefined,
   effectiveType: string | undefined,
+  iosNative: boolean,
 ): BunnyResolution {
+  // iOS WKWebView: cap at 360p to match the REST player and avoid concurrent
+  // decoder exhaustion when a second hidden <video> is also present.
+  if (iosNative) return 360;
+
   if (connectionType === 'wifi') return 1080;
 
   if (connectionType === 'cellular') {
@@ -70,14 +91,36 @@ export function useNetworkAwareStreamUrl(
     resolution: null,
   });
 
-  // Track the live blob: URL so we can revoke it on unmount / videoId change.
+  // Tracks the active blob: URL so it can be revoked once superseded or on unmount.
+  // Deliberately NOT revoked in the main effect cleanup — the previous URL stays
+  // visible in the <video src> until the new one is ready, preventing a flash of
+  // nothing between set remounts on iOS.
   const blobUrlRef = useRef<string | null>(null);
 
+  // Revoke the final blob on component unmount only.
   useEffect(() => {
-    // Reset for the new videoId
-    setResult({ streamUrl: null, fromCache: false, resolution: null });
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, []);
 
-    if (!videoId) return;
+  useEffect(() => {
+    if (!videoId) {
+      // Explicit "no video" — revoke any lingering blob and clear immediately.
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+      setResult({ streamUrl: null, fromCache: false, resolution: null });
+      return;
+    }
+
+    // NOTE: intentionally NOT resetting streamUrl to null here.
+    // The previous URL stays rendered while the new one resolves, so there is
+    // no empty-frame flash between set remounts on iOS WKWebView.
 
     let cancelled = false;
 
@@ -91,6 +134,8 @@ export function useNetworkAwareStreamUrl(
         if (cancelled) return;
         if (blob) {
           const objectUrl = URL.createObjectURL(blob);
+          // Revoke the superseded blob AFTER the new one is ready.
+          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
           blobUrlRef.current = objectUrl;
           console.log('🎯 [SmartPlayer] Serving from Local Cache (720p blob) for videoId:', videoId);
           setResult({ streamUrl: objectUrl, fromCache: true, resolution: 720 });
@@ -118,8 +163,14 @@ export function useNetworkAwareStreamUrl(
       const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & { connection?: NavigatorConnection }) : null;
       const effectiveType = nav?.connection?.effectiveType;
 
-      const resolution = pickResolution(connectionType, effectiveType);
+      const resolution = pickResolution(connectionType, effectiveType, isIosNative());
       const streamUrl  = buildBunnyStreamUrl(videoId, resolution);
+
+      // We're switching to a network URL — revoke any blob that was active.
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
 
       console.log(`🌐 [SmartPlayer] Network Status: ${connectionType} | Effective Type: ${effectiveType ?? 'n/a'} | 🎯 Chosen Resolution: ${resolution}p for videoId:`, videoId);
 
@@ -131,10 +182,8 @@ export function useNetworkAwareStreamUrl(
 
     return () => {
       cancelled = true;
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
+      // Do NOT revoke blobUrlRef here — the next effect invocation will revoke it
+      // once the new URL is ready. The unmount effect handles the final revoke.
     };
   }, [videoId]);
 

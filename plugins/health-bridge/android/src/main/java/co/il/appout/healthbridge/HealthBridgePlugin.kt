@@ -5,10 +5,14 @@ import android.content.Intent
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.health.connect.client.units.Energy
+import androidx.health.connect.client.units.Length
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -26,6 +30,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
@@ -59,6 +64,12 @@ class HealthBridgePlugin : Plugin() {
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+    )
+
+    private val writePermissions = setOf(
+        HealthPermission.getWritePermission(ExerciseSessionRecord::class),
+        HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getWritePermission(DistanceRecord::class),
     )
 
     /**
@@ -292,9 +303,101 @@ class HealthBridgePlugin : Plugin() {
         }
     }
 
+    /**
+     * Write a completed workout session to Health Connect.
+     *
+     * Inserts an ExerciseSessionRecord plus optional
+     * TotalCaloriesBurnedRecord and DistanceRecord.
+     *
+     * JS parameters (mirrors WriteWorkoutOptions in definitions.ts):
+     *   workoutType  — HKWorkoutActivityType string
+     *   startISO     — ISO-8601 start time
+     *   endISO       — ISO-8601 end time
+     *   calories     — kcal (integer ≥ 0)
+     *   distanceMeters — optional metres (number ≥ 0)
+     */
+    @PluginMethod
+    fun writeWorkout(call: PluginCall) {
+        val client = client() ?: run {
+            call.reject("Health Connect unavailable")
+            return
+        }
+        val startISO = call.getString("startISO") ?: run { call.reject("startISO required"); return }
+        val endISO = call.getString("endISO") ?: run { call.reject("endISO required"); return }
+        val workoutType = call.getString("workoutType") ?: "other"
+        val calories = call.getInt("calories") ?: 0
+        val distanceMeters = call.getDouble("distanceMeters")
+
+        scope.launch {
+            try {
+                val start = Instant.parse(startISO)
+                val end = Instant.parse(endISO)
+
+                val exerciseType = when (workoutType) {
+                    "running"                    -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+                    "walking"                    -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+                    "cycling"                    -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+                    "swimming"                   -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER
+                    "hiking"                     -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
+                    "yoga"                       -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
+                    "traditionalStrengthTraining",
+                    "functionalStrengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
+                    "crossTraining"              -> ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS
+                    "coreTraining"               -> ExerciseSessionRecord.EXERCISE_TYPE_CORE_TRAINING
+                    "jumpRope"                   -> ExerciseSessionRecord.EXERCISE_TYPE_JUMP_ROPE
+                    "stairClimbing"              -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE
+                    else                         -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+                }
+
+                val recordsToInsert = mutableListOf<androidx.health.connect.client.records.Record>()
+
+                recordsToInsert.add(
+                    ExerciseSessionRecord(
+                        startTime = start,
+                        startZoneOffset = ZoneOffset.UTC,
+                        endTime = end,
+                        endZoneOffset = ZoneOffset.UTC,
+                        exerciseType = exerciseType,
+                    )
+                )
+
+                if (calories > 0) {
+                    recordsToInsert.add(
+                        TotalCaloriesBurnedRecord(
+                            startTime = start,
+                            startZoneOffset = ZoneOffset.UTC,
+                            endTime = end,
+                            endZoneOffset = ZoneOffset.UTC,
+                            energy = Energy.kilocalories(calories.toDouble()),
+                        )
+                    )
+                }
+
+                if (distanceMeters != null && distanceMeters > 0.0) {
+                    recordsToInsert.add(
+                        DistanceRecord(
+                            startTime = start,
+                            startZoneOffset = ZoneOffset.UTC,
+                            endTime = end,
+                            endZoneOffset = ZoneOffset.UTC,
+                            distance = Length.meters(distanceMeters),
+                        )
+                    )
+                }
+
+                val response = client.insertRecords(recordsToInsert)
+                val out = JSObject()
+                out.put("saved", true)
+                out.put("uuid", response.recordIdsList.firstOrNull() ?: "")
+                call.resolve(out)
+            } catch (e: Exception) {
+                call.reject("writeWorkout failed: ${e.message}", e)
+            }
+        }
+    }
+
     @PluginMethod
     fun enableBackgroundDelivery(call: PluginCall) {
-        val ctx = context ?: run { call.reject("no-context"); return }
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()

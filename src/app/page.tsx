@@ -130,6 +130,12 @@ function LoginDrawer({
   loadingProvider: 'google' | 'apple' | null;
 }) {
   const loading = loadingProvider !== null;
+  // Hide Apple button on Android — ASAuthorizationController is iOS-only.
+  const [isAndroid, setIsAndroid] = useState(false);
+  useEffect(() => {
+    const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
+    setIsAndroid(cap?.getPlatform?.() === 'android');
+  }, []);
   // Prevent body scroll when drawer is open
   useEffect(() => {
     if (open) {
@@ -218,25 +224,27 @@ function LoginDrawer({
                 {loadingProvider === 'google' ? 'מתחבר...' : 'המשך עם Google'}
               </button>
 
-              {/* Apple Login — native ASAuthorizationController sheet */}
-              <button
-                onClick={onAppleLogin}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 bg-black hover:bg-gray-900 text-white font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                {loadingProvider === 'apple' ? (
-                  <svg className="animate-spin w-5 h-5 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
-                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                  </svg>
-                )}
-                {loadingProvider === 'apple' ? 'מתחבר...' : 'המשך עם Apple'}
-              </button>
+              {/* Apple Login — native ASAuthorizationController sheet (iOS only) */}
+              {!isAndroid && (
+                <button
+                  onClick={onAppleLogin}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-3 bg-black hover:bg-gray-900 text-white font-bold py-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                  style={{ fontFamily: 'var(--font-simpler)' }}
+                >
+                  {loadingProvider === 'apple' ? (
+                    <svg className="animate-spin w-5 h-5 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                    </svg>
+                  )}
+                  {loadingProvider === 'apple' ? 'מתחבר...' : 'המשך עם Apple'}
+                </button>
+              )}
             </div>
           </motion.div>
         </>

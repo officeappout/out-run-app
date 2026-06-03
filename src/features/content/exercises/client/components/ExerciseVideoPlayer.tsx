@@ -19,7 +19,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Video as VideoIcon } from 'lucide-react';
 import {
-  buildBunnyEmbedUrl,
   buildBunnyThumbnailUrl,
 } from '@/lib/bunny/bunny.config';
 import { useNetworkAwareStreamUrl } from '../hooks/useNetworkAwareStreamUrl';
@@ -157,8 +156,17 @@ export default function ExerciseVideoPlayer({
   const bunnyPreviewId = effectiveBunnyId && mode === 'preview' ? effectiveBunnyId : null;
   // Only fire the hero hook for the "legacy URL → tutorial mode" case.
   const bunnyHeroId = legacyBunnyId && mode === 'tutorial' ? legacyBunnyId : null;
-  const { streamUrl: bunnyPreviewUrl } = useNetworkAwareStreamUrl(bunnyPreviewId);
-  const { streamUrl: bunnyHeroUrl }    = useNetworkAwareStreamUrl(bunnyHeroId);
+  // Fire for explicit fullTutorial ExternalVideo objects in tutorial mode.
+  // Replaces the Bunny embed iframe so native <video> is used on all platforms —
+  // WKWebView (iOS) does not honour the Permissions Policy `allow` attribute on
+  // cross-origin iframes, which prevents autoplay inside them.
+  const bunnyTutorialId =
+    video?.provider === 'bunny' && !legacyBunnyId && mode === 'tutorial'
+      ? (video.videoId ?? null)
+      : null;
+  const { streamUrl: bunnyPreviewUrl }   = useNetworkAwareStreamUrl(bunnyPreviewId);
+  const { streamUrl: bunnyHeroUrl }      = useNetworkAwareStreamUrl(bunnyHeroId);
+  const { streamUrl: bunnyTutorialUrl }  = useNetworkAwareStreamUrl(bunnyTutorialId);
 
   // ── Resolve provider + URLs ────────────────────────────────────────────
   let provider = video?.provider;
@@ -239,30 +247,30 @@ export default function ExerciseVideoPlayer({
       }
 
       // ── Explicit fullTutorial ExternalVideo (long-form, full controls)
-      // Render the Bunny embed iframe — Bunny's own ABR delivers the right
-      // bitrate automatically. `loading="eager"` since this is a singleton sheet
-      // the user intentionally opened. Poster overlay hides the dark blank frame
-      // while the Bunny player SDK initialises.
+      // Native <video> with network-aware resolution — replaces the Bunny embed
+      // iframe. WKWebView on iOS does not honour the Permissions Policy `allow`
+      // attribute on cross-origin iframes, so autoplay inside them is blocked.
+      // A native <video controls> element gives identical UX on all platforms.
+      // The poster image fills the container while the network-aware URL resolves.
       return (
-        <div ref={containerRef} className={`${className ?? ''} relative`}>
-          <iframe
-            src={buildBunnyEmbedUrl(videoId)}
-            className="absolute inset-0 w-full h-full border-0"
-            loading="eager"
-            onLoad={() => setIframeLoaded(true)}
-            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-            allowFullScreen
-            title="Exercise tutorial"
-          />
-          {/* Poster — pointer-events-none so the iframe can receive focus the
-              moment it finishes painting its first frame. */}
-          {!iframeLoaded && heroPoster && (
+        <div ref={containerRef} className={`${className ?? ''} relative overflow-hidden`}>
+          {bunnyTutorialUrl ? (
+            <video
+              src={bunnyTutorialUrl}
+              poster={heroPoster ?? undefined}
+              className="absolute inset-0 w-full h-full object-contain"
+              playsInline
+              {...{"webkit-playsinline": "true"}}
+              preload="auto"
+              controls
+            />
+          ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={heroPoster}
+              src={heroPoster ?? ''}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              style={{ zIndex: 1, backgroundColor: '#0f172a' }}
+              className="absolute inset-0 w-full h-full object-cover"
+              decoding="async"
             />
           )}
         </div>

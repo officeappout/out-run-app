@@ -1361,17 +1361,34 @@ export default function SmartWeeklySchedule({
 
       {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
       {!showOverlay && <div className="flex items-center justify-between mb-2 px-1">
-        {/* webcal:// deep-link — iOS opens Apple Calendar, Android opens Google Calendar */}
-        <a
-          href={userId ? `webcal://${typeof window !== 'undefined' ? window.location.host : ''}/api/calendar/${userId}` : undefined}
-          rel="noopener noreferrer"
+        {/* webcal:// deep-link — use Capacitor App.openUrl on native so WKWebView
+            hands off to Apple Calendar / Google Calendar properly. Falls back to
+            a standard <a> href on pure-web / desktop. */}
+        <button
+          type="button"
+          onClick={async () => {
+            if (!userId) return;
+            const host = typeof window !== 'undefined' ? window.location.host : 'out-run-app.vercel.app';
+            const webcalUrl = `webcal://${host}/api/calendar/${userId}`;
+            try {
+              const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
+              if (w.Capacitor?.isNativePlatform?.()) {
+                const { App } = await import('@capacitor/app');
+                await App.openUrl({ url: webcalUrl });
+              } else {
+                window.location.href = webcalUrl;
+              }
+            } catch {
+              window.location.href = webcalUrl;
+            }
+          }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
           <img src="/icons/schedule/sync-calendar.svg" alt="" className="w-4 h-4" />
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
             סנכרון ליומן
           </span>
-        </a>
+        </button>
         <button
           onClick={onOpenPlanner ?? toggleCalendarMode}
           className="inline-flex items-center gap-1 font-medium hover:underline"

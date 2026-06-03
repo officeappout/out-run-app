@@ -27,7 +27,7 @@
 			<string>com.google.reverseClientId</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.371293978848-mdfli8sgahvqkkih9aonksul4g9o393l</string>
+				<string>com.googleusercontent.apps.371293978848-fhva157r96s6mmn0oo6qpsu3th7jrhhb</string>
 			</array>
 		</dict>
 		<dict>
@@ -37,7 +37,7 @@
 			<string>Google Sign In</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.371293978848-mdfli8sgahvqkkih9aonksul4g9o393l</string>
+				<string>com.googleusercontent.apps.371293978848-fhva157r96s6mmn0oo6qpsu3th7jrhhb</string>
 			</array>
 		</dict>
 	</array>
@@ -61,6 +61,7 @@
 	<array>
 		<string>remote-notification</string>
 		<string>fetch</string>
+		<string>processing</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

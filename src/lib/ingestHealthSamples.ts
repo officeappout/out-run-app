@@ -64,7 +64,26 @@ export async function ingestHealthSamples(
     );
     const { data } = await callable(input);
     return data;
-  } catch (err) {
+  } catch (err: unknown) {
+    const code = (err as any)?.code ?? '';
+    const msg  = String((err as any)?.message ?? '');
+    const isAppCheck =
+      code === 'unauthenticated' &&
+      (msg.toLowerCase().includes('app check') ||
+       msg.toLowerCase().includes('appcheck'));
+
+    if (isAppCheck) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[ingestHealthSamples] App Check token rejected — set NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN ' +
+          'in .env.local for local/TestFlight builds. Samples will be retried.',
+          err,
+        );
+      }
+      // Re-throw so OutboxFlusher can detect this and skip bumping attempts.
+      throw err;
+    }
+
     console.error('[ingestHealthSamples] Passive Door call failed:', err);
     return null;
   }
