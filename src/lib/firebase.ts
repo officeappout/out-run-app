@@ -24,6 +24,10 @@ import {
   CustomProvider,
   AppCheck,
 } from "firebase/app-check";
+import type {
+  AppCheckFailureReason,
+  AppCheckFailureEvent,
+} from './native-auth-validation';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -191,6 +195,54 @@ if (typeof window !== "undefined") {
     /** Timestamp of the most recent getToken() failure, or null if healthy. */
     let appCheckFailedAt: number | null = null;
 
+    /**
+     * Classify a raw App Check error into a discrete AppCheckFailureReason.
+     * Keeps the catch blocks free of ad-hoc string matching and makes the
+     * reason available to future analytics sinks (Firebase Analytics,
+     * Sentry, Datadog) without scraping console output.
+     */
+    function classifyAppCheckError(err: unknown): AppCheckFailureReason {
+      const msg = ((err as Error)?.message ?? String(err)).toLowerCase();
+      if (msg === 'app_check_token_timeout')          return 'TIMEOUT';
+      if (msg.includes('too many attempts'))          return 'RATE_LIMITED';
+      if (msg.includes('app not registered') ||
+          msg.includes('not registered'))             return 'NOT_REGISTERED';
+      if (msg.includes('devicecheck') ||
+          msg.includes('app attest') ||
+          msg.includes('dcerror'))                    return 'DEVICE_CHECK_ERROR';
+      if (msg.includes('play integrity') ||
+          msg.includes('playintegrity'))              return 'PLAY_INTEGRITY_ERROR';
+      return 'UNKNOWN';
+    }
+
+    /**
+     * Emit a structured App Check failure event to the console.
+     *
+     * Replace or augment this function to forward events to an analytics
+     * sink (e.g. Firebase Analytics logEvent, Sentry.captureEvent) without
+     * changing call sites.
+     */
+    function logAppCheckFailure(event: AppCheckFailureEvent): void {
+      const prefix = `[firebase] App Check failure [${event.reason}] on ${event.platform}`;
+      if (event.reason === 'BACKOFF') {
+        console.warn(
+          `${prefix} — circuit breaker active,` +
+          ` back-off remaining: ${Math.round((event.backoffRemainingMs ?? 0) / 1_000)}s.`,
+        );
+      } else {
+        console.warn(`${prefix}: ${event.message}`);
+      }
+      // Future hook: analytics.logEvent('app_check_failure', { reason: event.reason, platform: event.platform });
+    }
+
+    /** Detect iOS vs Android for structured event metadata. */
+    function nativePlatformName(): AppCheckFailureEvent['platform'] {
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+      if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+      if (/Android/i.test(ua))          return 'android';
+      return 'unknown';
+    }
+
     try {
       const customProvider = new CustomProvider({
         getToken: async () => {
@@ -200,13 +252,15 @@ if (typeof window !== "undefined") {
           // a short-TTL dummy token, as that causes an instant re-request
           // loop that freezes the JS thread.
           if (appCheckFailedAt !== null && Date.now() - appCheckFailedAt < APP_CHECK_BACKOFF_MS) {
-            const remainingSec = Math.ceil(
-              (APP_CHECK_BACKOFF_MS - (Date.now() - appCheckFailedAt)) / 1000,
-            );
-            throw new Error(
-              `[firebase] App Check in backoff for ${remainingSec}s — ` +
-              'throwing so Firebase applies its own retry back-off.',
-            );
+            const backoffRemainingMs =
+              APP_CHECK_BACKOFF_MS - (Date.now() - appCheckFailedAt);
+            logAppCheckFailure({
+              reason: 'BACKOFF',
+              message: 'circuit breaker active',
+              platform: nativePlatformName(),
+              backoffRemainingMs,
+            });
+            throw new Error(`App Check backoff — ${Math.round(backoffRemainingMs / 1_000)}s remaining.`);
           }
 
           try {
@@ -239,12 +293,13 @@ if (typeof window !== "undefined") {
             // Firebase's own back-off logic handles the retry schedule —
             // this is critical to avoid a tight re-request loop.
             appCheckFailedAt = Date.now();
-            const msg = (err as Error)?.message ?? String(err);
-            console.warn(
-              '[firebase] Native App Check getToken() failed' +
-              (msg === 'APP_CHECK_TOKEN_TIMEOUT' ? ' (timed out after 10 s)' : `: ${msg}`) +
-              ` — will back off for ${APP_CHECK_BACKOFF_MS / 1_000}s.`,
-            );
+            const reason = classifyAppCheckError(err);
+            const msg    = (err as Error)?.message ?? String(err);
+            logAppCheckFailure({
+              reason,
+              message: reason === 'TIMEOUT' ? 'timed out after 10 s' : msg,
+              platform: nativePlatformName(),
+            });
             throw err;
           }
         },

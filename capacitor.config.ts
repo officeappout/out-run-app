@@ -24,6 +24,10 @@ const config: CapacitorConfig = {
   },
 
   plugins: {
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ['apple.com', 'google.com'],
+    },
     FirebaseAppCheck: {
       providerIOS: 'deviceCheck',
       providerAndroid: 'playIntegrity',

@@ -307,13 +307,20 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
 
-      // Build a web-SDK OAuthCredential from the Apple token + nonce.
-      // rawNonce is only present on the first sign-in; subsequent ones
-      // may omit it — both cases are valid for Apple's token exchange.
+      // The Capacitor plugin ALWAYS generates a nonce and embeds its SHA256
+      // hash in the Apple ID token. Firebase requires rawNonce (the pre-hash
+      // value) to verify the token — omitting it causes auth/missing-or-invalid-nonce.
+      // Fail fast here rather than silently proceeding without rawNonce.
+      const rawNonce = result.credential.nonce;
+      if (!rawNonce) {
+        console.error('[Auth Service] Apple sign-in: plugin returned no nonce. Cannot create a valid Firebase credential.');
+        return { user: null, error: 'apple_nonce_missing' };
+      }
+
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
+        rawNonce,
       });
 
       const webResult = await signInWithCredential(auth, credential);
@@ -510,10 +517,17 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
 
+      // Same nonce requirement as signInWithApple — rawNonce must always be present.
+      const rawNonce = result.credential.nonce;
+      if (!rawNonce) {
+        console.error('[Auth Service] Apple link: plugin returned no nonce. Cannot create a valid Firebase credential.');
+        return { user: null, error: 'apple_nonce_missing' };
+      }
+
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
+        rawNonce,
       });
 
       const linkResult = await linkWithCredential(auth.currentUser, credential);

@@ -20,7 +20,11 @@
     "_comment_full": "── Full pipeline ── Use these when you want to deploy web + sync native in one shot.",
     "ship:ios": "next build && vercel --prod && npx cap sync ios",
     "ship:android": "next build && vercel --prod && npx cap sync android",
-    "ship": "next build && vercel --prod && npx cap sync"
+    "ship": "next build && vercel --prod && npx cap sync",
+    "_comment_preflight": "── Pre-flight ── Run before every TestFlight / release build to catch missing native config (GoogleService-Info.plist, REVERSED_CLIENT_ID, SHA fingerprints, etc.).",
+    "preflight": "node scripts/preflight-native-check.mjs",
+    "preflight:testflight": "node scripts/preflight-native-check.mjs && npm run cap:sync:ios",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@capacitor-firebase/app-check": "^6.3.0",
@@ -97,6 +101,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
+    "patch-package": "^8.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.21.0",
