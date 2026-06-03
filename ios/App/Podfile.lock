@@ -23,6 +23,9 @@ PODS:
   - CapacitorFirebaseMessaging (6.3.1):
     - Capacitor
     - FirebaseMessaging (~> 11.0)
+  - CapacitorGeolocation (8.2.0):
+    - Capacitor
+    - IONGeolocationLib (= 2.1.0)
   - CapacitorKeyboard (6.0.4):
     - Capacitor
   - CapacitorNetwork (8.0.1):
@@ -98,6 +101,7 @@ PODS:
   - GTMSessionFetcher/Core (4.5.0)
   - HealthBridge (0.1.0):
     - Capacitor
+  - IONGeolocationLib (2.1.0)
   - nanopb (3.30910.0):
     - nanopb/decode (= 3.30910.0)
     - nanopb/encode (= 3.30910.0)
@@ -114,6 +118,7 @@ DEPENDENCIES:
   - "CapacitorFirebaseAppCheck (from `../../node_modules/@capacitor-firebase/app-check`)"
   - "CapacitorFirebaseAuthentication (from `../../node_modules/@capacitor-firebase/authentication`)"
   - "CapacitorFirebaseMessaging (from `../../node_modules/@capacitor-firebase/messaging`)"
+  - "CapacitorGeolocation (from `../../node_modules/@capacitor/geolocation`)"
   - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
   - "CapacitorNetwork (from `../../node_modules/@capacitor/network`)"
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
@@ -134,6 +139,7 @@ SPEC REPOS:
     - GoogleDataTransport
     - GoogleUtilities
     - GTMSessionFetcher
+    - IONGeolocationLib
     - nanopb
     - PromisesObjC
     - RecaptchaInterop
@@ -153,6 +159,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor-firebase/authentication"
   CapacitorFirebaseMessaging:
     :path: "../../node_modules/@capacitor-firebase/messaging"
+  CapacitorGeolocation:
+    :path: "../../node_modules/@capacitor/geolocation"
   CapacitorKeyboard:
     :path: "../../node_modules/@capacitor/keyboard"
   CapacitorNetwork:
@@ -171,6 +179,7 @@ SPEC CHECKSUMS:
   CapacitorFirebaseAppCheck: d6aeba50358b0c3728005d8b12b4e03cde983079
   CapacitorFirebaseAuthentication: 2c43a65f88e30842dbf83f38dfb25d8076dce529
   CapacitorFirebaseMessaging: 05bf93285c8ae5aeaaddaa938ba1db4fda7305ad
+  CapacitorGeolocation: b36f6287bfc9f2eefa04dc900496f2c8ae666136
   CapacitorKeyboard: e8cd50fd5cbdd023a5947a5c0f5cca6e5aa5a253
   CapacitorNetwork: 8812ce60d11fb63d8f2e4ba51a49b2e59892ebe2
   CapacitorPreferences: 5848e0691b36b4bb4acc98e481ab56d451578d30
@@ -187,10 +196,11 @@ SPEC CHECKSUMS:
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMSessionFetcher: fc75fc972958dceedee61cb662ae1da7a83a91cf
   HealthBridge: 7b52d59dd93a6290626771e73693350982ae024f
+  IONGeolocationLib: 6a7b6f76063fb1b01cfb14fae7d0f526e3c9b271
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
 
-PODFILE CHECKSUM: 7af2fbae34070dca8448e9b90efdbbb5713e7c6b
+PODFILE CHECKSUM: 8e9527867b40b5c064d4980f8dff6f233a9c6af2
 
 COCOAPODS: 1.16.2

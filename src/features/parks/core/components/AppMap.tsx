@@ -40,14 +40,25 @@ import {
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
 
-if (typeof window !== 'undefined' && !mapboxgl.getRTLTextPluginStatus()) {
-  try {
-    mapboxgl.setRTLTextPlugin(
-      'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js',
-      (error) => { if (error) console.error('RTL Error:', error); },
-      true
-    );
-  } catch (err) { }
+if (typeof window !== 'undefined') {
+  // Reduce Mapbox worker threads from 2 → 1 on iOS WKWebView.
+  // Each worker holds its own copy of the tile-decoding pipeline and
+  // associated JS heap. On memory-constrained WKWebView processes
+  // (~300-500 MB budget) the second worker regularly triggers the
+  // WebContent OOM kill, especially while loading route GeoJSON or
+  // partner presence data simultaneously. One worker is still enough
+  // for real-time 60 fps rendering.
+  mapboxgl.workerCount = 1;
+
+  if (!mapboxgl.getRTLTextPluginStatus()) {
+    try {
+      mapboxgl.setRTLTextPlugin(
+        'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js',
+        (error) => { if (error) console.error('RTL Error:', error); },
+        true
+      );
+    } catch (err) { }
+  }
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -256,6 +267,12 @@ export default function AppMap({
   const hebrewHandlerRef = useRef<(() => void) | null>(null);
   const debouncedHebrewRef = useRef<(() => void) | null>(null);
   const declutterHandlerRef = useRef<(() => void) | null>(null);
+  // Tracks any in-flight hebrewDebounce setTimeout so the cleanup effect
+  // can cancel it on unmount. Without this, a sourcedata event that fires
+  // 50 ms before unmount schedules the timeout, the .off() cleanup fires
+  // (preventing new events), but the already-scheduled callback still runs
+  // after unmount holding a reference to the raw Mapbox map instance.
+  const hebrewDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // ── Map paint readiness gate ──────────────────────────────────────────
   // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
   //   1. The Mapbox style has finished parsing (so the declutter pass
@@ -788,6 +805,12 @@ export default function AppMap({
         if (debouncedHebrewRef.current) map.off('sourcedata', debouncedHebrewRef.current);
         if (declutterHandlerRef.current) map.off('style.load', declutterHandlerRef.current);
       } catch { /* map may already be destroyed */ }
+      // Cancel any in-flight debounce timeout so the post-unmount callback
+      // cannot fire and keep a dangling reference to the Mapbox instance.
+      if (hebrewDebounceTimerRef.current) {
+        clearTimeout(hebrewDebounceTimerRef.current);
+        hebrewDebounceTimerRef.current = null;
+      }
       hebrewHandlerRef.current = null;
       debouncedHebrewRef.current = null;
       declutterHandlerRef.current = null;
@@ -1060,7 +1083,6 @@ export default function AppMap({
       'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
     ]);
 
-    let hebrewDebounce: ReturnType<typeof setTimeout> | null = null;
     const applyHebrewLabels = () => {
       try {
         const style = rawMap.getStyle();
@@ -1077,8 +1099,8 @@ export default function AppMap({
       } catch (err) { console.warn('Could not set Hebrew labels:', err); }
     };
     const debouncedHebrew = () => {
-      if (hebrewDebounce) clearTimeout(hebrewDebounce);
-      hebrewDebounce = setTimeout(applyHebrewLabels, 50);
+      if (hebrewDebounceTimerRef.current) clearTimeout(hebrewDebounceTimerRef.current);
+      hebrewDebounceTimerRef.current = setTimeout(applyHebrewLabels, 50);
     };
 
     applyHebrewLabels();

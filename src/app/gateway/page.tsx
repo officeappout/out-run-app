@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInGuest, onAuthStateChange } from '@/lib/auth.service';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
@@ -149,13 +149,27 @@ export default function GatewayPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // ── Resolve the active user — reuse existing provider session if present ──
+  // Gateway is reachable both by brand-new visitors AND by users who just
+  // signed in with Apple/Google but haven't completed onboarding yet.
+  // Calling signInGuest() (signInAnonymously) when a provider user is already
+  // authenticated replaces their session with a new anonymous uid, permanently
+  // breaking the link between their Apple/Google account and their profile.
+  const resolveUser = async () => {
+    const current = auth.currentUser;
+    if (current && !current.isAnonymous) {
+      return { user: current, error: null };
+    }
+    return signInGuest();
+  };
+
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──
   const handleExploreMap = async () => {
     isBusyRef.current = true;
     setShowGuestTransition(true);
 
     try {
-      const { user } = await signInGuest();
+      const { user } = await resolveUser();
       if (!user) {
         isBusyRef.current = false;
         setShowGuestTransition(false);
@@ -255,7 +269,7 @@ export default function GatewayPage() {
     isBusyRef.current = true;
     setLoading(true);
     try {
-      const { user } = await signInGuest();
+      const { user } = await resolveUser();
       if (!user) {
         isBusyRef.current = false;
         setLoading(false);

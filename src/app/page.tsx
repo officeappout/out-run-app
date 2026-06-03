@@ -405,17 +405,17 @@ export default function LandingPage() {
   }, []);
 
   // ── Shared post-auth redirect ──
+  // Rule: if a Firestore profile already exists for this uid the user has
+  // been through onboarding before — send them straight to /home.
+  // If no doc exists they are brand-new — send to /gateway to start onboarding.
+  // Detailed in-progress onboarding routing (step, status) is handled by the
+  // onAuthStateChange listener above, which runs concurrently and will redirect
+  // further if needed once the auth state propagates.
   const redirectAfterAuth = useCallback(async (uid: string) => {
     const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
     const userDocSnap = await getDoc(firestoreDoc(db, 'users', uid));
     if (userDocSnap.exists()) {
-      const userData = userDocSnap.data();
-      const status = userData?.onboardingStatus;
-      if (status === 'COMPLETED' || userData?.onboardingComplete) {
-        router.push('/home');
-      } else {
-        router.push('/gateway');
-      }
+      router.push('/home');
     } else {
       router.push('/gateway');
     }

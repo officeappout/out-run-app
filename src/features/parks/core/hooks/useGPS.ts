@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 
 const FALLBACK_SDEROT = { lat: 31.525, lng: 34.5955 };
 
@@ -26,6 +28,13 @@ function isValidGeoSample(coords: GeolocationCoordinates | null | undefined): co
     && !(latitude === 0 && longitude === 0);
 }
 
+/** Same guard for the object shape that @capacitor/geolocation returns */
+function isValidCapacitorCoords(coords: { latitude: number; longitude: number } | null | undefined): boolean {
+  if (!coords) return false;
+  return Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude)
+    && !(coords.latitude === 0 && coords.longitude === 0);
+}
+
 export interface GPSState {
   currentUserPos: { lat: number; lng: number } | null;
   setCurrentUserPos: (pos: { lat: number; lng: number } | null) => void;
@@ -42,20 +51,102 @@ export function useGPS(): GPSState {
   const [userBearing, setUserBearing] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [simulationActive, setSimulationActive] = useState(false);
+
+  // For the browser (web) path
   const watchId = useRef<number | null>(null);
+  // For the Capacitor (native) path — watchPosition returns a string callbackId
+  const capWatchId = useRef<string | null>(null);
   const hasFallback = useRef(false);
 
+  const isNative = Capacitor.isNativePlatform();
+
   useEffect(() => {
-    // When simulation is on: kill the watcher — mock position drives the UI instead
     if (simulationActive) {
-      if (watchId.current != null) {
-        try { navigator.geolocation.clearWatch(watchId.current); } catch { /* ignore */ }
-        watchId.current = null;
+      // Kill any active watcher — mock position drives the UI instead.
+      if (isNative) {
+        if (capWatchId.current != null) {
+          Geolocation.clearWatch({ id: capWatchId.current }).catch(() => {});
+          capWatchId.current = null;
+        }
+      } else {
+        if (watchId.current != null) {
+          try { navigator.geolocation.clearWatch(watchId.current); } catch { /* ignore */ }
+          watchId.current = null;
+        }
       }
       setLocationError(null);
       return;
     }
 
+    // ── Native path (iOS / Android) ────────────────────────────────────────
+    // Uses the Capacitor Geolocation plugin which calls CLLocationManager
+    // directly. This uses the system-level location permission (stored in
+    // iOS Settings) rather than WKWebView's per-origin web permission —
+    // which is session-based and re-prompts on every app launch.
+    if (isNative) {
+      if (capWatchId.current != null) return; // already watching
+
+      let active = true;
+
+      const startNativeWatch = async () => {
+        try {
+          // Request permission once. On subsequent launches iOS returns
+          // 'granted' immediately — no dialog — because the permission
+          // is stored in Settings.app, not in WKWebView's session state.
+          const perm = await Geolocation.requestPermissions({ permissions: ['location'] });
+          if (perm.location !== 'granted') {
+            if (!hasFallback.current) {
+              hasFallback.current = true;
+              setCurrentUserPos(FALLBACK_SDEROT);
+            }
+            setLocationError('Location permission denied');
+            return;
+          }
+
+          capWatchId.current = await Geolocation.watchPosition(
+            { enableHighAccuracy: true, timeout: 20000 },
+            (pos, err) => {
+              if (!active) return;
+              if (err || !pos) {
+                if (!hasFallback.current) {
+                  hasFallback.current = true;
+                  setCurrentUserPos(FALLBACK_SDEROT);
+                }
+                if (err) setLocationError(err.message);
+                return;
+              }
+              if (!isValidCapacitorCoords(pos.coords)) {
+                console.warn('[useGPS] Dropping invalid Capacitor GPS sample:', pos.coords);
+                return;
+              }
+              setLocationError(null);
+              setCurrentUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+              if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
+                setUserBearing(pos.coords.heading);
+              }
+            },
+          );
+        } catch (err) {
+          console.warn('[useGPS] Capacitor Geolocation error:', err);
+          if (!hasFallback.current) {
+            hasFallback.current = true;
+            setCurrentUserPos(FALLBACK_SDEROT);
+          }
+        }
+      };
+
+      startNativeWatch();
+
+      return () => {
+        active = false;
+        if (capWatchId.current != null) {
+          Geolocation.clearWatch({ id: capWatchId.current }).catch(() => {});
+          capWatchId.current = null;
+        }
+      };
+    }
+
+    // ── Web / browser path ─────────────────────────────────────────────────
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       if (!hasFallback.current) {
         hasFallback.current = true;
@@ -71,36 +162,23 @@ export function useGPS(): GPSState {
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         if (simulationActive) return;
-        // Drop NaN / 0,0 / undefined-coords samples ENTIRELY rather than
-        // letting them poison currentUserPos (which feeds TurnCarousel,
-        // route generation, deviation detection, etc.). The previous fix
-        // is preserved, so the next valid sample will overwrite cleanly.
         if (!isValidGeoSample(pos.coords)) {
           console.warn('[useGPS] Dropping invalid GPS sample:', pos.coords);
           return;
         }
         setLocationError(null);
         setCurrentUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        // heading is null when the device cannot determine direction (e.g. stationary)
         if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
           setUserBearing(pos.coords.heading);
         }
       },
       (error) => {
         if (simulationActive) return;
-        // Error codes per GeolocationPositionError:
-        //   1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT.
-        // Code 3 (TIMEOUT) fires every ~10s while the chip is still locking
-        // on — it is NOT a fatal error and we deliberately avoid wiping
-        // currentUserPos here (the last good fix is still our best estimate
-        // until a fresher one arrives). Fallback to Sderot fires once on
-        // the first error so the map has SOMETHING to render at startup.
         if (!hasFallback.current) {
           hasFallback.current = true;
           setCurrentUserPos(FALLBACK_SDEROT);
         }
         setLocationError(error.message);
-        // Quiet the console for benign timeouts; surface the others.
         if (error.code !== 3) {
           console.warn('[useGPS] Geolocation error', error.code, error.message);
         }
@@ -108,11 +186,6 @@ export function useGPS(): GPSState {
       {
         enableHighAccuracy: true,
         maximumAge: 0,
-        // 20 s matches the running player's watcher. Without a timeout the
-        // browser (and especially iOS WKWebView) can silently stall the watch
-        // after ~60 s with no fix, producing no callbacks and no error — the
-        // last known position just freezes. With a timeout, code 3 fires every
-        // ~10 s when the chip is searching so we can flag GPS status correctly.
         timeout: 20000,
       },
     );
@@ -124,12 +197,28 @@ export function useGPS(): GPSState {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulationActive]);
+  }, [simulationActive, isNative]);
 
   const handleLocationClick = useCallback(() => {
     if (simulationActive) return;
-    if (!('geolocation' in navigator)) return;
     setIsFollowing((prev) => !prev);
+
+    if (isNative) {
+      Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 })
+        .then((pos) => {
+          if (simulationActive) return;
+          if (!isValidCapacitorCoords(pos.coords)) return;
+          setLocationError(null);
+          setCurrentUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
+            setUserBearing(pos.coords.heading);
+          }
+        })
+        .catch(() => { /* silent on manual retry */ });
+      return;
+    }
+
+    if (!('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (simulationActive) return;
@@ -146,7 +235,7 @@ export function useGPS(): GPSState {
       () => { /* silent on manual retry */ },
       { enableHighAccuracy: true, timeout: 8000 },
     );
-  }, [simulationActive]);
+  }, [simulationActive, isNative]);
 
   return {
     currentUserPos,
