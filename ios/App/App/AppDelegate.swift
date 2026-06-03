@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import FirebaseCore
+import GoogleSignIn
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -17,6 +18,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 return true
             }
             FirebaseApp.configure()
+        }
+
+        // Pre-configure GIDSignIn with just the iOS clientID (no serverClientID).
+        // The @capacitor-firebase/authentication plugin also sets this on each signIn
+        // call, but configuring it here ensures the correct value is set if anything
+        // reads GIDSignIn.sharedInstance.configuration before sign-in is invoked.
+        if let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         }
 
         return true
