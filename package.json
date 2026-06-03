@@ -24,7 +24,7 @@
     "_comment_preflight": "── Pre-flight ── Run before every TestFlight / release build to catch missing native config (GoogleService-Info.plist, REVERSED_CLIENT_ID, SHA fingerprints, etc.).",
     "preflight": "node scripts/preflight-native-check.mjs",
     "preflight:testflight": "node scripts/preflight-native-check.mjs && npm run cap:sync:ios",
-    "postinstall": "patch-package"
+    "postinstall": "node -e \"require('fs').existsSync('ios') ? require('child_process').execSync('npx patch-package', {stdio:'inherit'}) : process.stdout.write('Skipping patch-package (no ios/ dir)\\n')\""
   },
   "dependencies": {
     "@capacitor-firebase/app-check": "^6.3.0",
