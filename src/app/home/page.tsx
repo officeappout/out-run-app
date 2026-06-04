@@ -27,7 +27,6 @@ import type { CommunityGroup } from '@/types/community.types';
 import {
   Shield, CheckCircle2, Circle, ChevronDown, X,
 } from 'lucide-react';
-import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';

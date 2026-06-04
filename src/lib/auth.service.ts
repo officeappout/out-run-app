@@ -359,10 +359,6 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       // ASAuthorizationController silently fails to present its sheet.
       const result = await withAppleTimeout(FirebaseAuthentication.signInWithApple());
 
-      console.log('[DEBUG Apple] full result:', JSON.stringify(result, null, 2));
-      console.log('[DEBUG Apple] credential keys:', Object.keys(result.credential || {}));
-      console.log('[DEBUG Apple] nonce value:', result.credential?.nonce);
-
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }

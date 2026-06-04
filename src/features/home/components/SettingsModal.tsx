@@ -885,7 +885,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       resetOnboarding();
       resetProfile();
       onClose();
-      window.location.replace('/');
+      // Skip the / → auth-gate and /onboarding → router.replace() redirect hops.
+      // Both cause competing RSC fetches (NSURLErrorDomain -999) on iOS WKWebView.
+      window.location.replace('/onboarding-new/intro');
     } catch {
       showToast('error', 'שגיאה בהתנתקות. נסה שוב.');
     }
@@ -912,7 +914,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       try { resetOnboarding(); resetProfile(); } catch { /* ignore */ }
       setShowDeleteConfirm(false);
       onClose();
-      window.location.replace('/');
+      // Navigate directly to the active onboarding flow, skipping:
+      //   /  → auth-gate redirect → /onboarding → router.replace('/onboarding-new/intro')
+      // Each hop triggers a competing RSC fetch that iOS WKWebView cancels (-999).
+      window.location.replace('/onboarding-new/intro');
     } catch (err: unknown) {
       const code = (err as Record<string, unknown>)?.code as string | undefined;
       const msg  = ((err as Record<string, unknown>)?.message as string | undefined) ?? '';
@@ -1595,8 +1600,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={<Mail size={18} className="text-blue-600" />}
                     iconBg="bg-blue-50"
                     label="יצירת קשר"
-                    sublabel="support@outrun.app"
-                    onClick={() => window.open('mailto:support@outrun.app', '_blank')}
+                    sublabel="office@appout.co.il"
+                    onClick={() => window.open('mailto:office@appout.co.il', '_blank')}
                   />
                 </Section>
 
