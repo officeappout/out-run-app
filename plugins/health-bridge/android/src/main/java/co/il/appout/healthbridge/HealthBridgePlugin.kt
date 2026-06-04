@@ -9,6 +9,7 @@ import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
@@ -351,6 +352,12 @@ class HealthBridgePlugin : Plugin() {
 
                 val recordsToInsert = mutableListOf<androidx.health.connect.client.records.Record>()
 
+                // Health Connect 1.1.0 stable made the `metadata` parameter
+                // mandatory on every Record and replaced the (now-internal)
+                // Metadata() constructor with factory methods that require a
+                // recording method. These workouts are constructed from data
+                // the app tracked, so `manualEntry()` is the correct method
+                // (no sensor Device handle to attribute them to).
                 recordsToInsert.add(
                     ExerciseSessionRecord(
                         startTime = start,
@@ -358,6 +365,7 @@ class HealthBridgePlugin : Plugin() {
                         endTime = end,
                         endZoneOffset = ZoneOffset.UTC,
                         exerciseType = exerciseType,
+                        metadata = Metadata.manualEntry(),
                     )
                 )
 
@@ -369,6 +377,7 @@ class HealthBridgePlugin : Plugin() {
                             endTime = end,
                             endZoneOffset = ZoneOffset.UTC,
                             energy = Energy.kilocalories(calories.toDouble()),
+                            metadata = Metadata.manualEntry(),
                         )
                     )
                 }
@@ -381,6 +390,7 @@ class HealthBridgePlugin : Plugin() {
                             endTime = end,
                             endZoneOffset = ZoneOffset.UTC,
                             distance = Length.meters(distanceMeters),
+                            metadata = Metadata.manualEntry(),
                         )
                     )
                 }
@@ -398,6 +408,7 @@ class HealthBridgePlugin : Plugin() {
 
     @PluginMethod
     fun enableBackgroundDelivery(call: PluginCall) {
+        val ctx = context ?: run { call.reject("no-context"); return }
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()

@@ -59,6 +59,11 @@
 	<string>אפליקציית OUT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>אפליקציית OUT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל. האפליקציה אינה סורקת או אוספת תמונות אחרות בגלריה.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>co.il.appout.outrun.health.refresh</string>
+		<string>co.il.appout.outrun.health.processing</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
