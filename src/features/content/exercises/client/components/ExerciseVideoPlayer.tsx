@@ -231,6 +231,24 @@ export default function ExerciseVideoPlayer({
                 playsInline
                 {...{"webkit-playsinline": "true"}}
                 preload="auto"
+                onLoadStart={() => console.log('[Video/hero] ▶ loadstart', bunnyHeroUrl)}
+                onLoadedMetadata={() => console.log('[Video/hero] ✓ loadedmetadata', bunnyHeroUrl)}
+                onCanPlay={() => console.log('[Video/hero] ✓ canplay', bunnyHeroUrl)}
+                onStalled={() => console.warn('[Video/hero] ⚠ stalled (network stalled)', bunnyHeroUrl)}
+                onWaiting={() => console.warn('[Video/hero] ⚠ waiting (buffering)', bunnyHeroUrl)}
+                onError={(e) => {
+                  const v = e.currentTarget;
+                  const err = v.error;
+                  console.error('[Video/hero] ✗ error', {
+                    src: bunnyHeroUrl,
+                    errorCode: err?.code,
+                    errorMessage: err?.message,
+                    networkState: v.networkState,
+                    readyState: v.readyState,
+                    // networkState codes: 0=EMPTY 1=IDLE 2=LOADING 3=NO_SOURCE
+                    // error codes: 1=ABORTED 2=NETWORK 3=DECODE 4=SRC_NOT_SUPPORTED
+                  });
+                }}
               />
             ) : (
               // Poster placeholder while the network-aware URL resolves.
@@ -263,6 +281,22 @@ export default function ExerciseVideoPlayer({
               {...{"webkit-playsinline": "true"}}
               preload="auto"
               controls
+              onLoadStart={() => console.log('[Video/tutorial] ▶ loadstart', bunnyTutorialUrl)}
+              onLoadedMetadata={() => console.log('[Video/tutorial] ✓ loadedmetadata', bunnyTutorialUrl)}
+              onCanPlay={() => console.log('[Video/tutorial] ✓ canplay', bunnyTutorialUrl)}
+              onStalled={() => console.warn('[Video/tutorial] ⚠ stalled', bunnyTutorialUrl)}
+              onWaiting={() => console.warn('[Video/tutorial] ⚠ waiting', bunnyTutorialUrl)}
+              onError={(e) => {
+                const v = e.currentTarget;
+                const err = v.error;
+                console.error('[Video/tutorial] ✗ error', {
+                  src: bunnyTutorialUrl,
+                  errorCode: err?.code,
+                  errorMessage: err?.message,
+                  networkState: v.networkState,
+                  readyState: v.readyState,
+                });
+              }}
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
@@ -300,6 +334,21 @@ export default function ExerciseVideoPlayer({
             playsInline
             {...{"webkit-playsinline": "true"}}
             preload="none"
+            onLoadStart={() => console.log('[Video/preview] ▶ loadstart', bunnyPreviewUrl)}
+            onLoadedMetadata={() => console.log('[Video/preview] ✓ loadedmetadata', bunnyPreviewUrl)}
+            onCanPlay={() => console.log('[Video/preview] ✓ canplay', bunnyPreviewUrl)}
+            onStalled={() => console.warn('[Video/preview] ⚠ stalled', bunnyPreviewUrl)}
+            onError={(e) => {
+              const v = e.currentTarget;
+              const err = v.error;
+              console.error('[Video/preview] ✗ error', {
+                src: bunnyPreviewUrl,
+                errorCode: err?.code,
+                errorMessage: err?.message,
+                networkState: v.networkState,
+                readyState: v.readyState,
+              });
+            }}
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
@@ -397,6 +446,21 @@ export default function ExerciseVideoPlayer({
           {...{"webkit-playsinline": "true"}}
           controls={mode === 'tutorial'}
           preload={mode === 'preview' ? 'none' : 'auto'}
+          onLoadStart={() => console.log('[Video/legacy] ▶ loadstart', src)}
+          onLoadedMetadata={() => console.log('[Video/legacy] ✓ loadedmetadata', src)}
+          onCanPlay={() => console.log('[Video/legacy] ✓ canplay', src)}
+          onStalled={() => console.warn('[Video/legacy] ⚠ stalled', src)}
+          onError={(e) => {
+            const v = e.currentTarget;
+            const err = v.error;
+            console.error('[Video/legacy] ✗ error', {
+              src,
+              errorCode: err?.code,
+              errorMessage: err?.message,
+              networkState: v.networkState,
+              readyState: v.readyState,
+            });
+          }}
         />
       ) : (
         // Preview mode, not yet on-screen — show poster or a dark placeholder

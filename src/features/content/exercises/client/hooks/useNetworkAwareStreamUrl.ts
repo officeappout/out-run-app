@@ -172,7 +172,8 @@ export function useNetworkAwareStreamUrl(
         blobUrlRef.current = null;
       }
 
-      console.log(`🌐 [SmartPlayer] Network Status: ${connectionType} | Effective Type: ${effectiveType ?? 'n/a'} | 🎯 Chosen Resolution: ${resolution}p for videoId:`, videoId);
+      console.log(`🌐 [SmartPlayer] Network Status: ${connectionType} | Effective Type: ${effectiveType ?? 'n/a'} | isIosNative: ${isIosNative()} | 🎯 Chosen Resolution: ${resolution}p`);
+      console.log(`🔗 [SmartPlayer] Final URL → ${streamUrl}`);
 
       if (cancelled) return;
       setResult({ streamUrl, fromCache: false, resolution });

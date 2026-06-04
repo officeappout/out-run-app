@@ -244,29 +244,34 @@ if (typeof window !== "undefined") {
     }
 
     // ── Native App Check provider initialization ───────────────────────────
-    // Our CustomProvider calls FirebaseAppCheck.getToken() directly, which
-    // means the native Swift initialize(debug:) method is never invoked by
-    // the plugin's own JS flow. Without an explicit initialize() call, the
-    // Firebase iOS SDK defaults to DeviceCheckProvider — ignoring whatever
-    // providerIOS is set to in capacitor.config.json.
-    //
-    // Fix: call initialize() once before the first getToken() so the correct
-    // factory (debug or DeviceCheck/AppAttest) is registered with the SDK.
+    // initialize() must be called once before the first getToken() so the
+    // correct provider factory (debug or DeviceCheck/AppAttest) is registered
+    // with the iOS SDK. We do this lazily inside getToken() on the first call
+    // to avoid top-level await at module scope (which would make firebase.ts
+    // an async ES module and break Next.js SSR hydration — React error #423).
     //
     // NEXT_PUBLIC_APP_CHECK_DEBUG=true → debug provider (development builds only).
     // Leave unset in production — DeviceCheck/AppAttest is used automatically.
-    try {
-      const { FirebaseAppCheck: FAC } = await import('@capacitor-firebase/app-check');
-      const isDebug = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true';
-      await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
-      console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
-    } catch (initErr) {
-      console.warn('[firebase] Native App Check initialize() failed (may already be initialized):', initErr);
-    }
+    let nativeAppCheckInitialized = false;
 
     try {
       const customProvider = new CustomProvider({
         getToken: async () => {
+          // ── One-time lazy initialize() ─────────────────────────────────
+          // Called here (not at module scope) to keep firebase.ts synchronous
+          // and prevent the Top-Level Await that caused React error #423.
+          if (!nativeAppCheckInitialized) {
+            nativeAppCheckInitialized = true; // set eagerly to avoid concurrent double-init
+            try {
+              const { FirebaseAppCheck: FAC } = await import('@capacitor-firebase/app-check');
+              const isDebug = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true';
+              await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
+              console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
+            } catch (initErr) {
+              console.warn('[firebase] Native App Check initialize() failed (may already be initialized):', initErr);
+            }
+          }
+
           // ── Circuit breaker ────────────────────────────────────────────
           // If the previous call failed recently, throw immediately so
           // Firebase's own exponential back-off takes over — do NOT return
