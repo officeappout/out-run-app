@@ -459,16 +459,25 @@ export default function LandingPage() {
     setDrawerOpen(false);
   }, [router, redirectAfterAuth]);
 
-  // Splash gate: while Firebase restores the session OR while the
-  // post-restore redirect is in flight, render the branded splash.
-  // The marketing/login UI mounts ONLY when authState resolves to
-  // 'guest', which kills the half-second flash returning users used
-  // to see on every cold open.
-  if (authState !== 'guest') {
-    return <BrandedSplashScreen />;
-  }
-
   return (
+    <>
+      {/* Splash overlay — fades out over 300 ms once auth resolves to 'guest'.
+          Rendered above the marketing UI (z-[100]) so the carousel can
+          preload in the background without the user seeing a flash. */}
+      <AnimatePresence>
+        {authState !== 'guest' && (
+          <motion.div
+            key="branded-splash"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 100 }}
+          >
+            <BrandedSplashScreen />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    
     <div className="min-h-[100dvh] bg-white relative overflow-hidden flex flex-col">
       {/* ── Animated Background Carousel ── */}
       <BackgroundCarousel index={carouselIndex} />
@@ -555,5 +564,6 @@ export default function LandingPage() {
         loadingProvider={loadingProvider}
       />
     </div>
+    </>
   );
 }

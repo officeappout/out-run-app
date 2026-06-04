@@ -232,7 +232,7 @@ export async function signIn(email: string, password: string) {
  */
 
 /** Maximum ms to wait for the native Google sign-in flow to resolve. */
-const GOOGLE_SIGNIN_TIMEOUT_MS = 30_000;
+const GOOGLE_SIGNIN_TIMEOUT_MS = 60_000;
 
 function withGoogleTimeout<T>(promise: Promise<T>): Promise<T> {
   return Promise.race([

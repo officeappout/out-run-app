@@ -885,7 +885,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       resetOnboarding();
       resetProfile();
       onClose();
-      router.push('/');
+      window.location.replace('/');
     } catch {
       showToast('error', 'שגיאה בהתנתקות. נסה שוב.');
     }
@@ -912,12 +912,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       try { resetOnboarding(); resetProfile(); } catch { /* ignore */ }
       setShowDeleteConfirm(false);
       onClose();
-      router.push('/');
+      window.location.replace('/');
     } catch (err: unknown) {
       const code = (err as Record<string, unknown>)?.code as string | undefined;
+      const msg  = ((err as Record<string, unknown>)?.message as string | undefined) ?? '';
+      const isNetwork =
+        code === 'internal' ||
+        msg.toLowerCase().includes('network') ||
+        msg.toLowerCase().includes('transport') ||
+        msg.toLowerCase().includes('fetch');
       setDeleteError(
         code === 'unauthenticated'
           ? 'תוקף החיבור פג. התחבר מחדש ונסה שוב.'
+          : isNetwork
+          ? 'בעיית חיבור - נסה שוב'
           : 'שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסה שוב.',
       );
       setIsDeleting(false);
