@@ -26,6 +26,13 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+
+  # Enable native Google Sign-In support (sets RGCFA_INCLUDE_GOOGLE Swift flag).
+  # IMPORTANT: capacitor_pods above installs the base/Lite subspec; this line adds
+  # the Google subspec on top. Both must coexist. Do NOT remove this line — without
+  # it GoogleSignIn is not compiled in and signInWithGoogle() silently fails.
+  # cap sync regenerates capacitor_pods but leaves this target block untouched.
+  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'
 end
 
 post_install do |installer|
@@ -34,8 +41,10 @@ post_install do |installer|
   # Fix: @capacitor-firebase/authentication@6.3.1 passes the iOS clientID as
   # serverClientID in GIDConfiguration, which causes GoogleSignIn 7.x to request
   # a server auth-code exchange that Google rejects with gRPC status 12
-  # ("UNIMPLEMENTED"). We rewrite only that one line — if it's already been
-  # corrected upstream, the gsub is a no-op and nothing changes.
+  # ("UNIMPLEMENTED"). serverClientID is unnecessary — we use only idToken +
+  # accessToken with signInWithCredential and never read serverAuthCode.
+  # We rewrite only that one line — if it's already been corrected upstream,
+  # the gsub is a no-op and nothing changes.
   google_handler = File.expand_path(
     '../../node_modules/@capacitor-firebase/authentication/ios/Plugin/Handlers/GoogleAuthProviderHandler.swift',
     __dir__
@@ -44,10 +53,7 @@ post_install do |installer|
     content = File.read(google_handler)
     fixed = content.gsub(
       'let config = GIDConfiguration(clientID: clientId, serverClientID: clientId)',
-      "let serverClientId = FirebaseApp.app()?.options.serverClientID\n" \
-      "        let config = serverClientId != nil\n" \
-      "            ? GIDConfiguration(clientID: clientId, serverClientID: serverClientId!)\n" \
-      "            : GIDConfiguration(clientID: clientId)"
+      'let config = GIDConfiguration(clientID: clientId)'
     )
     if fixed != content
       File.write(google_handler, fixed)
