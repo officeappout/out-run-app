@@ -250,9 +250,14 @@ if (typeof window !== "undefined") {
     // to avoid top-level await at module scope (which would make firebase.ts
     // an async ES module and break Next.js SSR hydration — React error #423).
     //
+    // We store the Promise itself (not a boolean) so that concurrent getToken()
+    // calls all await the same in-flight initialization rather than skipping it.
+    // A boolean flag would be set true before await completes, causing a second
+    // concurrent call to bypass initialize() and race straight to getToken().
+    //
     // NEXT_PUBLIC_APP_CHECK_DEBUG=true → debug provider (development builds only).
     // Leave unset in production — DeviceCheck/AppAttest is used automatically.
-    let nativeAppCheckInitialized = false;
+    let nativeAppCheckInitPromise: Promise<void> | null = null;
 
     try {
       const customProvider = new CustomProvider({
@@ -260,17 +265,21 @@ if (typeof window !== "undefined") {
           // ── One-time lazy initialize() ─────────────────────────────────
           // Called here (not at module scope) to keep firebase.ts synchronous
           // and prevent the Top-Level Await that caused React error #423.
-          if (!nativeAppCheckInitialized) {
-            nativeAppCheckInitialized = true; // set eagerly to avoid concurrent double-init
-            try {
-              const { FirebaseAppCheck: FAC } = await import('@capacitor-firebase/app-check');
-              const isDebug = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true';
-              await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
-              console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
-            } catch (initErr) {
-              console.warn('[firebase] Native App Check initialize() failed (may already be initialized):', initErr);
-            }
+          // Storing a Promise (not a boolean) guarantees concurrent calls all
+          // wait for the same initialization to fully complete before proceeding.
+          if (!nativeAppCheckInitPromise) {
+            nativeAppCheckInitPromise = (async () => {
+              try {
+                const { FirebaseAppCheck: FAC } = await import('@capacitor-firebase/app-check');
+                const isDebug = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true';
+                await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
+                console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
+              } catch (initErr) {
+                console.warn('[firebase] Native App Check initialize() failed (may already be initialized):', initErr);
+              }
+            })();
           }
+          await nativeAppCheckInitPromise;
 
           // ── Circuit breaker ────────────────────────────────────────────
           // If the previous call failed recently, throw immediately so
