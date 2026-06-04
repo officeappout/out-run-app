@@ -13,14 +13,35 @@
  * NEXT_PUBLIC_* counterparts. Secrets stay server-only.
  */
 
+// Fallback hostname — safe to commit, it's a public CDN pull-zone address.
+// The canonical source of truth is NEXT_PUBLIC_BUNNY_CDN_HOSTNAME (Vercel env).
+// Without this fallback, a missing env var produces `https:///…` URLs on iOS
+// because NEXT_PUBLIC_* vars are baked into the bundle at build time and
+// BUNNY_CDN_HOSTNAME (server-only) is not available in the browser/WKWebView.
+const BUNNY_CDN_HOSTNAME_FALLBACK = 'vz-b17872ab-7a7.b-cdn.net';
+const BUNNY_LIBRARY_ID_FALLBACK   = '640043';
+
 export const BUNNY_PUBLIC_CONFIG = {
   libraryId:
-    process.env.NEXT_PUBLIC_BUNNY_LIBRARY_ID ?? process.env.BUNNY_LIBRARY_ID ?? '',
+    process.env.NEXT_PUBLIC_BUNNY_LIBRARY_ID ??
+    process.env.BUNNY_LIBRARY_ID ??
+    BUNNY_LIBRARY_ID_FALLBACK,
   cdnHostname:
     process.env.NEXT_PUBLIC_BUNNY_CDN_HOSTNAME ??
     process.env.BUNNY_CDN_HOSTNAME ??
-    '',
+    BUNNY_CDN_HOSTNAME_FALLBACK,
 } as const;
+
+if (
+  typeof window !== 'undefined' &&
+  process.env.NODE_ENV === 'development' &&
+  !process.env.NEXT_PUBLIC_BUNNY_CDN_HOSTNAME
+) {
+  console.warn(
+    '[bunny] NEXT_PUBLIC_BUNNY_CDN_HOSTNAME is not set — falling back to hardcoded hostname.',
+    'Set this variable in your Vercel project environment settings to silence this warning.',
+  );
+}
 
 export const BUNNY_API_BASE_URL = 'https://video.bunnycdn.com';
 export const BUNNY_TUS_ENDPOINT = 'https://video.bunnycdn.com/tusupload';
