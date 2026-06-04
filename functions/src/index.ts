@@ -9,6 +9,7 @@ export { logAuditAction } from './auditLogger';
 export { cleanupOldLogs } from './cleanupOldLogs';
 export { cleanupEphemeralDocs } from './cleanupEphemeralDocs';
 export { requestAccountDeletion, onUserDelete } from './onUserDelete';
+export { purgeExpiredLegalHolds } from './legalHold';
 export { sendPushFromQueue } from './sendPushFromQueue';
 export { fixAuthorityCoordinates } from './fixAuthorityCoordinates';
 // ── Social Engagement Engine — Lifecycle Dispatchers ──────────────────────────

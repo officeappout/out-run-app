@@ -162,13 +162,16 @@ service firebase.storage {
       allow write: if isOwner(userId) && isImage() && isImageSize();
     }
 
-    // ── 3. User Private: Health Declarations (Owner-Only) ────────────
+    // ── 3. User Private: Health Declarations (Owner + Admin Read) ────
     //
-    // PDFs of signed health questionnaires. Owner-only read AND write.
-    // Admins can NOT read these — medical privacy.
+    // PDFs of signed health questionnaires. Owner read/write; admins may
+    // READ (but not write) for legal proceedings, since these PDFs are
+    // retained for 7 years post-deletion under the Legal Hold archive
+    // (Israeli statute of limitations, Limitation Law 5718-1958) and
+    // referenced by legal_hold/{uid} docs.
 
     match /health-declarations/{userId}/{allPaths=**} {
-      allow read:  if isOwner(userId);
+      allow read:  if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) && isPdf() && isPdfSize();
     }
 

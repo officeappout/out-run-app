@@ -1260,6 +1260,30 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // LEGAL HOLD — ארכיב משפטי (שמירת 7 שנים מכוח חוק ההתיישנות)
+    // ============================================================
+    // Post-deletion archive of workouts, park sessions and health
+    // declaration references retained for the 7-year Israeli statute
+    // of limitations (Limitation Law 5718-1958). Written and purged
+    // EXCLUSIVELY by Cloud Functions via the Admin SDK (which bypasses
+    // these rules entirely).
+    //
+    // Client access policy:
+    //   • No regular user — including the data subject — may read or
+    //     write their own legal_hold record (these explicit `if false`
+    //     rules deny them).
+    //   • Admins retain read access for legal proceedings via the
+    //     ADMIN FALLBACK catch-all below (Firestore ORs all matching
+    //     rules, so the admin grant still applies). This satisfies the
+    //     "admin-only access via security rules" requirement.
+    match /legal_hold/{uid} {
+      allow read, write: if false;
+      match /{allPaths=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // ============================================================
     // ADMIN FALLBACK — אדמין יכול לגשת לכל מסמך
     // ============================================================
     match /{document=**} {

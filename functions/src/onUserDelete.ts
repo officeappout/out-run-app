@@ -33,6 +33,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as functionsV1 from 'firebase-functions/v1';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { createLegalHold } from './legalHold';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -178,8 +179,33 @@ async function purgeUserData(uid: string): Promise<Record<string, number>> {
     counts.ownedGroups = 0;
   }
 
+  // 6b. Top-level workout history + park check-in sessions. These live in
+  //     root collections keyed by a `userId` field (NOT under users/{uid}),
+  //     so recursiveDelete on the user doc does not reach them. A copy has
+  //     already been preserved in legal_hold/{uid} before this purge ran.
+  try {
+    counts.workouts = await deleteQueryBatch(
+      db.collection('workouts').where('userId', '==', uid),
+    );
+  } catch (e) {
+    logger.warn(`[purgeUserData] workouts purge failed for ${uid}`, e);
+    counts.workouts = 0;
+  }
+
+  try {
+    counts.sessions = await deleteQueryBatch(
+      db.collection('sessions').where('userId', '==', uid),
+    );
+  } catch (e) {
+    logger.warn(`[purgeUserData] sessions purge failed for ${uid}`, e);
+    counts.sessions = 0;
+  }
+
   // 7. Cloud Storage — anything namespaced under the user's uid.
   //    Common prefixes: users/{uid}/health-declaration-*.pdf, avatars/{uid}/...
+  //    NOTE: health-declarations/{uid}/ is intentionally NOT swept here — the
+  //    PAR-Q PDF is retained in place under the legal hold (7 years) and is
+  //    deleted by purgeExpiredLegalHolds once the window elapses.
   counts.storageFiles =
     (await deleteStoragePrefix(`users/${uid}/`)) +
     (await deleteStoragePrefix(`avatars/${uid}/`)) +
@@ -264,6 +290,27 @@ export const requestAccountDeletion = onCall<unknown, Promise<DeletionResult>>(
     const sourceIp = extractSourceIp(request.rawRequest);
     logger.info(`[requestAccountDeletion] start uid=${uid} ip=${sourceIp}`);
 
+    // ── Legal hold FIRST — archive legally-relevant data (7-year Israeli
+    //    statute of limitations) BEFORE we wipe the originals. If this fails
+    //    we MUST abort the deletion so nothing is lost; the user can retry.
+    try {
+      let displayName: string | null = null;
+      let email: string | null = request.auth.token?.email ?? null;
+      const userSnap = await db.collection('users').doc(uid).get();
+      if (userSnap.exists) {
+        const u = userSnap.data() ?? {};
+        displayName = u.displayName ?? u.healthUserName ?? u.core?.displayName ?? null;
+        email = email ?? u.email ?? u.core?.email ?? null;
+      }
+      await createLegalHold(uid, displayName, email);
+    } catch (e: any) {
+      logger.error(`[requestAccountDeletion] legal hold archiving failed for ${uid}`, e);
+      throw new HttpsError(
+        'internal',
+        'Could not archive account for legal retention; deletion aborted. Please retry.',
+      );
+    }
+
     let counts: Record<string, number> = {};
     try {
       counts = await purgeUserData(uid);
@@ -301,6 +348,12 @@ export const onUserDelete = functionsV1.auth.user().onDelete(async (user) => {
   const uid = user.uid;
   logger.info(`[onUserDelete] auth deletion detected uid=${uid}`);
   try {
+    // Legal hold first. Idempotent — on the callable path the hold already
+    // exists and this is a no-op. On admin/console deletes (where the
+    // callable never ran) the users/{uid} doc may already be gone, so we
+    // seed identity from the Auth UserRecord; createLegalHold still falls
+    // back to the user doc if it survives.
+    await createLegalHold(uid, user.displayName ?? null, user.email ?? null);
     const counts = await purgeUserData(uid);
     await writeDeletionAuditLog(uid, 'auth-trigger', counts);
     logger.info(`[onUserDelete] purge complete uid=${uid}`, counts);
