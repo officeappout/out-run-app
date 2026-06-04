@@ -243,6 +243,27 @@ if (typeof window !== "undefined") {
       return 'unknown';
     }
 
+    // ── Native App Check provider initialization ───────────────────────────
+    // Our CustomProvider calls FirebaseAppCheck.getToken() directly, which
+    // means the native Swift initialize(debug:) method is never invoked by
+    // the plugin's own JS flow. Without an explicit initialize() call, the
+    // Firebase iOS SDK defaults to DeviceCheckProvider — ignoring whatever
+    // providerIOS is set to in capacitor.config.json.
+    //
+    // Fix: call initialize() once before the first getToken() so the correct
+    // factory (debug or DeviceCheck/AppAttest) is registered with the SDK.
+    //
+    // NEXT_PUBLIC_APP_CHECK_DEBUG=true → debug provider (development builds only).
+    // Leave unset in production — DeviceCheck/AppAttest is used automatically.
+    try {
+      const { FirebaseAppCheck: FAC } = await import('@capacitor-firebase/app-check');
+      const isDebug = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true';
+      await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
+      console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
+    } catch (initErr) {
+      console.warn('[firebase] Native App Check initialize() failed (may already be initialized):', initErr);
+    }
+
     try {
       const customProvider = new CustomProvider({
         getToken: async () => {

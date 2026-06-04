@@ -15,6 +15,8 @@
     "cap:sync": "npx cap sync",
     "cap:sync:ios": "npx cap sync ios",
     "cap:sync:android": "npx cap sync android",
+    "_comment_dev": "── Dev builds ── Use cap:sync:ios:dev for debug App Check (account deletion testing). Run cap:sync:ios to restore production config before committing.",
+    "cap:sync:ios:dev": "APP_CHECK_DEBUG=true npx cap sync ios",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android",
     "_comment_full": "── Full pipeline ── Use these when you want to deploy web + sync native in one shot.",
