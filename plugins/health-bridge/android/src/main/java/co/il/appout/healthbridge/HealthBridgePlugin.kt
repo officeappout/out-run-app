@@ -9,7 +9,6 @@ import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
-import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
@@ -344,12 +343,8 @@ class HealthBridgePlugin : Plugin() {
                     "traditionalStrengthTraining",
                     "functionalStrengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
                     "crossTraining"              -> ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS
-                    // Health Connect 1.1.0 stable removed the granular
-                    // EXERCISE_TYPE_CORE_TRAINING / EXERCISE_TYPE_JUMP_ROPE
-                    // session types — they exist only as ExerciseSegment
-                    // types now. Map to the closest supported broad session
-                    // types (per Google's documented replacement set:
-                    // CALISTHENICS / STRENGTH_TRAINING / HIIT).
+                    // alpha07 has no CORE_TRAINING / JUMP_ROPE session types —
+                    // map to the closest supported broad session types.
                     "coreTraining"               -> ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS
                     "jumpRope"                   -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
                     "stairClimbing"              -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE
@@ -358,12 +353,6 @@ class HealthBridgePlugin : Plugin() {
 
                 val recordsToInsert = mutableListOf<androidx.health.connect.client.records.Record>()
 
-                // Health Connect 1.1.0 stable made the `metadata` parameter
-                // mandatory on every Record and replaced the (now-internal)
-                // Metadata() constructor with factory methods that require a
-                // recording method. These workouts are constructed from data
-                // the app tracked, so `manualEntry()` is the correct method
-                // (no sensor Device handle to attribute them to).
                 recordsToInsert.add(
                     ExerciseSessionRecord(
                         startTime = start,
@@ -371,7 +360,6 @@ class HealthBridgePlugin : Plugin() {
                         endTime = end,
                         endZoneOffset = ZoneOffset.UTC,
                         exerciseType = exerciseType,
-                        metadata = Metadata.manualEntry(),
                     )
                 )
 
@@ -383,7 +371,6 @@ class HealthBridgePlugin : Plugin() {
                             endTime = end,
                             endZoneOffset = ZoneOffset.UTC,
                             energy = Energy.kilocalories(calories.toDouble()),
-                            metadata = Metadata.manualEntry(),
                         )
                     )
                 }
@@ -396,7 +383,6 @@ class HealthBridgePlugin : Plugin() {
                             endTime = end,
                             endZoneOffset = ZoneOffset.UTC,
                             distance = Length.meters(distanceMeters),
-                            metadata = Metadata.manualEntry(),
                         )
                     )
                 }
