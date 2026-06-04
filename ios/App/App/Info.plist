@@ -53,6 +53,8 @@
 	<string>אפליקציית OUT מבקשת גישה לנתוני הבריאות שלך (צעדים, קלוריות ודקות פעילות) כדי להציג את ההתקדמות האישית שלך בלבד. הנתונים לא ישותפו עם אף גורם חיצוני.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>אפליקציית OUT מבקשת רשות לכתוב נתוני אימון (סוג, משך, קלוריות) ל-HealthKit כדי לשמור את האימונים שביצעת דרך האפליקציה. הנתונים לא ישותפו עם אף גורם חיצוני.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>אפליקציית OUT משתמשת במיקום שלך — כדי להציג פארקי כושר בקרבת מקום, לעקוב אחרי מסלולי ריצה שבחרת להקליט, ולחבר אותך לקהילות כושר מקומיות.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>אפליקציית OUT משתמשת במיקום שלך בזמן שימוש בלבד — כדי להציג פארקי כושר בקרבת מקום, לעקוב אחרי מסלולי ריצה שבחרת להקליט, ולחבר אותך לקהילות כושר מקומיות.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -344,8 +344,14 @@ class HealthBridgePlugin : Plugin() {
                     "traditionalStrengthTraining",
                     "functionalStrengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
                     "crossTraining"              -> ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS
-                    "coreTraining"               -> ExerciseSessionRecord.EXERCISE_TYPE_CORE_TRAINING
-                    "jumpRope"                   -> ExerciseSessionRecord.EXERCISE_TYPE_JUMP_ROPE
+                    // Health Connect 1.1.0 stable removed the granular
+                    // EXERCISE_TYPE_CORE_TRAINING / EXERCISE_TYPE_JUMP_ROPE
+                    // session types — they exist only as ExerciseSegment
+                    // types now. Map to the closest supported broad session
+                    // types (per Google's documented replacement set:
+                    // CALISTHENICS / STRENGTH_TRAINING / HIIT).
+                    "coreTraining"               -> ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS
+                    "jumpRope"                   -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
                     "stairClimbing"              -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE
                     else                         -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
                 }
