@@ -228,6 +228,10 @@ export function usePartnerData(
     unsubScheduled.current?.();
     if (myMode === 'ghost') {
       setRawScheduled([]);
+      // Ghost mode short-circuits every listener, so the snapshot callbacks
+      // that normally flip isLoading off never fire. Resolve loading here or
+      // the partner finder hangs on its spinner forever in ghost mode.
+      setIsLoading(false);
       return;
     }
 
@@ -255,6 +259,7 @@ export function usePartnerData(
     unsubEvents.current?.();
     if (myMode === 'ghost') {
       setRawEventPartners([]);
+      setIsLoading(false);
       return;
     }
 
@@ -343,6 +348,7 @@ export function usePartnerData(
     unsubGroups.current?.();
     if (myMode === 'ghost') {
       setRawGroupPartners([]);
+      setIsLoading(false);
       return;
     }
 
@@ -416,6 +422,7 @@ export function usePartnerData(
     unsubLive.current?.();
     if (myMode === 'ghost') {
       setRawLive([]);
+      setIsLoading(false);
       return;
     }
 

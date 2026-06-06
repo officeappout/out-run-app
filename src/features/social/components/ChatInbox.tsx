@@ -8,9 +8,14 @@ import { m, AnimatePresence } from 'framer-motion';
 import { X, MessageCircle, ChevronLeft, Search, Users } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useChatInbox } from '../hooks/useChatInbox';
+import { useAllChats } from '../hooks/useAllChats';
 import ChatThread from './ChatThread';
 import type { ChatThread as ChatThreadType } from '../types/chat.types';
 import { getGroupById } from '@/features/arena/services/group.service';
+import { KELLY_UID, KELLY_NAME } from '../services/kelly-welcome-bot.service';
+
+/** Hardcoded coach/admin who sees the platform-wide master inbox (Phase 1). */
+const ADMIN_EMAIL = 'david@appout.co.il';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +46,19 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
   const { profile } = useUserStore();
   const myUid = profile?.id ?? null;
   const myName = profile?.core?.name ?? 'אווטיר';
-  const { threads, isLoading } = useChatInbox(myUid);
+
+  // Admin/coach interception: david@appout.co.il sees a platform-wide master
+  // inbox of every active chat instead of a personal thread list.
+  const isAdmin =
+    profile?.core?.email === ADMIN_EMAIL || profile?.core?.isSuperAdmin === true;
+
+  // Personal inbox is disabled (myUid → null) for admins so we don't open the
+  // per-user listener; admins read the firehose via useAllChats instead.
+  const { threads: myThreads, isLoading: myLoading } = useChatInbox(isAdmin ? null : myUid);
+  const { threads: allThreads, isLoading: allLoading } = useAllChats(isAdmin);
+
+  const threads = isAdmin ? allThreads : myThreads;
+  const isLoading = isAdmin ? allLoading : myLoading;
 
   const [openThread, setOpenThread] = useState<ChatThreadType | null>(null);
 
@@ -80,12 +97,27 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
     if (thread.type === 'group') {
       return thread.groupName || 'קבוצה';
     }
+    // Admin master view: label each DM by the human participant (not Kelly).
+    if (isAdmin) {
+      const userUid =
+        thread.participants.find((uid) => uid !== KELLY_UID) ??
+        thread.participants[0] ??
+        '';
+      return thread.participantNames?.[userUid] || 'משתמש';
+    }
     if (!myUid) return 'אווטיר';
     const partnerUid = thread.participants.find((uid) => uid !== myUid) ?? '';
     return thread.participantNames?.[partnerUid] || 'אווטיר';
   }
 
   function getUnread(thread: ChatThreadType): number {
+    // For admins, "unread" means "awaiting a coach reply" — i.e. the last
+    // message was sent by someone other than Kelly. There is no per-admin
+    // unread counter (the admin isn't a thread participant), so we surface a
+    // single needs-reply flag instead.
+    if (isAdmin) {
+      return thread.lastSenderId && thread.lastSenderId !== KELLY_UID ? 1 : 0;
+    }
     return thread.unreadCount?.[myUid ?? ''] ?? 0;
   }
 
@@ -172,7 +204,11 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                   </button>
                 )}
                 <h2 className="text-base font-black text-gray-900">
-                  {openThread ? getThreadDisplayName(openThread) : 'הודעות'}
+                  {openThread
+                    ? getThreadDisplayName(openThread)
+                    : isAdmin
+                      ? 'הודעות (ניהול)'
+                      : 'הודעות'}
                 </h2>
                 {openThread?.type === 'group' && (
                   <span className="text-[10px] bg-purple-100 text-purple-600 font-bold rounded-full px-2 py-0.5">
@@ -266,7 +302,15 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                     transition={{ duration: 0.2 }}
                     className="h-full"
                   >
-                    <ChatThread thread={openThread} myUid={myUid ?? ''} myName={myName} createdByUid={groupCreatorUid} />
+                    {/* Admins reply AS Kelly (senderUid = KELLY_UID) so the
+                        conversation reads as one continuous coach thread for the
+                        user. Regular users send as themselves. */}
+                    <ChatThread
+                      thread={openThread}
+                      myUid={isAdmin ? KELLY_UID : (myUid ?? '')}
+                      myName={isAdmin ? KELLY_NAME : myName}
+                      createdByUid={groupCreatorUid}
+                    />
                   </m.div>
                 ) : (
                   <m.div
@@ -291,15 +335,21 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                         </div>
                         <p className="text-sm font-bold text-gray-900">
                           {filter === 'unread'
-                            ? 'אין הודעות שלא נקראו'
+                            ? isAdmin
+                              ? 'אין שיחות שממתינות לתגובה'
+                              : 'אין הודעות שלא נקראו'
                             : filter === 'groups'
                               ? 'אין שיחות קבוצתיות'
-                              : 'עדיין אין הודעות...'}
+                              : isAdmin
+                                ? 'אין שיחות פעילות'
+                                : 'עדיין אין הודעות...'}
                         </p>
                         <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
-                          {filter === 'all'
-                            ? 'לחץ על אווטיר במפה כדי לפתוח שיחה'
-                            : 'נסה לסנן לפי "הכל"'}
+                          {isAdmin
+                            ? 'שיחות משתמשים יופיעו כאן לפי הזמן האחרון'
+                            : filter === 'all'
+                              ? 'לחץ על אווטיר במפה כדי לפתוח שיחה'
+                              : 'נסה לסנן לפי "הכל"'}
                         </p>
                       </div>
                     )}

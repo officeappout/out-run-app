@@ -31,6 +31,7 @@ import {
 import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { buildAttributionPayload } from '@/lib/marketingAttribution';
+import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
 
 // ── Canonical program slug allow-list ──────────────────────────────
 //
@@ -1693,6 +1694,14 @@ export async function syncOnboardingToFirestore(
     // Save to Firestore (merge with existing data)
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
+
+    // ── Kelly Welcome Bot (Phase 1) ───────────────────────────────────────
+    // Seed the one-time Kelly greeting DM the moment onboarding completes.
+    // Fire-and-forget + internally idempotent (hasWelcomeBotTriggered guard),
+    // so it never blocks navigation and never duplicates on retries.
+    if (step === 'COMPLETED') {
+      void triggerKellyWelcomeBot(user.uid);
+    }
 
     // Diagnostic: confirm what running data was saved
     if (step === 'COMPLETED' && sanitizedUpdateData.running) {

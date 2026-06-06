@@ -1,33 +1,27 @@
 'use client';
 
 /**
- * SmartwatchPromptModal — pre-run smartwatch teaser
+ * SmartwatchPromptModal — pre-run progression nudge
  * -------------------------------------------------
- * Replacement for the equipment JIT prompt when the user is about to
- * start a RUN (free run or guided route). Asks "אימון עם שעון חכם?"
- * with two paths:
+ * Shown in place of the equipment JIT prompt when the user is about to
+ * start a RUN (free run or guided route).
  *
- *   • "חיבור שעון" → triggers a "coming soon" toast (Bluetooth pairing
- *                    isn't shipped yet). The workout proceeds anyway —
- *                    we never block the run on a feature we can't yet
- *                    deliver.
- *   • "דילוג"     → workout proceeds without any side-effect.
- *
- * Both paths resolve to the SAME `onClose` so `useSmartwatchPrompt` can
- * trampoline the deferred workout-start callback regardless of which
- * button was tapped.
+ * Bluetooth smartwatch pairing isn't shipped yet, so this modal no longer
+ * advertises a (non-functional) "connect" action or a "coming soon" toast.
+ * It now reads as a short, positive progression message with a SINGLE CTA
+ * that resolves `onClose` — which `useSmartwatchPrompt` trampolines into the
+ * deferred workout-start callback. The workout always proceeds.
  *
  * Visual language matches `JITSetupModal`:
  *   • z-[90], blur backdrop, centred white card.
  *   • Cyan-bordered icon ring at the top with a Watch glyph.
  *   • Brand-cyan gradient primary button.
- *   • Plain-text secondary ("דלג בינתיים" pattern).
  *
  * NOTE: Mounted globally by MapShell. Only ONE instance lives in the
  * tree; render is a no-op when `isOpen === false`.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Watch } from 'lucide-react';
 
@@ -40,26 +34,13 @@ export function SmartwatchPromptModal({
   isOpen,
   onClose,
 }: SmartwatchPromptModalProps) {
-  const [showComingSoon, setShowComingSoon] = useState(false);
-
   if (!isOpen) return null;
 
-  /**
-   * "Connect" path: surface a 1.5 s "coming soon" toast (inline, since
-   * we don't want to introduce a global toast singleton for one teaser),
-   * then resolve as if the user skipped — the workout MUST proceed.
-   * If we ever ship Bluetooth pairing, this is the only branch that
-   * needs to change.
-   */
-  const handleConnect = () => {
-    setShowComingSoon(true);
-    setTimeout(() => {
-      setShowComingSoon(false);
-      onClose();
-    }, 1500);
-  };
-
-  const handleSkip = () => {
+  // Bluetooth pairing isn't shipped yet, so the modal no longer exposes a
+  // (non-functional) "connect" stub or a "coming soon" toast. It now reads as
+  // a short progression nudge with a single CTA that resolves the deferred
+  // workout-start callback (`onClose`) — the workout always proceeds.
+  const handleStart = () => {
     onClose();
   };
 
@@ -95,48 +76,23 @@ export function SmartwatchPromptModal({
             className="text-xl font-black text-slate-900 mb-2"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            אימון עם שעון חכם?
+            מוכנים להתקדם?
           </h2>
           <p
             className="text-sm text-slate-500 mb-6"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            חבר שעון Garmin, Apple Watch או Fitbit למעקב מדויק יותר אחר
-            הדופק והקצב.
+            כל אימון מקרב אותך צעד נוסף אל היעד שלך. בוא נתחיל ונמשיך לבנות
+            את הרצף.
           </p>
 
-          {/* Inline "coming soon" toast — replaces the connect CTA when
-              the user taps it, then auto-dismisses. We intentionally
-              don't build a global toast for this; the modal context is
-              the only place this surface fires. */}
-          {showComingSoon ? (
-            <div
-              className="w-full h-14 rounded-2xl flex items-center justify-center mb-4 bg-slate-100 text-slate-700 font-bold"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-              role="status"
-              aria-live="polite"
-            >
-              ⌚ חיבור שעון בקרוב — מתחילים את האימון
-            </div>
-          ) : (
-            <button
-              onClick={handleConnect}
-              className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              חיבור שעון
-            </button>
-          )}
-
-          {/* Skip — plain text. Disabled while the toast is up so the
-              user doesn't accidentally double-trigger. */}
+          {/* Single positive CTA — proceeds straight into the workout. */}
           <button
-            onClick={handleSkip}
-            disabled={showComingSoon}
-            className="text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700 transition-colors disabled:opacity-40"
+            onClick={handleStart}
+            className="w-full h-14 rounded-2xl font-bold text-white text-base bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            דילוג
+            קדימה, מתחילים 💪
           </button>
         </motion.div>
       </motion.div>

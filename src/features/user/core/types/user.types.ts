@@ -255,6 +255,8 @@ export interface UserFullProfile {
     anchorLat?: number;
     anchorLng?: number;
     isSuperAdmin?: boolean; // Super admin flag for platform administrators
+    /** Explicit role classification. USER = regular app user, ADMIN = platform staff, COACH = Kelly / human coach. */
+    role?: 'USER' | 'ADMIN' | 'COACH';
     isApproved?: boolean; // Approval status for admin access (defaults to false for new sign-ups)
 
     // Active Reserve Status — gives +20 scoring boost to reservist-targeted content
@@ -433,6 +435,12 @@ export interface UserFullProfile {
   >;
 
   running: RunningProfile; // מתוך קובץ הריצה הנפרד
+
+  // --- Monetization & Automation ---
+  /** Subscription gate for future monetized AI features. Default: 'base'. */
+  subscriptionTier?: 'base' | 'premium_ai';
+  /** One-time guard so the Kelly welcome-bot DM is seeded exactly once per user. */
+  hasWelcomeBotTriggered?: boolean;
 
   // Timestamps
   createdAt?: any; // Firebase serverTimestamp() - user registration/joining date

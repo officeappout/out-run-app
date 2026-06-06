@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep AndroidX DataStore classes for Firebase Sessions runtime stability
+-keep class androidx.datastore.** { *; }
+-dontwarn androidx.datastore.**

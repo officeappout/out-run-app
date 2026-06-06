@@ -29,7 +29,6 @@ import {
   Search,
   X,
   QrCode,
-  ContactRound,
   Share2,
   Upload,
 } from 'lucide-react';
@@ -715,10 +714,9 @@ function getPlaceholder(top: SearchTopTab, sub: SocialSubTab): string {
 }
 
 // ── Invite banner (top of the social tab) ───────────────────────────────────
-// Self-contained "green banner" — gradient background, three small action
-// chips (QR / contacts / Facebook) and a primary CTA. The chips that aren't
-// wired yet are intentionally rendered as no-ops so the layout is honest;
-// they will become real CTAs as their respective integrations land.
+// Self-contained "green banner" — gradient background, a QR action chip and a
+// primary share CTA. Unwired placeholder chips (contacts / Facebook) were
+// removed; new chips are added here only once their integration is live.
 function renderInviteBanner({
   onQR,
   onShare,
@@ -748,28 +746,6 @@ function renderInviteBanner({
         >
           <QrCode className="w-4 h-4" />
           <span className="text-[10px] font-bold">QR</span>
-        </button>
-        <button
-          type="button"
-          // No-op for now — wired to the contacts importer in a later step.
-          onClick={() => {}}
-          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors active:scale-95 opacity-90"
-          aria-label="ייבוא אנשי קשר (בקרוב)"
-        >
-          <ContactRound className="w-4 h-4" />
-          <span className="text-[10px] font-bold">אנשי קשר</span>
-        </button>
-        <button
-          type="button"
-          // No-op for now — Facebook share will be wired in a later step.
-          onClick={() => {}}
-          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors active:scale-95 opacity-90"
-          aria-label="שיתוף לפייסבוק (בקרוב)"
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-          </svg>
-          <span className="text-[10px] font-bold">Facebook</span>
         </button>
       </div>
 

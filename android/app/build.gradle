@@ -15,8 +15,8 @@ android {
         applicationId "co.il.appout.outrun"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.2.0"
+        versionCode 11
+        versionName "1.2.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -35,6 +35,10 @@ android {
             }
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
     buildTypes {
         release {
             signingConfig    signingConfigs.release
@@ -50,6 +54,23 @@ repositories {
     }
 }
 
+// androidx.datastore 1.1.x is a Kotlin Multiplatform library. Because this Capacitor module
+// applies no Kotlin Gradle plugin, the consumer never requests the `androidJvm` variant, so the
+// root coordinates (pulled transitively by Firebase Sessions) resolve to the -jvm variant. That
+// variant omits the Android-only `androidx.datastore.DataStoreFile` class, causing a boot-time
+// NoClassDefFoundError in any build type. Force the Android variant so the class is present and
+// no duplicate -jvm artifacts end up on the classpath.
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute module("androidx.datastore:datastore") \
+            using module("androidx.datastore:datastore-android:1.1.7") \
+            because "Firebase Sessions needs the Android-only androidx.datastore.DataStoreFile class"
+        substitute module("androidx.datastore:datastore-preferences") \
+            using module("androidx.datastore:datastore-preferences-android:1.1.7") \
+            because "Keep DataStore Preferences on its Android variant to match the forced datastore variant"
+    }
+}
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
@@ -60,6 +81,8 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    implementation "androidx.datastore:datastore:1.1.1"
+    implementation "androidx.datastore:datastore-preferences:1.1.1"
 }
 
 apply from: 'capacitor.build.gradle'
@@ -68,6 +91,7 @@ try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
+        apply plugin: 'com.google.firebase.crashlytics'
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")

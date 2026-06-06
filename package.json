@@ -31,6 +31,7 @@
   "dependencies": {
     "@capacitor-firebase/app-check": "^6.3.0",
     "@capacitor-firebase/authentication": "^6.3.0",
+    "@capacitor-firebase/crashlytics": "^6.3.1",
     "@capacitor-firebase/messaging": "^6.3.0",
     "@capacitor/android": "^6.2.0",
     "@capacitor/app": "^6.0.2",

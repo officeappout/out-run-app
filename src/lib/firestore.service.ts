@@ -118,6 +118,16 @@ export async function getUserFromFirestore(userId: string): Promise<UserFullProf
         },
       };
 
+      // ── Hardcoded admin elevation (Phase 1) ─────────────────────────────
+      // david@appout.co.il is force-elevated to platform admin at the auth
+      // hydration boundary so every consumer of the store sees the elevated
+      // role without waiting on a Firestore write. This is intentionally a
+      // local, immediate override — it does not mutate the Firestore doc.
+      if (normalizedProfile.core?.email === 'david@appout.co.il') {
+        normalizedProfile.core.isSuperAdmin = true;
+        normalizedProfile.core.role = 'ADMIN';
+      }
+
       return normalizedProfile;
     }
 

@@ -192,7 +192,7 @@ export default function WorkoutSummaryPage({
               onClick={handleClaim}
               className="flex-[2] py-4 rounded-xl font-black text-lg bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-lg"
             >
-              השלם פרופיל וקבל בונוס (+20 מטבעות)
+              השלם פרופיל וקבל בונוס
             </button>
           </div>
         ) : (

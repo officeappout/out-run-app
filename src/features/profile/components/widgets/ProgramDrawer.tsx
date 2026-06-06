@@ -91,20 +91,6 @@ export default function ProgramDrawer({ program, onClose }: ProgramDrawerProps) 
 
               {/* Actions */}
               <div className="space-y-2 pt-1">
-                {/* Primary — disabled */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full py-3 rounded-xl bg-[#00C9F2]/20 text-[#00C9F2]/50 text-sm font-bold cursor-not-allowed"
-                  >
-                    דיוק רמה
-                  </button>
-                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full whitespace-nowrap">
-                    בקרוב
-                  </span>
-                </div>
-
                 {/* Close */}
                 <button
                   type="button"
@@ -112,15 +98,6 @@ export default function ProgramDrawer({ program, onClose }: ProgramDrawerProps) 
                   className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold active:bg-gray-200 transition-colors"
                 >
                   סגור
-                </button>
-
-                {/* Danger — disabled */}
-                <button
-                  type="button"
-                  disabled
-                  className="w-full py-2.5 rounded-xl border border-red-200 text-red-300 text-sm font-semibold cursor-not-allowed"
-                >
-                  מחיקת תוכנית — בקרוב
                 </button>
               </div>
             </div>

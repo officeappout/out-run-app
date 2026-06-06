@@ -770,6 +770,36 @@ service cloud.firestore {
           .hasOnly(['followers', 'following', 'followerCount', 'followingCount', 'updatedAt']);
     }
 
+    // ============================================================
+    // BLOCKS — one-directional block edges between users.
+    //
+    // Doc ID convention: `${blockerId}_${blockedId}` (see ChatThread.tsx
+    // handleBlock). The deterministic id makes a block idempotent and lets
+    // both the blocker and the blocked party authorize on a field they own.
+    //
+    //   read   → either side of the edge may read it. The blocker lists
+    //            their own blocks via `where('blockerId','==',uid)`
+    //            (matched by `resource.data.blockerId == uid`); the blocked
+    //            party may inspect edges naming them via
+    //            `where('blockedId','==',uid)`.
+    //   create → only the blocker, and only for an edge they author
+    //            (request payload `blockerId` must equal the requester).
+    //   delete → only the blocker can lift their own block (unblock).
+    //
+    // No update path — a block edge is immutable; changing the target means
+    // delete + create. Admins retain full access via the catch-all below.
+    // ============================================================
+    match /blocks/{blockId} {
+      allow read: if isAuthenticated() && (
+        resource.data.blockerId == request.auth.uid ||
+        resource.data.blockedId == request.auth.uid
+      );
+      allow create: if isAuthenticated()
+                    && request.resource.data.blockerId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.blockerId == request.auth.uid;
+    }
+
     match /feed_posts/{docId} {
       // Public posts: any authenticated user
       allow read: if isAuthenticated() && resource.data.audience == 'public';

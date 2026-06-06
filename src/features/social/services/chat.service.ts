@@ -142,6 +142,42 @@ export function subscribeToMessages(
 }
 
 /**
+ * Admin-only: subscribe to ALL chat threads across the platform, newest first.
+ * Used by the admin master-inbox view in ChatInbox so staff can scan and reply
+ * to every active user conversation. Returns an unsubscribe function.
+ */
+export function subscribeToAllChats(
+  onUpdate: (threads: ChatThread[]) => void,
+  threadLimit = 200,
+): () => void {
+  const q = query(
+    collection(db, 'chats'),
+    orderBy('lastMessageAt', 'desc'),
+    limit(threadLimit),
+  );
+
+  return onSnapshot(q, (snap) => {
+    const threads: ChatThread[] = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        participants: (data.participants as string[]) ?? [],
+        participantNames: (data.participantNames as Record<string, string>) ?? {},
+        lastMessage: (data.lastMessage as string) ?? '',
+        lastMessageAt: tsToDate(data.lastMessageAt),
+        lastSenderId: (data.lastSenderId as string) ?? '',
+        unreadCount: (data.unreadCount as Record<string, number>) ?? {},
+        createdAt: tsToDate(data.createdAt),
+        type: (data.type as 'dm' | 'group') ?? 'dm',
+        groupId: data.groupId as string | undefined,
+        groupName: data.groupName as string | undefined,
+      };
+    });
+    onUpdate(threads);
+  });
+}
+
+/**
  * Mark all unread messages in a thread as read by the current user.
  */
 export async function markThreadAsRead(chatId: string, myUid: string): Promise<void> {

@@ -13,6 +13,7 @@ import ActivityPanel from "@/features/social/components/ActivityPanel";
 import { useActivityPanelStore } from "@/features/social/store/useActivityPanelStore";
 import { ToastProvider } from "@/components/ui/Toast";
 import OfflineBanner from "@/components/ui/OfflineBanner";
+import GlobalErrorOverlay from "@/components/system/GlobalErrorOverlay";
 import { useMidnightRefresh } from "@/features/activity";
 
 /**
@@ -104,6 +105,7 @@ export default function ClientLayout({
           />
           <ActivityPanel isOpen={activityPanelOpen} onClose={activityPanelClose} />
           <OfflineBanner />
+          <GlobalErrorOverlay />
           <MidnightClock />
         </LazyMotion>
       </ToastProvider>
