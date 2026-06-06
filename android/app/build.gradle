@@ -55,19 +55,16 @@ repositories {
 }
 
 // androidx.datastore 1.1.x is a Kotlin Multiplatform library. Because this Capacitor module
-// applies no Kotlin Gradle plugin, the consumer never requests the `androidJvm` variant, so the
-// root coordinates (pulled transitively by Firebase Sessions) resolve to the -jvm variant. That
-// variant omits the Android-only `androidx.datastore.DataStoreFile` class, causing a boot-time
-// NoClassDefFoundError in any build type. Force the Android variant so the class is present and
-// no duplicate -jvm artifacts end up on the classpath.
-configurations.configureEach {
-    resolutionStrategy.dependencySubstitution {
-        substitute module("androidx.datastore:datastore") \
-            using module("androidx.datastore:datastore-android:1.1.7") \
-            because "Firebase Sessions needs the Android-only androidx.datastore.DataStoreFile class"
-        substitute module("androidx.datastore:datastore-preferences") \
-            using module("androidx.datastore:datastore-preferences-android:1.1.7") \
-            because "Keep DataStore Preferences on its Android variant to match the forced datastore variant"
+// applies no Kotlin Gradle plugin, Firebase Sessions' transitive pull of the root datastore
+// coordinates resolves to the -jvm variant, which omits the Android-only
+// androidx.datastore.DataStoreFile class and causes a boot-time NoClassDefFoundError.
+// Force every androidx.datastore dependency to 1.1.1 (latest stable on Google Maven) so the
+// version manager picks a single consistent version across all transitive pulls.
+configurations.all {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'androidx.datastore') {
+            details.useVersion '1.1.1'
+        }
     }
 }
 

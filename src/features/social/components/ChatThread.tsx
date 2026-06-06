@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeToMessages, sendMessage, markThreadAsRead } from '../services/chat.service';
+import { KELLY_UID } from '../services/kelly-welcome-bot.service';
 import type { ChatMessage, ChatThread as ChatThreadType } from '../types/chat.types';
 
 interface ChatThreadProps {
@@ -59,10 +60,20 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
+  // ── Message subscription ──
   useEffect(() => {
     const unsub = subscribeToMessages(thread.id, setMessages);
-    markThreadAsRead(thread.id, myUid).catch(() => {});
     return unsub;
+  }, [thread.id]);
+
+  // ── Unread auto-reset ──
+  // Fires on mount and whenever the open thread changes so the badge in
+  // ChatInbox drops to zero immediately, without waiting for a new snapshot.
+  // Kept separate from the subscription effect so the two concerns are
+  // independently restartable.
+  useEffect(() => {
+    if (!myUid) return;
+    markThreadAsRead(thread.id, myUid).catch(() => {});
   }, [thread.id, myUid]);
 
   useEffect(() => {
@@ -161,72 +172,109 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
   // Block applies to DMs only; reporting is available on every thread.
   const canBlock = !!otherUid;
 
+  // ── Support / admin badge detection ──
+  // A DM where one participant is the system coach (KELLY_UID) is a support
+  // thread — admins reply as Kelly so the conversation reads as one unified
+  // coaching channel. We surface this to the user so they know they're
+  // talking to an OutRun support agent, not a peer.
+  const isSupportThread = thread.participants.includes(KELLY_UID);
+
+  // Thread display name shown in the internal header bar.
+  const threadDisplayName = isGroupThread
+    ? (thread.groupName ?? 'קבוצה')
+    : (otherUid ? (thread.participantNames?.[otherUid] ?? 'שיחה') : 'שיחה');
+
   return (
     <div className="relative flex flex-col h-full" dir="rtl">
-      {/* Overflow menu — block / report. Floats at the top-end (left in RTL)
-          corner, inside the chat sheet's own stacking context so it never
-          collides with the global z-index budget. */}
-      <div className="absolute top-1.5 left-2 z-20">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label="אפשרויות שיחה"
-          className="w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <MoreVertical className="w-4 h-4 text-gray-500" />
-        </button>
+      {/* ── Internal header row ────────────────────────────────────────────────
+          Promotes the overflow menu from absolute-floating to a proper flow
+          element, adds the thread name + support/admin badge so the chat
+          context is immediately legible beneath the inbox sheet's nav header.
+          Uses border-b to visually separate from the message area. */}
+      <div
+        className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100 bg-white shrink-0"
+        dir="rtl"
+      >
+        {/* Thread identity — name + context badge */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-sm font-bold text-gray-800 truncate">{threadDisplayName}</span>
 
-        {menuOpen && (
-          <>
-            {/* Click-away catcher */}
-            <button
-              type="button"
-              aria-hidden
-              tabIndex={-1}
-              onClick={() => setMenuOpen(false)}
-              className="fixed inset-0 z-10 cursor-default"
-            />
-            <div className="absolute top-9 left-0 z-20 w-44 rounded-2xl bg-white shadow-floating border border-gray-100 overflow-hidden">
-              {canBlock &&
-                (isBlocked ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleUnblock();
-                      setMenuOpen(false);
-                    }}
-                    disabled={isBlocking}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-start"
-                  >
-                    <Ban className="w-4 h-4 text-gray-500" />
-                    בטל חסימה
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleBlock}
-                    disabled={isBlocking}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 text-start"
-                  >
-                    {isBlocking ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Ban className="w-4 h-4" />
-                    )}
-                    חסום משתמש
-                  </button>
-                ))}
+          {isSupportThread && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-sky-100 text-sky-600 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+              פניית תמיכה
+            </span>
+          )}
+
+          {isGroupThread && !isSupportThread && (
+            <span className="inline-flex items-center text-[10px] font-bold bg-purple-100 text-purple-600 rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+              קבוצה
+            </span>
+          )}
+        </div>
+
+        {/* Overflow menu — block / report */}
+        <div className="relative flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="אפשרויות שיחה"
+            className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <MoreVertical className="w-4 h-4 text-gray-500" />
+          </button>
+
+          {menuOpen && (
+            <>
+              {/* Click-away catcher */}
               <button
                 type="button"
-                onClick={openReport}
-                className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 text-start"
-              >
-                <Flag className="w-4 h-4 text-red-500" />
-                {isGroupThread ? 'דווח על הקבוצה' : 'דווח על המשתמש'}
-              </button>
-            </div>
-          </>
-        )}
+                aria-hidden
+                tabIndex={-1}
+                onClick={() => setMenuOpen(false)}
+                className="fixed inset-0 z-10 cursor-default"
+              />
+              <div className="absolute top-9 left-0 z-20 w-44 rounded-2xl bg-white shadow-floating border border-gray-100 overflow-hidden">
+                {canBlock &&
+                  (isBlocked ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUnblock();
+                        setMenuOpen(false);
+                      }}
+                      disabled={isBlocking}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-start"
+                    >
+                      <Ban className="w-4 h-4 text-gray-500" />
+                      בטל חסימה
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleBlock}
+                      disabled={isBlocking}
+                      className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 text-start"
+                    >
+                      {isBlocking ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Ban className="w-4 h-4" />
+                      )}
+                      חסום משתמש
+                    </button>
+                  ))}
+                <button
+                  type="button"
+                  onClick={openReport}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 text-start"
+                >
+                  <Flag className="w-4 h-4 text-red-500" />
+                  {isGroupThread ? 'דווח על הקבוצה' : 'דווח על המשתמש'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Report overlay — confined to this component (absolute inset-0) so it
@@ -304,7 +352,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 pt-12 space-y-2">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {messages.map((msg) => {
           const isMine = msg.senderUid === myUid;
           const isHighFive = msg.type === 'high_five';
