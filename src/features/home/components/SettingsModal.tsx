@@ -885,9 +885,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       resetOnboarding();
       resetProfile();
       onClose();
-      // Skip the / → auth-gate and /onboarding → router.replace() redirect hops.
-      // Both cause competing RSC fetches (NSURLErrorDomain -999) on iOS WKWebView.
-      window.location.replace('/onboarding-new/intro');
+      // Hard-navigate to the root landing page. signOutUser() already cleared the
+      // session hint (out:has-session), so page.tsx will immediately render the
+      // marketing/login UI without any intermediate redirect.
+      window.location.replace('/');
     } catch {
       showToast('error', 'שגיאה בהתנתקות. נסה שוב.');
     }
@@ -914,10 +915,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       try { resetOnboarding(); resetProfile(); } catch { /* ignore */ }
       setShowDeleteConfirm(false);
       onClose();
-      // Navigate directly to the active onboarding flow, skipping:
-      //   /  → auth-gate redirect → /onboarding → router.replace('/onboarding-new/intro')
-      // Each hop triggers a competing RSC fetch that iOS WKWebView cancels (-999).
-      window.location.replace('/onboarding-new/intro');
+      // Hard-navigate to the root landing page. signOutUser() already cleared the
+      // session hint (out:has-session), so page.tsx renders the marketing/login
+      // UI immediately — no auth-gate redirect chain involved.
+      window.location.replace('/');
     } catch (err: unknown) {
       const code = (err as Record<string, unknown>)?.code as string | undefined;
       const msg  = ((err as Record<string, unknown>)?.message as string | undefined) ?? '';

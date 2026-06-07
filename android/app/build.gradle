@@ -15,8 +15,8 @@ android {
         applicationId "co.il.appout.outrun"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.2.2"
+        versionCode 17
+        versionName "1.2.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -36,14 +36,14 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     buildTypes {
         release {
             signingConfig    signingConfigs.release
-            minifyEnabled    false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled    true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -54,16 +54,16 @@ repositories {
     }
 }
 
-// androidx.datastore 1.1.x is a Kotlin Multiplatform library. Because this Capacitor module
-// applies no Kotlin Gradle plugin, Firebase Sessions' transitive pull of the root datastore
-// coordinates resolves to the -jvm variant, which omits the Android-only
-// androidx.datastore.DataStoreFile class and causes a boot-time NoClassDefFoundError.
-// Force every androidx.datastore dependency to 1.1.1 (latest stable on Google Maven) so the
-// version manager picks a single consistent version across all transitive pulls.
+// androidx.datastore 1.1.x introduced a Kotlin Multiplatform split. Because this Capacitor
+// module applies no Kotlin Gradle plugin, the consumer never requests the `androidJvm`
+// variant, so firebase-sessions' transitive pull resolves to the -jvm artifact which omits
+// the Android-only DataStoreFile class and causes a boot-time NoClassDefFoundError.
+// Pinning to 1.0.0 sidesteps the issue entirely: the 1.0.x series predates the KMP split
+// and ships only a pure-Android AAR, so no variant selection ambiguity exists.
 configurations.all {
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if (details.requested.group == 'androidx.datastore') {
-            details.useVersion '1.1.1'
+            details.useVersion '1.0.0'
         }
     }
 }
@@ -78,8 +78,9 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
-    implementation "androidx.datastore:datastore:1.1.1"
-    implementation "androidx.datastore:datastore-preferences:1.1.1"
+    implementation "androidx.datastore:datastore:1.0.0"
+    implementation "androidx.datastore:datastore-preferences:1.0.0"
+    implementation 'com.google.android.gms:play-services-auth:21.0.0'
 }
 
 apply from: 'capacitor.build.gradle'
