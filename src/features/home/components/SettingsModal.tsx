@@ -15,6 +15,7 @@ import { auth, db } from '@/lib/firebase';
 import { signOutUser } from '@/lib/auth.service';
 import { useUserStore } from '@/features/user';
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { usePrivacyStore, type PrivacyMode } from '@/features/safecity/store/usePrivacyStore';
 import { validateAccessCode } from '@/features/user/onboarding/services/access-code.service';
@@ -344,7 +345,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ── Native permission statuses ────────────────────────────────────────────
-  const [locationStatus, setLocationStatus] = useState<PermStatus>('loading');
+  // Location permission is owned by the centralized GPS store. We derive the
+  // row's PermStatus reactively from it — 'unknown' (no fix/probe yet) maps to
+  // 'prompt' so the row stays interactive (navigator.permissions is unreliable
+  // on native anyway, and a tap re-prompts).
+  const gpsPermissionState = useGPSStore((s) => s.permissionState);
+  const locationStatus: PermStatus =
+    gpsPermissionState === 'granted'
+      ? 'granted'
+      : gpsPermissionState === 'denied'
+      ? 'denied'
+      : 'prompt';
   const [cameraStatus, setCameraStatus]     = useState<PermStatus>('loading');
   const [locationRequesting, setLocationRequesting] = useState(false);
   const [cameraRequesting,   setCameraRequesting]   = useState(false);
@@ -436,7 +447,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     // ── Check native permission statuses ──────────────────────────────────
     // Re-probe on every open so the status reflects any OS-level changes
     // the user may have made since the last time they opened settings.
-    setLocationStatus('loading');
+    // Location permission status is derived reactively from useGPSStore — no
+    // probe needed here. Only the camera row still uses navigator.permissions.
     setCameraStatus('loading');
 
     const permStateToStatus = (s: PermissionState): PermStatus =>
@@ -445,34 +457,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     // 5 s safety net: WKWebView's `navigator.permissions.query` can hang
     // indefinitely in some Capacitor configurations (especially when
     // loading from a remote `server.url`). Without this fallback the
-    // spinners on the Location and Camera rows would stay frozen on
-    // 'loading' forever. After the timeout we downgrade to 'prompt' so
-    // the row becomes interactive and a tap triggers a fresh prompt.
+    // spinner on the Camera row would stay frozen on 'loading' forever.
+    // After the timeout we downgrade to 'prompt' so the row becomes
+    // interactive and a tap triggers a fresh prompt.
     const PERM_QUERY_TIMEOUT_MS = 5000;
-    let locResolved = false;
     let camResolved = false;
-    const locTimeout = setTimeout(() => {
-      if (!locResolved) setLocationStatus('prompt');
-    }, PERM_QUERY_TIMEOUT_MS);
     const camTimeout = setTimeout(() => {
       if (!camResolved) setCameraStatus('prompt');
     }, PERM_QUERY_TIMEOUT_MS);
 
     if (typeof navigator !== 'undefined' && navigator.permissions) {
-      void navigator.permissions
-        .query({ name: 'geolocation' })
-        .then((ps) => {
-          locResolved = true;
-          clearTimeout(locTimeout);
-          setLocationStatus(permStateToStatus(ps.state));
-          ps.addEventListener('change', () => setLocationStatus(permStateToStatus(ps.state)));
-        })
-        .catch(() => {
-          locResolved = true;
-          clearTimeout(locTimeout);
-          setLocationStatus('prompt');
-        });
-
       void navigator.permissions
         .query({ name: 'camera' as PermissionName })
         .then((ps) => {
@@ -487,11 +481,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           setCameraStatus('prompt');
         });
     } else {
-      locResolved = true;
       camResolved = true;
-      clearTimeout(locTimeout);
       clearTimeout(camTimeout);
-      setLocationStatus('prompt');
       setCameraStatus('prompt');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -752,8 +743,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   /**
    * Location row click.
    * • Web: shows an informational toast.
-   * • Native, not granted: requests geolocation permission via the browser API
-   *   (Capacitor surfaces this as the native OS dialog).
+   * • Native, not granted: requests permission via the centralized GPS store
+   *   (`useGPSStore.requestPermissionNow`), which Capacitor surfaces as the
+   *   native OS dialog.
    * • Native, granted: shows a confirm then opens OS app-settings.
    */
   const handleLocationPermission = useCallback(async () => {
@@ -769,17 +761,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
     setLocationRequesting(true);
     try {
-      await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10_000 }),
-      );
-      setLocationStatus('granted');
-    } catch {
-      // Re-probe so we reflect the user's actual decision (deny vs dismiss).
-      const probe = await navigator.permissions
-        ?.query({ name: 'geolocation' })
-        .catch(() => null);
-      setLocationStatus(probe?.state === 'denied' ? 'denied' : 'prompt');
-      showToast('error', 'לא ניתן לקבל גישה למיקום');
+      // Explicit toggle tap → on-demand prompt via the centralized store. The
+      // store updates permissionState (granted/denied/prompt), which flows
+      // reactively into `locationStatus` and updates the row.
+      const coords = await useGPSStore.getState().requestPermissionNow();
+      if (!coords) {
+        showToast('error', 'לא ניתן לקבל גישה למיקום');
+      }
     } finally {
       setLocationRequesting(false);
     }
@@ -885,10 +873,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       resetOnboarding();
       resetProfile();
       onClose();
-      // Hard-navigate to the root landing page. signOutUser() already cleared the
-      // session hint (out:has-session), so page.tsx will immediately render the
-      // marketing/login UI without any intermediate redirect.
-      window.location.replace('/');
+      // SPA navigation keeps the Capacitor WKWebView context alive.
+      // window.location.replace() was causing -999 errors on iOS by
+      // triggering a full page load while the async sign-out was still
+      // flushing auth state to IndexedDB.
+      router.push('/');
     } catch {
       showToast('error', 'שגיאה בהתנתקות. נסה שוב.');
     }
@@ -915,10 +904,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       try { resetOnboarding(); resetProfile(); } catch { /* ignore */ }
       setShowDeleteConfirm(false);
       onClose();
-      // Hard-navigate to the root landing page. signOutUser() already cleared the
-      // session hint (out:has-session), so page.tsx renders the marketing/login
-      // UI immediately — no auth-gate redirect chain involved.
-      window.location.replace('/');
+      // Defer SPA navigation by one tick so the iOS WKWebView finishes
+      // flushing auth state before the route change. window.location.replace()
+      // was causing -999 / blank-screen errors by firing before the async
+      // sign-out and IndexedDB flush completed.
+      setTimeout(() => router.push('/'), 150);
     } catch (err: unknown) {
       const code = (err as Record<string, unknown>)?.code as string | undefined;
       const msg  = ((err as Record<string, unknown>)?.message as string | undefined) ?? '';
@@ -928,7 +918,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         msg.toLowerCase().includes('transport') ||
         msg.toLowerCase().includes('fetch');
       setDeleteError(
-        code === 'unauthenticated'
+        // callViaFetch() surfaces App Check / auth rejections as
+        // 'functions/unauthenticated'; plain 'unauthenticated' covers
+        // the web-SDK httpsCallable path.
+        code?.includes('unauthenticated')
           ? 'תוקף החיבור פג. התחבר מחדש ונסה שוב.'
           : isNetwork
           ? 'בעיית חיבור - נסה שוב'

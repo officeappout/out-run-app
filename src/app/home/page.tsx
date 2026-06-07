@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import AlertModal from '@/features/home/components/AlertModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
@@ -73,22 +74,20 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
 
   if (completion.isVerified || completion.percentage >= 100) return null;
 
-  const handleGoToStep = (step: string) => {
+  const handleGoToStep = async (step: string) => {
     if (step === 'GPS_PERMISSION') {
-      if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          async () => {
-            const uid = auth.currentUser?.uid;
-            if (uid) {
-              await setDoc(
-                firestoreDoc(db, 'users', uid),
-                { core: { gpsEnabled: true } },
-                { merge: true },
-              );
-            }
-          },
-          () => { /* denied — no-op */ },
-        );
+      // Explicit checklist tap → prompt via the shared store action. On grant,
+      // persist the completion flag; on denial the store records it and we no-op.
+      const coords = await useGPSStore.getState().requestPermissionNow();
+      if (coords) {
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          await setDoc(
+            firestoreDoc(db, 'users', uid),
+            { core: { gpsEnabled: true } },
+            { merge: true },
+          );
+        }
       }
       return;
     }

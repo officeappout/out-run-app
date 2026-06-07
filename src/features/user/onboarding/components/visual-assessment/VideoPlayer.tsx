@@ -1,6 +1,13 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+
+/**
+ * Transparent 1x1 GIF. Used as the <video> poster so Android/Chromium WebView never
+ * paints its default gray placeholder + play-icon while the stream is buffering.
+ */
+const TRANSPARENT_POSTER =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 /** Immutable descriptor for one tier's video. Once mounted, these URLs never change. */
 export interface VideoTier {
@@ -37,6 +44,21 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
 
+  // Per-tier readiness. A tier only fades in once its decoder has a paintable
+  // frame, which prevents the Android WebView gray box from ever being visible.
+  const [loadedTiers, setLoadedTiers] = useState<Set<string>>(new Set());
+
+  const markLoaded = useCallback((tierId: string) => {
+    setLoadedTiers((prev) => {
+      if (prev.has(tierId)) return prev;
+      const next = new Set(prev);
+      next.add(tierId);
+      return next;
+    });
+  }, []);
+
+  const isActiveLoaded = activeTierId != null && loadedTiers.has(activeTierId);
+
   // Play / pause / timeline-reset logic — runs whenever the active tier changes
   // OR whenever a new tier is added (so newly mounted inactive videos are paused
   // immediately, guaranteeing they start from the pre-decoded first frame on activation).
@@ -58,15 +80,25 @@ export default function VideoPlayer({
     <div className={`relative ${className}`}>
       <div className="relative w-full h-full bg-slate-50">
 
+        {/* Skeleton + spinner while the active tier decodes its first frame */}
+        {activeTierId != null && !isActiveLoaded && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 animate-pulse">
+            <div className="w-7 h-7 border-2 border-slate-300 border-t-cyan-400 rounded-full animate-spin" />
+          </div>
+        )}
+
         {tiers.map((tier) => {
           const isActive = tier.id === activeTierId;
           const hasSrc = !!(tier.videoUrlWebm || tier.videoUrlMov || tier.videoUrl);
+          // Only reveal a tier once it's both active AND decoded, so the gray
+          // WebView placeholder never flashes during the opacity swap.
+          const isVisible = isActive && loadedTiers.has(tier.id);
 
           return (
             <div
               key={tier.id}
               className={`absolute inset-0 w-full h-full transition-opacity duration-300 pointer-events-none ${
-                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                isVisible ? 'opacity-100 z-10' : 'opacity-0 z-0'
               }`}
             >
               {hasSrc && (
@@ -80,16 +112,20 @@ export default function VideoPlayer({
                     if (el) videoRefs.current.set(tier.id, el);
                     else videoRefs.current.delete(tier.id);
                   }}
+                  autoPlay
                   loop
                   muted
                   playsInline
                   {...{"webkit-playsinline": "true"}}
                   preload="auto"
+                  poster={TRANSPARENT_POSTER}
                   onLoadedMetadata={(e) => {
                     // Anchor the decoder to the first frame so the hardware
                     // frame buffer is populated before the tier becomes visible.
                     e.currentTarget.currentTime = 0.001;
                   }}
+                  onLoadedData={() => markLoaded(tier.id)}
+                  onCanPlay={() => markLoaded(tier.id)}
                   className="absolute inset-0 w-full h-full object-cover"
                   style={{ background: 'transparent', WebkitAppearance: 'none' }}
                 >

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useUserStore } from '@/features/user';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
@@ -661,24 +662,10 @@ export default function StatsOverview({
         let resolvedParkGear: string[] = [];
         const isParkLocation = resolvedLocation === 'park' || resolvedLocation === 'street';
         if (isParkLocation) {
-          let gpsCoords: { lat: number; lng: number } | undefined;
-          if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-            try {
-              const permission = await navigator.permissions.query({ name: 'geolocation' });
-              if (permission.state === 'granted') {
-                const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                  navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: false,
-                    timeout: 5000,
-                    maximumAge: 120_000,
-                  }),
-                );
-                gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-              }
-            } catch {
-              // GPS unavailable or denied — resolver falls through to profile fallback
-            }
-          }
+          // Read the shared GPS fix (driven by useGPS). When no fix is
+          // available the resolver falls through to the profile-based fallback.
+          const storeFix = useGPSStore.getState().coords;
+          const gpsCoords: { lat: number; lng: number } | undefined = storeFix ?? undefined;
           resolvedParkGear = await resolveParkEquipmentIds(profile, { gpsCoords });
           console.log(
             resolvedParkGear.length > 0

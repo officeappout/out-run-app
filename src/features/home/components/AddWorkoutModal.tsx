@@ -25,6 +25,7 @@ import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
 import { useUserStore } from '@/features/user';
 import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import { auth } from '@/lib/firebase';
 import { g } from '@/lib/utils/gendered-text';
@@ -244,22 +245,12 @@ export default function AddWorkoutModal({
             const activeProgram = useUserStore.getState()
               .profile?.progression?.activePrograms?.[0];
 
-            // Best-effort GPS — if unavailable the session is created without coords.
-            let lat: number | null = null;
-            let lng: number | null = null;
-            try {
-              const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                  timeout: 3000,
-                  maximumAge: 60_000,
-                  enableHighAccuracy: false,
-                });
-              });
-              lat = pos.coords.latitude;
-              lng = pos.coords.longitude;
-            } catch {
-              // GPS denied or timed out — proceed without coordinates
-            }
+            // Best-effort GPS from the shared store (driven by useGPS). If no
+            // fix is available the session is created without coords — we never
+            // block session creation on a fresh permission prompt here.
+            const gpsFix = useGPSStore.getState().coords;
+            const lat: number | null = gpsFix?.lat ?? null;
+            const lng: number | null = gpsFix?.lng ?? null;
 
             // The new schema requires `endTime` on every planned
             // session. Manual entries have an explicit `duration`

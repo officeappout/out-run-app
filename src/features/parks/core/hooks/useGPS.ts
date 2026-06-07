@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { useGPSStore } from '../store/useGPSStore';
 
 const FALLBACK_SDEROT = { lat: 31.525, lng: 34.5955 };
 
@@ -125,8 +126,10 @@ export function useGPS(): GPSState {
               setCurrentUserPos(FALLBACK_SDEROT);
             }
             setLocationError('Location permission denied');
+            useGPSStore.getState()._setPermissionState('denied');
             return;
           }
+          useGPSStore.getState()._setPermissionState('granted');
 
           capWatchId.current = await Geolocation.watchPosition(
             { enableHighAccuracy: true, timeout: 20000 },
@@ -211,6 +214,7 @@ export function useGPS(): GPSState {
         lastGPSPos.current = { lat: newLat, lng: newLng };
         setLocationError(null);
         setCurrentUserPos({ lat: newLat, lng: newLng });
+        useGPSStore.getState()._setPermissionState('granted');
         if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
           setUserBearing(pos.coords.heading);
         }
@@ -222,6 +226,7 @@ export function useGPS(): GPSState {
           setCurrentUserPos(FALLBACK_SDEROT);
         }
         setLocationError(error.message);
+        useGPSStore.getState()._setPermissionState(error.code === 1 ? 'denied' : 'prompt');
         if (error.code !== 3) {
           console.warn('[useGPS] Geolocation error', error.code, error.message);
         }
@@ -279,6 +284,19 @@ export function useGPS(): GPSState {
       { enableHighAccuracy: true, timeout: 8000 },
     );
   }, [simulationActive, isNative]);
+
+  // ── Mirror into useGPSStore ──────────────────────────────────────────────
+  // useGPS is the sole GPS driver; these effects push the canonical fix and
+  // error into the shared store so every other feature can read coordinates
+  // without opening its own watcher / permission prompt. Covers all paths
+  // (native success, web success, and the Sderot fallback) in one place.
+  useEffect(() => {
+    useGPSStore.getState()._setCoords(currentUserPos);
+  }, [currentUserPos]);
+
+  useEffect(() => {
+    useGPSStore.getState()._setLocationError(locationError);
+  }, [locationError]);
 
   return {
     currentUserPos,

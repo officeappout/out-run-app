@@ -403,12 +403,12 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
 
       {/* Input bar — replaced by a notice once the user is blocked. */}
       {isBlocked ? (
-        <div className="px-4 py-3 border-t border-gray-100 bg-white flex items-center justify-center gap-2 text-sm text-gray-500">
+        <div className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] border-t border-gray-100 bg-white flex items-center justify-center gap-2 text-sm text-gray-500">
           <Ban className="w-4 h-4 text-gray-400" />
           חסמת משתמש זה. בטל את החסימה כדי לשלוח הודעות.
         </div>
       ) : (
-        <div className="px-4 py-3 border-t border-gray-100 bg-white flex items-center gap-2">
+        <div className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] border-t border-gray-100 bg-white flex items-center gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}

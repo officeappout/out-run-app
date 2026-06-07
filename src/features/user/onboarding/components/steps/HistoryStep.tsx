@@ -157,7 +157,9 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
   const canContinue = historyFrequency !== '';
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 pb-8 flex flex-col min-h-screen bg-slate-50/50">
+    <div dir="rtl" className="w-full max-w-md mx-auto flex flex-col min-h-[100dvh] bg-slate-50/50">
+      {/* Scrollable content region */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 pb-6">
       {/* Main Premium Card Container */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -342,16 +344,18 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
           </div>
         </div>
       </motion.div>
+      </div>{/* end scrollable region */}
 
-      {/* Spacer */}
-      <div className="flex-grow min-h-[40px]" />
-
+      {/* Safe-area-aware CTA footer — always visible above the Android nav bar */}
+      <div
+        className="flex-shrink-0 px-4 pt-3 bg-slate-50/50"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+      >
       {/* Continue Button */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="mt-auto"
       >
         <button
           onClick={handleContinue}
@@ -363,6 +367,7 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
           {locale.common.continue}
         </button>
       </motion.div>
+      </div>
     </div>
   );
 }

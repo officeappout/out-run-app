@@ -745,7 +745,10 @@ export default function HealthDeclarationStep({
       </div>
 
       {/* ── Fixed bottom CTA ── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 py-4 z-30">
+      <div
+        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+      >
         {/* Medical blocking warning */}
         <AnimatePresence>
           {hasMedicalIssue && allAnswered && (

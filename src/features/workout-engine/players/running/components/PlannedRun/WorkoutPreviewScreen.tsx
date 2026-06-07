@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Play, ArrowLeft, Clock, Zap } from 'lucide-react';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
@@ -10,6 +10,7 @@ import type RunWorkout from '../../types/run-workout.type';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
 import { usePartnerFilters } from '@/features/partners';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 
 interface WorkoutPreviewScreenProps {
@@ -27,32 +28,9 @@ export default function WorkoutPreviewScreen({
   const router = useRouter();
 
   // ── Partner Finder entry point ────────────────────────────────────────────
-  // One-shot GPS fetch — no GPS source already exposed in this screen.
-  // Mirrors the permission-aware pattern used elsewhere; silently skips
-  // when geolocation is unavailable so the section just hides.
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state !== 'granted') return;
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 8000,
-            maximumAge: 60_000,
-          }),
-        );
-        if (cancelled) return;
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      } catch {
-        /* permission denied / API unsupported — silently hide partner hint */
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // Read the shared GPS fix (driven by useGPS). This screen never opens its own
+  // watcher or prompts — when no fix is available the partner hint just hides.
+  const userLocation = useGPSStore((s) => s.coords);
 
   const { live: livePartners } = usePartnerData(userLocation, 5);
   const similarCount = useMemo(

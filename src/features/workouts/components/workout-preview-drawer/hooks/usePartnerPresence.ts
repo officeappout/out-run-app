@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNearbyParks } from '@/features/parks/core/hooks/useNearbyParks';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 
 interface UserLocation {
   lat: number;
@@ -21,44 +22,19 @@ interface UsePartnerPresenceReturn {
 /**
  * Consolidated "who/where is nearby" hook.
  *
- * On drawer open:
- *   1. Issues a one-shot GPS request (silently no-ops when permission is
- *      denied — mirrors the permission-aware pattern from `useNearbyParks`).
- *   2. Pipes the resulting location into `usePartnerData` (single Firestore
- *      listener) and counts partners whose `activityStatus` matches
- *      `strength` or `workout`.
+ *   1. Reads the user's location straight from the shared GPS store
+ *      (`useGPSStore`, driven by useGPS). This hook NEVER opens its own
+ *      watcher or triggers a permission prompt — when no fix is available
+ *      the partner hint just stays hidden.
+ *   2. Pipes the location into `usePartnerData` (single Firestore listener)
+ *      and counts partners whose `activityStatus` matches `strength` or
+ *      `workout`.
  *   3. Surfaces the `useNearbyParks(isOpen)` result so the orchestrator
  *      can render the "Where to Train" carousel without taking a direct
  *      dependency on the parks hook.
  */
 export function usePartnerPresence(isOpen: boolean): UsePartnerPresenceReturn {
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state !== 'granted') return;
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 8000,
-            maximumAge: 60_000,
-          }),
-        );
-        if (cancelled) return;
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      } catch {
-        /* permission denied / API unsupported — silently hide partner hint */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
+  const userLocation = useGPSStore((s) => s.coords) as UserLocation | null;
 
   const { live: livePartners } = usePartnerData(userLocation, 5);
   const similarCount = useMemo(

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { CommunityEvent, CommunityGroup, EventRegistration } from '@/types/community.types';
 import { useUserStore } from '@/features/user';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import AttendeesPreview from './AttendeesPreview';
 import NavigationSheet from './NavigationSheet';
 import ReportContentSheet from './ReportContentSheet';
@@ -73,18 +74,16 @@ export default function SessionDrawer({
 }: SessionDrawerProps) {
   const [navOpen, setNavOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // GPS comes from the shared store (driven by useGPS); no local watcher here.
+  const userCoords = useGPSStore((s) => s.coords);
   const userId = useUserStore((s) => s.profile?.id ?? '');
 
+  // Premium UX: when the drawer opens without a fix, courtesy-prompt for GPS
+  // so the user can see nearby sessions — but only if they haven't denied us.
   useEffect(() => {
-    if (!isOpen || userCoords) return;
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { timeout: 5000 },
-    );
-  }, [isOpen, userCoords]);
+    if (!isOpen) return;
+    useGPSStore.getState().requestPermissionIfAllowed();
+  }, [isOpen]);
 
   const handleLocationClick = useCallback(
     (lat: number, lng: number) => {

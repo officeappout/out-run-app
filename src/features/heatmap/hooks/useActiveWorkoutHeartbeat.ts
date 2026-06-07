@@ -6,17 +6,23 @@
  * while a workout session is active.
  *
  * Lifecycle:
- *   Mount  → immediate GPS fix + first heartbeat write
+ *   Mount  → start heartbeat; coords are read from the shared GPS store
+ *            (driven by useGPS) or from `overrideLocation` when provided.
  *   Active → heartbeat every 45 s
  *   Unmount → clearActiveWorkout (delete the doc instantly)
+ *
+ * GPS:
+ *   - This hook NEVER opens its own watcher or triggers a permission prompt.
+ *     The core useGPS driver owns all polling; we just consume cached state.
  *
  * Privacy:
  *   - Location is fuzzed ~100 m by the service layer.
  *   - No name, no UID is exposed to the admin heatmap query.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import {
   startActiveWorkoutHeartbeat,
   stopActiveWorkoutHeartbeat,
@@ -43,7 +49,6 @@ export function useActiveWorkoutHeartbeat({
   overrideLocation,
 }: UseActiveWorkoutHeartbeatParams) {
   const { profile } = useUserStore();
-  const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!enabled || !profile?.id) return;
@@ -52,67 +57,20 @@ export function useActiveWorkoutHeartbeat({
     const core = profile.core;
     if (!core) return;
 
-    // When an override is provided, seed the ref and skip GPS polling entirely.
-    if (overrideLocation) {
-      lastCoordsRef.current = overrideLocation;
-      const getPayload = (): ActiveWorkoutPayload | null => {
-        if (!lastCoordsRef.current) return null;
-        return {
-          uid: userId,
-          authorityId: core.authorityId ?? null,
-          neighborhoodId: core.authorityId ?? null,
-          workoutType,
-          lat: lastCoordsRef.current.lat,
-          lng: lastCoordsRef.current.lng,
-          gender: core.gender ?? 'other',
-          ageGroup: deriveAgeGroup(core.birthDate),
-          birthYear: deriveBirthYear(core.birthDate),
-          routeId,
-        };
-      };
-      startActiveWorkoutHeartbeat(getPayload);
-      return () => {
-        stopActiveWorkoutHeartbeat();
-        clearActiveWorkout(userId).catch(() => {});
-      };
-    }
-
-    // Grab initial GPS position
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lastCoordsRef.current = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-      },
-      () => { /* GPS denied — heartbeat skips if coords null */ },
-      { enableHighAccuracy: false, timeout: 10_000 },
-    );
-
-    // Refresh GPS every 45 s (aligned with heartbeat interval)
-    const gpsInterval = setInterval(() => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          lastCoordsRef.current = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          };
-        },
-        () => {},
-        { enableHighAccuracy: workoutType !== 'strength', timeout: 8_000 },
-      );
-    }, 45_000);
-
+    // Coordinates come from the explicit `overrideLocation` (if provided) or
+    // the shared GPS store (driven by useGPS). This hook never opens its own
+    // watcher or prompts — critical during an active workout session. Returns
+    // null while no fix exists so the writer simply skips the tick.
     const getPayload = (): ActiveWorkoutPayload | null => {
-      if (!lastCoordsRef.current) return null;
-
+      const coords = overrideLocation ?? useGPSStore.getState().coords;
+      if (!coords) return null;
       return {
         uid: userId,
         authorityId: core.authorityId ?? null,
         neighborhoodId: core.authorityId ?? null,
         workoutType,
-        lat: lastCoordsRef.current.lat,
-        lng: lastCoordsRef.current.lng,
+        lat: coords.lat,
+        lng: coords.lng,
         gender: core.gender ?? 'other',
         ageGroup: deriveAgeGroup(core.birthDate),
         birthYear: deriveBirthYear(core.birthDate),
@@ -123,7 +81,6 @@ export function useActiveWorkoutHeartbeat({
     startActiveWorkoutHeartbeat(getPayload);
 
     return () => {
-      clearInterval(gpsInterval);
       stopActiveWorkoutHeartbeat();
       clearActiveWorkout(userId).catch(() => {});
     };

@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Map, { Marker, MapRef } from 'react-map-gl';
 import { MapPin, AlertTriangle, ChevronLeft } from 'lucide-react';
 import { checkDuplicateNearby } from '@/features/parks/core/services/contribution.service';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type { WizardData } from './index';
 import type { Park } from '@/features/parks/core/types/park.types';
 
@@ -29,21 +30,20 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
   const [checking, setChecking] = useState(false);
   const [category, setCategory] = useState<LocationCategory>(data.isPointOfInterest ? 'poi' : 'full_park');
   const [selectedPoi, setSelectedPoi] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // Map center comes from the shared GPS store (driven by useGPS); no local
+  // watcher or prompt here.
+  const userLocation = useGPSStore((s) => s.coords);
+  const seededRef = useRef(false);
 
+  // Seed the wizard's location once from the first available GPS fix, so a
+  // fresh contribution starts centered on the user without overwriting any
+  // location they later pick on the map.
   useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setUserLocation(loc);
-          if (!data.location) updateData({ location: loc });
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 8000 },
-      );
+    if (!seededRef.current && userLocation && !data.location) {
+      seededRef.current = true;
+      updateData({ location: userLocation });
     }
-  }, []);
+  }, [userLocation, data.location, updateData]);
 
   const handleMapClick = useCallback(async (evt: any) => {
     const loc = { lat: evt.lngLat.lat, lng: evt.lngLat.lng };

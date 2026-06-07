@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAllParks } from '@/features/parks';
 import { calculateDistance } from '@/lib/services/location.service';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 
 export interface NearbyParkCard {
   id: string;
@@ -18,36 +19,27 @@ export const PARK_FALLBACK_IMAGE = '/images/park-placeholder.svg';
 
 export function useNearbyParks(isOpen: boolean): NearbyParkCard[] {
   const [parks, setParks] = useState<NearbyParkCard[]>([]);
+  // Coordinates come from the shared GPS store (driven by useGPS). This hook
+  // never opens its own watcher or queries the Permissions API — when there is
+  // no fix the section just stays hidden.
+  const coords = useGPSStore((s) => s.coords);
   const fetchedRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen || fetchedRef.current) return;
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    if (!coords) return;
 
     let cancelled = false;
 
     (async () => {
+      fetchedRef.current = true;
       try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state !== 'granted') return;
-
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 8000,
-            maximumAge: 60_000,
-          }),
-        );
-
-        if (cancelled) return;
-        fetchedRef.current = true;
-
         const allParks = await getAllParks();
 
         const withDistance = allParks
           .map((p) => {
             const dist = calculateDistance(
-              pos.coords.latitude, pos.coords.longitude,
+              coords.lat, coords.lng,
               p.location.lat, p.location.lng,
             );
             return {
@@ -64,12 +56,12 @@ export function useNearbyParks(isOpen: boolean): NearbyParkCard[] {
 
         if (!cancelled) setParks(withDistance);
       } catch {
-        // Permission API unsupported or geolocation error — silently hide section
+        // Park fetch failed — silently hide section.
       }
     })();
 
     return () => { cancelled = true; };
-  }, [isOpen]);
+  }, [isOpen, coords]);
 
   return parks;
 }

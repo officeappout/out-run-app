@@ -93,7 +93,7 @@ export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryPro
   }, [data]);
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative font-simpler bg-[#12201e]">
+    <div className="w-full max-w-md mx-auto flex flex-col min-h-[100dvh] relative font-simpler bg-[#12201e]">
 
       {/* Hero Section */}
       <div className="relative w-full h-[300px] overflow-hidden">
@@ -231,7 +231,10 @@ export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryPro
       </motion.div>
 
       {/* Generate Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#12201e] via-[#12201e] to-transparent max-w-md mx-auto">
+      <div
+        className="fixed bottom-0 left-0 right-0 px-4 pt-4 bg-gradient-to-t from-[#12201e] via-[#12201e] to-transparent max-w-md mx-auto"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+      >
         <motion.button
           whileTap={{ scale: 0.98 }}
           onClick={onGenerate}

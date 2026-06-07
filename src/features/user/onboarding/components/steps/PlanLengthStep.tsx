@@ -225,7 +225,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
   };
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-screen relative font-simpler">
+    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative font-simpler">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

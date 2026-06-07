@@ -5,14 +5,15 @@
  * `presence/{uid}` Firestore document while a workout is active.
  *
  * Lifecycle:
- *   Mount  → request GPS fix; retry on failure with exponential backoff
- *            (1s → 30s, ~6 attempts) until a finite coord is obtained.
- *            First successful fix triggers an immediate out-of-band
+ *   Mount  → subscribe to the shared GPS store (useGPSStore). The core useGPS
+ *            driver owns ALL polling — this hook never opens its own watcher or
+ *            triggers a permission prompt (critical mid-workout). The first
+ *            fix that lands in the store fires an immediate out-of-band
  *            heartbeat so partner sync starts ASAP.
  *   Active → heartbeat every 30s (moving) or 60s (stationary). Heartbeat
- *            payload returns null while coords are missing or non-finite;
+ *            payload returns null while store coords are missing or non-finite;
  *            the writer skips the tick rather than corrupting Firestore.
- *   Unmount → cancel pending GPS retries, stop heartbeat, clearPresence.
+ *   Unmount → unsubscribe, stop heartbeat, clearPresence.
  *
  * Respects Ghost privacy mode — no-ops entirely when ghost.
  */
@@ -21,6 +22,7 @@ import { useEffect, useRef } from 'react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import {
   startWorkoutHeartbeat,
   stopWorkoutHeartbeat,
@@ -49,7 +51,6 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
   const { profile } = useUserStore();
   const { mode } = usePrivacyStore();
   const startedAtRef = useRef(Date.now());
-  const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (!profile?.id || !profile.core?.name || mode === 'ghost') return;
@@ -61,68 +62,16 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
       (a) => a.type === 'school' || a.type === 'company',
     );
 
-    // GPS retry state — kept in closure so the cleanup can cancel pending
-    // retries. Without this, a denied/timeout fix at mount would never
-    // recover and the entire workout would publish zero heartbeats.
-    let gpsRetryTimeout: ReturnType<typeof setTimeout> | null = null;
-    let gpsRetryAttempts = 0;
-    let cancelled = false;
-    const MAX_GPS_RETRY_ATTEMPTS = 6; // ~1 min total backoff before giving up
-    const GPS_RETRY_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000, 30_000];
-
     /**
-     * Request a GPS fix. On success, store coords + immediately fire one
-     * heartbeat so Device B starts seeing this user without waiting for
-     * the next 30s/60s tick. On failure, retry with exponential backoff
-     * up to MAX_GPS_RETRY_ATTEMPTS — covers the common case where the
-     * user grants permission a few seconds after the workout begins.
+     * Build the heartbeat payload from the SHARED GPS store. The core useGPS
+     * driver owns polling — this hook never opens its own watcher or prompts.
+     * Returns null while no finite fix is available so the writer skips the
+     * tick rather than corrupting Firestore.
      */
-    const requestGpsFix = (isInitial: boolean) => {
-      if (cancelled) return;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (cancelled) return;
-          const wasMissingBefore = lastCoordsRef.current === null;
-          lastCoordsRef.current = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          };
-          gpsRetryAttempts = 0;
-          // First successful fix during initial wait — fire an immediate
-          // heartbeat so we don't lose up to a full interval of visibility.
-          if (wasMissingBefore && !isInitial) {
-            const payload = getPayload();
-            if (payload) {
-              updatePresence(payload).catch((err) =>
-                console.warn('[WorkoutPresence] post-recovery heartbeat failed:', err),
-              );
-            }
-          }
-        },
-        () => {
-          if (cancelled) return;
-          if (gpsRetryAttempts >= MAX_GPS_RETRY_ATTEMPTS) {
-            console.warn(
-              '[WorkoutPresence] GPS unavailable after retries — partner sync disabled for this session',
-            );
-            return;
-          }
-          const delay = GPS_RETRY_BACKOFF_MS[gpsRetryAttempts] ?? 30_000;
-          gpsRetryAttempts += 1;
-          gpsRetryTimeout = setTimeout(() => requestGpsFix(false), delay);
-        },
-        { enableHighAccuracy: false, timeout: 10_000, maximumAge: 30_000 },
-      );
-    };
-
-    requestGpsFix(true);
-
     const getPayload = (): PresencePayload | null => {
-      if (!lastCoordsRef.current) return null;
-      // Defensive: even if we somehow stored a non-finite value (shouldn't
-      // happen via geolocation API, but mock injection paths exist), skip
-      // the write rather than poisoning Firestore with NaN/null.
-      const { lat, lng } = lastCoordsRef.current;
+      const coords = useGPSStore.getState().coords;
+      if (!coords) return null;
+      const { lat, lng } = coords;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
       // Re-read profile + progression at heartbeat time so any mid-workout
@@ -157,8 +106,8 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
         isVerified: profile.core.isVerified ?? false,
         schoolName: schoolAff?.name ?? null,
         mode,
-        lat: lastCoordsRef.current.lat,
-        lng: lastCoordsRef.current.lng,
+        lat,
+        lng,
         authorityId: profile.core.authorityId ?? null,
         activity: {
           status: activityStatus,
@@ -178,39 +127,26 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
       };
     };
 
-    /**
-     * Periodic GPS refresh during the workout. On failure we kick the
-     * retry-with-backoff path back on so a brief signal loss (tunnel,
-     * elevator, gym basement) is recovered automatically rather than
-     * silently leaving stale coords on the doc.
-     */
-    const refreshGpsAndTick = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (cancelled) return;
-          lastCoordsRef.current = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          };
-        },
-        () => {
-          if (cancelled) return;
-          if (lastCoordsRef.current === null && gpsRetryAttempts === 0) {
-            requestGpsFix(false);
-          }
-        },
-        { enableHighAccuracy: activityStatus !== 'strength', timeout: 8_000, maximumAge: 30_000 },
-      );
-    };
-
-    const gpsInterval = setInterval(refreshGpsAndTick, activityStatus === 'strength' ? 60_000 : 30_000);
+    // Fire one immediate heartbeat the moment the FIRST GPS fix lands in the
+    // store (e.g. the user granted permission a few seconds after the workout
+    // started), so we don't lose up to a full interval of partner visibility.
+    let hadFix = useGPSStore.getState().coords !== null;
+    const unsubscribe = useGPSStore.subscribe((state) => {
+      if (!hadFix && state.coords) {
+        hadFix = true;
+        const payload = getPayload();
+        if (payload) {
+          updatePresence(payload).catch((err) =>
+            console.warn('[WorkoutPresence] first-fix heartbeat failed:', err),
+          );
+        }
+      }
+    });
 
     startWorkoutHeartbeat(getPayload, activityStatus);
 
     return () => {
-      cancelled = true;
-      if (gpsRetryTimeout) clearTimeout(gpsRetryTimeout);
-      clearInterval(gpsInterval);
+      unsubscribe();
       stopWorkoutHeartbeat();
       clearPresence(userId).catch(() => {});
     };

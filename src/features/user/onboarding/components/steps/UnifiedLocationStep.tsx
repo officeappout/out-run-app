@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { ISRAELI_LOCATIONS } from '@/lib/data/israel-locations';
@@ -336,91 +337,88 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     }, 500);
   }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId, isExplorer]);
 
-  const handleFindLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('הדפדפן שלך לא תומך באיתור מיקום');
-      return;
-    }
-
+  const handleFindLocation = async () => {
     setStage(LocationStage.LOCATING);
     setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        
-        setViewState({ longitude, latitude, zoom: 14 });
-        setUserLocation({ lat: latitude, lng: longitude });
-        
-        const result = await reverseGeocode(latitude, longitude);
-        setDetectedCity(result.city);
-        setDetectedNeighborhood(result.neighborhood);
-        setDisplayName(result.displayName);
-        
-        const authId = await findAuthorityIdByCity(result.city || '');
-        setResolvedAuthorityId(authId);
-        if (authId && typeof window !== 'undefined') {
-          sessionStorage.setItem('selected_authority_id', authId);
-        }
+    // Explicit user action → route through the shared store's on-demand prompt.
+    // Resolves with coordinates on grant, or null when denied / unsupported.
+    const coords = await useGPSStore.getState().requestPermissionNow();
 
-        setIsLoadingParks(true);
-        // Explorer mode: parks only — skip all route fetching
-        let hero: RouteWithDistance | null = null;
-        if (!isExplorer) {
-          setIsLoadingCurated(true);
-          hero = await fetchHeroRoute(latitude, longitude, authId, sportContext, selectedSportId);
-          setHeroRoute(hero);
-          setIsLoadingCurated(false);
-        }
-        const heroArr: RouteWithDistance[] = hero ? [hero] : [];
-        const rawFacilities = await fetchNearbyFacilities(latitude, longitude, 1600, selectedSportId, heroArr, sportContext);
-        const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
-        const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
-        setNearbyFacilities(facilities.slice(0, 5));
-        setBestMatchIndex(0);
-        setIsLoadingParks(false);
+    if (!coords) {
+      setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
 
-        if (!isExplorer) loadInfrastructureContext(result.city, authId);
-        
-        setShowRadar(true);
-        setTimeout(() => setShowRadar(false), 3000);
-        setStage(LocationStage.CONFIRMING);
-        
-        // Explorer: skip onboarding sync & analytics — guests don't trigger these
-        if (!isExplorer) {
-          updateData({
-            locationAllowed: true,
-            city: result.displayName,
-            location: { lat: latitude, lng: longitude, city: result.displayName },
-          });
-          // Mirror the step-completion marker used by manual city/neighborhood
-          // selection (handleCitySelect) so both GPS and manual paths update
-          // the progress bar in sync.
-          setMajorRoadmapStep(2);
-          
-          try {
-            const { Analytics } = await import('@/features/analytics/AnalyticsService');
-            Analytics.logPermissionLocationStatus('granted', 'onboarding_unified_location');
-          } catch {}
-        }
-      },
-      async (error) => {
-        setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
-        
-        // Return to INITIAL card so the error red box is visible
-        // and the user can retry or tap "search manually"
-        setStage(LocationStage.INITIAL);
-        
-        // Explorer: skip analytics — guests don't trigger these
-        if (!isExplorer) {
-          try {
-            const { Analytics } = await import('@/features/analytics/AnalyticsService');
-            Analytics.logPermissionLocationStatus(error.code === 1 ? 'denied' : 'prompt', 'onboarding_unified_location');
-          } catch {}
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+      // Return to INITIAL card so the error red box is visible
+      // and the user can retry or tap "search manually"
+      setStage(LocationStage.INITIAL);
+
+      // Explorer: skip analytics — guests don't trigger these
+      if (!isExplorer) {
+        try {
+          const { Analytics } = await import('@/features/analytics/AnalyticsService');
+          const denied = useGPSStore.getState().permissionState === 'denied';
+          Analytics.logPermissionLocationStatus(denied ? 'denied' : 'prompt', 'onboarding_unified_location');
+        } catch {}
+      }
+      return;
+    }
+
+    const { lat: latitude, lng: longitude } = coords;
+
+    setViewState({ longitude, latitude, zoom: 14 });
+    setUserLocation({ lat: latitude, lng: longitude });
+
+    const result = await reverseGeocode(latitude, longitude);
+    setDetectedCity(result.city);
+    setDetectedNeighborhood(result.neighborhood);
+    setDisplayName(result.displayName);
+
+    const authId = await findAuthorityIdByCity(result.city || '');
+    setResolvedAuthorityId(authId);
+    if (authId && typeof window !== 'undefined') {
+      sessionStorage.setItem('selected_authority_id', authId);
+    }
+
+    setIsLoadingParks(true);
+    // Explorer mode: parks only — skip all route fetching
+    let hero: RouteWithDistance | null = null;
+    if (!isExplorer) {
+      setIsLoadingCurated(true);
+      hero = await fetchHeroRoute(latitude, longitude, authId, sportContext, selectedSportId);
+      setHeroRoute(hero);
+      setIsLoadingCurated(false);
+    }
+    const heroArr: RouteWithDistance[] = hero ? [hero] : [];
+    const rawFacilities = await fetchNearbyFacilities(latitude, longitude, 1600, selectedSportId, heroArr, sportContext);
+    const filtered = applyStrengthTierFilter(rawFacilities, selectedSportId, trainingContext);
+    const facilities = isExplorer ? filtered.filter(f => f.kind === 'park') : filtered;
+    setNearbyFacilities(facilities.slice(0, 5));
+    setBestMatchIndex(0);
+    setIsLoadingParks(false);
+
+    if (!isExplorer) loadInfrastructureContext(result.city, authId);
+
+    setShowRadar(true);
+    setTimeout(() => setShowRadar(false), 3000);
+    setStage(LocationStage.CONFIRMING);
+
+    // Explorer: skip onboarding sync & analytics — guests don't trigger these
+    if (!isExplorer) {
+      updateData({
+        locationAllowed: true,
+        city: result.displayName,
+        location: { lat: latitude, lng: longitude, city: result.displayName },
+      });
+      // Mirror the step-completion marker used by manual city/neighborhood
+      // selection (handleCitySelect) so both GPS and manual paths update
+      // the progress bar in sync.
+      setMajorRoadmapStep(2);
+
+      try {
+        const { Analytics } = await import('@/features/analytics/AnalyticsService');
+        Analytics.logPermissionLocationStatus('granted', 'onboarding_unified_location');
+      } catch {}
+    }
   };
 
   /**

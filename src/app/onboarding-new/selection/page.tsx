@@ -253,7 +253,7 @@ export default function SelectionPage() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex flex-col items-center justify-between p-6 text-slate-800 font-simpler relative overflow-hidden"
+      className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-white flex flex-col items-center justify-between p-6 text-slate-800 font-simpler relative overflow-hidden"
       dir={direction}
     >
       {/* Subtle Background Effects */}
@@ -420,7 +420,8 @@ export default function SelectionPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="pb-8 w-full text-center z-10"
+        className="w-full text-center z-10"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
       >
         <button 
           onClick={handleGuestMode}

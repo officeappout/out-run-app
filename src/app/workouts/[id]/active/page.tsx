@@ -23,6 +23,7 @@ import {
 } from '@/features/workout-engine/components/strength';
 import type { BonusStep, VolumeBreakdownDisplay } from '@/features/workout-engine/components/strength/StrengthDopamineScreen';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
 import { auth, db } from '@/lib/firebase';
@@ -968,26 +969,14 @@ export default function ActiveWorkoutPage() {
     const durationMin = Math.max(1, Math.round(durationSec / 60));
 
     // 0. Detect nearest park (within 200 m) up front so the workout doc, the
-    // sessions check-in, and the feed post all see the same parkId.
-    // For strength workouts we don't have a routePath, so we ask GPS once.
+    // sessions check-in, and the feed post all see the same parkId. Coordinates
+    // come from the shared GPS store (driven by useGPS) — no prompt here; if
+    // there's no fix we simply skip park tagging.
     let detectedPark: Awaited<ReturnType<typeof detectNearbyPark>> = null;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        const pos = await new Promise<GeolocationPosition | null>((res) =>
-          navigator.geolocation.getCurrentPosition(
-            (p) => res(p),
-            () => res(null),
-            { timeout: 3000 },
-          ),
-        );
-        if (pos) {
-          detectedPark = await detectNearbyPark(
-            pos.coords.latitude,
-            pos.coords.longitude,
-          ).catch(() => null);
-        }
-      }
-    } catch { /* GPS unavailable — continue without park */ }
+    const gpsFix = useGPSStore.getState().coords;
+    if (gpsFix) {
+      detectedPark = await detectNearbyPark(gpsFix.lat, gpsFix.lng).catch(() => null);
+    }
 
     // 1. Save workout to Firestore history (include XP + optional park tagging)
     let saved = false;

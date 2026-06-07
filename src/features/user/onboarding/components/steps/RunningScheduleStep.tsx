@@ -195,7 +195,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-screen relative">
+    <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <motion.div

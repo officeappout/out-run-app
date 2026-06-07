@@ -9,6 +9,13 @@
 
 import { useRef, useCallback, useState } from 'react';
 
+/**
+ * Transparent 1x1 GIF poster — overrides the default Android/Chromium WebView gray
+ * placeholder + play-icon that flashes while the video buffers.
+ */
+const TRANSPARENT_POSTER =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 interface PremiumExerciseCardProps {
   videoUrl: string;
   posterUrl?: string | null;
@@ -37,7 +44,7 @@ export default function PremiumExerciseCard({
         <video
           ref={videoRef}
           src={videoUrl}
-          poster={posterUrl ?? undefined}
+          poster={posterUrl ?? TRANSPARENT_POSTER}
           autoPlay
           loop
           muted
@@ -45,6 +52,7 @@ export default function PremiumExerciseCard({
           {...{"webkit-playsinline": "true"}}
           preload="auto"
           onCanPlay={handleCanPlay}
+          onLoadedData={handleCanPlay}
           onError={() => setError(true)}
           className={`w-full h-full object-cover transition-opacity duration-500 ${
             loaded ? 'opacity-100' : 'opacity-0'

@@ -15,6 +15,7 @@ import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/fi
 import { db, auth } from '@/lib/firebase';
 import type { UserAffiliation, AccessTier } from '../../core/types/user.types';
 import { reverseGeocode, findAuthorityIdByCity } from '../../onboarding/components/steps/UnifiedLocation/location-utils';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 
 // ============================================================================
 // GPS — Detect city affiliation from device location
@@ -26,15 +27,14 @@ import { reverseGeocode, findAuthorityIdByCity } from '../../onboarding/componen
  */
 export async function detectCityFromGPS(): Promise<UserAffiliation | null> {
   try {
-    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false,
-        timeout: 8000,
-        maximumAge: 300_000, // 5 min cache
-      });
-    });
+    // Read the shared GPS fix (driven by useGPS) — this service never prompts.
+    // No fix → throw so the catch below resolves to null (no affiliation).
+    const coords = useGPSStore.getState().coords;
+    if (!coords) {
+      throw new Error('No GPS fix available');
+    }
 
-    const { latitude, longitude } = position.coords;
+    const { lat: latitude, lng: longitude } = coords;
     const geo = await reverseGeocode(latitude, longitude);
 
     if (!geo.city) return null;
