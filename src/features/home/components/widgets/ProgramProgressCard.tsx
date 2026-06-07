@@ -48,7 +48,7 @@ function ProgressRing({
   const roundedPct = Math.round(percentage);
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle
           cx={center} cy={center} r={radius}
@@ -123,6 +123,7 @@ export function ProgramProgressCard({
         borderRadius: 12,
         border: '0.5px solid #E0E9FF',
         boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
+        isolation: 'isolate',
       }}
       dir="rtl"
     >
@@ -141,12 +142,12 @@ export function ProgramProgressCard({
       >
         {/* Right side: program info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-gray-900 dark:text-white flex-shrink-0">
+          <div className="flex items-start gap-2 mb-1.5 min-h-[40px]">
+            <span className="text-gray-900 dark:text-white flex-shrink-0 mt-0.5">
               {getProgramIcon(iconKey, 'w-5 h-5')}
             </span>
             {programNameLoading ? (
-              <div className="h-5 w-28 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
+              <div className="h-[40px] w-full max-w-[120px] rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
               <h3 className="text-[15px] font-bold text-gray-900 dark:text-white line-clamp-2 break-words leading-snug">
                 {programName}
@@ -159,15 +160,15 @@ export function ProgramProgressCard({
           </p>
 
           {nextLevel <= maxLevel && (
-            <div className="flex items-center gap-1 min-w-0 overflow-hidden" style={{ color: '#374151' }}>
+            <div className="flex items-start gap-1 min-w-0 overflow-hidden min-h-[28px]" style={{ color: '#374151' }}>
               {programNameLoading ? (
-                <div className="h-3.5 w-20 rounded-md bg-gray-100 dark:bg-zinc-700 animate-pulse" />
+                <div className="h-[28px] w-full max-w-[100px] rounded-md bg-gray-100 dark:bg-zinc-700 animate-pulse" />
               ) : (
                 <>
                   <span className="text-xs whitespace-normal break-words min-w-0">
                     עוד {remainingPercent}% לרמה {nextLevel}
                   </span>
-                  <ChevronUp className="w-3 h-3 flex-shrink-0" />
+                  <ChevronUp className="w-3 h-3 flex-shrink-0 mt-0.5" />
                 </>
               )}
             </div>

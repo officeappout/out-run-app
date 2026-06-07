@@ -23,12 +23,15 @@ import { GhostUpsell } from './GhostUpsell';
 const STRENGTH_ONBOARDING_HREF = '/onboarding-new/profile';
 
 /**
- * `h-full` lets the card stretch to match the height of the neighbouring
- * `ConsistencyWidget` inside the Row 2 flex row (`items-stretch` default).
- * No max-width override needed — `ProgramProgressCard` no longer has a
- * `max-w` baked into its default className.
+ * No explicit height is set here — ProgramProgressCard sizes to its own
+ * content (title + level + remaining %). The outer Row 2 flex row uses
+ * `items-stretch` so ConsistencyWidget fills the same height as the card.
+ * Removed the previous `h-full` because it created a circular height
+ * dependency: the card's height depended on the column, the column's height
+ * depended on the taller sibling, leading to height oscillation during the
+ * initial Firestore data-load reflow.
  */
-const FIT_PARENT_CLASS = 'h-full';
+const FIT_PARENT_CLASS = '';
 
 export function ProgramProgressRow() {
   const router = useRouter();

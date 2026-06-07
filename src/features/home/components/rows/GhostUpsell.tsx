@@ -103,7 +103,7 @@ export function GhostUpsell({
 
   return (
     <div
-      className={`relative w-full text-right h-full ${className}`}
+      className={`relative w-full text-right h-full overflow-hidden rounded-xl ${className}`}
       dir="rtl"
     >
       {/* Blurred ghost — decorative only, click events suppressed. */}

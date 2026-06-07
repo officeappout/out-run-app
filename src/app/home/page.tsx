@@ -1243,20 +1243,20 @@ export default function HomePage() {
               {homeTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (flex-1) + consistency bars (111px) */
                 <div
-                  className="flex flex-row items-stretch gap-4 w-full px-4 overflow-hidden"
+                  className="flex flex-row items-stretch gap-4 w-full overflow-hidden"
                   dir="rtl"
                 >
-                  <div className="flex-1 min-w-0 flex flex-col">
+                  <div className="flex-1 min-w-0">
                     <ProgramProgressRow />
                   </div>
-                  <div className="w-[111px] flex-shrink-0 flex flex-col">
+                  <div className="w-[111px] flex-shrink-0">
                     <ConsistencyWidget />
                   </div>
                 </div>
               ) : (
                 /* מדדי בריאות — activity minutes (right) + steps (left) */
                 <div
-                  className="w-full px-4 grid gap-4 items-stretch"
+                  className="w-full grid gap-4 items-stretch"
                   style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
                 >
                   <ActivityCard />
