@@ -427,15 +427,19 @@ export default function CommunityPage() {
   }, [profile?.id, profile?.core?.name, router]);
 
   // ── Render guards ────────────────────────────────────────────────────────
-  if (flagsLoading || (!featureFlags.enableCommunityFeed && !featureFlags.enableLeagues)) return null;
-
-  if (!_hasHydrated || access.isLoading) {
+  // While feature flags haven't arrived yet, show the same loading spinner
+  // used by the profile-hydration guard below. Without this, the component
+  // briefly renders with enableLeagues=false (the safe default) which can
+  // flash the "city not connected" state before the real flags are known.
+  if (flagsLoading || !_hasHydrated || access.isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
         <p className="text-sm text-gray-500 animate-pulse">טוען...</p>
       </div>
     );
   }
+
+  if (!featureFlags.enableCommunityFeed && !featureFlags.enableLeagues) return null;
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
