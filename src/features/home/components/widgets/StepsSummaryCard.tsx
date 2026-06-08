@@ -76,15 +76,15 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
             boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
           }}
         >
-          <CircularProgress percentage={percentage} size={80} strokeWidth={6} colorClass="text-[#00C07A]">
+          <CircularProgress percentage={percentage} size={100} strokeWidth={7} colorClass="text-[#00C07A]">
             <div className="flex flex-col items-center leading-none">
               <span
-                className="text-[16px] font-black text-gray-900 dark:text-white tabular-nums"
+                className="text-[20px] font-black text-gray-900 dark:text-white tabular-nums"
                 dir="ltr"
               >
                 {stepsToday.toLocaleString('he-IL')}
               </span>
-              <span className="text-[8px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
+              <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
                 מתוך {goal.toLocaleString('he-IL')}
               </span>
             </div>
