@@ -37,14 +37,13 @@ import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
-import { DAILY_STEP_GOAL, STEPS_COLOR } from '@/config/health-goals';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
 import { useWeeklyProgress } from '@/features/activity';
-import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
+import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/home/components/WorkoutBuilderSheet';
@@ -56,9 +55,6 @@ import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import AppHeader from '@/components/ui/AppHeader';
-import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
-import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
-
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -173,7 +169,6 @@ const HEALTH_CARD_STYLE: React.CSSProperties = {
 };
 
 const WHO_WEEKLY_TARGET = 150;
-const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
 /** Weekly activity minutes card */
 function ActivityCard() {
@@ -217,64 +212,6 @@ function ActivityCard() {
         />
       </div>
     </div>
-  );
-}
-
-/** Today's steps card — tappable. On first tap, runs the disclosure →
- *  native OS permission flow (HealthKit / Health Connect). Only navigates
- *  to /activity/steps once permissions are confirmed or already granted. */
-function StepsCard() {
-  const router = useRouter();
-  const { stepsToday, todayActivity } = useLiveDailyActivity();
-  const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
-  const barPct = goal > 0 ? Math.min(100, (stepsToday / goal) * 100) : 0;
-
-  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
-    onGranted: () => router.push('/activity/steps'),
-  });
-
-  return (
-    <>
-      <div
-        className="bg-white dark:bg-[#1E1E1E] w-full h-full flex flex-col justify-between relative overflow-hidden"
-        style={{ ...HEALTH_CARD_STYLE, cursor: 'pointer' }}
-        dir="rtl"
-        onClick={triggerHealthPermission}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') triggerHealthPermission(); }}
-        aria-label={`צעדים היום: ${stepsToday.toLocaleString()} מתוך ${goal.toLocaleString()}`}
-      >
-        <div className="p-4 flex flex-col justify-between h-full">
-          <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-              צעדים היום
-            </p>
-            <p style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }} className="text-gray-900 dark:text-white tabular-nums">
-              {stepsToday.toLocaleString()}
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              מתוך {goal.toLocaleString()} צעדים
-            </p>
-          </div>
-          <div
-            className="w-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
-            style={{ height: 4, borderRadius: 2, marginTop: 10 }}
-          >
-            <div
-              style={{
-                width: `${barPct}%`,
-                height: '100%',
-                borderRadius: 2,
-                backgroundColor: STEPS_COLOR,
-                transition: 'width 0.4s ease',
-              }}
-            />
-          </div>
-        </div>
-      </div>
-      <HealthConnectDisclosureModal {...disclosureProps} />
-    </>
   );
 }
 
@@ -1272,7 +1209,7 @@ export default function HomePage() {
                   style={{ gridTemplateColumns: '1fr 1fr', direction: 'rtl' }}
                 >
                   <ActivityCard />
-                  <StepsCard />
+                  <StepsSummaryCard variant="compact" />
                 </div>
               )}
 

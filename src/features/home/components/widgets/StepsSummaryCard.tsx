@@ -76,23 +76,19 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
             boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
           }}
         >
-          <CircularProgress percentage={percentage} size={64} strokeWidth={5} colorClass="text-[#00C07A]">
-            <Footprints
-              className="w-5 h-5 text-[#00C07A] -scale-x-100"
-              aria-hidden="true"
-            />
+          <CircularProgress percentage={percentage} size={80} strokeWidth={6} colorClass="text-[#00C07A]">
+            <div className="flex flex-col items-center leading-none">
+              <span
+                className="text-[16px] font-black text-gray-900 dark:text-white tabular-nums"
+                dir="ltr"
+              >
+                {stepsToday.toLocaleString('he-IL')}
+              </span>
+              <span className="text-[8px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
+                מתוך {goal.toLocaleString('he-IL')}
+              </span>
+            </div>
           </CircularProgress>
-          <div className="flex flex-col items-center leading-tight">
-            <span
-              className="text-[18px] font-black text-gray-900 dark:text-white tabular-nums"
-              dir="ltr"
-            >
-              {stepsToday.toLocaleString('he-IL')}
-            </span>
-            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mt-0.5">
-              / {goal.toLocaleString('he-IL')} צעדים
-            </span>
-          </div>
         </button>
         <HealthConnectDisclosureModal {...disclosureProps} />
       </>
