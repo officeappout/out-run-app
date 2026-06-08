@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, User, Lock, Bell, Shield, Wrench, FileText, LogOut, Trash2,
   ChevronLeft, Loader2, AlertTriangle, Globe, Users, EyeOff,
-  Heart, Ruler, Camera, MapPin, Clock, Plus, Dumbbell, Eye,
+  Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -45,21 +45,27 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-interface Reminder {
-  id: string;
-  day: string;
-  time: string;
-}
-
-const DAYS_OF_WEEK = [
-  { value: 'sunday',    label: 'ראשון' },
-  { value: 'monday',    label: 'שני' },
-  { value: 'tuesday',   label: 'שלישי' },
-  { value: 'wednesday', label: 'רביעי' },
-  { value: 'thursday',  label: 'חמישי' },
-  { value: 'friday',    label: 'שישי' },
-  { value: 'saturday',  label: 'שבת' },
-];
+// ── Workout Reminders (HIDDEN — App Store cleanup D6) ──────────────────────
+// The reminders UI relied on unstable in-memory React state (lost on modal/app
+// close) with no FCM / LocalNotifications persistence. Hidden until a durable
+// scheduling backend exists. Re-enable the `Reminder` interface + DAYS_OF_WEEK
+// constant together with the accordion JSX further below.
+//
+// interface Reminder {
+//   id: string;
+//   day: string;
+//   time: string;
+// }
+//
+// const DAYS_OF_WEEK = [
+//   { value: 'sunday',    label: 'ראשון' },
+//   { value: 'monday',    label: 'שני' },
+//   { value: 'tuesday',   label: 'שלישי' },
+//   { value: 'wednesday', label: 'רביעי' },
+//   { value: 'thursday',  label: 'חמישי' },
+//   { value: 'friday',    label: 'שישי' },
+//   { value: 'saturday',  label: 'שבת' },
+// ];
 
 const PRIVACY_MODES: Array<{
   value: PrivacyMode;
@@ -324,12 +330,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [analyticsOptOut, setAnalyticsOptOut] = useState(false);
   const [isSavingAnalytics, setIsSavingAnalytics] = useState(false);
 
-  // Reminders (in-memory — FCM integration is a separate task)
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [showAddReminder, setShowAddReminder] = useState(false);
-  const [remindersExpanded, setRemindersExpanded] = useState(false);
-  const [selectedDay, setSelectedDay] = useState('sunday');
-  const [selectedTime, setSelectedTime] = useState('18:00');
+  // Reminders (HIDDEN — App Store cleanup D6). In-memory only, no persistence.
+  // const [reminders, setReminders] = useState<Reminder[]>([]);
+  // const [showAddReminder, setShowAddReminder] = useState(false);
+  // const [remindersExpanded, setRemindersExpanded] = useState(false);
+  // const [selectedDay, setSelectedDay] = useState('sunday');
+  // const [selectedTime, setSelectedTime] = useState('18:00');
 
   // Equipment editor sheet
   const [equipmentSheetOpen, setEquipmentSheetOpen] = useState(false);
@@ -363,6 +369,36 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // ── Push notification saving guards (prevent double-tap) ─────────────────
   const [pushSaving,      setPushSaving]      = useState(false);
   const [chatNotifSaving, setChatNotifSaving] = useState(false);
+
+  // ── Native push permission status (App Store Guideline 4.5.4 — D1/D2) ─────
+  // Source of truth for whether the OS will actually deliver notifications.
+  // On web (non-native) there is no OS gate, so we treat it as 'granted' and
+  // let the Firestore-backed toggles behave as before. On native, anything
+  // other than 'granted' (i.e. 'denied' / 'prompt') means the UI MUST render
+  // the push/chat toggles as OFF regardless of the `true` DB default.
+  const [pushPermStatus, setPushPermStatus] = useState<PermStatus>(
+    isNativeApp() ? 'loading' : 'granted',
+  );
+  const nativePushBlocked = isNativeApp() && pushPermStatus !== 'granted';
+
+  // Probe the real OS notification permission via the installed
+  // @capacitor-firebase/messaging plugin (same plugin used by push.ts —
+  // we intentionally do NOT add @capacitor/push-notifications as a new dep).
+  const checkPushPermission = useCallback(async () => {
+    if (!isNativeApp()) {
+      setPushPermStatus('granted');
+      return;
+    }
+    try {
+      const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+      const res = await FirebaseMessaging.checkPermissions();
+      const r = res.receive;
+      setPushPermStatus(r === 'granted' ? 'granted' : r === 'denied' ? 'denied' : 'prompt');
+    } catch (err) {
+      console.warn('[Settings] push checkPermissions failed:', err);
+      setPushPermStatus('prompt');
+    }
+  }, []);
 
   // ── Debounce ref ─────────────────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -435,14 +471,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setDiscoverable(profile?.core?.discoverable === true);
     applyAnalyticsConsent(profile?.core?.analyticsOptOut === true);
 
+    // Probe the real OS notification permission (D1/D2). Forces push/chat
+    // toggles OFF in the UI when the native permission is missing.
+    void checkPushPermission();
+
+    // Hydrate map-visibility privacy mode from Firestore if a value was saved
+    // previously (keeps the choice consistent across devices). Falls back to
+    // the privacy-first `ghost` default in usePrivacyStore otherwise.
+    const savedPrivacy = settings?.privacyMode as PrivacyMode | undefined;
+    if (savedPrivacy === 'ghost' || savedPrivacy === 'squad' || savedPrivacy === 'verified_global') {
+      setPrivacyMode(savedPrivacy);
+    }
+
     // Reset transient UI state
     setCouponCode('');
     setCouponError(null);
     setCouponSuccess(false);
     setPwResetSent(false);
     setEditPersonalOpen(false);
-    setRemindersExpanded(false);
-    setShowAddReminder(false);
 
     // ── Check native permission statuses ──────────────────────────────────
     // Re-probe on every open so the status reflects any OS-level changes
@@ -487,6 +533,41 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // ── Re-check native permissions on app resume (D1/D2) ─────────────────────
+  // When the user backgrounds the app, opens iOS/Android system settings,
+  // toggles the notification permission, then returns — `appStateChange`
+  // (isActive=true) fires and we re-probe so the modal reflects the new OS
+  // state dynamically instead of showing a stale "ON" toggle.
+  useEffect(() => {
+    if (!isOpen || !isNativeApp()) return;
+
+    let listenerHandle: { remove: () => Promise<void> } | undefined;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            void checkPushPermission();
+          }
+        });
+        if (cancelled) {
+          void handle.remove();
+        } else {
+          listenerHandle = handle;
+        }
+      } catch (err) {
+        console.warn('[Settings] appStateChange listener attach failed:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (listenerHandle) void listenerHandle.remove();
+    };
+  }, [isOpen, checkPushPermission]);
 
   // ── Personal info edit ───────────────────────────────────────────────────
 
@@ -606,22 +687,28 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }, [userEmail, hasEmailAuth, showToast]);
 
-  // ── Notification toggles (debounced Firestore) ───────────────────────────
-
-  const handleInactivityToggle = useCallback((v: boolean) => {
-    store.patch({ inactivityAlerts: v });
-    scheduleSave({ 'settings.notifications.inactivity': v });
-  }, [store, scheduleSave]);
-
-  const handleAchievementsToggle = useCallback((v: boolean) => {
-    store.patch({ achievementAlerts: v });
-    scheduleSave({ 'settings.notifications.achievements': v });
-  }, [store, scheduleSave]);
-
-  const handleTipsToggle = useCallback((v: boolean) => {
-    store.patch({ tipsAlerts: v });
-    scheduleSave({ 'settings.notifications.tips': v });
-  }, [store, scheduleSave]);
+  // ── Notification toggles (HIDDEN — App Store cleanup D3/D4/D5) ────────────
+  // These three toggles wrote to `settings.notifications.{inactivity,
+  // achievements,tips}` — a Firestore path NO server consumer ever reads
+  // (the Cloud Function `sendPushFromQueue` only reads
+  // `settings.notificationPrefs.{channel}`). They were non-functional and are
+  // hidden to avoid App Store reviewer scrutiny on dead controls. Re-enable
+  // these handlers together with their rows once they map to real channels.
+  //
+  // const handleInactivityToggle = useCallback((v: boolean) => {
+  //   store.patch({ inactivityAlerts: v });
+  //   scheduleSave({ 'settings.notifications.inactivity': v });
+  // }, [store, scheduleSave]);
+  //
+  // const handleAchievementsToggle = useCallback((v: boolean) => {
+  //   store.patch({ achievementAlerts: v });
+  //   scheduleSave({ 'settings.notifications.achievements': v });
+  // }, [store, scheduleSave]);
+  //
+  // const handleTipsToggle = useCallback((v: boolean) => {
+  //   store.patch({ tipsAlerts: v });
+  //   scheduleSave({ 'settings.notifications.tips': v });
+  // }, [store, scheduleSave]);
 
   // ── Push-enabled master toggle ─────────────────────────────────────────────
   const handlePushEnabledToggle = useCallback(async (v: boolean) => {
@@ -637,11 +724,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         // 'prompt'; no-ops if already 'granted'; returns false if 'denied').
         const registered = await initPushNotifications(uid);
         if (!registered) {
-          // OS denied — revert toggle and guide user to system settings.
+          // OS denied — revert toggle, reflect denied status and guide the
+          // user to system settings.
           store.patch({ pushEnabled: false });
+          await checkPushPermission();
           showToast('error', 'לא ניתן לאפשר התראות. אפשר גישה בהגדרות המכשיר.');
           return;
         }
+        // OS granted — reflect it so the toggle renders ON immediately.
+        setPushPermStatus('granted');
       }
       await setPushEnabled(uid, v);
     } catch (err) {
@@ -651,7 +742,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } finally {
       setPushSaving(false);
     }
-  }, [store, pushSaving, showToast]);
+  }, [store, pushSaving, showToast, checkPushPermission]);
 
   // ── Chat notification channel toggle ─────────────────────────────────────
   const handleChatNotifToggle = useCallback(async (v: boolean) => {
@@ -842,23 +933,22 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     triggerHealthPermission();
   }, [store.healthBridgeEnabled, triggerHealthPermission, showToast]);
 
-  // ── Reminders ────────────────────────────────────────────────────────────
-
-  const handleAddReminder = useCallback(() => {
-    if (!selectedDay || !selectedTime) return;
-    setReminders((prev) => [
-      ...prev,
-      { id: Date.now().toString(), day: selectedDay, time: selectedTime },
-    ]);
-    setShowAddReminder(false);
-    setSelectedDay('sunday');
-    setSelectedTime('18:00');
-  }, [selectedDay, selectedTime]);
-
-  const getDayLabel = useCallback(
-    (v: string) => DAYS_OF_WEEK.find((d) => d.value === v)?.label ?? v,
-    [],
-  );
+  // ── Reminders (HIDDEN — App Store cleanup D6) ─────────────────────────────
+  // const handleAddReminder = useCallback(() => {
+  //   if (!selectedDay || !selectedTime) return;
+  //   setReminders((prev) => [
+  //     ...prev,
+  //     { id: Date.now().toString(), day: selectedDay, time: selectedTime },
+  //   ]);
+  //   setShowAddReminder(false);
+  //   setSelectedDay('sunday');
+  //   setSelectedTime('18:00');
+  // }, [selectedDay, selectedTime]);
+  //
+  // const getDayLabel = useCallback(
+  //   (v: string) => DAYS_OF_WEEK.find((d) => d.value === v)?.label ?? v,
+  //   [],
+  // );
 
   // ── Logout ───────────────────────────────────────────────────────────────
 
@@ -873,11 +963,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       resetOnboarding();
       resetProfile();
       onClose();
-      // SPA navigation keeps the Capacitor WKWebView context alive.
-      // window.location.replace() was causing -999 errors on iOS by
-      // triggering a full page load while the async sign-out was still
-      // flushing auth state to IndexedDB.
-      router.push('/');
+      // Use router.replace() (Next.js client-side) instead of router.push()
+      // so the landing page *replaces* the current history entry. On
+      // Capacitor/Android the hardware back button traverses the webview
+      // history stack — push() would leave /home (or wherever) reachable
+      // after logout. replace() wipes that entry without triggering a full
+      // page reload (unlike window.location.replace which caused -999 on iOS).
+      router.replace('/');
     } catch {
       showToast('error', 'שגיאה בהתנתקות. נסה שוב.');
     }
@@ -904,11 +996,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       try { resetOnboarding(); resetProfile(); } catch { /* ignore */ }
       setShowDeleteConfirm(false);
       onClose();
-      // Defer SPA navigation by one tick so the iOS WKWebView finishes
-      // flushing auth state before the route change. window.location.replace()
-      // was causing -999 / blank-screen errors by firing before the async
-      // sign-out and IndexedDB flush completed.
-      setTimeout(() => router.push('/'), 150);
+      // Defer by one tick so the iOS WKWebView finishes flushing auth state
+      // before the route change (window.location.replace caused -999 / blank-
+      // screen errors by firing too early). router.replace() is a client-side
+      // swap that wipes the history entry so the Android back button cannot
+      // return to a protected screen after the account has been deleted.
+      setTimeout(() => router.replace('/'), 150);
     } catch (err: unknown) {
       const code = (err as Record<string, unknown>)?.code as string | undefined;
       const msg  = ((err as Record<string, unknown>)?.message as string | undefined) ?? '';
@@ -1208,7 +1301,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     4. התראות
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="התראות">
-                  {/* Master push switch — gates ALL push; triggers OS prompt on native */}
+                  {/* Master push switch — gates ALL push; triggers OS prompt on native.
+                      When the native OS permission is missing (denied/prompt) the
+                      toggle is forced OFF and a PermissionStatusBadge replaces it,
+                      tapping it deep-links to system settings (denied) or re-prompts
+                      (prompt). This is the App Store Guideline 4.5.4 fix. */}
                   <SettingsRow
                     icon={
                       pushSaving
@@ -1217,15 +1314,40 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     }
                     iconBg="bg-purple-50"
                     label="התראות פוש"
-                    sublabel={isNativeApp() ? 'הפעלה תבקש הרשאת מערכת' : 'ניהול מרכזי של כל ההתראות'}
+                    sublabel={
+                      nativePushBlocked
+                        ? (pushPermStatus === 'denied' ? 'נחסם — פתח הגדרות' : 'הפעל כדי לקבל התראות')
+                        : isNativeApp() ? 'הפעלה תבקש הרשאת מערכת' : 'ניהול מרכזי של כל ההתראות'
+                    }
                     right={
-                      <Toggle
-                        checked={store.pushEnabled}
-                        onChange={(v) => { void handlePushEnabledToggle(v); }}
-                        disabled={!store.isLoaded || pushSaving}
-                      />
+                      nativePushBlocked ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (pushPermStatus === 'prompt') {
+                              void handlePushEnabledToggle(true);
+                            } else {
+                              openNativeAppSettings();
+                            }
+                          }}
+                          className="active:scale-95 transition-transform"
+                          aria-label="אפשר התראות בהגדרות המכשיר"
+                        >
+                          <PermissionStatusBadge status={pushPermStatus} />
+                        </button>
+                      ) : (
+                        <Toggle
+                          checked={store.pushEnabled}
+                          onChange={(v) => { void handlePushEnabledToggle(v); }}
+                          disabled={!store.isLoaded || pushSaving}
+                        />
+                      )
                     }
                   />
+                  {/* HIDDEN — App Store cleanup D3/D4/D5. These three toggles wrote to
+                      `settings.notifications.{inactivity,achievements,tips}`, a Firestore
+                      path no server consumer reads (the push Cloud Function only honours
+                      `settings.notificationPrefs.{channel}`). Non-functional → hidden.
                   <SettingsRow
                     icon={<Bell size={18} className="text-orange-500" />}
                     iconBg="bg-orange-50"
@@ -1265,8 +1387,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       />
                     }
                   />
+                  */}
 
-                  {/* Chat notification channel toggle */}
+                  {/* Chat notification channel toggle — also gated by the native OS
+                      permission (forced OFF + badge when access is missing). */}
                   <SettingsRow
                     icon={
                       chatNotifSaving
@@ -1275,17 +1399,43 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     }
                     iconBg="bg-blue-50"
                     label="התראות צ׳אט"
-                    sublabel="קבל הודעה כשמישהו כותב לך"
+                    sublabel={
+                      nativePushBlocked
+                        ? (pushPermStatus === 'denied' ? 'נחסם — פתח הגדרות' : 'הפעל התראות כדי לקבל')
+                        : 'קבל הודעה כשמישהו כותב לך'
+                    }
                     right={
-                      <Toggle
-                        checked={store.chatNotifEnabled}
-                        onChange={(v) => { void handleChatNotifToggle(v); }}
-                        disabled={!store.isLoaded || !store.pushEnabled || chatNotifSaving}
-                      />
+                      nativePushBlocked ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (pushPermStatus === 'prompt') {
+                              void handlePushEnabledToggle(true);
+                            } else {
+                              openNativeAppSettings();
+                            }
+                          }}
+                          className="active:scale-95 transition-transform"
+                          aria-label="אפשר התראות בהגדרות המכשיר"
+                        >
+                          <PermissionStatusBadge status={pushPermStatus} />
+                        </button>
+                      ) : (
+                        <Toggle
+                          checked={store.chatNotifEnabled}
+                          onChange={(v) => { void handleChatNotifToggle(v); }}
+                          disabled={!store.isLoaded || !store.pushEnabled || chatNotifSaving}
+                        />
+                      )
                     }
                   />
 
-                  {/* Reminders accordion */}
+                  {/* Reminders accordion — HIDDEN (App Store cleanup D6).
+                      Relied on in-memory React state with no FCM/LocalNotifications
+                      persistence (settings were lost on modal/app close). Hidden until
+                      a durable scheduling backend exists. Re-enable together with the
+                      reminders state + handlers + DAYS_OF_WEEK constant above.
+
                   <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                     <button
                       type="button"
@@ -1386,6 +1536,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       )}
                     </AnimatePresence>
                   </div>
+                  */}
                 </Section>
 
                 {/* ══════════════════════════════════════════════════════════
@@ -1407,8 +1558,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             key={m.value}
                             type="button"
                             onClick={() => {
-                            console.log('[Settings][Privacy] → localStorage only (NOT Firestore). mode =', m.value, '| Presence heartbeat will pick this up on next broadcast.');
+                            // Persist to BOTH localStorage (via store, for the live
+                            // presence heartbeat) AND Firestore (settings.privacyMode)
+                            // so the choice survives reinstall / new device (D7).
                             setPrivacyMode(m.value);
+                            scheduleSave({ 'settings.privacyMode': m.value });
                           }}
                             className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all text-center ${
                               isActive ? m.activeColor : 'border-gray-100 bg-gray-50 text-gray-500'

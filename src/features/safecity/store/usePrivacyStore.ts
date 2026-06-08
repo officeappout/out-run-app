@@ -8,15 +8,15 @@
  *   Squad          — Only direct Partners (following) can see the user.
  *   VerifiedGlobal — All Verified users in the same age group can see the user.
  *
- * Default: `verified_global`.
- *   The partner finder + map markers query `presence` with
- *   `where('mode', '==', 'verified_global')` to satisfy the Firestore
- *   read rule on /presence/{uid}. If the default were `'squad'`, every
- *   new sign-up would be invisible to strangers AND would see no
- *   strangers — i.e. the partner finder would render empty out of the
- *   box even though everything else was wired up correctly. Users who
- *   want followers-only or full invisibility can downgrade in Settings;
- *   the choice persists per browser via localStorage.
+ * Default: `ghost` (privacy-first).
+ *   App Store Guideline 4.5.4 / privacy-by-default: a brand-new user must
+ *   NOT be broadcast on the map until they explicitly opt in. We therefore
+ *   default to `ghost` (fully hidden — no presence broadcast). Users who
+ *   want to be discovered can upgrade to `squad` (followers-only) or
+ *   `verified_global` (all verified users in their age group) from
+ *   Settings → "נראות במפה". The choice persists per browser via
+ *   localStorage AND is mirrored to Firestore (`settings.privacyMode`)
+ *   by SettingsModal so it survives reinstall / new device.
  *
  * Persists to localStorage so the choice survives refreshes.
  */
@@ -34,7 +34,7 @@ interface PrivacyState {
 export const usePrivacyStore = create<PrivacyState>()(
   persist(
     (set) => ({
-      mode: 'verified_global',
+      mode: 'ghost',
       setMode: (mode) => set({ mode }),
     }),
     {
