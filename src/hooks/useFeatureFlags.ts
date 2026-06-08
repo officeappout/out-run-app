@@ -25,12 +25,14 @@ import { db } from '@/lib/firebase';
 export interface FeatureFlags {
   enableRunningPrograms: boolean;
   enableCommunityFeed: boolean;
+  enableLeagues: boolean;
   maintenanceMode: boolean;
 }
 
 const SAFE_DEFAULTS: FeatureFlags = {
   enableRunningPrograms: false,
   enableCommunityFeed: false,
+  enableLeagues: false,
   maintenanceMode: false,
 };
 
@@ -55,6 +57,7 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
           setFlags({
             enableRunningPrograms: data.enable_running_programs ?? false,
             enableCommunityFeed: data.enable_community_feed ?? false,
+            enableLeagues: data.enable_leagues ?? false,
             maintenanceMode: data.maintenance_mode ?? false,
           });
         } else {
@@ -80,6 +83,7 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
       flags: {
         enableRunningPrograms: true,
         enableCommunityFeed: true,
+        enableLeagues: true,
         maintenanceMode: false,
       },
       loading: false,

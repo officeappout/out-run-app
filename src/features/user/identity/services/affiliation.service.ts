@@ -39,25 +39,30 @@ export async function detectCityFromGPS(): Promise<UserAffiliation | null> {
 
     if (!geo.city) return null;
 
-    // Look up the authority to get its tier
+    // Look up the authority to get its tier.
+    // When the city is NOT a registered OUT-RUN authority we must return null
+    // rather than minting a phantom slug affiliation (e.g. "kfar_saba"). A
+    // slug affiliation would make the user appear "connected" to a city league
+    // that does not exist, breaking the city-not-connected flow downstream.
     const authorityId = await findAuthorityIdByCity(geo.city);
-    let tier: AccessTier = 2; // default municipal tier
+    if (!authorityId) {
+      return null;
+    }
 
-    if (authorityId) {
-      try {
-        const authorityDoc = await getDoc(doc(db, 'authorities', authorityId));
-        if (authorityDoc.exists()) {
-          const data = authorityDoc.data();
-          tier = (data.tier as AccessTier) || 2;
-        }
-      } catch {
-        // Fallback to tier 2
+    let tier: AccessTier = 2; // default municipal tier
+    try {
+      const authorityDoc = await getDoc(doc(db, 'authorities', authorityId));
+      if (authorityDoc.exists()) {
+        const data = authorityDoc.data();
+        tier = (data.tier as AccessTier) || 2;
       }
+    } catch {
+      // Fallback to tier 2
     }
 
     return {
       type: 'city',
-      id: authorityId || geo.city.toLowerCase().replace(/\s+/g, '_'),
+      id: authorityId,
       tier,
       name: geo.city,
       joinedAt: new Date(),

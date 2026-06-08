@@ -35,11 +35,14 @@ export default function BottomNavigation() {
     return null;
   }
 
-  // The social hub (/community) merges feed and leagues into one tab.
+  // The social hub (/community) merges feed and leagues into one tab. Surface
+  // the entry when EITHER surface is enabled — leagues can ship independently
+  // of the social feed, so we must not hide the only entry point to /community
+  // when only leagues is on.
   const navItems = [
     { name: 'בית',    href: '/home',      icon: Home,  match: 'prefix' as const },
     { name: 'מפה',    href: '/map',        icon: Map,   match: 'prefix' as const },
-    ...(flags.enableCommunityFeed
+    ...(flags.enableCommunityFeed || flags.enableLeagues
       ? [
           { name: 'חברתי', href: '/community', icon: Users, match: 'community-feed' as const },
         ]

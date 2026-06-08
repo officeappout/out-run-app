@@ -8,7 +8,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
-import { Settings, Footprints, Users, ShieldAlert, Save, CheckCircle2 } from 'lucide-react';
+import { Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2 } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -17,6 +17,7 @@ import { Settings, Footprints, Users, ShieldAlert, Save, CheckCircle2 } from 'lu
 interface FlagState {
   enable_running_programs: boolean;
   enable_community_feed: boolean;
+  enable_leagues: boolean;
 }
 
 // ============================================================================
@@ -65,6 +66,7 @@ export default function SystemSettingsPage() {
   const [flags, setFlags] = useState<FlagState>({
     enable_running_programs: false,
     enable_community_feed: false,
+    enable_leagues: false,
   });
   const [flagsLoading, setFlagsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,6 +108,7 @@ export default function SystemSettingsPage() {
           setFlags({
             enable_running_programs: data.enable_running_programs ?? false,
             enable_community_feed: data.enable_community_feed ?? false,
+            enable_leagues: data.enable_leagues ?? false,
           });
         }
       })
@@ -243,6 +246,39 @@ export default function SystemSettingsPage() {
               <Toggle
                 enabled={flags.enable_community_feed}
                 onChange={(v) => setFlags((f) => ({ ...f, enable_community_feed: v }))}
+                disabled={saving}
+              />
+            </div>
+          </div>
+
+          {/* Leagues Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                  <Trophy size={18} className="text-amber-500" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-bold text-slate-900 text-sm">ליגות וארנה</h2>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                    טאב ״הליגה״ ב/community, דירוגי עיר/ארגון/פארק, ליגות חברתיות — בלתי תלוי בפיד
+                  </p>
+                  <div className="mt-1.5">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        flags.enable_leagues
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {flags.enable_leagues ? '● פעיל' : '○ כבוי'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Toggle
+                enabled={flags.enable_leagues}
+                onChange={(v) => setFlags((f) => ({ ...f, enable_leagues: v }))}
                 disabled={saving}
               />
             </div>

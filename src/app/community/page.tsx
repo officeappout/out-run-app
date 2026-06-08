@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, Share2 } from 'lucide-react';
+import { Users, RefreshCw, Share2, ChevronDown } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -119,12 +119,14 @@ export default function CommunityPage() {
     [router, searchParams],
   );
 
-  // ── Route guard: redirect when community feed is disabled ────────────────
+  // ── Route guard: redirect only when BOTH surfaces are disabled ───────────
+  // The page hosts two independent surfaces: the social feed (enableCommunityFeed)
+  // and leagues (enableLeagues). We only bounce to /home when neither is on.
   useEffect(() => {
-    if (!flagsLoading && !featureFlags.enableCommunityFeed) {
+    if (!flagsLoading && !featureFlags.enableCommunityFeed && !featureFlags.enableLeagues) {
       router.replace('/home');
     }
-  }, [flagsLoading, featureFlags.enableCommunityFeed, router]);
+  }, [flagsLoading, featureFlags.enableCommunityFeed, featureFlags.enableLeagues, router]);
 
   const userId = profile?.id;
   const photoURL = profile?.core?.photoURL;
@@ -137,6 +139,10 @@ export default function CommunityPage() {
   // 'league_<groupId>'.
   const [selectedLeague, setSelectedLeague] = useState<string>('global');
   const defaultLeagueApplied = useRef(false);
+
+  // Bottom-sheet league selector — replaces the inline horizontal carousel.
+  // The summary button shows the active league; tapping it opens this sheet.
+  const [leagueSheetOpen, setLeagueSheetOpen] = useState(false);
 
   useEffect(() => {
     if (access.activeTabs.length === 0) return;
@@ -212,18 +218,40 @@ export default function CommunityPage() {
     address?: string;
   } | null>(null);
 
-  // ── Deep-link: ?groupId=xxx → switch to feed tab and open drawer ─────────
+  // ── Deep-link: ?groupId=xxx → open drawer, or ?groupId=xxx&joined=true →
+  //    fire the post-join success drawer (gateway auto-join completed). ──────
   useEffect(() => {
     const targetId = searchParams.get('groupId');
     if (!targetId || !groups.length || arenaLoading) return;
     const target = groups.find((g) => g.id === targetId);
     if (target) {
-      // Force feed view so the drawer feels in-context.
-      if (topTab !== 'feed') setTopTab('feed');
-      setSelectedGroup(target);
-      // Strip query param without nuking ?tab= if it was set.
+      const justJoined = searchParams.get('joined') === 'true';
+      if (justJoined) {
+        // The membership write already happened at the gateway — mark joined
+        // locally and celebrate with the success drawer.
+        setJoinedGroupIds((prev) => new Set([...prev, target.id]));
+        const allSlots = target.scheduleSlots?.length
+          ? target.scheduleSlots
+          : target.schedule
+            ? [target.schedule]
+            : [];
+        setSuccessData({
+          name: target.name,
+          verb: GROUP_VERB[target.category] ?? 'יתאמן',
+          groupId: target.id,
+          scheduleSlots: allSlots,
+          category: target.category,
+          address: target.meetingLocation?.address,
+        });
+      } else {
+        // Force feed view so the drawer feels in-context.
+        if (topTab !== 'feed') setTopTab('feed');
+        setSelectedGroup(target);
+      }
+      // Strip query params without nuking ?tab= if it was set.
       const params = new URLSearchParams(searchParams.toString());
       params.delete('groupId');
+      params.delete('joined');
       const qs = params.toString();
       router.replace(`/community${qs ? `?${qs}` : ''}`, { scroll: false });
     }
@@ -399,7 +427,7 @@ export default function CommunityPage() {
   }, [profile?.id, profile?.core?.name, router]);
 
   // ── Render guards ────────────────────────────────────────────────────────
-  if (flagsLoading || !featureFlags.enableCommunityFeed) return null;
+  if (flagsLoading || (!featureFlags.enableCommunityFeed && !featureFlags.enableLeagues)) return null;
 
   if (!_hasHydrated || access.isLoading) {
     return (
@@ -634,34 +662,117 @@ export default function CommunityPage() {
 
     return (
       <>
-        {/* League cards carousel — replaces the old "הליגה של {city}" h2 +
-            Plus button row AND the old segmented עיר/ארצי bar. The trailing
-            "+" card inside the carousel handles the create-league CTA, so
-            the standalone Plus button is no longer needed. */}
-        <LeagueCarousel
-          leagues={cards}
-          selectedKey={selectedLeague}
-          onSelect={(key) => setSelectedLeague(key)}
-          activeFilterLabel={getFilterLabel()}
-        />
-
-        {/* Tiny dynamic label below the carousel — replaces the redundant
-            page-level h2. Updates whenever the active card changes. */}
-        {activeCard && (
+        {/* League selector — a single summary button showing the active league.
+            Tapping it opens the bottom-sheet selector (replaces the old inline
+            horizontal carousel). The "+" create CTA now lives inside the sheet. */}
+        {arenaLoading ? (
           <div
-            className="pb-2 text-gray-500 text-right"
-            style={{ fontSize: 13 }}
+            className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 mb-3"
             dir="rtl"
           >
-            <span className="font-medium text-gray-700">{activeCard.name}</span>
-            {activeCard.subtitle && (
-              <>
-                <span className="mx-1">•</span>
-                <span>{activeCard.subtitle}</span>
-              </>
-            )}
+            <div className="w-11 h-11 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="h-3.5 w-32 rounded bg-gray-200 animate-pulse" />
+              <div className="h-2.5 w-24 rounded bg-gray-200 animate-pulse" />
+            </div>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLeagueSheetOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={leagueSheetOpen}
+            className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 shadow-subtle active:scale-[0.98] transition-transform mb-3"
+            dir="rtl"
+          >
+            <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {activeCard?.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={activeCard.logoUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xl leading-none">
+                  {activeCard?.emoji ?? '🏆'}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0 text-right">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-gray-900 text-sm truncate">
+                  {activeCard?.name ?? 'בחר ליגה'}
+                </span>
+                <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              </div>
+              <div className="text-xs text-gray-500 truncate">
+                {activeCard?.subtitle ? `${activeCard.subtitle} • ` : ''}
+                {getFilterLabel()}
+              </div>
+            </div>
+            {activeMyEntry?.rank != null && (
+              <div className="flex flex-col items-center flex-shrink-0 leading-none">
+                <span
+                  className="font-black tabular-nums text-sm"
+                  style={{ color: '#1D9E75' }}
+                >
+                  #{activeMyEntry.rank}
+                </span>
+                <span className="text-gray-400 mt-0.5" style={{ fontSize: 9 }}>
+                  דירוג
+                </span>
+              </div>
+            )}
+          </button>
         )}
+
+        {/* Bottom-sheet league selector */}
+        <AnimatePresence>
+          {leagueSheetOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[90] bg-black/40"
+                onClick={() => setLeagueSheetOpen(false)}
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+                className="fixed bottom-0 left-0 right-0 z-[91] bg-white rounded-t-3xl shadow-2xl max-w-md mx-auto"
+                style={{ maxHeight: '85vh' }}
+                dir="rtl"
+              >
+                <div className="flex justify-center pt-3 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-gray-200" />
+                </div>
+                <div
+                  className="px-5 pb-8 pt-2 overflow-y-auto"
+                  style={{ maxHeight: 'calc(85vh - 40px)' }}
+                >
+                  <h3 className="text-base font-black text-gray-900 mb-3 text-right">
+                    בחר ליגה
+                  </h3>
+                  <LeagueCarousel
+                    mode="sheet"
+                    leagues={cards}
+                    selectedKey={selectedLeague}
+                    onSelect={(key) => {
+                      setSelectedLeague(key);
+                      setLeagueSheetOpen(false);
+                    }}
+                    activeFilterLabel={getFilterLabel()}
+                    isLoading={arenaLoading}
+                  />
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -712,33 +823,43 @@ export default function CommunityPage() {
             />
 
             <div
-              className="pointer-events-auto bg-white flex items-center gap-3"
+              className="pointer-events-auto flex items-center gap-3 rounded-2xl shadow-floating"
               style={{
-                borderTop: '0.5px solid #E5E7EB',
-                padding: '10px 16px',
+                background: 'rgba(255,255,255,0.82)',
+                backdropFilter: 'blur(14px) saturate(160%)',
+                WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+                border: '0.5px solid rgba(229,231,235,0.9)',
+                padding: '8px 12px 8px 8px',
               }}
             >
               <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#1D9E75' }}
+                className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0 text-white"
+                style={{
+                  background: 'linear-gradient(135deg, #2BB587, #147C5C)',
+                  boxShadow: '0 4px 12px rgba(20,124,92,0.35)',
+                }}
               >
-                <span className="text-white text-xs font-black tabular-nums">
-                  #{activeMyEntry.rank}
+                <span className="text-[8px] font-bold leading-none opacity-80">דירוג</span>
+                <span className="text-sm font-black tabular-nums leading-tight">
+                  {activeMyEntry.rank}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-gray-900 truncate">
+                <p className="text-sm font-black text-gray-900 truncate leading-tight">
                   {activeMyEntry.name}
                 </p>
-                <p className="text-[11px] text-gray-500 font-medium tabular-nums">
+                <p className="text-[11px] text-[#147C5C] font-bold tabular-nums leading-tight">
                   {activeMyEntry.totalCredit.toLocaleString('he-IL')} קרדיט
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleShareMyRank}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-black active:scale-95 transition-transform flex-shrink-0"
-                style={{ backgroundColor: '#1D9E75' }}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-black active:scale-95 transition-transform flex-shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #2BB587, #147C5C)',
+                  boxShadow: '0 4px 12px rgba(20,124,92,0.3)',
+                }}
               >
                 <Share2 className="w-3.5 h-3.5" />
                 שתף
@@ -790,13 +911,17 @@ export default function CommunityPage() {
           ? '🏢'
           : access.orgType === 'university'
             ? '🎓'
-            : '🏫';
+            : access.orgType === 'youth_movement'
+              ? '⛺'
+              : '🏫';
       const orgName =
         access.orgType === 'work'
           ? 'ליגת העבודה'
           : access.orgType === 'university'
             ? 'ליגת הקמפוס'
-            : 'ליגת בית הספר';
+            : access.orgType === 'youth_movement'
+              ? 'ליגת התנועה'
+              : 'ליגת בית הספר';
       cards.push({
         key: 'org',
         name: orgName,
@@ -980,8 +1105,24 @@ export default function CommunityPage() {
         {/* Org identity row removed — the active league card and the small
             label below the carousel already show the org name + emoji. */}
 
-        {access.orgType === 'school' && (
-          <SchoolOutreachCard schoolName={access.orgName ?? 'בית הספר'} />
+        {access.orgType && (
+          <SchoolOutreachCard
+            schoolName={
+              access.orgName ??
+              (access.orgType === 'work'
+                ? 'הארגון שלך'
+                : access.orgType === 'youth_movement'
+                  ? 'התנועה שלך'
+                  : 'בית הספר')
+            }
+            orgType={
+              access.orgType === 'work'
+                ? 'company'
+                : access.orgType === 'youth_movement'
+                  ? 'youth_movement'
+                  : 'school'
+            }
+          />
         )}
 
         {/* יחידים | קבוצות toggle */}

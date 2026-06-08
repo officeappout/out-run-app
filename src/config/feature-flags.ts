@@ -12,6 +12,12 @@ export const IS_COIN_SYSTEM_ENABLED = false;
 // Set to true to re-enable automatic post creation on workout completion.
 export const IS_COMMUNITY_FEED_ENABLED = false;
 
+// LEAGUES: Arena / leagues surface inside /community. Independent of the feed
+// so leagues can ship to stores while the social feed stays paused. Runtime
+// control lives in system_config/feature_flags.enable_leagues; this compile-time
+// constant mirrors the feed pattern for any future compile-time guard.
+export const IS_LEAGUES_ENABLED = true;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

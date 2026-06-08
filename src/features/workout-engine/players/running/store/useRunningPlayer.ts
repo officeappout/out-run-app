@@ -1241,7 +1241,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           // Park sessions check-in
           if (workoutSaved && detectedPark?.parkId) {
             import('@/lib/firebase').then(async ({ auth: fbAuth, db }) => {
-              const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+              const { addDoc, collection, serverTimestamp, doc, updateDoc } = await import('firebase/firestore');
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
               const authorityId = useUserStore.getState().profile?.core?.authorityId ?? detectedPark!.authorityId ?? null;
               if (fbAuth.currentUser && authorityId) {
@@ -1250,6 +1250,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   parkId: detectedPark!.parkId,
                   userId: fbAuth.currentUser.uid,
                   date: serverTimestamp(),
+                }).catch(() => {});
+              }
+              // Remember the user's most-recent park so the Park league card
+              // surfaces automatically in /community (read by useArenaAccess).
+              if (fbAuth.currentUser) {
+                updateDoc(doc(db, 'users', fbAuth.currentUser.uid), {
+                  'core.preferredParkId': detectedPark!.parkId,
+                  'core.preferredParkName': detectedPark!.parkName,
                 }).catch(() => {});
               }
             }).catch(() => {});

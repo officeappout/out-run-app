@@ -27,7 +27,7 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
 import { auth, db } from '@/lib/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
@@ -1046,6 +1046,14 @@ export default function ActiveWorkoutPage() {
           console.warn('[ActiveWorkoutPage] Session check-in failed:', err),
         );
       }
+      // Remember the user's most-recent park so the Park league card surfaces
+      // automatically in /community (read by useArenaAccess).
+      updateDoc(doc(db, 'users', currentUser.uid), {
+        'core.preferredParkId': detectedPark.parkId,
+        'core.preferredParkName': detectedPark.parkName,
+      }).catch((err) =>
+        console.warn('[ActiveWorkoutPage] preferredPark write failed:', err),
+      );
     }
 
     // 2. Publish to social feed (with scope fields for leaderboard)
