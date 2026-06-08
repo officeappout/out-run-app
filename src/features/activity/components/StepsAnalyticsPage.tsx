@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   BarChart,
   Bar,
@@ -35,7 +35,6 @@ import {
   Flame,
   ShieldCheck,
   HeartPulse,
-  X,
 } from 'lucide-react';
 import {
   useStepsAnalytics,
@@ -166,7 +165,6 @@ export default function StepsAnalyticsPage() {
   };
 
   // ── "Connect Health" empty-state (no data / bridge off) ──────────────────
-  const [showConnectDrawer, setShowConnectDrawer] = useState(false);
   const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
 
   // Stable per-mount mock series (3,000–9,000 steps × 7 days) for the blurred
@@ -184,11 +182,6 @@ export default function StepsAnalyticsPage() {
       };
     });
   }, []);
-
-  const handleConnectNow = useCallback(() => {
-    setShowConnectDrawer(false);
-    triggerHealthPermission();
-  }, [triggerHealthPermission]);
 
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]" dir="rtl">
@@ -383,8 +376,9 @@ export default function StepsAnalyticsPage() {
                       </p>
                       <button
                         type="button"
-                        onClick={() => setShowConnectDrawer(true)}
-                        className="inline-flex items-center gap-2 bg-[#00C07A] hover:bg-[#00A86A] active:scale-[0.98] text-white font-black px-5 py-3 rounded-2xl shadow-lg shadow-[#00C07A]/25 transition-all text-sm"
+                        onClick={triggerHealthPermission}
+                        className="inline-flex items-center gap-2 px-7 py-2 text-black text-sm font-semibold rounded-full shadow-md shadow-cyan-400/25 transition-all duration-200 hover:brightness-105 active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
                       >
                         <HeartPulse className="w-4 h-4" />
                         התחבר לאפליקציית הבריאות
@@ -512,12 +506,6 @@ export default function StepsAnalyticsPage() {
 
             <div className="h-4" />
 
-            <ConnectHealthDrawer
-              isOpen={showConnectDrawer}
-              onClose={() => setShowConnectDrawer(false)}
-              onConnect={handleConnectNow}
-              isRequesting={isRequesting}
-            />
             <HealthConnectDisclosureModal {...disclosureProps} />
           </div>
         )}
@@ -646,83 +634,6 @@ function HealthConnectGate({ onConnect, isRequesting }: HealthConnectGateProps) 
   );
 }
 
-// ── Connect Health bottom drawer ─────────────────────────────────────────────
-
-interface ConnectHealthDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConnect: () => void;
-  isRequesting: boolean;
-}
-
-function ConnectHealthDrawer({ isOpen, onClose, onConnect, isRequesting }: ConnectHealthDrawerProps) {
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/40"
-            style={{ backdropFilter: 'blur(2px)' }}
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
-            className="fixed bottom-0 left-0 right-0 z-[100] max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl"
-            dir="rtl"
-          >
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3" />
-            <button
-              onClick={onClose}
-              className="absolute top-4 left-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
-              aria-label="סגור"
-            >
-              <X size={16} className="text-gray-500" />
-            </button>
-
-            <div className="px-6 pt-6 pb-10 text-center">
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ backgroundColor: '#EAFBF4' }}
-              >
-                <HeartPulse className="w-8 h-8" style={{ color: STEPS_COLOR }} />
-              </div>
-
-              <h2 className="text-xl font-black text-gray-900 mb-2 leading-tight">
-                סנכרן את הצעדים שלך
-              </h2>
-              <p className="text-sm text-gray-500 mb-6 leading-relaxed max-w-xs mx-auto">
-                התחבר לאפליקציית הבריאות כדי לראות את הנתונים האמיתיים שלך
-              </p>
-
-              <button
-                type="button"
-                onClick={onConnect}
-                disabled={isRequesting}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-[#00C07A] hover:bg-[#00A86A] disabled:opacity-60 text-white shadow-lg shadow-[#00C07A]/25 transition-all active:scale-[0.97] mb-3"
-              >
-                <HeartPulse className="w-4 h-4" />
-                {isRequesting ? 'מחכה לאישור...' : 'התחבר עכשיו'}
-              </button>
-
-              <button
-                onClick={onClose}
-                className="w-full py-3 rounded-2xl text-sm font-bold text-gray-400"
-              >
-                לא עכשיו
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
 
 // ── Empty / error states ────────────────────────────────────────────────────
 
