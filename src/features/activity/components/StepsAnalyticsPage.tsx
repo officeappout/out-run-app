@@ -12,12 +12,19 @@
  * that drives the full disclosure → OS permission flow inline.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+} from 'framer-motion';
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -29,10 +36,7 @@ import {
 import {
   ChevronRight,
   Footprints,
-  Target,
   TrendingUp,
-  Award,
-  Flame,
   ShieldCheck,
   HeartPulse,
 } from 'lucide-react';
@@ -44,7 +48,6 @@ import {
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { healthBridgeSyncNow } from '@/lib/healthBridge/init';
-import CircularProgress from '@/components/CircularProgress';
 import { STEPS_COLOR } from '@/config/health-goals';
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -59,6 +62,7 @@ const PRIMARY = STEPS_COLOR;     // #00C07A — canonical steps green (goal met)
 const PRIMARY_DIM = '#9BE3CD';   // lighter steps green (below goal)
 const GOAL_LINE = '#F59E0B';     // amber dashed goal reference (semantic, unchanged)
 const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
+const HEBREW_DAYS_SHORT = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,11 +82,85 @@ function isNativeApp(): boolean {
   return Boolean((window as any).Capacitor?.isNativePlatform?.());
 }
 
+// ── Carousel constants ───────────────────────────────────────────────────────
+const RING_SIZE = 200;
+const RING_GAP  = 24;
+const STRIDE    = RING_SIZE + RING_GAP; // 224px
+
+// ── StepsRing ─────────────────────────────────────────────────────────────────
+// Gradient-stroked ring with optional overrun arc. Each instance receives a
+// unique gradId so SVG gradient IDs don't collide when 3 rings are in the DOM.
+interface StepsRingProps {
+  /** Raw ratio × 100; can exceed 100 when steps > goal. */
+  percentage: number;
+  size?: number;
+  strokeWidth?: number;
+  /** Must be unique per mounted instance to avoid SVG gradient ID collisions. */
+  gradId: string;
+  children?: React.ReactNode;
+}
+
+function StepsRing({ percentage, size = 160, strokeWidth = 12, gradId, children }: StepsRingProps) {
+  const clamped  = Math.min(100, Math.max(0, percentage));
+  const overflow = Math.max(0, percentage - 100);
+  const cx   = size / 2;
+  const r    = cx - strokeWidth / 2;
+  const circ = 2 * Math.PI * r;
+  const mainOffset  = circ - (clamped / 100) * circ;
+  const overOffset  = circ - (Math.min(100, overflow) / 100) * circ;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg className="w-full h-full -rotate-90" viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+          <linearGradient id={gradId} x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#00C07A" />
+            <stop offset="50%"  stopColor="#00D4AA" />
+            <stop offset="100%" stopColor="#00E8E0" />
+          </linearGradient>
+        </defs>
+        {/* Track */}
+        <circle cx={cx} cy={cx} r={r} fill="transparent" stroke="#F1F5F9" strokeWidth={strokeWidth} />
+        {/* Progress arc */}
+        <circle
+          cx={cx} cy={cx} r={r}
+          fill="transparent"
+          stroke={`url(#${gradId})`}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circ}
+          strokeDashoffset={mainOffset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 600ms ease-out' }}
+        />
+        {/* Overrun arc — same gradient at reduced opacity */}
+        {overflow > 0 && (
+          <circle
+            cx={cx} cy={cx} r={r}
+            fill="transparent"
+            stroke={`url(#${gradId})`}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circ}
+            strokeDashoffset={overOffset}
+            strokeLinecap="round"
+            opacity={0.35}
+            style={{ transition: 'stroke-dashoffset 600ms ease-out' }}
+          />
+        )}
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ──────────────────────────────────────────────────────────
 
 export default function StepsAnalyticsPage() {
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<StepsTimeRange>('week');
+  // Day-tab: how many days back from today (0 = today, 6 = 6 days ago)
+  const [selectedDayOffset, setSelectedDayOffset] = useState(0);
 
   // Optimistic default (true) — loading skeleton covers the async gap on native.
   const [hasPermissions, setHasPermissions] = useState(true);
@@ -109,9 +187,62 @@ export default function StepsAnalyticsPage() {
     onGranted: handlePermissionsGranted,
   });
 
-  const { chartData, stats, loading, error } = useStepsAnalytics(timeRange);
+  const { snapshots, chartData, stats, loading, error } = useStepsAnalytics(timeRange);
 
+  const isDay = timeRange === 'day';
   const isYear = timeRange === 'year';
+
+  // Reset day offset when leaving the day tab
+  useEffect(() => {
+    if (!isDay) setSelectedDayOffset(0);
+  }, [isDay]);
+
+  // ── Gesture-driven carousel (day tab) ─────────────────────────────────────
+  // dragX tracks real-time finger offset from the initial touch point.
+  // All ring scale/opacity/x values are derived from it via useTransform.
+  // On release, dragX springs back to 0 after committing the day change.
+  // NOTE: all hooks must be called unconditionally (even on non-day tabs).
+  const dragX = useMotionValue(0);
+  const pointerStartX = useRef<number | null>(null);
+
+  // Scale — right drag (dragX > 0) = older = left ring grows into center
+  const centerScale   = useTransform(dragX, [-STRIDE, 0, STRIDE], [0.55, 1.0,  0.55]);
+  const leftScale     = useTransform(dragX, [-STRIDE, 0, STRIDE], [0.35, 0.55, 1.0 ]);
+  const rightScale    = useTransform(dragX, [-STRIDE, 0, STRIDE], [1.0,  0.55, 0.35]);
+
+  // Opacity
+  const centerOpacity = useTransform(dragX, [-STRIDE, 0, STRIDE], [0.35, 1.0,  0.35]);
+  const leftOpacity   = useTransform(dragX, [-STRIDE, 0, STRIDE], [0.0,  0.35, 1.0 ]);
+  const rightOpacity  = useTransform(dragX, [-STRIDE, 0, STRIDE], [1.0,  0.35, 0.0 ]);
+
+  // X positions — add dragX so right drag (dragX > 0) pulls left ring toward center
+  const leftX   = useTransform(dragX, (v) => -STRIDE - RING_SIZE / 2 + v);
+  const centerX = useTransform(dragX, (v) => -RING_SIZE / 2 + v);
+  const rightX  = useTransform(dragX, (v) =>  STRIDE - RING_SIZE / 2 + v);
+
+  const handleCarouselPointerDown = useCallback((e: React.PointerEvent) => {
+    pointerStartX.current = e.clientX;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const handleCarouselPointerMove = useCallback((e: React.PointerEvent) => {
+    if (pointerStartX.current === null) return;
+    dragX.set(e.clientX - pointerStartX.current);
+  }, [dragX]);
+
+  const handleCarouselCommit = useCallback(() => {
+    if (pointerStartX.current === null) return;
+    const delta = dragX.get();
+    pointerStartX.current = null;
+    // right drag (delta > 0) = older day; left drag (delta < 0) = newer day
+    if (delta > 25) setSelectedDayOffset((p) => Math.min(p + 1, Math.max(0, snapshots.length - 1)));
+    else if (delta < -25) setSelectedDayOffset((p) => Math.max(p - 1, 0));
+    // Reset dragX on the next frame — after React re-renders with the new selectedDayOffset.
+    // Instant reset (no spring) avoids a double-animation conflict where the new ring positions
+    // and a running spring both update x simultaneously, causing a visible jump.
+    requestAnimationFrame(() => dragX.set(0));
+  }, [dragX, snapshots.length]);
+
   const yMax = chartData.length > 0 ? Math.max(...chartData.map((d) => d.value)) : 0;
   const showGoalLine = !isYear && stats.dailyGoal > 0;
   const yDomainMax = Math.max(
@@ -121,16 +252,48 @@ export default function StepsAnalyticsPage() {
 
   const isEmpty = !loading && chartData.every((d) => d.value === 0);
 
-  // Hero ring reflects the selected range:
-  //   day   → today's steps vs daily goal, labelled "היום"
-  //   week/month/year → average daily vs daily goal, labelled "ממוצע"
-  const ringValue = timeRange === 'day' ? stats.todaySteps : stats.averageDaily;
-  const ringLabel = timeRange === 'day' ? 'היום' : 'ממוצע';
-  const ringPercentage =
-    stats.dailyGoal > 0
-      ? Math.min(100, Math.round((ringValue / stats.dailyGoal) * 100))
+  // ── Day tab: selected-day navigation ─────────────────────────────────────
+  const MAX_DAY_OFFSET = Math.max(0, snapshots.length - 1);
+  const selectedDaySnap = snapshots[snapshots.length - 1 - selectedDayOffset];
+  const selectedDaySteps = selectedDaySnap?.steps ?? 0;
+  const selectedDayGoal = selectedDaySnap?.stepsGoal ?? stats.dailyGoal;
+
+  const dayRingLabel =
+    selectedDayOffset === 0 ? 'היום'
+    : selectedDayOffset === 1 ? 'אתמול'
+    : selectedDaySnap?.date
+      ? (() => {
+          const d = new Date(selectedDaySnap.date + 'T00:00:00');
+          return `${d.getDate()}/${d.getMonth() + 1}`;
+        })()
+      : `לפני ${selectedDayOffset}`;
+
+  // 7-day area chart data — always last 7 snapshots; selected day gets a larger dot
+  const dayAreaData = useMemo(() => {
+    const last7 = snapshots.slice(-7);
+    return last7.map((s, i, arr) => {
+      const d = s.date ? new Date(s.date + 'T00:00:00') : new Date();
+      return {
+        label: `${d.getDate()}/${d.getMonth() + 1}`,
+        dayName: HEBREW_DAYS_SHORT[d.getDay()],
+        value: s.steps,
+        isSelected: i === arr.length - 1 - selectedDayOffset,
+      };
+    });
+  }, [snapshots, selectedDayOffset]);
+
+  // ── Active ring values (overridden per day when isDay) ────────────────────
+  const activeRingValue = isDay ? selectedDaySteps : stats.averageDaily;
+  const activeRingLabel = isDay ? dayRingLabel : 'ממוצע';
+  const activeRingGoal = isDay ? selectedDayGoal : stats.dailyGoal;
+  const activeRingPercentage =
+    activeRingGoal > 0
+      ? Math.min(100, Math.round((activeRingValue / activeRingGoal) * 100))
       : 0;
 
+
+  // legacy alias (used by km pill)
+  const ringValue = activeRingValue;
 
   // Index of the single best-day bar (non-year ranges only) → gets a ★.
   const bestDayIndex =
@@ -229,89 +392,340 @@ export default function StepsAnalyticsPage() {
               ))}
             </div>
 
-            {/* Hero ring — reflects selected range */}
+            {/* Hero ring */}
             {loading ? (
-              <div className="flex justify-center py-2">
+              <div className="flex justify-center py-6">
                 <div className="w-40 h-40 rounded-full bg-gray-100 animate-pulse" />
               </div>
-            ) : (
-              <div className="flex justify-center py-1">
-                <CircularProgress
-                  percentage={ringPercentage}
-                  size={160}
-                  strokeWidth={12}
-                  colorClass="text-[#00C07A]"
-                >
-                  <div className="flex flex-col items-center leading-none">
-                    <span className="text-[12px] font-black text-[#00C07A] mb-1">{ringLabel}</span>
-                    <span
-                      className="text-[36px] font-black text-gray-900 tabular-nums"
-                      dir="ltr"
+            ) : isDay ? (
+              /* ── Day tab: gesture-driven carousel ──
+                 useMotionValue(dragX) drives all transforms in real-time.
+                 Pointer events update dragX directly — no Framer Motion drag prop
+                 so the container itself never moves. On release: commit day change
+                 + spring dragX back to 0. Stable slot keys (left/center/right)
+                 so rings never unmount during swipe. */
+              <div
+                className="-mx-4 overflow-hidden relative select-none touch-pan-y"
+                style={{ height: RING_SIZE + 56 }}
+                onPointerDown={handleCarouselPointerDown}
+                onPointerMove={handleCarouselPointerMove}
+                onPointerUp={handleCarouselCommit}
+                onPointerCancel={() => {
+                  pointerStartX.current = null;
+                  requestAnimationFrame(() => dragX.set(0));
+                }}
+              >
+                {/* ── Left slot — older day (selectedDayOffset + 1) ── */}
+                {(() => {
+                  const offset = selectedDayOffset + 1;
+                  const snap   = snapshots[snapshots.length - 1 - offset] ?? null;
+                  const steps  = snap?.steps ?? 0;
+                  const goal   = snap?.stepsGoal ?? stats.dailyGoal;
+                  const pct    = goal > 0 ? (steps / goal) * 100 : 0;
+                  const inRange = offset <= MAX_DAY_OFFSET;
+                  return (
+                    <motion.div
+                      className="absolute"
+                      style={{
+                        top: '50%', left: '50%',
+                        x: leftX, y: -RING_SIZE / 2,
+                        scale: leftScale,
+                        opacity: inRange ? leftOpacity : 0,
+                      }}
                     >
-                      {fmtNumber(ringValue)}
-                    </span>
-                    <span className="text-[12px] font-semibold text-gray-400 mt-1.5">
-                      מתוך {fmtNumber(stats.dailyGoal)} צעדים
-                    </span>
-                  </div>
-                </CircularProgress>
+                      <StepsRing percentage={pct} size={RING_SIZE} strokeWidth={10} gradId="stepsGrad-left">
+                        <div className="flex flex-col items-center leading-none pointer-events-none">
+                          <span className="text-[9px] font-bold text-gray-400">
+                            {offset === 1 ? 'אתמול' : snap?.date
+                              ? (() => { const d = new Date(snap.date + 'T00:00:00'); return `${d.getDate()}/${d.getMonth() + 1}`; })()
+                              : `לפני ${offset}`}
+                          </span>
+                          <span className="text-[22px] font-black text-gray-700 tabular-nums" dir="ltr">
+                            {fmtNumber(steps)}
+                          </span>
+                        </div>
+                      </StepsRing>
+                    </motion.div>
+                  );
+                })()}
+
+                {/* ── Center slot — current day (selectedDayOffset) ── */}
+                {(() => {
+                  const offset = selectedDayOffset;
+                  const snap   = snapshots[snapshots.length - 1 - offset] ?? null;
+                  const steps  = snap?.steps ?? 0;
+                  const goal   = snap?.stepsGoal ?? stats.dailyGoal;
+                  const pct    = goal > 0 ? (steps / goal) * 100 : 0;
+                  const label  =
+                    offset === 0 ? 'היום'
+                    : offset === 1 ? 'אתמול'
+                    : snap?.date
+                      ? (() => { const d = new Date(snap.date + 'T00:00:00'); return `${d.getDate()}/${d.getMonth() + 1}`; })()
+                      : `לפני ${offset}`;
+                  return (
+                    <motion.div
+                      className="absolute"
+                      style={{
+                        top: '50%', left: '50%',
+                        x: centerX, y: -RING_SIZE / 2,
+                        scale: centerScale,
+                        opacity: centerOpacity,
+                      }}
+                    >
+                      <StepsRing percentage={pct} size={RING_SIZE} strokeWidth={14} gradId="stepsGrad-center">
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={selectedDayOffset}
+                            initial={{ opacity: 0, scale: 0.85, y: 10 }}
+                            animate={{ opacity: 1, scale: 1,    y: 0  }}
+                            exit={{    opacity: 0, scale: 0.85, y: -10 }}
+                            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                            className="flex flex-col items-center leading-none"
+                          >
+                            <span className="text-[12px] font-black text-[#00C07A] mb-1">{label}</span>
+                            <span className="text-[36px] font-black text-gray-900 tabular-nums" dir="ltr">
+                              {fmtNumber(steps)}
+                            </span>
+                            <span className="text-[12px] font-semibold text-gray-400 mt-1.5">
+                              מתוך {fmtNumber(goal)} צעדים
+                            </span>
+                          </motion.div>
+                        </AnimatePresence>
+                      </StepsRing>
+                    </motion.div>
+                  );
+                })()}
+
+                {/* ── Right slot — newer day (selectedDayOffset - 1) ── */}
+                {(() => {
+                  const offset  = selectedDayOffset - 1;
+                  const snap    = offset >= 0 ? (snapshots[snapshots.length - 1 - offset] ?? null) : null;
+                  const steps   = snap?.steps ?? 0;
+                  const goal    = snap?.stepsGoal ?? stats.dailyGoal;
+                  const pct     = goal > 0 ? (steps / goal) * 100 : 0;
+                  const inRange = offset >= 0;
+                  return (
+                    <motion.div
+                      className="absolute"
+                      style={{
+                        top: '50%', left: '50%',
+                        x: rightX, y: -RING_SIZE / 2,
+                        scale: rightScale,
+                        opacity: inRange ? rightOpacity : 0,
+                      }}
+                    >
+                      <StepsRing percentage={pct} size={RING_SIZE} strokeWidth={10} gradId="stepsGrad-right">
+                        {inRange && (
+                          <div className="flex flex-col items-center leading-none pointer-events-none">
+                            <span className="text-[9px] font-bold text-gray-400">
+                              {offset === 0 ? 'היום' : offset === 1 ? 'אתמול'
+                                : snap?.date
+                                  ? (() => { const d = new Date(snap.date + 'T00:00:00'); return `${d.getDate()}/${d.getMonth() + 1}`; })()
+                                  : `לפני ${offset}`}
+                            </span>
+                            <span className="text-[22px] font-black text-gray-700 tabular-nums" dir="ltr">
+                              {fmtNumber(steps)}
+                            </span>
+                          </div>
+                        )}
+                      </StepsRing>
+                    </motion.div>
+                  );
+                })()}
+              </div>
+            ) : (
+              /* ── Week / month / year: single gradient ring ── */
+              <div className="flex justify-center py-4">
+                <StepsRing
+                  percentage={activeRingPercentage}
+                  size={RING_SIZE}
+                  strokeWidth={12}
+                  gradId="stepsGrad-single"
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={timeRange}
+                      initial={{ opacity: 0, scale: 0.85, y: 10 }}
+                      animate={{ opacity: 1, scale: 1,    y: 0  }}
+                      exit={{    opacity: 0, scale: 0.85, y: -10 }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      className="flex flex-col items-center leading-none"
+                    >
+                      <span className="text-[12px] font-black text-[#00C07A] mb-1">{activeRingLabel}</span>
+                      <span className="text-[36px] font-black text-gray-900 tabular-nums" dir="ltr">
+                        {fmtNumber(activeRingValue)}
+                      </span>
+                      <span className="text-[12px] font-semibold text-gray-400 mt-1.5">
+                        מתוך {fmtNumber(activeRingGoal)} צעדים
+                      </span>
+                    </motion.div>
+                  </AnimatePresence>
+                </StepsRing>
               </div>
             )}
 
-            {/* Stats grid */}
+            {/* Stat pills */}
             {loading ? (
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-2xl p-3 h-[72px] animate-pulse border border-gray-100"
-                  />
+              <div className="grid grid-cols-5 gap-1.5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white rounded-xl h-14 animate-pulse border border-gray-100" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                <StatCard
-                  label={isYear ? 'סה״כ' : 'ממוצע יומי'}
-                  value={fmtCompact(isYear ? stats.totalSteps : stats.averageDaily)}
-                  unit="צעדים"
-                  icon={<TrendingUp className="w-3.5 h-3.5 text-[#00C07A]" />}
-                  accent="blue"
-                />
-                <StatCard
-                  label="שיא"
-                  value={stats.bestDay > 0 ? fmtCompact(stats.bestDay) : '—'}
-                  unit="צעדים"
-                  icon={<Award className="w-3.5 h-3.5 text-amber-400" />}
-                  accent="amber"
-                />
-                <StatCard
-                  label="ימים ביעד"
-                  value={String(stats.daysAtGoal)}
-                  unit={`/ ${stats.daysWithData}`}
-                  icon={<Flame className="w-3.5 h-3.5 text-emerald-500" />}
-                  accent="green"
-                />
-              </div>
-            )}
-
-            {/* Goal pill */}
-            {!loading && stats.dailyGoal > 0 && (
-              <div className="flex items-center justify-end">
-                <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl px-3 py-1.5">
-                  <Target className="w-3.5 h-3.5" />
-                  <span className="text-xs font-black">
-                    יעד יומי: {fmtNumber(stats.dailyGoal)} צעדים
-                  </span>
+              <div className="grid grid-cols-5 gap-1.5">
+                {/* ממוצע יומי / today */}
+                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
+                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
+                    {fmtCompact(isDay ? selectedDaySteps : isYear ? stats.totalSteps : stats.averageDaily)}
+                  </p>
+                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">צעדים</p>
+                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">
+                    {isDay ? activeRingLabel : isYear ? 'סה״כ' : 'ממוצע'}
+                  </p>
+                </div>
+                {/* שיא */}
+                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
+                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
+                    {stats.bestDay > 0 ? fmtCompact(stats.bestDay) : '—'}
+                  </p>
+                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">צעדים</p>
+                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">שיא</p>
+                </div>
+                {/* ימים ביעד */}
+                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
+                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
+                    {stats.daysAtGoal}
+                    <span className="text-[10px] font-semibold text-gray-400">/{stats.daysWithData}</span>
+                  </p>
+                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ימים</p>
+                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">ביעד</p>
+                </div>
+                {/* רצף */}
+                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
+                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
+                    {stats.streak}
+                  </p>
+                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ימים</p>
+                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">רצף 🔥</p>
+                </div>
+                {/* ק"מ */}
+                <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
+                  <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
+                    {((isDay ? selectedDaySteps : ringValue) / 1300).toFixed(1)}
+                  </p>
+                  <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ק״מ</p>
+                  <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">מרחק</p>
                 </div>
               </div>
             )}
 
-            {/* Bar chart */}
-            <div className="bg-white rounded-2xl p-4 shadow-subtle border border-gray-100">
+            {/* Chart — area for day tab, bars for week/month/year */}
+            <div className="bg-white rounded-2xl p-4 shadow-subtle border border-gray-100 outline-none focus-within:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
               {loading ? (
                 <div className="h-56 bg-gray-50 rounded-xl animate-pulse" />
               ) : error ? (
                 <ErrorState />
+              ) : isDay ? (
+                /* ── Day tab: 7-day area chart ── */
+                <>
+                  {/* Day-name selectors above chart — tap = same as tapping dot */}
+                  <div className="flex border-b border-gray-100 mb-1" dir="rtl">
+                    {[...dayAreaData].reverse().map((pt, ri) => {
+                      const fwdIndex = dayAreaData.length - 1 - ri;
+                      const offset = dayAreaData.length - 1 - fwdIndex;
+                      return (
+                        <button
+                          key={ri}
+                          type="button"
+                          onClick={() => setSelectedDayOffset(offset)}
+                          className={[
+                            'flex-1 py-1.5 text-xs font-bold transition-colors outline-none',
+                            pt.isSelected
+                              ? 'text-[#00C07A] border-b-2 border-[#00C07A] -mb-px'
+                              : 'text-gray-400',
+                          ].join(' ')}
+                        >
+                          {pt.dayName}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ width: '100%', height: 150 }} dir="ltr">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={dayAreaData} margin={{ top: 10, right: 4, left: -24, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="stepsAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#00C07A" stopOpacity={0.28} />
+                            <stop offset="95%" stopColor="#00C07A" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 6" stroke="#F1F5F9" vertical={false} />
+                        <XAxis dataKey="label" hide />
+                        <YAxis
+                          tick={{ fontSize: 9, fill: '#9CA3AF' }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={36}
+                          tickFormatter={(v: number) => fmtCompact(v)}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: '#1E293B',
+                            border: 'none',
+                            borderRadius: 10,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: '#fff',
+                            padding: '6px 10px',
+                          }}
+                          formatter={(value: number) => [`${fmtNumber(value)} צעדים`, '']}
+                          labelFormatter={(_, payload) => {
+                            const idx = payload?.[0]?.payload ? dayAreaData.findIndex(p => p === payload[0].payload) : -1;
+                            const pt = idx >= 0 ? dayAreaData[idx] : null;
+                            if (!pt) return '';
+                            const offset = dayAreaData.length - 1 - idx;
+                            if (offset === 0) return 'היום';
+                            if (offset === 1) return 'אתמול';
+                            const dayNamesFull = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                            const d = new Date();
+                            d.setDate(d.getDate() - offset);
+                            return `יום ${dayNamesFull[d.getDay()]}`;
+                          }}
+                          cursor={{ stroke: 'rgba(0,192,122,0.15)', strokeWidth: 1 }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="value"
+                          stroke="#00C07A"
+                          strokeWidth={2}
+                          fill="url(#stepsAreaGrad)"
+                          dot={(dotProps: { cx: number; cy: number; index: number }) => {
+                            const pt = dayAreaData[dotProps.index];
+                            const sel = pt?.isSelected;
+                            return (
+                              <circle
+                                key={`dot-${dotProps.index}`}
+                                cx={dotProps.cx}
+                                cy={dotProps.cy}
+                                r={sel ? 6 : 3}
+                                fill="white"
+                                stroke="#00C07A"
+                                strokeWidth={sel ? 2.5 : 1.5}
+                                style={{ cursor: 'pointer', outline: 'none' }}
+                                tabIndex={-1}
+                                onClick={() =>
+                                  setSelectedDayOffset(dayAreaData.length - 1 - dotProps.index)
+                                }
+                              />
+                            );
+                          }}
+                          activeDot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
               ) : (isEmpty || !hasPermissions) ? (
                   <div className="relative">
                     {/* Decorative blurred mock chart behind the CTA */}

@@ -54,9 +54,13 @@ export interface StepsAnalyticsStats {
   daysWithData: number;
   /** Effective daily goal (last known stepsGoal, or DAILY_STEP_GOAL default). */
   dailyGoal: number;
+  /** Current consecutive-day streak (days ending today with steps > 0). */
+  streak: number;
 }
 
 interface UseStepsAnalyticsReturn {
+  /** Raw per-day snapshots (oldest → newest) — exposed for day-navigation UI. */
+  snapshots: DailyStepsSnapshot[];
   chartData: StepsChartPoint[];
   stats: StepsAnalyticsStats;
   loading: boolean;
@@ -65,6 +69,51 @@ interface UseStepsAnalyticsReturn {
 
 const FALLBACK_GOAL = DAILY_STEP_GOAL;
 const HISTORY_LIMIT_DAYS = 365;
+
+// ── Dev-only mock data ────────────────────────────────────────────────────────
+// Injected only on localhost when Firestore returns no snapshots.
+
+function isLocalhost(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
+/** Deterministic offset-based value so mock bars look natural but don't reshuffle. */
+function mockStepsForDaysBack(daysBack: number): number {
+  // Last 7 days: specific values the team agreed on for visual review
+  const weekly = [5600, 7200, 3800, 9100, 6300, 8500, 4200]; // index 0 = today, 6 = 6 days ago
+  if (daysBack < 7) return weekly[daysBack];
+  // Older days: pseudo-random but stable (deterministic from daysBack)
+  const seed = (daysBack * 2654435761) >>> 0;
+  const pct = (seed % 100) / 100;
+  // ~20% rest days, rest 3000-11000
+  if (pct < 0.18) return 0;
+  return Math.round(3000 + pct * 8000);
+}
+
+function buildMockSnapshots(days: number): DailyStepsSnapshot[] {
+  const today = new Date();
+  return Array.from({ length: days }, (_, i) => {
+    const daysBack = days - 1 - i; // i=0 → oldest, i=days-1 → today
+    const d = new Date(today);
+    d.setDate(d.getDate() - daysBack);
+    const dateStr = d.toISOString().slice(0, 10);
+    const steps = mockStepsForDaysBack(daysBack);
+    return {
+      date: dateStr,
+      steps,
+      floors: Math.round(steps / 1000),
+      stepsGoalMet: steps >= FALLBACK_GOAL,
+      floorsGoalMet: false,
+      stepsGoal: FALLBACK_GOAL,
+      floorsGoal: 10,
+    };
+  });
+}
+
+const DEV_MOCK_SNAPSHOTS: DailyStepsSnapshot[] = isLocalhost()
+  ? buildMockSnapshots(30)
+  : [];
 
 const RANGE_DAYS: Record<Exclude<StepsTimeRange, 'year'>, number> = {
   day: 1,
@@ -138,6 +187,8 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
+      // On localhost without auth, show mock data so the UI is testable
+      if (isLocalhost()) setSnapshots(DEV_MOCK_SNAPSHOTS);
       setLoading(false);
       return;
     }
@@ -148,10 +199,15 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
     getStepsTrend(uid, HISTORY_LIMIT_DAYS)
       .then((trend) => {
         if (cancelled) return;
-        setSnapshots(trend);
+        // On localhost with no real data, fall back to dev mock snapshots
+        setSnapshots(trend.length > 0 ? trend : DEV_MOCK_SNAPSHOTS);
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) {
+          // On localhost, show mock data even when Firestore fails (e.g. not logged in)
+          if (isLocalhost()) setSnapshots(DEV_MOCK_SNAPSHOTS);
+          else setError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -196,6 +252,13 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
     const averageDaily =
       daysWithData > 0 ? Math.round(totalSteps / daysWithData) : 0;
 
+    // Streak: count consecutive days ending at the most recent snapshot with steps > 0
+    let streak = 0;
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+      if (snapshots[i].steps > 0) streak++;
+      else break;
+    }
+
     return {
       todaySteps: last?.steps ?? 0,
       averageDaily,
@@ -204,10 +267,11 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
       daysAtGoal,
       daysWithData,
       dailyGoal,
+      streak,
     };
   }, [snapshots, timeRange]);
 
-  return { chartData, stats, loading, error };
+  return { snapshots, chartData, stats, loading, error };
 }
 
 export default useStepsAnalytics;
