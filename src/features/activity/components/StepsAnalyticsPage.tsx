@@ -84,26 +84,18 @@ export default function StepsAnalyticsPage() {
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<StepsTimeRange>('week');
 
-  // Optimistic default (true) prevents a flash of the gate for already-granted
-  // users. The async Preferences read corrects to false in one tick if needed.
-  const [permCheckDone, setPermCheckDone] = useState(false);
+  // Optimistic default (true) — loading skeleton covers the async gap on native.
   const [hasPermissions, setHasPermissions] = useState(true);
 
   useEffect(() => {
-    if (!isNativeApp()) {
-      setHasPermissions(true);
-      setPermCheckDone(true);
-      return;
-    }
+    if (!isNativeApp()) return; // web: no native permissions needed, keep true
     (async () => {
       try {
         const { Preferences } = await import('@capacitor/preferences');
         const { value } = await Preferences.get({ key: PREF_KEY_PERMISSIONS });
         setHasPermissions(value === '1');
       } catch {
-        setHasPermissions(true);
-      } finally {
-        setPermCheckDone(true);
+        // On error keep true — don't block the UI
       }
     })();
   }, []);
@@ -113,7 +105,7 @@ export default function StepsAnalyticsPage() {
     void healthBridgeSyncNow('manual');
   }, []);
 
-  const { triggerHealthPermission, disclosureProps, isRequesting } = useHealthWithDisclosure({
+  const { openDisclosure, disclosureProps } = useHealthWithDisclosure({
     onGranted: handlePermissionsGranted,
   });
 
@@ -216,17 +208,8 @@ export default function StepsAnalyticsPage() {
           </div>
         </div>
 
-        {/* ── Body: permission gate OR chart ── */}
-        {permCheckDone && !hasPermissions ? (
-          <>
-            <HealthConnectGate
-              onConnect={triggerHealthPermission}
-              isRequesting={isRequesting}
-            />
-            <HealthConnectDisclosureModal {...disclosureProps} />
-          </>
-        ) : (
-          <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
+        {/* ── Body ── */}
+        <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
             {/* Time range selector — above ring, underline style matching home tabs */}
             <div className="flex border-b border-gray-100">
               {TIME_RANGES.map(({ key, label }) => (
@@ -329,10 +312,7 @@ export default function StepsAnalyticsPage() {
                 <div className="h-56 bg-gray-50 rounded-xl animate-pulse" />
               ) : error ? (
                 <ErrorState />
-              ) : isEmpty ? (
-                hasPermissions ? (
-                  <EmptyState range={timeRange} />
-                ) : (
+              ) : (isEmpty || !hasPermissions) ? (
                   <div className="relative">
                     {/* Decorative blurred mock chart behind the CTA */}
                     <div
@@ -381,7 +361,7 @@ export default function StepsAnalyticsPage() {
                       </p>
                       <button
                         type="button"
-                        onClick={triggerHealthPermission}
+                        onClick={openDisclosure}
                         className="inline-flex items-center gap-2 px-7 py-2 text-black text-sm font-semibold rounded-full shadow-md shadow-cyan-400/25 transition-all duration-200 hover:brightness-105 active:scale-95"
                         style={{ background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
                       >
@@ -390,7 +370,6 @@ export default function StepsAnalyticsPage() {
                       </button>
                     </div>
                   </div>
-                )
               ) : (
                 <>
                   <div style={{ width: '100%', minWidth: 0, height: 228 }} dir="ltr">
@@ -513,7 +492,6 @@ export default function StepsAnalyticsPage() {
 
             <HealthConnectDisclosureModal {...disclosureProps} />
           </div>
-        )}
       </motion.div>
     </div>
   );

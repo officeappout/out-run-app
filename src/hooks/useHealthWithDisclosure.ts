@@ -52,6 +52,8 @@ interface DisclosureProps {
 
 interface UseHealthWithDisclosureReturn {
   triggerHealthPermission: () => void;
+  /** Opens the disclosure modal directly, bypassing the store-default check. */
+  openDisclosure: () => void;
   disclosureProps: DisclosureProps;
   isRequesting: boolean;
 }
@@ -110,5 +112,5 @@ export function useHealthWithDisclosure(
     onDismiss: () => setShowDisclosure(false),
   };
 
-  return { triggerHealthPermission, disclosureProps, isRequesting };
+  return { triggerHealthPermission, openDisclosure: () => setShowDisclosure(true), disclosureProps, isRequesting };
 }
