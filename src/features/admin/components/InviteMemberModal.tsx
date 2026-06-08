@@ -28,6 +28,14 @@ const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
     { value: 'tenant_owner', label: 'בעל ארגון (בית ספר)' },
     { value: 'unit_admin', label: 'רכז כיתה/שכבה', requiresScope: 'unit' },
   ],
+  company: [
+    { value: 'tenant_owner', label: 'בעל ארגון (חברה)' },
+    { value: 'unit_admin', label: 'מנהל מחלקה/צוות', requiresScope: 'unit' },
+  ],
+  youth_movement: [
+    { value: 'tenant_owner', label: 'בעל ארגון (תנועה)' },
+    { value: 'unit_admin', label: 'רכז קן/שכבה', requiresScope: 'unit' },
+  ],
   platform: [
     { value: 'super_admin', label: 'מנהל-על (Super Admin)' },
     { value: 'vertical_admin', label: 'מנהל ורטיקלי — כל הארגונים בורטיקל' },

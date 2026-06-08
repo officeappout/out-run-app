@@ -23,8 +23,8 @@ export interface ArenaAccess {
   hasSchoolAccess: boolean;
   isLoading: boolean;
 
-  /** 'school' for minors, 'university' for adults with school affiliation, 'work' for company */
-  orgType: 'school' | 'university' | 'work' | null;
+  /** 'school' for minors, 'university' for adults with school affiliation, 'work' for company, 'youth_movement' for youth organizations */
+  orgType: 'school' | 'university' | 'work' | 'youth_movement' | null;
   orgId: string | null;
   orgName: string | null;
   ageGroup: 'minor' | 'adult';
@@ -52,14 +52,16 @@ export function useArenaAccess(): ArenaAccess {
     const affiliations = core?.affiliations ?? [];
 
     const cityAff = affiliations.find((a) => a.type === 'city');
-    const orgAff = affiliations.find((a) => a.type === 'school' || a.type === 'company');
+    const orgAff = affiliations.find(
+      (a) => a.type === 'school' || a.type === 'company' || a.type === 'youth_movement',
+    );
 
     const cityAuthorityId = cityAff?.id ?? core?.authorityId ?? null;
     const hasCityAccess = !!cityAuthorityId;
 
     const ageGroup: 'minor' | 'adult' = core?.ageGroup ?? deriveAgeGroup(core?.birthDate);
 
-    let orgType: 'school' | 'university' | 'work' | null = null;
+    let orgType: 'school' | 'university' | 'work' | 'youth_movement' | null = null;
     let orgLabel = '';
     if (orgAff) {
       if (orgAff.type === 'school') {
@@ -68,6 +70,9 @@ export function useArenaAccess(): ArenaAccess {
       } else if (orgAff.type === 'company') {
         orgType = 'work';
         orgLabel = 'עבודה';
+      } else if (orgAff.type === 'youth_movement') {
+        orgType = 'youth_movement';
+        orgLabel = 'תנועת נוער';
       }
     }
 

@@ -4,7 +4,7 @@
  */
 
 // Scope of a community group (maps to affiliation types)
-export type CommunityGroupType = 'neighborhood' | 'work' | 'university' | 'park' | 'friends' | 'family' | 'school' | 'military';
+export type CommunityGroupType = 'neighborhood' | 'work' | 'university' | 'park' | 'friends' | 'family' | 'school' | 'military' | 'youth_movement';
 
 export type TargetGender = 'male' | 'female' | 'all';
 

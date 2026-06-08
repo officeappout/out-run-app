@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MapPin, Users, Clock, Loader2, AlertCircle } from 'lucide-react';
-import { getGroupByInviteCode } from '@/features/arena/services/group.service';
+import { getGroupByInviteCode, joinGroup } from '@/features/arena/services/group.service';
 import { onAuthStateChange } from '@/lib/auth.service';
 import type { CommunityGroup } from '@/types/community.types';
 
@@ -28,6 +28,7 @@ export default function JoinPage() {
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -47,15 +48,46 @@ export default function JoinPage() {
   }, [inviteCode]);
 
   const handleJoinClick = () => {
-    if (!group) return;
+    if (!group || joining) return;
+    setJoining(true);
 
-    const unsub = onAuthStateChange((user) => {
+    const unsub = onAuthStateChange(async (user) => {
       unsub();
-      if (user) {
-        router.push(`/community?groupId=${group.id}`);
-      } else {
+
+      // Not signed in → route through the gateway. The pending_group_id /
+      // pending_invite_code keys stored above let the gateway auto-join after
+      // auth completes.
+      if (!user) {
         router.push('/gateway');
+        return;
       }
+
+      // Signed in → join immediately so the membership write happens before we
+      // land on /community. Passing the invite code satisfies the private-group
+      // gate in joinGroup (no-op for public groups).
+      try {
+        await joinGroup(
+          group.id,
+          user.uid,
+          user.displayName ?? 'משתמש',
+          inviteCode ? { providedCode: inviteCode } : undefined,
+        );
+        // Clear the pending keys — we just consumed them directly.
+        localStorage.removeItem('pending_group_id');
+        localStorage.removeItem('pending_invite_code');
+      } catch (e) {
+        console.error('[JoinPage] auto-join failed:', e);
+        if (e instanceof Error && e.message === 'invalid-invite-code') {
+          setJoining(false);
+          setNotFound(true);
+          return;
+        }
+        // Other failures are non-fatal — fall through and let the user retry
+        // from inside the group view.
+      }
+
+      // `joined=true` triggers the PostJoinSuccessDrawer on /community.
+      router.push(`/community?groupId=${group.id}&joined=true`);
     });
   };
 
@@ -175,10 +207,17 @@ export default function JoinPage() {
       >
         <button
           onClick={handleJoinClick}
-          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-base font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-xl shadow-cyan-500/30 active:scale-[0.97] transition-transform"
+          disabled={joining}
+          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl text-base font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-xl shadow-cyan-500/30 active:scale-[0.97] transition-transform disabled:opacity-70"
         >
-          <Users className="w-5 h-5" />
-          הצטרף לקבוצה
+          {joining ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <Users className="w-5 h-5" />
+              הצטרף לקבוצה
+            </>
+          )}
         </button>
         <p className="text-center text-[11px] text-gray-400 mt-2.5">
           תועבר לאפליקציית OutRun כדי להשלים את ההצטרפות

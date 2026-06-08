@@ -72,6 +72,19 @@ function generateInviteCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+/**
+ * Institutional group types are access-code gated: the group is locked
+ * (`isLocked: true`) and members unlock it with a code managed by the
+ * authority/admin. Social (friends/family) and geographic (neighborhood/park)
+ * groups are never locked.
+ */
+const INSTITUTIONAL_GROUP_TYPES = new Set<CommunityGroupType>([
+  'school',
+  'military',
+  'work',
+  'university',
+]);
+
 function tsToDate(ts: unknown): Date {
   if (ts instanceof Timestamp) return ts.toDate();
   if (ts instanceof Date) return ts;
@@ -132,6 +145,10 @@ export async function createGroup(
     images: input.images ?? [],
     source: input.source ?? 'authority',
     isOfficial: input.isOfficial ?? false,
+    // Institutional groups are locked behind an access code. Geographic and
+    // social groups stay open. Firestore rules block self-setting this to true
+    // on `source: 'user'` creates, so only admin/authority creates can lock.
+    isLocked: INSTITUTIONAL_GROUP_TYPES.has(input.groupType),
 
     currentParticipants: 1,
     memberCount: 1,

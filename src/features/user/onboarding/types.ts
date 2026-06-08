@@ -182,7 +182,7 @@ export interface OnboardingData {
   tenantId?: string;
   unitId?: string;
   unitPath?: string[];
-  tenantType?: 'municipal' | 'educational' | 'military';
+  tenantType?: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
 
   // Legacy fields (kept for compatibility)
   onboardingCoins?: number; // Total coins earned during onboarding wizard

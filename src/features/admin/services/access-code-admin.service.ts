@@ -17,7 +17,7 @@ export interface AccessCode {
   tenantId: string;
   unitId: string;
   unitPath: string[];
-  tenantType: 'municipal' | 'educational' | 'military';
+  tenantType: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
   onboardingPath: string;
   isActive: boolean;
   usageCount: number;
@@ -87,7 +87,7 @@ export interface CreateAccessCodeInput {
   tenantId: string;
   unitId: string;
   unitPath: string[];
-  tenantType: 'municipal' | 'educational' | 'military';
+  tenantType: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
   maxUses: number;
   expiresInDays: number;
   label?: string;
@@ -112,11 +112,18 @@ export async function createAccessCode(input: CreateAccessCodeInput): Promise<Ac
     military: 'MILITARY_JOIN',
     educational: 'SCHOOL_JOIN',
     municipal: 'FULL_PROGRAM',
+    company: 'FULL_PROGRAM',
+    youth_movement: 'FULL_PROGRAM',
   };
 
-  const prefix = input.tenantType === 'military' ? 'MIL'
-    : input.tenantType === 'educational' ? 'EDU'
-    : 'MUN';
+  const prefixMap: Record<string, string> = {
+    military: 'MIL',
+    educational: 'EDU',
+    municipal: 'MUN',
+    company: 'COM',
+    youth_movement: 'YTH',
+  };
+  const prefix = prefixMap[input.tenantType] ?? 'MUN';
 
   const code = generateCode(prefix);
   const docId = code;
@@ -167,11 +174,18 @@ export async function createBatchAccessCodes(
     military: 'MILITARY_JOIN',
     educational: 'SCHOOL_JOIN',
     municipal: 'FULL_PROGRAM',
+    company: 'FULL_PROGRAM',
+    youth_movement: 'FULL_PROGRAM',
   };
 
-  const prefix = input.tenantType === 'military' ? 'MIL'
-    : input.tenantType === 'educational' ? 'EDU'
-    : 'MUN';
+  const prefixMap: Record<string, string> = {
+    military: 'MIL',
+    educational: 'EDU',
+    municipal: 'MUN',
+    company: 'COM',
+    youth_movement: 'YTH',
+  };
+  const prefix = prefixMap[input.tenantType] ?? 'MUN';
 
   const expiresAt = input.expiresInDays > 0
     ? new Date(Date.now() + input.expiresInDays * 86400000)

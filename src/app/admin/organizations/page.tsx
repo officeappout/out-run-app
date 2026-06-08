@@ -15,7 +15,7 @@ import type { Authority, TenantType } from '@/types/admin-types';
 import {
   Loader2, Plus, Search, Building2, ShieldCheck, GraduationCap,
   Users, Globe, ChevronLeft, ChevronRight, UserPlus, Copy, X, CheckCircle,
-  GitBranch, Upload, AlertTriangle, RefreshCw,
+  GitBranch, Upload, AlertTriangle, RefreshCw, Briefcase, Tent,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
@@ -37,12 +37,16 @@ const ORG_ICON: Record<TenantType, React.ElementType> = {
   municipal: Building2,
   military: ShieldCheck,
   educational: GraduationCap,
+  company: Briefcase,
+  youth_movement: Tent,
 };
 
 const ORG_BADGE_COLOR: Record<TenantType, string> = {
   municipal: `${VERTICAL_THEMES.municipal.badgeBg} ${VERTICAL_THEMES.municipal.badgeText}`,
   military: `${VERTICAL_THEMES.military.badgeBg} ${VERTICAL_THEMES.military.badgeText}`,
   educational: `${VERTICAL_THEMES.educational.badgeBg} ${VERTICAL_THEMES.educational.badgeText}`,
+  company: `${VERTICAL_THEMES.company.badgeBg} ${VERTICAL_THEMES.company.badgeText}`,
+  youth_movement: `${VERTICAL_THEMES.youth_movement.badgeBg} ${VERTICAL_THEMES.youth_movement.badgeText}`,
 };
 
 export default function OrganizationsPage() {

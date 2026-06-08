@@ -5,7 +5,7 @@
  * Pressure Engine or School Outreach flow.
  */
 
-export type MessageCategory = 'city_pressure' | 'school_outreach' | 'access_code_request' | 'military_outreach';
+export type MessageCategory = 'city_pressure' | 'school_outreach' | 'access_code_request' | 'military_outreach' | 'company_outreach' | 'youth_movement_outreach';
 
 export type PsychologyTag =
   | 'Health'
@@ -31,6 +31,8 @@ export const CATEGORY_LABELS: Record<MessageCategory, string> = {
   school_outreach: 'פנייה לבית ספר',
   access_code_request: 'בקשת קוד גישה',
   military_outreach: 'פנייה ליחידה',
+  company_outreach: 'פנייה לארגון / חברה',
+  youth_movement_outreach: 'פנייה לתנועת נוער',
 };
 
 export const PSYCHOLOGY_TAG_LABELS: Record<PsychologyTag, string> = {

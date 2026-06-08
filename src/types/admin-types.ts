@@ -5,7 +5,7 @@ export { FACILITY_SPORT_MAPPING, ROUTE_SUB_SPORT_MAPPING, getAutoSportTypes } fr
 
 export type AuthorityType = 'city' | 'regional_council' | 'local_council' | 'neighborhood' | 'settlement' | 'school' | 'military_unit';
 
-export type TenantType = 'municipal' | 'educational' | 'military';
+export type TenantType = 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
 
 // CRM Contact Roles
 export type ContactRole = 'sports_head' | 'ceo' | 'health_coordinator' | 'technical' | 'other';

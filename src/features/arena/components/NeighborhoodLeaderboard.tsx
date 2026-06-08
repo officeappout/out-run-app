@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, RefreshCw, Lock, Medal, Flame, ChevronDown } from 'lucide-react';
+import { Trophy, RefreshCw, Lock, ChevronDown, Plus, UserPlus } from 'lucide-react';
 import { useLeaderboard } from '@/features/arena/hooks/useLeaderboard';
 import { useUserStore } from '@/features/user';
+import ViralUnlockSheet from '@/features/safecity/components/ViralUnlockSheet';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
 import {
@@ -60,11 +61,59 @@ const TIME_OPTIONS: { value: LeaderboardTimeWindow; label: string }[] = [
   { value: 'monthly', label: 'חודשי' },
 ];
 
-const PODIUM_STYLES = [
-  { ring: 'ring-amber-400',  bg: 'bg-gradient-to-br from-amber-400 to-yellow-500', shadow: 'shadow-amber-400/30',  size: 'w-14 h-14', medal: '🥇' },
-  { ring: 'ring-gray-300',   bg: 'bg-gradient-to-br from-gray-300 to-slate-400',   shadow: 'shadow-gray-300/30',   size: 'w-11 h-11', medal: '🥈' },
-  { ring: 'ring-amber-600',  bg: 'bg-gradient-to-br from-amber-600 to-orange-700', shadow: 'shadow-amber-600/20',  size: 'w-11 h-11', medal: '🥉' },
+// Vibrant multi-stop avatar gradients — deterministically assigned per user
+// so each athlete keeps a consistent identity colour across renders.
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #6366F1, #8B5CF6)', // indigo → violet
+  'linear-gradient(135deg, #EF4444, #F97316)', // crimson → orange
+  'linear-gradient(135deg, #0EA5E9, #2563EB)', // sky → blue
+  'linear-gradient(135deg, #10B981, #047857)', // emerald
+  'linear-gradient(135deg, #EC4899, #BE185D)', // pink → magenta
+  'linear-gradient(135deg, #F59E0B, #EA580C)', // amber → orange
+  'linear-gradient(135deg, #14B8A6, #0E7490)', // teal → cyan
+  'linear-gradient(135deg, #A855F7, #6D28D9)', // purple
 ];
+
+function avatarGradient(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+}
+
+// Metallic rank rings (gold / silver / bronze) + per-rank podium geometry.
+const RANK_CONFIG: Record<1 | 2 | 3, {
+  ring: string;
+  medal: string;
+  glow: string;
+  step: string;
+  stepHeight: number;
+  avatar: number;
+}> = {
+  1: {
+    ring: 'linear-gradient(135deg, #FEF3C7 0%, #FBBF24 45%, #B45309 100%)',
+    medal: '🥇',
+    glow: '0 6px 18px rgba(245,158,11,0.45)',
+    step: 'linear-gradient(180deg, #34D399 0%, #1D9E75 55%, #147C5C 100%)',
+    stepHeight: 78,
+    avatar: 62,
+  },
+  2: {
+    ring: 'linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 45%, #8593A8 100%)',
+    medal: '🥈',
+    glow: '0 5px 14px rgba(148,163,184,0.4)',
+    step: 'linear-gradient(180deg, #2BB587 0%, #1D9E75 60%, #15805F 100%)',
+    stepHeight: 56,
+    avatar: 50,
+  },
+  3: {
+    ring: 'linear-gradient(135deg, #FED7AA 0%, #FB923C 45%, #9A3412 100%)',
+    medal: '🥉',
+    glow: '0 5px 14px rgba(234,88,12,0.4)',
+    step: 'linear-gradient(180deg, #25A87B 0%, #1B9070 60%, #136B50 100%)',
+    stepHeight: 42,
+    avatar: 50,
+  },
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -188,6 +237,137 @@ function DropdownItem({
   );
 }
 
+// ── Podium column — real entry OR dashed "invite a friend" placeholder ───────
+
+interface PodiumColumnProps {
+  entry: LeaderboardEntry | null;
+  rank: 1 | 2 | 3;
+  mode: LeaderboardMode;
+  isSegmentMode: boolean;
+  onInvite: () => void;
+}
+
+function PodiumColumn({ entry, rank, mode, isSegmentMode, onInvite }: PodiumColumnProps) {
+  const cfg = RANK_CONFIG[rank];
+
+  // ── Empty slot → gorgeous dashed placeholder that opens the invite sheet ──
+  if (!entry) {
+    return (
+      <button
+        type="button"
+        onClick={onInvite}
+        className="group flex flex-col items-center justify-end gap-1.5 outline-none"
+      >
+        <div
+          className="rounded-full border-2 border-dashed border-gray-300 bg-gray-50/70 flex items-center justify-center text-gray-400 transition-all group-hover:border-[#1D9E75] group-hover:text-[#1D9E75] group-active:scale-95"
+          style={{ width: cfg.avatar, height: cfg.avatar }}
+        >
+          <Plus className="w-5 h-5" strokeWidth={2.5} />
+        </div>
+        <span className="text-[11px] font-black text-gray-500 leading-none mt-0.5">פנוי!</span>
+        <span className="text-[9px] font-medium text-gray-400 leading-none">הזמן חבר</span>
+        <div
+          className="w-full rounded-t-xl border-2 border-dashed border-gray-200 bg-gray-50/50 mt-1"
+          style={{ height: cfg.stepHeight }}
+        />
+      </button>
+    );
+  }
+
+  const elevated = rank === 1;
+
+  return (
+    <div className={`flex flex-col items-center justify-end gap-1 ${elevated ? '-mt-2' : ''}`}>
+      <span className={elevated ? 'text-xl leading-none' : 'text-base leading-none'}>{cfg.medal}</span>
+
+      {/* Metallic ring wrapper → vibrant gradient avatar */}
+      <div
+        style={{ background: cfg.ring, padding: elevated ? 4 : 3, borderRadius: 9999, boxShadow: cfg.glow }}
+      >
+        <div
+          className="rounded-full flex items-center justify-center text-white font-black"
+          style={{
+            width: cfg.avatar,
+            height: cfg.avatar,
+            background: avatarGradient(entry.uid || entry.name),
+            fontSize: elevated ? 22 : 18,
+          }}
+        >
+          {entry.name.charAt(0)}
+        </div>
+      </div>
+
+      <span className="text-[11px] font-black text-gray-900 truncate max-w-[84px] text-center mt-0.5">
+        {entry.name}
+      </span>
+      <span className="text-[10px] font-bold text-gray-500 tabular-nums leading-none">
+        {formatScore(entry.totalCredit, mode, isSegmentMode)}
+      </span>
+
+      {/* 3D gradient step */}
+      <div
+        className="w-full rounded-t-xl relative overflow-hidden mt-1 shadow-[0_4px_10px_rgba(20,124,92,0.25)]"
+        style={{ height: cfg.stepHeight, background: cfg.step }}
+      >
+        {/* top highlight face for the 3D illusion */}
+        <div className="absolute top-0 inset-x-0 h-1.5 bg-white/30" />
+        <span className="absolute inset-0 flex items-center justify-center text-white font-black text-lg opacity-90 tabular-nums">
+          {rank}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Skeletons (CLS-safe — mirror the live podium + row geometry exactly) ─────
+
+function PodiumSkeleton() {
+  return (
+    <div className="px-5 pt-6 pb-3">
+      <div className="grid grid-cols-3 items-end gap-2">
+        {([2, 1, 3] as const).map((rank) => {
+          const cfg = RANK_CONFIG[rank];
+          return (
+            <div key={rank} className="flex flex-col items-center justify-end gap-1.5">
+              <div
+                className="rounded-full bg-gray-200 animate-pulse"
+                style={{ width: cfg.avatar, height: cfg.avatar }}
+              />
+              <div className="h-2.5 w-14 rounded bg-gray-200 animate-pulse" />
+              <div className="h-2 w-8 rounded bg-gray-100 animate-pulse" />
+              <div
+                className="w-full rounded-t-xl bg-gray-100 animate-pulse mt-1"
+                style={{ height: cfg.stepHeight }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Row skeleton — uses the SAME wrapper classes as a live row
+ * (`flex items-center gap-3 px-5 py-3`) so it occupies an identical height,
+ * guaranteeing zero layout shift when real data swaps in.
+ */
+function LeaderboardRowSkeleton() {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-50">
+      <span className="w-7 flex justify-center">
+        <span className="w-3.5 h-3.5 rounded bg-gray-200 animate-pulse" />
+      </span>
+      <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse shrink-0" />
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="h-2.5 rounded bg-gray-200 animate-pulse" style={{ width: '55%' }} />
+        <div className="h-2 rounded bg-gray-100 animate-pulse" style={{ width: '30%' }} />
+      </div>
+      <div className="h-3 w-10 rounded bg-gray-200 animate-pulse" />
+    </div>
+  );
+}
+
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface NeighborhoodLeaderboardProps {
@@ -254,6 +434,7 @@ export default function NeighborhoodLeaderboard({
   const [strengthProgramId, setStrengthProgram] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
   const [programs, setPrograms]                 = useState<Program[]>([]);
+  const [showInvite, setShowInvite]             = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
   // Load non-master strength programs (only once)
@@ -320,7 +501,7 @@ export default function NeighborhoodLeaderboard({
   const rest  = entries.slice(3);
 
   // ── Derived filter UI values ─────────────────────────────────────────────
-  const activeCatOpt      = CATEGORY_OPTIONS.find((o) => o.value === localMode)!;
+  const activeCatOpt      = CATEGORY_OPTIONS.find((o) => o.value === localMode) ?? CATEGORY_OPTIONS[0];
   const activeStrengthProg = programs.find((p) => p.id === strengthProgramId) ?? null;
   const showSubFilter      = localMode === 'running' || localMode === 'strength';
   const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg);
@@ -332,7 +513,7 @@ export default function NeighborhoodLeaderboard({
 
   function getSubLabel(): string {
     if (localMode === 'running') {
-      const opt = RUN_SEGMENT_OPTIONS.find((o) => o.value === runSegment)!;
+      const opt = RUN_SEGMENT_OPTIONS.find((o) => o.value === runSegment) ?? RUN_SEGMENT_OPTIONS[0];
       return `${opt.emoji} ${opt.label}`;
     }
     if (activeStrengthProg) return activeStrengthProg.name;
@@ -438,7 +619,7 @@ export default function NeighborhoodLeaderboard({
 
             {/* מגדר */}
             <FilterDropdown
-              label={GENDER_OPTIONS.find((o) => o.value === genderFilter)!.label}
+              label={(GENDER_OPTIONS.find((o) => o.value === genderFilter) ?? GENDER_OPTIONS[0]).label}
               isActive={genderActive}
               isOpen={openDropdown === 'gender'}
               onToggle={() => setOpenDropdown(openDropdown === 'gender' ? null : 'gender')}
@@ -456,7 +637,7 @@ export default function NeighborhoodLeaderboard({
 
             {/* טווח */}
             <FilterDropdown
-              label={TIME_OPTIONS.find((o) => o.value === timeWindow)!.label}
+              label={(TIME_OPTIONS.find((o) => o.value === timeWindow) ?? TIME_OPTIONS[0]).label}
               isActive={timeActive}
               isOpen={openDropdown === 'time'}
               onToggle={() => setOpenDropdown(openDropdown === 'time' ? null : 'time')}
@@ -484,75 +665,30 @@ export default function NeighborhoodLeaderboard({
 
         {/* ── Podium + rows ────────────────────────────────────────────── */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-14">
-            <div className="flex items-center gap-2 text-sm text-gray-400 animate-pulse">
-              <Flame className="w-4 h-4" />
-              טוען דירוג...
+          <>
+            <PodiumSkeleton />
+            <div className="border-t border-gray-100">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <LeaderboardRowSkeleton key={i} />
+              ))}
             </div>
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-14 text-center px-4">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-              <Medal className="w-6 h-6 text-gray-300" />
-            </div>
-            <p className="text-sm font-black text-gray-900">עוד אין נתונים</p>
-            <p className="text-xs text-gray-400 mt-1">התחילו להתאמן כדי להופיע בטבלה!</p>
-          </div>
+          </>
         ) : (
           <>
-            {/* Podium top-3 */}
-            {top3.length > 0 && (
-              <div className="flex items-end justify-center gap-3 px-5 pt-6 pb-4">
-                {/* 2nd place */}
-                {top3[1] && (
-                  <div className="flex flex-col items-center gap-1.5 flex-1">
-                    <div className={`${PODIUM_STYLES[1].size} rounded-full ${PODIUM_STYLES[1].bg} flex items-center justify-center text-white text-sm font-black ring-2 ${PODIUM_STYLES[1].ring} shadow-lg ${PODIUM_STYLES[1].shadow}`}>
-                      {top3[1].name.charAt(0)}
-                    </div>
-                    <span className="text-xs">{PODIUM_STYLES[1].medal}</span>
-                    <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 truncate max-w-[80px] text-center">
-                      {top3[1].name}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-400 tabular-nums">
-                      {formatScore(top3[1].totalCredit, localMode, isSegmentMode)}
-                    </span>
-                  </div>
-                )}
-                {/* 1st place — elevated */}
-                {top3[0] && (
-                  <div className="flex flex-col items-center gap-1.5 flex-1 -mt-4">
-                    <div className={`${PODIUM_STYLES[0].size} rounded-full ${PODIUM_STYLES[0].bg} flex items-center justify-center text-white text-lg font-black ring-3 ${PODIUM_STYLES[0].ring} shadow-xl ${PODIUM_STYLES[0].shadow}`}>
-                      {top3[0].name.charAt(0)}
-                    </div>
-                    <span className="text-lg">{PODIUM_STYLES[0].medal}</span>
-                    <span className="text-xs font-black text-gray-900 dark:text-gray-100 truncate max-w-[90px] text-center">
-                      {top3[0].name}
-                    </span>
-                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 tabular-nums">
-                      {formatScore(top3[0].totalCredit, localMode, isSegmentMode)}
-                    </span>
-                  </div>
-                )}
-                {/* 3rd place */}
-                {top3[2] && (
-                  <div className="flex flex-col items-center gap-1.5 flex-1">
-                    <div className={`${PODIUM_STYLES[2].size} rounded-full ${PODIUM_STYLES[2].bg} flex items-center justify-center text-white text-sm font-black ring-2 ${PODIUM_STYLES[2].ring} shadow-lg ${PODIUM_STYLES[2].shadow}`}>
-                      {top3[2].name.charAt(0)}
-                    </div>
-                    <span className="text-xs">{PODIUM_STYLES[2].medal}</span>
-                    <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 truncate max-w-[80px] text-center">
-                      {top3[2].name}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-400 tabular-nums">
-                      {formatScore(top3[2].totalCredit, localMode, isSegmentMode)}
-                    </span>
-                  </div>
-                )}
+            {/* Podium — always a 3-column stage. Empty slots become dashed
+                "invite a friend" placeholders so the league never looks like
+                a ghost town, even with 0–2 players. */}
+            <div className="px-5 pt-6 pb-3">
+              <div className="grid grid-cols-3 items-end gap-2">
+                {/* DOM order [2,1,3] → 1st place lands in the centre column */}
+                <PodiumColumn entry={top3[1] ?? null} rank={2} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} />
+                <PodiumColumn entry={top3[0] ?? null} rank={1} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} />
+                <PodiumColumn entry={top3[2] ?? null} rank={3} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} />
               </div>
-            )}
+            </div>
 
             {/* Rows 4+ */}
-            {rest.length > 0 && (
+            {rest.length > 0 ? (
               <div className="relative">
                 <div className="border-t border-gray-100">
                   {rest.map((entry, idx) => (
@@ -570,11 +706,11 @@ export default function NeighborhoodLeaderboard({
                       </span>
 
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0"
                         style={
                           entry.isCurrentUser
-                            ? { backgroundColor: '#E1F5EE', color: ACCENT, boxShadow: `0 0 0 2px ${ACCENT}33` }
-                            : { backgroundColor: '#F3F4F6', color: '#6B7280' }
+                            ? { background: avatarGradient(entry.uid || entry.name), boxShadow: `0 0 0 2px ${ACCENT}` }
+                            : { background: avatarGradient(entry.uid || entry.name) }
                         }
                       >
                         {entry.name.charAt(0)}
@@ -625,18 +761,78 @@ export default function NeighborhoodLeaderboard({
                   <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-transparent flex flex-col items-center justify-center px-5 text-center">
                     <Lock className="w-5 h-5 mb-2" style={{ color: ACCENT }} />
                     <p className="text-sm font-black text-gray-900">הטבלה נעולה</p>
-                    <p className="text-xs text-gray-500 mt-1 max-w-[240px]">
+                    <p className="text-xs text-gray-500 mt-1 mb-3 max-w-[240px]">
                       {!socialUnlocked
                         ? 'הזמן שותף אחד כדי לפתוח את הטבלה המלאה'
                         : 'לחץ על העירייה כדי לפתוח את הליגה הרשמית'}
                     </p>
+                    {!socialUnlocked && (
+                      <button
+                        type="button"
+                        onClick={() => setShowInvite(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-xs font-black shadow-lg active:scale-95 transition-transform"
+                        style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        הזמן שותף
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            ) : entries.length === 0 ? (
+              <div className="px-5 pb-6 -mt-1 flex flex-col items-center text-center">
+                {/* 3-step activation guide — orients the very first user in an empty league */}
+                <div className="w-full max-w-[300px] rounded-2xl border border-gray-100 bg-gray-50/80 p-3 mb-4">
+                  <div className="flex flex-col gap-2.5">
+                    {[
+                      { icon: Plus, label: 'אמן כאן את האימון הראשון' },
+                      { icon: UserPlus, label: 'הזמן שותף לליגה' },
+                      { icon: Trophy, label: 'פתח את הליגה ותפוס את הפודיום' },
+                    ].map((step, i) => {
+                      const StepIcon = step.icon;
+                      return (
+                        <div key={i} className="flex items-center gap-2.5 text-right">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                            style={{ backgroundColor: `${ACCENT}1A` }}
+                          >
+                            <StepIcon className="w-3.5 h-3.5" style={{ color: ACCENT }} />
+                            <span
+                              className="absolute -top-1 -left-1 w-3.5 h-3.5 rounded-full text-white text-[9px] font-black flex items-center justify-center"
+                              style={{ backgroundColor: ACCENT }}
+                            >
+                              {i + 1}
+                            </span>
+                          </div>
+                          <span className="text-xs font-bold text-gray-700 flex-1">{step.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-xs font-bold text-gray-500 max-w-[260px] leading-relaxed">
+                  היו הראשונים בליגה! הזמינו חברים והתחילו להתאמן כדי לתפוס את הפודיום 🏆
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowInvite(true)}
+                  className="mt-3 flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-xs font-black shadow-lg active:scale-95 transition-transform"
+                  style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
+                >
+                  <UserPlus className="w-4 h-4" />
+                  הזמן חברים לליגה
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </div>
+
+      {/* Invite sheet — opened by dashed podium placeholders, the locked-table
+          CTA, and the empty-state button. */}
+      <ViralUnlockSheet isOpen={showInvite} onClose={() => setShowInvite(false)} />
 
       {/* Personal "you" rank card — rendered by the parent (community/page.tsx)
           as a shared sticky footer. Not duplicated here. */}

@@ -853,16 +853,23 @@ service cloud.firestore {
       //   - request.auth.uid == createdBy  →  user can only create groups for themselves
       //   - source == 'user'               →  cannot impersonate authority/professional groups
       //   - isOfficial == false            →  cannot self-grant official status
+      //   - isLocked != true               →  cannot self-create an access-code-gated
+      //                                        (institutional) group; only admins/authorities
+      //                                        may lock a group (they bypass via isAdmin())
       // Note: social groups (friends/family) intentionally omit authorityId — this
       //       rule does not require it, so those creates are explicitly permitted.
       allow create: if isAuthenticated()
                     && request.auth.uid == request.resource.data.createdBy
                     && request.resource.data.source == 'user'
-                    && request.resource.data.isOfficial == false;
+                    && request.resource.data.isOfficial == false
+                    && request.resource.data.get('isLocked', false) == false;
 
       // Creator can update their group (name, description, schedule, rules, images, etc.)
+      // but may NOT flip the access-code lock — isLocked must stay unchanged so a
+      // user cannot create an open group and then lock it. Admins bypass via isAdmin().
       allow update: if isAuthenticated()
-                    && request.auth.uid == resource.data.createdBy;
+                    && request.auth.uid == resource.data.createdBy
+                    && request.resource.data.get('isLocked', false) == resource.data.get('isLocked', false);
 
       // Any authenticated user can update only the membership counters when joining/leaving.
       // 'updatedAt' is included because group.service.ts writes it alongside the counters.

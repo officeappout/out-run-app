@@ -14,7 +14,7 @@ import {
   doc,
   collection,
   addDoc,
-  updateDoc,
+  setDoc,
   increment,
   serverTimestamp,
   query,
@@ -61,16 +61,26 @@ export async function logMunicipalPressure(
 
   const authorityRef = doc(db, 'authorities', authorityId);
 
-  await Promise.all([
-    updateDoc(authorityRef, {
-      pressureCount: increment(1),
-    }),
-    addDoc(collection(db, 'authorities', authorityId, 'pressure_logs'), {
-      uid,
-      timestamp: serverTimestamp(),
-      platform,
-    }),
-  ]);
+  // Source of truth for analytics — always write the log entry first. The
+  // pressure_logs sub-collection rule allows any authenticated create, even
+  // when the parent authority doc does not exist yet (e.g. a city that is not
+  // connected to OUT-RUN). This must succeed for the event to count.
+  await addDoc(collection(db, 'authorities', authorityId, 'pressure_logs'), {
+    uid,
+    timestamp: serverTimestamp(),
+    platform,
+  });
+
+  // Best-effort denormalized counter. setDoc(merge) increments pressureCount
+  // when the authority doc exists (allowed by the "increment pressureCount
+  // only" update rule). When the doc does NOT exist this is an implicit create,
+  // which Firestore rules deny for non-admins — we swallow that error since the
+  // log above already captured the event.
+  try {
+    await setDoc(authorityRef, { pressureCount: increment(1) }, { merge: true });
+  } catch (counterErr) {
+    console.warn('[pressure.service] pressureCount increment skipped (non-fatal):', counterErr);
+  }
 
   markPressured(authorityId);
   return true;

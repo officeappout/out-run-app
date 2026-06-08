@@ -4,12 +4,14 @@ import { useRef, useEffect, useMemo } from 'react';
 import { useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { authorityTypeToTenantType } from '@/features/admin/config/tenantLabels';
 import type { TenantType } from '@/types/admin-types';
-import { Search, Building2, ShieldCheck, GraduationCap, X, ChevronDown } from 'lucide-react';
+import { Search, Building2, ShieldCheck, GraduationCap, X, ChevronDown, Briefcase, Tent } from 'lucide-react';
 
 const TYPE_META: Record<TenantType, { icon: React.ElementType; label: string; color: string; bg: string }> = {
   municipal:   { icon: Building2,     label: 'עירוני',  color: 'text-blue-400',   bg: 'bg-blue-900/30' },
   military:    { icon: ShieldCheck,   label: 'צבאי',    color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
   educational: { icon: GraduationCap, label: 'חינוכי',  color: 'text-orange-400',  bg: 'bg-orange-900/30' },
+  company:     { icon: Briefcase,     label: 'ארגון',   color: 'text-sky-400',     bg: 'bg-sky-900/30' },
+  youth_movement: { icon: Tent,       label: 'תנועה',   color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
 };
 
 export default function OrgCommandPalette() {
@@ -31,7 +33,7 @@ export default function OrgCommandPalette() {
 
   const grouped = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const map: Record<TenantType, typeof rootOrgs> = { municipal: [], military: [], educational: [] };
+    const map: Record<TenantType, typeof rootOrgs> = { municipal: [], military: [], educational: [], company: [], youth_movement: [] };
     for (const org of rootOrgs) {
       const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
       if (q && !name.toLowerCase().includes(q) && !org.id.toLowerCase().includes(q)) continue;

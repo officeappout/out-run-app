@@ -14,7 +14,7 @@ import {
 import {
   Loader2, Plus, Copy, Trash2, Check, X, KeyRound,
   ChevronDown, Shield, GraduationCap, Building2,
-  ToggleLeft, ToggleRight, Search, User,
+  ToggleLeft, ToggleRight, Search, User, Briefcase, Tent,
 } from 'lucide-react';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 
@@ -35,7 +35,7 @@ export default function AccessCodesPage() {
   const [codes, setCodes] = useState<AccessCode[]>([]);
   const [adminUid, setAdminUid] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'military' | 'municipal' | 'educational'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'military' | 'municipal' | 'educational' | 'company' | 'youth_movement'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'used' | 'inactive'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -112,7 +112,7 @@ export default function AccessCodesPage() {
         tenantId: selectedTenantId,
         unitId: selectedUnitId,
         unitPath: selectedUnit?.unitPath ?? [],
-        tenantType: selectedTenant.type as 'municipal' | 'educational' | 'military',
+        tenantType: selectedTenant.type as 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement',
         maxUses,
         expiresInDays,
         label: label.trim() || undefined,
@@ -213,7 +213,17 @@ export default function AccessCodesPage() {
   const tenantTypeIcon = (type: string) => {
     if (type === 'military') return <Shield size={14} className="text-red-500" />;
     if (type === 'educational') return <GraduationCap size={14} className="text-amber-500" />;
+    if (type === 'company') return <Briefcase size={14} className="text-violet-500" />;
+    if (type === 'youth_movement') return <Tent size={14} className="text-emerald-500" />;
     return <Building2 size={14} className="text-cyan-500" />;
+  };
+
+  const tenantTypeLabel = (type: string) => {
+    if (type === 'military') return 'צבאי';
+    if (type === 'educational') return 'חינוכי';
+    if (type === 'company') return 'חברה';
+    if (type === 'youth_movement') return 'תנועת נוער';
+    return 'עירוני';
   };
 
   if (loading) {
@@ -260,8 +270,8 @@ export default function AccessCodesPage() {
               <SearchableSelect
                 options={tenants.map(t => ({
                   id: t.id,
-                  label: `${t.name} (${t.type === 'military' ? 'צבאי' : t.type === 'educational' ? 'חינוכי' : 'עירוני'})`,
-                  icon: t.type === 'military' ? <Shield size={14} className="text-red-500" /> : t.type === 'educational' ? <GraduationCap size={14} className="text-amber-500" /> : <Building2 size={14} className="text-cyan-500" />,
+                  label: `${t.name} (${tenantTypeLabel(t.type)})`,
+                  icon: tenantTypeIcon(t.type),
                 }))}
                 value={selectedTenantId}
                 onChange={v => { setSelectedTenantId(v); setSelectedUnitId(''); }}
@@ -360,6 +370,8 @@ export default function AccessCodesPage() {
               { id: 'military', label: 'צבאי', icon: <Shield size={14} className="text-red-500" /> },
               { id: 'municipal', label: 'עירוני', icon: <Building2 size={14} className="text-cyan-500" /> },
               { id: 'educational', label: 'חינוכי', icon: <GraduationCap size={14} className="text-amber-500" /> },
+              { id: 'company', label: 'חברה', icon: <Briefcase size={14} className="text-violet-500" /> },
+              { id: 'youth_movement', label: 'תנועת נוער', icon: <Tent size={14} className="text-emerald-500" /> },
             ]}
             value={filterType}
             onChange={v => setFilterType((v || 'all') as typeof filterType)}
@@ -449,7 +461,7 @@ export default function AccessCodesPage() {
                   <span className="flex items-center gap-1.5">
                     {tenantTypeIcon(code.tenantType)}
                     <span className="text-xs font-bold text-slate-600">
-                      {code.tenantType === 'military' ? 'צבאי' : code.tenantType === 'educational' ? 'חינוכי' : 'עירוני'}
+                      {tenantTypeLabel(code.tenantType)}
                     </span>
                   </span>
                 </td>

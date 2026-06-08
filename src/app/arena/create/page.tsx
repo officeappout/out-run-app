@@ -10,13 +10,11 @@ import { useUserStore } from '@/features/user';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
-import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
-import { getAuthority } from '@/features/admin/services/authority.service';
 import { pickTemplate } from '@/features/arena/services/message-templates.service';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 import type { CommunityGroup, CommunityGroupType } from '@/types/community.types';
 import type { CreateGroupInput } from '@/features/arena/services/group.service';
-import type { Authority } from '@/types/admin-types';
 
 // ─── Step types ───────────────────────────────────────────────────────────────
 
@@ -81,25 +79,15 @@ export default function CreateGroupPage() {
   const [outreachSent, setOutreachSent] = useState(false);
   const [codeSuccessMsg, setCodeSuccessMsg] = useState<string | null>(null);
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
-  // Authority doc for the neighborhood outreach card
-  const [neighborhoodAuthority, setNeighborhoodAuthority] = useState<Authority | null>(null);
+  // Invite code returned by createGroup — used to build the canonical
+  // /join/<inviteCode> deep link (the old /join-group?id= route never existed).
+  const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
   // Dynamic WhatsApp text for "אין לך קוד?" — loaded from pressure_messages
   const [dynamicNoCodeMessage, setDynamicNoCodeMessage] = useState<string | null>(null);
 
   const myUid = profile?.id ?? '';
   const myName = profile?.core?.name ?? 'אווטיר';
   const myGender = profile?.core?.gender;
-
-  // Fetch city authority doc when user lands on neighborhood outreach step
-  useEffect(() => {
-    if (step !== 'outreach' || state.groupType !== 'neighborhood') return;
-    if (!access.cityAuthorityId) return;
-    let cancelled = false;
-    getAuthority(access.cityAuthorityId).then((auth) => {
-      if (!cancelled) setNeighborhoodAuthority(auth);
-    });
-    return () => { cancelled = true; };
-  }, [step, state.groupType, access.cityAuthorityId]);
 
   // Load dynamic "אין לך קוד?" WhatsApp text from pressure_messages
   useEffect(() => {
@@ -127,8 +115,11 @@ export default function CreateGroupPage() {
     setState((prev) => ({ ...prev, [key]: value }));
   }
 
-  // Outreach-only types redirect to the outreach card instead of the group wizard
-  const OUTREACH_TYPES = new Set<CommunityGroupType>(['work', 'university', 'neighborhood']);
+  // Outreach-only types redirect to the outreach card instead of the group wizard.
+  // Neighborhood is NOT here: tapping שכונה now creates a city-scoped neighborhood
+  // group (renderInfoStep). The municipal-pressure / blurred-leaderboard state for
+  // unconnected cities lives inline in the /community city segment instead.
+  const OUTREACH_TYPES = new Set<CommunityGroupType>(['work', 'university']);
   // Org-code types go to the code-entry step
   const CODE_ENTRY_TYPES = new Set<CommunityGroupType>(['school', 'military']);
 
@@ -417,20 +408,24 @@ export default function CreateGroupPage() {
 
   // ── Shared helpers for invite step ──────────────────────────────────────
 
-  function buildInviteLink(groupId: string) {
-    return `https://appout.co.il/join-group?id=${groupId}`;
+  // Canonical group deep link — lands on the web /join/<inviteCode> page which
+  // captures the pending group + invite code, then forwards into the app.
+  function buildInviteLink(inviteCode: string) {
+    return `${APP_CONFIG_LINKS.WEB_BASE_URL}/join/${inviteCode}`;
   }
 
-  function buildShareMessage(groupId: string) {
-    return `הצטרפו לקבוצה שלי ב-Out! ${state.name}\n${buildInviteLink(groupId)}`;
+  function buildShareMessage(inviteCode: string) {
+    return `הצטרפו לקבוצה שלי ב-Out! ${state.name}\n${buildInviteLink(inviteCode)}`;
   }
 
   function openWhatsAppFallback(msg: string) {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   }
 
-  async function ensureGroupCreated(): Promise<string | null> {
-    if (createdGroupId) return createdGroupId;
+  async function ensureGroupCreated(): Promise<{ groupId: string; inviteCode: string } | null> {
+    if (createdGroupId && createdInviteCode) {
+      return { groupId: createdGroupId, inviteCode: createdInviteCode };
+    }
     if (!myUid || !state.groupType) return null;
 
     setIsSaving(true);
@@ -455,9 +450,10 @@ export default function CreateGroupPage() {
           ? { address: state.meetingAddress }
           : undefined,
       };
-      const { groupId: id } = await createGroup(myUid, myName, input);
+      const { groupId: id, inviteCode } = await createGroup(myUid, myName, input);
       setCreatedGroupId(id);
-      return id;
+      setCreatedInviteCode(inviteCode);
+      return { groupId: id, inviteCode };
     } catch (err) {
       console.error('[CreateGroup]', err);
       setError('אירעה שגיאה ביצירת הקבוצה. נסה שוב.');
@@ -476,10 +472,10 @@ export default function CreateGroupPage() {
       setError(null);
 
       try {
-        const groupId = await ensureGroupCreated();
-        if (!groupId) { setIsSharing(false); return; }
+        const created = await ensureGroupCreated();
+        if (!created) { setIsSharing(false); return; }
 
-        const msg = buildShareMessage(groupId);
+        const msg = buildShareMessage(created.inviteCode);
 
         if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
           try {
@@ -509,10 +505,10 @@ export default function CreateGroupPage() {
       setError(null);
 
       try {
-        const groupId = await ensureGroupCreated();
-        if (!groupId) { setIsSharing(false); return; }
+        const created = await ensureGroupCreated();
+        if (!created) { setIsSharing(false); return; }
 
-        openWhatsAppFallback(buildShareMessage(groupId));
+        openWhatsAppFallback(buildShareMessage(created.inviteCode));
         router.push('/community?tab=leagues');
       } catch (err) {
         console.error('[WhatsAppDirect]', err);
@@ -524,8 +520,8 @@ export default function CreateGroupPage() {
 
     async function handleSkip() {
       if (isSaving) return;
-      const groupId = await ensureGroupCreated();
-      if (groupId) router.push('/community?tab=leagues');
+      const created = await ensureGroupCreated();
+      if (created) router.push('/community?tab=leagues');
     }
 
     const busy = isSaving || isSharing;
@@ -688,41 +684,9 @@ export default function CreateGroupPage() {
     );
   }
 
-  // ── Step: B2B/B2E Outreach (Work / University) + Neighborhood Municipal ────
+  // ── Step: B2B/B2E Outreach (Work / University) ─────────────────────────────
 
   function renderOutreachStep() {
-    // ── Neighborhood: use MunicipalPressureCard ──────────────────────────────
-    if (state.groupType === 'neighborhood') {
-      return (
-        <div className="space-y-5" dir="rtl">
-          <div className="bg-gradient-to-b from-cyan-50 to-white rounded-3xl p-6 border border-cyan-200/60 text-center">
-            <div className="text-4xl mb-3">🏘️</div>
-            <h3 className="text-base font-black text-gray-900">רוצים ליגת שכונה רשמית?</h3>
-            <p className="text-xs text-gray-600 mt-2 leading-relaxed max-w-[280px] mx-auto">
-              כדי לפתוח ליגת שכונה, נצטרך לתאם עם העירייה שלך
-            </p>
-          </div>
-
-          <MunicipalPressureCard
-            cityName={access.cityName ?? 'העיר שלך'}
-            authority={neighborhoodAuthority}
-          />
-
-          <button
-            onClick={() => {
-              update('groupType', null);
-              setOutreachSent(false);
-              setNeighborhoodAuthority(null);
-              setStep('type');
-            }}
-            className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm"
-          >
-            חזור לבחירת סוג
-          </button>
-        </div>
-      );
-    }
-
     // ── Work / University ────────────────────────────────────────────────────
     const isWork = state.groupType === 'work';
     const label = isWork ? 'מקום העבודה' : 'הקמפוס';
@@ -832,7 +796,6 @@ export default function CreateGroupPage() {
               } else if (step === 'outreach') {
                 setStep('type');
                 setOutreachSent(false);
-                setNeighborhoodAuthority(null);
               } else if (step === 'code_entry') {
                 update('groupType', null);
                 setCodeSuccessMsg(null);

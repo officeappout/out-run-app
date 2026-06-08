@@ -221,7 +221,7 @@ export type PrimaryTrack = 'health' | 'strength' | 'run' | 'hybrid';
 export type AccessTier = 1 | 2 | 3;
 
 export interface UserAffiliation {
-  type: 'city' | 'school' | 'company';
+  type: 'city' | 'school' | 'company' | 'youth_movement';
   id: string;           // e.g., 'tel-aviv', 'school_123', 'intel'
   tier: AccessTier;
   name?: string;        // Display name (e.g., "תל אביב", "בית ספר הרצוג")
@@ -411,6 +411,13 @@ export interface UserFullProfile {
       system?: boolean;
     };
     calendarSync?: boolean;
+    /**
+     * Map visibility mode (Safe-City privacy). Mirrors the client-side
+     * `usePrivacyStore` value so the choice survives reinstall / new device.
+     * Written by SettingsModal → "נראות במפה". Defaults to `ghost`
+     * (fully hidden) for privacy-by-default compliance.
+     */
+    privacyMode?: 'ghost' | 'squad' | 'verified_global';
   };
 
   /**

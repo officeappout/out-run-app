@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Loader2, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
+import { joinGroup } from '@/features/arena/services/group.service';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
@@ -163,6 +164,37 @@ export default function GatewayPage() {
     return signInGuest();
   };
 
+  // ── Consume a pending group invite (set by /join/[inviteCode]) ──
+  // Auto-joins the group right after auth resolves so an invited user lands
+  // INSIDE the league with the success drawer firing — instead of being
+  // dropped on the group drawer and having to tap "Join" manually. Returns
+  // the post-join redirect path, or null when there's no pending invite.
+  const consumePendingGroupInvite = async (
+    uid: string,
+    name: string,
+  ): Promise<string | null> => {
+    const pendingGroupId = localStorage.getItem('pending_group_id');
+    if (!pendingGroupId) return null;
+
+    const pendingInviteCode = localStorage.getItem('pending_invite_code') ?? undefined;
+    localStorage.removeItem('pending_group_id');
+    localStorage.removeItem('pending_invite_code');
+
+    try {
+      await joinGroup(
+        pendingGroupId,
+        uid,
+        name,
+        pendingInviteCode ? { providedCode: pendingInviteCode } : undefined,
+      );
+    } catch (e) {
+      console.error('[Gateway] auto-join pending group failed:', e);
+    }
+
+    // joined=true tells the community page to fire PostJoinSuccessDrawer.
+    return `/community?groupId=${pendingGroupId}&joined=true`;
+  };
+
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──
   const handleExploreMap = async () => {
     isBusyRef.current = true;
@@ -242,13 +274,14 @@ export default function GatewayPage() {
         localStorage.removeItem('group_inviter_uid');
       }
 
-      // If user came from a group invite deep link, redirect to that group
-      const pendingGroupId = localStorage.getItem('pending_group_id');
-      if (pendingGroupId) {
-        localStorage.removeItem('pending_group_id');
-        localStorage.removeItem('pending_invite_code');
+      // If user came from a group invite deep link, auto-join then redirect
+      const groupRedirect = await consumePendingGroupInvite(
+        user.uid,
+        user.displayName ?? 'משתמש',
+      );
+      if (groupRedirect) {
         setTimeout(() => {
-          router.push(`/community?groupId=${pendingGroupId}`);
+          router.push(groupRedirect);
         }, 1200);
         return;
       }
@@ -294,12 +327,13 @@ export default function GatewayPage() {
         localStorage.removeItem('group_inviter_uid');
       }
 
-      // If user came from a group invite deep link, redirect to that group
-      const pendingGroupId = localStorage.getItem('pending_group_id');
-      if (pendingGroupId) {
-        localStorage.removeItem('pending_group_id');
-        localStorage.removeItem('pending_invite_code');
-        router.push(`/community?groupId=${pendingGroupId}`);
+      // If user came from a group invite deep link, auto-join then redirect
+      const groupRedirect = await consumePendingGroupInvite(
+        user.uid,
+        user.displayName ?? 'משתמש',
+      );
+      if (groupRedirect) {
+        router.push(groupRedirect);
         return;
       }
 

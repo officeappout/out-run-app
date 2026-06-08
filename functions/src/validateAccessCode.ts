@@ -20,7 +20,7 @@ interface AccessCodeDoc {
   tenantId: string;
   unitId: string;
   unitPath: string[];
-  tenantType: 'municipal' | 'educational' | 'military';
+  tenantType: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
   onboardingPath: string;
   isActive: boolean;
   usageCount: number;
