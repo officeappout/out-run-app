@@ -972,7 +972,18 @@ export default function HomePage() {
     const checkFirestore = async () => {
       setIsCheckingFirestore(true);
       try {
-        const uid = auth.currentUser?.uid;
+        // Wait for Firebase auth to complete its initial async state resolution
+        // from IndexedDB persistence before declaring "no user". On a cold boot
+        // auth.currentUser is null for up to ~500 ms while IndexedDB restores the
+        // session; checking it synchronously here would cause a false redirect to
+        // /onboarding-new/profile every time a returning user reopens the app.
+        let uid = auth.currentUser?.uid;
+        if (!uid) {
+          try {
+            await (auth as any).authStateReady?.();
+          } catch { /* not available in older SDK versions, ignore */ }
+          uid = auth.currentUser?.uid;
+        }
         if (!uid) { router.replace('/onboarding-new/profile'); return; }
         const snap = await getDoc(firestoreDoc(db, 'users', uid));
         if (snap.exists()) {

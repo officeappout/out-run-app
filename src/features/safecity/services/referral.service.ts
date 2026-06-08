@@ -16,6 +16,7 @@ import {
   setDoc,
   updateDoc,
   arrayUnion,
+  increment,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -30,12 +31,17 @@ export interface ReferralResult {
 }
 
 /**
- * Process a referral: log the relationship in the top-level /referrals collection.
- * Safe to call multiple times for the same pair — uses composite doc ID
- * to prevent double-counting.
+ * Process a referral: log the relationship in the top-level /referrals collection
+ * AND atomically bump the referrer's `core.referralCount`.
  *
- * NOTE: referralCount on the referrer's user doc should be maintained by a
- * Cloud Function trigger on the /referrals collection, not by client writes.
+ * The composite doc ID (`<referrer>_<invitee>`) guards against double-counting —
+ * if the referral already exists we early-return without re-incrementing.
+ *
+ * NOTE: there is no Cloud Function maintaining `core.referralCount`, so the
+ * client owns this write. The increment unlocks `getSocialUnlocked()` (which
+ * gates the leaderboard / partner map) and drives the "קרדיט" / partner-count
+ * widgets. `increment(1)` is atomic server-side, so concurrent referrals from
+ * the same referrer won't clobber each other.
  */
 export async function processReferral(
   referrerUid: string,
@@ -56,6 +62,17 @@ export async function processReferral(
       inviteeName,
       joinedAt: serverTimestamp(),
     });
+
+    // Atomically bump the referrer's counter so the viral gate unlocks.
+    // Non-fatal: a failed counter write must not undo the recorded referral.
+    try {
+      await updateDoc(doc(db, 'users', referrerUid), {
+        'core.referralCount': increment(1),
+        'social.partnerCount': increment(1),
+      });
+    } catch (counterErr) {
+      console.warn('[ReferralService] referralCount increment failed (non-fatal):', counterErr);
+    }
 
     return {
       success: true,

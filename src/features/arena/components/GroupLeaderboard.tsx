@@ -31,12 +31,30 @@ interface GroupLeaderboardProps {
 }
 
 function initialsOf(name: string): string {
-  return name
+  return (name ?? '')
     .split(/\s+/)
+    .filter(Boolean)
     .map((w) => w[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase();
+    .toUpperCase() || '?';
+}
+
+function GroupRowSkeleton() {
+  return (
+    <div
+      className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3"
+      style={{ border: '0.5px solid #E5E7EB' }}
+    >
+      <div className="w-7 h-7 rounded-lg bg-gray-200 animate-pulse flex-shrink-0" />
+      <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="h-3 rounded bg-gray-200 animate-pulse" style={{ width: '55%' }} />
+        <div className="h-2 rounded bg-gray-100 animate-pulse" style={{ width: '30%' }} />
+      </div>
+      <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+    </div>
+  );
 }
 
 export default function GroupLeaderboard({
@@ -67,8 +85,13 @@ export default function GroupLeaderboard({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-gray-400 animate-pulse">טוען דירוג קבוצות...</p>
+      <div className="space-y-2" dir="rtl">
+        <div className="flex items-center justify-between px-1 pb-1">
+          <div className="h-3 w-24 rounded bg-gray-200 animate-pulse" />
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <GroupRowSkeleton key={i} />
+        ))}
       </div>
     );
   }

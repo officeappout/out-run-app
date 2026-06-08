@@ -277,9 +277,9 @@ export default function OnboardingWizard() {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('profile_update_toast', '1');
     }
-    if (returnTo === 'workout') router.push('/home?startWorkout=true');
-    else if (returnTo === 'profile') router.push('/profile');
-    else router.push('/home');
+    if (returnTo === 'workout') router.replace('/home?startWorkout=true');
+    else if (returnTo === 'profile') router.replace('/profile');
+    else router.replace('/home');
   };
 
   // Wrap step onNext: in JIT mode → handleJITSave, otherwise normal advance
@@ -409,11 +409,11 @@ export default function OnboardingWizard() {
                 sessionStorage.removeItem('jit_return_to');
               }
               if (jitReturn === 'workout') {
-                router.push('/home?startWorkout=true');
+                router.replace('/home?startWorkout=true');
               } else if (jitReturn === 'profile') {
-                router.push('/profile');
+                router.replace('/profile');
               } else {
-                router.push('/home');
+                router.replace('/home');
               }
             }}
           />

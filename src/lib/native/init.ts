@@ -8,6 +8,18 @@
  *   • App.resume                         → same as appStateChange.active
  *   • App.backButton (Android)           → routed to history.back() so the
  *                                          web router handles it.
+ *   • App.appUrlOpen                     → parses universal links / custom-
+ *                                          scheme URIs on cold start + warm
+ *                                          resume and persists referral /
+ *                                          invite payloads to localStorage so
+ *                                          the existing web-flow (gateway,
+ *                                          community) picks them up normally.
+ *                                          This is the deferred-deep-link
+ *                                          path that survives an App-Store
+ *                                          redirect: on first install the OS
+ *                                          re-opens the app with the original
+ *                                          URL once the user finishes
+ *                                          installing.
  *
  * SSR-safe — no-op when `window` is undefined or when not running inside
  * the Capacitor native shell. Importing this module from server components
@@ -32,6 +44,77 @@ function isNative(): boolean {
     Capacitor?: { isNativePlatform?: () => boolean };
   };
   return Boolean(w.Capacitor?.isNativePlatform?.());
+}
+
+/**
+ * Parse a native deep-link URL and persist its referral / invite payload into
+ * localStorage so the existing web-flow (gateway, /join pages) picks it up
+ * transparently.
+ *
+ * Handles both production universal links (https://outrun.app/...) and the
+ * custom scheme (outrun://...) registered in the Capacitor config. The
+ * function is pure and synchronous — it only writes localStorage, never
+ * navigates, so it can safely fire before the React router is mounted.
+ *
+ * After persisting, it navigates the WebView to the equivalent web path
+ * (stripping the origin/scheme) so the Next.js router handles any UI work.
+ */
+function handleNativeDeepLink(url: string): void {
+  if (!url || typeof window === 'undefined') return;
+
+  try {
+    // Normalise both https:// and outrun:// → parse as https:// so URL API
+    // works correctly on both platforms.
+    const normalised = url.replace(/^outrun:\/\//, 'https://outrun.app/');
+    const parsed = new URL(normalised);
+    const { pathname, searchParams } = parsed;
+
+    // ── /join/<inviteCode> — group invite deep link ──────────────────────
+    // Path is /join/XXXX where XXXX is the alphanumeric invite code.
+    const joinGroupMatch = pathname.match(/^\/join\/([^/]+)$/);
+    if (joinGroupMatch) {
+      const inviteCode = joinGroupMatch[1];
+      // The /join/[inviteCode] page normally fetches the group by code and
+      // writes these keys. We replicate that here for native cold starts.
+      // The actual joinGroup() call happens at gateway after auth.
+      localStorage.setItem('pending_invite_code', inviteCode);
+      // Navigate to the web join page so it can fetch the group doc and
+      // populate pending_group_id / group_inviter_uid, then route to gateway.
+      window.location.href = `/join/${inviteCode}`;
+      return;
+    }
+
+    // ── /join?ref=<uid> — friend referral link ───────────────────────────
+    const refUid = searchParams.get('ref');
+    if (pathname === '/join' && refUid) {
+      localStorage.setItem('referrer_uid', refUid);
+      window.location.href = `/join?ref=${encodeURIComponent(refUid)}`;
+      return;
+    }
+
+    // ── /gateway?ref=<uid> — referral arriving on the gateway ───────────
+    if (pathname === '/gateway' && refUid) {
+      localStorage.setItem('referrer_uid', refUid);
+      window.location.href = `/gateway?ref=${encodeURIComponent(refUid)}`;
+      return;
+    }
+
+    // ── /community?groupId=<id> — direct community group link ────────────
+    const groupId = searchParams.get('groupId');
+    if (pathname === '/community' && groupId) {
+      window.location.href = `/community?groupId=${encodeURIComponent(groupId)}`;
+      return;
+    }
+
+    // ── Generic fallback — route to the path as-is ───────────────────────
+    // Handles /league, /home, and any other in-app paths sent via push.
+    const target = `${parsed.pathname}${parsed.search}`;
+    if (target && target !== '/') {
+      window.location.href = target;
+    }
+  } catch (err) {
+    console.warn('[native] handleNativeDeepLink failed for url:', url, err);
+  }
 }
 
 /**
@@ -108,28 +191,84 @@ export async function initNativeShell(): Promise<void> {
       }
     });
 
-    // 2. Android back-button → web router. Without this the WebView pops
-    //    out of the app instead of navigating back through Next.js
-    //    history.
+    // 2. Android back-button handler.
     //
-    //    Before touching browser history we give the BackStack a chance to
-    //    consume the event. In-memory step flows (e.g. the visual assessment
-    //    sliders) and overlays register handlers there so hardware back rolls
-    //    their internal state back instead of ejecting the user to a previous
-    //    route and destroying their progress.
+    //    Dispatch order:
+    //      a. BackStack — in-memory step flows and overlays intercept first so
+    //         hardware back rolls their internal state (e.g. assessment sliders)
+    //         rather than ejecting the user to a previous route.
+    //      b. Route-aware guards — evaluated only when nothing on the BackStack
+    //         consumed the event:
+    //           • /home or /gateway   → App.exitApp() instead of navigating
+    //             into onboarding/login screens that were replaced off the stack.
+    //           • /active or /workout-builder → dispatches 'nativeBackInWorkout'
+    //             so the active-workout components open the ExitConfirmModal
+    //             rather than silently discarding progress.
+    //      c. Standard history back (canGoBack) or App.minimizeApp() fallback.
     App.addListener('backButton', ({ canGoBack }) => {
       if (BackStack.dispatch()) return;
+
+      const path = window.location.pathname;
+
+      // Terminal screens: exiting via history would land on onboarding/login.
+      // Exit the app cleanly instead.
+      if (path === '/home' || path === '/gateway') {
+        App.exitApp();
+        return;
+      }
+
+      // Active workout screens: do NOT pop the route — open the exit
+      // confirmation modal so users can't accidentally lose progress.
+      if (path.includes('/active') || path.includes('/workout-builder')) {
+        window.dispatchEvent(new CustomEvent('nativeBackInWorkout'));
+        return;
+      }
+
+      // Standard: follow browser history or minimise if at history root.
       if (canGoBack) {
         window.history.back();
       } else {
-        // Only minimise on Android home screen; on iOS this never fires.
         App.minimizeApp().catch(() => {
           /* ignore — iOS does not implement minimise */
         });
       }
     });
 
-    // 3. Initialise the HealthBridge plugin lazily. We don't request
+    // 3. Deep-link handler — appUrlOpen fires when the OS opens the app via:
+    //      • Universal Links (iOS associated domains, Android App Links)
+    //      • Custom URL schemes (e.g. outrun://)
+    //      • OneLink redirects after an App-Store install (deferred deep link)
+    //
+    //    Supported payload patterns (all standard web paths):
+    //      /join/<inviteCode>         → group invite deep link
+    //      /join?ref=<uid>            → friend referral link
+    //      /gateway?ref=<uid>         → referral landing directly on gateway
+    //      /community?groupId=<id>    → direct group page
+    //
+    //    This listener persists the payload into localStorage under the same
+    //    keys that the web /join/[inviteCode] and /join pages write, so the
+    //    existing gateway.tsx and community/page.tsx logic handles them without
+    //    any changes. Navigation is then handed to the web router.
+    //
+    //    getLaunchUrl() is called once on cold start to catch the URL the app
+    //    was INITIALLY opened with (appUrlOpen doesn't fire for the very first
+    //    open, only for subsequent opens while running).
+    App.addListener('appUrlOpen', ({ url }) => {
+      handleNativeDeepLink(url);
+    });
+
+    // Cold-start: the app was launched via a deep link while completely closed.
+    // getLaunchUrl() returns the URL or null when it was a regular icon tap.
+    try {
+      const { url: launchUrl } = await App.getLaunchUrl();
+      if (launchUrl) {
+        handleNativeDeepLink(launchUrl);
+      }
+    } catch {
+      // getLaunchUrl() is not available on all Capacitor versions — ignore.
+    }
+
+    // 5. Initialise the HealthBridge plugin lazily. We don't request
     //    permissions automatically here — the user must opt-in from the
     //    profile settings screen — but we register the event listener
     //    so that if permissions were granted on a previous launch, live
@@ -143,7 +282,7 @@ export async function initNativeShell(): Promise<void> {
       }
     }
 
-    // 4. Push notifications (Sprint 3, Phase 4.1).
+    // 6. Push notifications (Sprint 3, Phase 4.1).
     //    Wait for an authenticated user before requesting the OS
     //    permission prompt — anonymous browsers should never see the
     //    iOS notification dialog. The auth listener fires once on

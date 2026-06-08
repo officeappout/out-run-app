@@ -314,6 +314,16 @@ export default function StrengthRunner({
     onComplete?.(sm.getExerciseLog());
   }, [sm.getExerciseLog, onComplete]);
 
+  // Android hardware back button → open the exit confirmation modal instead
+  // of popping the route (which would silently discard all workout progress).
+  // The event is dispatched by src/lib/native/init.ts when the back button
+  // fires while window.location.pathname includes '/active'.
+  useEffect(() => {
+    const handleNativeBack = () => setShowExitConfirmModal(true);
+    window.addEventListener('nativeBackInWorkout', handleNativeBack);
+    return () => window.removeEventListener('nativeBackInWorkout', handleNativeBack);
+  }, []);
+
   // ========================================================================
   // REACTIVE SET PROGRESS — same source-of-truth as the Playlist pills
   // ========================================================================

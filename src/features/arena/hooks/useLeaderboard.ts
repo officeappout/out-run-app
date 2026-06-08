@@ -49,6 +49,15 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
 
   const fetchLeaderboard = useCallback(async () => {
     if (!scopeId && scope !== 'global') {
+      // Clear any rows from a previously-selected scope so stale entries
+      // don't flash while toggling between leagues with no scopeId.
+      setResult({
+        entries: [],
+        myEntry: null,
+        totalParticipants: 0,
+        window: timeWindow,
+        generatedAt: new Date(),
+      });
       setIsLoading(false);
       return;
     }
