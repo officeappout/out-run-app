@@ -46,8 +46,6 @@ import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosur
 import { healthBridgeSyncNow } from '@/lib/healthBridge/init';
 import CircularProgress from '@/components/CircularProgress';
 import { STEPS_COLOR } from '@/config/health-goals';
-import { useSettingsStore } from '@/features/home/store/useSettingsStore';
-
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const TIME_RANGES: { key: StepsTimeRange; label: string }[] = [
@@ -131,11 +129,16 @@ export default function StepsAnalyticsPage() {
 
   const isEmpty = !loading && chartData.every((d) => d.value === 0);
 
-  // Hero ring reflects TODAY's progress regardless of the selected range.
-  const todayPercentage =
+  // Hero ring reflects the selected range:
+  //   day   → today's steps vs daily goal, labelled "היום"
+  //   week/month/year → average daily vs daily goal, labelled "ממוצע"
+  const ringValue = timeRange === 'day' ? stats.todaySteps : stats.averageDaily;
+  const ringLabel = timeRange === 'day' ? 'היום' : 'ממוצע';
+  const ringPercentage =
     stats.dailyGoal > 0
-      ? Math.min(100, Math.round((stats.todaySteps / stats.dailyGoal) * 100))
+      ? Math.min(100, Math.round((ringValue / stats.dailyGoal) * 100))
       : 0;
+
 
   // Index of the single best-day bar (non-year ranges only) → gets a ★.
   const bestDayIndex =
@@ -165,7 +168,8 @@ export default function StepsAnalyticsPage() {
   };
 
   // ── "Connect Health" empty-state (no data / bridge off) ──────────────────
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  // Uses hasPermissions (read from Capacitor Preferences on mount) so the
+  // teaser renders correctly on first load without SettingsModal being opened.
 
   // Stable per-mount mock series (3,000–9,000 steps × 7 days) for the blurred
   // teaser shown behind the connect CTA. useMemo([]) so it doesn't reshuffle.
@@ -223,7 +227,26 @@ export default function StepsAnalyticsPage() {
           </>
         ) : (
           <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
-            {/* Hero ring — today's progress (independent of selected range) */}
+            {/* Time range selector — above ring, underline style matching home tabs */}
+            <div className="flex border-b border-gray-100">
+              {TIME_RANGES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTimeRange(key)}
+                  className={[
+                    'flex-1 py-2.5 text-sm font-bold transition-colors',
+                    timeRange === key
+                      ? 'text-[#00C07A] border-b-2 border-[#00C07A] -mb-px'
+                      : 'text-gray-400',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Hero ring — reflects selected range */}
             {loading ? (
               <div className="flex justify-center py-2">
                 <div className="w-40 h-40 rounded-full bg-gray-100 animate-pulse" />
@@ -231,18 +254,18 @@ export default function StepsAnalyticsPage() {
             ) : (
               <div className="flex justify-center py-1">
                 <CircularProgress
-                  percentage={todayPercentage}
+                  percentage={ringPercentage}
                   size={160}
                   strokeWidth={12}
                   colorClass="text-[#00C07A]"
                 >
                   <div className="flex flex-col items-center leading-none">
-                    <span className="text-[12px] font-black text-[#00C07A] mb-1">היום</span>
+                    <span className="text-[12px] font-black text-[#00C07A] mb-1">{ringLabel}</span>
                     <span
                       className="text-[36px] font-black text-gray-900 tabular-nums"
                       dir="ltr"
                     >
-                      {fmtNumber(stats.todaySteps)}
+                      {fmtNumber(ringValue)}
                     </span>
                     <span className="text-[12px] font-semibold text-gray-400 mt-1.5">
                       מתוך {fmtNumber(stats.dailyGoal)} צעדים
@@ -251,24 +274,6 @@ export default function StepsAnalyticsPage() {
                 </CircularProgress>
               </div>
             )}
-
-            {/* Time range selector */}
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-              {TIME_RANGES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setTimeRange(key)}
-                  className={[
-                    'flex-1 py-1.5 text-xs font-black rounded-lg transition-all',
-                    timeRange === key
-                      ? 'bg-white text-gray-900 shadow-subtle'
-                      : 'text-gray-500',
-                  ].join(' ')}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
 
             {/* Stats grid */}
             {loading ? (
@@ -325,7 +330,7 @@ export default function StepsAnalyticsPage() {
               ) : error ? (
                 <ErrorState />
               ) : isEmpty ? (
-                healthBridgeEnabled ? (
+                hasPermissions ? (
                   <EmptyState range={timeRange} />
                 ) : (
                   <div className="relative">
