@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Zap, Flame, Lock } from 'lucide-react';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 
 // הגדרת ה-Props בצורה שתתאים ל-MOCK_STATS שלך
 interface StatsWidgetsProps {
@@ -76,7 +77,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
               stroke="#4FB4F7" strokeWidth="7"
               fill="transparent"
               strokeDasharray="239"
-              strokeDashoffset={239 - (239 * Math.min(stats.steps / 8000, 1))}
+              strokeDashoffset={239 - (239 * Math.min(stats.steps / DAILY_STEP_GOAL, 1))}
               strokeLinecap="round"
               className="transition-all duration-1000 ease-out"
             />
@@ -89,7 +90,7 @@ export default function StatsWidgets({ stats, emphasizeSteps = true, isGuest = f
             <Flame size={12} className="text-orange-500" fill="currentColor" />
             <span className="text-sm font-black text-gray-900">{stats.steps}</span>
           </div>
-          <p className="text-[9px] font-bold text-gray-400 mt-0.5">מתוך 8,000</p>
+          <p className="text-[9px] font-bold text-gray-400 mt-0.5">מתוך {DAILY_STEP_GOAL.toLocaleString('en-US')}</p>
         </div>
       </div>
     </div>

@@ -118,6 +118,8 @@ export interface WorkoutExerciseResult {
   repsPerSetRight?: number[];
   /** Per-side reps for unilateral exercises (left side / שמאל) */
   repsPerSetLeft?: number[];
+  /** Heaviest weight (kg) used across sets, when the exercise is weighted. */
+  maxWeight?: number;
 }
 
 /**

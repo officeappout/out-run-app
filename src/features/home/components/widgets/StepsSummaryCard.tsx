@@ -22,8 +22,9 @@ import CircularProgress from '@/components/CircularProgress';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 
-const FALLBACK_STEPS_GOAL = 10_000;
+const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
 interface StepsSummaryCardProps {
   className?: string;
@@ -75,9 +76,9 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
             boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04)',
           }}
         >
-          <CircularProgress percentage={percentage} size={64} strokeWidth={5}>
+          <CircularProgress percentage={percentage} size={64} strokeWidth={5} colorClass="text-[#00C07A]">
             <Footprints
-              className="w-5 h-5 text-primary -scale-x-100"
+              className="w-5 h-5 text-[#00C07A] -scale-x-100"
               aria-hidden="true"
             />
           </CircularProgress>
@@ -121,9 +122,10 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
             percentage={percentage}
             size={56}
             strokeWidth={5}
+            colorClass="text-[#00C07A]"
           >
             <Footprints
-              className="w-5 h-5 text-primary -scale-x-100"
+              className="w-5 h-5 text-[#00C07A] -scale-x-100"
               aria-hidden="true"
             />
           </CircularProgress>

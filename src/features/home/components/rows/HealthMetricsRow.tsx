@@ -20,12 +20,13 @@ import { Heart, Footprints } from 'lucide-react';
 import { useWeeklyProgress } from '@/features/activity';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 import SideBySideRow from './SideBySideRow';
 import SectionHeader from './SectionHeader';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
 
 const WHO_TARGET = 150;
-const FALLBACK_STEPS_GOAL = 10_000;
+const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
 function WhoTile() {
   const { summary } = useWeeklyProgress();
@@ -75,6 +76,7 @@ function StepsTile() {
       value={stepsToday.toLocaleString('he-IL')}
       unit={`/ ${goal.toLocaleString('he-IL')} צעדים`}
       onClick={handlePress}
+      colorClass="text-[#00C07A]"
       ariaLabel={`צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`}
     />
   );

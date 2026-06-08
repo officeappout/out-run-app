@@ -25,6 +25,7 @@ import {
   getStepsTrend,
   type DailyStepsSnapshot,
 } from '../services/activity-history.service';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 
 export type StepsTimeRange = 'day' | 'week' | 'month' | 'year';
 
@@ -51,7 +52,7 @@ export interface StepsAnalyticsStats {
   daysAtGoal: number;
   /** Days in the range that have any data. */
   daysWithData: number;
-  /** Effective daily goal (last known stepsGoal, or 10000 default). */
+  /** Effective daily goal (last known stepsGoal, or DAILY_STEP_GOAL default). */
   dailyGoal: number;
 }
 
@@ -62,7 +63,7 @@ interface UseStepsAnalyticsReturn {
   error: boolean;
 }
 
-const FALLBACK_GOAL = 10_000;
+const FALLBACK_GOAL = DAILY_STEP_GOAL;
 const HISTORY_LIMIT_DAYS = 365;
 
 const RANGE_DAYS: Record<Exclude<StepsTimeRange, 'year'>, number> = {

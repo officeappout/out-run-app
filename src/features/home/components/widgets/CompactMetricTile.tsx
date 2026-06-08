@@ -30,6 +30,8 @@ export interface CompactMetricTileProps {
   onClick?: () => void;
   /** Aria label for the tile button. */
   ariaLabel?: string;
+  /** Tailwind text-color class for the ring arc + icon. Default 'text-primary'. */
+  colorClass?: string;
   className?: string;
 }
 
@@ -47,17 +49,18 @@ export function CompactMetricTile({
   unit,
   onClick,
   ariaLabel,
+  colorClass = 'text-primary',
   className = '',
 }: CompactMetricTileProps) {
   const inner = (
     <div className="flex items-center gap-2.5 w-full" dir="rtl">
       <div className="shrink-0">
         {percentage !== undefined ? (
-          <CircularProgress percentage={percentage} size={42} strokeWidth={4}>
-            <span className="text-primary">{icon}</span>
+          <CircularProgress percentage={percentage} size={42} strokeWidth={4} colorClass={colorClass}>
+            <span className={colorClass}>{icon}</span>
           </CircularProgress>
         ) : (
-          <div className="w-[42px] h-[42px] rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <div className={`w-[42px] h-[42px] rounded-full bg-primary/10 flex items-center justify-center ${colorClass}`}>
             {icon}
           </div>
         )}

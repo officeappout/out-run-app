@@ -37,6 +37,7 @@ import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
+import { DAILY_STEP_GOAL, STEPS_COLOR } from '@/config/health-goals';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -172,7 +173,7 @@ const HEALTH_CARD_STYLE: React.CSSProperties = {
 };
 
 const WHO_WEEKLY_TARGET = 150;
-const FALLBACK_STEPS_GOAL = 10_000;
+const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
 /** Weekly activity minutes card */
 function ActivityCard() {
@@ -265,7 +266,7 @@ function StepsCard() {
                 width: `${barPct}%`,
                 height: '100%',
                 borderRadius: 2,
-                backgroundColor: '#1D9E75',
+                backgroundColor: STEPS_COLOR,
                 transition: 'width 0.4s ease',
               }}
             />

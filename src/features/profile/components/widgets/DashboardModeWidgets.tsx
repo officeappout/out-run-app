@@ -16,6 +16,7 @@ import React, { useMemo } from 'react';
 import { Dumbbell, Trophy, Clock, Layers, Footprints, Gauge, Activity, Route } from 'lucide-react';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { useDailyActivity } from '@/features/activity';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,7 +178,7 @@ interface RunningWidgetsProps {
   workouts: WorkoutHistoryEntry[];
 }
 
-const STEPS_GOAL_FALLBACK = 10_000;
+const STEPS_GOAL_FALLBACK = DAILY_STEP_GOAL;
 
 /** Format pace as M:SS — input is decimal minutes per km. */
 function formatPace(minPerKm: number): string {

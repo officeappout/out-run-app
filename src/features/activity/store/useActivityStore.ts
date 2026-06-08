@@ -624,7 +624,43 @@ export const useActivityStore = create<ActivityStore>()(
           const activityScopeExtra: Record<string, unknown> = {};
           if (userProfile?.core?.authorityId) activityScopeExtra.authorityId = userProfile.core.authorityId;
           if (userProfile?.core?.name) activityScopeExtra.displayName = userProfile.core.name;
-          await setDoc(docRef, { ...toFirestoreFormat(state.today), ...activityScopeExtra }, { merge: true });
+
+          // Read the current server baseline so a store write (triggered by a
+          // minutes / workout change) never clobbers the higher passive step /
+          // floor counts written by the ingestHealthSamples Cloud Function.
+          // We reconcile with Math.max and override only those two counters.
+          // Note: local state.today.steps/floors are intentionally NOT mutated —
+          // the subscribeToChanges snapshot listener self-heals local state from
+          // the server after this write.
+          let serverSteps = 0;
+          let serverFloors = 0;
+          try {
+            const existingSnap = await getDoc(docRef);
+            if (existingSnap.exists()) {
+              const existingData = existingSnap.data();
+              serverSteps = typeof existingData.steps === 'number' ? existingData.steps : 0;
+              serverFloors = typeof existingData.floors === 'number' ? existingData.floors : 0;
+            }
+          } catch (readErr) {
+            console.warn('[ActivityStore] Could not read server baseline before sync; using local values:', readErr);
+          }
+
+          const mergedSteps = Math.max(serverSteps, state.today.steps);
+          const mergedFloors = Math.max(serverFloors, state.today.floors);
+
+          await setDoc(
+            docRef,
+            {
+              ...toFirestoreFormat(state.today),
+              // Reconciled passive counters — never regress below server value
+              steps: mergedSteps,
+              stepsGoalMet: mergedSteps >= state.today.stepsGoal,
+              floors: mergedFloors,
+              floorsGoalMet: mergedFloors >= state.today.floorsGoal,
+              ...activityScopeExtra,
+            },
+            { merge: true },
+          );
           
           // Update streak document — include scope fields for leaderboard queries
           const streakRef = doc(db, COLLECTION_STREAK, state.today.userId);

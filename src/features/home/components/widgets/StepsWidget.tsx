@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Footprints, Flame, Zap } from 'lucide-react';
 import { SUCCESS_BASELINE } from '@/features/user/progression/services/smart-goals.service';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 
 interface StepsWidgetProps {
   steps: number;
@@ -11,7 +12,7 @@ interface StepsWidgetProps {
 
 export const StepsWidget: React.FC<StepsWidgetProps> = ({
   steps = 0,
-  goal = 8000,
+  goal = DAILY_STEP_GOAL,
   calories = 0,
 }) => {
   // Calculate ratio (0 to 1) for pathLength

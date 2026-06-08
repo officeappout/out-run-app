@@ -22,6 +22,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
 import type { UserFullProfile } from '@/types/user-profile';
 import type { WeeklyActivitySummary } from '../types/activity.types';
 
@@ -102,7 +103,7 @@ export async function getStepsTrend(
           floors: d.floors ?? 0,
           stepsGoalMet: d.stepsGoalMet ?? false,
           floorsGoalMet: d.floorsGoalMet ?? false,
-          stepsGoal: d.stepsGoal ?? 3000,
+          stepsGoal: d.stepsGoal ?? DAILY_STEP_GOAL,
           floorsGoal: d.floorsGoal ?? 3,
         } satisfies DailyStepsSnapshot;
       })

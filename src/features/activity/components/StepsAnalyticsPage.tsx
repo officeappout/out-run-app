@@ -42,6 +42,8 @@ import {
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { healthBridgeSyncNow } from '@/lib/healthBridge/init';
+import CircularProgress from '@/components/CircularProgress';
+import { STEPS_COLOR } from '@/config/health-goals';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,9 +54,9 @@ const TIME_RANGES: { key: StepsTimeRange; label: string }[] = [
   { key: 'year', label: 'שנה' },
 ];
 
-const PRIMARY = '#00ADEF';
-const PRIMARY_DIM = '#7DD3F0';
-const GOAL_LINE = '#F59E0B';
+const PRIMARY = STEPS_COLOR;     // #00C07A — canonical steps green (goal met)
+const PRIMARY_DIM = '#9BE3CD';   // lighter steps green (below goal)
+const GOAL_LINE = '#F59E0B';     // amber dashed goal reference (semantic, unchanged)
 const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -126,6 +128,39 @@ export default function StepsAnalyticsPage() {
 
   const isEmpty = !loading && chartData.every((d) => d.value === 0);
 
+  // Hero ring reflects TODAY's progress regardless of the selected range.
+  const todayPercentage =
+    stats.dailyGoal > 0
+      ? Math.min(100, Math.round((stats.todaySteps / stats.dailyGoal) * 100))
+      : 0;
+
+  // Index of the single best-day bar (non-year ranges only) → gets a ★.
+  const bestDayIndex =
+    !isYear && stats.bestDay > 0
+      ? chartData.findIndex((d) => d.value === stats.bestDay)
+      : -1;
+
+  const renderBestDayStar = (props: {
+    x?: number;
+    y?: number;
+    width?: number;
+    index?: number;
+  }) => {
+    const { x = 0, y = 0, width = 0, index } = props;
+    if (index !== bestDayIndex) return null;
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 6}
+        textAnchor="middle"
+        fontSize={14}
+        fill={GOAL_LINE}
+      >
+        ★
+      </text>
+    );
+  };
+
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]" dir="rtl">
       <motion.div
@@ -150,7 +185,7 @@ export default function StepsAnalyticsPage() {
               צעדים
             </h1>
           </div>
-          <div className="w-9 h-9 flex items-center justify-center rounded-xl text-primary">
+          <div className="w-9 h-9 flex items-center justify-center rounded-xl text-[#00C07A]">
             <Footprints className="w-5 h-5 -scale-x-100" />
           </div>
         </div>
@@ -166,6 +201,38 @@ export default function StepsAnalyticsPage() {
           </>
         ) : (
           <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
+            {/* Hero ring — today's progress (independent of selected range) */}
+            {loading ? (
+              <div className="flex justify-center py-2">
+                <div className="w-40 h-40 rounded-full bg-gray-100 animate-pulse" />
+              </div>
+            ) : (
+              <div className="flex justify-center py-1">
+                <CircularProgress
+                  percentage={todayPercentage}
+                  size={160}
+                  strokeWidth={12}
+                  colorClass="text-[#00C07A]"
+                >
+                  <div className="flex flex-col items-center leading-none">
+                    <Footprints
+                      className="w-5 h-5 text-[#00C07A] -scale-x-100 mb-1.5"
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="text-[30px] font-black text-gray-900 tabular-nums"
+                      dir="ltr"
+                    >
+                      {fmtNumber(stats.todaySteps)}
+                    </span>
+                    <span className="text-[11px] font-semibold text-gray-400 mt-1">
+                      מתוך {fmtNumber(stats.dailyGoal)} צעדים
+                    </span>
+                  </div>
+                </CircularProgress>
+              </div>
+            )}
+
             {/* Time range selector */}
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
               {TIME_RANGES.map(({ key, label }) => (
@@ -200,7 +267,7 @@ export default function StepsAnalyticsPage() {
                   label={isYear ? 'סה״כ' : 'ממוצע יומי'}
                   value={fmtCompact(isYear ? stats.totalSteps : stats.averageDaily)}
                   unit="צעדים"
-                  icon={<TrendingUp className="w-3.5 h-3.5 text-[#00ADEF]" />}
+                  icon={<TrendingUp className="w-3.5 h-3.5 text-[#00C07A]" />}
                   accent="blue"
                 />
                 <StatCard
@@ -284,7 +351,7 @@ export default function StepsAnalyticsPage() {
                             '',
                           ]}
                           labelFormatter={(label) => String(label)}
-                          cursor={{ fill: 'rgba(0, 173, 239, 0.08)' }}
+                          cursor={{ fill: 'rgba(0, 192, 122, 0.08)' }}
                         />
 
                         {showGoalLine && (
@@ -307,6 +374,7 @@ export default function StepsAnalyticsPage() {
                           dataKey="value"
                           radius={[6, 6, 0, 0]}
                           maxBarSize={isYear ? 22 : 18}
+                          label={renderBestDayStar}
                         >
                           {chartData.map((entry, index) => (
                             <Cell
@@ -371,14 +439,14 @@ type AccentColor = 'amber' | 'blue' | 'green' | 'gray';
 
 const ACCENT_TEXT: Record<AccentColor, string> = {
   amber: 'text-amber-500',
-  blue: 'text-[#00ADEF]',
+  blue: 'text-[#00C07A]',
   green: 'text-emerald-500',
   gray: 'text-gray-800',
 };
 
 const ACCENT_BG: Record<AccentColor, string> = {
   amber: 'bg-amber-50 border-amber-100',
-  blue: 'bg-blue-50 border-blue-100',
+  blue: 'bg-[#EAFBF4] border-[#CBF2E4]',
   green: 'bg-emerald-50 border-emerald-100',
   gray: 'bg-white border-gray-100',
 };
@@ -440,11 +508,11 @@ function HealthConnectGate({ onConnect, isRequesting }: HealthConnectGateProps) 
         <div
           className="w-24 h-24 rounded-full flex items-center justify-center"
           style={{
-            background: 'linear-gradient(135deg, #E0F4FF 0%, #EAF6FF 100%)',
-            boxShadow: '0 0 0 12px rgba(0,173,239,0.08)',
+            background: 'linear-gradient(135deg, #E0F7EF 0%, #EAFBF4 100%)',
+            boxShadow: '0 0 0 12px rgba(0,192,122,0.08)',
           }}
         >
-          <Footprints className="w-10 h-10 text-[#00ADEF] -scale-x-100" aria-hidden="true" />
+          <Footprints className="w-10 h-10 text-[#00C07A] -scale-x-100" aria-hidden="true" />
         </div>
         <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md">
           <ShieldCheck className="w-[18px] h-[18px] text-emerald-500" aria-hidden="true" />
@@ -462,7 +530,7 @@ function HealthConnectGate({ onConnect, isRequesting }: HealthConnectGateProps) 
         {['צעדים יומיים', 'קלוריות פעילות', 'דקות אימון'].map((label) => (
           <span
             key={label}
-            className="text-[11px] font-bold text-[#00ADEF] bg-blue-50 border border-blue-100 rounded-full px-3 py-1"
+            className="text-[11px] font-bold text-[#00C07A] bg-[#EAFBF4] border border-[#CBF2E4] rounded-full px-3 py-1"
           >
             {label}
           </span>
@@ -473,7 +541,7 @@ function HealthConnectGate({ onConnect, isRequesting }: HealthConnectGateProps) 
         type="button"
         onClick={onConnect}
         disabled={isRequesting}
-        className="w-full max-w-xs bg-[#00ADEF] hover:bg-[#009BD6] active:scale-[0.98] disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-[#00ADEF]/25 transition-all text-[15px]"
+        className="w-full max-w-xs bg-[#00C07A] hover:bg-[#00A86A] active:scale-[0.98] disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-[#00C07A]/25 transition-all text-[15px]"
       >
         {isRequesting ? 'מחכה לאישור...' : 'חבר/י נתוני בריאות'}
       </button>

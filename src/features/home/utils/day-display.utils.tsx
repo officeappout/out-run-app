@@ -186,7 +186,7 @@ export const CATEGORY_COLORS = {
   strength:    BRAND_CYAN, // #00C9F2 — brand cyan
   cardio:      '#84CC16',  // lime-500
   maintenance: '#A855F7',  // purple-500
-  steps:       '#F97316',  // orange-500
+  steps:       '#F97316',  // orange-500 — energy/flame accent (not the steps identity color)
   rest:        '#9CA3AF',  // gray-400
   missed:      '#9CA3AF',  // gray-400
 } as const;

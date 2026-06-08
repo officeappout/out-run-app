@@ -131,7 +131,7 @@ export async function saveExerciseHistory(
       reps: ex.repsPerSet,
       maxReps: ex.repsPerSet.length > 0 ? Math.max(...ex.repsPerSet) : 0,
       totalVolume: ex.repsPerSet.reduce((sum, r) => sum + r, 0),
-      maxWeight: 0,
+      maxWeight: ex.maxWeight ?? 0,
       targetReps: ex.targetReps,
       exerciseName: ex.exerciseName,
     };

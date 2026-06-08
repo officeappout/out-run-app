@@ -5,6 +5,8 @@
  * Used for concentric rings progress, smart dots, and priority calculations.
  */
 
+import { DAILY_STEP_GOAL } from '@/config/health-goals';
+
 // ============================================================================
 // ACTIVITY CATEGORIES
 // ============================================================================
@@ -362,7 +364,7 @@ export function createEmptyDailyActivity(
       maintenance: createEmptyCategoryMetrics(DEFAULT_DAILY_GOALS.maintenance, DEFAULT_WEEKLY_GOALS.maintenance),
     },
     steps: 0,
-    stepsGoal: 8000,
+    stepsGoal: DAILY_STEP_GOAL,
     stepsGoalMet: false,
     floors: 0,
     floorsGoal: 10,
