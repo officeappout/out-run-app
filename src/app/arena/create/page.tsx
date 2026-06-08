@@ -441,6 +441,7 @@ export default function CreateGroupPage() {
         ...((!isSocial && state.authorityId) ? { authorityId: state.authorityId } : {}),
         isPublic: isSocial ? false : state.isPublic,
         ageRestriction: 'all',
+        source: 'user',
         schedule: {
           dayOfWeek: state.dayOfWeek,
           time: state.time,
