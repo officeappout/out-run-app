@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import {
   getBunnyVideoStatus,
   BunnyApiError,
@@ -18,9 +19,11 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { videoId: string } },
 ) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     const { videoId } = params;
     if (!videoId) {

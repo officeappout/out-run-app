@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import { seedSderotDemo } from '@/features/admin/services/seed-sderot-demo';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     const result = await seedSderotDemo();
     if (result.success) {

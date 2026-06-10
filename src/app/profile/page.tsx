@@ -27,7 +27,7 @@ import StrengthHistoryDetail from '@/features/profile/components/StrengthHistory
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
 import { getAllGearDefinitions, type GearDefinition } from '@/features/content/equipment/gear';
-import { doc as firestoreDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -100,6 +100,34 @@ export default function ProfilePage() {
   const [gearDefs, setGearDefs] = useState<GearDefinition[]>([]);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const { showToast } = useToast();
+
+  // ── Feedback form ──
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const handleSendFeedback = useCallback(async () => {
+    const text = feedbackText.trim();
+    if (!text || feedbackSending) return;
+    const uid = auth.currentUser?.uid;
+    setFeedbackSending(true);
+    try {
+      await addDoc(collection(db, 'user_feedback'), {
+        content: text,
+        userId: uid ?? null,
+        userEmail: auth.currentUser?.email ?? null,
+        isConverted: false,
+        createdAt: serverTimestamp(),
+      });
+      setFeedbackText('');
+      setFeedbackSent(true);
+      setTimeout(() => setFeedbackSent(false), 4000);
+    } catch {
+      showToast('error', 'שגיאה בשליחת המשוב');
+    } finally {
+      setFeedbackSending(false);
+    }
+  }, [feedbackText, feedbackSending, showToast]);
 
   const hasTenant = !!(profile as any)?.core?.tenantId;
 
@@ -344,6 +372,66 @@ export default function ProfilePage() {
           onOpenSettings={() => setSettingsOpen(true)}
           onNavigateToHistory={() => setHistorySheetOpen(true)}
         />
+
+        {/* ── Feedback card ──────────────────────────────────────────────── */}
+        <div
+          dir="rtl"
+          className="mt-6 mb-10 bg-white rounded-2xl border border-gray-100 shadow-subtle p-5 space-y-4"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#00C9F2]/10 flex items-center justify-center flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00C9F2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-black text-gray-900">שלח משוב או דווח על באג</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">הפידבק שלך משפיע ישירות על הפיתוח</p>
+            </div>
+          </div>
+
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="כתוב כאן את המשוב, הבאג, או הרעיון שלך..."
+            rows={4}
+            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#00C9F2] focus:ring-2 focus:ring-[#00C9F2]/20 transition-all leading-relaxed"
+          />
+
+          <AnimatePresence mode="wait">
+            {feedbackSent ? (
+              <motion.div
+                key="sent"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="h-12 flex items-center justify-center gap-2 rounded-xl bg-[#10B981]/10 text-[#10B981]"
+              >
+                <Check size={16} strokeWidth={3} />
+                <span className="text-sm font-bold">תודה! המשוב נשלח בהצלחה</span>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="btn"
+                onClick={handleSendFeedback}
+                disabled={!feedbackText.trim() || feedbackSending}
+                className="w-full h-12 rounded-xl font-bold text-sm text-white bg-gradient-to-l from-[#00C9F2] to-[#5BC2F2] shadow-md shadow-cyan-500/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                {feedbackSending ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                    שלח לעוזר ה-AI
+                  </>
+                )}
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* History bottom sheet — opened by tapping the workouts count. */}

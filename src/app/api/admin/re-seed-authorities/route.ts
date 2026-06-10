@@ -4,9 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import { reSeedIsraeliAuthorities } from '@/features/admin/services/re-seed-authorities';
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     console.log('[API] Starting re-seed of authorities...');
     

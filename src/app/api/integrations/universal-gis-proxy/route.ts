@@ -1,20 +1,52 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
- * Smart GIS Proxy for Tel Aviv Municipality ArcGIS REST API
- * Standardizes different formats (GeoJSON/EsriJSON) into a clean GeoJSON FeatureCollection
+ * Universal GIS Proxy — standardizes GeoJSON/EsriJSON into a clean
+ * GeoJSON FeatureCollection. Accepts a target URL as ?url=...
+ *
+ * SECURITY (C1): admin-only + strict host allowlist. This closes the SSRF
+ * vector — the proxy can no longer be pointed at internal services or the
+ * cloud metadata endpoint (169.254.169.254).
  */
-/**
- * Universal GIS Proxy
- * Standardizes different formats (GeoJSON/EsriJSON) into a clean GeoJSON FeatureCollection
- * Accepts target URL as ?url=...
- */
-export async function GET(request: Request) {
+const ALLOWED_GIS_HOST_SUFFIXES = [
+  '.gov.il',     // Israeli government & municipal GIS (e.g. gisn.tel-aviv.gov.il)
+  '.muni.il',    // some Israeli municipalities
+  '.arcgis.com', // Esri ArcGIS Online
+] as const;
+
+function isAllowedGisUrl(raw: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+  const host = parsed.hostname.toLowerCase();
+  // Reject IP literals (blocks 127.0.0.1, 169.254.169.254, ::1, etc.).
+  if (/^[0-9.]+$/.test(host) || host.includes(':')) return false;
+  return ALLOWED_GIS_HOST_SUFFIXES.some(
+    (suffix) => host === suffix.slice(1) || host.endsWith(suffix),
+  );
+}
+
+export async function GET(request: NextRequest) {
+    const denied = await requireAdminApi(request);
+    if (denied) return denied;
+
     const { searchParams } = new URL(request.url);
     const targetUrl = searchParams.get('url');
 
     if (!targetUrl) {
         return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
+    }
+
+    if (!isAllowedGisUrl(targetUrl)) {
+        return NextResponse.json({ error: 'Target URL host is not allowed' }, { status: 403 });
     }
 
     try {

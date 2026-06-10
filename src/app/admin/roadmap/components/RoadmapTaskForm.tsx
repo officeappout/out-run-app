@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Save, Loader2, Tag } from 'lucide-react';
+import { X, Save, Loader2, Tag, Quote } from 'lucide-react';
 import {
   ProductTask,
   ProductTag,
@@ -308,13 +308,29 @@ export default function RoadmapTaskForm({
             </div>
           </div>
 
-          {/* Feedback Info */}
-          {feedbackToConvert && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm font-bold text-blue-700 mb-1">משוב מקורי:</p>
-              <p className="text-sm text-blue-600">{feedbackToConvert.content}</p>
-              {feedbackToConvert.userName && (
-                <p className="text-xs text-blue-500 mt-2">מאת: {feedbackToConvert.userName}</p>
+          {/* ── Original User Voice — read-only, always shown when available ── */}
+          {(task?.originalFeedback || feedbackToConvert?.content) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-amber-200 bg-amber-100/60">
+                <Quote size={14} className="text-amber-600 flex-shrink-0" />
+                <span className="text-xs font-black text-amber-700 tracking-wide uppercase">
+                  ציטוט מקורי של המשתמש
+                </span>
+                <span className="ms-auto text-[10px] font-medium text-amber-500 bg-amber-200/60 px-2 py-0.5 rounded-full">
+                  קריאה בלבד
+                </span>
+              </div>
+              {/* Quote body */}
+              <blockquote className="px-4 py-3 text-sm text-amber-900 leading-relaxed whitespace-pre-wrap">
+                {task?.originalFeedback ?? feedbackToConvert?.content}
+              </blockquote>
+              {/* Attribution row */}
+              {feedbackToConvert?.userName && (
+                <div className="px-4 pb-3 text-xs text-amber-600 font-medium">
+                  — {feedbackToConvert.userName}
+                  {feedbackToConvert.userEmail ? ` (${feedbackToConvert.userEmail})` : ''}
+                </div>
               )}
             </div>
           )}

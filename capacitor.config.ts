@@ -21,8 +21,8 @@ const config: CapacitorConfig = {
 
   server: {
     androidScheme: 'https',
-    url: 'https://out-run-app.vercel.app',
-    allowNavigation: ['*.vercel.app'],
+    url: 'https://outrun.co.il',
+    allowNavigation: ['outrun.co.il', '*.outrun.co.il'],
     cleartext: false,
   },
 
@@ -38,7 +38,7 @@ const config: CapacitorConfig = {
 
   plugins: {
     FirebaseAuthentication: {
-      skipNativeAuth: true,
+      skipNativeAuth: false,
       providers: ['apple.com', 'google.com'],
     },
     FirebaseAppCheck: {

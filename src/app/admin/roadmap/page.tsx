@@ -228,12 +228,16 @@ export default function ProductRoadmapPage() {
   // Group tasks by status for kanban
   const tasksByStatus = useMemo(() => {
     const grouped: Record<TaskStatus, ProductTask[]> = {
-      backlog: [],
-      planned: [],
-      in_progress: [],
-      review: [],
-      done: [],
-      archived: [],
+      feedback_inbox: [],
+      backlog:        [],
+      planned:        [],
+      in_progress:    [],
+      ready_for_qa:   [],
+      ready_to_merge: [],
+      review:         [],
+      done:           [],
+      archived:       [],
+      needs_human:    [], // AGENT-FIX
     };
 
     filteredTasks.forEach(task => {

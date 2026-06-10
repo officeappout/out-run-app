@@ -57,6 +57,7 @@ plugins/**/build/
 plugins/**/node_modules/
 
 # ── Signing keys — NEVER commit private keys or keystores ─────────────────────
+my-release-key.keystore
 *.keystore
 *.jks
 *-release-key.*

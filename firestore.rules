@@ -1132,24 +1132,47 @@ service cloud.firestore {
     // SESSIONS — park check-ins
     // ============================================================
     match /sessions/{docId} {
-      allow read, write: if isAuthenticated();
+      // Admins retain full access (heatmap / analytics tooling).
+      allow read, write: if isRootAdmin() || isAdmin();
+
+      // Reads stay open to authenticated users: the admin heatmap
+      // (route-overlay.service) and analytics aggregate across users via
+      // authorityId queries. (Tightening reads is a separate follow-up.)
+      allow read: if isAuthenticated();
+
+      // Writes are owner-scoped. Client check-ins are addDoc() with
+      // userId == current uid (useRunningPlayer). Server purges/seeds use
+      // the Admin SDK and bypass these rules.
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.userId == request.auth.uid;
     }
 
     // ============================================================
     // SCHOOLS / ORGANIZATIONS — code validation for B2E access
     // ============================================================
     match /schools/{docId} {
-      allow read: if true;
+      // Read denied to clients — school/org codes are NOT public (was
+      // `allow read: if true`, enabling unauthenticated enumeration of every
+      // code). Admins still read via the ADMIN FALLBACK catch-all at the
+      // bottom of this file (admin schools page). The only client reader,
+      // validateOrganizationCode(), is dead code; B2E code validation runs
+      // through the validateAccessCode Cloud Function on `access_codes`.
+      allow read: if false;
       allow write: if isAdmin();
     }
 
     // ============================================================
-    // ACCESS CODES — validated exclusively by Cloud Function.
-    // Clients may read to check existence; only the CF increments
-    // usageCount via Admin SDK (bypasses rules).
+    // ACCESS CODES — validated exclusively by the validateAccessCode
+    // Cloud Function (Admin SDK bypasses rules). Clients must NEVER read
+    // this collection directly: doing so previously let any signed-in user
+    // enumerate every code + the PII written by the CF (lastUsedByUid,
+    // lastUsedByDisplayName). Reads are now admin-only; the admin panel
+    // reader satisfies isAdmin(), the CF uses the Admin SDK.
     // ============================================================
     match /access_codes/{codeId} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 

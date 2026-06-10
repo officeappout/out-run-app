@@ -7,7 +7,8 @@
  * Admin forms use this to auto-populate the icon picker — no manual constant needed.
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import path from 'path';
 import fs from 'fs';
 
@@ -25,7 +26,10 @@ function slugToLabel(slug: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
+
   const dir = path.join(process.cwd(), 'public', 'assets', 'icons', 'equipment');
 
   let files: string[] = [];

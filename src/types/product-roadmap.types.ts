@@ -10,7 +10,7 @@ export type TaskSource = 'user' | 'admin' | 'partner';
 export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
 
 // Task status for kanban workflow
-export type TaskStatus = 'backlog' | 'planned' | 'in_progress' | 'review' | 'done' | 'archived';
+export type TaskStatus = 'feedback_inbox' | 'backlog' | 'planned' | 'in_progress' | 'ready_for_qa' | 'ready_to_merge' | 'review' | 'done' | 'archived' | 'needs_human'; // AGENT-FIX: added needs_human (escalation terminal state from Fix 1)
 
 // Product Task interface
 export interface ProductTask {
@@ -24,6 +24,7 @@ export interface ProductTask {
   
   // Optional fields
   feedbackId?: string; // Link to original feedback if converted
+  originalFeedback?: string; // Verbatim user quote, set by amit-loop AI pipeline
   assignedTo?: string;
   assignedToName?: string;
   estimatedHours?: number;
@@ -101,22 +102,43 @@ export const TASK_PRIORITY_COLORS: Record<TaskPriority, { bg: string; text: stri
 
 // Labels for task status
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: 'Backlog',
-  planned: 'מתוכנן',
-  in_progress: 'בפיתוח',
-  review: 'בבדיקה',
-  done: 'הושלם',
-  archived: 'ארכיון',
+  feedback_inbox:  '📥 קול המשתמש',
+  backlog:         'Backlog',
+  planned:         'מתוכנן',
+  in_progress:     'בפיתוח',
+  ready_for_qa:    '🧪 QA אוטומטי',
+  ready_to_merge:  '✅ מוכן למיזוג',
+  review:          'בבדיקה',
+  done:            'הושלם',
+  archived:        'ארכיון',
+  needs_human:     '🚨 נדרש טיפול אנושי', // AGENT-FIX
 };
 
 export const TASK_STATUS_COLORS: Record<TaskStatus, { bg: string; text: string; border: string }> = {
-  backlog: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
-  planned: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
-  in_progress: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-400' },
-  review: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-400' },
-  done: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-400' },
-  archived: { bg: 'bg-slate-100', text: 'text-slate-500', border: 'border-slate-300' },
+  feedback_inbox:  { bg: 'bg-indigo-100',  text: 'text-indigo-700',  border: 'border-indigo-400'  },
+  backlog:         { bg: 'bg-gray-100',    text: 'text-gray-700',    border: 'border-gray-300'    },
+  planned:         { bg: 'bg-blue-100',    text: 'text-blue-700',    border: 'border-blue-300'    },
+  in_progress:     { bg: 'bg-amber-100',   text: 'text-amber-700',   border: 'border-amber-400'   },
+  ready_for_qa:    { bg: 'bg-violet-100',  text: 'text-violet-700',  border: 'border-violet-400'  },
+  ready_to_merge:  { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-400' },
+  review:          { bg: 'bg-purple-100',  text: 'text-purple-700',  border: 'border-purple-400'  },
+  done:            { bg: 'bg-green-100',   text: 'text-green-700',   border: 'border-green-400'   },
+  archived:        { bg: 'bg-slate-100',   text: 'text-slate-500',   border: 'border-slate-300'   },
+  needs_human:     { bg: 'bg-rose-100',    text: 'text-rose-700',    border: 'border-rose-500'    }, // AGENT-FIX
 };
 
 // Kanban column order
-export const KANBAN_COLUMNS: TaskStatus[] = ['backlog', 'planned', 'in_progress', 'review', 'done'];
+// feedback_inbox  → AI intake (amit-loop.js)
+// ready_for_qa    → automated lint/type check (qa-agent.js picks up)
+// ready_to_merge  → QA passed, awaiting human merge
+export const KANBAN_COLUMNS: TaskStatus[] = [
+  'feedback_inbox',
+  'backlog',
+  'planned',
+  'in_progress',
+  'ready_for_qa',
+  'ready_to_merge',
+  'review',
+  'done',
+  'needs_human', // AGENT-FIX: escalation column — visible so admins can spot stuck tasks
+];

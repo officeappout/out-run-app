@@ -19,6 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import {
   collection,
   query,
@@ -34,6 +35,8 @@ export const dynamic = 'force-dynamic';
 const GYM_EQUIPMENT_COLLECTION = 'gym_equipment';
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     const { documentName, correctIconKey } = body;

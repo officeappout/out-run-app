@@ -15,6 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -23,6 +24,8 @@ export const dynamic = 'force-dynamic';
 const EXERCISES_COLLECTION = 'exercises';
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     const { exerciseId, dryRun = false } = body;

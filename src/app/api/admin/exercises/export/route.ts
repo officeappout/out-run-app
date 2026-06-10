@@ -5,7 +5,8 @@
  * Returns a CSV file with exercise data for admin use.
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import { getAllExercises } from '@/features/content/exercises';
 import { getLocalizedText } from '@/features/content/exercises/core/exercise.types';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
@@ -90,7 +91,9 @@ function exerciseToCsvRow(exercise: Exercise): string {
   ].join(',');
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     const exercises = await getAllExercises();
     const headerRow = CSV_HEADERS.join(',');

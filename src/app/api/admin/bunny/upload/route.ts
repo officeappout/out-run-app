@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/api-auth';
 import {
   createBunnyVideo,
   BunnyApiError,
@@ -22,6 +23,8 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     const title = typeof body?.title === 'string' && body.title.trim().length > 0

@@ -75,6 +75,7 @@ function normalizeTask(docId: string, data: any): ProductTask {
     status: data?.status || 'backlog',
     tags: Array.isArray(data?.tags) ? data.tags : [],
     feedbackId: data?.feedbackId || undefined,
+    originalFeedback: typeof data?.originalFeedback === 'string' ? data.originalFeedback : undefined,
     assignedTo: data?.assignedTo || undefined,
     assignedToName: data?.assignedToName || undefined,
     estimatedHours: data?.estimatedHours || undefined,
@@ -577,12 +578,16 @@ export async function getRoadmapStats(): Promise<{
     const feedback = await getUnconvertedFeedback();
 
     const byStatus: Record<TaskStatus, number> = {
-      backlog: 0,
-      planned: 0,
-      in_progress: 0,
-      review: 0,
-      done: 0,
-      archived: 0,
+      feedback_inbox: 0,
+      backlog:        0,
+      planned:        0,
+      in_progress:    0,
+      ready_for_qa:   0,
+      ready_to_merge: 0,
+      review:         0,
+      done:           0,
+      archived:       0,
+      needs_human:    0, // AGENT-FIX
     };
 
     const byPriority: Record<TaskPriority, number> = {
