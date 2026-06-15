@@ -6,10 +6,16 @@
  * directive at the top will fail loudly if anyone tries.
  *
  * Credentials lookup (in order):
- *   1. FIREBASE_SERVICE_ACCOUNT_KEY env var (full JSON of a service account)
- *   2. GOOGLE_APPLICATION_CREDENTIALS env var (path to JSON file)
- *   3. Application Default Credentials (Vercel + Firebase integration,
- *      Google Cloud Run, Firebase Hosting Functions, etc.)
+ *   1. FIREBASE_SERVICE_ACCOUNT_KEY — raw JSON string of a Firebase Admin SA key
+ *   2. GOOGLE_SERVICE_ACCOUNT_KEY   — base64-encoded JSON (same key used for Gmail/Drive)
+ *   3. Application Default Credentials (local dev only — fails on Vercel)
+ *
+ * ⚠️  PERMISSIONS: whichever SA key is used must have these IAM roles on appout-1:
+ *       - Firebase Admin SDK Administrator Service Agent  (or)
+ *       - Cloud Datastore User  +  Firebase Authentication Admin
+ *     The Gmail-delegation SA may lack these — if Firestore still fails after
+ *     adding GOOGLE_SERVICE_ACCOUNT_KEY, grant those roles in Cloud Console
+ *     or download the Firebase Admin SA key and set FIREBASE_SERVICE_ACCOUNT_KEY.
  *
  * The singleton pattern guarantees we only call initializeApp() once per
  * Node.js process even across hot-reloads.
@@ -52,6 +58,7 @@ function ensureApp(): App {
 
   const projectId = resolveProjectId();
 
+  // 1. Raw JSON service account key (Firebase Admin SA — preferred)
   const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (rawJson) {
     try {
@@ -64,13 +71,34 @@ function ensureApp(): App {
         }),
         projectId: parsed.project_id ?? projectId,
       });
+      console.log('[firebase-admin] Initialized with FIREBASE_SERVICE_ACCOUNT_KEY');
       return _adminApp;
     } catch (err) {
       console.error('[firebase-admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err);
     }
   }
 
-  // Fallback: Application Default Credentials.
+  // 2. Base64-encoded JSON (shared with Gmail/Drive SA — same key set by David in Vercel)
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (b64) {
+    try {
+      const parsed = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+      _adminApp = initializeApp({
+        credential: cert({
+          projectId: parsed.project_id,
+          clientEmail: parsed.client_email,
+          privateKey: String(parsed.private_key).replace(/\\n/g, '\n'),
+        }),
+        projectId: parsed.project_id ?? projectId,
+      });
+      console.log('[firebase-admin] Initialized with GOOGLE_SERVICE_ACCOUNT_KEY (base64)');
+      return _adminApp;
+    } catch (err) {
+      console.error('[firebase-admin] Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:', err);
+    }
+  }
+
+  // 3. Application Default Credentials — works on GCP infrastructure, fails on Vercel.
   // Works on Cloud Run / Cloud Functions / App Hosting without a service account
   // key file. projectId must be explicit here because the ADC credential does NOT
   // carry project information on its own — without it Firestore throws
