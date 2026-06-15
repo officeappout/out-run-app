@@ -298,3 +298,23 @@ export const INSTALLMENT_STATUS_LABELS: Record<InstallmentStatus, string> = {
   pending: 'ממתין',
   paid: 'שולם',
 };
+
+// ─── Insights (Voice of Customer / Org Knowledge) ────────────────────────────
+
+export type InsightSource = 'meeting' | 'user_call' | 'note';
+export type InsightEntityType = 'authority' | 'user' | 'general';
+
+export interface Insight {
+  id: string;
+  source: InsightSource;
+  date: Date;
+  transcriptUrl: string;       // Drive link to the raw transcript file
+  summary: string;             // Hebrew summary (3-5 sentences)
+  actionItems: string[];
+  entityType: InsightEntityType;
+  authorityId?: string;
+  authorityName?: string;
+  concepts: string[];          // e.g. "פנייה לנשים", "בקשת פיצ'ר", "תקצוב"
+  createdBy: 'transcript-agent';
+  createdAt: Date;
+}
