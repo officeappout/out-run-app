@@ -12,6 +12,7 @@ import AuthorityDetailDrawer from '@/features/admin/components/authorities/Autho
 import AuthoritiesStatsDashboard, { type StatCardFilterKey } from '@/features/admin/components/authorities/AuthoritiesStatsDashboard';
 import AuthoritiesKanbanBoard from '@/features/admin/components/authorities/AuthoritiesKanbanBoard';
 import CrmAgentPanel from '@/features/admin/components/authorities/CrmAgentPanel';
+import TranscriptScanPanel from '@/features/admin/components/transcripts/TranscriptScanPanel';
 import { getTypeLabel, getTypeColor } from '@/features/admin/components/authorities/authorityHelpers';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
@@ -295,6 +296,9 @@ export default function AuthoritiesListPage() {
 
       {/* CRM Agent — dry-run panel */}
       <CrmAgentPanel />
+
+      {/* Transcript scan panel */}
+      <TranscriptScanPanel />
 
       <AuthorityFilters
         typeFilter={typeFilter}
