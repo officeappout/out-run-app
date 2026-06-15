@@ -30,6 +30,9 @@ export interface ProcessedTranscript {
 
 // ─── Drive: read transcript text ─────────────────────────────────────────────
 
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const GDOC_MIME = 'application/vnd.google-apps.document';
+
 export async function readTranscriptFromDrive(fileId: string): Promise<string> {
   const drive = await getDriveClient(PRIMARY_MAILBOX);
 
@@ -40,7 +43,8 @@ export async function readTranscriptFromDrive(fileId: string): Promise<string> {
   });
   const mimeType = meta.data.mimeType ?? '';
 
-  if (mimeType === 'application/vnd.google-apps.document') {
+  // Google Doc → export as plain text directly
+  if (mimeType === GDOC_MIME) {
     const res = await drive.files.export(
       { fileId, mimeType: 'text/plain' },
       { responseType: 'text' }
@@ -48,6 +52,18 @@ export async function readTranscriptFromDrive(fileId: string): Promise<string> {
     return (res.data as string) ?? '';
   }
 
+  // DOCX (e.g. from Fireflies) → download binary → mammoth extracts text
+  if (mimeType === DOCX_MIME) {
+    const res = await (drive.files.get as any)(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'arraybuffer' }
+    );
+    const mammoth = await import('mammoth');
+    const { value } = await mammoth.extractRawText({ buffer: Buffer.from(res.data as ArrayBuffer) });
+    return value;
+  }
+
+  // Plain text / other — download as text
   const res = await (drive.files.get as any)(
     { fileId, alt: 'media', supportsAllDrives: true },
     { responseType: 'text' }
