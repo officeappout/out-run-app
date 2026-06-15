@@ -1,17 +1,31 @@
 import 'server-only';
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveIdentity } from '@/lib/firebase-admin';
 import { SESSION_COOKIE_NAME, verifyAdminSession } from '@/lib/admin-session';
 
 /**
  * True when the request carries valid admin credentials, via either:
- *   1. `Authorization: Bearer <Firebase ID token>` (verified by the Admin SDK), or
- *   2. the `out_admin_session` HMAC cookie (same credential the middleware checks).
+ *   1. `X-Agent-Key` header matching AGENT_API_KEY env var (machine-to-machine), or
+ *   2. `Authorization: Bearer <Firebase ID token>` (verified by the Admin SDK), or
+ *   3. the `out_admin_session` HMAC cookie (same credential the middleware checks).
  *
- * Mirrors the original isAuthorizedAdmin() in the photo-release route, which was
- * the only API route doing server-side admin auth correctly.
+ * To rotate the agent key: change AGENT_API_KEY in .env.local (and Vercel env vars)
+ * and restart the server — no code change required.
  */
 export async function isAuthorizedAdmin(request: NextRequest): Promise<boolean> {
+  // 1. Agent API key — constant-time compare to prevent timing attacks
+  const agentKey = process.env.AGENT_API_KEY;
+  if (agentKey) {
+    const presented = request.headers.get('x-agent-key') ?? '';
+    if (presented.length === agentKey.length) {
+      const a = Buffer.from(presented);
+      const b = Buffer.from(agentKey);
+      if (timingSafeEqual(a, b)) return true;
+    }
+  }
+
+  // 2. Firebase Bearer token
   const authHeader = request.headers.get('authorization') || '';
   const bearer = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()

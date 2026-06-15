@@ -56,6 +56,12 @@ ios/App/App.xcodeproj/xcuserdata/
 plugins/**/build/
 plugins/**/node_modules/
 
+# ── Secrets — private keys and service account credentials, never commit ──────
+secrets/
+
+# ── Data backups — contain real user/authority data, never commit ─────────────
+data/backups/
+
 # ── Signing keys — NEVER commit private keys or keystores ─────────────────────
 my-release-key.keystore
 *.keystore
