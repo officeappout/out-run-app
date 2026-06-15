@@ -34,9 +34,58 @@ export interface ActivityLogEntry {
   id: string;
   content: string;
   createdAt: Date;
-  createdBy?: string; // Admin ID who created the entry
-  createdByName?: string; // Admin name
+  createdBy?: string;
+  createdByName?: string;
+  type?: 'meeting' | 'email' | 'call' | 'note' | 'task' | 'quote' | 'demo';
+  gmailUrl?: string;
 }
+
+// Authority Document
+export type DocumentType =
+  | 'quote'
+  | 'presentation'
+  | 'contract'
+  | 'invoice'
+  | 'single_supplier'
+  | 'service_agreement'
+  | 'other';
+
+export type DocumentDirection = 'sent' | 'received';
+
+export interface AuthorityDocument {
+  id: string;
+  name: string;
+  type: DocumentType;
+  direction: DocumentDirection;
+  date: Date;
+  driveFileId: string;
+  driveUrl: string;
+  activityLogId?: string;
+  threadId?: string;
+  relatedQuoteId?: string;
+  createdAt: Date;
+  createdBy?: string;
+}
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  quote:            'הצעת מחיר',
+  presentation:     'מצגת',
+  contract:         'חוזה',
+  invoice:          'חשבונית',
+  single_supplier:  'ספק יחיד',
+  service_agreement:'הסכם שירות',
+  other:            'אחר',
+};
+
+export const DOCUMENT_TYPE_COLORS: Record<DocumentType, { bg: string; text: string; border: string }> = {
+  quote:            { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },
+  presentation:     { bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-300' },
+  contract:         { bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-300' },
+  invoice:          { bg: 'bg-amber-100',  text: 'text-amber-700',  border: 'border-amber-300' },
+  single_supplier:  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
+  service_agreement:{ bg: 'bg-teal-100',   text: 'text-teal-700',   border: 'border-teal-300' },
+  other:            { bg: 'bg-gray-100',   text: 'text-gray-600',   border: 'border-gray-300' },
+};
 
 // CRM Task
 export interface AuthorityTask {
@@ -107,6 +156,7 @@ export interface Authority {
     activityLog?: ActivityLogEntry[];   // Meeting notes and updates
     tasks?: AuthorityTask[];            // Task tracking with assignments
     financials?: AuthorityFinancials;   // Financial tracking with installments
+    documents?: AuthorityDocument[];    // CRM documents linked to Drive files
 
     // League & Contact fields (הגדרות ליגה וקשר)
     /** Channel for users to pressure/contact the authority */
@@ -127,6 +177,9 @@ export interface Authority {
      * without being a paying client.
      */
     gatingMode?: 'soft_launch' | 'hard_gate';
+
+    // Geographic cluster (from official cluster map, Step 5)
+    cluster?: string;
 
     // BI KPI Configuration
     kpiSettings?: KpiSettings;

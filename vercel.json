@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/crm-agent/run",
+      "schedule": "7 5 * * *"
+    }
+  ]
+}

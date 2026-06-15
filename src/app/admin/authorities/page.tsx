@@ -11,11 +11,13 @@ import AuthoritiesList from '@/features/admin/components/authorities/Authorities
 import AuthorityDetailDrawer from '@/features/admin/components/authorities/AuthorityDetailDrawer';
 import AuthoritiesStatsDashboard, { type StatCardFilterKey } from '@/features/admin/components/authorities/AuthoritiesStatsDashboard';
 import AuthoritiesKanbanBoard from '@/features/admin/components/authorities/AuthoritiesKanbanBoard';
+import CrmAgentPanel from '@/features/admin/components/authorities/CrmAgentPanel';
 import { getTypeLabel, getTypeColor } from '@/features/admin/components/authorities/authorityHelpers';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { Authority, hasOverdueTasks, hasOverdueInstallments, getInstallmentsSum } from '@/types/admin-types';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 export default function AuthoritiesListPage() {
   const {
@@ -54,6 +56,9 @@ export default function AuthoritiesListPage() {
     handleDelete,
     handleToggleActiveClient,
   } = useAuthorities();
+
+  // Cluster filter
+  const [clusterFilter, setClusterFilter] = useState('');
 
   // Drawer state
   const [selectedAuthority, setSelectedAuthority] = useState<Authority | null>(null);
@@ -134,6 +139,20 @@ export default function AuthoritiesListPage() {
     });
   }, [authorities, filteredAuthorities, activeStatFilter]);
 
+  const clusterFilteredAuthorities = useMemo(() => {
+    if (!clusterFilter) return statFilteredAuthorities;
+    return statFilteredAuthorities.filter(a => a.cluster === clusterFilter);
+  }, [statFilteredAuthorities, clusterFilter]);
+
+  const clusterFilteredGroupedData = useMemo(() => {
+    if (!clusterFilter || !filteredGroupedData) return filteredGroupedData;
+    return {
+      cities: filteredGroupedData.cities.filter(c => c.cluster === clusterFilter),
+      regionalCouncils: filteredGroupedData.regionalCouncils.filter(c => c.cluster === clusterFilter),
+      standaloneAuthorities: filteredGroupedData.standaloneAuthorities.filter(a => a.cluster === clusterFilter),
+    };
+  }, [filteredGroupedData, clusterFilter]);
+
   // Human-readable label for the active filter (used in the clear-filter banner)
   const STAT_FILTER_LABELS: Record<StatCardFilterKey, string> = {
     pipelineValue: 'שווי צנרת (Pipeline)',
@@ -188,6 +207,9 @@ export default function AuthoritiesListPage() {
   // Admin info for audit logging
   const [adminInfo, setAdminInfo] = useState<{ adminId: string; adminName: string } | undefined>(undefined);
 
+  // Park count per authority (authorityId → count)
+  const [parkCountMap, setParkCountMap] = useState<Map<string, number>>(new Map());
+
   // Get current user for admin info
   useEffect(() => {
     const user = auth.currentUser;
@@ -197,6 +219,18 @@ export default function AuthoritiesListPage() {
         adminName: user.displayName || user.email || 'Admin',
       });
     }
+  }, []);
+
+  // Load park counts from Firestore
+  useEffect(() => {
+    getDocs(collection(db, 'parks')).then((snap) => {
+      const map = new Map<string, number>();
+      snap.forEach((doc) => {
+        const authorityId = doc.data().authorityId as string | undefined;
+        if (authorityId) map.set(authorityId, (map.get(authorityId) ?? 0) + 1);
+      });
+      setParkCountMap(map);
+    });
   }, []);
 
   // Handle opening the detail drawer
@@ -237,27 +271,30 @@ export default function AuthoritiesListPage() {
 
   // Pagination for flat view only
   const flatPagination = usePagination(
-    viewMode === 'flat' ? statFilteredAuthorities : [],
+    viewMode === 'flat' ? clusterFilteredAuthorities : [],
     10
   );
 
   // Paginated authorities for flat view
   const paginatedAuthorities = useMemo(() => {
-    if (viewMode !== 'flat') return statFilteredAuthorities;
+    if (viewMode !== 'flat') return clusterFilteredAuthorities;
     return flatPagination.paginatedItems;
-  }, [viewMode, statFilteredAuthorities, flatPagination.paginatedItems]);
+  }, [viewMode, clusterFilteredAuthorities, flatPagination.paginatedItems]);
 
   return (
     <div className="space-y-6" dir="rtl">
       <AuthoritiesHeader />
 
       {/* Stats Dashboard */}
-      <AuthoritiesStatsDashboard 
-        authorities={authorities} 
+      <AuthoritiesStatsDashboard
+        authorities={authorities}
         onFilterByAuthorityIds={setAuthorityIdsFilter}
         onStatCardFilter={setActiveStatFilter}
         activeStatFilter={activeStatFilter}
       />
+
+      {/* CRM Agent — dry-run panel */}
+      <CrmAgentPanel />
 
       <AuthorityFilters
         typeFilter={typeFilter}
@@ -267,6 +304,7 @@ export default function AuthoritiesListPage() {
         pipelineStatusFilter={pipelineStatusFilter}
         overdueInstallmentsFilter={overdueInstallmentsFilter}
         authorityIdsFilter={authorityIdsFilter}
+        clusterFilter={clusterFilter}
         onTypeFilterChange={setTypeFilter}
         onViewModeChange={setViewMode}
         onSearchChange={setSearchQuery}
@@ -274,6 +312,7 @@ export default function AuthoritiesListPage() {
         onPipelineStatusFilterChange={setPipelineStatusFilter}
         onOverdueInstallmentsFilterChange={setOverdueInstallmentsFilter}
         onClearAuthorityIdsFilter={clearAuthorityIdsFilter}
+        onClusterFilterChange={setClusterFilter}
       />
 
       {/* Active stat-card filter banner — color-themed */}
@@ -296,7 +335,7 @@ export default function AuthoritiesListPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               <span>מסנן פעיל:</span>
               <span className={t.accent}>{STAT_FILTER_LABELS[activeStatFilter]}</span>
-              <span className={`${t.accent} font-medium opacity-75`}>({statFilteredAuthorities.length} תוצאות)</span>
+              <span className={`${t.accent} font-medium opacity-75`}>({clusterFilteredAuthorities.length} תוצאות)</span>
             </div>
             <button onClick={() => setActiveStatFilter(null)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border ${t.btnBorder} text-sm font-bold ${t.text} ${t.btnHover} transition-colors`}>
@@ -311,12 +350,13 @@ export default function AuthoritiesListPage() {
       {viewMode === 'board' ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 overflow-hidden">
           <AuthoritiesKanbanBoard
-            authorities={filteredAuthorities}
+            authorities={clusterFilteredAuthorities}
             onOpenDrawer={handleOpenDrawer}
             ownerFilter={ownerFilter}
             pipelineStatusFilter={pipelineStatusFilter}
             adminInfo={adminInfo}
             onAuthorityUpdated={() => { /* onSnapshot handles this */ }}
+            parkCountMap={parkCountMap}
           />
         </div>
       ) : (
@@ -327,7 +367,7 @@ export default function AuthoritiesListPage() {
             enhancedAuthorities={enhancedAuthorities}
             filteredAuthorities={paginatedAuthorities}
             filteredCitiesWithSubLocations={filteredCitiesWithSubLocations}
-            filteredGroupedData={filteredGroupedData}
+            filteredGroupedData={clusterFilteredGroupedData}
             subLocationStats={subLocationStats}
             loading={loading}
             viewMode={viewMode === 'grouped' ? 'grouped' : 'flat'}
@@ -341,6 +381,7 @@ export default function AuthoritiesListPage() {
             onOpenDrawer={handleOpenDrawer}
             getTypeLabel={getTypeLabel}
             getTypeColor={getTypeColor}
+            parkCountMap={parkCountMap}
           />
           {/* Financial summary row — color-themed */}
           {activeStatFilter && filterSummary && (() => {
@@ -368,7 +409,7 @@ export default function AuthoritiesListPage() {
               </div>
             );
           })()}
-          {viewMode === 'flat' && statFilteredAuthorities.length > 10 && (
+          {viewMode === 'flat' && clusterFilteredAuthorities.length > 10 && (
             <Pagination
               currentPage={flatPagination.currentPage}
               totalPages={flatPagination.totalPages}

@@ -23,6 +23,14 @@ import {
   Loader2,
   Wallet,
   Check,
+  ExternalLink,
+  Video,
+  FileText,
+  FileCheck,
+  Receipt,
+  Presentation,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from 'lucide-react';
 import {
   Authority,
@@ -45,6 +53,9 @@ import {
   getInstallmentsSum,
   formatMonthHebrew,
   generateMonthOptions,
+  AuthorityDocument,
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_TYPE_COLORS,
 } from '@/types/admin-types';
 import {
   updatePipelineStatus,
@@ -60,10 +71,11 @@ import {
   addInstallment,
   updateInstallment,
   deleteInstallment,
+  unlinkDocument,
 } from '@/features/admin/services/authority.service';
 import { getAllSuperAdmins, AdminUser } from '@/features/admin/services/admin-management.service';
 
-type TabId = 'contacts' | 'activity' | 'tasks' | 'finance';
+type TabId = 'contacts' | 'activity' | 'tasks' | 'finance' | 'documents';
 
 interface AuthorityDetailDrawerProps {
   authority: Authority | null;
@@ -107,6 +119,19 @@ export default function AuthorityDetailDrawer({
   // Pipeline status dropdown
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   
+  // Documents backfill state
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{
+    dryRun: boolean;
+    processed: number;
+    matched: number;
+    uploaded: number;
+    skipped: number;
+    documents: any[];
+    log: string[];
+    error?: string;
+  } | null>(null);
+
   // Finance/Installment state
   const [totalQuoteAmount, setTotalQuoteAmount] = useState<number>(0);
   const [showInstallmentForm, setShowInstallmentForm] = useState(false);
@@ -183,6 +208,12 @@ export default function AuthorityDetailDrawer({
       icon: <Wallet size={18} />,
       badge: authority.financials?.installments?.filter(i => i.status === 'pending').length,
       alert: hasOverdueInstallments(authority),
+    },
+    {
+      id: 'documents',
+      label: 'מסמכים',
+      icon: <FileText size={18} />,
+      badge: authority.documents?.length,
     },
   ];
 
@@ -437,6 +468,48 @@ export default function AuthorityDetailDrawer({
     }
   };
 
+  const handleUnlinkDocument = async (docId: string, docName: string) => {
+    if (!authority || !confirm(`להסיר את "${docName}" מהרשות?\n(הקובץ ב-Drive לא יימחק)`)) return;
+    setIsSaving(true);
+    try {
+      await unlinkDocument(authority.id, docId, adminInfo);
+      await refreshAuthority();
+      onUpdate();
+    } catch (err: any) {
+      alert(`שגיאה בהסרת מסמך: ${err?.message ?? err}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBackfillDocuments = async (dryRun: boolean) => {
+    if (!authority) return;
+    setIsBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch('/api/admin/drive/backfill-attachments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authorityId: authority.id, dryRun }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBackfillResult({ dryRun, processed: 0, matched: 0, uploaded: 0, skipped: 0, documents: [], log: data.log ?? [], error: data.error });
+      } else {
+        setBackfillResult(data);
+        if (!dryRun && data.uploaded > 0) {
+          await refreshAuthority();
+          onUpdate();
+        }
+      }
+    } catch (err: any) {
+      setBackfillResult({ dryRun, processed: 0, matched: 0, uploaded: 0, skipped: 0, documents: [], log: [], error: err?.message ?? 'Network error' });
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
   const isInstallmentOverdue = (installment: Installment) => {
     if (installment.status === 'paid') return false;
     const now = new Date();
@@ -460,11 +533,10 @@ export default function AuthorityDetailDrawer({
 
   const formatDateTime = (date: Date | undefined) => {
     if (!date) return '';
-    return new Date(date).toLocaleString('he-IL', {
+    return new Date(date).toLocaleDateString('he-IL', {
       day: 'numeric',
       month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
+      year: 'numeric',
     });
   };
 
@@ -827,8 +899,41 @@ export default function AuthorityDetailDrawer({
                   {/* Activity List */}
                   {authority.activityLog && authority.activityLog.length > 0 ? (
                     <div className="space-y-3">
-                      {authority.activityLog.map((entry) => (
-                        <div key={entry.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                      {[...authority.activityLog].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).map((entry) => {
+                        const typeIcon = entry.type === 'meeting' ? <Video size={12} /> :
+                                         entry.type === 'email'   ? <Mail size={12} /> :
+                                         entry.type === 'call'    ? <Phone size={12} /> :
+                                                                    <MessageSquare size={12} />;
+                        const typeLabel = entry.type === 'meeting' ? 'פגישה' :
+                                          entry.type === 'email'   ? 'מייל' :
+                                          entry.type === 'call'    ? 'שיחה' :
+                                          entry.type === 'note'    ? 'הערה' : '';
+                        return (
+                        <div
+                          key={entry.id}
+                          className={`bg-white border border-gray-200 rounded-xl p-4 transition-all ${
+                            entry.gmailUrl
+                              ? 'cursor-pointer hover:border-blue-300 hover:shadow-sm'
+                              : ''
+                          }`}
+                          onClick={() => {
+                            if (entry.gmailUrl) window.open(entry.gmailUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            {entry.type && (
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 mb-2">
+                                {typeIcon}
+                                {typeLabel}
+                              </div>
+                            )}
+                            {entry.gmailUrl && (
+                              <span className="flex items-center gap-1 text-[10px] text-blue-400 flex-shrink-0">
+                                <ExternalLink size={10} />
+                                Gmail
+                              </span>
+                            )}
+                          </div>
                           <p className="text-gray-800 whitespace-pre-wrap">{entry.content}</p>
                           <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
                             {entry.createdByName && (
@@ -843,7 +948,8 @@ export default function AuthorityDetailDrawer({
                             </span>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-gray-500">
@@ -1301,6 +1407,170 @@ export default function AuthorityDetailDrawer({
                     <div className="text-center py-8 text-gray-500">
                       <CheckSquare size={32} className="mx-auto mb-2 opacity-50" />
                       <p>אין משימות פתוחות</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Documents Tab ─────────────────────────────── */}
+              {activeTab === 'documents' && (
+                <div className="space-y-4">
+                  {/* Backfill toolbar */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleBackfillDocuments(true)}
+                      disabled={isBackfilling}
+                      title="הרץ בדיקה יבשה — רשום מה ימצא בלי להעלות לDrive"
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      {isBackfilling ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                      בדיקה יבשה
+                    </button>
+                    <button
+                      onClick={() => handleBackfillDocuments(false)}
+                      disabled={isBackfilling}
+                      title="שולף צרופות מGmail ומעלה לDrive"
+                      className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50"
+                    >
+                      {isBackfilling ? <Loader2 size={14} className="animate-spin" /> : <ArrowDownLeft size={14} />}
+                      בקפיל מסמכים
+                    </button>
+                    {backfillResult && (
+                      <button
+                        onClick={() => setBackfillResult(null)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Backfill result */}
+                  {backfillResult && (
+                    <div className={`rounded-xl border p-3 text-sm space-y-2 ${
+                      backfillResult.error ? 'bg-red-50 border-red-300' : backfillResult.dryRun ? 'bg-amber-50 border-amber-300' : 'bg-green-50 border-green-300'
+                    }`}>
+                      <div className="flex items-center gap-2 font-bold">
+                        {backfillResult.error
+                          ? <><AlertCircle size={14} className="text-red-600" /> שגיאה</>
+                          : backfillResult.dryRun
+                          ? <><FileText size={14} className="text-amber-600" /> תוצאות בדיקה יבשה</>
+                          : <><Check size={14} className="text-green-600" /> הושלם</>
+                        }
+                      </div>
+                      {backfillResult.error && (
+                        <p className="text-red-700 text-xs">{backfillResult.error}</p>
+                      )}
+                      {!backfillResult.error && (
+                        <div className="flex gap-4 text-xs text-gray-700">
+                          <span>עובדו: <b>{backfillResult.processed}</b></span>
+                          <span>הותאמו: <b>{backfillResult.matched}</b></span>
+                          <span>{backfillResult.dryRun ? 'יועלו' : 'הועלו'}: <b>{backfillResult.uploaded}</b></span>
+                          <span>דולגו: <b>{backfillResult.skipped}</b></span>
+                        </div>
+                      )}
+                      {backfillResult.documents.length > 0 && (
+                        <div className="space-y-1 pt-1 border-t border-current border-opacity-20">
+                          {backfillResult.documents.map((d: any, i: number) => (
+                            <div key={i} className="text-xs flex items-center gap-1.5 text-gray-700">
+                              <FileText size={11} />
+                              <span className="truncate">{d.filename ?? d.name}</span>
+                              <span className="text-gray-400 flex-shrink-0">{d.type}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {backfillResult.log.length > 0 && (
+                        <details className="text-[10px] text-gray-500">
+                          <summary className="cursor-pointer font-medium">לוג מפורט ({backfillResult.log.length})</summary>
+                          <pre className="mt-1 max-h-40 overflow-y-auto bg-white/60 rounded p-2 whitespace-pre-wrap text-[10px] leading-relaxed dir-ltr" dir="ltr">
+                            {backfillResult.log.join('\n')}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
+                  {authority.documents && authority.documents.length > 0 ? (
+                    <div className="space-y-2">
+                      {[...authority.documents]
+                        .sort((a, b) => b.date.getTime() - a.date.getTime())
+                        .map((doc) => {
+                          const colors = DOCUMENT_TYPE_COLORS[doc.type];
+                          return (
+                            <div
+                              key={doc.id}
+                              className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-3 hover:border-blue-300 hover:shadow-sm transition-all group"
+                            >
+                              {/* Type icon + main content — click opens Drive */}
+                              <a
+                                href={doc.driveUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                              >
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${colors.bg} ${colors.border} border`}>
+                                {doc.type === 'contract' || doc.type === 'service_agreement' || doc.type === 'single_supplier'
+                                  ? <FileCheck size={16} className={colors.text} />
+                                  : doc.type === 'invoice'
+                                  ? <Receipt size={16} className={colors.text} />
+                                  : doc.type === 'presentation'
+                                  ? <Presentation size={16} className={colors.text} />
+                                  : <FileText size={16} className={colors.text} />
+                                }
+                              </div>
+
+                              {/* Main content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${colors.bg} ${colors.text} ${colors.border}`}>
+                                    {DOCUMENT_TYPE_LABELS[doc.type]}
+                                  </span>
+                                  <span className={`flex items-center gap-0.5 text-[11px] font-medium ${doc.direction === 'sent' ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                                    {doc.direction === 'sent'
+                                      ? <ArrowUpRight size={12} />
+                                      : <ArrowDownLeft size={12} />
+                                    }
+                                    {doc.direction === 'sent' ? 'נשלח' : 'התקבל'}
+                                  </span>
+                                </div>
+                                <p className="text-sm font-medium text-gray-900 truncate mt-0.5">{doc.name}</p>
+                              </div>
+                              </a>
+
+                              {/* Date + actions */}
+                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                <span className="text-xs text-gray-400">
+                                  {formatDate(doc.date)}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={doc.driveUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <ExternalLink size={13} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                  </a>
+                                  <button
+                                    onClick={() => handleUnlinkDocument(doc.id, doc.name)}
+                                    disabled={isSaving}
+                                    title="הסר מסמך (הקובץ ב-Drive נשאר)"
+                                    className="p-0.5 text-gray-200 hover:text-red-500 transition-colors disabled:opacity-50"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <FileText size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">אין מסמכים מקושרים עדיין</p>
+                      <p className="text-xs text-gray-400 mt-1">מסמכים יתמלאו אוטומטית מהיסטוריית Gmail ו-Drive</p>
                     </div>
                   )}
                 </div>

@@ -27,6 +27,9 @@ import {
   ActivityLogEntry, 
   AuthorityTask,
   AuthorityFinancials,
+  AuthorityDocument,
+  DocumentType,
+  DocumentDirection,
   Installment,
   PipelineStatus,
   TaskStatus,
@@ -171,10 +174,12 @@ function normalizeContact(data: any): AuthorityContact {
 function normalizeActivityEntry(data: any): ActivityLogEntry {
   return {
     id: data?.id || crypto.randomUUID(),
-    content: data?.content || '',
-    createdAt: toDate(data?.createdAt) || new Date(),
+    content: data?.content || data?.summary || data?.note || '',
+    createdAt: toDate(data?.createdAt) || toDate(data?.date) || new Date(),
     createdBy: data?.createdBy || undefined,
     createdByName: data?.createdByName || undefined,
+    type: data?.type || undefined,
+    gmailUrl: data?.gmailUrl || undefined,
   };
 }
 
@@ -210,6 +215,26 @@ function normalizeInstallment(data: any): Installment {
 /**
  * Normalize financials data from Firestore
  */
+const VALID_DOC_TYPES: DocumentType[] = ['quote','presentation','contract','invoice','single_supplier','service_agreement','other'];
+const VALID_DOC_DIRS: DocumentDirection[] = ['sent','received'];
+
+function normalizeDocument(data: any): AuthorityDocument {
+  return {
+    id: data?.id || crypto.randomUUID(),
+    name: data?.name || '',
+    type: VALID_DOC_TYPES.includes(data?.type) ? data.type : 'other',
+    direction: VALID_DOC_DIRS.includes(data?.direction) ? data.direction : 'received',
+    date: toDate(data?.date) || new Date(),
+    driveFileId: data?.driveFileId || '',
+    driveUrl: data?.driveUrl || '',
+    activityLogId: data?.activityLogId || undefined,
+    threadId: data?.threadId || undefined,
+    relatedQuoteId: data?.relatedQuoteId || undefined,
+    createdAt: toDate(data?.createdAt) || new Date(),
+    createdBy: data?.createdBy || undefined,
+  };
+}
+
 function normalizeFinancials(data: any): AuthorityFinancials | undefined {
   if (!data) return undefined;
   return {
@@ -255,11 +280,13 @@ function normalizeAuthority(docId: string, data: any): Authority {
     activityLog: Array.isArray(data?.activityLog) ? data.activityLog.map(normalizeActivityEntry) : [],
     tasks: Array.isArray(data?.tasks) ? data.tasks.map(normalizeTask) : [],
     financials: normalizeFinancials(data?.financials),
+    documents: Array.isArray(data?.documents) ? data.documents.map(normalizeDocument) : [],
     // League contact fields (Pillar 6/7)
     contactType: data?.contactType || undefined,
     contactValue: data?.contactValue || undefined,
     contactPersonName: data?.contactPersonName || undefined,
     pressureCount: typeof data?.pressureCount === 'number' ? data.pressureCount : undefined,
+    cluster: data?.cluster || undefined,
     createdAt: toDate(data?.createdAt),
     updatedAt: toDate(data?.updatedAt),
   };
@@ -1049,6 +1076,49 @@ export async function deleteInstallment(
   };
   
   await updateAuthority(authorityId, { financials: updatedFinancials }, adminInfo);
+}
+
+/**
+ * Remove a document record from the authority's documents array (unlink only —
+ * the Drive file is NOT deleted).
+ *
+ * Bypasses updateAuthority (which has a field whitelist that excludes `documents`)
+ * and writes directly to Firestore using read → filter → write.
+ */
+export async function unlinkDocument(
+  authorityId: string,
+  documentId: string,
+  adminInfo?: { adminId: string; adminName: string }
+): Promise<void> {
+  const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) throw new Error('Authority not found');
+
+  const current: any[] = snap.data()?.documents ?? [];
+  // Filter by `id` field; fall back to `driveFileId` in case id is missing
+  const updated = current.filter(
+    d => d.id !== documentId && d.driveFileId !== documentId
+  );
+
+  if (updated.length === current.length) {
+    throw new Error(`Document ${documentId} not found in authority's documents array`);
+  }
+
+  await updateDoc(docRef, {
+    documents: updated,
+    updatedAt: serverTimestamp(),
+  });
+
+  if (adminInfo) {
+    await logAction({
+      adminId: adminInfo.adminId,
+      adminName: adminInfo.adminName,
+      actionType: 'DELETE',
+      targetEntity: 'AuthorityDocument',
+      targetId: documentId,
+      details: `Unlinked document from authority ${authorityId}`,
+    });
+  }
 }
 
 /**
