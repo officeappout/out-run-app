@@ -11,6 +11,8 @@ interface CrmPageHeaderProps {
   onSegmentChange: (s: CrmSegment) => void;
   activeTab: CrmTab;
   onTabChange: (t: CrmTab) => void;
+  draftsCount?: number;
+  onScrollToDrafts?: () => void;
 }
 
 const SEGMENTS: { key: CrmSegment; label: string; disabled?: boolean }[] = [
@@ -26,7 +28,7 @@ const TABS: { key: CrmTab; icon: React.ElementType; label: string }[] = [
   { key: 'forecast', icon: BarChart3,    label: 'תחזית' },
 ];
 
-export default function CrmPageHeader({ segment, onSegmentChange, activeTab, onTabChange }: CrmPageHeaderProps) {
+export default function CrmPageHeader({ segment, onSegmentChange, activeTab, onTabChange, draftsCount = 0, onScrollToDrafts }: CrmPageHeaderProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 pt-4 pb-0">
       {/* Top row: title + segment picker + actions */}
@@ -77,26 +79,42 @@ export default function CrmPageHeader({ segment, onSegmentChange, activeTab, onT
       </div>
 
       {/* Tab row */}
-      <div className="flex items-center gap-1 border-b border-gray-100" dir="rtl">
-        {TABS.map(tab => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              className={[
-                'flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px',
-                active
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-400 hover:text-gray-600',
-              ].join(' ')}
-            >
-              <Icon size={15} />
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between border-b border-gray-100" dir="rtl">
+        <div className="flex items-center gap-1">
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => onTabChange(tab.key)}
+                className={[
+                  'flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px',
+                  active
+                    ? 'border-gray-900 text-gray-900'
+                    : 'border-transparent text-gray-400 hover:text-gray-600',
+                ].join(' ')}
+              >
+                <Icon size={15} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Drafts badge — visible only when there are pending drafts */}
+        {draftsCount > 0 && (
+          <button
+            onClick={onScrollToDrafts}
+            className="flex items-center gap-1.5 mr-3 mb-px px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition-colors"
+            title="גלול לטיוטות ממתינות"
+          >
+            <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+              {draftsCount}
+            </span>
+            טיוטות ממתינות
+          </button>
+        )}
       </div>
     </div>
   );

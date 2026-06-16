@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle, Wallet, CalendarClock, Gauge } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Building2, Users, Map, ChevronDown, ChevronRight, Edit2, Trash2, MapPin, CheckCircle2, XCircle, Phone, AlertCircle, Wallet, CalendarClock, Gauge, Trees, Columns3, Check } from 'lucide-react';
 import { 
   Authority, 
   AuthorityType, 
@@ -41,6 +42,7 @@ interface AuthoritiesListProps {
   // Helpers
   getTypeLabel: (type: AuthorityType) => string;
   getTypeColor: (type: AuthorityType) => string;
+  parkCountMap?: Map<string, number>;
 }
 
 /**
@@ -133,6 +135,18 @@ function PressureMeterCell({ authority }: { authority: Authority }) {
 }
 
 /**
+ * Cluster tag chip
+ */
+function ClusterChip({ cluster }: { cluster?: string }) {
+  if (!cluster) return null;
+  return (
+    <span className="px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-semibold whitespace-nowrap">
+      {cluster}
+    </span>
+  );
+}
+
+/**
  * Determine row highlight class for high-pressure non-active leads
  */
 function pressureRowClass(authority: Authority): string {
@@ -184,6 +198,86 @@ function LastActivityCell({ authority }: { authority: Authority }) {
   );
 }
 
+// ─── Column picker ───────────────────────────────────────────────────────────
+
+interface ColDef {
+  key: string;
+  label: string;
+  defaultOn: boolean;
+  alwaysOn?: boolean;
+  requiresData?: boolean; // true = hidden by default until data populated
+}
+
+const COL_DEFS: ColDef[] = [
+  { key: 'logo',        label: 'לוגו',        defaultOn: true,  alwaysOn: true },
+  { key: 'name',        label: 'שם',          defaultOn: true,  alwaysOn: true },
+  { key: 'status',      label: 'סטטוס CRM',   defaultOn: true },
+  { key: 'contact',     label: 'איש קשר',     defaultOn: true },
+  { key: 'quote',       label: 'הצ"מ',        defaultOn: true },
+  { key: 'activity',    label: 'פעילות',      defaultOn: true },
+  { key: 'users',       label: 'משתמשים',     defaultOn: true },
+  { key: 'parks',       label: 'גינות',       defaultOn: true },
+  { key: 'pressure',    label: 'לחץ',         defaultOn: true },
+  { key: 'population',  label: 'תושבים',      defaultOn: false, requiresData: true },
+  { key: 'subscribers', label: 'מנויים',      defaultOn: false, requiresData: true },
+  { key: 'activeClient',label: 'סטטוס לקוח',  defaultOn: true },
+  { key: 'actions',     label: 'פעולות',      defaultOn: true,  alwaysOn: true },
+];
+
+const DEFAULT_COLS = new Set(COL_DEFS.filter(c => c.defaultOn).map(c => c.key));
+
+function ColumnPicker({ visible, onChange }: { visible: Set<string>; onChange: (s: Set<string>) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+        title="בורר עמודות"
+      >
+        <Columns3 size={13} />
+        עמודות
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[160px]">
+          {COL_DEFS.filter(c => !c.alwaysOn).map(col => {
+            const on = visible.has(col.key);
+            return (
+              <button
+                key={col.key}
+                onClick={() => {
+                  const next = new Set(visible);
+                  if (on) next.delete(col.key); else next.add(col.key);
+                  onChange(next);
+                }}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-right hover:bg-gray-50 transition-colors"
+              >
+                <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${on ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`}>
+                  {on && <Check size={11} className="text-white" />}
+                </span>
+                {col.label}
+                {col.requiresData && <span className="text-[10px] text-gray-400 mr-auto">אין דאטה</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function AuthoritiesList({
   authorities,
   enhancedAuthorities,
@@ -203,7 +297,11 @@ export default function AuthoritiesList({
   onOpenDrawer,
   getTypeLabel,
   getTypeColor,
+  parkCountMap,
 }: AuthoritiesListProps) {
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(DEFAULT_COLS);
+  const col = (key: string) => visibleCols.has(key);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -269,6 +367,7 @@ export default function AuthoritiesList({
                       <span className="font-bold text-gray-900">{city.name}</span>
                       <OverdueAlertBadge authority={city} />
                       <PipelineStatusBadge status={city.pipelineStatus} />
+                      <ClusterChip cluster={city.cluster} />
                       {city.neighborhoods && city.neighborhoods.length > 0 && (
                         <span className="text-xs text-gray-500">
                           ({city.neighborhoods.length} שכונות)
@@ -427,6 +526,7 @@ export default function AuthoritiesList({
                       <span className="font-bold text-gray-900">{council.name}</span>
                       <OverdueAlertBadge authority={council} />
                       <PipelineStatusBadge status={council.pipelineStatus} />
+                      <ClusterChip cluster={council.cluster} />
                       {council.settlements.length > 0 && (
                         <span className="text-xs text-gray-500">
                           ({council.settlements.length} יישובים)
@@ -569,6 +669,7 @@ export default function AuthoritiesList({
                   <span className="font-bold text-gray-900">{safeRenderText(authority.name)}</span>
                   <OverdueAlertBadge authority={authority} />
                   <PipelineStatusBadge status={authority.pipelineStatus} />
+                  <ClusterChip cluster={authority.cluster} />
                 </div>
                 <div className="mt-1">
                   <PrimaryContactInfo authority={authority} />
@@ -618,118 +719,146 @@ export default function AuthoritiesList({
 
   // Flat view
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-right">
-        <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold sticky top-0">
-          <tr>
-            <th className="px-6 py-4 rounded-tr-2xl">לוגו</th>
-            <th className="px-6 py-4">שם הרשות</th>
-            <th className="px-6 py-4">סטטוס CRM</th>
-            <th className="px-6 py-4">איש קשר</th>
-            <th className="px-6 py-4">הצעת מחיר</th>
-            <th className="px-6 py-4">פעילות אחרונה</th>
-            <th className="px-6 py-4">משתמשים</th>
-            <th className="px-6 py-4">מד לחץ</th>
-            <th className="px-6 py-4 text-center">סטטוס לקוח</th>
-            <th className="px-6 py-4 rounded-tl-2xl text-center">פעולות</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {filteredAuthorities.map((authority) => (
-            <tr
-              key={authority.id}
-              className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${pressureRowClass(authority)}`}
-              onClick={() => onOpenDrawer?.(authority)}
-            >
-              <td className="px-6 py-4">
-                {authority.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={authority.logoUrl}
-                    alt={safeRenderText(authority.name)}
-                    className="w-12 h-12 rounded-lg object-cover bg-gray-100"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                    <Building2 size={20} className="text-gray-400" />
-                  </div>
-                )}
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="font-bold text-gray-900">{safeRenderText(authority.name)}</div>
-                  <OverdueAlertBadge authority={authority} />
-                </div>
-                {authority.parentAuthorityId && (
-                  <div className="text-xs text-gray-500 mt-1">שייך למועצה אזורית</div>
-                )}
-              </td>
-              <td className="px-6 py-4">
-                <PipelineStatusBadge status={authority.pipelineStatus} />
-              </td>
-              <td className="px-6 py-4">
-                <PrimaryContactInfo authority={authority} />
-              </td>
-              <td className="px-6 py-4">
-                <QuoteAmountCell authority={authority} />
-              </td>
-              <td className="px-6 py-4">
-                <LastActivityCell authority={authority} />
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Users size={16} />
-                  <span className="font-bold">{authority.userCount || 0}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <PressureMeterCell authority={authority} />
-              </td>
-              <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                <label className="flex items-center justify-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={authority.isActiveClient || false}
-                    onChange={() => onToggleActiveClient(authority.id, authority.isActiveClient || false)}
-                    className="w-5 h-5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-700 font-medium">
-                    {authority.isActiveClient ? (
-                      <span className="flex items-center gap-1 text-green-600">
-                        <CheckCircle2 size={16} />
-                        פעיל
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-gray-400">
-                        <XCircle size={16} />
-                        לא פעיל
-                      </span>
-                    )}
-                  </span>
-                </label>
-              </td>
-              <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Link
-                    href={`/admin/authorities/${authority.id}`}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="ערוך"
-                  >
-                    <Edit2 size={18} />
-                  </Link>
-                  <button
-                    onClick={() => onDelete(authority.id, authority.name)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="מחק"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </td>
+    <div>
+      {/* Column picker toolbar */}
+      <div className="flex items-center justify-end px-4 py-2 border-b border-gray-100 bg-gray-50/50">
+        <ColumnPicker visible={visibleCols} onChange={setVisibleCols} />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-right">
+          <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold sticky top-0">
+            <tr>
+              {col('logo')        && <th className="px-6 py-4 rounded-tr-2xl">לוגו</th>}
+              {col('name')        && <th className="px-6 py-4">שם הרשות</th>}
+              {col('status')      && <th className="px-6 py-4">סטטוס CRM</th>}
+              {col('contact')     && <th className="px-6 py-4">איש קשר</th>}
+              {col('quote')       && <th className="px-6 py-4">הצעת מחיר</th>}
+              {col('activity')    && <th className="px-6 py-4">פעילות אחרונה</th>}
+              {col('users')       && <th className="px-6 py-4">משתמשים</th>}
+              {col('parks')       && <th className="px-6 py-4">גינות</th>}
+              {col('pressure')    && <th className="px-6 py-4">מד לחץ</th>}
+              {col('population')  && <th className="px-6 py-4">תושבים</th>}
+              {col('subscribers') && <th className="px-6 py-4">מנויים</th>}
+              {col('activeClient')&& <th className="px-6 py-4 text-center">סטטוס לקוח</th>}
+              {col('actions')     && <th className="px-6 py-4 rounded-tl-2xl text-center">פעולות</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filteredAuthorities.map((authority) => (
+              <tr
+                key={authority.id}
+                className={`hover:bg-blue-50/50 transition-colors group cursor-pointer ${pressureRowClass(authority)}`}
+                onClick={() => onOpenDrawer?.(authority)}
+              >
+                {col('logo') && (
+                  <td className="px-6 py-4">
+                    {authority.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={authority.logoUrl} alt={safeRenderText(authority.name)} className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <Building2 size={20} className="text-gray-400" />
+                      </div>
+                    )}
+                  </td>
+                )}
+                {col('name') && (
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="font-bold text-gray-900">{safeRenderText(authority.name)}</div>
+                      <OverdueAlertBadge authority={authority} />
+                    </div>
+                    {authority.cluster && <div className="mt-1"><ClusterChip cluster={authority.cluster} /></div>}
+                    {authority.parentAuthorityId && <div className="text-xs text-gray-500 mt-1">שייך למועצה אזורית</div>}
+                  </td>
+                )}
+                {col('status') && (
+                  <td className="px-6 py-4"><PipelineStatusBadge status={authority.pipelineStatus} /></td>
+                )}
+                {col('contact') && (
+                  <td className="px-6 py-4"><PrimaryContactInfo authority={authority} /></td>
+                )}
+                {col('quote') && (
+                  <td className="px-6 py-4"><QuoteAmountCell authority={authority} /></td>
+                )}
+                {col('activity') && (
+                  <td className="px-6 py-4"><LastActivityCell authority={authority} /></td>
+                )}
+                {col('users') && (
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Users size={16} />
+                      <span className="font-bold">{authority.userCount || 0}</span>
+                    </div>
+                  </td>
+                )}
+                {col('parks') && (
+                  <td className="px-6 py-4">
+                    {(() => {
+                      const cnt = parkCountMap?.get(authority.id) ?? 0;
+                      return cnt > 0 ? (
+                        <div className="flex items-center gap-1.5 text-emerald-600">
+                          <Trees size={15} />
+                          <span className="font-bold">{cnt}</span>
+                        </div>
+                      ) : <span className="text-gray-300">—</span>;
+                    })()}
+                  </td>
+                )}
+                {col('pressure') && (
+                  <td className="px-6 py-4"><PressureMeterCell authority={authority} /></td>
+                )}
+                {col('population') && (
+                  <td className="px-6 py-4">
+                    {authority.population
+                      ? <span className="text-sm font-medium text-gray-700">{authority.population.toLocaleString()}</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                )}
+                {col('subscribers') && (
+                  <td className="px-6 py-4">
+                    {authority.activeSubscribers != null
+                      ? <span className="text-sm font-medium text-gray-700">{authority.activeSubscribers.toLocaleString()}</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                )}
+                {col('activeClient') && (
+                  <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <label className="flex items-center justify-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={authority.isActiveClient || false}
+                        onChange={() => onToggleActiveClient(authority.id, authority.isActiveClient || false)}
+                        className="w-5 h-5 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-700 font-medium">
+                        {authority.isActiveClient ? (
+                          <span className="flex items-center gap-1 text-green-600"><CheckCircle2 size={16} />פעיל</span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-gray-400"><XCircle size={16} />לא פעיל</span>
+                        )}
+                      </span>
+                    </label>
+                  </td>
+                )}
+                {col('actions') && (
+                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link href={`/admin/authorities/${authority.id}`} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="ערוך">
+                        <Edit2 size={18} />
+                      </Link>
+                      <button onClick={() => onDelete(authority.id, authority.name)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="מחק">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

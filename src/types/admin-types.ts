@@ -169,6 +169,11 @@ export interface Authority {
     /** Pillar 7: total count of user pressure clicks on "Contact City" CTA */
     pressureCount?: number;
 
+    /** Demographic size of the municipality (יישוב) — populated manually or via external import */
+    population?: number;
+    /** Active paid app subscribers in this authority (מנויים פעילים) — denormalized from subscriptions */
+    activeSubscribers?: number;
+
     /**
      * League gating mode set via the Admin Demo-Seed panel.
      * - 'soft_launch' → leaderboard is fully open (MunicipalPressureCard hidden).

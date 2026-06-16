@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAuthorities } from '@/features/admin/hooks/useAuthorities';
 import AuthorityFilters from '@/features/admin/components/authorities/AuthorityFilters';
 import AuthoritiesList from '@/features/admin/components/authorities/AuthoritiesList';
@@ -14,7 +14,7 @@ import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { Authority, AuthorityType, hasOverdueTasks, hasOverdueInstallments, getInstallmentsSum } from '@/types/admin-types';
 import { auth, db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 
 // New CRM layout components
 import CrmPageHeader, { type CrmSegment, type CrmTab } from '@/features/admin/components/crm/CrmPageHeader';
@@ -164,6 +164,26 @@ export default function AuthoritiesListPage() {
     return { count, totalValue, isFinancial };
   }, [statFilteredAuthorities, activeStatFilter]);
 
+  // ── Drafts badge ─────────────────────────────────────────────────
+  const [draftsCount, setDraftsCount] = useState(0);
+  const draftsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    getDoc(doc(db, 'crm_runs', todayKey))
+      .then(snap => {
+        if (snap.exists()) {
+          const data = snap.data() as { draftsPending?: unknown[] };
+          setDraftsCount(data.draftsPending?.length ?? 0);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const scrollToDrafts = useCallback(() => {
+    draftsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   // ── Admin info + park count ──────────────────────────────────────
   const [adminInfo, setAdminInfo] = useState<{ adminId: string; adminName: string } | undefined>(undefined);
   const [parkCountMap, setParkCountMap] = useState<Map<string, number>>(new Map());
@@ -237,6 +257,8 @@ export default function AuthoritiesListPage() {
         onSegmentChange={setSegment}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        draftsCount={draftsCount}
+        onScrollToDrafts={scrollToDrafts}
       />
 
       {/* ── 2. KPI bar (4 tiles + expand to full dashboard) ── */}
@@ -384,7 +406,9 @@ export default function AuthoritiesListPage() {
       <AutomationsSection />
 
       {/* ── 7. Drafts queue (shows only if today's run has pending drafts) ── */}
-      <DraftsQueue />
+      <div ref={draftsRef}>
+        <DraftsQueue />
+      </div>
 
       {/* ── 8. Authority detail drawer ── */}
       <AuthorityDetailDrawer
