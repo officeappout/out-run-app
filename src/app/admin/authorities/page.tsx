@@ -29,6 +29,28 @@ function segmentToTypeFilter(seg: CrmSegment): AuthorityType | 'all' {
 }
 
 export default function AuthoritiesListPage() {
+  // Resolve vertical scope before starting the Firestore listener.
+  // undefined = role still loading (listener waits); null = no restriction.
+  const [verticalTypes, setVerticalTypes] = useState<AuthorityType[] | null | undefined>(undefined);
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) { setVerticalTypes(null); return; }
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      const core = snap.data()?.core ?? {};
+      if (core.isVerticalAdmin === true && !core.isSuperAdmin && core.managedVertical) {
+        const VERTICAL_TYPES: Record<string, AuthorityType[]> = {
+          military:    ['military_unit'],
+          educational: ['school'],
+          municipal:   ['city', 'regional_council', 'local_council', 'neighborhood', 'settlement'],
+        };
+        setVerticalTypes(VERTICAL_TYPES[core.managedVertical as string] ?? null);
+      } else {
+        setVerticalTypes(null);
+      }
+    }).catch(() => setVerticalTypes(null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const {
     authorities,
     enhancedAuthorities,
@@ -59,7 +81,7 @@ export default function AuthoritiesListPage() {
     toggleCity,
     handleDelete,
     handleToggleActiveClient,
-  } = useAuthorities();
+  } = useAuthorities(verticalTypes);
 
   // ── New header state ─────────────────────────────────────────────
   const [segment, setSegment] = useState<CrmSegment>('authorities');

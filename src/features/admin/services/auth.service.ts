@@ -27,6 +27,8 @@ export interface UserRoleInfo {
   authorityIds: string[];
   isApproved: boolean;
   email?: string;
+  /** Panel sections this user is allowed to access. Empty = no restriction (backwards compat). */
+  allowedSections: string[];
 }
 
 /**
@@ -57,6 +59,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     let tenantType: string | undefined;
     let isApproved = false;
     let emailFromProfile: string | null = null;
+    let allowedSections: string[] = [];
 
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
@@ -73,6 +76,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
         isApproved = core?.isApproved === true;
         emailFromProfile = core?.email || null;
         await logAdminLogin(userId);
+        allowedSections = Array.isArray(core?.allowedSections) ? core.allowedSections : [];
       }
     } catch (error) {
       console.error('Error checking user profile:', error);
@@ -106,10 +110,10 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
             ? 'authority_manager' 
             : 'none';
     
-    return { 
-      role, 
-      isSuperAdmin, 
-      isSystemAdmin, 
+    return {
+      role,
+      isSuperAdmin,
+      isSystemAdmin,
       isVerticalAdmin,
       managedVertical,
       isAuthorityManager,
@@ -117,13 +121,14 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       isTenantOwner,
       tenantId,
       tenantType,
-      authorityIds: authorities.map((a) => a.id), 
+      authorityIds: authorities.map((a) => a.id),
       isApproved,
       email: emailToCheck || undefined,
+      allowedSections,
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);
-    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, authorityIds: [], isApproved: false };
+    return { role: 'none', isSuperAdmin: false, isSystemAdmin: false, isVerticalAdmin: false, isAuthorityManager: false, isRootAdmin: false, isTenantOwner: false, authorityIds: [], isApproved: false, allowedSections: [] };
   }
 }
 
@@ -196,6 +201,7 @@ export function useUserRole() {
           isTenantOwner: false,
           authorityIds: [],
           isApproved: false,
+          allowedSections: [],
         });
         setLoading(false);
         return;
