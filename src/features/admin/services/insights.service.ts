@@ -20,13 +20,24 @@ export interface CreateInsightInput {
 export async function createInsight(input: CreateInsightInput): Promise<string> {
   const db = getAdminDb();
   const ref = db.collection(COLLECTION).doc();
-  await ref.set({
-    ...input,
+
+  // Build explicitly — Firestore rejects undefined values even when spread from an object.
+  const data: Record<string, unknown> = {
     id: ref.id,
+    source: input.source,
     date: Timestamp.fromDate(input.date),
+    transcriptUrl: input.transcriptUrl,
+    summary: input.summary,
+    actionItems: input.actionItems,
+    entityType: input.entityType,
+    concepts: input.concepts,
     createdBy: 'transcript-agent',
     createdAt: FieldValue.serverTimestamp(),
-  });
+  };
+  if (input.authorityId)   data.authorityId   = input.authorityId;
+  if (input.authorityName) data.authorityName = input.authorityName;
+
+  await ref.set(data);
   return ref.id;
 }
 
