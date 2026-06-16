@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { UserPlus, Mail, Loader2, X, Copy, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { UserPlus, Mail, Loader2, X, Copy, Check, Camera, Shield } from 'lucide-react';
 import { createInvitation } from '@/features/admin/services/invitation.service';
 import { getChildrenByParent } from '@/features/admin/services/authority.service';
 import type { InvitationRole } from '@/types/invitation.type';
 import type { TenantType } from '@/types/admin-types';
 import type { Authority } from '@/types/admin-types';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface RoleOption {
   value: InvitationRole;
@@ -40,6 +42,31 @@ const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
     { value: 'super_admin', label: 'מנהל-על (Super Admin)' },
     { value: 'vertical_admin', label: 'מנהל ורטיקלי — כל הארגונים בורטיקל' },
   ],
+};
+
+// Section definitions for platform (OUT team) invites
+const SECTION_DEFS: { key: string; label: string }[] = [
+  { key: 'strategy',    label: 'אסטרטגיה / מנהלים' },
+  { key: 'municipal',   label: 'רשויות עירוניות' },
+  { key: 'military',    label: 'מגזר צבאי' },
+  { key: 'educational', label: 'חינוך' },
+  { key: 'platform',    label: 'פלטפורמה / ארגונים' },
+  { key: 'appCore',     label: 'אפליקציה / מוצר' },
+  { key: 'running',     label: 'ריצה / OUTRUN' },
+  { key: 'production',  label: 'תוכן ופרסום' },
+  { key: 'brandComm',   label: 'מיתוג ותקשורת' },
+  { key: 'system',      label: 'מערכת / טכני' },
+];
+
+const ALL_SECTIONS = SECTION_DEFS.map(s => s.key);
+
+const SECTION_PRESETS: Record<string, string[]> = {
+  'מנכ"ל':         ALL_SECTIONS,
+  'מכירות':        ['municipal', 'military', 'educational', 'platform', 'strategy'],
+  'הצלחת לקוח':   ['municipal', 'military', 'educational', 'platform'],
+  'תוכן':          ['production', 'brandComm', 'appCore'],
+  'מוצר':          ['appCore', 'running', 'system'],
+  'מערכת':         ['system', 'appCore'],
 };
 
 const VERTICAL_OPTIONS: { value: 'military' | 'municipal' | 'educational'; label: string }[] = [
@@ -84,6 +111,12 @@ export default function InviteMemberModal({
   const [resultLink, setResultLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Platform-only: section access + avatar
+  const [allowedSections, setAllowedSections] = useState<string[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   const modeKey: TenantType | 'platform' = context.tenantType ?? 'platform';
   const roleOptions = ROLE_OPTIONS_BY_CONTEXT[modeKey];
 
@@ -96,8 +129,25 @@ export default function InviteMemberModal({
       setError('');
       setResultLink(null);
       setCopied(false);
+      setAllowedSections([]);
+      setAvatarFile(null);
+      setAvatarPreview(null);
     }
   }, [isOpen]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+  };
+
+  const toggleSection = (key: string) => {
+    setAllowedSections(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key],
+    );
+  };
 
   const currentRoleOption = roleOptions.find(r => r.value === selectedRole);
 
@@ -137,6 +187,19 @@ export default function InviteMemberModal({
         email: email.trim().toLowerCase(),
         role: selectedRole,
       };
+
+      // Upload avatar to Firebase Storage if provided
+      if (avatarFile && modeKey === 'platform') {
+        const ext = avatarFile.name.split('.').pop() ?? 'jpg';
+        const storageRef = ref(storage, `admin-avatars/pending/${crypto.randomUUID()}.${ext}`);
+        const snap = await uploadBytes(storageRef, avatarFile);
+        invData.photoURL = await getDownloadURL(snap.ref);
+      }
+
+      // Include section access for platform invites
+      if (modeKey === 'platform' && allowedSections.length > 0) {
+        invData.allowedSections = allowedSections;
+      }
 
       if (selectedRole === 'vertical_admin') {
         invData.managedVertical = selectedVertical;
@@ -273,6 +336,82 @@ export default function InviteMemberModal({
                 placeholder="בחר תפקיד..."
               />
             </div>
+
+            {/* Platform-only: avatar upload */}
+            {modeKey === 'platform' && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">תמונת פרופיל (אופציונלי)</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="relative w-14 h-14 rounded-full border-2 border-dashed border-gray-300 hover:border-cyan-400 transition-colors flex items-center justify-center bg-gray-50 overflow-hidden"
+                  >
+                    {avatarPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera size={20} className="text-gray-400" />
+                    )}
+                  </button>
+                  <div className="text-xs text-gray-400">
+                    {avatarFile ? avatarFile.name : 'לחץ להעלאת תמונה'}
+                  </div>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Platform-only: section access */}
+            {modeKey === 'platform' && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield size={14} className="text-gray-400" />
+                  <label className="text-sm font-bold text-gray-700">הרשאות גישה</label>
+                </div>
+                {/* Preset buttons */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {Object.entries(SECTION_PRESETS).map(([preset, sections]) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAllowedSections(sections)}
+                      className={[
+                        'px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors',
+                        JSON.stringify(allowedSections.slice().sort()) === JSON.stringify(sections.slice().sort())
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-700',
+                      ].join(' ')}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                {/* Section checkboxes */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  {SECTION_DEFS.map(sec => (
+                    <label
+                      key={sec.key}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={allowedSections.includes(sec.key)}
+                        onChange={() => toggleSection(sec.key)}
+                        className="accent-blue-600 w-3.5 h-3.5"
+                      />
+                      <span className="text-xs text-gray-700">{sec.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Vertical picker (only for vertical_admin) */}
             {selectedRole === 'vertical_admin' && (

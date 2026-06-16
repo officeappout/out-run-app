@@ -28,6 +28,7 @@ export interface AdminUser {
   photoURL?: string;
   isSuperAdmin: boolean;
   isApproved: boolean;
+  allowedSections: string[];
   createdAt?: Date;
   lastLogin?: Date;
 }
@@ -52,6 +53,7 @@ export async function getAllSuperAdmins(): Promise<AdminUser[]> {
           photoURL: data?.core?.photoURL,
           isSuperAdmin: true,
           isApproved: data?.core?.isApproved !== false, // Default to true if not set
+          allowedSections: Array.isArray(data?.core?.allowedSections) ? data.core.allowedSections : [],
           createdAt: data?.createdAt?.toDate?.() || undefined,
           lastLogin: data?.lastLogin?.toDate?.() || undefined,
         });
@@ -100,6 +102,7 @@ export async function getPendingUsers(): Promise<AdminUser[]> {
           photoURL: core.photoURL,
           isSuperAdmin: isSuperAdmin,
           isApproved: false,
+          allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
           createdAt: data?.createdAt?.toDate?.() || undefined,
           lastLogin: data?.lastLogin?.toDate?.() || undefined,
         });
@@ -141,6 +144,7 @@ export async function getUserByEmail(email: string): Promise<AdminUser | null> {
         photoURL: data?.core?.photoURL,
         isSuperAdmin: data?.core?.isSuperAdmin === true,
         isApproved: data?.core?.isApproved !== false, // Default to true if not set
+        allowedSections: Array.isArray(data?.core?.allowedSections) ? data.core.allowedSections : [],
         createdAt: data?.createdAt?.toDate?.() || undefined,
         lastLogin: data?.lastLogin?.toDate?.() || undefined,
       };
@@ -328,5 +332,88 @@ export async function getSuperAdminCount(): Promise<number> {
   } catch (error) {
     console.error('Error counting super admins:', error);
     return 0;
+  }
+}
+
+/**
+ * Get all OUT team members (approved admins + super admins).
+ * Excludes regular app users (role === 'USER' with no admin flags).
+ */
+export async function getAllAdmins(): Promise<AdminUser[]> {
+  try {
+    const usersSnapshot = await getDocs(collection(db, USERS_COLLECTION));
+    const admins: AdminUser[] = [];
+
+    usersSnapshot.docs.forEach((userDoc) => {
+      const data = userDoc.data();
+      const core = data?.core || {};
+      const isSuperAdmin = core.isSuperAdmin === true;
+      const isApproved = core.isApproved === true;
+      const hasEmail = !!core.email;
+      const role = core.role || 'USER';
+
+      // Include: super admins, approved admins, or any pending admin with email
+      const isTeamMember =
+        isSuperAdmin || isApproved || role === 'PENDING_ADMIN' || core.requiresApproval === true;
+
+      if (isTeamMember && hasEmail) {
+        admins.push({
+          id: userDoc.id,
+          name: core.name || 'Unknown',
+          email: core.email,
+          photoURL: core.photoURL,
+          isSuperAdmin,
+          isApproved,
+          allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
+          createdAt: data?.createdAt?.toDate?.() || undefined,
+          lastLogin: data?.lastLogin?.toDate?.() || undefined,
+        });
+      }
+    });
+
+    return admins.sort((a, b) => a.name.localeCompare(b.name, 'he'));
+  } catch (error) {
+    console.error('Error fetching all admins:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update the allowed sections for an admin user.
+ * Super admins ignore this list (they always have full access), but it is
+ * stored so the UI can show it for reference or if they are later downgraded.
+ */
+export async function updateAdminSections(
+  userId: string,
+  sections: string[],
+  adminInfo?: { adminId: string; adminName: string },
+): Promise<void> {
+  try {
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) throw new Error('User not found');
+
+    const prevSections: string[] = userDoc.data()?.core?.allowedSections ?? [];
+
+    await updateDoc(userDocRef, {
+      'core.allowedSections': sections,
+      updatedAt: new Date(),
+    });
+
+    if (adminInfo) {
+      await logAction({
+        adminName: adminInfo.adminName,
+        actionType: 'UPDATE',
+        targetEntity: 'Admin',
+        targetId: userId,
+        details: `Updated section access: [${sections.join(', ')}]`,
+        oldValue: { allowedSections: prevSections },
+        newValue: { allowedSections: sections },
+      });
+    }
+  } catch (error) {
+    console.error('Error updating admin sections:', error);
+    throw error;
   }
 }
