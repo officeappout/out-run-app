@@ -17,7 +17,9 @@ import {
   ChevronDown,
   ChevronUp,
   LayoutGrid,
+  CalendarDays,
 } from 'lucide-react';
+import MasterRoadmapTimeline from './MasterRoadmapTimeline';
 import { getUnifiedRoadmap, updateRoadmapItemStatus } from '@/features/admin/services/unified-roadmap.service';
 import { getAllSuperAdmins, AdminUser } from '@/features/admin/services/admin-management.service';
 import type { RoadmapItem, RoadmapDomain, CommonStatus, RoadmapFilters } from '@/types/roadmap-unified.types';
@@ -291,6 +293,7 @@ export default function MasterRoadmapPage() {
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [doneItemId, setDoneItemId] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [view, setView] = useState<'board' | 'timeline'>('board');
 
   // Filter state
   const [selectedDomains, setSelectedDomains] = useState<RoadmapDomain[]>([]);
@@ -416,6 +419,33 @@ export default function MasterRoadmapPage() {
               {totalActive} פריטים פעילים
             </span>
           )}
+
+          {/* View toggle */}
+          <div className="flex items-center bg-slate-100 rounded-xl p-1">
+            <button
+              onClick={() => setView('board')}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                view === 'board'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid size={13} />
+              לוח
+            </button>
+            <button
+              onClick={() => setView('timeline')}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                view === 'timeline'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <CalendarDays size={13} />
+              ציר זמן
+            </button>
+          </div>
+
           <button
             onClick={() => load()}
             disabled={loading}
@@ -483,11 +513,13 @@ export default function MasterRoadmapPage() {
         </div>
       )}
 
-      {/* Swimlanes grid */}
+      {/* Content */}
       {loading && items.length === 0 ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 size={32} className="animate-spin text-slate-400" />
         </div>
+      ) : view === 'timeline' ? (
+        <MasterRoadmapTimeline items={items} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {ALL_DOMAINS.map(domain => (

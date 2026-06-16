@@ -93,6 +93,7 @@ export interface AuthorityTask {
   title: string;
   description?: string;
   status: TaskStatus;
+  startDate?: Date;
   dueDate?: Date;
   assignedTo?: string;     // Team member uid (written by API route)
   assignedToName?: string; // Team member name (denormalised)

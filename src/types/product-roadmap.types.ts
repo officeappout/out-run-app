@@ -28,6 +28,7 @@ export interface ProductTask {
   assignedTo?: string;
   assignedToName?: string;
   estimatedHours?: number;
+  startDate?: Date;
   dueDate?: Date;
   
   // Metadata
