@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { adminFetch } from '@/lib/admin-fetch';
-import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, Trophy, Skull, Clock } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, Trophy, Skull, Clock, Zap } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { CrmScanResult } from '@/app/api/admin/crm-agent/run/route';
@@ -25,6 +25,7 @@ export default function CrmAgentPanel() {
   const [lastRunSource, setLastRunSource] = useState<'live' | 'saved' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [confirmLive, setConfirmLive] = useState(false);
 
   // Load today's saved run from Firestore on mount
   useEffect(() => {
@@ -38,16 +39,17 @@ export default function CrmAgentPanel() {
     }).catch(() => { /* no run yet today — silent */ });
   }, []);
 
-  async function runDryRun() {
+  async function runAgent(dryRun: boolean) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setConfirmLive(false);
     if (!open) setOpen(true);
     try {
       const res = await adminFetch('/api/admin/crm-agent/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dryRun: true }),
+        body: JSON.stringify({ dryRun }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -84,16 +86,46 @@ export default function CrmAgentPanel() {
           {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
         </button>
 
-        <button
-          onClick={runDryRun}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-50 border border-cyan-200 text-cyan-700 rounded-xl text-sm font-bold hover:bg-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading
-            ? <Loader2 size={15} className="animate-spin" />
-            : <RefreshCw size={15} />}
-          {loading ? 'סורק…' : 'בדיקה יבשה'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Dry-run */}
+          <button
+            onClick={() => runAgent(true)}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 bg-cyan-50 border border-cyan-200 text-cyan-700 rounded-xl text-sm font-bold hover:bg-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+            {loading ? 'סורק…' : 'בדיקה יבשה'}
+          </button>
+
+          {/* Live run — confirm before execute */}
+          {!confirmLive ? (
+            <button
+              onClick={() => setConfirmLive(true)}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded-xl text-sm font-bold hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Zap size={15} />
+              ריצה אמיתית
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-300 rounded-xl px-3 py-2">
+              <span className="text-xs text-orange-700 font-medium">כותב ל-CRM + טיוטות. בטוח?</span>
+              <button
+                onClick={() => runAgent(false)}
+                disabled={loading}
+                className="text-xs bg-orange-600 hover:bg-orange-700 text-white font-bold px-2 py-1 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                אשר
+              </button>
+              <button
+                onClick={() => setConfirmLive(false)}
+                className="text-xs text-gray-500 hover:text-gray-700 px-1"
+              >
+                ביטול
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Expandable body ─────────────────────────────────────────────── */}
