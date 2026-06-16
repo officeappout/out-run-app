@@ -150,7 +150,19 @@ service firebase.storage {
       allow write: if isAdmin() && isImage() && isImageSize();
     }
 
-    // ── 2. User UGC: Park Contribution Photos (Owner Write, Public Read) ──
+    // ── 2. Admin Avatars (Admin Write, Public Read) ──────────────────────
+    //
+    // Profile photos for OUT team members. Only admins can upload;
+    // images are publicly readable so the admin panel can render avatars.
+    // Path: /admin-avatars/pending/{uuid}.{ext}  (before the user has a UID)
+    //       /admin-avatars/{uid}.{ext}            (after account is claimed)
+
+    match /admin-avatars/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && isImageSize();
+    }
+
+    // ── 3. User UGC: Park Contribution Photos (Owner Write, Public Read) ──
     //
     // Regular users contribute photos via the park contribution wizard.
     // Path: /contribution-photos/{userId}/{timestamp}_{filename}
@@ -162,7 +174,7 @@ service firebase.storage {
       allow write: if isOwner(userId) && isImage() && isImageSize();
     }
 
-    // ── 3. User Private: Health Declarations (Owner + Admin Read) ────
+    // ── 4. User Private: Health Declarations (Owner + Admin Read) ────
     //
     // PDFs of signed health questionnaires. Owner read/write; admins may
     // READ (but not write) for legal proceedings, since these PDFs are
@@ -175,7 +187,7 @@ service firebase.storage {
       allow write: if isOwner(userId) && isPdf() && isPdfSize();
     }
 
-    // ── 4. Catch-all: Deny everything else ───────────────────────────
+    // ── 5. Catch-all: Deny everything else ───────────────────────────
     //
     // Any path not explicitly matched above is denied.
     // This prevents accidental exposure of new folders.
