@@ -19,10 +19,15 @@ import {
   updateAdminProfile,
   AdminUser,
 } from '@/features/admin/services/admin-management.service';
+import {
+  getAllInvitations,
+  deleteInvitationById,
+} from '@/features/admin/services/invitation.service';
+import type { AdminInvitation } from '@/types/invitation.type';
 import { isRootAdmin } from '@/config/feature-flags';
 import { getAllAuthorities, getAuthoritiesGrouped } from '@/features/admin/services/authority.service';
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
-import { Shield, Search, UserPlus, X, Mail, AlertCircle, Trash2, Ban, Pencil } from 'lucide-react';
+import { Shield, Search, UserPlus, X, Mail, AlertCircle, Trash2, Ban, Pencil, Copy, Check, Clock, ExternalLink } from 'lucide-react';
 import { Authority } from '@/types/admin-types';
 import { deleteUser } from '@/features/admin/services/users.service';
 import { logAction } from '@/features/admin/services/audit.service';
@@ -33,7 +38,10 @@ export default function AdminsManagementPage() {
   const router = useRouter();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<AdminUser[]>([]);
-  const [activeTab, setActiveTab] = useState<'admins' | 'pending'>('pending');
+  const [activeTab, setActiveTab] = useState<'admins' | 'pending' | 'invitations'>('pending');
+  const [pendingInvitations, setPendingInvitations] = useState<AdminInvitation[]>([]);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [deletingInviteId, setDeletingInviteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchEmail, setSearchEmail] = useState('');
   const [searchResult, setSearchResult] = useState<AdminUser | null>(null);
@@ -80,6 +88,7 @@ export default function AdminsManagementPage() {
         setIsAuthorized(true);
         loadAdmins();
         loadAuthorities();
+        loadInvitations();
       } catch (error) {
         console.error('Error checking authorization:', error);
         router.push('/admin');
@@ -118,6 +127,48 @@ export default function AdminsManagementPage() {
       setError('שגיאה בטעינת רשימת המנהלים');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      const all = await getAllInvitations();
+      const now = new Date();
+      setPendingInvitations(all.filter(inv => !inv.isUsed && inv.expiresAt > now));
+    } catch (error) {
+      console.error('Error loading invitations:', error);
+    }
+  };
+
+  const inviteLink = (token: string) =>
+    `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/authority-login?token=${token}`;
+
+  const handleCopyInviteLink = async (token: string) => {
+    try {
+      await navigator.clipboard.writeText(inviteLink(token));
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    } catch { /* clipboard blocked */ }
+  };
+
+  const handleDeleteInvitation = async (inv: AdminInvitation) => {
+    if (!confirm(`האם לבטל את ההזמנה ל-${inv.email}?`)) return;
+    try {
+      setDeletingInviteId(inv.id);
+      const adminInfo = await getCurrentAdminInfo();
+      await deleteInvitationById(inv.id, {
+        adminId: adminInfo?.adminId || '',
+        adminName: adminInfo?.adminName || '',
+        adminEmail: currentUserEmail,
+      });
+      await loadInvitations();
+      setSuccess('ההזמנה בוטלה');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error deleting invitation:', err);
+      setError('שגיאה בביטול ההזמנה');
+    } finally {
+      setDeletingInviteId(null);
     }
   };
 
@@ -341,17 +392,40 @@ export default function AdminsManagementPage() {
         } : undefined}
         onSuccess={() => {
           const isEdit = editingAdmin !== null;
-          setSuccess(isEdit ? 'הפרטים עודכנו בהצלחה' : 'הזמנה נוצרה בהצלחה');
-          setShowInviteModal(false);
-          setEditingAdmin(null);
-          loadAdmins();
-          setTimeout(() => setSuccess(''), 3000);
+          if (isEdit) {
+            // Edit: close immediately, no link to display
+            setSuccess('הפרטים עודכנו בהצלחה');
+            setShowInviteModal(false);
+            setEditingAdmin(null);
+            loadAdmins();
+          } else {
+            // Create: keep modal open so admin sees the link; switch to invitations tab
+            setSuccess('קישור הזמנה נוצר — שלח אותו למוזמן ידנית');
+            setActiveTab('invitations');
+            loadInvitations();
+          }
+          setTimeout(() => setSuccess(''), 5000);
         }}
       />
 
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-gray-200 p-2">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('invitations')}
+            className={`flex-1 px-4 py-2 rounded-lg font-bold text-sm transition-all relative ${
+              activeTab === 'invitations'
+                ? 'bg-cyan-500 text-white shadow-md'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            הזמנות ממתינות
+            {pendingInvitations.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white rounded-full text-xs flex items-center justify-center">
+                {pendingInvitations.length}
+              </span>
+            )}
+          </button>
           <button
             onClick={() => setActiveTab('pending')}
             className={`flex-1 px-4 py-2 rounded-lg font-bold text-sm transition-all relative ${
@@ -375,10 +449,105 @@ export default function AdminsManagementPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            מנהלי מערכת פעילים
+            מנהלים פעילים
           </button>
         </div>
       </div>
+
+      {/* Invitations Tab */}
+      {activeTab === 'invitations' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 min-h-[600px]">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">הזמנות ממתינות</h2>
+            <p className="text-sm text-gray-500">הזמנות שנוצרו אך טרם נוצלו (תוקף 7 ימים)</p>
+          </div>
+          {pendingInvitations.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Mail size={48} className="mx-auto mb-4 text-gray-400" />
+              <p>אין הזמנות ממתינות</p>
+              <p className="text-xs mt-2 text-gray-400">לחץ "פתח טופס הזמנה" כדי ליצור הזמנה חדשה</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-right py-3 px-3 text-sm font-bold text-gray-700">אימייל</th>
+                    <th className="text-right py-3 px-3 text-sm font-bold text-gray-700">תפקיד</th>
+                    <th className="text-right py-3 px-3 text-sm font-bold text-gray-700">נוצר</th>
+                    <th className="text-right py-3 px-3 text-sm font-bold text-gray-700">פג תוקף</th>
+                    <th className="text-right py-3 px-3 text-sm font-bold text-gray-700">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingInvitations.map((inv) => {
+                    const daysLeft = Math.ceil((inv.expiresAt.getTime() - Date.now()) / 86400000);
+                    const roleLabelMap: Record<string, string> = {
+                      super_admin: 'מנהל-על',
+                      vertical_admin: `מנהל ורטיקל (${inv.managedVertical === 'military' ? 'צבאי' : inv.managedVertical === 'educational' ? 'חינוכי' : 'עירוני'})`,
+                      authority_manager: 'מנהל רשות',
+                      unit_admin: 'מנהל יחידה',
+                      tenant_owner: 'בעל ארגון',
+                    };
+                    return (
+                      <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-3 text-sm text-gray-900 font-medium" dir="ltr">{inv.email}</td>
+                        <td className="py-3 px-3">
+                          <span className={[
+                            'px-2 py-0.5 rounded-full text-xs font-bold',
+                            inv.role === 'super_admin' ? 'bg-cyan-100 text-cyan-700' :
+                            inv.role === 'vertical_admin' ? 'bg-amber-100 text-amber-700' :
+                            'bg-gray-100 text-gray-600',
+                          ].join(' ')}>
+                            {roleLabelMap[inv.role] ?? inv.role}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-xs text-gray-500">
+                          {inv.createdAt.toLocaleDateString('he-IL')}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`flex items-center gap-1 text-xs font-medium ${daysLeft <= 1 ? 'text-red-600' : daysLeft <= 3 ? 'text-amber-600' : 'text-gray-500'}`}>
+                            <Clock size={12} />
+                            {daysLeft <= 0 ? 'פג תוקף' : `${daysLeft} ימים`}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleCopyInviteLink(inv.token)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-bold hover:bg-cyan-100 transition-colors"
+                              title="העתק קישור הזמנה"
+                            >
+                              {copiedToken === inv.token ? <Check size={13} /> : <Copy size={13} />}
+                              {copiedToken === inv.token ? 'הועתק!' : 'העתק'}
+                            </button>
+                            <a
+                              href={`mailto:${inv.email}?subject=${encodeURIComponent('הזמנה לניהול OUT')}&body=${encodeURIComponent(`שלום,\n\nהוזמנת לניהול מערכת OUT.\nלחץ על הקישור להתחברות:\n${inviteLink(inv.token)}\n\nהקישור תקף ל-${daysLeft} ימים.`)}`}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors"
+                              title="שלח במייל"
+                            >
+                              <ExternalLink size={13} />
+                              שלח
+                            </a>
+                            <button
+                              onClick={() => handleDeleteInvitation(inv)}
+                              disabled={deletingInviteId === inv.id}
+                              className="p-1.5 hover:bg-red-100 rounded-lg transition-colors text-red-500 disabled:opacity-50"
+                              title="בטל הזמנה"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pending Users Tab */}
       {activeTab === 'pending' && (
