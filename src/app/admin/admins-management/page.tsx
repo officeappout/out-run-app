@@ -16,11 +16,13 @@ import {
   rejectAdminRequest,
   promoteToSuperAdmin,
   revokeSuperAdmin,
+  updateAdminProfile,
   AdminUser,
 } from '@/features/admin/services/admin-management.service';
+import { isRootAdmin } from '@/config/feature-flags';
 import { getAllAuthorities, getAuthoritiesGrouped } from '@/features/admin/services/authority.service';
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
-import { Shield, Search, UserPlus, X, Mail, AlertCircle, Trash2, Ban } from 'lucide-react';
+import { Shield, Search, UserPlus, X, Mail, AlertCircle, Trash2, Ban, Pencil } from 'lucide-react';
 import { Authority } from '@/types/admin-types';
 import { deleteUser } from '@/features/admin/services/users.service';
 import { logAction } from '@/features/admin/services/audit.service';
@@ -41,8 +43,10 @@ export default function AdminsManagementPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   
-  // Invitation state
+  // Invitation / edit state
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [authorities, setAuthorities] = useState<Authority[]>([]);
   const [groupedAuthorities, setGroupedAuthorities] = useState<{
     regionalCouncils: (Authority & { settlements: Authority[] })[];
@@ -71,7 +75,8 @@ export default function AdminsManagementPage() {
           router.push('/admin');
           return;
         }
-        setCurrentUserId(user.uid); // Store current user ID for safety check
+        setCurrentUserId(user.uid);
+        setCurrentUserEmail(user.email || '');
         setIsAuthorized(true);
         loadAdmins();
         loadAuthorities();
@@ -319,16 +324,27 @@ export default function AdminsManagementPage() {
 
       <InviteMemberModal
         isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
+        onClose={() => {
+          setShowInviteModal(false);
+          setEditingAdmin(null);
+        }}
         context={{}}
         callerInfo={{
           adminId: currentUserId || '',
           adminName: 'Admin',
-          adminEmail: '',
+          adminEmail: currentUserEmail,
         }}
+        editTarget={editingAdmin ?? undefined}
+        onEdit={editingAdmin ? async (updates) => {
+          const adminInfo = await getCurrentAdminInfo();
+          await updateAdminProfile(editingAdmin.id, updates, adminInfo ?? undefined);
+        } : undefined}
         onSuccess={() => {
-          setSuccess('הזמנה נוצרה בהצלחה');
+          const isEdit = editingAdmin !== null;
+          setSuccess(isEdit ? 'הפרטים עודכנו בהצלחה' : 'הזמנה נוצרה בהצלחה');
           setShowInviteModal(false);
+          setEditingAdmin(null);
+          loadAdmins();
           setTimeout(() => setSuccess(''), 3000);
         }}
       />
@@ -550,6 +566,7 @@ export default function AdminsManagementPage() {
                     <tr className="border-b border-gray-200">
                       <th className="text-right py-3 px-4 text-sm font-bold text-gray-700">משתמש</th>
                       <th className="text-right py-3 px-4 text-sm font-bold text-gray-700">אימייל</th>
+                      <th className="text-right py-3 px-4 text-sm font-bold text-gray-700">תפקיד</th>
                       <th className="text-right py-3 px-4 text-sm font-bold text-gray-700">תאריך יצירה</th>
                       <th className="text-right py-3 px-4 text-sm font-bold text-gray-700">פעולות</th>
                     </tr>
@@ -581,6 +598,19 @@ export default function AdminsManagementPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-700">{admin.email || '-'}</td>
+                          <td className="py-3 px-4">
+                            {isRootAdmin(admin.email) ? (
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">Root Admin</span>
+                            ) : admin.isSuperAdmin ? (
+                              <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold">Super Admin</span>
+                            ) : admin.isVerticalAdmin ? (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
+                                מנהל {admin.managedVertical === 'military' ? 'צבאי' : admin.managedVertical === 'educational' ? 'חינוכי' : 'עירוני'}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">מאושר</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4 text-sm text-gray-700">
                             {admin.createdAt
                               ? new Date(admin.createdAt).toLocaleDateString('he-IL')
@@ -588,6 +618,18 @@ export default function AdminsManagementPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
+                              {!isCurrentUser && (
+                                <button
+                                  onClick={() => {
+                                    setEditingAdmin(admin);
+                                    setShowInviteModal(true);
+                                  }}
+                                  className="p-2 hover:bg-cyan-50 rounded-lg transition-colors text-cyan-600"
+                                  title="ערוך מנהל"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleRevoke(admin.id)}
                                 disabled={isCurrentUser}

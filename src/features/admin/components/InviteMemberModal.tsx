@@ -10,6 +10,8 @@ import type { Authority } from '@/types/admin-types';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { isRootAdmin } from '@/config/feature-flags';
+import type { AdminUser } from '@/features/admin/services/admin-management.service';
 
 interface RoleOption {
   value: InvitationRole;
@@ -91,6 +93,14 @@ export interface InviteMemberModalProps {
     callerAuthorityId?: string;
   };
   onSuccess?: (result: { inviteLink: string }) => void;
+  /** When set: opens in edit mode, pre-fills fields, calls onEdit instead of createInvitation */
+  editTarget?: AdminUser;
+  onEdit?: (updates: {
+    role?: 'super_admin' | 'vertical_admin';
+    managedVertical?: string | null;
+    allowedSections: string[];
+    photoURL?: string | null;
+  }) => Promise<void>;
 }
 
 export default function InviteMemberModal({
@@ -99,7 +109,11 @@ export default function InviteMemberModal({
   context,
   callerInfo,
   onSuccess,
+  editTarget,
+  onEdit,
 }: InviteMemberModalProps) {
+  const isEditMode = !!editTarget;
+  const callerCanChangeRole = isRootAdmin(callerInfo.adminEmail);
   const [email, setEmail] = useState('');
   const [selectedRole, setSelectedRole] = useState<InvitationRole | ''>('');
   const [selectedVertical, setSelectedVertical] = useState<'military' | 'municipal' | 'educational' | ''>('');
@@ -132,8 +146,24 @@ export default function InviteMemberModal({
       setAllowedSections([]);
       setAvatarFile(null);
       setAvatarPreview(null);
+    } else if (editTarget) {
+      setEmail(editTarget.email || '');
+      const roleVal: InvitationRole | '' = editTarget.isSuperAdmin
+        ? 'super_admin'
+        : editTarget.isVerticalAdmin
+          ? 'vertical_admin'
+          : '';
+      setSelectedRole(roleVal);
+      setSelectedVertical((editTarget.managedVertical as any) || '');
+      setSelectedScopeId('');
+      setAllowedSections(editTarget.allowedSections || []);
+      setAvatarFile(null);
+      setAvatarPreview(editTarget.photoURL || null);
+      setError('');
+      setResultLink(null);
+      setCopied(false);
     }
-  }, [isOpen]);
+  }, [isOpen, editTarget]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,6 +213,32 @@ export default function InviteMemberModal({
     setError('');
 
     try {
+      // ── Edit mode ──────────────────────────────────────────────────────────
+      if (isEditMode && onEdit) {
+        const updates: Parameters<typeof onEdit>[0] = {
+          allowedSections,
+        };
+
+        if (callerCanChangeRole && selectedRole) {
+          updates.role = selectedRole as 'super_admin' | 'vertical_admin';
+          updates.managedVertical =
+            selectedRole === 'vertical_admin' ? selectedVertical || null : null;
+        }
+
+        if (avatarFile && modeKey === 'platform') {
+          const ext = avatarFile.name.split('.').pop() ?? 'jpg';
+          const storageRef = ref(storage, `admin-avatars/pending/${crypto.randomUUID()}.${ext}`);
+          const snap = await uploadBytes(storageRef, avatarFile);
+          updates.photoURL = await getDownloadURL(snap.ref);
+        } else if (avatarPreview === null && editTarget?.photoURL) {
+          updates.photoURL = null;
+        }
+
+        await onEdit(updates);
+        onSuccess?.({ inviteLink: '' });
+        return;
+      }
+      // ── Create mode ───────────────────────────────────────────────────────
       const invData: any = {
         email: email.trim().toLowerCase(),
         role: selectedRole,
@@ -266,7 +322,7 @@ export default function InviteMemberModal({
 
         <h3 className="text-xl font-black text-gray-900 mb-1 flex items-center gap-2">
           <UserPlus size={22} className="text-cyan-600" />
-          הזמנת מנהל חדש
+          {isEditMode ? `עריכת מנהל — ${editTarget?.name}` : 'הזמנת מנהל חדש'}
         </h3>
 
         {context.organizationName && (
@@ -320,22 +376,35 @@ export default function InviteMemberModal({
               <input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => !isEditMode && setEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none transition-all text-sm"
+                className={[
+                  'w-full px-4 py-3 border-2 rounded-xl outline-none transition-all text-sm',
+                  isEditMode
+                    ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-default'
+                    : 'border-gray-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200',
+                ].join(' ')}
                 dir="ltr"
+                readOnly={isEditMode}
               />
             </div>
 
             {/* Role */}
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1.5">תפקיד</label>
-              <SearchableSelect
-                options={roleOptions.map(opt => ({ id: opt.value, label: opt.label }))}
-                value={selectedRole}
-                onChange={v => { setSelectedRole(v as InvitationRole); setSelectedScopeId(''); }}
-                placeholder="בחר תפקיד..."
-              />
+              {isEditMode && !callerCanChangeRole ? (
+                <div className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-500">
+                  {roleOptions.find(r => r.value === selectedRole)?.label || selectedRole || '—'}
+                  <span className="block text-xs text-gray-400 mt-0.5">רק Root Admin יכול לשנות תפקיד</span>
+                </div>
+              ) : (
+                <SearchableSelect
+                  options={roleOptions.map(opt => ({ id: opt.value, label: opt.label }))}
+                  value={selectedRole}
+                  onChange={v => { setSelectedRole(v as InvitationRole); setSelectedScopeId(''); }}
+                  placeholder="בחר תפקיד..."
+                />
+              )}
             </div>
 
             {/* Vertical picker — directly below Role (they're coupled) */}
@@ -472,12 +541,12 @@ export default function InviteMemberModal({
               {sending ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  יוצר הזמנה...
+                  {isEditMode ? 'שומר...' : 'יוצר הזמנה...'}
                 </>
               ) : (
                 <>
                   <Mail size={18} />
-                  שלח הזמנה
+                  {isEditMode ? 'שמור שינויים' : 'שלח הזמנה'}
                 </>
               )}
             </button>

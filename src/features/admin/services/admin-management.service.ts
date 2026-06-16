@@ -27,6 +27,9 @@ export interface AdminUser {
   email?: string;
   photoURL?: string;
   isSuperAdmin: boolean;
+  isVerticalAdmin: boolean;
+  managedVertical?: string;
+  isTenantOwner: boolean;
   isApproved: boolean;
   allowedSections: string[];
   createdAt?: Date;
@@ -52,7 +55,10 @@ export async function getAllSuperAdmins(): Promise<AdminUser[]> {
           email: data?.core?.email,
           photoURL: data?.core?.photoURL,
           isSuperAdmin: true,
-          isApproved: data?.core?.isApproved !== false, // Default to true if not set
+          isVerticalAdmin: data?.core?.isVerticalAdmin === true,
+          managedVertical: data?.core?.managedVertical || undefined,
+          isTenantOwner: data?.core?.isTenantOwner === true,
+          isApproved: data?.core?.isApproved !== false,
           allowedSections: Array.isArray(data?.core?.allowedSections) ? data.core.allowedSections : [],
           createdAt: data?.createdAt?.toDate?.() || undefined,
           lastLogin: data?.lastLogin?.toDate?.() || undefined,
@@ -101,6 +107,9 @@ export async function getPendingUsers(): Promise<AdminUser[]> {
           email: core.email,
           photoURL: core.photoURL,
           isSuperAdmin: isSuperAdmin,
+          isVerticalAdmin: core.isVerticalAdmin === true,
+          managedVertical: core.managedVertical || undefined,
+          isTenantOwner: core.isTenantOwner === true,
           isApproved: false,
           allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
           createdAt: data?.createdAt?.toDate?.() || undefined,
@@ -143,7 +152,10 @@ export async function getUserByEmail(email: string): Promise<AdminUser | null> {
         email: data?.core?.email,
         photoURL: data?.core?.photoURL,
         isSuperAdmin: data?.core?.isSuperAdmin === true,
-        isApproved: data?.core?.isApproved !== false, // Default to true if not set
+        isVerticalAdmin: data?.core?.isVerticalAdmin === true,
+        managedVertical: data?.core?.managedVertical || undefined,
+        isTenantOwner: data?.core?.isTenantOwner === true,
+        isApproved: data?.core?.isApproved !== false,
         allowedSections: Array.isArray(data?.core?.allowedSections) ? data.core.allowedSections : [],
         createdAt: data?.createdAt?.toDate?.() || undefined,
         lastLogin: data?.lastLogin?.toDate?.() || undefined,
@@ -363,6 +375,9 @@ export async function getAllAdmins(): Promise<AdminUser[]> {
           email: core.email,
           photoURL: core.photoURL,
           isSuperAdmin,
+          isVerticalAdmin: core.isVerticalAdmin === true,
+          managedVertical: core.managedVertical || undefined,
+          isTenantOwner: core.isTenantOwner === true,
           isApproved,
           allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
           createdAt: data?.createdAt?.toDate?.() || undefined,
@@ -374,6 +389,68 @@ export async function getAllAdmins(): Promise<AdminUser[]> {
     return admins.sort((a, b) => a.name.localeCompare(b.name, 'he'));
   } catch (error) {
     console.error('Error fetching all admins:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update role, vertical, sections, and/or photoURL for an admin user.
+ * Role changes (super_admin ↔ vertical_admin) must only be called by Root Admins —
+ * enforced at the call-site by checking isRootAdmin(callerEmail) before sending.
+ */
+export async function updateAdminProfile(
+  userId: string,
+  updates: {
+    role?: 'super_admin' | 'vertical_admin';
+    managedVertical?: string | null;
+    allowedSections?: string[];
+    photoURL?: string | null;
+  },
+  adminInfo?: { adminId: string; adminName: string },
+): Promise<void> {
+  try {
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) throw new Error('User not found');
+
+    const prev = userDoc.data()?.core ?? {};
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (updates.role !== undefined) {
+      patch['core.isSuperAdmin'] = updates.role === 'super_admin';
+      patch['core.isVerticalAdmin'] = updates.role === 'vertical_admin';
+    }
+    if ('managedVertical' in updates) {
+      patch['core.managedVertical'] = updates.managedVertical ?? null;
+    }
+    if (updates.allowedSections !== undefined) {
+      patch['core.allowedSections'] = updates.allowedSections;
+    }
+    if ('photoURL' in updates) {
+      patch['core.photoURL'] = updates.photoURL ?? null;
+    }
+
+    await updateDoc(userDocRef, patch);
+
+    if (adminInfo) {
+      await logAction({
+        adminId: adminInfo.adminId,
+        adminName: adminInfo.adminName,
+        actionType: 'UPDATE',
+        targetEntity: 'Admin',
+        targetId: userId,
+        details: `Updated admin profile (${Object.keys(updates).join(', ')})`,
+        oldValue: {
+          isSuperAdmin: prev.isSuperAdmin,
+          isVerticalAdmin: prev.isVerticalAdmin,
+          managedVertical: prev.managedVertical,
+          allowedSections: prev.allowedSections,
+        },
+        newValue: updates,
+      });
+    }
+  } catch (error) {
+    console.error('Error updating admin profile:', error);
     throw error;
   }
 }
