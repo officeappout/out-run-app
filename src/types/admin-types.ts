@@ -94,8 +94,10 @@ export interface AuthorityTask {
   description?: string;
   status: TaskStatus;
   dueDate?: Date;
-  assignedTo?: string; // Team member ID
-  assignedToName?: string; // Team member name
+  assignedTo?: string;     // Team member uid (written by API route)
+  assignedToName?: string; // Team member name (denormalised)
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  parentGoalId?: string;   // Links to a parent RoadmapItem goal
   createdAt: Date;
   completedAt?: Date;
 }
