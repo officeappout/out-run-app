@@ -35,7 +35,7 @@ export default function CrmPageHeader({ segment, onSegmentChange, activeTab, onT
       <div className="flex items-center justify-between mb-4" dir="rtl">
         {/* Left: title + segment switcher */}
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-gray-900">CRM</span>
+          <span className="text-lg font-semibold text-gray-900">ניהול מכירות (CRM)</span>
 
           {/* Segment switcher */}
           <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1">
