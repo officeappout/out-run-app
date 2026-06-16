@@ -9,12 +9,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
-  getAllSuperAdmins,
+  getAllAdmins,
   getPendingUsers,
-  getUserByEmail,
   approveUser,
   rejectAdminRequest,
-  promoteToSuperAdmin,
   revokeSuperAdmin,
   updateAdminProfile,
   AdminUser,
@@ -27,7 +25,7 @@ import type { AdminInvitation } from '@/types/invitation.type';
 import { isRootAdmin } from '@/config/feature-flags';
 import { getAllAuthorities, getAuthoritiesGrouped } from '@/features/admin/services/authority.service';
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
-import { Shield, Search, UserPlus, X, Mail, AlertCircle, Trash2, Ban, Pencil, Copy, Check, Clock, ExternalLink } from 'lucide-react';
+import { Shield, UserPlus, Mail, AlertCircle, Trash2, Ban, Pencil, Copy, Check, Clock, ExternalLink } from 'lucide-react';
 import { Authority } from '@/types/admin-types';
 import { deleteUser } from '@/features/admin/services/users.service';
 import { logAction } from '@/features/admin/services/audit.service';
@@ -43,9 +41,6 @@ export default function AdminsManagementPage() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [deletingInviteId, setDeletingInviteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchResult, setSearchResult] = useState<AdminUser | null>(null);
-  const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -117,7 +112,7 @@ export default function AdminsManagementPage() {
     try {
       setLoading(true);
       const [adminsData, pendingData] = await Promise.all([
-        getAllSuperAdmins(),
+        getAllAdmins(),
         getPendingUsers(),
       ]);
       setAdmins(adminsData);
@@ -172,31 +167,6 @@ export default function AdminsManagementPage() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchEmail.trim()) {
-      setError('אנא הזן כתובת אימייל');
-      return;
-    }
-
-    setSearching(true);
-    setError('');
-    setSearchResult(null);
-
-    try {
-      const user = await getUserByEmail(searchEmail.trim());
-      if (user) {
-        setSearchResult(user);
-      } else {
-        setError('משתמש לא נמצא');
-      }
-    } catch (error) {
-      console.error('Error searching user:', error);
-      setError('שגיאה בחיפוש משתמש');
-    } finally {
-      setSearching(false);
-    }
-  };
-
   const getCurrentAdminInfo = async () => {
     const user = auth.currentUser;
     if (!user) return undefined;
@@ -245,21 +215,6 @@ export default function AdminsManagementPage() {
     } catch (error) {
       console.error('Error rejecting admin request:', error);
       setError('שגיאה בדחיית הבקשה');
-    }
-  };
-
-  const handlePromote = async (userId: string) => {
-    try {
-      const adminInfo = await getCurrentAdminInfo();
-      await promoteToSuperAdmin(userId, adminInfo);
-      setSuccess('המשתמש קודם למנהל מערכת בהצלחה');
-      setSearchResult(null);
-      setSearchEmail('');
-      await loadAdmins();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error promoting user:', error);
-      setError('שגיאה בקידום המשתמש');
     }
   };
 
@@ -488,6 +443,7 @@ export default function AdminsManagementPage() {
                       authority_manager: 'מנהל רשות',
                       unit_admin: 'מנהל יחידה',
                       tenant_owner: 'בעל ארגון',
+                      platform_member: inv.teamRole ? `חבר צוות — ${inv.teamRole}` : 'חבר צוות',
                     };
                     return (
                       <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
@@ -611,14 +567,6 @@ export default function AdminsManagementPage() {
                             <Ban size={16} />
                             דחה
                           </button>
-                          {!user.isSuperAdmin && (
-                            <button
-                              onClick={() => handlePromote(user.id)}
-                              className="px-3 py-1.5 bg-cyan-500 text-white rounded-lg text-sm font-bold hover:bg-cyan-600 transition-colors"
-                            >
-                              קדם למנהל מערכת
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -642,82 +590,6 @@ export default function AdminsManagementPage() {
       {/* Admins Tab */}
       {activeTab === 'admins' && (
         <>
-          {/* Search Section */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">קידום משתמש למנהל מערכת</h2>
-            <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Mail size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  value={searchEmail}
-                  onChange={(e) => setSearchEmail(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="הזן כתובת אימייל..."
-                  className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-black"
-                  dir="ltr"
-                />
-              </div>
-              <button
-                onClick={handleSearch}
-                disabled={searching}
-                className="px-6 py-3 bg-cyan-600 text-white rounded-xl font-bold hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <Search size={18} />
-                {searching ? 'מחפש...' : 'חפש'}
-              </button>
-            </div>
-
-            {/* Search Result */}
-            {searchResult && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {searchResult.photoURL ? (
-                      <img
-                        src={searchResult.photoURL}
-                        alt={searchResult.name}
-                        className="w-10 h-10 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center">
-                        <Shield size={20} className="text-cyan-600" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-bold text-gray-900">{searchResult.name}</p>
-                      <p className="text-sm text-gray-500">{searchResult.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {searchResult.isSuperAdmin ? (
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">
-                        מנהל מערכת
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handlePromote(searchResult.id)}
-                        className="px-4 py-2 bg-cyan-600 text-white rounded-lg font-bold hover:bg-cyan-700 transition-colors flex items-center gap-2"
-                      >
-                        <UserPlus size={16} />
-                        קדם למנהל מערכת
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setSearchResult(null);
-                        setSearchEmail('');
-                      }}
-                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Admins Table */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 min-h-[600px]">
             <h2 className="text-xl font-bold text-gray-900 mb-4">מנהלי מערכת פעילים</h2>
@@ -775,6 +647,10 @@ export default function AdminsManagementPage() {
                             ) : admin.isVerticalAdmin ? (
                               <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
                                 מנהל {admin.managedVertical === 'military' ? 'צבאי' : admin.managedVertical === 'educational' ? 'חינוכי' : 'עירוני'}
+                              </span>
+                            ) : admin.isPlatformMember ? (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                                {admin.teamRole || 'חבר צוות'}
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">מאושר</span>

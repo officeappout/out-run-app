@@ -41,8 +41,9 @@ const ROLE_OPTIONS_BY_CONTEXT: Record<TenantType | 'platform', RoleOption[]> = {
     { value: 'unit_admin', label: 'רכז קן/שכבה', requiresScope: 'unit' },
   ],
   platform: [
-    { value: 'super_admin', label: 'מנהל-על (Super Admin)' },
-    { value: 'vertical_admin', label: 'מנהל ורטיקלי — כל הארגונים בורטיקל' },
+    { value: 'super_admin', label: 'מנהל-על — גישה מלאה' },
+    { value: 'vertical_admin', label: 'מנהל ורטיקלי — ורטיקל אחד' },
+    { value: 'platform_member', label: 'חבר צוות — גישה לפי סקשנים' },
   ],
 };
 
@@ -125,8 +126,9 @@ export default function InviteMemberModal({
   const [resultLink, setResultLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Platform-only: section access + avatar
+  // Platform-only: section access + avatar + team role label
   const [allowedSections, setAllowedSections] = useState<string[]>([]);
+  const [teamRole, setTeamRole] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +146,7 @@ export default function InviteMemberModal({
       setResultLink(null);
       setCopied(false);
       setAllowedSections([]);
+      setTeamRole('');
       setAvatarFile(null);
       setAvatarPreview(null);
     } else if (editTarget) {
@@ -152,11 +155,14 @@ export default function InviteMemberModal({
         ? 'super_admin'
         : editTarget.isVerticalAdmin
           ? 'vertical_admin'
-          : '';
+          : editTarget.isPlatformMember
+            ? 'platform_member'
+            : '';
       setSelectedRole(roleVal);
       setSelectedVertical((editTarget.managedVertical as any) || '');
       setSelectedScopeId('');
       setAllowedSections(editTarget.allowedSections || []);
+      setTeamRole(editTarget.teamRole || '');
       setAvatarFile(null);
       setAvatarPreview(editTarget.photoURL || null);
       setError('');
@@ -208,6 +214,10 @@ export default function InviteMemberModal({
       setError('יש לבחור ורטיקל מנוהל');
       return;
     }
+    if (selectedRole === 'platform_member' && allowedSections.length === 0) {
+      setError('יש לבחור לפחות סקשן אחד לחבר צוות');
+      return;
+    }
 
     setSending(true);
     setError('');
@@ -255,6 +265,11 @@ export default function InviteMemberModal({
       // Include section access for platform invites
       if (modeKey === 'platform' && allowedSections.length > 0) {
         invData.allowedSections = allowedSections;
+      }
+
+      // Include team role label for platform_member invites
+      if (selectedRole === 'platform_member' && teamRole.trim()) {
+        invData.teamRole = teamRole.trim();
       }
 
       if (selectedRole === 'vertical_admin') {
@@ -454,6 +469,20 @@ export default function InviteMemberModal({
                     onChange={handleAvatarChange}
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Platform-only: team role label (for platform_member) */}
+            {modeKey === 'platform' && (selectedRole === 'platform_member' || (isEditMode && editTarget?.isPlatformMember)) && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">תפקיד בצוות (תווית)</label>
+                <input
+                  type="text"
+                  value={teamRole}
+                  onChange={e => setTeamRole(e.target.value)}
+                  placeholder="לדוגמה: מנהל מכירות, תוכן, הצלחת לקוח..."
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl outline-none text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 transition-all"
+                />
               </div>
             )}
 

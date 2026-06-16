@@ -264,7 +264,7 @@ function AdminLayoutInner({
                 setRoleInfo(info);
                 
                 // Check if user has NO admin access at all
-                if (!info.isSuperAdmin && !info.isSystemAdmin && !info.isAuthorityManager && !info.isTenantOwner && !info.isVerticalAdmin && !isPublicPath) {
+                if (!info.isSuperAdmin && !info.isSystemAdmin && !info.isAuthorityManager && !info.isTenantOwner && !info.isVerticalAdmin && info.role !== 'platform_member' && !isPublicPath) {
                     console.warn('Access denied: User is not an authorized admin');
                     router.push('/admin/login');
                     setLoading(false);
@@ -370,11 +370,11 @@ function AdminLayoutInner({
 
     // hasSec: returns true when the current user may see this nav section.
     // Rules: super/system admin → always yes; vertical admin → use existing VA logic;
-    // allowedSections empty → no restriction (backwards compat); otherwise check list.
+    // allowedSections empty → deny (platform_member with no sections sees nothing).
     const hasSec = (key: string): boolean => {
       if (isSuperAdmin || isSystemAdmin) return true;
       if (isVerticalAdminOnly) return true; // VA visibility is governed by verticalAdminVertical checks below
-      if (sectionAllowList.length === 0) return true;
+      if (sectionAllowList.length === 0) return false;
       return sectionAllowList.includes(key);
     };
 
@@ -474,6 +474,38 @@ function AdminLayoutInner({
             if ((isSuperAdmin || isSystemAdmin) && pathname?.startsWith('/authority-portal')) {
                 router.replace('/admin/login');
                 return;
+            }
+
+            // Platform member route protection — section-limited team members
+            if (roleInfo.role === 'platform_member') {
+                const sectionPathsMap: Record<string, string[]> = {
+                    strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap', '/admin/authorities'],
+                    municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
+                    military: ['/admin/authority/readiness'],
+                    educational: ['/admin/authority/grades', '/admin/photo-release'],
+                    platform: ['/admin/admin-directory', '/admin/access-codes', '/admin/organizations'],
+                    appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
+                    running: ['/admin/running'],
+                    production: ['/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
+                    brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links'],
+                    system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics'],
+                };
+                const publicAdminRoutes = ['/admin/auth/callback', '/admin/authority-login', '/admin/pending-approval', '/admin/login'];
+                if (publicAdminRoutes.some(p => pathname?.startsWith(p))) return;
+
+                const memberSections = roleInfo.allowedSections ?? [];
+                const allowedPaths = memberSections.flatMap(s => sectionPathsMap[s] ?? []);
+                if (allowedPaths.length === 0) {
+                    if (pathname !== '/admin/pending-approval') router.replace('/admin/pending-approval');
+                    return;
+                }
+                const isAllowed = allowedPaths.some(p =>
+                    p === '/admin' ? pathname === '/admin' : pathname?.startsWith(p)
+                );
+                if (!isAllowed) {
+                    const firstPath = allowedPaths.find(p => p !== '/admin') ?? allowedPaths[0] ?? '/admin/pending-approval';
+                    router.replace(firstPath);
+                }
             }
         }
     }, [pathname, loading, roleInfo, onlyAuthorityManager, isSystemAdminOnly, isSuperAdmin, isSystemAdmin, router]);
