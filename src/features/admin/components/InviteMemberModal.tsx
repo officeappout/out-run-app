@@ -254,7 +254,8 @@ export default function InviteMemberModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+      <div className="flex items-start justify-center min-h-full py-6 px-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative" dir="rtl">
         <button
           onClick={onClose}
@@ -337,6 +338,25 @@ export default function InviteMemberModal({
               />
             </div>
 
+            {/* Vertical picker — directly below Role (they're coupled) */}
+            {selectedRole === 'vertical_admin' && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">ורטיקל מנוהל</label>
+                <SearchableSelect
+                  options={VERTICAL_OPTIONS.map(v => ({ id: v.value, label: v.label }))}
+                  value={selectedVertical}
+                  onChange={v => setSelectedVertical(v as any)}
+                  placeholder="בחר ורטיקל..."
+                />
+                <p className="text-[11px] text-amber-600 mt-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 font-medium">
+                  {selectedVertical === 'military' && 'מנהל זה יקבל גישה לכל החטיבות והיחידות הצבאיות במערכת.'}
+                  {selectedVertical === 'municipal' && 'מנהל זה יקבל גישה לכל הרשויות והערים במערכת.'}
+                  {selectedVertical === 'educational' && 'מנהל זה יקבל גישה לכל בתי הספר והמוסדות החינוכיים במערכת.'}
+                  {!selectedVertical && 'מנהל ורטיקלי מקבל הרשאות ניהול לכל הארגונים בורטיקל הנבחר.'}
+                </p>
+              </div>
+            )}
+
             {/* Platform-only: avatar upload */}
             {modeKey === 'platform' && (
               <div>
@@ -413,25 +433,6 @@ export default function InviteMemberModal({
               </div>
             )}
 
-            {/* Vertical picker (only for vertical_admin) */}
-            {selectedRole === 'vertical_admin' && (
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">ורטיקל מנוהל</label>
-                <SearchableSelect
-                  options={VERTICAL_OPTIONS.map(v => ({ id: v.value, label: v.label }))}
-                  value={selectedVertical}
-                  onChange={v => setSelectedVertical(v as any)}
-                  placeholder="בחר ורטיקל..."
-                />
-                <p className="text-[11px] text-amber-600 mt-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 font-medium">
-                  {selectedVertical === 'military' && 'מנהל זה יקבל גישה לכל החטיבות והיחידות הצבאיות במערכת.'}
-                  {selectedVertical === 'municipal' && 'מנהל זה יקבל גישה לכל הרשויות והערים במערכת.'}
-                  {selectedVertical === 'educational' && 'מנהל זה יקבל גישה לכל בתי הספר והמוסדות החינוכיים במערכת.'}
-                  {!selectedVertical && 'מנהל ורטיקלי מקבל הרשאות ניהול לכל הארגונים בורטיקל הנבחר.'}
-                </p>
-              </div>
-            )}
-
             {/* Scope selector (unit / authority child) */}
             {currentRoleOption?.requiresScope && (
               <div>
@@ -482,6 +483,7 @@ export default function InviteMemberModal({
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
