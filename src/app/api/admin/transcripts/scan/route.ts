@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     authorityName: string | null;
     transcriptUrl: string;
     movedToProcessed: boolean;
+    tasksCreated: number;
   }> = [];
 
   const skipped: Array<{ fileId: string; fileName: string; reason: string }> = [];
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
       const result = await processTranscript({
         text,
         fileId: file.id,
+        fileName: file.name,
         source: 'meeting',
         date: new Date(file.createdTime),
       });
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
         authorityName: result.authorityName,
         transcriptUrl: result.transcriptUrl,
         movedToProcessed: moved,
+        tasksCreated: result.tasksCreated,
       });
     } catch (err: any) {
       skipped.push({ fileId: file.id, fileName: file.name, reason: err?.message ?? 'שגיאה לא ידועה' });
