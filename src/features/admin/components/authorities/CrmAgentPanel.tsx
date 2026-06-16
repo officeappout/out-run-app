@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { adminFetch } from '@/lib/admin-fetch';
 import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, Trophy, Skull, Clock } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -43,10 +44,9 @@ export default function CrmAgentPanel() {
     setResult(null);
     if (!open) setOpen(true);
     try {
-      const res = await fetch('/api/admin/crm-agent/run', {
+      const res = await adminFetch('/api/admin/crm-agent/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ dryRun: true }),
       });
       const data = await res.json();

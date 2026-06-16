@@ -57,6 +57,7 @@ import type { Authority } from '@/types/admin-types';
 import { getSidebarConfig, type LucideIconName } from '@/features/admin/config/sidebarConfigs';
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
+import { useSessionRefresh } from '@/features/admin/hooks/useSessionRefresh';
 
 
 // Icon map for data-driven sidebar rendering
@@ -119,6 +120,8 @@ function AdminLayoutInner({
 }: {
     children: React.ReactNode;
 }) {
+    useSessionRefresh();
+
     const router = useRouter();
     const pathname = usePathname();
     const searchParamsRaw = useSearchParams();
