@@ -456,6 +456,7 @@ function normalizeInvitation(docSnap: any): AdminInvitation {
     tenantId: data?.tenantId ?? undefined,
     unitId: data?.unitId ?? undefined,
     unitPath: data?.unitPath ?? undefined,
+    managedVertical: data?.managedVertical ?? undefined,
     token: data?.token ?? '',
     isUsed: data?.isUsed ?? false,
     expiresAt: toDate(data?.expiresAt) ?? new Date(),

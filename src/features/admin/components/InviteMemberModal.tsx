@@ -546,7 +546,7 @@ export default function InviteMemberModal({
               ) : (
                 <>
                   <Mail size={18} />
-                  {isEditMode ? 'שמור שינויים' : 'שלח הזמנה'}
+                  {isEditMode ? 'שמור שינויים' : 'צור קישור הזמנה'}
                 </>
               )}
             </button>
