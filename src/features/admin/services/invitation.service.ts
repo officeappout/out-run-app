@@ -111,8 +111,8 @@ export async function createInvitation(
     console.log('[invitation.service] isRoot:', isRoot, 'email:', createdBy.adminEmail);
 
     if (!isRoot) {
-      if (data.role === 'super_admin' || data.role === 'tenant_owner' || data.role === 'vertical_admin') {
-        throw new Error('[Security] Only Root Admins can create super_admin, tenant_owner, or vertical_admin invitations.');
+      if (data.role === 'super_admin' || data.role === 'tenant_owner' || data.role === 'vertical_admin' || data.role === 'platform_member') {
+        throw new Error('[Security] Only Root Admins can create super_admin, tenant_owner, vertical_admin, or platform_member invitations.');
       }
 
       // unit_admin invitations can be created by tenant owners using tenantId scope
@@ -157,6 +157,10 @@ export async function createInvitation(
       throw new Error('managedVertical is required for vertical_admin role');
     }
 
+    if (data.role === 'platform_member' && (!data.allowedSections || data.allowedSections.length === 0)) {
+      throw new Error('allowedSections is required for platform_member role — select at least one section');
+    }
+
     const token = generateToken();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -169,6 +173,8 @@ export async function createInvitation(
       unitId: data.unitId || null,
       unitPath: data.unitPath || null,
       managedVertical: data.managedVertical || null,
+      allowedSections: data.allowedSections || null,
+      teamRole: data.teamRole || null,
       token,
       isUsed: false,
       expiresAt: Timestamp.fromDate(expiresAt),
@@ -318,6 +324,8 @@ export async function applyInvitationToUser(
           isVerticalAdmin: invitation.role === 'vertical_admin',
           managedVertical: invitation.role === 'vertical_admin' ? invitation.managedVertical : undefined,
           authorityId: invitation.role === 'authority_manager' ? invitation.authorityId : undefined,
+          allowedSections: invitation.role === 'platform_member' ? (invitation.allowedSections ?? []) : undefined,
+          teamRole: invitation.role === 'platform_member' ? (invitation.teamRole ?? undefined) : undefined,
         },
         progression: {
           globalLevel: 1,
@@ -379,6 +387,16 @@ export async function applyInvitationToUser(
         updateData['core.isVerticalAdmin'] = true;
         if (invitation.managedVertical) {
           updateData['core.managedVertical'] = invitation.managedVertical;
+        }
+      }
+
+      if (invitation.role === 'platform_member') {
+        // platform_member: section-limited team member — no isSuperAdmin, only sections
+        if (invitation.allowedSections && invitation.allowedSections.length > 0) {
+          updateData['core.allowedSections'] = invitation.allowedSections;
+        }
+        if (invitation.teamRole) {
+          updateData['core.teamRole'] = invitation.teamRole;
         }
       }
 
@@ -457,6 +475,8 @@ function normalizeInvitation(docSnap: any): AdminInvitation {
     unitId: data?.unitId ?? undefined,
     unitPath: data?.unitPath ?? undefined,
     managedVertical: data?.managedVertical ?? undefined,
+    allowedSections: Array.isArray(data?.allowedSections) ? data.allowedSections : undefined,
+    teamRole: data?.teamRole ?? undefined,
     token: data?.token ?? '',
     isUsed: data?.isUsed ?? false,
     expiresAt: toDate(data?.expiresAt) ?? new Date(),

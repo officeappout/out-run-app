@@ -9,7 +9,7 @@ import { getAuthoritiesByManager } from './authority.service';
 import { getAuthorityStats } from './analytics.service';
 import { isAdminEmailAllowed, isRootAdmin } from '@/config/feature-flags';
 
-export type UserRole = 'super_admin' | 'system_admin' | 'vertical_admin' | 'authority_manager' | 'none';
+export type UserRole = 'super_admin' | 'system_admin' | 'vertical_admin' | 'authority_manager' | 'platform_member' | 'none';
 
 export interface UserRoleInfo {
   role: UserRole;
@@ -27,8 +27,10 @@ export interface UserRoleInfo {
   authorityIds: string[];
   isApproved: boolean;
   email?: string;
-  /** Panel sections this user is allowed to access. Empty = no restriction (backwards compat). */
+  /** Panel sections this user is allowed to access. Empty = no access (super/system admins ignore this). */
   allowedSections: string[];
+  /** Display label for the team role (e.g. "מנהל מכירות"), set for platform_member users */
+  teamRole?: string;
 }
 
 /**
@@ -60,6 +62,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
     let isApproved = false;
     let emailFromProfile: string | null = null;
     let allowedSections: string[] = [];
+    let teamRole: string | undefined;
 
     try {
       const { getUserFromFirestore } = await import('@/lib/firestore.service');
@@ -77,6 +80,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
         emailFromProfile = core?.email || null;
         await logAdminLogin(userId);
         allowedSections = Array.isArray(core?.allowedSections) ? core.allowedSections : [];
+        teamRole = core?.teamRole || undefined;
       }
     } catch (error) {
       console.error('Error checking user profile:', error);
@@ -100,16 +104,28 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       isApproved = true;
     }
 
-    const role: UserRole = isSuperAdmin 
-      ? 'super_admin' 
-      : isSystemAdmin 
-        ? 'system_admin' 
-        : isVerticalAdmin 
+    // platform_member: approved, not any privileged role, has explicit section grants
+    const isPlatformMember =
+      isApproved &&
+      !isSuperAdmin &&
+      !isSystemAdmin &&
+      !isVerticalAdmin &&
+      !isAuthorityManager &&
+      !isTenantOwner &&
+      allowedSections.length > 0;
+
+    const role: UserRole = isSuperAdmin
+      ? 'super_admin'
+      : isSystemAdmin
+        ? 'system_admin'
+        : isVerticalAdmin
           ? 'vertical_admin'
-          : isAuthorityManager 
-            ? 'authority_manager' 
-            : 'none';
-    
+          : isAuthorityManager
+            ? 'authority_manager'
+            : isPlatformMember
+              ? 'platform_member'
+              : 'none';
+
     return {
       role,
       isSuperAdmin,
@@ -125,6 +141,7 @@ export async function checkUserRole(userId: string, userEmail?: string | null): 
       isApproved,
       email: emailToCheck || undefined,
       allowedSections,
+      teamRole,
     };
   } catch (error) {
     console.error('Error in checkUserRole:', error);

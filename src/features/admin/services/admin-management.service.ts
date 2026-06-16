@@ -32,6 +32,10 @@ export interface AdminUser {
   isTenantOwner: boolean;
   isApproved: boolean;
   allowedSections: string[];
+  /** True when user is an approved section-limited team member (not super/vertical admin) */
+  isPlatformMember?: boolean;
+  /** Display label for the team role (e.g. "מנהל מכירות") */
+  teamRole?: string;
   createdAt?: Date;
   lastLogin?: Date;
 }
@@ -60,6 +64,8 @@ export async function getAllSuperAdmins(): Promise<AdminUser[]> {
           isTenantOwner: data?.core?.isTenantOwner === true,
           isApproved: data?.core?.isApproved !== false,
           allowedSections: Array.isArray(data?.core?.allowedSections) ? data.core.allowedSections : [],
+          isPlatformMember: false,
+          teamRole: data?.core?.teamRole || undefined,
           createdAt: data?.createdAt?.toDate?.() || undefined,
           lastLogin: data?.lastLogin?.toDate?.() || undefined,
         });
@@ -112,6 +118,8 @@ export async function getPendingUsers(): Promise<AdminUser[]> {
           isTenantOwner: core.isTenantOwner === true,
           isApproved: false,
           allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
+          isPlatformMember: false,
+          teamRole: core.teamRole || undefined,
           createdAt: data?.createdAt?.toDate?.() || undefined,
           lastLogin: data?.lastLogin?.toDate?.() || undefined,
         });
@@ -146,17 +154,24 @@ export async function getUserByEmail(email: string): Promise<AdminUser | null> {
     const doc = snapshot.docs[0];
     const data = doc.data();
 
+      const coreData = data?.core ?? {};
+      const isApprovedUser = coreData?.isApproved !== false;
+      const isSuperAdminUser = coreData?.isSuperAdmin === true;
+      const isVerticalAdminUser = coreData?.isVerticalAdmin === true;
+      const sections = Array.isArray(coreData?.allowedSections) ? coreData.allowedSections : [];
       return {
         id: doc.id,
-        name: data?.core?.name || 'Unknown',
-        email: data?.core?.email,
-        photoURL: data?.core?.photoURL,
-        isSuperAdmin: data?.core?.isSuperAdmin === true,
-        isVerticalAdmin: data?.core?.isVerticalAdmin === true,
-        managedVertical: data?.core?.managedVertical || undefined,
-        isTenantOwner: data?.core?.isTenantOwner === true,
-        isApproved: data?.core?.isApproved !== false,
-        allowedSections: Array.isArray(data?.core?.allowedSections) ? data.core.allowedSections : [],
+        name: coreData?.name || 'Unknown',
+        email: coreData?.email,
+        photoURL: coreData?.photoURL,
+        isSuperAdmin: isSuperAdminUser,
+        isVerticalAdmin: isVerticalAdminUser,
+        managedVertical: coreData?.managedVertical || undefined,
+        isTenantOwner: coreData?.isTenantOwner === true,
+        isApproved: isApprovedUser,
+        allowedSections: sections,
+        isPlatformMember: isApprovedUser && !isSuperAdminUser && !isVerticalAdminUser && sections.length > 0,
+        teamRole: coreData?.teamRole || undefined,
         createdAt: data?.createdAt?.toDate?.() || undefined,
         lastLogin: data?.lastLogin?.toDate?.() || undefined,
       };
@@ -369,17 +384,21 @@ export async function getAllAdmins(): Promise<AdminUser[]> {
         isSuperAdmin || isApproved || role === 'PENDING_ADMIN' || core.requiresApproval === true;
 
       if (isTeamMember && hasEmail) {
+        const isVerticalAdmin = core.isVerticalAdmin === true;
+        const sections = Array.isArray(core.allowedSections) ? core.allowedSections : [];
         admins.push({
           id: userDoc.id,
           name: core.name || 'Unknown',
           email: core.email,
           photoURL: core.photoURL,
           isSuperAdmin,
-          isVerticalAdmin: core.isVerticalAdmin === true,
+          isVerticalAdmin,
           managedVertical: core.managedVertical || undefined,
           isTenantOwner: core.isTenantOwner === true,
           isApproved,
-          allowedSections: Array.isArray(core.allowedSections) ? core.allowedSections : [],
+          allowedSections: sections,
+          isPlatformMember: isApproved && !isSuperAdmin && !isVerticalAdmin && sections.length > 0,
+          teamRole: core.teamRole || undefined,
           createdAt: data?.createdAt?.toDate?.() || undefined,
           lastLogin: data?.lastLogin?.toDate?.() || undefined,
         });
