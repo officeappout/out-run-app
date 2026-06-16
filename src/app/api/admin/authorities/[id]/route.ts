@@ -28,6 +28,7 @@ const BLOCKED_FIELDS = new Set([
 
 const ALLOWED_PATCH_KEYS = new Set([
   'pipelineStatus', 'addActivity', 'addContact', 'updateContact', 'addTask', 'updateTask',
+  'ownerId',
 ]);
 
 const AGENT_ID = 'cali-agent';
@@ -61,11 +62,12 @@ export async function GET(
 // Body (all optional — combine freely in one request):
 //
 //   pipelineStatus?: PipelineStatus
+//   ownerId?:        string (uid of OUT team member responsible for this authority)
 //   addActivity?:    { content: string }
 //   addContact?:     { name, role, phone?, email?, isPrimary?, notes? }
 //   updateContact?:  { id, name?, role?, phone?, email?, isPrimary?, notes? }
-//   addTask?:        { title, description?, status?, dueDate?, assignedToName? }
-//   updateTask?:     { id, title?, description?, status?, dueDate?, assignedToName? }
+//   addTask?:        { title, description?, status?, dueDate?, assignedTo?, assignedToName?, priority?, parentGoalId? }
+//   updateTask?:     { id, title?, description?, status?, dueDate?, assignedTo?, assignedToName?, priority?, parentGoalId? }
 
 export async function PATCH(
   request: NextRequest,
@@ -121,7 +123,16 @@ export async function PATCH(
     applied.push(`pipelineStatus → ${s}`);
   }
 
-  // 2. addActivity — prepend to activityLog array (newest first)
+  // 2. ownerId — direct field update (OUT team member responsible for this authority)
+  if (body.ownerId !== undefined) {
+    if (body.ownerId !== null && typeof body.ownerId !== 'string') {
+      return NextResponse.json({ error: 'ownerId must be a string uid or null' }, { status: 400 });
+    }
+    updates.ownerId = body.ownerId ?? null;
+    applied.push(`ownerId → ${body.ownerId}`);
+  }
+
+  // 3. addActivity — prepend to activityLog array (newest first)
   if (body.addActivity !== undefined) {
     const a = body.addActivity as Record<string, unknown>;
     if (!a.content || typeof a.content !== 'string' || !a.content.trim()) {
@@ -211,6 +222,7 @@ export async function PATCH(
     const status: TaskStatus = VALID_TASK_STATUSES.includes(t.status as TaskStatus)
       ? (t.status as TaskStatus)
       : 'pending';
+    const VALID_PRIORITIES = ['critical', 'high', 'medium', 'low'];
     const newTask: Record<string, unknown> = {
       id: crypto.randomUUID(),
       title: t.title,
@@ -218,7 +230,10 @@ export async function PATCH(
       createdAt: new Date().toISOString(),
       ...(t.description ? { description: t.description } : {}),
       ...(t.dueDate ? { dueDate: t.dueDate } : {}),
+      ...(t.assignedTo && typeof t.assignedTo === 'string' ? { assignedTo: t.assignedTo } : {}),
       ...(t.assignedToName ? { assignedToName: t.assignedToName } : {}),
+      ...(t.priority && VALID_PRIORITIES.includes(t.priority as string) ? { priority: t.priority } : {}),
+      ...(t.parentGoalId && typeof t.parentGoalId === 'string' ? { parentGoalId: t.parentGoalId } : {}),
     };
     const tasks = [...((data.tasks as unknown[]) ?? []), newTask];
     updates.tasks = tasks;
@@ -248,7 +263,10 @@ export async function PATCH(
       if (t.status === 'done' && !merged.completedAt) merged.completedAt = new Date().toISOString();
     }
     if (t.dueDate !== undefined) merged.dueDate = t.dueDate;
+    if (t.assignedTo !== undefined) merged.assignedTo = t.assignedTo;
     if (t.assignedToName !== undefined) merged.assignedToName = t.assignedToName;
+    if (t.priority !== undefined) merged.priority = t.priority;
+    if (t.parentGoalId !== undefined) merged.parentGoalId = t.parentGoalId;
     tasks[idx] = merged;
     updates.tasks = tasks;
     applied.push(`updateTask id:${t.id}`);

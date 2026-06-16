@@ -86,7 +86,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
     }
     
     const sectionPaths: Record<SectionId, string[]> = {
-        strategy: ['/admin', '/admin/roadmap'],
+        strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap', '/admin/authorities'],
         municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
         military: ['/admin/authority/readiness'],
         educational: ['/admin/authority/grades', '/admin/photo-release'],
@@ -647,7 +647,11 @@ function AdminLayoutInner({
                             {hasSec('strategy') && expandedSections.has('strategy') && (
                                 <div className="pr-2 space-y-0.5 pb-2">
                                     <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד ראשי" />
-                                    <SidebarLink href="/admin/roadmap" icon={ListTodo} label="מפת דרכים ופידבקים" />
+                                    <SidebarLink href="/admin/master-roadmap" icon={LayoutGrid} label="מפת דרכים מאוחדת" />
+                                    <SidebarLink href="/admin/roadmap" icon={ListTodo} label="roadmap פיתוח" />
+                                    {!isSystemAdminOnly && (
+                                        <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות — CRM" />
+                                    )}
                                 </div>
                             )}
 
