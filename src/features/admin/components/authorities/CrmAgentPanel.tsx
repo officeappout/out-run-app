@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, SkipForward, Trophy, Skull, Clock } from 'lucide-react';
+import { adminFetch } from '@/lib/admin-fetch';
+import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, Trophy, Skull, Clock } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { CrmScanResult } from '@/app/api/admin/crm-agent/run/route';
@@ -24,7 +25,6 @@ export default function CrmAgentPanel() {
   const [lastRunSource, setLastRunSource] = useState<'live' | 'saved' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
-  const [showSkipped, setShowSkipped] = useState(false);
 
   // Load today's saved run from Firestore on mount
   useEffect(() => {
@@ -44,10 +44,9 @@ export default function CrmAgentPanel() {
     setResult(null);
     if (!open) setOpen(true);
     try {
-      const res = await fetch('/api/admin/crm-agent/run', {
+      const res = await adminFetch('/api/admin/crm-agent/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ dryRun: true }),
       });
       const data = await res.json();
@@ -254,30 +253,7 @@ export default function CrmAgentPanel() {
                 </div>
               )}
 
-              {/* Skipped threads ─────────────────────────────────────── */}
-              {result.skipped.length > 0 && (
-                <section>
-                  <button
-                    onClick={() => setShowSkipped(s => !s)}
-                    className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <SkipForward size={14} />
-                    {result.skipped.length} threads דולגו
-                    {showSkipped ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                  </button>
-                  {showSkipped && (
-                    <div className="mt-2 space-y-1">
-                      {result.skipped.map((s, i) => (
-                        <div key={i} className="flex items-start gap-2 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-500">
-                          <span className="text-gray-300">[{s.mailbox.split('@')[0]}]</span>
-                          <span className="truncate max-w-xs">{s.subject}</span>
-                          <span className="text-gray-300 mr-auto shrink-0">{s.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
+
 
               {/* Needs attention ─────────────────────────────────────── */}
               {result.needsAttention.length > 0 && (

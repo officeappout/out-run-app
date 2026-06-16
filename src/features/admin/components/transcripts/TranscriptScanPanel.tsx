@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { adminFetch } from '@/lib/admin-fetch';
 
 interface ProcessedTranscript {
   fileId: string;
@@ -41,9 +42,8 @@ export default function TranscriptScanPanel() {
     setResult(null);
     setOpen(true);
     try {
-      const res = await fetch('/api/admin/transcripts/scan', {
+      const res = await adminFetch('/api/admin/transcripts/scan', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
       const data = await res.json();
