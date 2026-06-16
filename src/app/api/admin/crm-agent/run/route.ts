@@ -19,7 +19,7 @@ import 'server-only';
 export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/api-auth';
+import { requireSection } from '@/lib/api-auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import {
@@ -330,7 +330,7 @@ function suggestAction(auth: AuthorityRecord, today: TodayActivity): string {
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const denied = await requireAdminApi(request);
+  const denied = await requireSection(request, 'municipal');
   if (denied) return denied;
 
   let body: { dryRun?: boolean } = {};

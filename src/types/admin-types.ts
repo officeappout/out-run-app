@@ -186,6 +186,9 @@ export interface Authority {
     // Geographic cluster (from official cluster map, Step 5)
     cluster?: string;
 
+    /** Internal OUT team member responsible for this authority (ownerId from users collection) */
+    ownerId?: string;
+
     // BI KPI Configuration
     kpiSettings?: KpiSettings;
 

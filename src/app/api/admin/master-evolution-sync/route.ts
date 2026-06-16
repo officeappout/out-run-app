@@ -6,13 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/api-auth';
+import { requireSection } from '@/lib/api-auth';
 import { runMasterEvolutionSync } from '@/features/admin/services/master-evolution-sync.service';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const denied = await requireAdminApi(request);
+  const denied = await requireSection(request, 'system');
   if (denied) return denied;
   try {
     console.log('[API] Starting Master Evolution Sync...');
