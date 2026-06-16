@@ -64,6 +64,10 @@ export interface RoadmapItem {
   assigneeName: string | null;
   assigneePhotoURL?: string | null;
   priority: RoadmapPriority | null;
+  /** ISO string — explicit start date (for Gantt bar left edge) */
+  startDate?: string | null;
+  /** ISO string — creation timestamp (Gantt fallback when startDate absent) */
+  createdAt?: string | null;
   dueDate: string | null;   // ISO string
   parentGoalId: string | null;
   sourceRef: RoadmapSourceRef;

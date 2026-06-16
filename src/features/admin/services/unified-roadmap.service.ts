@@ -39,6 +39,8 @@ function fromProductTask(task: ProductTask): RoadmapItem {
     assigneeName: task.assignedToName ?? null,
     assigneePhotoURL: null,
     priority: task.priority ?? null,
+    startDate: task.startDate ? task.startDate.toISOString() : null,
+    createdAt: task.createdAt ? task.createdAt.toISOString() : null,
     dueDate: task.dueDate ? task.dueDate.toISOString() : null,
     parentGoalId: null,
     sourceRef: {
@@ -54,6 +56,8 @@ function fromAuthorityTask(
 ): RoadmapItem {
   const status = typeof task.status === 'string' ? task.status : 'pending';
   const dueDate = typeof task.dueDate === 'string' ? task.dueDate : null;
+  const toIso = (v: unknown): string | null =>
+    typeof v === 'string' ? v : null;
   return {
     id: typeof task.id === 'string' ? task.id : '',
     domain: 'sales' as RoadmapDomain,
@@ -66,6 +70,8 @@ function fromAuthorityTask(
     priority: (['critical', 'high', 'medium', 'low'].includes(task.priority as string)
       ? task.priority as RoadmapItem['priority']
       : null),
+    startDate: toIso(task.startDate),
+    createdAt: toIso(task.createdAt),
     dueDate,
     parentGoalId: typeof task.parentGoalId === 'string' ? task.parentGoalId : null,
     sourceRef: {
