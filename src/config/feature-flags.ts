@@ -40,12 +40,18 @@ export const ROOT_ADMIN_EMAILS: string[] = ROOT_ADMIN_ENV
       'office@appout.co.il',
     ];
 
+// Hardcoded safety net — mirrors ROOT_ADMIN_EMAIL_REGEX in firebase-admin.ts.
+// Ensures david@ and office@ are always recognized even if NEXT_PUBLIC_ROOT_ADMIN_EMAILS
+// is misconfigured or missing from the deployment environment.
+const CORE_ROOT_ADMIN_REGEX = /^(david|office)@appout\.co\.il$/i;
+
 /**
  * Check if an email is a Root Admin (ENV-defined, highest authority).
  */
 export function isRootAdmin(email: string | null | undefined): boolean {
   if (!email) return false;
-  return ROOT_ADMIN_EMAILS.includes(email.toLowerCase().trim());
+  const normalized = email.toLowerCase().trim();
+  return CORE_ROOT_ADMIN_REGEX.test(normalized) || ROOT_ADMIN_EMAILS.includes(normalized);
 }
 
 // ============================================================================
