@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Search, X, LayoutGrid, Columns, Users, Filter, Wallet, CalendarDays } from 'lucide-react';
+import { Search, X, LayoutGrid, Columns, Users, Filter, Wallet, CalendarDays, Layers } from 'lucide-react';
 import { AuthorityType, PipelineStatus, PIPELINE_STATUS_LABELS } from '@/types/admin-types';
 import { getAllSuperAdmins, AdminUser } from '@/features/admin/services/admin-management.service';
+
+const CLUSTER_OPTIONS = [
+  'גליל ועמקים',
+  'גליל מערבי',
+  'גליל מזרחי',
+  'יהודה ושומרון',
+  'המפרץ',
+  'השרון',
+  'כנרת ועמקים',
+  'נגב מזרחי',
+  'נגב מערבי',
+  'מישור החוף',
+  'שורק דרומי',
+  'בית הכרם',
+  "ג'וינט - מנוהל נפרד",
+];
 
 export type ViewMode = 'grouped' | 'flat' | 'board';
 
@@ -13,6 +29,7 @@ interface AuthorityFiltersProps {
   pipelineStatusFilter: PipelineStatus | 'all';
   overdueInstallmentsFilter: boolean;
   authorityIdsFilter: string[] | null;
+  clusterFilter: string;
   onTypeFilterChange: (filter: AuthorityType | 'all') => void;
   onViewModeChange: (mode: ViewMode) => void;
   onSearchChange: (query: string) => void;
@@ -20,6 +37,7 @@ interface AuthorityFiltersProps {
   onPipelineStatusFilterChange: (status: PipelineStatus | 'all') => void;
   onOverdueInstallmentsFilterChange: (enabled: boolean) => void;
   onClearAuthorityIdsFilter?: () => void;
+  onClusterFilterChange: (cluster: string) => void;
 }
 
 export default function AuthorityFilters({
@@ -30,6 +48,7 @@ export default function AuthorityFilters({
   pipelineStatusFilter,
   overdueInstallmentsFilter,
   authorityIdsFilter,
+  clusterFilter,
   onTypeFilterChange,
   onViewModeChange,
   onSearchChange,
@@ -37,6 +56,7 @@ export default function AuthorityFilters({
   onPipelineStatusFilterChange,
   onOverdueInstallmentsFilterChange,
   onClearAuthorityIdsFilter,
+  onClusterFilterChange,
 }: AuthorityFiltersProps) {
   const [systemAdmins, setSystemAdmins] = useState<AdminUser[]>([]);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
@@ -124,6 +144,22 @@ export default function AuthorityFilters({
                 <option key={status} value={status}>
                   {PIPELINE_STATUS_LABELS[status]}
                 </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Cluster Filter */}
+          <div className="flex items-center gap-2">
+            <Layers size={16} className="text-gray-500" />
+            <label className="text-sm font-bold text-gray-700">אשכול:</label>
+            <select
+              value={clusterFilter}
+              onChange={(e) => onClusterFilterChange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none text-black bg-white text-sm"
+            >
+              <option value="">הכל</option>
+              {CLUSTER_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>

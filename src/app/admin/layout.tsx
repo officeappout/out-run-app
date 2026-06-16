@@ -682,7 +682,7 @@ function AdminLayoutInner({
                                     <SidebarLink href="/admin/master-roadmap" icon={LayoutGrid} label="מפת דרכים מאוחדת" />
                                     <SidebarLink href="/admin/roadmap" icon={ListTodo} label="roadmap פיתוח" />
                                     {!isSystemAdminOnly && (
-                                        <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות — CRM" />
+                                        <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול מכירות (CRM)" />
                                     )}
                                 </div>
                             )}
@@ -693,7 +693,6 @@ function AdminLayoutInner({
                                     <SectionHeader sectionId="municipal" icon={Building2} label="ניהול עירוני" colorClass={VERTICAL_THEMES.municipal.sidebarIcon} />
                                     {expandedSections.has('municipal') && (
                                         <div className="pr-2 space-y-0.5 pb-2 border-r-2 border-blue-700/40 mr-2">
-                                            <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות — CRM" />
                                             <SidebarLink
                                                 href="/admin/authority/units?type=municipal"
                                                 icon={Users}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Phone, AlertCircle, User } from 'lucide-react';
+import { Building2, Phone, AlertCircle, User, Trees } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -31,6 +31,7 @@ interface AuthoritiesKanbanBoardProps {
   pipelineStatusFilter?: PipelineStatus | 'all';
   adminInfo?: { adminId: string; adminName: string };
   onAuthorityUpdated?: () => void;
+  parkCountMap?: Map<string, number>;
 }
 
 // Pipeline status order for columns (draft appears first as a "database" column)
@@ -43,6 +44,7 @@ export default function AuthoritiesKanbanBoard({
   pipelineStatusFilter = 'all',
   adminInfo,
   onAuthorityUpdated,
+  parkCountMap,
 }: AuthoritiesKanbanBoardProps) {
   const [boardAuthorities, setBoardAuthorities] = useState<Authority[]>(authorities);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -147,6 +149,7 @@ export default function AuthoritiesKanbanBoard({
             key={column.status}
             column={column}
             onOpenDrawer={onOpenDrawer}
+            parkCountMap={parkCountMap}
           />
         ))}
       </div>
@@ -163,9 +166,10 @@ interface KanbanCardProps {
   authority: Authority;
   index: number;
   onClick: () => void;
+  parkCountMap?: Map<string, number>;
 }
 
-function KanbanCard({ authority, index, onClick }: KanbanCardProps) {
+function KanbanCard({ authority, index, onClick, parkCountMap }: KanbanCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: authority.id,
   });
@@ -186,12 +190,13 @@ function KanbanCard({ authority, index, onClick }: KanbanCardProps) {
       {...listeners}
       {...attributes}
     >
-      <KanbanCardContent authority={authority} />
+      <KanbanCardContent authority={authority} parkCountMap={parkCountMap} />
     </motion.div>
   );
 }
 
-function KanbanCardContent({ authority, isDragging = false }: { authority: Authority; isDragging?: boolean }) {
+function KanbanCardContent({ authority, isDragging = false, parkCountMap }: { authority: Authority; isDragging?: boolean; parkCountMap?: Map<string, number> }) {
+  const parkCount = parkCountMap?.get(authority.id) ?? 0;
   const primaryContact = getPrimaryContact(authority);
   const hasOverdue = hasOverdueTasks(authority);
   const openTasksCount = authority.tasks?.filter(
@@ -231,11 +236,18 @@ function KanbanCardContent({ authority, isDragging = false }: { authority: Autho
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-gray-900 text-sm truncate">{authority.name}</h4>
-          {authority.isActiveClient && (
-            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">
-              לקוח פעיל
-            </span>
-          )}
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {authority.isActiveClient && (
+              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">
+                לקוח פעיל
+              </span>
+            )}
+            {authority.cluster && (
+              <span className="px-1.5 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-[10px] font-semibold">
+                {authority.cluster}
+              </span>
+            )}
+          </div>
         </div>
         {hasOverdue && (
           <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold flex-shrink-0">
@@ -262,13 +274,21 @@ function KanbanCardContent({ authority, isDragging = false }: { authority: Autho
         </div>
       )}
 
-      {/* Footer: Tasks & Assignees */}
+      {/* Footer: Tasks, Parks & Assignees */}
       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-        {openTasksCount > 0 && (
-          <span className={`text-xs font-medium ${hasOverdue ? 'text-red-600' : 'text-gray-500'}`}>
-            {openTasksCount} משימות
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {openTasksCount > 0 && (
+            <span className={`text-xs font-medium ${hasOverdue ? 'text-red-600' : 'text-gray-500'}`}>
+              {openTasksCount} משימות
+            </span>
+          )}
+          {parkCount > 0 && (
+            <span className="flex items-center gap-0.5 text-xs text-emerald-600 font-medium">
+              <Trees size={12} />
+              {parkCount}
+            </span>
+          )}
+        </div>
         
         {assignees.length > 0 && (
           <div className="flex items-center gap-1">
@@ -294,6 +314,7 @@ function KanbanCardContent({ authority, isDragging = false }: { authority: Autho
 function KanbanColumn({
   column,
   onOpenDrawer,
+  parkCountMap,
 }: {
   column: {
     status: PipelineStatus;
@@ -302,6 +323,7 @@ function KanbanColumn({
     authorities: Authority[];
   };
   onOpenDrawer: (authority: Authority) => void;
+  parkCountMap?: Map<string, number>;
 }) {
   const { setNodeRef } = useDroppable({ id: `column-${column.status}` });
 
@@ -330,6 +352,7 @@ function KanbanColumn({
               authority={authority}
               index={index}
               onClick={() => onOpenDrawer(authority)}
+              parkCountMap={parkCountMap}
             />
           ))
         )}
