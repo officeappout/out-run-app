@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, SkipForward, Trophy, Skull, Clock } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, Trophy, Skull, Clock } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { CrmScanResult } from '@/app/api/admin/crm-agent/run/route';
@@ -24,7 +24,6 @@ export default function CrmAgentPanel() {
   const [lastRunSource, setLastRunSource] = useState<'live' | 'saved' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
-  const [showSkipped, setShowSkipped] = useState(false);
 
   // Load today's saved run from Firestore on mount
   useEffect(() => {
@@ -254,45 +253,7 @@ export default function CrmAgentPanel() {
                 </div>
               )}
 
-              {/* Skipped threads ─────────────────────────────────────── */}
-              {result.skipped.length > 0 && (
-                <section>
-                  {/* Summary line */}
-                  <p className="flex items-center gap-1.5 text-sm text-gray-400">
-                    <SkipForward size={14} />
-                    דולגו: {result.skipped.length} threads —{' '}
-                    {Object.entries(
-                      result.skipped.reduce<Record<string, number>>((acc, s) => {
-                        const key = s.reason ?? 'other';
-                        acc[key] = (acc[key] ?? 0) + 1;
-                        return acc;
-                      }, {})
-                    )
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 3)
-                      .map(([reason, count]) => `${reason} (${count})`)
-                      .join(' · ')}
-                  </p>
-                  {/* Debug list — collapsed by default */}
-                  <button
-                    onClick={() => setShowSkipped(s => !s)}
-                    className="mt-1 text-xs text-gray-300 hover:text-gray-400 transition-colors"
-                  >
-                    {showSkipped ? '▲ הסתר פירוט' : '▼ debug'}
-                  </button>
-                  {showSkipped && (
-                    <div className="mt-1 space-y-1">
-                      {result.skipped.map((s, i) => (
-                        <div key={i} className="flex items-start gap-2 px-3 py-1.5 bg-gray-50 rounded-lg text-xs text-gray-500">
-                          <span className="text-gray-300">[{s.mailbox.split('@')[0]}]</span>
-                          <span className="truncate max-w-xs">{s.subject}</span>
-                          <span className="text-gray-300 mr-auto shrink-0">{s.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
+
 
               {/* Needs attention ─────────────────────────────────────── */}
               {result.needsAttention.length > 0 && (
