@@ -30,7 +30,15 @@ export interface AuthorityWithSubLocations extends Authority {
 // Sub-location stats type
 export type SubLocationStats = Map<string, { parksCount: number; usersCount: number }>;
 
-export function useAuthorities() {
+/**
+ * verticalTypes — when provided, restricts the Firestore query to authorities
+ * whose type is in the list. This enforces vertical scoping at the query level
+ * (the server never sends documents outside the allowed types).
+ *
+ * Pass `undefined` while the caller's role is still loading (the listener will
+ * not start yet). Pass `null` for no restriction (super admin / no filter).
+ */
+export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
   const [authorities, setAuthorities] = useState<Authority[]>([]);
   const [enhancedAuthorities, setEnhancedAuthorities] = useState<AuthorityWithSubLocations[]>([]);
   const [groupedData, setGroupedData] = useState<{
@@ -177,11 +185,13 @@ export function useAuthorities() {
 
   // ── Real-time Firestore listener (single source of truth) ─────────
   useEffect(() => {
+    // Wait until caller's role has resolved (undefined = still loading)
+    if (verticalTypes === undefined) return;
+
     setLoading(true);
-    const q = query(
-      collection(db, 'authorities'),
-      orderBy('name', 'asc')
-    );
+    const q = verticalTypes && verticalTypes.length > 0
+      ? query(collection(db, 'authorities'), where('type', 'in', verticalTypes), orderBy('name', 'asc'))
+      : query(collection(db, 'authorities'), orderBy('name', 'asc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allData = sortAuthoritiesByUrgency(
@@ -199,7 +209,7 @@ export function useAuthorities() {
     });
 
     return () => unsubscribe();
-  }, [processAuthoritiesData]);
+  }, [verticalTypes, processAuthoritiesData]);
 
   // ── loadAuthorities kept ONLY for seed/repair bulk ops ────────────
   // onSnapshot handles all normal CRUD; this is a manual fallback.

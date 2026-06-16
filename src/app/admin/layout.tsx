@@ -244,6 +244,7 @@ function AdminLayoutInner({
                     isTenantOwner: false,
                     authorityIds: [],
                     isApproved: false,
+                    allowedSections: [],
                 });
                 setOnlyAuthorityManager(false);
                 setIsSystemAdminOnly(false);
@@ -341,6 +342,7 @@ function AdminLayoutInner({
                     isTenantOwner: false,
                     authorityIds: [],
                     isApproved: false,
+                    allowedSections: [],
                 });
                 setOnlyAuthorityManager(false);
                 setIsSystemAdminOnly(false);
@@ -364,7 +366,18 @@ function AdminLayoutInner({
     const showAuthorityManagerLink = isAuthorityManager || isTenantOwnerOnly;
     const tenantLabels = getTenantLabels(authorityTypeToTenantType(authorityType));
     const verticalAdminVertical = roleInfo?.managedVertical;
-    
+    const sectionAllowList: string[] = roleInfo?.allowedSections ?? [];
+
+    // hasSec: returns true when the current user may see this nav section.
+    // Rules: super/system admin → always yes; vertical admin → use existing VA logic;
+    // allowedSections empty → no restriction (backwards compat); otherwise check list.
+    const hasSec = (key: string): boolean => {
+      if (isSuperAdmin || isSystemAdmin) return true;
+      if (isVerticalAdminOnly) return true; // VA visibility is governed by verticalAdminVertical checks below
+      if (sectionAllowList.length === 0) return true;
+      return sectionAllowList.includes(key);
+    };
+
     // Route protection — strict allowlist for Authority Managers, Tenant Owners & Vertical Admins
     useEffect(() => {
         if (!loading && roleInfo) {
@@ -630,8 +643,8 @@ function AdminLayoutInner({
                         /* Full sidebar for Super Admins — 3 clean groups */
                         <div className="space-y-1">
                             {/* ═══ Group 1: אסטרטגיה ומבט על ═══ */}
-                            <SectionHeader sectionId="strategy" icon={TrendingUp} label="אסטרטגיה ומבט על" />
-                            {expandedSections.has('strategy') && (
+                            {hasSec('strategy') && <SectionHeader sectionId="strategy" icon={TrendingUp} label="אסטרטגיה ומבט על" />}
+                            {hasSec('strategy') && expandedSections.has('strategy') && (
                                 <div className="pr-2 space-y-0.5 pb-2">
                                     <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד ראשי" />
                                     <SidebarLink href="/admin/roadmap" icon={ListTodo} label="מפת דרכים ופידבקים" />
@@ -639,7 +652,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* ═══ Vertical 1: ניהול עירוני (Municipal Management) ═══ */}
-                            {!isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'municipal') && (
+                            {hasSec('municipal') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'municipal') && (
                                 <>
                                     <SectionHeader sectionId="municipal" icon={Building2} label="ניהול עירוני" colorClass={VERTICAL_THEMES.municipal.sidebarIcon} />
                                     {expandedSections.has('municipal') && (
@@ -669,7 +682,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* ═══ Vertical 2: צי צבאי (Military Fleet) ═══ */}
-                            {!isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'military') && (
+                            {hasSec('military') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'military') && (
                                 <>
                                     <SectionHeader sectionId="military" icon={ShieldCheck} label="צי צבאי" colorClass={VERTICAL_THEMES.military.sidebarIcon} />
                                     {expandedSections.has('military') && (
@@ -693,7 +706,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* ═══ Vertical 3: רשת חינוכית (Educational Network) ═══ */}
-                            {!isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'educational') && (
+                            {hasSec('educational') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'educational') && (
                                 <>
                                     <SectionHeader sectionId="educational" icon={GraduationCap} label="רשת חינוכית" colorClass={VERTICAL_THEMES.educational.sidebarIcon} />
                                     {expandedSections.has('educational') && (
@@ -712,7 +725,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* ═══ ניהול ארגונים (Organization Management) ═══ */}
-                            {!isSystemAdminOnly && (!isVerticalAdminOnly || true) && (
+                            {hasSec('platform') && !isSystemAdminOnly && (!isVerticalAdminOnly || true) && (
                                 <>
                                     <SectionHeader sectionId="platform" icon={Globe} label="ניהול ארגונים" />
                                     {expandedSections.has('platform') && (
@@ -726,7 +739,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* Section 3: ליבת האפליקציה (App Core) */}
-                            {!onlyAuthorityManager && !isVerticalAdminOnly && (
+                            {hasSec('appCore') && !onlyAuthorityManager && !isVerticalAdminOnly && (
                                 <>
                                     <SectionHeader sectionId="appCore" icon={Zap} label="ליבת האפליקציה" />
                                     {expandedSections.has('appCore') && (
@@ -762,7 +775,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* Section: ריצה (Running Engine) */}
-                            {!onlyAuthorityManager && !isVerticalAdminOnly && (
+                            {hasSec('running') && !onlyAuthorityManager && !isVerticalAdminOnly && (
                                 <>
                                     <SectionHeader sectionId="running" icon={Footprints} label="מנוע ריצה" />
                                     {expandedSections.has('running') && (
@@ -777,7 +790,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* Section 4: סטודיו והפקה (Production Hub) */}
-                            {!onlyAuthorityManager && !isVerticalAdminOnly && (
+                            {hasSec('production') && !onlyAuthorityManager && !isVerticalAdminOnly && (
                                 <>
                                     <SectionHeader sectionId="production" icon={Camera} label="סטודיו והפקה" />
                                     {expandedSections.has('production') && (
@@ -790,7 +803,7 @@ function AdminLayoutInner({
                             )}
 
                             {/* Section 5: שפה, מיתוג ותקשורת (Brand & Comm) */}
-                            {!onlyAuthorityManager && !isVerticalAdminOnly && (
+                            {hasSec('brandComm') && !onlyAuthorityManager && !isVerticalAdminOnly && (
                                 <>
                                     <SectionHeader sectionId="brandComm" icon={Megaphone} label="שפה, מיתוג ותקשורת" />
                                     {expandedSections.has('brandComm') && (
@@ -806,8 +819,8 @@ function AdminLayoutInner({
                             )}
 
                             {/* Section 6: ניהול מערכת (System) */}
-                            {!isVerticalAdminOnly && <SectionHeader sectionId="system" icon={Settings} label="ניהול מערכת" />}
-                            {!isVerticalAdminOnly && expandedSections.has('system') && (
+                            {hasSec('system') && !isVerticalAdminOnly && <SectionHeader sectionId="system" icon={Settings} label="ניהול מערכת" />}
+                            {hasSec('system') && !isVerticalAdminOnly && expandedSections.has('system') && (
                                 <div className="pr-2 space-y-0.5 pb-2">
                     {!isSystemAdminOnly && (
                         <SidebarLink href="/admin/admins-management" icon={Shield} label="מנהלי מערכת" />

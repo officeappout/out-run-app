@@ -122,6 +122,17 @@ export async function requireSection(
 
   if (core.isSuperAdmin === true) return null;
 
+  // Vertical admin implicitly has their managed vertical's section
+  if (core.isVerticalAdmin === true) {
+    const VERTICAL_SECTION: Record<string, string> = {
+      municipal: 'municipal',
+      military: 'military',
+      educational: 'educational',
+    };
+    const implied = VERTICAL_SECTION[core.managedVertical as string ?? ''];
+    if (implied === sectionKey) return null;
+  }
+
   const allowedSections = Array.isArray(core.allowedSections)
     ? (core.allowedSections as string[])
     : [];
