@@ -15,6 +15,7 @@ interface ProcessedTranscript {
   authorityName: string | null;
   transcriptUrl: string;
   movedToProcessed: boolean;
+  tasksCreated: number;
 }
 
 interface SkippedTranscript {
@@ -120,7 +121,14 @@ export default function TranscriptScanPanel() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">📄 {t.fileName}</p>
                   {t.authorityName ? (
-                    <p className="text-xs text-violet-700 mt-0.5 font-medium">🏛 {t.authorityName}</p>
+                    <p className="text-xs text-violet-700 mt-0.5 font-medium flex items-center gap-2">
+                      <span>🏛 {t.authorityName}</span>
+                      {t.tasksCreated > 0 && (
+                        <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full text-[10px]">
+                          +{t.tasksCreated} משימות
+                        </span>
+                      )}
+                    </p>
                   ) : (
                     <p className="text-xs text-gray-400 mt-0.5">לא שויך לרשות</p>
                   )}
