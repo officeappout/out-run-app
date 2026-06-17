@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat /Users/calisthenicsltd/Desktop/Development/Projects/appout-1/.claude/knowledge/project-state.md 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat /Users/calisthenicsltd/Desktop/Development/Projects/appout-1/.claude/knowledge/project-state.md 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[auto-compact $(date '+%Y-%m-%dT%H:%M')]\" >> /Users/calisthenicsltd/Desktop/Development/Projects/appout-1/.claude/knowledge/compaction-log.txt 2>/dev/null || true",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
