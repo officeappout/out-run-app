@@ -8,10 +8,11 @@
  * Returns RoadmapItem[] normalised to the shared contract.
  * Writes always go back to the originating domain via sourceRef.
  */
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAllTasks } from './product-roadmap.service';
 import { getAllAuthorities } from './authority.service';
+import { getAllGoals, type StoredGoal } from './roadmap-goals.service';
 import type { ProductTask } from '@/types/product-roadmap.types';
 import type { Authority } from '@/types/admin-types';
 import type { AdminUser } from './admin-management.service';
@@ -27,6 +28,36 @@ import {
 } from '@/types/roadmap-unified.types';
 
 // ─── Normalise helpers ────────────────────────────────────────────────────────
+
+function fromStoredGoal(g: StoredGoal): RoadmapItem {
+  return {
+    id: g.id,
+    domain: g.domain,
+    title: g.title,
+    status: g.status,
+    nativeStatus: g.status,
+    assigneeId: g.assigneeId,
+    assigneeName: g.assigneeName,
+    assigneePhotoURL: null,
+    priority: g.priority,
+    startDate: g.startDate,
+    createdAt: g.createdAt,
+    dueDate: g.dueDate ?? null,
+    parentGoalId: g.parentGoalId,
+    sourceRef: { collection: 'roadmap_goals', docId: g.id },
+    isGoal: true,
+    goalType: g.goalType,
+    theme: g.theme,
+    milestoneDate: g.milestoneDate,
+    targetValue: g.targetValue,
+    currentValue: g.currentValue,
+    unit: g.unit,
+    rollupStartDate: null,
+    rollupDueDate: null,
+    rollupProgress: null,
+    children: [],
+  };
+}
 
 function fromProductTask(task: ProductTask): RoadmapItem {
   return {
@@ -139,26 +170,83 @@ function enrichWithPhotos(items: RoadmapItem[], admins: AdminUser[]): RoadmapIte
   return items.map(i => ({
     ...i,
     assigneePhotoURL: i.assigneeId ? (photoMap.get(i.assigneeId) ?? null) : null,
+    children: i.children?.map(c => ({
+      ...c,
+      assigneePhotoURL: c.assigneeId ? (photoMap.get(c.assigneeId) ?? null) : null,
+    })),
   }));
+}
+
+// ─── Hierarchy + rollup ───────────────────────────────────────────────────────
+
+/**
+ * Attach child items to each goal and compute rollup dates + progress.
+ * Returns the flat array with goals enriched in-place (children[] populated).
+ */
+function buildHierarchyAndRollup(goals: RoadmapItem[], tasks: RoadmapItem[]): void {
+  // Build child lookup: parentGoalId → items
+  const childMap = new Map<string, RoadmapItem[]>();
+  [...goals, ...tasks].forEach(item => {
+    if (item.parentGoalId) {
+      const list = childMap.get(item.parentGoalId) ?? [];
+      list.push(item);
+      childMap.set(item.parentGoalId, list);
+    }
+  });
+
+  goals.forEach(goal => {
+    const children = childMap.get(goal.id) ?? [];
+    goal.children = children;
+
+    if (children.length === 0) {
+      goal.rollupStartDate = goal.startDate ?? null;
+      goal.rollupDueDate = goal.dueDate ?? null;
+    } else {
+      // Rollup dates: min start, max end
+      const starts = children
+        .map(c => c.startDate ?? c.createdAt)
+        .filter((s): s is string => !!s);
+      const ends = children
+        .map(c => c.dueDate)
+        .filter((e): e is string => !!e);
+
+      goal.rollupStartDate = starts.length > 0
+        ? starts.reduce((a, b) => a < b ? a : b)
+        : (goal.startDate ?? null);
+      goal.rollupDueDate = ends.length > 0
+        ? ends.reduce((a, b) => a > b ? a : b)
+        : (goal.dueDate ?? null);
+    }
+
+    // Rollup progress
+    if (goal.goalType === 'metric' && goal.targetValue != null && goal.targetValue > 0) {
+      goal.rollupProgress = Math.round(((goal.currentValue ?? 0) / goal.targetValue) * 100);
+    } else if (children.length > 0) {
+      const done = children.filter(c => c.status === 'done' || c.status === 'cancelled').length;
+      goal.rollupProgress = Math.round((done / children.length) * 100);
+    } else {
+      goal.rollupProgress = goal.status === 'done' ? 100 : 0;
+    }
+  });
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Fetch all items from dev + sales domains, normalise to RoadmapItem[],
- * apply optional filters, and sort by priority + dueDate.
- *
- * Marketing domain is not yet populated (collection marketing_tasks not seeded),
- * but the normaliser is ready when that collection is built.
+ * Fetch all items from dev + sales domains + roadmap_goals, normalise to RoadmapItem[],
+ * build hierarchy (children[] + rollup), apply filters, and sort by priority + dueDate.
  */
 export async function getUnifiedRoadmap(
   filters: RoadmapFilters = {},
   admins: AdminUser[] = [],
 ): Promise<RoadmapItem[]> {
-  const [devTasks, authorities] = await Promise.all([
+  const [devTasks, authorities, goals] = await Promise.all([
     getAllTasks(),
     getAllAuthorities(),
+    getAllGoals(),
   ]);
+
+  const goalItems = goals.map(fromStoredGoal);
 
   const devItems = devTasks.map(fromProductTask);
 
@@ -167,7 +255,12 @@ export async function getUnifiedRoadmap(
     return tasks.map(t => fromAuthorityTask(t as unknown as Record<string, unknown>, auth.id));
   });
 
-  const all = [...devItems, ...salesItems];
+  const taskItems = [...devItems, ...salesItems];
+
+  // Build hierarchy (mutates goalItems in-place)
+  buildHierarchyAndRollup(goalItems, taskItems);
+
+  const all = [...goalItems, ...taskItems];
   const enriched = admins.length > 0 ? enrichWithPhotos(all, admins) : all;
   const filtered = applyFilters(enriched, filters);
   return sortItems(filtered);
@@ -239,6 +332,19 @@ export async function updateRoadmapItem(
     parentGoalId?: string | null;
   },
 ): Promise<void> {
+  if (item.sourceRef.collection === 'roadmap_goals') {
+    const patch: Record<string, unknown> = { updatedAt: Timestamp.now() };
+    if (updates.title !== undefined) patch.title = updates.title;
+    if (updates.status !== undefined) patch.status = updates.status;
+    if (updates.priority !== undefined) patch.priority = updates.priority;
+    if (updates.assigneeId !== undefined) patch.assigneeId = updates.assigneeId;
+    if (updates.assigneeName !== undefined) patch.assigneeName = updates.assigneeName;
+    if (updates.dueDate !== undefined) patch.dueDate = updates.dueDate;
+    if (updates.parentGoalId !== undefined) patch.parentGoalId = updates.parentGoalId;
+    await updateDoc(doc(db, 'roadmap_goals', item.sourceRef.docId), patch);
+    return;
+  }
+
   if (item.domain === 'dev') {
     const patch: Record<string, unknown> = { updatedAt: serverTimestamp() };
     if (updates.title !== undefined) patch.title = updates.title;

@@ -20,6 +20,9 @@ import {
   CalendarDays,
 } from 'lucide-react';
 import MasterRoadmapTimeline from './MasterRoadmapTimeline';
+import RoadmapDrawer from './RoadmapDrawer';
+import { createGoal } from '@/features/admin/services/roadmap-goals.service';
+import { Plus } from 'lucide-react';
 import { getUnifiedRoadmap, updateRoadmapItemStatus } from '@/features/admin/services/unified-roadmap.service';
 import { getAllSuperAdmins, AdminUser } from '@/features/admin/services/admin-management.service';
 import type { RoadmapItem, RoadmapDomain, CommonStatus, RoadmapFilters } from '@/types/roadmap-unified.types';
@@ -294,6 +297,8 @@ export default function MasterRoadmapPage() {
   const [doneItemId, setDoneItemId] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const [view, setView] = useState<'board' | 'timeline'>('board');
+  const [drawerItem, setDrawerItem] = useState<RoadmapItem | null>(null);
+  const [creatingGoal, setCreatingGoal] = useState(false);
 
   // Filter state
   const [selectedDomains, setSelectedDomains] = useState<RoadmapDomain[]>([]);
@@ -447,6 +452,40 @@ export default function MasterRoadmapPage() {
           </div>
 
           <button
+            onClick={async () => {
+              setCreatingGoal(true);
+              try {
+                const id = await createGoal({
+                  title: 'יעד חדש',
+                  goalType: 'project',
+                  domain: 'sales',
+                  status: 'todo',
+                  priority: null,
+                  assigneeId: null,
+                  assigneeName: null,
+                  parentGoalId: null,
+                });
+                await load();
+                // open drawer for the new goal
+                setItems(prev => {
+                  const newGoal = prev.find(i => i.id === id);
+                  if (newGoal) setDrawerItem(newGoal);
+                  return prev;
+                });
+              } catch (e) {
+                console.error('Failed to create goal', e);
+              } finally {
+                setCreatingGoal(false);
+              }
+            }}
+            disabled={creatingGoal}
+            className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-50 transition-all"
+          >
+            {creatingGoal ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            יעד חדש
+          </button>
+
+          <button
             onClick={() => load()}
             disabled={loading}
             className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all"
@@ -519,7 +558,7 @@ export default function MasterRoadmapPage() {
           <Loader2 size={32} className="animate-spin text-slate-400" />
         </div>
       ) : view === 'timeline' ? (
-        <MasterRoadmapTimeline items={items} />
+        <MasterRoadmapTimeline items={items} onSelect={setDrawerItem} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {ALL_DOMAINS.map(domain => (
@@ -551,6 +590,17 @@ export default function MasterRoadmapPage() {
             נקה פילטרים
           </button>
         </div>
+      )}
+
+      {/* Drawer */}
+      {drawerItem && (
+        <RoadmapDrawer
+          item={drawerItem}
+          goals={items.filter(i => i.isGoal)}
+          admins={admins}
+          onClose={() => setDrawerItem(null)}
+          onSaved={() => { setDrawerItem(null); load(); }}
+        />
       )}
 
       {/* Legend */}

@@ -71,6 +71,25 @@ export interface RoadmapItem {
   dueDate: string | null;   // ISO string
   parentGoalId: string | null;
   sourceRef: RoadmapSourceRef;
+
+  // ── Goal / Epic fields (only set when isGoal = true) ─────────────────────────
+  isGoal?: boolean;
+  goalType?: 'project' | 'metric';
+  /** Lane key override — supersedes domain→lane default mapping */
+  theme?: string | null;
+  milestoneDate?: string | null;
+  targetValue?: number | null;
+  currentValue?: number | null;
+  unit?: string | null;
+
+  // ── Rollup (computed at read-time, never stored) ─────────────────────────────
+  rollupStartDate?: string | null;
+  rollupDueDate?: string | null;
+  /** 0–100 — for project goals: % done children; for metric: current/target */
+  rollupProgress?: number | null;
+
+  // ── Children (populated at read-time for goal items) ─────────────────────────
+  children?: RoadmapItem[];
 }
 
 // ─── Status mapping tables ────────────────────────────────────────────────────
