@@ -1091,6 +1091,18 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // CONTENT ITEMS — Marketing Hub תור תוכן (content pipeline).
+    //
+    // All CRUD via the admin panel (/admin/marketing-hub).
+    // No public read — drafts and ideas are internal assets.
+    // Agent writes go through the Admin SDK (bypass rules) so
+    // agentGenerated items don't need an authenticated user.
+    // ============================================================
+    match /content_items/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
     // MARKETING LINKS — UTM Registry (Growth Hub)
     //
     // Written and managed EXCLUSIVELY by authenticated admins via
