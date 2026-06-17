@@ -12,9 +12,10 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 | Product + feature overview | `PRODUCT_TECHNICAL_REPORT.md` |
 | File/folder map | `PROJECT_STRUCTURE.md` |
 | Schedule algorithm | `src/features/schedule/out-run-schedule-logic-v1.3.md` |
-| Workout engine rules | `.cursoragents/Workout_Engine_Truth.md` |
-| XP / Level / Coins rules | `.cursoragents/XP_Progression_Truth.md` |
-| CRM agent playbook | `.cursoragents/CRM_Agent.md` |
+| Workout engine rules | `.claude/knowledge/workout-engine-truth.md` |
+| XP / Level / Coins rules | `.claude/knowledge/xp-progression-truth.md` |
+| CRM agent playbook | `.claude/agents/crm-agent.md` |
+| Live session state | `.claude/knowledge/project-state.md` |
 
 ---
 
@@ -49,7 +50,7 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 ---
 
 ## CRM Agent Safety Rules
-These govern the daily automated CRM scan (see `.cursoragents/CRM_Agent.md` for full playbook):
+These govern the daily automated CRM scan (see `.claude/agents/crm-agent.md` for full playbook):
 
 1. **Panel writes** (Firestore, Drive): autonomous — no confirmation needed
 2. **Gmail drafts**: allowed — agent creates drafts, never sends

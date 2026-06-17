@@ -6,15 +6,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-    LayoutDashboard, 
-    Dumbbell, 
-    ClipboardList, 
-    Package, 
-    LogOut, 
-    Shield, 
-    Users, 
-    TrendingUp, 
-    MessageCircle, 
+    LayoutDashboard,
+    Dumbbell,
+    ClipboardList,
+    Package,
+    LogOut,
+    Shield,
+    Users,
+    TrendingUp,
+    MessageCircle,
     ListTodo,
     Building2,
     Camera,
@@ -30,7 +30,6 @@ import {
     Signal,
     Flag,
     GraduationCap,
-    Footprints,
     Activity,
     GitMerge,
     GitBranch,
@@ -44,6 +43,8 @@ import {
     KeyRound,
     Globe,
     Link2,
+    Lightbulb,
+    LineChart,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -67,8 +68,8 @@ const ICON_MAP: Record<LucideIconName, React.ElementType> = {
   ClipboardCheck, Trophy, Building2, KeyRound, Shield,
 };
 
-// Section IDs for collapsible state — vertical-based for Super Admin
-type SectionId = 'strategy' | 'municipal' | 'military' | 'educational' | 'platform' | 'appCore' | 'running' | 'production' | 'brandComm' | 'system';
+// Section IDs for collapsible state — 5 global centres + 3 verticals
+type SectionId = 'strategy' | 'crm' | 'marketing' | 'product' | 'dev' | 'municipal' | 'military' | 'educational';
 
 // Helper to check if a section contains the active path
 const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgType?: string, urlType?: string): boolean => {
@@ -86,16 +87,21 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
     }
     
     const sectionPaths: Record<SectionId, string[]> = {
-        strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap', '/admin/authorities'],
+        strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
+        crm: ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
+        marketing: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
+        product: ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
+        dev: [
+            '/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs',
+            '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment',
+            '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment',
+            '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools',
+            '/admin/running',
+            '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes',
+        ],
         municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
         military: ['/admin/authority/readiness'],
         educational: ['/admin/authority/grades', '/admin/photo-release'],
-        platform: ['/admin/admin-directory', '/admin/access-codes', '/admin/organizations'],
-        appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
-        running: ['/admin/running'],
-        production: ['/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
-        brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links'],
-        system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics'],
     };
     
     const paths = sectionPaths[sectionId];
@@ -167,7 +173,7 @@ function AdminLayoutInner({
     // Auto-expand section containing active path (tenant-type-aware for shared routes)
     useEffect(() => {
         if (pathname) {
-            const sections: SectionId[] = ['strategy', 'municipal', 'military', 'educational', 'platform', 'appCore', 'running', 'production', 'brandComm', 'system'];
+            const sections: SectionId[] = ['strategy', 'crm', 'marketing', 'product', 'dev', 'municipal', 'military', 'educational'];
             for (const section of sections) {
                 if (sectionContainsPath(section, pathname, orgCtx.selectedOrgType, urlVerticalType)) {
                     setExpandedSections(prev => {
@@ -371,11 +377,20 @@ function AdminLayoutInner({
     // hasSec: returns true when the current user may see this nav section.
     // Rules: super/system admin → always yes; vertical admin → use existing VA logic;
     // allowedSections empty → deny (platform_member with no sections sees nothing).
+    // Legacy map: old Firestore section keys are aliased to the new 5-centre IDs
+    // so existing platform_member records keep working after the nav restructure.
     const hasSec = (key: string): boolean => {
       if (isSuperAdmin || isSystemAdmin) return true;
-      if (isVerticalAdminOnly) return true; // VA visibility is governed by verticalAdminVertical checks below
+      if (isVerticalAdminOnly) return true;
       if (sectionAllowList.length === 0) return false;
-      return sectionAllowList.includes(key);
+      if (sectionAllowList.includes(key)) return true;
+      const legacyMap: Record<string, string[]> = {
+        crm:      ['platform'],
+        marketing: ['brandComm', 'production'],
+        product:  ['system'],
+        dev:      ['appCore', 'running', 'system'],
+      };
+      return (legacyMap[key] ?? []).some(a => sectionAllowList.includes(a));
     };
 
     // Route protection — strict allowlist for Authority Managers, Tenant Owners & Vertical Admins
@@ -479,16 +494,23 @@ function AdminLayoutInner({
             // Platform member route protection — section-limited team members
             if (roleInfo.role === 'platform_member') {
                 const sectionPathsMap: Record<string, string[]> = {
-                    strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap', '/admin/authorities'],
+                    // ── New 5-centre IDs ──────────────────────────────────
+                    strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
+                    crm:      ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
+                    marketing: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
+                    product:  ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
+                    dev:      ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools', '/admin/running', '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes'],
+                    // ── Vertical sections (unchanged) ─────────────────────
                     municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
-                    military: ['/admin/authority/readiness'],
+                    military:  ['/admin/authority/readiness'],
                     educational: ['/admin/authority/grades', '/admin/photo-release'],
-                    platform: ['/admin/admin-directory', '/admin/access-codes', '/admin/organizations'],
-                    appCore: ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
-                    running: ['/admin/running'],
+                    // ── Legacy Firestore keys (backward compat) ───────────
+                    platform:  ['/admin/organizations', '/admin/admin-directory', '/admin/access-codes'],
+                    appCore:   ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
+                    running:   ['/admin/running'],
                     production: ['/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
                     brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links'],
-                    system: ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics'],
+                    system:    ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics', '/admin/users/all', '/admin/statistics', '/admin/insights'],
                 };
                 const publicAdminRoutes = ['/admin/auth/callback', '/admin/authority-login', '/admin/pending-approval', '/admin/login'];
                 if (publicAdminRoutes.some(p => pathname?.startsWith(p))) return;
@@ -672,22 +694,36 @@ function AdminLayoutInner({
                         );
                         })()
                     ) : showFullSidebar ? (
-                        /* Full sidebar for Super Admins — 3 clean groups */
+                        {/* ═══════════════════════════════════════════════════════
+                             Full sidebar — 5 global centres + 3 verticals
+                             ═══════════════════════════════════════════════════════ */}
                         <div className="space-y-1">
-                            {/* ═══ Group 1: אסטרטגיה ומבט על ═══ */}
-                            {hasSec('strategy') && <SectionHeader sectionId="strategy" icon={TrendingUp} label="אסטרטגיה ומבט על" />}
+
+                            {/* ── 1. אסטרטגיה / קלי ─────────────────────────── */}
+                            {hasSec('strategy') && <SectionHeader sectionId="strategy" icon={TrendingUp} label="אסטרטגיה / קלי" />}
                             {hasSec('strategy') && expandedSections.has('strategy') && (
                                 <div className="pr-2 space-y-0.5 pb-2">
                                     <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד ראשי" />
                                     <SidebarLink href="/admin/master-roadmap" icon={LayoutGrid} label="מפת דרכים מאוחדת" />
                                     <SidebarLink href="/admin/roadmap" icon={ListTodo} label="roadmap פיתוח" />
-                                    {!isSystemAdminOnly && (
-                                        <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול מכירות (CRM)" />
-                                    )}
                                 </div>
                             )}
 
-                            {/* ═══ Vertical 1: ניהול עירוני (Municipal Management) ═══ */}
+                            {/* ── 2. CRM / מכירות ────────────────────────────── */}
+                            {hasSec('crm') && !isSystemAdminOnly && (
+                                <>
+                                    <SectionHeader sectionId="crm" icon={Building2} label="CRM / מכירות" />
+                                    {expandedSections.has('crm') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות" />
+                                            <SidebarLink href="/admin/organizations" icon={Globe} label="ארגונים" />
+                                            <SidebarLink href="/admin/admin-directory" icon={Users} label="ספריית מנהלים" />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ── Vertical 1: ניהול עירוני ───────────────────── */}
                             {hasSec('municipal') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'municipal') && (
                                 <>
                                     <SectionHeader sectionId="municipal" icon={Building2} label="ניהול עירוני" colorClass={VERTICAL_THEMES.municipal.sidebarIcon} />
@@ -716,7 +752,7 @@ function AdminLayoutInner({
                                 </>
                             )}
 
-                            {/* ═══ Vertical 2: צי צבאי (Military Fleet) ═══ */}
+                            {/* ── Vertical 2: צי צבאי ────────────────────────── */}
                             {hasSec('military') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'military') && (
                                 <>
                                     <SectionHeader sectionId="military" icon={ShieldCheck} label="צי צבאי" colorClass={VERTICAL_THEMES.military.sidebarIcon} />
@@ -740,7 +776,7 @@ function AdminLayoutInner({
                                 </>
                             )}
 
-                            {/* ═══ Vertical 3: רשת חינוכית (Educational Network) ═══ */}
+                            {/* ── Vertical 3: רשת חינוכית ────────────────────── */}
                             {hasSec('educational') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'educational') && (
                                 <>
                                     <SectionHeader sectionId="educational" icon={GraduationCap} label="רשת חינוכית" colorClass={VERTICAL_THEMES.educational.sidebarIcon} />
@@ -759,25 +795,48 @@ function AdminLayoutInner({
                                 </>
                             )}
 
-                            {/* ═══ ניהול ארגונים (Organization Management) ═══ */}
-                            {hasSec('platform') && !isSystemAdminOnly && (!isVerticalAdminOnly || true) && (
+                            {/* ── 3. שיווק ותוכן ─────────────────────────────── */}
+                            {hasSec('marketing') && !onlyAuthorityManager && !isVerticalAdminOnly && (
                                 <>
-                                    <SectionHeader sectionId="platform" icon={Globe} label="ניהול ארגונים" />
-                                    {expandedSections.has('platform') && (
+                                    <SectionHeader sectionId="marketing" icon={Megaphone} label="שיווק ותוכן" />
+                                    {expandedSections.has('marketing') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/organizations" icon={Globe} label="ארגונים — CRM" />
-                                            <SidebarLink href="/admin/admin-directory" icon={Users} label="ספריית מנהלים" />
-                                            <SidebarLink href="/admin/access-codes" icon={KeyRound} label="קודי גישה" />
+                                            <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
+                                            <SidebarLink href="/admin/content-matrix" icon={Video} label="ניהול ימי צילום" />
+                                            <SidebarLink href="/admin/media-library" icon={LayoutGrid} label="מאגר מדיה" />
+                                            <SidebarLink href="/admin/messages" icon={MessageCircle} label="תקשורת חכמה" />
+                                            <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
+                                            <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראות" />
+                                            <SidebarLink href="/admin/workout-simulator" icon={FlaskConical} label="סימולטור אימונים" />
+                                            {/* Shortcut — canonical location is ניהול מוצר */}
+                                            {!isSystemAdminOnly && (
+                                                <SidebarLink href="/admin/analytics" icon={BarChart3} label="↗ משפך המרות" />
+                                            )}
                                         </div>
                                     )}
                                 </>
                             )}
 
-                            {/* Section 3: ליבת האפליקציה (App Core) */}
-                            {hasSec('appCore') && !onlyAuthorityManager && !isVerticalAdminOnly && (
+                            {/* ── 4. ניהול מוצר / צמיחה ──────────────────────── */}
+                            {hasSec('product') && !isSystemAdminOnly && !isVerticalAdminOnly && (
                                 <>
-                                    <SectionHeader sectionId="appCore" icon={Zap} label="ליבת האפליקציה" />
-                                    {expandedSections.has('appCore') && (
+                                    <SectionHeader sectionId="product" icon={LineChart} label="ניהול מוצר / צמיחה" />
+                                    {expandedSections.has('product') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/analytics" icon={BarChart3} label="משפך המרות ואנליטיקס" />
+                                            <SidebarLink href="/admin/statistics" icon={TrendingUp} label="סטטיסטיקות" />
+                                            <SidebarLink href="/admin/insights" icon={Lightbulb} label="תובנות אסטרטגיות" />
+                                            <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ── 5. פיתוח ────────────────────────────────────── */}
+                            {hasSec('dev') && !onlyAuthorityManager && !isVerticalAdminOnly && (
+                                <>
+                                    <SectionHeader sectionId="dev" icon={Zap} label="פיתוח" />
+                                    {expandedSections.has('dev') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <SidebarLink href="/admin/locations" icon={Map} label="ניהול מיקומים על המפה" />
                                             <SidebarLink href="/admin/exercises" icon={Dumbbell} label="בנק תרגילים" />
@@ -790,89 +849,40 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/progression-manager" icon={TrendingUp} label="מנהל התקדמות" />
                                             <SidebarLink href="/admin/level-equivalence" icon={Zap} label="שקילות רמות" />
                                             <SidebarLink href="/admin/schools" icon={GraduationCap} label="בתי ספר וארגונים" />
-                                            
-                                            {/* Equipment Sub-items */}
                                             <div className="pt-1 pr-2">
                                                 <p className="text-xs font-medium text-slate-500 px-4 py-1">ניהול מתקנים וכושר</p>
                                                 <SidebarLink href="/admin/gym-equipment" icon={Dumbbell} label="מתקני כושר" />
                                                 <SidebarLink href="/admin/brands" icon={Package} label="מותגי מתקנים" />
                                                 <SidebarLink href="/admin/gear-definitions" icon={Package} label="ציוד אישי" />
                                             </div>
-
-                                            {/* Demo / seed tools */}
+                                            <div className="pt-1 pr-2">
+                                                <p className="text-xs font-medium text-slate-500 px-4 py-1">מנוע ריצה</p>
+                                                <SidebarLink href="/admin/running" icon={LayoutDashboard} label="דשבורד ריצה" />
+                                                <SidebarLink href="/admin/running/pace-map" icon={Activity} label="מפת קצבים" />
+                                                <SidebarLink href="/admin/running/workouts" icon={Dumbbell} label="תבניות אימונים" />
+                                                <SidebarLink href="/admin/running/programs" icon={GitMerge} label="תוכניות והתקדמות" />
+                                            </div>
                                             <div className="pt-1 pr-2">
                                                 <p className="text-xs font-medium text-slate-500 px-4 py-1">כלי דמו</p>
                                                 <SidebarLink href="/admin/demo-seed" icon={FlaskConical} label="כלי דמו — שדרות" />
+                                            </div>
+                                            <div className="pt-1 pr-2">
+                                                <p className="text-xs font-medium text-slate-500 px-4 py-1">מערכת</p>
+                                                {!isSystemAdminOnly && (
+                                                    <SidebarLink href="/admin/admins-management" icon={Shield} label="מנהלי מערכת" />
+                                                )}
+                                                <SidebarLink href="/admin/users" icon={Shield} label="אישורים ממתינים" />
+                                                <SidebarLink href="/admin/access-codes" icon={KeyRound} label="קודי גישה" />
+                                                <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/system-settings" icon={Settings} label="הגדרות מערכת" />
+                                                )}
                                             </div>
                                         </div>
                                     )}
                                 </>
                             )}
 
-                            {/* Section: ריצה (Running Engine) */}
-                            {hasSec('running') && !onlyAuthorityManager && !isVerticalAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="running" icon={Footprints} label="מנוע ריצה" />
-                                    {expandedSections.has('running') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/running" icon={LayoutDashboard} label="דשבורד ריצה" />
-                                            <SidebarLink href="/admin/running/pace-map" icon={Activity} label="מפת קצבים" />
-                                            <SidebarLink href="/admin/running/workouts" icon={Dumbbell} label="תבניות אימונים" />
-                                            <SidebarLink href="/admin/running/programs" icon={GitMerge} label="תוכניות והתקדמות" />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* Section 4: סטודיו והפקה (Production Hub) */}
-                            {hasSec('production') && !onlyAuthorityManager && !isVerticalAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="production" icon={Camera} label="סטודיו והפקה" />
-                                    {expandedSections.has('production') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/content-matrix" icon={Video} label="ניהול ימי צילום" />
-                                            <SidebarLink href="/admin/media-library" icon={LayoutGrid} label="מאגר מדיה" />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* Section 5: שפה, מיתוג ותקשורת (Brand & Comm) */}
-                            {hasSec('brandComm') && !onlyAuthorityManager && !isVerticalAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="brandComm" icon={Megaphone} label="שפה, מיתוג ותקשורת" />
-                                    {expandedSections.has('brandComm') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/messages" icon={MessageCircle} label="תקשורת חכמה" />
-                                            <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
-                                            <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראות" />
-                                            <SidebarLink href="/admin/workout-simulator" icon={FlaskConical} label="סימולטור אימונים" />
-                                            <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* Section 6: ניהול מערכת (System) */}
-                            {hasSec('system') && !isVerticalAdminOnly && <SectionHeader sectionId="system" icon={Settings} label="ניהול מערכת" />}
-                            {hasSec('system') && !isVerticalAdminOnly && expandedSections.has('system') && (
-                                <div className="pr-2 space-y-0.5 pb-2">
-                    {!isSystemAdminOnly && (
-                        <SidebarLink href="/admin/admins-management" icon={Shield} label="מנהלי מערכת" />
-                    )}
-                    {!isSystemAdminOnly && (
-                        <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
-                    )}
-                    {!isSystemAdminOnly && (
-                        <SidebarLink href="/admin/analytics" icon={BarChart3} label="משפך המרות ואנליטיקס" />
-                    )}
-                    <SidebarLink href="/admin/users" icon={Shield} label="אישורים ממתינים" />
-                    <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />
-                    {isSuperAdmin && (
-                        <SidebarLink href="/admin/system-settings" icon={Settings} label="הגדרות מערכת" />
-                    )}
-                                </div>
-                            )}
                         </div>
                     ) : (
                         /* Fallback simplified sidebar */

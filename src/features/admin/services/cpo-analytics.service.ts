@@ -69,21 +69,30 @@ export async function getExecutiveSummary(): Promise<ExecutiveSummary> {
     const lastWeekStart = new Date(now);
     lastWeekStart.setDate(now.getDate() - 14);
 
-    // Count users created this week (using joinDate from user data)
+    // Count users created this week — joinDate is mapped from createdAt in the
+    // users service, so users missing both fields are excluded from the window.
     const thisWeekUsers = users.filter((u) => {
-      if (!u.joinDate) return false;
-      return u.joinDate >= thisWeekStart;
+      const d = u.joinDate ?? null;
+      return d !== null && d >= thisWeekStart;
     }).length;
 
     // Count users created last week
     const lastWeekUsers = users.filter((u) => {
-      if (!u.joinDate) return false;
-      return u.joinDate >= lastWeekStart && u.joinDate < thisWeekStart;
+      const d = u.joinDate ?? null;
+      return d !== null && d >= lastWeekStart && d < thisWeekStart;
     }).length;
 
-    const weeklyGrowthPercent = lastWeekUsers > 0 
-      ? ((thisWeekUsers - lastWeekUsers) / lastWeekUsers) * 100 
-      : (thisWeekUsers > 0 ? 100 : 0);
+    // Only report growth when both windows have enough signal (≥3 users each
+    // side, or at least one side non-zero). With tiny samples the ratio
+    // produces extreme values (-33%, +200%) that are statistically meaningless.
+    const totalSample = thisWeekUsers + lastWeekUsers;
+    const weeklyGrowthPercent = totalSample === 0
+      ? 0
+      : lastWeekUsers === 0
+        ? (thisWeekUsers > 0 ? 100 : 0)
+        : totalSample < 3
+          ? 0  // sample too small — suppress noisy percentage
+          : ((thisWeekUsers - lastWeekUsers) / lastWeekUsers) * 100;
 
     return {
       totalUsers,

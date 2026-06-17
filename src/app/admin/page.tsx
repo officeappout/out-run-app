@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Dumbbell, Users, Signal, ClipboardList, Building2, TrendingUp, BarChart3, Lightbulb, Shield, FileText, Map } from 'lucide-react';
+import { Dumbbell, Users, Signal, ClipboardList, Building2, TrendingUp, BarChart3, Lightbulb, Shield, FileText, Map, Clock, ArrowUpRight } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
@@ -22,7 +22,6 @@ import ExecutiveSummary from '@/features/admin/components/cpo-dashboard/Executiv
 import AuthorityPerformanceTable from '@/features/admin/components/cpo-dashboard/AuthorityPerformanceTable';
 import MaintenanceOverview from '@/features/admin/components/cpo-dashboard/MaintenanceOverview';
 import OnboardingFunnel from '@/features/admin/components/cpo-dashboard/OnboardingFunnel';
-import PeakHours from '@/features/admin/components/cpo-dashboard/PeakHours';
 
 export default function AdminDashboardPage() {
     const router = useRouter();
@@ -203,7 +202,43 @@ export default function AdminDashboardPage() {
             {/* Analytics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <OnboardingFunnel />
-                <PeakHours />
+                {/* Funnel link card — full analytics in product section */}
+                <Link href="/admin/analytics" className="group block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-cyan-200 transition-all">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 rounded-lg bg-cyan-50">
+                            <BarChart3 size={20} className="text-cyan-500" />
+                        </div>
+                        <ArrowUpRight size={16} className="text-gray-400 group-hover:text-cyan-500 transition-colors" />
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1">ניהול מוצר / צמיחה</p>
+                    <p className="text-xl font-black text-gray-900 mb-3">משפך המרות מלא</p>
+                    <p className="text-sm text-gray-500">נרשמו → אונבורדינג → הפעלה → שימור — עם פילטרים לפי מקור, קמפיין וג׳נדר</p>
+                    <div className="mt-4 flex gap-2 flex-wrap">
+                        {['מקור UTM', 'קמפיין', 'תאריך', 'ג׳נדר'].map(f => (
+                            <span key={f} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{f}</span>
+                        ))}
+                    </div>
+                </Link>
+            </div>
+
+            {/* Coming Soon metrics */}
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <Clock size={14} className="text-gray-400" />
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">בקרוב</p>
+                </div>
+                <div className="flex gap-4 flex-wrap">
+                    {[
+                        { label: 'שעות שיא פעילות', detail: 'Peak Hours — ממתין לאינדקס workouts.createdAt' },
+                        { label: 'CAC ממוצע', detail: 'עלות רכישה — ממתין לחיבור הוצאות פרסום' },
+                        { label: 'הכנסה (שלב 6 במשפך)', detail: 'Revenue stage — ממתין ל-payment integration' },
+                    ].map(item => (
+                        <div key={item.label} className="flex-1 min-w-[180px] bg-white rounded-lg border border-gray-200 p-3 opacity-60">
+                            <p className="text-xs font-bold text-gray-500">{item.label}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{item.detail}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Maintenance Overview */}
