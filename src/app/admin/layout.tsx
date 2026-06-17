@@ -694,9 +694,6 @@ function AdminLayoutInner({
                         );
                         })()
                     ) : showFullSidebar ? (
-                        {/* ═══════════════════════════════════════════════════════
-                             Full sidebar — 5 global centres + 3 verticals
-                             ═══════════════════════════════════════════════════════ */}
                         <div className="space-y-1">
 
                             {/* ── 1. אסטרטגיה / קלי ─────────────────────────── */}
