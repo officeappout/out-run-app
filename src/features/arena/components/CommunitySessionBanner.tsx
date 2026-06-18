@@ -14,6 +14,10 @@ interface CommunitySessionBannerProps {
 }
 
 export default function CommunitySessionBanner({ session, onDismiss, onOpenGroup }: CommunitySessionBannerProps) {
+  // phase and attendance are available via session.phase / session.attendance
+  // for future phase-aware UI (lobby, active, ended screens — pending Figma mockups)
+  const { phase } = session; void phase; // referenced to satisfy TSC; UI not yet phase-aware
+
   const profile = useUserStore((s) => s.profile);
   const uid = profile?.id ?? '';
   const userName = profile?.core?.name || 'משתמש';

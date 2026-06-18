@@ -3,6 +3,31 @@
  * For Authority Manager Dashboard and user-created groups
  */
 
+// ── Live session phase ──────────────────────────────────────────────────────
+/** Computed client-side (far/approaching/lobby) or written by leader (active/ended). */
+export type LiveSessionPhase = 'far' | 'approaching' | 'lobby' | 'active' | 'ended';
+
+/**
+ * Per-member travel status — written by the member herself to
+ * community_groups/{groupId}/attendance/{sessionId}/member_statuses/{uid}
+ */
+export interface MemberSessionStatus {
+  uid: string;
+  /** skip = "מתאמנת לבד" — removes the session from home screen without leaving the group */
+  status: 'rsvp' | 'otw' | 'here' | 'late' | 'skip';
+  lateMinutes?: 2 | 5 | 10 | 15;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
+/**
+ * Per-user preferences scoped to a single group.
+ * Stored in user profile at profile.groupPreferences[groupId].
+ */
+export interface GroupPreference {
+  /** "מתאמנת לבד" — silences meeting reminders without leaving the group */
+  meetingRemindersMuted: boolean;
+}
+
 // Scope of a community group (maps to affiliation types)
 export type CommunityGroupType = 'neighborhood' | 'work' | 'university' | 'park' | 'friends' | 'family' | 'school' | 'military' | 'youth_movement';
 
@@ -59,6 +84,22 @@ export interface SessionAttendance {
   /** Users waiting for a spot when session is full */
   waitlist?: string[];
   waitlistProfiles?: Record<string, { name: string; photoURL?: string }>;
+
+  // ── Live phase (written by leader or 'auto' fallback) ─────────────────────
+  /** Only 'active' | 'ended' are stored; far/approaching/lobby are computed client-side. */
+  sessionPhase?: 'active' | 'ended';
+  sessionPhaseUpdatedAt?: import('firebase/firestore').Timestamp;
+  /** uid of the leader who triggered, or the constant 'auto' */
+  sessionPhaseUpdatedBy?: string;
+
+  /** Leader extends the lobby window when a member marks herself late */
+  lobbyExtendedUntil?: import('firebase/firestore').Timestamp;
+
+  /** Optional — filled during / after the session */
+  collectiveProgress?: {
+    totalXP?: number;
+    activeCount?: number;
+  };
 }
 
 export interface CommunityGroup {

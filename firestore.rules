@@ -44,6 +44,17 @@ service cloud.firestore {
         ));
     }
 
+    // True when the authenticated user is an admin of a specific community group
+    // (role: 'admin' in community_groups/{groupId}/members/{uid}).
+    // OUT admins (isAdmin()) bypass this check.
+    function isGroupAdmin(groupId) {
+      return isAdmin() || (
+        isAuthenticated() &&
+        exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
     // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
     // Set via Admin SDK when assigning a user to a tenant.
     // Root/DB admins bypass tenant checks.
@@ -885,13 +896,35 @@ service cloud.firestore {
 
       // attendance sub-collection — session booking / RSVP.
       // Doc ID format: {YYYY-MM-DD_HH-mm}  (NOT a uid — a date/time key).
-      // Any authenticated user can read attendance for any group session.
-      // Writes are open to all authenticated users: bookSession() creates
-      // the doc on first RSVP and subsequent RSVPs update the same doc via
-      // arrayUnion(uid), so the doc ID can never equal request.auth.uid.
+      //
+      // Write rules are split by field category:
+      //   RSVP fields  → any authenticated user (booking.service.ts)
+      //   Phase fields → group admin only (session-phase.service.ts)
       match /attendance/{sessionId} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+
+        // RSVP: create initial doc (booking.service.ts first RSVP)
+        allow create: if isAuthenticated()
+          && !request.resource.data.keys().hasAny([
+               'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil'
+             ]);
+
+        // RSVP: update attendance arrays / counters (booking.service.ts)
+        allow update: if isAuthenticated()
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+               'sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil'
+             ]);
+
+        // Phase: group admin (or OUT admin) writes phase + lobby-extension fields only
+        allow update: if isGroupAdmin(docId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['sessionPhase', 'sessionPhaseUpdatedAt', 'sessionPhaseUpdatedBy', 'lobbyExtendedUntil']);
+
+        // member_statuses sub-collection: each member writes only her own document
+        match /member_statuses/{uid} {
+          allow read: if isAuthenticated();
+          allow write: if isAuthenticated() && request.auth.uid == uid;
+        }
       }
     }
 
