@@ -1091,6 +1091,18 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ACCOUNT METRICS — Social KPI snapshots (followers, saves).
+    //
+    // Manually entered via /admin/marketing-hub.
+    // source: 'manual' | 'api' — API writes will use Admin SDK and
+    // bypass these rules; client writes are always admin-only.
+    // History is append-only by convention (never delete a snapshot).
+    // ============================================================
+    match /account_metrics/{docId} {
+      allow read, write: if isRootAdmin() || isAdmin();
+    }
+
+    // ============================================================
     // CONTENT ITEMS — Marketing Hub תור תוכן (content pipeline).
     //
     // All CRUD via the admin panel (/admin/marketing-hub).

@@ -41,7 +41,7 @@ export type ContentStatus =
   | 'published';
 
 export type ContentAccount = 'personal' | 'brand';
-export type ContentPlatform = 'instagram' | 'tiktok' | 'linkedin';
+export type ContentPlatform = 'instagram' | 'tiktok' | 'linkedin' | 'youtube' | 'facebook';
 
 export interface ContentItem {
   id: string;
@@ -106,7 +106,7 @@ const VALID_STATUSES: ContentStatus[] = [
   'idea', 'raw', 'scripted', 'scheduled', 'published',
 ];
 const VALID_ACCOUNTS: ContentAccount[] = ['personal', 'brand'];
-const VALID_PLATFORMS: ContentPlatform[] = ['instagram', 'tiktok', 'linkedin'];
+const VALID_PLATFORMS: ContentPlatform[] = ['instagram', 'tiktok', 'linkedin', 'youtube', 'facebook'];
 
 function rowToItem(id: string, d: Record<string, unknown>): ContentItem {
   return {
