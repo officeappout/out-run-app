@@ -202,6 +202,15 @@
       ]
     },
     {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPublic", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "members",
       "queryScope": "COLLECTION_GROUP",
       "fields": [

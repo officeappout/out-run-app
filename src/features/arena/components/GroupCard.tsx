@@ -23,6 +23,8 @@ interface GroupCardProps {
   isJoined?: boolean;
   joining?: boolean;
   distanceKm?: number;
+  /** Compact horizontal discovery card for home-screen carousels */
+  compact?: boolean;
   /** When provided, shows an 'עדכן מיקום' link. Pass only for group creator. */
   onUpdateLocation?: () => void;
   onJoin?: (groupId: string) => void;
@@ -31,12 +33,23 @@ interface GroupCardProps {
   onOpenChat?: () => void;
 }
 
+function travelTimeLabel(km: number): string {
+  const roadKm = km * 1.3;
+  if (roadKm < 1.5) {
+    const mins = Math.ceil((roadKm / 5) * 60);
+    return `~${mins} דק׳ הליכה`;
+  }
+  const mins = Math.ceil((roadKm / 30) * 60);
+  return `~${mins} דק׳ נסיעה`;
+}
+
 export default function GroupCard({
   group,
   members,
   isJoined,
   joining,
   distanceKm,
+  compact,
   onUpdateLocation,
   onJoin,
   onLockedJoin: _onLockedJoin,
@@ -59,6 +72,49 @@ export default function GroupCard({
     }
     return null;
   })();
+
+  // ── Compact variant — discovery carousel cards ─────────────────────
+  if (compact) {
+    return (
+      <div
+        className="w-[148px] flex-shrink-0 bg-white dark:bg-slate-900 rounded-2xl shadow-md shadow-black/5 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+        dir="rtl"
+        onClick={onCardClick}
+      >
+        <div className="relative h-24 overflow-hidden">
+          {coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverImage} alt={group.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
+              <span className="text-3xl drop-shadow-md select-none">{catConfig.icon}</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            <span>{catConfig.icon}</span>
+            <span>{catConfig.label}</span>
+          </div>
+          {group.source === 'user' && (
+            <div className="absolute top-1.5 left-1.5 bg-emerald-500/90 text-white text-xs font-black px-1.5 py-0.5 rounded-full">
+              קהילתי
+            </div>
+          )}
+        </div>
+        <div className="px-2.5 py-2 space-y-0.5">
+          <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{group.name}</p>
+          {scheduleLabel && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
+          )}
+          {distanceKm != null && (
+            <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+              {travelTimeLabel(distanceKm)}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   function handleJoinClick(e: React.MouseEvent) {
     e.stopPropagation();

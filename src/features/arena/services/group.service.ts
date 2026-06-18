@@ -443,6 +443,26 @@ export async function getGroupsByScopeId(scopeId: string): Promise<CommunityGrou
 }
 
 /**
+ * Fetches all public active groups — used for cross-city discovery.
+ * Client-side caller must filter by isCityOnly before displaying.
+ */
+export async function getPublicGroups(): Promise<CommunityGroup[]> {
+  const q = query(
+    collection(db, 'community_groups'),
+    where('isPublic', '==', true),
+    where('isActive', '==', true),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
+    createdAt: tsToDate(d.data().createdAt),
+    updatedAt: tsToDate(d.data().updatedAt),
+  }));
+}
+
+/**
  * Looks up a community group by its invite code.
  * Used by the /join/[inviteCode] deep-link landing page.
  * Returns null if the code is invalid or the group no longer exists.

@@ -54,6 +54,7 @@ import { toISODate, getHebrewDayLetter } from '@/features/user/scheduling/utils/
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
+import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
 import AppHeader from '@/components/ui/AppHeader';
 
 // ════════════════════════════════════════════════════════════════════
@@ -1231,6 +1232,9 @@ export default function HomePage() {
             </div>
           );
         })()}
+
+        {/* Nearby community groups discovery carousel */}
+        <NearbyGroupsRow />
 
         {/* Nearby Workout Locations — context-aware carousel (below the 5 rows) */}
         <WorkoutLocationSuggestions
