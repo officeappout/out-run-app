@@ -1,176 +1,182 @@
 'use client';
 
 /**
- * WorkoutFlowLayer — slide-down content overlay for contextual workout data.
+ * WorkoutFlowLayer — notification-shade reveal layer.
  *
- * Mechanics:
- *   • Closed: content hidden above (translateY(-100%)); trigger strip at topOffset.
- *   • Open: card slides DOWN by `contentHeight` revealing content above the map.
- *   • Open gesture: drag DOWN on the external drag handle (e.g. StoryBar) via
- *     `externalDragControls`, OR drag down on the trigger strip directly.
- *   • Dismiss: drag UP on the trigger strip (> threshold) OR tap the backdrop.
+ * Exact replica of StrengthRunner's two-layer drag architecture:
  *
- * dragListener=false — the motion.div never captures pointer events itself;
- * drag must be initiated via dragControls.start(e) from a handle.
+ *   BASE LAYER (z-[49])  — revealContent: fixed at screen top, always rendered.
+ *                          Covered by the TOP LAYER when closed.
+ *   TOP LAYER  (z-50)    — children (handle/story-bar): draggable motion.div.
+ *                          At y=0  → covers the BASE LAYER (closed).
+ *                          At y=revealContentH → slid DOWN, BASE LAYER fully exposed.
+ *   BACKDROP   (z-[48])  — absorbs map taps while open.
  *
- * Layer: z-[45] — above map (z-0), above MetricsDrawer (z-40), below StoryBar (z-50).
+ * Drag mechanics (mirrors StrengthRunner / FreeRunActive exactly):
+ *   motion.div  drag="y", dragListener=false, dragMomentum=false.
+ *   Handle div: onPointerDown → externalDragControls.start(e).
+ *   dragConstraints: { top: 0, bottom: revealContentH }.
+ *   onDragEnd: offset>30 or velocity>300 → open; offset<-50 or velocity<-400 → close.
+ *   Spring: open stiffness 280 / damping 28 — close stiffness 320 / damping 32.
+ *
+ * The safe-area-inset-top padding lives on the revealContent container (not a
+ * wrapper above it), so ResizeObserver captures the FULL block height
+ * (safe-area + content).  The TOP LAYER therefore slides the exact right amount.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, useAnimation, useDragControls, type PanInfo } from 'framer-motion';
 
 export interface WorkoutFlowLayerProps {
-  /** Content to reveal when the layer is open (e.g. RunLapsList). */
-  children: React.ReactNode;
-  /** Controls whether the layer is currently open. */
-  isOpen: boolean;
-  /** Called when the user dismisses the layer (drag up or backdrop tap). */
-  onClose: () => void;
   /**
-   * Called when a drag-down gesture (from the trigger strip or externalDragControls)
-   * exceeds the open threshold. The parent should flip isOpen to true.
+   * Handle content rendered inside the TOP LAYER motion.div (e.g. story bar).
+   * The parent's drag handle div — which calls `externalDragControls.start(e)`
+   * on `onPointerDown` — should live here.
    */
+  children: React.ReactNode;
+  /** Content to reveal in the BASE LAYER (e.g. RunLapsList). */
+  revealContent: React.ReactNode;
+  /** Controlled open state. */
+  isOpen: boolean;
+  onClose: () => void;
   onOpen?: () => void;
   /**
-   * External drag controls from the parent (e.g. from a StoryBar drag handle).
-   * When provided, the motion.div uses these controls instead of its internal ones,
-   * so the parent can start the drag from any element via dragControls.start(e).
+   * Drag controls created in the parent via `useDragControls()`.
+   * The parent's handle calls `externalDragControls.start(e)` on pointerDown.
+   * The motion.div uses these same controls with `dragListener=false`.
    */
-  externalDragControls?: ReturnType<typeof useDragControls>;
+  externalDragControls: ReturnType<typeof useDragControls>;
   /**
-   * CSS value for the top of the trigger/panel area.
-   * Pass a calc() expression to combine safe-area-inset with a pixel offset.
-   * Default: 0.
+   * Fires whenever the BASE LAYER content height changes (after safe-area).
+   * Use this to sync external state that depends on the reveal height
+   * (e.g. map camera padding in FreeRunActive).
    */
-  topOffset?: string | number;
+  onRevealHeightChange?: (h: number) => void;
+  /**
+   * CSS max-height applied to the scrollable inner container of revealContent.
+   * Defaults to `calc(60dvh - env(safe-area-inset-top, 0px))`.
+   */
+  maxRevealHeight?: string;
 }
-
-const VELOCITY_THRESHOLD = 150;
-const DRAG_OPEN_THRESHOLD = 30;   // px — small downward drag opens
-const DRAG_CLOSE_THRESHOLD = 50;  // px — drag up to close
 
 export default function WorkoutFlowLayer({
   children,
+  revealContent,
   isOpen,
   onClose,
   onOpen,
   externalDragControls,
-  topOffset = 0,
+  onRevealHeightChange,
+  maxRevealHeight = 'calc(60dvh - env(safe-area-inset-top, 0px))',
 }: WorkoutFlowLayerProps) {
   const controls = useAnimation();
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [contentH, setContentH] = useState(0);
-  const internalDragControls = useDragControls();
-  const effectiveDragControls = externalDragControls ?? internalDragControls;
+  const [revealH, setRevealH] = useState(0);
 
-  // Measure content height so we know how far to slide down.
+  // Measure BASE LAYER height (includes safe-area padding).
   useEffect(() => {
     const node = contentRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
     const obs = new ResizeObserver(([e]) => {
       const h = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height;
-      if (Number.isFinite(h) && h > 0) setContentH(Math.round(h));
+      if (Number.isFinite(h) && h > 0) {
+        setRevealH(Math.round(h));
+        onRevealHeightChange?.(Math.round(h));
+      }
     });
     obs.observe(node);
     return () => obs.disconnect();
-  }, []);
+  }, [onRevealHeightChange]);
 
-  // Animate to open/close when state changes.
+  // Spring-animate TOP LAYER on open/close state change.
   useEffect(() => {
     if (isOpen) {
-      controls.start({ y: contentH, transition: { type: 'spring', stiffness: 300, damping: 28 } });
+      controls.start({ y: revealH, transition: { type: 'spring', stiffness: 280, damping: 28 } });
     } else {
-      controls.start({ y: 0, transition: { type: 'spring', stiffness: 340, damping: 32 } });
+      controls.start({ y: 0, transition: { type: 'spring', stiffness: 320, damping: 32 } });
     }
-  }, [isOpen, contentH, controls]);
+  }, [isOpen, revealH, controls]);
 
+  // Snap decision on drag release (same thresholds as StrengthRunner).
   const handleDragEnd = useCallback(
     (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      const vy = info.velocity.y;
-      const offset = info.offset.y;
-
       if (isOpen) {
-        // Flick up OR drag up past threshold → dismiss.
-        if (vy < -VELOCITY_THRESHOLD || offset < -DRAG_CLOSE_THRESHOLD) {
+        if (info.offset.y < -50 || info.velocity.y < -400) {
           onClose();
         } else {
-          controls.start({ y: contentH, transition: { type: 'spring', stiffness: 300, damping: 28 } });
+          controls.start({ y: revealH, transition: { type: 'spring', stiffness: 280, damping: 28 } });
         }
       } else {
-        // Drag down past threshold → open.
-        if (vy > VELOCITY_THRESHOLD || offset > DRAG_OPEN_THRESHOLD) {
+        if (info.offset.y > 30 || info.velocity.y > 300) {
           onOpen?.();
         } else {
-          controls.start({ y: 0, transition: { type: 'spring', stiffness: 340, damping: 32 } });
+          controls.start({ y: 0, transition: { type: 'spring', stiffness: 320, damping: 32 } });
         }
       }
     },
-    [isOpen, contentH, controls, onClose, onOpen],
+    [isOpen, revealH, controls, onClose, onOpen],
   );
 
   return (
     <>
-      {/* Backdrop — absorbs taps when open to prevent map interaction */}
+      {/* Backdrop — absorbs map taps when laps are open */}
       {isOpen && (
         <div
-          className="absolute inset-0 z-[44] pointer-events-auto"
-          style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+          className="absolute inset-0 z-[48] pointer-events-auto"
+          style={{
+            background: 'rgba(0,0,0,0.18)',
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+          }}
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Slide-down panel — drag only starts from explicit handles */}
+      {/* BASE LAYER — reveal content (RunLapsList): always at screen top.
+          Covered by the TOP LAYER motion.div when closed.
+          safe-area-inset-top lives HERE (on contentRef) so the measured height
+          includes it — the TOP LAYER therefore slides the exact correct amount. */}
+      <div className="absolute top-0 left-0 right-0 z-[49] pointer-events-none">
+        <div
+          ref={contentRef}
+          className="bg-white overflow-hidden pointer-events-auto"
+          style={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            boxShadow: isOpen ? '0 4px 24px rgba(0,0,0,0.12)' : 'none',
+          }}
+        >
+          <div style={{ maxHeight: maxRevealHeight, overflowY: 'auto' }}>
+            {revealContent}
+          </div>
+        </div>
+      </div>
+
+      {/* TOP LAYER — handle (story bar): slides DOWN on open to expose BASE LAYER.
+          dragListener=false → drag only starts from the handle's onPointerDown
+          calling externalDragControls.start(e). */}
       <motion.div
         drag="y"
-        dragControls={effectiveDragControls}
+        dragControls={externalDragControls}
         dragListener={false}
-        dragConstraints={{ top: 0, bottom: contentH }}
+        dragConstraints={{ top: 0, bottom: revealH }}
         dragElastic={0.08}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
         animate={controls}
         initial={{ y: 0 }}
-        className="absolute left-0 right-0 z-[45] pointer-events-none"
-        style={{ top: topOffset, touchAction: 'pan-x' }}
+        className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
       >
-        {/* Content area (slides in from above) */}
+        {children}
+        {/* Fade strip — moves with the TOP LAYER */}
         <div
-          ref={contentRef}
-          className="pointer-events-auto bg-white"
+          className="pointer-events-none"
           style={{
-            transform: 'translateY(-100%)',
-            boxShadow: isOpen ? '0 8px 32px rgba(0,0,0,0.14)' : 'none',
-            transition: 'box-shadow 0.2s ease',
+            height: 18,
+            background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
           }}
-        >
-          {children}
-        </div>
-
-        {/* Trigger/grabber strip — drag handle for both open (initiate) and close (pull up) */}
-        <div
-          className="pointer-events-auto flex justify-center items-center"
-          style={{
-            height: 28,
-            touchAction: 'none',
-            background: isOpen ? 'rgba(255,255,255,0.92)' : 'transparent',
-            borderRadius: isOpen ? '0 0 12px 12px' : undefined,
-            cursor: 'grab',
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            effectiveDragControls.start(e);
-          }}
-        >
-          {/* Grabber pill — only visible when open (close affordance) */}
-          {isOpen && (
-            <div
-              className="rounded-full"
-              style={{ width: 36, height: 4, background: 'rgba(0,0,0,0.2)' }}
-              aria-hidden="true"
-            />
-          )}
-        </div>
+          aria-hidden="true"
+        />
       </motion.div>
     </>
   );

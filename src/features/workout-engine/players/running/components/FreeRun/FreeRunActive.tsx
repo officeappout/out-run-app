@@ -23,14 +23,15 @@
  * When navigation active: MetricsDrawer locks to peek.
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, useDragControls, useAnimation, type PanInfo } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { useDragControls } from 'framer-motion';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import RouteStoryBar from '../shared/RouteStoryBar';
 import MetricsDrawer from '@/features/workout-engine/shared/components/MetricsDrawer';
 import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
+import WorkoutFlowLayer from '@/features/workout-engine/shared/components/WorkoutFlowLayer';
 import StatsCarousel from './StatsCarousel';
 import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
 import RunLapsList from './RunLapsList';
@@ -157,52 +158,9 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLapsOpen, setIsLapsOpen] = useState(false);
 
-  // ── Laps panel drag (mirrors StrengthRunner / usePlayerDrag model) ───────
+  // ── Laps panel drag — WorkoutFlowLayer owns animation + measurement ──────
   const lapsDragControls = useDragControls();
-  const lapsAnimControls = useAnimation();
-  const lapsContentRef = useRef<HTMLDivElement>(null);
   const [lapsContentH, setLapsContentH] = useState(0);
-
-  // Measure laps content height for drag constraints and spring target.
-  useEffect(() => {
-    const node = lapsContentRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const obs = new ResizeObserver(([e]) => {
-      const h = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height;
-      if (Number.isFinite(h) && h > 0) setLapsContentH(Math.round(h));
-    });
-    obs.observe(node);
-    return () => obs.disconnect();
-  }, []);
-
-  // Spring-animate the story-bar panel when open state changes.
-  useEffect(() => {
-    if (isLapsOpen) {
-      lapsAnimControls.start({ y: lapsContentH, transition: { type: 'spring', stiffness: 280, damping: 28 } });
-    } else {
-      lapsAnimControls.start({ y: 0, transition: { type: 'spring', stiffness: 320, damping: 32 } });
-    }
-  }, [isLapsOpen, lapsContentH, lapsAnimControls]);
-
-  // Snap decision on release (same thresholds as StrengthRunner's handleDragEnd).
-  const handleLapsDragEnd = useCallback(
-    (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      if (isLapsOpen) {
-        if (info.offset.y < -50 || info.velocity.y < -400) {
-          setIsLapsOpen(false);
-        } else {
-          lapsAnimControls.start({ y: lapsContentH, transition: { type: 'spring', stiffness: 280, damping: 28 } });
-        }
-      } else {
-        if (info.offset.y > 30 || info.velocity.y > 300) {
-          setIsLapsOpen(true);
-        } else {
-          lapsAnimControls.start({ y: 0, transition: { type: 'spring', stiffness: 320, damping: 32 } });
-        }
-      }
-    },
-    [isLapsOpen, lapsContentH, lapsAnimControls],
-  );
 
   // Force-close laps when the story bar disappears (goal cleared mid-run).
   useEffect(() => {
@@ -299,46 +257,16 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       */}
       {shouldShowStoryBar && (
         <>
-          {/* Backdrop — absorbs map taps when laps are open */}
-          {isLapsOpen && (
-            <div
-              className="absolute inset-0 z-[48] pointer-events-auto"
-              style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
-              onClick={() => setIsLapsOpen(false)}
-              aria-hidden="true"
-            />
-          )}
-
-          {/* BASE LAYER: laps content — always at screen top, covered when closed */}
-          <div
-            className="absolute top-0 left-0 right-0 z-[49] pointer-events-none"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          {/* WorkoutFlowLayer — notification-shade: RunLapsList behind story bar */}
+          <WorkoutFlowLayer
+            isOpen={isLapsOpen}
+            onClose={() => setIsLapsOpen(false)}
+            onOpen={() => setIsLapsOpen(true)}
+            externalDragControls={lapsDragControls}
+            revealContent={<RunLapsList />}
+            onRevealHeightChange={setLapsContentH}
           >
-            <div
-              ref={lapsContentRef}
-              className="bg-white overflow-hidden pointer-events-auto"
-              style={{ boxShadow: isLapsOpen ? '0 4px 24px rgba(0,0,0,0.12)' : 'none' }}
-            >
-              <div style={{ maxHeight: 'calc(60dvh - env(safe-area-inset-top, 0px))', overflowY: 'auto' }}>
-                <RunLapsList />
-              </div>
-            </div>
-          </div>
-
-          {/* TOP LAYER: story bar — drag handle, slides DOWN to reveal laps */}
-          <motion.div
-            drag="y"
-            dragControls={lapsDragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: lapsContentH }}
-            dragElastic={0.08}
-            dragMomentum={false}
-            onDragEnd={handleLapsDragEnd}
-            animate={lapsAnimControls}
-            initial={{ y: 0 }}
-            className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
-          >
-            {/* The drag handle div — mirrors RunnerHeader in StrengthRunner */}
+            {/* Drag handle — story bar, inside the TOP LAYER motion.div */}
             <div
               className="pointer-events-auto"
               style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: '#ffffff', touchAction: 'none' }}
@@ -368,16 +296,9 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
                 />
               </div>
             </div>
+          </WorkoutFlowLayer>
 
-            {/* Fade strip — moves with the story bar */}
-            <div
-              className="pointer-events-none"
-              style={{ height: 18, background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)' }}
-              aria-hidden="true"
-            />
-          </motion.div>
-
-          {/* Toasts — z-[55], above both layers */}
+          {/* Toasts — z-[55], above WorkoutFlowLayer */}
           {gpsToast && (
             <div
               className="absolute left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
