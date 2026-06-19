@@ -50,6 +50,7 @@ import EventCard from '@/features/arena/components/EventCard';
 import GroupCard from '@/features/arena/components/GroupCard';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
+import { usePublicGroupPhases } from '@/features/arena/hooks/usePublicGroupPhases';
 import SessionDrawer from '@/features/arena/components/SessionDrawer';
 import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
 import ViralUnlockSheet from '@/features/safecity/components/ViralUnlockSheet';
@@ -134,17 +135,14 @@ export default function SearchPage() {
   const { userCoords } = useUserLocation();
   const exerciseCount = useExerciseLibraryStore((s) => s.allExercises.length);
 
-  // Live session phase map for group cards (joined groups only)
+  // bannerSessions still used for GroupDetailsDrawer's liveSession prop (member attendance data)
   const { sessions: bannerSessions } = useCommunitySessionBanner();
   const [devOverrides, setDevOverrides] = useState<Record<string, 'approaching' | 'lobby' | 'active' | null>>({});
   const IS_DEV = process.env.NODE_ENV === 'development';
+  // Public phase map — covers all visible groups regardless of membership
+  const publicPhases = usePublicGroupPhases(groups);
   const livePhaseMap = useMemo(() => {
-    const map: Record<string, 'approaching' | 'lobby' | 'active'> = {};
-    bannerSessions.forEach((s) => {
-      if (s.phase === 'approaching' || s.phase === 'lobby' || s.phase === 'active') {
-        map[s.groupId] = s.phase;
-      }
-    });
+    const map: Record<string, 'approaching' | 'lobby' | 'active'> = { ...publicPhases };
     if (IS_DEV) {
       Object.entries(devOverrides).forEach(([gid, phase]) => {
         if (phase === 'approaching' || phase === 'lobby' || phase === 'active') {
@@ -156,7 +154,7 @@ export default function SearchPage() {
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bannerSessions, devOverrides]);
+  }, [publicPhases, devOverrides]);
 
   // Following list (UIDs) — already kept in sync with Firestore by /community.
   const following = useSocialStore((s) => s.following);

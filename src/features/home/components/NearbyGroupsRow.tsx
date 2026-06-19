@@ -10,6 +10,7 @@ import { getPublicGroups, joinGroup, leaveGroup } from '@/features/arena/service
 import GroupCard from '@/features/arena/components/GroupCard';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
+import { usePublicGroupPhases } from '@/features/arena/hooks/usePublicGroupPhases';
 import type { CommunityGroup } from '@/types/community.types';
 
 const CITY_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
@@ -130,15 +131,12 @@ export default function NearbyGroupsRow() {
   const userAuthorityId: string | null =
     (profile as any)?.core?.authorityId ?? null;
 
-  // Build a groupId → livePhase map from the banner hook (joined groups only)
+  // bannerSessions still used for GroupDetailsDrawer's liveSession prop (member attendance data)
   const { sessions: bannerSessions } = useCommunitySessionBanner();
+  // Public phase map — covers all visible groups regardless of membership
+  const publicPhases = usePublicGroupPhases(allGroups);
   const livePhaseMap = useMemo(() => {
-    const map: Record<string, 'approaching' | 'lobby' | 'active'> = {};
-    bannerSessions.forEach((s) => {
-      if (s.phase === 'approaching' || s.phase === 'lobby' || s.phase === 'active') {
-        map[s.groupId] = s.phase;
-      }
-    });
+    const map: Record<string, 'approaching' | 'lobby' | 'active'> = { ...publicPhases };
     if (IS_DEV) {
       Object.entries(devOverrides).forEach(([gid, phase]) => {
         if (phase === 'approaching' || phase === 'lobby' || phase === 'active') {
@@ -149,7 +147,7 @@ export default function NearbyGroupsRow() {
       });
     }
     return map;
-  }, [bannerSessions, devOverrides]);
+  }, [publicPhases, devOverrides]);
 
   const nearby = useMemo(
     () => userPos ? computeNearby(allGroups, userPos, userAuthorityId) : [],
