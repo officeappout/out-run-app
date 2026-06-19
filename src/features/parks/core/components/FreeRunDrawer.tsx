@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Play, AlertCircle } from 'lucide-react';
+import { X, Play } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user';
+import { db, auth } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
@@ -299,6 +301,94 @@ function EntryButtons({
   );
 }
 
+// ── WeightInlineRow ───────────────────────────────────────────────────────────
+// Shown inside GoalSheet (calories tab) when weight is not explicitly set.
+// Saves locally to Zustand + fire-and-forget Firestore write.
+
+function WeightInlineRow({
+  genderDefault,
+  onSave,
+}: {
+  genderDefault: number;
+  onSave: (w: number) => Promise<void>;
+}) {
+  const [value, setValue] = useState(genderDefault);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const adjust = (delta: number) =>
+    setValue((v) => Math.min(200, Math.max(30, v + delta)));
+
+  const handleSave = async () => {
+    if (saving || value < 30 || value > 200) return;
+    setSaving(true);
+    try {
+      await onSave(value);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (saved) return null;
+
+  return (
+    <div
+      className="mt-3 rounded-2xl px-4 py-3.5"
+      style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}
+    >
+      <p className="text-[12px] font-black text-gray-700 mb-2.5">⚖️ משקלך לחישוב מדויק</p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => adjust(-1)}
+          className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 text-lg font-bold active:scale-90 transition-transform"
+          style={{ border: '1px solid #E2E8F0' }}
+          aria-label="הפחת ק״ג"
+        >
+          −
+        </button>
+
+        <div className="flex-1 text-center">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              if (!isNaN(v) && v >= 30 && v <= 200) setValue(v);
+            }}
+            className="text-[18px] font-black text-gray-900 text-center bg-transparent border-none outline-none w-full"
+            aria-label="משקל בקילוגרם"
+          />
+          <span className="text-[11px] text-gray-400 leading-none">ק״ג</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => adjust(1)}
+          className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 text-lg font-bold active:scale-90 transition-transform"
+          style={{ border: '1px solid #E2E8F0' }}
+          aria-label="הוסף ק״ג"
+        >
+          +
+        </button>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="px-3.5 h-9 rounded-xl text-[13px] font-black text-white active:scale-95 transition-transform disabled:opacity-50"
+          style={{ backgroundColor: ACCENT, minWidth: 52 }}
+        >
+          {saving ? '...' : 'שמור'}
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-400 mt-1.5">ישמר לפרופיל שלך</p>
+    </div>
+  );
+}
+
 // ── GoalSheet ─────────────────────────────────────────────────────────────────
 // Bottom sheet for selecting goal type + adjusting the slider.
 // z-[102/103] — above the main drawer (z-[100]).
@@ -310,8 +400,9 @@ function GoalSheet({
   distanceValue, setDistanceValue,
   caloriesValue, setCaloriesValue,
   onOpenExtras,
-  isWeightDefault,
-  onNavigateToProfile,
+  userWeight,
+  genderDefault,
+  onSaveWeight,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -324,8 +415,9 @@ function GoalSheet({
   caloriesValue: number;
   setCaloriesValue: (v: number) => void;
   onOpenExtras: () => void;
-  isWeightDefault: boolean;
-  onNavigateToProfile: () => void;
+  userWeight: number | null;
+  genderDefault: number;
+  onSaveWeight: (w: number) => Promise<void>;
 }) {
   const dragControls = useDragControls();
 
@@ -418,25 +510,11 @@ function GoalSheet({
                     <span className="text-[13px] font-black" style={{ color: ACCENT }}>{caloriesValue} קק״ל</span>
                   </div>
                   <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
-                  {isWeightDefault && (
-                    <div
-                      className="mt-3 rounded-2xl px-3.5 py-3 flex items-start gap-2.5"
-                      style={{ backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}
-                    >
-                      <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: '#F97316' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-black text-gray-800 leading-tight">לחישוב קלוריות מדויק, הזן את משקלך</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5 leading-tight">המשקל הנוכחי הוא ברירת מחדל (70 ק״ג)</p>
-                        <button
-                          type="button"
-                          onClick={onNavigateToProfile}
-                          className="mt-1.5 text-[11px] font-black"
-                          style={{ color: '#F97316', textDecoration: 'underline', textUnderlineOffset: '2px' }}
-                        >
-                          עדכן משקל בפרופיל
-                        </button>
-                      </div>
-                    </div>
+                  {(!userWeight || userWeight === 70) && (
+                    <WeightInlineRow
+                      genderDefault={genderDefault}
+                      onSave={onSaveWeight}
+                    />
                   )}
                 </>
               )}
@@ -562,7 +640,6 @@ export default function FreeRunDrawer({
   cityName,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
-  const router = useRouter();
 
   // Normalise to a valid chip activity; 'workout' falls back to 'running'.
   const initialActivity: CarouselActivity =
@@ -586,7 +663,26 @@ export default function FreeRunDrawer({
   });
 
   const userWeight = useUserStore((s) => s.profile?.core?.weight ?? null);
-  const isWeightDefault = !userWeight || userWeight === 70;
+  const gender     = useUserStore((s) => s.profile?.core?.gender);
+  const genderDefault =
+    gender === 'female' ? 60 :
+    gender === 'male'   ? 75 : 68;
+
+  /** Save weight locally (Zustand + localStorage) and fire-and-forget to Firestore. */
+  const saveWeightInline = async (w: number) => {
+    const currentCore = useUserStore.getState().profile?.core;
+    if (currentCore) {
+      useUserStore.getState().updateProfile({ core: { ...currentCore, weight: w } });
+    }
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      try {
+        await updateDoc(doc(db, 'users', uid), { 'core.weight': w });
+      } catch {
+        // Non-blocking — local store already updated.
+      }
+    }
+  };
 
   const toggleExtra = (key: keyof ExtrasState) =>
     setExtras((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -739,8 +835,9 @@ export default function FreeRunDrawer({
         caloriesValue={caloriesValue}
         setCaloriesValue={setCaloriesValue}
         onOpenExtras={() => { setGoalSheetOpen(false); setExtrasOpen(true); }}
-        isWeightDefault={isWeightDefault}
-        onNavigateToProfile={() => router.push('/profile')}
+        userWeight={userWeight}
+        genderDefault={genderDefault}
+        onSaveWeight={saveWeightInline}
       />
 
       {/* Extras sheet — z-[104/105] (above GoalSheet) */}
