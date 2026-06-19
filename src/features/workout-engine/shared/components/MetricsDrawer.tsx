@@ -171,45 +171,56 @@ export default function MetricsDrawer({
   const content = typeof children === 'function' ? children(currentAnchor) : children;
 
   return (
+    /*
+     * Bottom-sheet layout (mirrors StrengthRunner's top-layer pattern):
+     *   • motion.div fills the entire parent (absolute inset-0) — framer-motion
+     *     drives translateY so the visible portion = (viewportH − translateY).
+     *   • pointer-events-none on the outer div so the map above the sheet is
+     *     tappable; the inner card is pointer-events-auto.
+     *   • dragListener={false} — drag only starts from the explicit handle,
+     *     exactly like StrengthRunner's dragListener={false} + RunnerHeader.
+     */
     <motion.div
       drag="y"
       dragControls={dragControls}
+      dragListener={false}
       dragConstraints={dragConstraints}
       dragElastic={0}
       dragMomentum={false}
       onDragEnd={handleDragEnd}
       animate={controls}
-      className="absolute left-0 right-0 z-40 px-3 pointer-events-auto"
-      style={{ top: 0, touchAction: 'pan-y' }}
+      className="absolute top-0 left-0 right-0 bottom-0 z-40 pointer-events-none"
+      style={{ touchAction: 'none' }}
     >
       <div
         ref={cardRef}
-        className="relative rounded-3xl overflow-hidden bg-white"
+        className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden bg-white pointer-events-auto"
         style={{
-          border: isPaused
+          // Rounded only at the top — flush with screen edges on all sides.
+          borderRadius: '20px 20px 0 0',
+          borderTop: isPaused
             ? `2px solid ${PAUSED_BORDER}`
             : '1px solid rgba(0, 0, 0, 0.08)',
           boxShadow: isPaused
-            ? '0 4px 24px rgba(255, 140, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.04)'
-            : '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
-          height: isPill ? PILL_HEIGHT_PX : 'auto',
-          transition: 'height 0.25s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+            ? '0 -4px 24px rgba(255, 140, 0, 0.22)'
+            : '0 -2px 20px rgba(0, 0, 0, 0.07)',
+          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
           ...cardThemeVars,
         }}
         data-paused={isPaused ? 'true' : 'false'}
         data-anchor={currentAnchor}
       >
         {isPill ? (
-          // Dock mode: dark pill — rendered without the white card chrome.
+          // Dock mode: entire strip is the drag handle (no grabber pill).
+          // The MiniDock chevron-up serves as the visual affordance.
           <div
-            className="w-full h-full rounded-3xl overflow-hidden"
-            style={{ background: '#000', touchAction: 'none' }}
+            style={{ height: PILL_HEIGHT_PX, touchAction: 'none' }}
             onPointerDown={(e) => dragControls.start(e)}
           >
             {content}
           </div>
         ) : (
-          // Peek / full mode: white card with grabber + optional settings gear.
+          // Peek / full mode: grabber at top is the drag handle.
           <>
             {onOpenSettings && (
               <button
@@ -225,7 +236,7 @@ export default function MetricsDrawer({
               </button>
             )}
 
-            {/* Grabber */}
+            {/* Grabber — the only drag entry point in peek/full mode */}
             <div
               className="flex justify-center pt-2 pb-1"
               onPointerDown={(e) => dragControls.start(e)}

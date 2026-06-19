@@ -1,29 +1,28 @@
 'use client';
 
 /**
- * FreeRunActive — orchestration shell (post-LEGO refactor)
- * ---------------------------------------------------------
- * Composes the 5 shared LEGO bricks for free-run and walk sessions:
+ * FreeRunActive — interaction model (v2)
+ * ----------------------------------------
+ * Mirrors StrengthRunner's two-layer architecture:
  *
- *   StoryProgressBar  → RouteStoryBar (above the drawer)
- *   WorkoutCanvas     → MapShell (unchanged, map extends to top)
- *   useSheetDrag      → inside MetricsDrawer
- *   MetricsDrawer     → replaces AdaptiveMetricsWrapper
- *   WorkoutFlowLayer  → replaces the laps full-screen overlay
- *   MiniDock          → rendered as dock content inside MetricsDrawer
+ *   BASE LAYER  — MapShell (map, always visible below everything)
+ *   TOP LAYER   — MetricsDrawer bottom sheet (slides between dock/peek/full)
+ *   FLOW LAYER  — RunLapsList (slides DOWN from top when triggered)
  *
- * This file is the "thin conductor" — no drag logic, no snap math, no
- * layout constants. All of that lives in the shared bricks.
+ * Drag mechanics:
+ *   MetricsDrawer:  grabber at sheet top → drag UP/DOWN → dock/peek/full
+ *   WorkoutFlowLayer: handle below story bar → tap → laps slide down
+ *   When FlowLayer open: MetricsDrawer locks to dock (56 px strip)
  *
- * Laps tab: now opens WorkoutFlowLayer from the top (slide-down) instead
- * of replacing the map view. MetricsDrawer auto-locks to 'dock' when the
- * FlowLayer is open so the two surfaces never overlap.
+ * Navigation (guided route):
+ *   isNavigationActive → MetricsDrawer locks to 'peek' (same as original
+ *   lockToBottom: never cover TurnCarousel at top).
  *
- * PlannedRunActive and StrengthRunner are intentionally untouched.
+ * No bottom nav tabs — removed. FlowLayer trigger replaces laps tab.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { Map, List } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -38,20 +37,15 @@ import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
-import { BOTTOM_NAV_HEIGHT_PX } from '../../hooks/useDraggableMetrics';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STORY_BAR_FALLBACK_PX = 56;
-const PRIMARY = '#0EA5E9';
-const PRIMARY_DARK = '#0284C7';
-const DEFAULT_NUM = '#000000';
-const DEFAULT_ACCENT = '#00ADEF';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Formatters (kept co-located — no Hebrew in shared components)
+// Formatters
 // ─────────────────────────────────────────────────────────────────────────────
 
 function goalLabel(type: 'distance' | 'time' | 'calories'): string {
@@ -89,7 +83,7 @@ function formatGoalValue(p: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RunMiniDockContent — pill content for the dock anchor
+// RunMiniDockContent — content for the dock (56 px) anchor
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RunMiniDockContent() {
@@ -101,7 +95,7 @@ function RunMiniDockContent() {
 
   return (
     <div
-      className="flex items-center h-[56px] px-4 gap-2 w-full"
+      className="flex items-center h-full px-4 gap-2 w-full"
       style={{ fontFamily: 'var(--font-simpler)' }}
       dir="ltr"
     >
@@ -110,8 +104,7 @@ function RunMiniDockContent() {
         <span className="text-xl font-black tabular-nums text-white leading-none">
           {safeDistance.toFixed(2)}
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wider"
-          style={{ color: DEFAULT_ACCENT }}>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#00ADEF]">
           KM
         </span>
       </div>
@@ -123,13 +116,13 @@ function RunMiniDockContent() {
         {formatDuration(totalDuration)}
       </span>
 
-      {/* Optional goal pill */}
+      {/* Goal pill */}
       {goalProgress && goalProgress.progress > 0 && (
         <div
           className="ml-auto flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
           style={{
             background: goalProgress.isComplete ? '#10B981' : 'rgba(255,255,255,0.15)',
-            color: goalProgress.isComplete ? '#fff' : DEFAULT_ACCENT,
+            color: goalProgress.isComplete ? '#fff' : '#00ADEF',
           }}
         >
           {Math.round(goalProgress.progress * 100)}%
@@ -154,19 +147,16 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
 
-  // Two-source navigation intent check (see original file header docs).
+  // Two-source navigation intent: earliest possible signal.
   const isNavigationActive = useRunningPlayer(
     (s) =>
       !!s.guidedRouteId ||
       (Array.isArray(s.activeRoutePath) && s.activeRoutePath.length >= 2),
   );
 
-  // Local UI state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFlowLayerOpen, setIsFlowLayerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'map' | 'laps'>('map');
 
-  // Goal progress — drives the floating story bar.
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
@@ -182,12 +172,9 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       prevIsCompleteRef.current = true;
       return () => clearTimeout(t);
     }
-    if (!isNowComplete) {
-      prevIsCompleteRef.current = false;
-    }
+    if (!isNowComplete) prevIsCompleteRef.current = false;
   }, [goalProgress?.isComplete]);
 
-  // ── Story bar visibility ────────────────────────────────────────────────
   const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
 
   // ── GPS status toast ────────────────────────────────────────────────────
@@ -196,8 +183,8 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   useEffect(() => {
     if (gpsStatus === prevGpsStatusRef.current) return;
     prevGpsStatusRef.current = gpsStatus;
-    if (gpsStatus === 'searching')         setGpsToast('מחפש GPS…');
-    else if (gpsStatus === 'poor')         setGpsToast('GPS חלש — ממשיך לחפש');
+    if (gpsStatus === 'searching')        setGpsToast('מחפש GPS…');
+    else if (gpsStatus === 'poor')        setGpsToast('GPS חלש — ממשיך לחפש');
     else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('GPS תקין ✓');
   }, [gpsStatus]);
   useEffect(() => {
@@ -206,7 +193,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => clearTimeout(t);
   }, [gpsToast]);
 
-  // ── Dynamic story-bar height ────────────────────────────────────────────
+  // ── Dynamic story-bar height ─────────────────────────────────────────────
   const storyBarInnerRef = useRef<HTMLDivElement>(null);
   const [storyBarHeight, setStoryBarHeight] = useState(STORY_BAR_FALLBACK_PX);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
@@ -225,27 +212,22 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => { observer.disconnect(); setStoreStoryBarHeight(0); };
   }, [setStoreStoryBarHeight]);
 
-  // ── Laps tab → WorkoutFlowLayer ─────────────────────────────────────────
-  const handleLapsTab = () => {
-    setActiveTab('laps');
-    setIsFlowLayerOpen(true);
-  };
-  const handleMapTab = () => {
-    setActiveTab('map');
-    setIsFlowLayerOpen(false);
-  };
-  const handleFlowLayerClose = () => {
-    setIsFlowLayerOpen(false);
-    setActiveTab('map');
-  };
+  // ── FlowLayer open/close ─────────────────────────────────────────────────
+  const handleFlowLayerOpen = useCallback(() => setIsFlowLayerOpen(true), []);
+  const handleFlowLayerClose = useCallback(() => setIsFlowLayerOpen(false), []);
 
-  // Lock MetricsDrawer during FlowLayer (dock only) or navigation (peek).
+  // MetricsDrawer lock priority: FlowLayer > navigation > free
   const drawerLock: string | null =
     isFlowLayerOpen ? 'dock'
     : isNavigationActive ? 'peek'
     : null;
 
-  // 1 Hz tick for timer-derived HUD elements (matches original approach).
+  // FlowLayer topOffset — below safe-area + story bar.
+  const flowLayerTopOffset = shouldShowStoryBar
+    ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`
+    : 'env(safe-area-inset-top, 0px)';
+
+  // 1 Hz tick for HUD timer elements.
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 1000);
@@ -259,7 +241,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
       role="region"
     >
-      {/* ── STORY BAR ─────────────────────────────────────────────────────── */}
+      {/* ── STORY BAR (z-50) ───────────────────────────────────────────────── */}
       {shouldShowStoryBar && (
         <>
           <div
@@ -281,9 +263,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
                 label={
                   goalProgress?.isComplete
                     ? 'מעבר ליעד'
-                    : goalProgress
-                    ? goalLabel(goalProgress.type)
-                    : 'מרחק'
+                    : goalProgress ? goalLabel(goalProgress.type) : 'מרחק'
                 }
                 valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
               />
@@ -309,12 +289,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
             >
               <div
                 className="px-4 py-1.5 rounded-full text-xs font-bold text-white"
-                style={{
-                  background: 'rgba(0,0,0,0.72)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  letterSpacing: '0.01em',
-                }}
+                style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
                 dir="rtl"
               >
                 {gpsToast}
@@ -332,11 +307,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
             >
               <div
                 className="px-5 py-2 rounded-full text-sm font-black text-white"
-                style={{
-                  background: '#10B981',
-                  boxShadow: '0 4px 16px rgba(16,185,129,0.45)',
-                  letterSpacing: '0.01em',
-                }}
+                style={{ background: '#10B981', boxShadow: '0 4px 16px rgba(16,185,129,0.45)' }}
                 dir="rtl"
               >
                 🎯 הגעת ליעד!
@@ -346,28 +317,40 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         </>
       )}
 
-      {/* ── WORKOUT FLOW LAYER (laps slide-down) ──────────────────────────── */}
+      {/* ── FLOW LAYER (z-45): RunLapsList slides down from top ─────────────
+          The trigger (laps handle) is always visible just below the story
+          bar. Tapping it opens the full laps list over the map. When open,
+          MetricsDrawer locks to dock so the two surfaces never overlap. */}
       <WorkoutFlowLayer
         isOpen={isFlowLayerOpen}
         onClose={handleFlowLayerClose}
-        triggerLabel="הקפות"
-        topOffset={
-          shouldShowStoryBar
-            ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`
-            : 'env(safe-area-inset-top, 0px)'
+        topOffset={flowLayerTopOffset}
+        trigger={
+          <LapsHandle
+            isOpen={isFlowLayerOpen}
+            onOpen={handleFlowLayerOpen}
+            onClose={handleFlowLayerClose}
+          />
         }
       >
+        {/* Constrain laps list so it never covers the dock */}
         <div
           style={{
-            paddingTop: 12,
-            paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))`,
+            paddingTop: 8,
+            paddingBottom: 8,
+            maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - 56px - 56px)',
+            overflowY: 'auto',
           }}
         >
           <RunLapsList />
         </div>
       </WorkoutFlowLayer>
 
-      {/* ── METRICS DRAWER (replaces AdaptiveMetricsWrapper) ───────────────── */}
+      {/* ── METRICS DRAWER (z-40): real bottom sheet ──────────────────────────
+          absolute inset-0, translateY drives visible area from top edge to
+          screen bottom. dragListener=false — drag only from grabber/strip.
+          When docked: only 56 px (RunMiniDockContent) visible at bottom.
+          When full: sheet covers from story-bar down to screen bottom. */}
       <MetricsDrawer
         topBarOffset={shouldShowStoryBar ? storyBarHeight : 0}
         lockToAnchor={drawerLock}
@@ -376,7 +359,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       >
         {(anchor) =>
           anchor === 'dock' ? (
-            <MiniDock onExpand={() => { /* MetricsDrawer handles snap internally */ }}>
+            <MiniDock>
               <RunMiniDockContent />
             </MiniDock>
           ) : isCommute ? (
@@ -390,68 +373,58 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       {/* ── PRIMARY CONTROLS ──────────────────────────────────────────────── */}
       <WorkoutControlCluster />
 
-      {/* ── BOTTOM NAV ────────────────────────────────────────────────────── */}
-      <nav
-        className="absolute bottom-0 left-0 right-0 z-30 flex pointer-events-auto bg-white"
-        style={{
-          minHeight: `${BOTTOM_NAV_HEIGHT_PX}px`,
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          borderTop: '1px solid rgba(0, 0, 0, 0.08)',
-          boxShadow: '0 -2px 16px rgba(0, 0, 0, 0.06)',
-        }}
-      >
-        <button
-          onClick={handleMapTab}
-          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-black/5 transition-colors"
-        >
-          {activeTab === 'map' && (
-            <span
-              className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
-              style={{ background: PRIMARY }}
-            />
-          )}
-          <Map
-            size={22}
-            style={{ color: activeTab === 'map' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          />
-          <span
-            className="font-medium text-xs"
-            style={{ color: activeTab === 'map' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          >
-            מפה
-          </span>
-        </button>
-
-        <button
-          onClick={handleLapsTab}
-          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-black/5 transition-colors"
-        >
-          {activeTab === 'laps' && (
-            <span
-              className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
-              style={{ background: PRIMARY }}
-            />
-          )}
-          <List
-            size={22}
-            className="rotate-90"
-            style={{ color: activeTab === 'laps' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          />
-          <span
-            className="font-medium text-xs"
-            style={{ color: activeTab === 'laps' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          >
-            הקפות
-          </span>
-        </button>
-      </nav>
-
-      {/* Global overlays */}
+      {/* ── GLOBAL OVERLAYS ───────────────────────────────────────────────── */}
       <LapSnapshotOverlay />
       <WorkoutSettingsDrawer
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LapsHandle — the drag/tap affordance just below the story bar.
+// When closed: dark pill "הקפות ▼" hint.
+// When open: lighter close handle at the bottom of the laps panel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LapsHandle({
+  isOpen,
+  onOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-1.5 px-3 py-1 rounded-full pointer-events-auto active:scale-95 transition-all"
+      style={{
+        background: isOpen ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)',
+        backdropFilter: isOpen ? undefined : 'blur(8px)',
+        WebkitBackdropFilter: isOpen ? undefined : 'blur(8px)',
+        boxShadow: isOpen ? '0 1px 8px rgba(0,0,0,0.12)' : undefined,
+      }}
+      onClick={isOpen ? onClose : onOpen}
+      aria-label={isOpen ? 'סגור הקפות' : 'פתח הקפות'}
+    >
+      <span
+        className="text-xs font-bold tracking-wide"
+        style={{ color: isOpen ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.9)', direction: 'rtl' }}
+      >
+        הקפות
+      </span>
+      <ChevronDown
+        size={12}
+        style={{
+          color: isOpen ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.7)',
+          transform: isOpen ? 'rotate(180deg)' : 'none',
+          transition: 'transform 0.2s ease',
+        }}
+      />
+    </button>
   );
 }
