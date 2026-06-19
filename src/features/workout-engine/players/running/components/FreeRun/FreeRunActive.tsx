@@ -165,6 +165,28 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
 
+  // ── Goal-reached celebration ────────────────────────────────────────────
+  // Fires ONCE when isComplete transitions false → true. Shows a brief
+  // positive toast for 3 s, then disappears so the user can keep running
+  // without pressure. The ref guards against repeated triggers on
+  // every re-render (the 1 s tick would otherwise re-show it each second
+  // once the goal is hit). Resets on workout start via the session goal
+  // clearing in useRunningPlayer.stopWorkout.
+  const prevIsCompleteRef = useRef(false);
+  const [showGoalToast, setShowGoalToast] = useState(false);
+  useEffect(() => {
+    const isNowComplete = goalProgress?.isComplete ?? false;
+    if (isNowComplete && !prevIsCompleteRef.current) {
+      setShowGoalToast(true);
+      const t = setTimeout(() => setShowGoalToast(false), 3000);
+      prevIsCompleteRef.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!isNowComplete) {
+      prevIsCompleteRef.current = false;
+    }
+  }, [goalProgress?.isComplete]);
+
   // ── Smart story-bar visibility ─────────────────────────────────────────
   // Field-test feedback: a freshly-started Free Run with NO goal AND no
   // pre-built route showed an empty progress bar at the top of the
@@ -280,31 +302,23 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
           >
             <div ref={storyBarInnerRef}>
               <RouteStoryBar
-                // ── Dynamic progress with a 1% floor ────────────────────
-                // `goalProgress.progress` is `currentValue / targetValue`
-                // already clamped to [0, 1] inside useSessionGoalProgress.
-                // We floor it at 0.01 (1 %) so the bar shows a tiny sliver
-                // the moment the workout starts — the user gets immediate
-                // visual feedback that the HUD is live, instead of staring
-                // at an empty track during the first few GPS samples.
-                // Equivalent to the spec form
-                //   Math.max(1, (currentDistance / targetDistance) * 100)
-                // expressed in the 0–1 fraction space the bar consumes.
-                //
-                // Without a session goal there is no current/target ratio
-                // to compute. We keep the bar visible at the 1 % minimum
-                // so the chrome doesn't pop in/out depending on whether
-                // the user set a goal.
                 progress={
                   goalProgress
-                    ? Math.max(0.01, goalProgress.progress)
+                    ? goalProgress.isComplete
+                      ? Math.min(goalProgress.rawRatio, 1.05)
+                      : Math.max(0.01, goalProgress.progress)
                     : 0.01
                 }
+                color={goalProgress?.isComplete ? '#10B981' : undefined}
+                allowOverflow={goalProgress?.isComplete}
                 isPaused={isPaused}
-                label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
-                // valueText is empty when no goal is set — the prior
-                // '2.50 / 5.0 ק״מ' was a layout placeholder for testing
-                // that read as live data and confused the user.
+                label={
+                  goalProgress?.isComplete
+                    ? 'מעבר ליעד'
+                    : goalProgress
+                    ? goalLabel(goalProgress.type)
+                    : 'מרחק'
+                }
                 valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
               />
             </div>
@@ -347,6 +361,32 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
                 dir="rtl"
               >
                 {gpsToast}
+              </div>
+            </div>
+          )}
+
+          {/* ── GOAL-REACHED TOAST ─────────────────────────────────────────
+              Appears for 3 s the first time the user hits their target.
+              Green background matches the bar colour change so both
+              signals land simultaneously. Sits below the story bar so
+              it never overlaps the progress numbers. */}
+          {showGoalToast && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className="px-5 py-2 rounded-full text-sm font-black text-white"
+                style={{
+                  background: '#10B981',
+                  boxShadow: '0 4px 16px rgba(16,185,129,0.45)',
+                  letterSpacing: '0.01em',
+                }}
+                dir="rtl"
+              >
+                🎯 הגעת ליעד!
               </div>
             </div>
           )}

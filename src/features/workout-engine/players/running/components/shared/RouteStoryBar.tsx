@@ -50,6 +50,12 @@ interface RouteStoryBarProps {
    * slate track).
    */
   onMap?: boolean;
+  /**
+   * When true, clamps fill to 1.05 instead of 1.0 so the bar can show
+   * a small "beyond goal" overage (max 5%). Used after the user hits
+   * their target to give visual feedback that they kept going.
+   */
+  allowOverflow?: boolean;
 }
 
 const DEFAULT_COLOR = '#00ADEF';
@@ -77,6 +83,7 @@ export default function RouteStoryBar({
   label,
   valueText,
   onMap = false,
+  allowOverflow = false,
 }: RouteStoryBarProps) {
   // Inject shimmer keyframes on first mount (client-only).
   useEffect(() => { ensureShimmerKeyframes(); }, []);
@@ -84,13 +91,16 @@ export default function RouteStoryBar({
   // RAF-driven fill width — reads the latest `progress` synchronously
   // through the ref on every animation frame, writing into state only
   // when the value actually changes so React renders stay minimal.
-  const [fillPct, setFillPct] = useState(() => Math.max(0, Math.min(1, progress)) * 100);
+  const maxFill = allowOverflow ? 1.05 : 1;
+  const [fillPct, setFillPct] = useState(() => Math.max(0, Math.min(maxFill, progress)) * 100);
   const rafRef = useRef<number | null>(null);
   const targetRef = useRef(progress);
   targetRef.current = progress;
+  const maxFillRef = useRef(maxFill);
+  maxFillRef.current = maxFill;
 
   const tick = useCallback(() => {
-    const next = Math.max(0, Math.min(1, targetRef.current)) * 100;
+    const next = Math.max(0, Math.min(maxFillRef.current, targetRef.current)) * 100;
     setFillPct((prev) => (prev === next ? prev : next));
     rafRef.current = requestAnimationFrame(tick);
   }, []);

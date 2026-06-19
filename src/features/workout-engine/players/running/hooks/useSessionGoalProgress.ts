@@ -28,6 +28,8 @@ import { useRunningPlayer } from '../store/useRunningPlayer';
 export interface SessionGoalProgress {
   /** 0–1, clamped. */
   progress: number;
+  /** Unclamped ratio — may exceed 1.0 when the user passes their goal. */
+  rawRatio: number;
   /** True once the live metric has reached or exceeded the target. */
   isComplete: boolean;
   /** Goal type for callers that want to colour-code by metric. */
@@ -66,6 +68,7 @@ export function useSessionGoalProgress(): SessionGoalProgress | null {
 
   return {
     progress,
+    rawRatio: ratio,
     isComplete: ratio >= 1,
     type: goal.type,
     targetValue: goal.value,
