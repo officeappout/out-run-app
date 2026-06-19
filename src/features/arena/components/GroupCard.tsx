@@ -25,6 +25,8 @@ interface GroupCardProps {
   distanceKm?: number;
   /** Compact horizontal discovery card for home-screen carousels */
   compact?: boolean;
+  /** Live session indicator shown on the card image */
+  livePhase?: 'approaching' | 'lobby' | 'active';
   /** When provided, shows an 'עדכן מיקום' link. Pass only for group creator. */
   onUpdateLocation?: () => void;
   onJoin?: (groupId: string) => void;
@@ -50,6 +52,7 @@ export default function GroupCard({
   joining,
   distanceKm,
   compact,
+  livePhase,
   onUpdateLocation,
   onJoin,
   onLockedJoin: _onLockedJoin,
@@ -90,7 +93,9 @@ export default function GroupCard({
               <span className="text-3xl drop-shadow-md select-none">{catConfig.icon}</span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
+          {/* Fade image bottom into card body */}
+          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
           <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full">
             <span>{catConfig.icon}</span>
             <span>{catConfig.label}</span>
@@ -100,9 +105,21 @@ export default function GroupCard({
               קהילתי
             </div>
           )}
+          {livePhase && (
+            <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-1 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
+              livePhase === 'active' ? 'bg-green-500/90' : 'bg-orange-500/90'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                livePhase === 'active' ? 'bg-green-200 animate-pulse' : 'bg-orange-200 animate-bounce'
+              }`} />
+              {livePhase === 'active' ? 'לייב' : 'בקרוב'}
+            </div>
+          )}
         </div>
         <div className="px-2.5 py-2 space-y-0.5">
-          <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{group.name}</p>
+          <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+            {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
+          </p>
           {scheduleLabel && (
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
           )}
@@ -168,8 +185,10 @@ export default function GroupCard({
           </div>
         )}
 
-        {/* Dark gradient overlay — always present for contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        {/* Dark gradient overlay — top half contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/8 to-transparent" />
+        {/* Fade image bottom into white card body */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
 
         {/* Category chip — top right */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
@@ -192,12 +211,24 @@ export default function GroupCard({
             <span>קהילתי</span>
           </div>
         )}
+
+        {/* Live session badge — bottom left */}
+        {livePhase && (
+          <div className={`absolute bottom-2.5 left-2.5 flex items-center gap-1 text-white text-xs font-black px-2.5 py-1 rounded-full backdrop-blur-sm ${
+            livePhase === 'active' ? 'bg-green-500/90' : 'bg-orange-500/90'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+              livePhase === 'active' ? 'bg-green-200 animate-pulse' : 'bg-orange-200 animate-bounce'
+            }`} />
+            {livePhase === 'active' ? '🟢 לייב' : '🟠 בקרוב'}
+          </div>
+        )}
       </div>
 
       {/* ── Card body ─────────────────────────────────────── */}
       <div className="relative p-4">
         <h4 className="text-[15px] font-black text-gray-900 dark:text-gray-50 leading-snug mb-1 line-clamp-1">
-          {group.name}
+          {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
         </h4>
 
         {group.description && (

@@ -9,6 +9,7 @@ import type {
   CommunityGroup,
   SessionAttendance,
   LiveSessionPhase,
+  TargetGender,
 } from '@/types/community.types';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ interface RawSession {
   isTomorrow: boolean;
   sessionStartMs: number;
   routeId?: string;
+  targetGender?: TargetGender;
 }
 
 export interface UpcomingSession {
@@ -111,6 +113,8 @@ export interface UpcomingSession {
   attendance?: SessionAttendance;
   /** Route linked to this slot, if any. */
   routeId?: string;
+  /** Group's intended audience — used for gender-aware copy in the banner. */
+  targetGender?: TargetGender;
 }
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -189,6 +193,7 @@ export function useCommunitySessionBanner() {
                     groupId: gid, groupName: data.name, category: data.category,
                     date: today, time: slot.time, slot,
                     isToday: true, isTomorrow: false, sessionStartMs, routeId,
+                    targetGender: data.targetGender,
                   });
                 }
               }
@@ -201,6 +206,7 @@ export function useCommunitySessionBanner() {
                     groupId: gid, groupName: data.name, category: data.category,
                     date: tomorrow, time: slot.time, slot,
                     isToday: false, isTomorrow: true, sessionStartMs, routeId,
+                    targetGender: data.targetGender,
                   });
                 }
               }
@@ -330,6 +336,7 @@ export function useCommunitySessionBanner() {
           date: raw.date, time: raw.time, slot: raw.slot,
           isToday: raw.isToday, isTomorrow: raw.isTomorrow,
           minutesUntil, phase, attendance, routeId: raw.routeId,
+          targetGender: raw.targetGender,
         };
       })
       .filter(s => {

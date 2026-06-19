@@ -4,14 +4,17 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Clock, CheckCircle2, Loader2, X,
-  CalendarDays, Trophy, Zap, Bug,
+  CalendarDays, Trophy, Zap, Bug, ChevronDown,
 } from 'lucide-react';
 import { bookSession } from '@/features/arena/services/booking.service';
-import { setMyAttendeeStatus } from '@/features/arena/services/session-phase.service';
+import {
+  setMyAttendeeStatus,
+  extendLobby,
+} from '@/features/arena/services/session-phase.service';
 import { useSmartMessage } from '@/features/messages';
 import { useUserStore } from '@/features/user';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
-import type { LiveSessionPhase } from '@/types/community.types';
+import type { LiveSessionPhase, MemberSessionStatus } from '@/types/community.types';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -20,7 +23,22 @@ const ALL_PHASES: LiveSessionPhase[] = ['far', 'approaching', 'lobby', 'active',
 const PHASE_LABELS: Record<LiveSessionPhase, string> = {
   far: 'רחוק', approaching: 'מתקרב', lobby: 'לובי', active: 'פעיל', ended: 'הסתיים',
 };
+const LATE_OPTIONS: MemberSessionStatus['lateMinutes'][] = [2, 5, 10, 15];
 const IS_DEV = process.env.NODE_ENV === 'development';
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function formatCountdown(mins: number): string | null {
+  if (mins <= -60) return null;
+  if (mins < 0) return `החל לפני ${Math.abs(Math.round(mins))} דק׳`;
+  if (mins < 1) return 'עכשיו';
+  if (mins < 60) return `עוד ${Math.round(mins)} דקות`;
+  const hours = Math.floor(mins / 60);
+  const rem = Math.round(mins % 60);
+  const hoursStr = hours === 1 ? 'שעה' : hours === 2 ? 'שעתיים' : `${hours} שעות`;
+  if (rem === 0) return `עוד ${hoursStr}`;
+  return `עוד ${hoursStr} ו-${rem} דק׳`;
+}
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -32,7 +50,6 @@ interface CommunitySessionBannerProps {
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
-/** Stacked avatar row — pattern from GroupDetailsDrawer */
 function AvatarRow({
   profiles,
   totalCount,
@@ -67,14 +84,7 @@ function AvatarRow({
   );
 }
 
-/** Dismiss button — exact position from original banner */
-function DismissBtn({
-  onDismiss,
-  dark = false,
-}: {
-  onDismiss: () => void;
-  dark?: boolean;
-}) {
+function DismissBtn({ onDismiss, dark = false }: { onDismiss: () => void; dark?: boolean }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onDismiss(); }}
@@ -95,48 +105,61 @@ export default function CommunitySessionBanner({
   onOpenGroup,
 }: CommunitySessionBannerProps) {
   const profile = useUserStore((s) => s.profile);
-  const uid        = profile?.id ?? '';
-  const userName   = profile?.core?.name ?? '';
-  const photoURL   = profile?.core?.photoURL ?? null;
+  const uid      = profile?.id ?? '';
+  const userName = profile?.core?.name ?? '';
+  const photoURL = profile?.core?.photoURL ?? null;
 
-  // Booking state (far phase)
+  // ── gender-aware copy ──────────────────────────────────────────────────────
+  // Feminine when the group targets women, or when group is mixed and user is female.
+  const userGender  = (profile?.core as { gender?: string })?.gender;
+  const groupGender = session.targetGender;
+  const isFeminine  =
+    groupGender === 'female' ||
+    (groupGender !== 'male' && userGender === 'female');
+
+  const g = (f: string, m: string) => (isFeminine ? f : m);
+
+  // ── booking (far) ──────────────────────────────────────────────────────────
   const [booking, setBooking] = useState(false);
   const [booked,  setBooked]  = useState(false);
 
-  // Status update state (approaching → otw, lobby → here)
+  // ── travel status (approaching / lobby) ───────────────────────────────────
   const [settingStatus, setSettingStatus] = useState(false);
-  const [statusDone, setStatusDone] = useState<'otw' | 'here' | null>(null);
+  const [statusDone,    setStatusDone]    = useState<'otw' | 'here' | null>(null);
 
-  // Dev-only phase override
+  // ── late picker ────────────────────────────────────────────────────────────
+  const [latePickerOpen, setLatePickerOpen] = useState(false);
+  const [lateSetting,    setLateSetting]    = useState(false);
+  const [lateDone,       setLateDone]       = useState<number | null>(null);
+
+  // ── skip ───────────────────────────────────────────────────────────────────
+  const [skipping, setSkipping] = useState(false);
+
+  // ── dev override ───────────────────────────────────────────────────────────
   const [devPhase,     setDevPhase]     = useState<LiveSessionPhase | null>(null);
   const [showDevPanel, setShowDevPanel] = useState(false);
-
   const effectivePhase: LiveSessionPhase = devPhase ?? session.phase;
 
   // ── dual-source copy ───────────────────────────────────────────────────────
-  // far / approaching / ended → smart_messages; lobby / active → live attendance
   const communityMsg = useSmartMessage('community_session');
 
-  // ── attendance data (lobby / active) ──────────────────────────────────────
-  const attendance      = session.attendance;
-  const attendeeProfs   = Object.values(attendance?.attendeeProfiles ?? {});
-  const attendeeCount   = attendance?.currentCount ?? 0;
-  const maxCount        = attendance?.maxParticipants ?? session.slot.maxParticipants;
-  const activeCount     = attendance?.collectiveProgress?.activeCount ?? attendeeCount;
-  const totalXP         = attendance?.collectiveProgress?.totalXP;
+  // ── attendance data ────────────────────────────────────────────────────────
+  const attendance    = session.attendance;
+  const attendeeProfs = Object.values(attendance?.attendeeProfiles ?? {});
+  const attendeeCount = attendance?.currentCount ?? 0;
+  const maxCount      = attendance?.maxParticipants ?? session.slot.maxParticipants;
+  const activeCount   = attendance?.collectiveProgress?.activeCount ?? attendeeCount;
+  const totalXP       = attendance?.collectiveProgress?.totalXP;
 
-  // ── time helpers ───────────────────────────────────────────────────────────
-  const mins       = Math.round(session.minutesUntil);
-  const dayLabel   = DAY_LABELS[new Date(`${session.date}T12:00:00`).getDay()];
-  const dateLabel  = session.isToday ? 'היום' : session.isTomorrow ? 'מחר' : `יום ${dayLabel}`;
-  const timeLabel  = `${dateLabel} · ${session.time}`;
-  const countdown  =
-    mins >= 60  ? `עוד ~${Math.round(mins / 60)} שע'` :
-    mins > 0    ? `עוד ${mins} דק'` :
-    mins > -60  ? `החל לפני ${Math.abs(mins)} דק'` : null;
-  const price = session.slot.price;
+  // ── time ───────────────────────────────────────────────────────────────────
+  const mins      = session.minutesUntil;
+  const dayLabel  = DAY_LABELS[new Date(`${session.date}T12:00:00`).getDay()];
+  const dateLabel = session.isToday ? 'היום' : session.isTomorrow ? 'מחר' : `יום ${dayLabel}`;
+  const timeLabel = `${dateLabel} · ${session.time}`;
+  const countdown = formatCountdown(mins);
+  const price     = session.slot.price;
 
-  // ── action handlers ────────────────────────────────────────────────────────
+  // ── handlers ───────────────────────────────────────────────────────────────
 
   const handleBook = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -171,11 +194,102 @@ export default function CommunitySessionBanner({
     }
   };
 
+  const handleLate = async (lateMinutes: MemberSessionStatus['lateMinutes']) => {
+    if (!uid || lateSetting || !lateMinutes) return;
+    setLateSetting(true);
+    try {
+      await setMyAttendeeStatus(uid, session.groupId, session.date, session.time, 'late', lateMinutes);
+      // Attempt lobby extension — silently no-ops for non-admins (permission-denied expected).
+      // TODO: replace with Cloud Function once leader notification flow is built.
+      extendLobby(session.groupId, session.date, session.time, lateMinutes).catch((err) => {
+        if ((err as { code?: string })?.code !== 'permission-denied') console.error(err);
+      });
+      setLateDone(lateMinutes);
+      setLatePickerOpen(false);
+    } catch (err) {
+      console.error('[CommunitySessionBanner] handleLate:', err);
+    } finally {
+      setLateSetting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!uid || skipping) return;
+    setSkipping(true);
+    try {
+      await setMyAttendeeStatus(uid, session.groupId, session.date, session.time, 'skip');
+      onDismiss();
+    } catch (err) {
+      console.error('[CommunitySessionBanner] handleSkip:', err);
+      setSkipping(false);
+    }
+  };
+
   const openGroup = () => onOpenGroup?.(session.groupId);
+
+  // ── late/skip secondary row ────────────────────────────────────────────────
+
+  function renderLateSkipRow(accentColor: string) {
+    if (lateDone) {
+      return (
+        <p className={`text-center text-[11px] font-bold ${accentColor}`}>
+          הבנו, נחכה לך ❤️
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setLatePickerOpen((v) => !v)}
+            className={`flex items-center gap-0.5 text-[11px] font-bold ${accentColor} underline underline-offset-2`}
+          >
+            {g('מאחרת?', 'מאחר?')}
+            <ChevronDown className={`w-3 h-3 transition-transform ${latePickerOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <span className="text-gray-300 select-none">·</span>
+          <button
+            onClick={handleSkip}
+            disabled={skipping}
+            className="text-[11px] text-gray-400 font-semibold disabled:opacity-60"
+          >
+            {skipping ? '...' : 'לא הפעם'}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {latePickerOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="flex gap-1.5 pt-0.5">
+                {LATE_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => handleLate(m)}
+                    disabled={lateSetting}
+                    className="flex-1 py-2 rounded-xl bg-white/60 border border-white/80 text-gray-700 text-[12px] font-black transition-all active:scale-95 disabled:opacity-60"
+                  >
+                    {lateSetting ? (
+                      <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                    ) : (
+                      `+${m} דק׳`
+                    )}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   // ── phase renders ──────────────────────────────────────────────────────────
 
-  /** FAR — compact horizontal, white/quiet. Same footprint as original banner. */
   function renderFar() {
     return (
       <div
@@ -225,7 +339,7 @@ export default function CommunitySessionBanner({
               >
                 {booking
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : session.isToday ? 'אשר הגעה' : 'הירשם'}
+                  : session.isToday ? 'אשר הגעה' : g('הירשמי', 'הירשם')}
               </motion.button>
             )}
           </AnimatePresence>
@@ -234,11 +348,10 @@ export default function CommunitySessionBanner({
     );
   }
 
-  /** APPROACHING — cyan card, countdown badge, "✋ אני בדרך" CTA */
   function renderApproaching() {
     return (
       <div
-        className="relative flex flex-col gap-2.5 px-4 py-3 rounded-2xl border"
+        className="relative flex flex-col gap-2 px-4 py-3 rounded-2xl border"
         style={{ background: 'linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%)', borderColor: '#99F6E4' }}
       >
         <DismissBtn onDismiss={onDismiss} />
@@ -258,7 +371,7 @@ export default function CommunitySessionBanner({
             </p>
           </div>
           {countdown && (
-            <span className="px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 text-[11px] font-black flex-shrink-0">
+            <span className="px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 text-[12px] font-black flex-shrink-0">
               {countdown}
             </span>
           )}
@@ -272,7 +385,7 @@ export default function CommunitySessionBanner({
               animate={{ scale: 1, opacity: 1 }}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black"
             >
-              <CheckCircle2 className="w-4 h-4" /> בדרך!
+              <CheckCircle2 className="w-4 h-4" /> {g('בדרך! 🏃‍♀️', 'בדרך! 🏃')}
             </motion.div>
           ) : (
             <motion.button
@@ -287,11 +400,12 @@ export default function CommunitySessionBanner({
             </motion.button>
           )}
         </AnimatePresence>
+
+        {renderLateSkipRow('text-teal-600')}
       </div>
     );
   }
 
-  /** LOBBY — green card, live avatar row, "הצטרפי ללובי" CTA */
   function renderLobby() {
     const countLabel = maxCount
       ? `${attendeeCount}/${maxCount} הגיעו`
@@ -299,12 +413,11 @@ export default function CommunitySessionBanner({
 
     return (
       <div
-        className="relative flex flex-col gap-2.5 px-4 py-3 rounded-2xl border"
+        className="relative flex flex-col gap-2 px-4 py-3 rounded-2xl border"
         style={{ background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)', borderColor: '#86EFAC' }}
       >
         <DismissBtn onDismiss={onDismiss} />
 
-        {/* Header */}
         <div
           className="flex items-center gap-3"
           onClick={openGroup}
@@ -316,7 +429,7 @@ export default function CommunitySessionBanner({
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>
             <p className="text-[11px] text-emerald-700 font-bold">
-              {countdown ?? 'המפגש החל'}
+              {countdown ?? 'המפגש החל!'}
             </p>
           </div>
           {price ? (
@@ -326,7 +439,6 @@ export default function CommunitySessionBanner({
           ) : null}
         </div>
 
-        {/* Avatar row */}
         {attendeeProfs.length > 0 && countLabel && (
           <div className="flex items-center gap-2">
             <AvatarRow profiles={attendeeProfs} totalCount={attendeeCount} />
@@ -334,7 +446,6 @@ export default function CommunitySessionBanner({
           </div>
         )}
 
-        {/* CTA */}
         <AnimatePresence mode="wait">
           {statusDone === 'here' ? (
             <motion.div
@@ -343,7 +454,7 @@ export default function CommunitySessionBanner({
               animate={{ scale: 1, opacity: 1 }}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black"
             >
-              <CheckCircle2 className="w-4 h-4" /> אני כאן!
+              <CheckCircle2 className="w-4 h-4" /> אני כאן! 🙌
             </motion.div>
           ) : (
             <motion.button
@@ -354,15 +465,16 @@ export default function CommunitySessionBanner({
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-emerald-500/30"
             >
-              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : 'הצטרפי ללובי'}
+              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : g('הצטרפי ללובי', 'הצטרף ללובי')}
             </motion.button>
           )}
         </AnimatePresence>
+
+        {renderLateSkipRow('text-emerald-600')}
       </div>
     );
   }
 
-  /** ACTIVE — dark green card, live dot, progress bar, "הצטרפי לאימון" */
   function renderActive() {
     const fillPct = maxCount && activeCount
       ? Math.min(100, (activeCount / maxCount) * 100)
@@ -375,7 +487,6 @@ export default function CommunitySessionBanner({
       >
         <DismissBtn onDismiss={onDismiss} dark />
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
             <Users className="w-4 h-4 text-white" />
@@ -397,7 +508,6 @@ export default function CommunitySessionBanner({
           ) : null}
         </div>
 
-        {/* Collective progress bar */}
         {maxCount && maxCount > 0 ? (
           <div className="space-y-1">
             <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
@@ -407,26 +517,24 @@ export default function CommunitySessionBanner({
               />
             </div>
             <p className="text-[10px] text-white/50 text-start">
-              {activeCount} / {maxCount} משתתפות
+              {activeCount} / {maxCount} {g('משתתפות', 'משתתפים')}
             </p>
           </div>
         ) : null}
 
-        {/* CTA */}
         <button
           onClick={openGroup}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-green-800 text-[13px] font-black transition-all active:scale-[0.97]"
         >
           <Zap className="w-4 h-4 text-green-600" />
-          הצטרפי לאימון
+          {g('הצטרפי לאימון', 'הצטרף לאימון')}
         </button>
       </div>
     );
   }
 
-  /** ENDED — amber/yellow, celebration, smart_message copy, "לסיכום" */
   function renderEnded() {
-    const celebrationText = communityMsg.text || 'סיימתן!';
+    const celebrationText = communityMsg.text || g('סיימתן! 💪', 'סיימתם! 💪');
     const celebrationSub  = communityMsg.subText;
 
     return (
@@ -436,7 +544,6 @@ export default function CommunitySessionBanner({
       >
         <DismissBtn onDismiss={onDismiss} />
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center flex-shrink-0 shadow-sm">
             <Trophy className="w-4 h-4 text-white" />
@@ -484,11 +591,10 @@ export default function CommunitySessionBanner({
         </motion.div>
       </AnimatePresence>
 
-      {/* ── Dev phase picker (development only) ─────────────────────────────── */}
       {IS_DEV && (
         <div className="mt-1">
           <button
-            onClick={() => setShowDevPanel(v => !v)}
+            onClick={() => setShowDevPanel((v) => !v)}
             className="w-full flex items-center justify-center gap-1.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-400 text-[10px] font-bold transition-colors"
           >
             <Bug className="w-3 h-3" />
@@ -502,7 +608,7 @@ export default function CommunitySessionBanner({
               animate={{ opacity: 1, y: 0 }}
               className="mt-1 p-2 rounded-xl bg-gray-900 border border-gray-700 flex flex-wrap gap-1.5"
             >
-              {ALL_PHASES.map(p => (
+              {ALL_PHASES.map((p) => (
                 <button
                   key={p}
                   onClick={() => setDevPhase(effectivePhase === p && devPhase ? null : p)}

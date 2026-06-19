@@ -28,9 +28,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   X,
-  QrCode,
   Share2,
   Upload,
+  SlidersHorizontal,
 } from 'lucide-react';
 import AppHeader from '@/components/ui/AppHeader';
 import { useUserStore } from '@/features/user';
@@ -49,10 +49,10 @@ import PartnerCard from '@/features/social/components/PartnerCard';
 import EventCard from '@/features/arena/components/EventCard';
 import GroupCard from '@/features/arena/components/GroupCard';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
+import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import SessionDrawer from '@/features/arena/components/SessionDrawer';
 import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
 import ViralUnlockSheet from '@/features/safecity/components/ViralUnlockSheet';
-import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { joinGroup, leaveGroup } from '@/features/arena/services/group.service';
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
@@ -86,20 +86,24 @@ const EVENT_VERB: Record<string, string> = {
   other: 'יתאמן',
 };
 
-type SearchTopTab = 'exercises' | 'social' | 'events';
-type SocialSubTab = 'my' | 'people' | 'groups';
+type SearchTopTab = 'groups' | 'people' | 'exercises' | 'events';
+type DiscoverMode = 'my' | 'discover';
 type EventFilter = 'all' | 'running' | 'walking' | 'strength' | 'near';
 
 const TOP_TABS: { value: SearchTopTab; label: string }[] = [
+  { value: 'groups',    label: 'קבוצות' },
+  { value: 'people',   label: 'אנשים' },
   { value: 'exercises', label: 'תרגילים' },
-  { value: 'social', label: 'קבוצות ואנשים' },
-  { value: 'events', label: 'אירועים' },
+  { value: 'events',   label: 'אירועים' },
 ];
 
-const SOCIAL_SUB_TABS: { value: SocialSubTab; label: string }[] = [
-  { value: 'my', label: 'השותפים שלי' },
-  { value: 'people', label: 'גלה אנשים' },
-  { value: 'groups', label: 'גלה קבוצות' },
+const GROUP_CATEGORY_CHIPS = [
+  { key: 'all',          label: 'הכל' },
+  { key: 'walking',      label: 'הליכה' },
+  { key: 'running',      label: 'ריצה' },
+  { key: 'calisthenics', label: 'קליסתניקס' },
+  { key: 'cycling',      label: 'רכיבה' },
+  { key: 'community',    label: 'קהילתי' },
 ];
 
 const EVENT_FILTERS: { value: EventFilter; label: string }[] = [
@@ -128,6 +132,19 @@ export default function SearchPage() {
   const access = useArenaAccess();
   const { events, groups } = useArenaData(access.cityAuthorityId);
   const { userCoords } = useUserLocation();
+  const exerciseCount = useExerciseLibraryStore((s) => s.allExercises.length);
+
+  // Live session phase map for group cards (joined groups only)
+  const { sessions: bannerSessions } = useCommunitySessionBanner();
+  const livePhaseMap = useMemo(() => {
+    const map: Record<string, 'approaching' | 'lobby' | 'active'> = {};
+    bannerSessions.forEach((s) => {
+      if (s.phase === 'approaching' || s.phase === 'lobby' || s.phase === 'active') {
+        map[s.groupId] = s.phase;
+      }
+    });
+    return map;
+  }, [bannerSessions]);
 
   // Following list (UIDs) — already kept in sync with Firestore by /community.
   const following = useSocialStore((s) => s.following);
@@ -137,12 +154,14 @@ export default function SearchPage() {
   // ── Top-level tab from URL ───────────────────────────────────────────────
   const tabParam = searchParams.get('tab');
   const topTab: SearchTopTab =
-    tabParam === 'social' || tabParam === 'events' ? tabParam : 'exercises';
+    tabParam === 'people' || tabParam === 'exercises' || tabParam === 'events'
+      ? tabParam
+      : 'groups'; // default; 'social' (legacy) also falls here
 
   const setTopTab = useCallback(
     (next: SearchTopTab) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (next === 'exercises') {
+      if (next === 'groups') {
         params.delete('tab');
       } else {
         params.set('tab', next);
@@ -155,8 +174,10 @@ export default function SearchPage() {
 
   // ── Sub-state ────────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('');
-  const [socialSubTab, setSocialSubTab] = useState<SocialSubTab>('my');
+  const [discoverMode, setDiscoverMode] = useState<DiscoverMode>('discover');
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
+  const [groupCategoryFilter, setGroupCategoryFilter] = useState('all');
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
 
   // ── People discovery (debounced server query, NATIONWIDE) ───────────────
   const [peopleResults, setPeopleResults] = useState<UserSearchResult[]>([]);
@@ -203,13 +224,25 @@ export default function SearchPage() {
   }, [profile?.social?.groupIds]);
 
   // ── Effect: clear search term + reset exercise store on tab switch ───────
-  // The single shared input would otherwise leak (e.g. typing "yoga" on the
-  // exercises tab and switching to events would silently filter events to
-  // nothing). Always start each tab with a clean slate.
   useEffect(() => {
     setSearchTerm('');
+    setFilterPanelOpen(false);
     useExerciseLibraryStore.getState().setQuery('');
   }, [topTab]);
+
+  // ── Effect: deep-link from ?groupId= (e.g. from NearbyGroupsRow card tap) ─
+  useEffect(() => {
+    const groupId = searchParams.get('groupId');
+    if (!groupId || !groups.length) return;
+    const target = groups.find((g) => g.id === groupId);
+    if (!target) return;
+    setSelectedGroup(target);
+    // Clean the param without triggering a re-render loop
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('groupId');
+    const qs = params.toString();
+    router.replace(`/search${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [searchParams, groups, router]);
 
   // ── Effect: mirror searchTerm → exercise store when on exercises tab ────
   useEffect(() => {
@@ -222,8 +255,8 @@ export default function SearchPage() {
   useEffect(() => {
     if (peopleDebounceRef.current) clearTimeout(peopleDebounceRef.current);
     if (
-      topTab !== 'social' ||
-      socialSubTab !== 'people' ||
+      topTab !== 'people' ||
+      discoverMode !== 'discover' ||
       searchTerm.trim().length < 2
     ) {
       setPeopleResults([]);
@@ -245,14 +278,14 @@ export default function SearchPage() {
     return () => {
       if (peopleDebounceRef.current) clearTimeout(peopleDebounceRef.current);
     };
-  }, [searchTerm, topTab, socialSubTab]);
+  }, [searchTerm, topTab, discoverMode]);
 
   // ── Effect: load "my partners" (followed users) when sub-tab opens ──────
   // Re-fetches whenever the `following` array length changes so newly
   // followed users surface without a manual refresh.
   useEffect(() => {
     let cancelled = false;
-    if (topTab !== 'social' || socialSubTab !== 'my') return;
+    if (topTab !== 'people' || discoverMode !== 'my') return;
     if (!socialLoaded) return;
     if (following.length === 0) {
       setMyPartners([]);
@@ -272,19 +305,45 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [topTab, socialSubTab, socialLoaded, following]);
+  }, [topTab, discoverMode, socialLoaded, following]);
 
   // ── Group / event derived lists ─────────────────────────────────────────
   const termLower = searchTerm.trim().toLowerCase();
 
   const filteredGroups = useMemo(() => {
-    if (termLower.length < 2) return groups;
-    return groups.filter(
-      (g) =>
-        g.name.toLowerCase().includes(termLower) ||
-        g.description?.toLowerCase().includes(termLower),
-    );
-  }, [groups, termLower]);
+    let base = discoverMode === 'my'
+      ? groups.filter((g) => joinedGroupIds.has(g.id))
+      : groups;
+
+    if (groupCategoryFilter !== 'all') {
+      base = groupCategoryFilter === 'community'
+        ? base.filter((g) => g.source === 'user')
+        : base.filter((g) => g.category === groupCategoryFilter);
+    }
+
+    if (termLower.length >= 2) {
+      base = base.filter(
+        (g) =>
+          g.name.toLowerCase().includes(termLower) ||
+          g.description?.toLowerCase().includes(termLower),
+      );
+    }
+
+    return base;
+  }, [groups, joinedGroupIds, discoverMode, groupCategoryFilter, termLower]);
+
+  // Distance map for groups — used to show travel time on discover cards
+  const groupDistances = useMemo<Record<string, number>>(() => {
+    if (!userCoords) return {};
+    const out: Record<string, number> = {};
+    for (const g of groups) {
+      const loc = g.meetingLocation?.location;
+      if (loc?.lat && loc?.lng && (loc.lat !== 0 || loc.lng !== 0)) {
+        out[g.id] = haversineKm(userCoords.lat, userCoords.lng, loc.lat, loc.lng);
+      }
+    }
+    return out;
+  }, [groups, userCoords]);
 
   // Distance-keyed events for the "קרוב אלי" filter — we compute distance
   // up front so we can both filter (drop events with no coords) and sort.
@@ -441,27 +500,6 @@ export default function SearchPage() {
     [userId, successData],
   );
 
-  // ── Native share for invite link ────────────────────────────────────────
-  // Routes through the OneLink smart-link so recipients without the app are
-  // sent directly to the correct App Store / Play Store.
-  const handleShareInvite = useCallback(async () => {
-    if (!userId) return;
-    const link = `${APP_CONFIG_LINKS.GENERAL_INVITE_ONELINK}?ref=${userId}`;
-    const text = `בוא להתאמן איתי ב-Out! 🤘 ${link}`;
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title: 'Out — בוא להתאמן איתי!', text, url: link });
-        return;
-      } catch {
-        /* user cancelled — fall through to clipboard */
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      /* swallow */
-    }
-  }, [userId]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Render
@@ -483,7 +521,7 @@ export default function SearchPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={getPlaceholder(topTab, socialSubTab)}
+              placeholder={getPlaceholder(topTab, discoverMode)}
               className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
               aria-label="חיפוש"
             />
@@ -500,31 +538,135 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* Top-level tabs — underline style (matches /community) */}
+        {/* Four-tab bar with counts */}
         <div className="max-w-md mx-auto px-5" dir="rtl">
           <div
             className="flex border-b border-slate-100 dark:border-slate-800"
             role="tablist"
             aria-label="חיפוש"
           >
-            {TOP_TABS.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                role="tab"
-                aria-selected={topTab === t.value}
-                onClick={() => setTopTab(t.value)}
-                className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
-                  topTab === t.value
-                    ? 'text-[#00ADEF] border-[#00ADEF]'
-                    : 'text-slate-400 dark:text-slate-500 border-transparent'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+            {TOP_TABS.map((t) => {
+              const count =
+                t.value === 'groups'    ? groups.length :
+                t.value === 'people'    ? following.length :
+                t.value === 'exercises' ? exerciseCount :
+                t.value === 'events'    ? events.length : 0;
+              const active = topTab === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setTopTab(t.value)}
+                  className={`flex-1 py-3 text-center text-xs font-bold border-b-2 transition-colors min-h-[44px] ${
+                    active
+                      ? 'text-[#00ADEF] border-[#00ADEF]'
+                      : 'text-slate-400 dark:text-slate-500 border-transparent'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1 justify-center">
+                    {t.label}
+                    {count > 0 && (
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold leading-none ${
+                          active
+                            ? 'bg-[#00ADEF] text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* Control bar — groups & people tabs only */}
+        {(topTab === 'groups' || topTab === 'people') && (
+          <div className="max-w-md mx-auto px-5 pt-2 pb-1 flex items-center gap-2" dir="rtl">
+            {/* שלי / גלה segmented toggle */}
+            <div
+              className="flex rounded-full bg-gray-100 dark:bg-gray-800 p-0.5"
+              role="group"
+              aria-label="מצב תצוגה"
+            >
+              {(['discover', 'my'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDiscoverMode(mode)}
+                  aria-pressed={discoverMode === mode}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
+                    discoverMode === mode
+                      ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {mode === 'discover' ? 'גלה' : 'שלי'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1" />
+
+            {/* Invite chip */}
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              aria-label="הזמן חברים"
+              className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-full text-xs font-bold transition-colors active:scale-95 min-h-[32px]"
+            >
+              <Share2 className="w-3.5 h-3.5 flex-shrink-0" />
+              הזמן חברים
+            </button>
+
+            {/* Filter icon — groups tab only */}
+            {topTab === 'groups' && (
+              <button
+                type="button"
+                onClick={() => setFilterPanelOpen((v) => !v)}
+                aria-label="סנן קבוצות"
+                aria-expanded={filterPanelOpen}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                  filterPanelOpen || groupCategoryFilter !== 'all'
+                    ? 'bg-[#00ADEF] text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Category filter panel — groups tab */}
+        {topTab === 'groups' && filterPanelOpen && (
+          <div className="max-w-md mx-auto px-5 pb-2" dir="rtl">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5">
+              {GROUP_CATEGORY_CHIPS.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => {
+                    setGroupCategoryFilter(chip.key);
+                    if (chip.key !== 'all') setFilterPanelOpen(false);
+                  }}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[36px] ${
+                    groupCategoryFilter === chip.key
+                      ? 'bg-[#00ADEF] text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </AppHeader>
 
       {/* ── Drawers (mounted at root so they survive tab switches) ────────── */}
@@ -576,72 +718,55 @@ export default function SearchPage() {
           </motion.div>
         )}
 
-        {topTab === 'social' && (
+        {topTab === 'groups' && (
           <motion.div
-            key="social"
+            key="groups"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="max-w-md mx-auto px-4 pt-4"
+          >
+            <DiscoverGroupsList
+              groups={filteredGroups}
+              joinedGroupIds={joinedGroupIds}
+              joiningId={joiningId}
+              onJoin={handleJoinGroup}
+              onCardClick={(g) => setSelectedGroup(g)}
+              hasCityAccess={access.hasCityAccess}
+              distanceMap={groupDistances}
+              livePhaseMap={livePhaseMap}
+              emptyMessage={
+                discoverMode === 'my'
+                  ? 'עוד לא הצטרפת לקבוצות — עבור ל"גלה" כדי למצוא קבוצות'
+                  : undefined
+              }
+            />
+          </motion.div>
+        )}
+
+        {topTab === 'people' && (
+          <motion.div
+            key="people"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
             className="max-w-md mx-auto px-4 pt-4 space-y-4"
           >
-            {renderInviteBanner({
-              onQR: () => setInviteOpen(true),
-              onShare: handleShareInvite,
-            })}
-
-            {/* Sub-tabs */}
-            <div dir="rtl">
-              <div
-                className="flex border-b border-slate-100 dark:border-slate-800"
-                role="tablist"
-                aria-label="קבוצות ואנשים"
-              >
-                {SOCIAL_SUB_TABS.map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={socialSubTab === s.value}
-                    onClick={() => setSocialSubTab(s.value)}
-                    className={`flex-1 py-3 text-center text-sm font-bold border-b-2 transition-colors ${
-                      socialSubTab === s.value
-                        ? 'text-[#00ADEF] border-[#00ADEF]'
-                        : 'text-slate-400 dark:text-slate-500 border-transparent'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {socialSubTab === 'my' && (
+            {discoverMode === 'my' ? (
               <MyPartnersList
                 partners={myPartners}
                 isLoading={myPartnersLoading}
                 myUid={userId}
                 onInvite={() => setInviteOpen(true)}
               />
-            )}
-
-            {socialSubTab === 'people' && (
+            ) : (
               <DiscoverPeopleList
                 term={searchTerm}
                 isSearching={peopleSearching}
                 results={peopleResults}
                 myUid={userId}
-              />
-            )}
-
-            {socialSubTab === 'groups' && (
-              <DiscoverGroupsList
-                groups={filteredGroups}
-                joinedGroupIds={joinedGroupIds}
-                joiningId={joiningId}
-                onJoin={handleJoinGroup}
-                onCardClick={(g) => setSelectedGroup(g)}
-                hasCityAccess={access.hasCityAccess}
               />
             )}
           </motion.div>
@@ -704,61 +829,12 @@ export default function SearchPage() {
 // Helpers / small render functions
 // ────────────────────────────────────────────────────────────────────────────
 
-function getPlaceholder(top: SearchTopTab, sub: SocialSubTab): string {
+function getPlaceholder(top: SearchTopTab, mode: DiscoverMode): string {
   if (top === 'exercises') return 'חפש תרגיל...';
   if (top === 'events') return 'חפש אירוע...';
-  // social tab — depends on sub-tab
-  if (sub === 'people') return 'חפש לפי שם...';
-  if (sub === 'groups') return 'חפש קבוצה...';
+  if (top === 'groups') return 'חפש קבוצה...';
+  if (top === 'people' && mode === 'discover') return 'חפש לפי שם...';
   return 'חיפוש...';
-}
-
-// ── Invite banner (top of the social tab) ───────────────────────────────────
-// Self-contained "green banner" — gradient background, a QR action chip and a
-// primary share CTA. Unwired placeholder chips (contacts / Facebook) were
-// removed; new chips are added here only once their integration is live.
-function renderInviteBanner({
-  onQR,
-  onShare,
-}: {
-  onQR: () => void;
-  onShare: () => void;
-}) {
-  return (
-    <div
-      className="relative rounded-2xl p-4 overflow-hidden text-white shadow-lg shadow-emerald-500/20"
-      style={{
-        background:
-          'linear-gradient(135deg, #10B981 0%, #059669 60%, #047857 100%)',
-      }}
-      dir="rtl"
-    >
-      <h3 className="text-base font-black mb-1">הזמן חברים ל-Out</h3>
-      <p className="text-[12px] text-emerald-50 mb-3 leading-snug">
-        ככל שתזמין יותר חברים, ייפתחו לך פיצ׳רים שותפי אימון קבוצתי בקרבתך
-      </p>
-
-      <div className="flex items-center gap-2 mb-3">
-        <button
-          type="button"
-          onClick={onQR}
-          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors active:scale-95"
-        >
-          <QrCode className="w-4 h-4" />
-          <span className="text-[10px] font-bold">QR</span>
-        </button>
-      </div>
-
-      <button
-        type="button"
-        onClick={onShare}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-emerald-700 text-sm font-black active:scale-[0.98] transition-transform shadow"
-      >
-        <Share2 className="w-4 h-4" />
-        שתף קישור הזמנה
-      </button>
-    </div>
-  );
 }
 
 function MyPartnersList({
@@ -872,6 +948,9 @@ function DiscoverGroupsList({
   onJoin,
   onCardClick,
   hasCityAccess,
+  distanceMap = {},
+  livePhaseMap = {},
+  emptyMessage,
 }: {
   groups: CommunityGroup[];
   joinedGroupIds: Set<string>;
@@ -879,6 +958,9 @@ function DiscoverGroupsList({
   onJoin: (id: string) => void;
   onCardClick: (g: CommunityGroup) => void;
   hasCityAccess: boolean;
+  distanceMap?: Record<string, number>;
+  livePhaseMap?: Record<string, 'approaching' | 'lobby' | 'active'>;
+  emptyMessage?: string;
 }) {
   if (groups.length === 0) {
     return (
@@ -886,9 +968,9 @@ function DiscoverGroupsList({
         <Search className="w-8 h-8 text-gray-300 mb-2" />
         <p className="text-sm font-bold text-gray-700">לא נמצאו קבוצות</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          {hasCityAccess
+          {emptyMessage ?? (hasCityAccess
             ? 'קבוצות חדשות יופיעו כאן ברגע שיתווספו לעיר שלך'
-            : 'חבר GPS כדי לגלות קבוצות באזורך'}
+            : 'חבר GPS כדי לגלות קבוצות באזורך')}
         </p>
       </div>
     );
@@ -902,6 +984,8 @@ function DiscoverGroupsList({
             group={g}
             isJoined={joinedGroupIds.has(g.id)}
             joining={joiningId === g.id}
+            distanceKm={distanceMap[g.id]}
+            livePhase={livePhaseMap[g.id]}
             onJoin={onJoin}
             onCardClick={() => onCardClick(g)}
           />

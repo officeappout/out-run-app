@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users } from 'lucide-react';
+import { Users, SlidersHorizontal } from 'lucide-react';
 import { haversineKm } from '@/features/parks/core/services/geoUtils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useUserStore } from '@/features/user';
-import { getPublicGroups } from '@/features/arena/services/group.service';
+import { getPublicGroups, joinGroup, leaveGroup } from '@/features/arena/services/group.service';
 import GroupCard from '@/features/arena/components/GroupCard';
+import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
+import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import type { CommunityGroup } from '@/types/community.types';
 
 const CITY_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
@@ -66,18 +68,25 @@ function computeNearby(
     const inRadius = withDist.filter((g) => g.km <= radius).slice(0, MAX_GROUPS);
     if (inRadius.length >= MIN_GROUPS) return inRadius;
   }
-  // Still return whatever is within 20 km (may be < MIN_GROUPS — caller hides row if 0)
   return withDist.filter((g) => g.km <= 20).slice(0, MAX_GROUPS);
 }
 
 export default function NearbyGroupsRow() {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
+  const userId = profile?.id ?? null;
+  const userName = profile?.core?.name ?? 'משתמש';
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [allGroups, setAllGroups] = useState<CommunityGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // Drawer state
+  const [selectedGroup, setSelectedGroup] = useState<CommunityGroup | null>(null);
+  const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(new Set());
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -103,8 +112,32 @@ export default function NearbyGroupsRow() {
     return () => { cancelled = true; };
   }, [profile]);
 
+  // Sync joined groups from profile
+  useEffect(() => {
+    const savedIds = profile?.social?.groupIds;
+    if (savedIds?.length) {
+      setJoinedGroupIds((prev) => {
+        const merged = new Set(prev);
+        for (const id of savedIds) merged.add(id);
+        return merged.size !== prev.size ? merged : prev;
+      });
+    }
+  }, [profile?.social?.groupIds]);
+
   const userAuthorityId: string | null =
     (profile as any)?.core?.authorityId ?? null;
+
+  // Build a groupId → livePhase map from the banner hook (joined groups only)
+  const { sessions: bannerSessions } = useCommunitySessionBanner();
+  const livePhaseMap = useMemo(() => {
+    const map: Record<string, 'approaching' | 'lobby' | 'active'> = {};
+    bannerSessions.forEach((s) => {
+      if (s.phase === 'approaching' || s.phase === 'lobby' || s.phase === 'active') {
+        map[s.groupId] = s.phase;
+      }
+    });
+    return map;
+  }, [bannerSessions]);
 
   const nearby = useMemo(
     () => userPos ? computeNearby(allGroups, userPos, userAuthorityId) : [],
@@ -117,73 +150,137 @@ export default function NearbyGroupsRow() {
     return nearby.filter((g) => g.group.category === categoryFilter);
   }, [nearby, categoryFilter]);
 
-  // Hide row entirely when no nearby groups found across all radii
+  async function handleJoin(groupId: string) {
+    if (!userId) return;
+    setJoiningId(groupId);
+    try {
+      await joinGroup(groupId, userId, userName);
+      setJoinedGroupIds((prev) => { const next = new Set(Array.from(prev)); next.add(groupId); return next; });
+    } catch (err) {
+      console.error('[NearbyGroupsRow] joinGroup failed:', err);
+    } finally {
+      setJoiningId(null);
+    }
+  }
+
+  async function handleLeave(groupId: string) {
+    if (!userId) return;
+    try {
+      await leaveGroup(groupId, userId);
+      setJoinedGroupIds((prev) => {
+        const next = new Set(prev);
+        next.delete(groupId);
+        return next;
+      });
+    } catch (err) {
+      console.error('[NearbyGroupsRow] leaveGroup failed:', err);
+    }
+  }
+
   if (!loading && nearby.length === 0) return null;
 
   return (
-    <section dir="rtl" className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[15px] font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
-          <Users size={15} className="text-cyan-500" />
-          קבוצות קרובות אליך
-        </h3>
-        <button
-          onClick={() => router.push('/community')}
-          className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 min-h-[44px] px-1"
-        >
-          הכל ›
-        </button>
-      </div>
-
-      {/* Category chips */}
-      {!loading && (
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5 -mx-4 px-4">
-          {CHIPS.map((chip) => (
+    <>
+      <section dir="rtl" className="space-y-2">
+        {/* Header row: title + count + filter icon + "all" link */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
+            <Users size={15} className="text-cyan-500" />
+            קבוצות קרובות אליך
+            {!loading && (
+              <span className="text-[13px] font-semibold text-gray-400 dark:text-gray-500">
+                ({filtered.length})
+              </span>
+            )}
+          </h3>
+          <div className="flex items-center gap-1">
+            {!loading && (
+              <button
+                type="button"
+                onClick={() => setFilterOpen((v) => !v)}
+                aria-label="סנן קבוצות"
+                aria-expanded={filterOpen}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  filterOpen || categoryFilter !== 'all'
+                    ? 'bg-cyan-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <SlidersHorizontal size={15} />
+              </button>
+            )}
             <button
-              key={chip.key}
-              onClick={() => setCategoryFilter(chip.key)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[44px] ${
-                categoryFilter === chip.key
-                  ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/30'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-              }`}
+              onClick={() => router.push('/search')}
+              className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 min-h-[44px] px-1"
             >
-              {chip.label}
+              הכל ›
             </button>
-          ))}
+          </div>
         </div>
-      )}
 
-      {/* Cards */}
-      {loading ? (
-        <div className="flex gap-2.5 overflow-x-hidden -mx-4 px-4 pb-1">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-[148px] rounded-2xl overflow-hidden shadow-sm">
-              <div className="w-full h-24 bg-gray-100 dark:bg-gray-800 animate-pulse" />
-              <div className="px-2.5 py-2 space-y-1.5 bg-white dark:bg-slate-900">
-                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-3/4" />
-                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-1/2" />
+        {/* Collapsible category chips */}
+        {filterOpen && !loading && (
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5 -mx-4 px-4">
+            {CHIPS.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => { setCategoryFilter(chip.key); if (chip.key !== 'all') setFilterOpen(false); }}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors min-h-[36px] ${
+                  categoryFilter === chip.key
+                    ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/30'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Cards */}
+        {loading ? (
+          <div className="flex gap-2.5 overflow-x-hidden -mx-4 px-4 pb-1">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex-shrink-0 w-[148px] rounded-2xl overflow-hidden shadow-sm">
+                <div className="w-full h-24 bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                <div className="px-2.5 py-2 space-y-1.5 bg-white dark:bg-slate-900">
+                  <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-3/4" />
+                  <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-1/2" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-xs text-gray-400 dark:text-gray-500 px-1">
-          אין קבוצות בקטגוריה זו באזורך
-        </p>
-      ) : (
-        <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
-          {filtered.map(({ group, km }) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              distanceKm={km}
-              compact
-              onCardClick={() => router.push(`/community?groupId=${group.id}`)}
-            />
-          ))}
-        </div>
-      )}
-    </section>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="text-xs text-gray-400 dark:text-gray-500 px-1">
+            אין קבוצות בקטגוריה זו באזורך
+          </p>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+            {filtered.map(({ group, km }) => (
+              <GroupCard
+                key={group.id}
+                group={group}
+                distanceKm={km}
+                compact
+                livePhase={livePhaseMap[group.id]}
+                onCardClick={() => setSelectedGroup(group)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Group details drawer — opens inline, closes back to home */}
+      <GroupDetailsDrawer
+        isOpen={!!selectedGroup}
+        onClose={() => setSelectedGroup(null)}
+        group={selectedGroup}
+        isJoined={selectedGroup ? joinedGroupIds.has(selectedGroup.id) : false}
+        joining={selectedGroup ? joiningId === selectedGroup.id : false}
+        onJoin={handleJoin}
+        onLeave={handleLeave}
+      />
+    </>
   );
 }
