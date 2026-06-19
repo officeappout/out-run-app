@@ -280,6 +280,7 @@ export default function NearbyGroupsRow() {
         joining={selectedGroup ? joiningId === selectedGroup.id : false}
         onJoin={handleJoin}
         onLeave={handleLeave}
+        liveSession={bannerSessions.find((s) => s.groupId === selectedGroup?.id)}
       />
     </>
   );

@@ -55,18 +55,21 @@ function loadDismissed(todayISO: string): Set<string> {
 /**
  * Derives the current phase from timing + any Firestore override written by the leader.
  * Only 'active' and 'ended' are stored in Firestore; all earlier phases are computed.
+ *
+ * @param durationMinutes - slot.durationMinutes (required; caller supplies fallback 60)
  */
 export function computePhase(
   minutesUntil: number,
   attendance: SessionAttendance | undefined,
+  durationMinutes: number,
 ): LiveSessionPhase {
   if (attendance?.sessionPhase === 'ended') return 'ended';
   if (attendance?.sessionPhase === 'active') return 'active';
 
-  // Auto-ended fallback: 90 min after scheduled start
-  if (minutesUntil <= -90) return 'ended';
+  // Auto-ended: leader hasn't ended it yet but the session duration has elapsed.
+  if (minutesUntil <= -durationMinutes) return 'ended';
 
-  // Auto-start threshold: +10 min after scheduled start, unless lobby was extended
+  // Auto-start threshold: +10 min after scheduled start, unless lobby was extended.
   const extendedMs = attendance?.lobbyExtendedUntil?.toMillis?.();
   const autoStartAt = extendedMs
     ? (extendedMs - Date.now()) / 60_000
@@ -92,6 +95,7 @@ interface RawSession {
   isToday: boolean;
   isTomorrow: boolean;
   sessionStartMs: number;
+  durationMinutes: number;
   routeId?: string;
   targetGender?: TargetGender;
 }
@@ -120,9 +124,8 @@ export interface UpcomingSession {
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const WINDOW_MINUTES    = 180;  // show banner within 3 h of start
-const GRACE_MINUTES     = 30;   // keep showing up to 30 min after start
 const LOBBY_SUB_MINUTES = 15;   // subscribe to Firestore when ≤ 15 min away
-const UNSUB_MINUTES     = -120; // unsubscribe when session started > 2 h ago
+const UNSUB_MINUTES     = -120; // unsubscribe when session started > 2 h ago (cleanup bound)
 
 // ── hook ──────────────────────────────────────────────────────────────────────
 
@@ -185,13 +188,15 @@ export function useCommunitySessionBanner() {
             for (const slot of allSlots) {
               const routeId = slot.location?.routeId ?? data.meetingLocation?.routeId;
 
+              const slotDuration = slot.durationMinutes ?? 60;
+
               if (slot.dayOfWeek === todayDow) {
                 const sessionStartMs = new Date(`${today}T${slot.time}:00`).getTime();
                 const minutesUntil   = (sessionStartMs - nowMs) / 60_000;
-                if (minutesUntil >= -GRACE_MINUTES && minutesUntil <= WINDOW_MINUTES) {
+                if (minutesUntil >= -slotDuration && minutesUntil <= WINDOW_MINUTES) {
                   results.push({
                     groupId: gid, groupName: data.name, category: data.category,
-                    date: today, time: slot.time, slot,
+                    date: today, time: slot.time, slot, durationMinutes: slotDuration,
                     isToday: true, isTomorrow: false, sessionStartMs, routeId,
                     targetGender: data.targetGender,
                   });
@@ -204,7 +209,7 @@ export function useCommunitySessionBanner() {
                 if (minutesUntil >= 0 && minutesUntil <= WINDOW_MINUTES) {
                   results.push({
                     groupId: gid, groupName: data.name, category: data.category,
-                    date: tomorrow, time: slot.time, slot,
+                    date: tomorrow, time: slot.time, slot, durationMinutes: slotDuration,
                     isToday: false, isTomorrow: true, sessionStartMs, routeId,
                     targetGender: data.targetGender,
                   });
@@ -266,7 +271,7 @@ export function useCommunitySessionBanner() {
         const minutesUntil = (raw.sessionStartMs - nowMs) / 60_000;
         const key          = sessionKey(raw.groupId, raw.date, raw.time);
         const attendance   = attendanceMapRef.current[key];
-        const phase        = computePhase(minutesUntil, attendance);
+        const phase        = computePhase(minutesUntil, attendance, raw.durationMinutes);
 
         // Subscribe to sessions that just crossed into lobby range
         if (minutesUntil <= LOBBY_SUB_MINUTES && minutesUntil > UNSUB_MINUTES
@@ -330,7 +335,7 @@ export function useCommunitySessionBanner() {
         const minutesUntil = (raw.sessionStartMs - nowMs) / 60_000;
         const key          = sessionKey(raw.groupId, raw.date, raw.time);
         const attendance   = attendanceMap[key];
-        const phase        = computePhase(minutesUntil, attendance);
+        const phase        = computePhase(minutesUntil, attendance, raw.durationMinutes);
         return {
           groupId: raw.groupId, groupName: raw.groupName, category: raw.category,
           date: raw.date, time: raw.time, slot: raw.slot,
@@ -341,10 +346,11 @@ export function useCommunitySessionBanner() {
       })
       .filter(s => {
         if (s.phase !== 'ended') return true;
-        // Show ended sessions for 30 min, then remove
+        // Show ended sessions for 30 min after they finish, then remove
+        const slotDur = s.slot.durationMinutes ?? 60;
         const endedAt =
           s.attendance?.sessionPhaseUpdatedAt?.toMillis?.()
-          ?? (new Date(`${s.date}T${s.time}:00`).getTime() + 90 * 60_000);
+          ?? (new Date(`${s.date}T${s.time}:00`).getTime() + slotDur * 60_000);
         return (nowMs - endedAt) < 30 * 60_000;
       });
   // tick is a dep so the memo re-runs every 60 s even when rawSessions/attendanceMap are stable

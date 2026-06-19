@@ -27,6 +27,8 @@ import {
   CalendarPlus,
 } from 'lucide-react';
 import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot } from '@/types/community.types';
+import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
+import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import AttendeesPreview from './AttendeesPreview';
@@ -142,6 +144,8 @@ interface GroupDetailsDrawerProps {
   onOpenChat?: () => void;
   /** Called with groupId when creator taps 'ערוך קהילה'. Only shown to the creator. */
   onEdit?: (groupId: string) => void;
+  /** Live session from useCommunitySessionBanner — shows a phase banner at the top of the drawer */
+  liveSession?: UpcomingSession;
 }
 
 export default function GroupDetailsDrawer({
@@ -156,6 +160,7 @@ export default function GroupDetailsDrawer({
   socialUnlocked: _socialUnlocked = true,
   onOpenChat,
   onEdit,
+  liveSession,
 }: GroupDetailsDrawerProps) {
   // ── ALL hooks MUST be at the top, before any conditional return ──
   const [navOpen, setNavOpen] = useState(false);
@@ -472,6 +477,18 @@ export default function GroupDetailsDrawer({
 
               {/* ── Scrollable content ─────────────────────────── */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
+                {/* Live session banner — shown when a session is approaching / in lobby / active */}
+                {liveSession && (
+                  liveSession.phase === 'approaching' ||
+                  liveSession.phase === 'lobby' ||
+                  liveSession.phase === 'active'
+                ) && (
+                  <CommunitySessionBanner
+                    session={liveSession}
+                    onDismiss={onClose}
+                  />
+                )}
+
                 {/* Title */}
                 <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
                   {group.name}
@@ -835,32 +852,42 @@ export default function GroupDetailsDrawer({
                   </div>
                 )}
 
-                {/* Location — clean map card with address + navigate */}
+                {/* Location — map thumbnail + prominent nav CTA */}
                 {hasCoords ? (
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick(destLat, destLng)}
-                    aria-label={`נווט ל-${destAddress || 'מיקום הקבוצה'}`}
-                    className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
-                  >
-                    {staticMapUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[120px] object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-[120px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
-                        <MapPin className="w-8 h-8 text-gray-400" />
+                  <div className="space-y-2">
+                    {/* Map thumbnail — tap to preview on in-app map */}
+                    <button
+                      type="button"
+                      onClick={() => handleLocationClick(destLat, destLng)}
+                      aria-label={`פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`}
+                      className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
+                    >
+                      {staticMapUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[110px] object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-[110px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                          <MapPin className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3" dir="rtl">
+                        <span className="text-xs font-bold text-white truncate block max-w-[80%]">
+                          {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
+                        </span>
                       </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between" dir="rtl">
-                      <span className="text-xs font-bold text-white truncate max-w-[70%]">
-                        {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
-                      </span>
-                      <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow">
-                        <Navigation className="w-4 h-4 text-gray-800" />
-                      </div>
-                    </div>
-                  </button>
+                    </button>
+                    {/* Prominent navigate CTA */}
+                    <button
+                      type="button"
+                      onClick={() => setNavOpen(true)}
+                      aria-label="נווט למיקום הקבוצה"
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-[#00ADEF] text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97]"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      נווט למיקום
+                    </button>
+                  </div>
                 ) : destAddress ? (
                   <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -940,11 +967,13 @@ export default function GroupDetailsDrawer({
                   </button>
                 )}
 
-                {/* ── Share button ────────────────────────────────── */}
-                {group.inviteCode && (() => {
+                {/* ── Share button — always visible ───────────────── */}
+                {(() => {
                   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-                  const deepLink = `${origin}/join/${group.inviteCode}`;
-                  const shareText = `היי, מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
+                  const deepLink = group.inviteCode
+                    ? `${origin}/join/${group.inviteCode}`
+                    : `${origin}/community?groupId=${group.id}`;
+                  const shareText = `מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
                   const handleShare = () => {
                     if (typeof navigator !== 'undefined' && navigator.share) {
                       navigator.share({ title: group.name, text: shareText, url: deepLink }).catch(() => {});
@@ -955,6 +984,7 @@ export default function GroupDetailsDrawer({
                   return (
                     <button
                       onClick={handleShare}
+                      aria-label="שתף קבוצה"
                       className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.97]"
                     >
                       <Share2 className="w-4 h-4" />

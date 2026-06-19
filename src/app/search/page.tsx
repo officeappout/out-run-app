@@ -678,6 +678,7 @@ export default function SearchPage() {
         onLeave={handleLeaveGroup}
         isJoined={selectedGroup ? joinedGroupIds.has(selectedGroup.id) : false}
         joining={selectedGroup ? joiningId === selectedGroup.id : false}
+        liveSession={bannerSessions.find((s) => s.groupId === selectedGroup?.id)}
       />
 
       <SessionDrawer

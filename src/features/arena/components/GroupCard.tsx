@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Clock, MapPin, UserPlus, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
+import { CalendarCheck, Clock, MapPin, UserPlus, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
 import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
 import { distanceLabel } from '@/features/arena/utils/distance';
@@ -65,6 +65,14 @@ export default function GroupCard({
   const [codeMode, setCodeMode] = useState(false);
   const [codeValue, setCodeValue] = useState('');
   const [codeError, setCodeError] = useState(false);
+
+  const todayDow = new Date().getDay();
+  const todaySlot = (() => {
+    const slots = group.scheduleSlots?.length
+      ? group.scheduleSlots
+      : group.schedule ? [group.schedule] : [];
+    return slots.find((s) => s.dayOfWeek === todayDow) ?? null;
+  })();
 
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
@@ -235,6 +243,21 @@ export default function GroupCard({
           <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2 mb-2.5">
             {group.description}
           </p>
+        )}
+
+        {/* Today's session row */}
+        {todaySlot && (
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-400 mb-2.5">
+            <CalendarCheck className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>מפגש היום · {todaySlot.time}</span>
+            {todaySlot.price != null && todaySlot.price > 0 && (
+              <span className="text-gray-500 dark:text-gray-400">· ₪{todaySlot.price}</span>
+            )}
+            {(todaySlot.price == null || todaySlot.price === 0) &&
+              group.price != null && group.price > 0 && (
+              <span className="text-gray-500 dark:text-gray-400">· ₪{group.price}</span>
+            )}
+          </div>
         )}
 
         {/* Address + distance row */}

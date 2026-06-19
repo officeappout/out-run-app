@@ -50,6 +50,8 @@ export interface ScheduleSlot {
   dayOfWeek: number; // 0-6 (Sunday-Saturday)
   time: string; // e.g., "18:00"
   frequency: 'weekly' | 'biweekly' | 'monthly';
+  /** Session length in minutes — drives banner visibility and auto-ended threshold. Fallback: 60. */
+  durationMinutes?: number;
   /** Per-slot overrides (Booking & RSVP engine) */
   maxParticipants?: number;
   price?: number | null;

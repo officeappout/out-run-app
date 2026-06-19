@@ -1432,6 +1432,7 @@ export default function HomePage() {
         onClose={() => setBannerGroup(null)}
         group={bannerGroup}
         isJoined={true}
+        liveSession={communitySessions.find((s) => s.groupId === bannerGroup?.id)}
       />
     </div>
   );

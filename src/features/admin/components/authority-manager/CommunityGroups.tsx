@@ -680,6 +680,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     <div className="flex flex-wrap gap-1 px-2 py-1.5 text-[10px] text-gray-400 border-t border-gray-100">
                       {slot.label && <span className="bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded-full font-bold">{slot.label}</span>}
                       {(slot.tags ?? []).length > 0 && slot.tags!.map(t => <span key={t} className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full">{t}</span>)}
+                      {slot.durationMinutes && <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-full">{slot.durationMinutes} דק׳</span>}
                       {slot.price != null && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full">₪{slot.price}</span>}
                       {slot.maxParticipants && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">{slot.maxParticipants} מקומות</span>}
                       {slot.location?.address && (
@@ -697,7 +698,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     {isExpanded && (
                       <div className="border-t border-gray-200 p-3 space-y-3 bg-white">
                         {/* Row: Label, Max Participants, Price */}
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                           <div>
                             <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">תווית (אופציונלי)</label>
                             <input
@@ -706,6 +707,18 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                               onChange={(e) => updateSlot({ label: e.target.value })}
                               className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs"
                               placeholder="יוגה / ריצה..."
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">משך (דקות)</label>
+                            <input
+                              type="number"
+                              min={15}
+                              max={240}
+                              value={slot.durationMinutes ?? ''}
+                              onChange={(e) => updateSlot({ durationMinutes: e.target.value === '' ? undefined : Number(e.target.value) })}
+                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs"
+                              placeholder="60"
                             />
                           </div>
                           <div>
