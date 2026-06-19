@@ -1,34 +1,35 @@
 'use client';
 
 /**
- * FreeRunActive — interaction model (v3)
+ * FreeRunActive — interaction model (v4)
  * ----------------------------------------
- * Mirrors StrengthRunner's two-layer architecture:
+ * Exact replica of StrengthRunner's two-layer drag architecture:
  *
- *   BASE LAYER  — MapShell (map, always visible below everything)
- *   TOP LAYER   — MetricsDrawer bottom sheet (slides between dock/peek)
- *   FLOW LAYER  — RunLapsList (slides DOWN from top when triggered)
+ *   BASE LAYER (z-49)  — RunLapsList: always at screen top, revealed when the
+ *                        story-bar panel slides away (like the workout playlist).
+ *   TOP LAYER (z-50)   — Story-bar motion.div: the draggable panel. Starts at y=0
+ *                        covering the base layer. Dragging DOWN slides the bar
+ *                        away, revealing the laps content beneath it.
+ *   METRICS (z-40)     — MetricsDrawer bottom sheet (dock / peek).
  *
- * Drag mechanics:
- *   MetricsDrawer:  grabber at sheet top → drag UP/DOWN → dock/peek
- *   WorkoutFlowLayer: drag DOWN on the StoryBar → laps slide down over map
- *                     drag UP on the grabber strip at bottom of laps → close
- *   When FlowLayer open: MetricsDrawer locks to dock (56 px black strip)
+ * Drag mechanics (mirrors StrengthRunner exactly):
+ *   motion.div drag="y", dragListener=false.
+ *   Story-bar div: onPointerDown → lapsDragControls.start(e) — the drag handle.
+ *   dragConstraints: { top: 0, bottom: lapsContentH }.
+ *   onDragEnd: offset>30 or velocity>300 → open; offset<-50 or velocity<-400 → close.
+ *   useAnimation controls the spring snap (stiffness 280/320, damping 28/32).
  *
- * Navigation (guided route):
- *   isNavigationActive → MetricsDrawer locks to 'peek'.
- *
- * No bottom nav tabs — removed. No floating "הקפות" button. StoryBar = drag handle.
+ * When laps open: MetricsDrawer locks to dock (56 px black strip at bottom).
+ * When navigation active: MetricsDrawer locks to peek.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useDragControls } from 'framer-motion';
+import { motion, useDragControls, useAnimation, type PanInfo } from 'framer-motion';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import RouteStoryBar from '../shared/RouteStoryBar';
 import MetricsDrawer from '@/features/workout-engine/shared/components/MetricsDrawer';
-import WorkoutFlowLayer from '@/features/workout-engine/shared/components/WorkoutFlowLayer';
 import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
 import StatsCarousel from './StatsCarousel';
 import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
@@ -99,7 +100,6 @@ function RunMiniDockContent() {
       style={{ fontFamily: 'var(--font-simpler)' }}
       dir="ltr"
     >
-      {/* Distance */}
       <div className="flex items-baseline gap-1">
         <span className="text-xl font-black tabular-nums text-white leading-none">
           {safeDistance.toFixed(2)}
@@ -108,15 +108,10 @@ function RunMiniDockContent() {
           KM
         </span>
       </div>
-
       <span className="text-white/40 mx-1 text-sm">|</span>
-
-      {/* Duration */}
       <span className="text-xl font-black tabular-nums text-white leading-none">
         {formatDuration(totalDuration)}
       </span>
-
-      {/* Goal pill */}
       {goalProgress && goalProgress.progress > 0 && (
         <div
           className="ml-auto flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
@@ -147,24 +142,74 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
 
-  // Two-source navigation intent: earliest possible signal.
   const isNavigationActive = useRunningPlayer(
     (s) =>
       !!s.guidedRouteId ||
       (Array.isArray(s.activeRoutePath) && s.activeRoutePath.length >= 2),
   );
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isFlowLayerOpen, setIsFlowLayerOpen] = useState(false);
-
-  // Drag controls shared between the StoryBar (drag handle) and WorkoutFlowLayer.
-  const lapsDragControls = useDragControls();
-
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
 
-  // ── Goal-reached celebration ────────────────────────────────────────────
+  const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLapsOpen, setIsLapsOpen] = useState(false);
+
+  // ── Laps panel drag (mirrors StrengthRunner / usePlayerDrag model) ───────
+  const lapsDragControls = useDragControls();
+  const lapsAnimControls = useAnimation();
+  const lapsContentRef = useRef<HTMLDivElement>(null);
+  const [lapsContentH, setLapsContentH] = useState(0);
+
+  // Measure laps content height for drag constraints and spring target.
+  useEffect(() => {
+    const node = lapsContentRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(([e]) => {
+      const h = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height;
+      if (Number.isFinite(h) && h > 0) setLapsContentH(Math.round(h));
+    });
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, []);
+
+  // Spring-animate the story-bar panel when open state changes.
+  useEffect(() => {
+    if (isLapsOpen) {
+      lapsAnimControls.start({ y: lapsContentH, transition: { type: 'spring', stiffness: 280, damping: 28 } });
+    } else {
+      lapsAnimControls.start({ y: 0, transition: { type: 'spring', stiffness: 320, damping: 32 } });
+    }
+  }, [isLapsOpen, lapsContentH, lapsAnimControls]);
+
+  // Snap decision on release (same thresholds as StrengthRunner's handleDragEnd).
+  const handleLapsDragEnd = useCallback(
+    (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      if (isLapsOpen) {
+        if (info.offset.y < -50 || info.velocity.y < -400) {
+          setIsLapsOpen(false);
+        } else {
+          lapsAnimControls.start({ y: lapsContentH, transition: { type: 'spring', stiffness: 280, damping: 28 } });
+        }
+      } else {
+        if (info.offset.y > 30 || info.velocity.y > 300) {
+          setIsLapsOpen(true);
+        } else {
+          lapsAnimControls.start({ y: 0, transition: { type: 'spring', stiffness: 320, damping: 32 } });
+        }
+      }
+    },
+    [isLapsOpen, lapsContentH, lapsAnimControls],
+  );
+
+  // Force-close laps when the story bar disappears (goal cleared mid-run).
+  useEffect(() => {
+    if (!shouldShowStoryBar) setIsLapsOpen(false);
+  }, [shouldShowStoryBar]);
+
+  // ── Goal-reached celebration ─────────────────────────────────────────────
   const prevIsCompleteRef = useRef(false);
   const [showGoalToast, setShowGoalToast] = useState(false);
   useEffect(() => {
@@ -178,9 +223,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     if (!isNowComplete) prevIsCompleteRef.current = false;
   }, [goalProgress?.isComplete]);
 
-  const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
-
-  // ── GPS status toast ────────────────────────────────────────────────────
+  // ── GPS status toast ─────────────────────────────────────────────────────
   const [gpsToast, setGpsToast] = useState<string | null>(null);
   const prevGpsStatusRef = useRef(gpsStatus);
   useEffect(() => {
@@ -196,39 +239,36 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => clearTimeout(t);
   }, [gpsToast]);
 
-  // ── Dynamic story-bar height ─────────────────────────────────────────────
+  // ── Story-bar height → map camera padding ────────────────────────────────
   const storyBarInnerRef = useRef<HTMLDivElement>(null);
   const [storyBarHeight, setStoryBarHeight] = useState(STORY_BAR_FALLBACK_PX);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
+
   useEffect(() => {
     const node = storyBarInnerRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
+    const obs = new ResizeObserver(([entry]) => {
       const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-      if (Number.isFinite(h) && h > 0) {
-        const rounded = Math.round(h);
-        setStoryBarHeight(rounded);
-        setStoreStoryBarHeight(rounded);
-      }
+      if (Number.isFinite(h) && h > 0) setStoryBarHeight(Math.round(h));
     });
-    observer.observe(node);
-    return () => { observer.disconnect(); setStoreStoryBarHeight(0); };
-  }, [setStoreStoryBarHeight]);
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, []);
 
-  // ── FlowLayer open/close ─────────────────────────────────────────────────
-  const handleFlowLayerOpen = useCallback(() => setIsFlowLayerOpen(true), []);
-  const handleFlowLayerClose = useCallback(() => setIsFlowLayerOpen(false), []);
+  // When laps are open the story bar has moved down — pad the map camera for both layers.
+  useEffect(() => {
+    const h = shouldShowStoryBar
+      ? (isLapsOpen ? storyBarHeight + lapsContentH : storyBarHeight)
+      : 0;
+    setStoreStoryBarHeight(h);
+    return () => setStoreStoryBarHeight(0);
+  }, [shouldShowStoryBar, isLapsOpen, storyBarHeight, lapsContentH, setStoreStoryBarHeight]);
 
-  // MetricsDrawer lock priority: FlowLayer > navigation > free
+  // MetricsDrawer lock: laps open → dock, navigation → peek, else free.
   const drawerLock: string | null =
-    isFlowLayerOpen ? 'dock'
+    isLapsOpen ? 'dock'
     : isNavigationActive ? 'peek'
     : null;
-
-  // FlowLayer topOffset — below safe-area + story bar.
-  const flowLayerTopOffset = shouldShowStoryBar
-    ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`
-    : 'env(safe-area-inset-top, 0px)';
 
   // 1 Hz tick for HUD timer elements.
   const [, tick] = useState(0);
@@ -244,73 +284,103 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
       role="region"
     >
-      {/* ── STORY BAR (z-50) ───────────────────────────────────────────────── */}
+      {/*
+        ── LAPS PANEL + STORY BAR ───────────────────────────────────────────
+        Two-layer architecture mirrors StrengthRunner exactly:
+
+          BASE (z-49): RunLapsList — positioned at screen top, always rendered.
+                       Covered by the story bar motion.div when laps are closed.
+          TOP  (z-50): motion.div story bar — the draggable element.
+                       At y=0: covers the laps (story bar is at top). Normal state.
+                       At y=lapsContentH: story bar has slid DOWN, laps are fully visible.
+
+        The story bar div inside the motion.div is the drag handle:
+          onPointerDown → lapsDragControls.start(e)  (skips button targets)
+      */}
       {shouldShowStoryBar && (
         <>
-          {/*
-            Transparent drag-capture strip over the StoryBar area.
-            z-[51] so it sits above the StoryBar (z-50) without blocking buttons.
-            onPointerDown initiates WorkoutFlowLayer's drag — same pattern as
-            StrengthRunner's RunnerHeader calling dragControls.start(e).
-          */}
-          {!isFlowLayerOpen && (
+          {/* Backdrop — absorbs map taps when laps are open */}
+          {isLapsOpen && (
             <div
-              className="absolute left-0 right-0 z-[51] pointer-events-auto"
-              style={{
-                top: 0,
-                height: `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`,
-                touchAction: 'none',
-                cursor: 'grab',
-              }}
-              onPointerDown={(e) => {
-                if ((e.target as HTMLElement).closest('button')) return;
-                lapsDragControls.start(e);
-              }}
+              className="absolute inset-0 z-[48] pointer-events-auto"
+              style={{ background: 'rgba(0,0,0,0.18)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+              onClick={() => setIsLapsOpen(false)}
               aria-hidden="true"
             />
           )}
 
+          {/* BASE LAYER: laps content — always at screen top, covered when closed */}
           <div
-            className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: '#ffffff' }}
+            className="absolute top-0 left-0 right-0 z-[49] pointer-events-none"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
-            <div ref={storyBarInnerRef}>
-              <RouteStoryBar
-                progress={
-                  goalProgress
-                    ? goalProgress.isComplete
-                      ? Math.min(goalProgress.rawRatio, 1.05)
-                      : Math.max(0.01, goalProgress.progress)
-                    : 0.01
-                }
-                color={goalProgress?.isComplete ? '#10B981' : undefined}
-                allowOverflow={goalProgress?.isComplete}
-                isPaused={isPaused}
-                label={
-                  goalProgress?.isComplete
-                    ? 'מעבר ליעד'
-                    : goalProgress ? goalLabel(goalProgress.type) : 'מרחק'
-                }
-                valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
-              />
+            <div
+              ref={lapsContentRef}
+              className="bg-white overflow-hidden pointer-events-auto"
+              style={{ boxShadow: isLapsOpen ? '0 4px 24px rgba(0,0,0,0.12)' : 'none' }}
+            >
+              <div style={{ maxHeight: 'calc(60dvh - env(safe-area-inset-top, 0px))', overflowY: 'auto' }}>
+                <RunLapsList />
+              </div>
             </div>
           </div>
 
-          {/* Fade strip */}
-          <div
-            className="absolute left-0 right-0 z-50 pointer-events-none"
-            style={{
-              top: `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`,
-              height: 18,
-              background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
-            }}
-            aria-hidden="true"
-          />
+          {/* TOP LAYER: story bar — drag handle, slides DOWN to reveal laps */}
+          <motion.div
+            drag="y"
+            dragControls={lapsDragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: lapsContentH }}
+            dragElastic={0.08}
+            dragMomentum={false}
+            onDragEnd={handleLapsDragEnd}
+            animate={lapsAnimControls}
+            initial={{ y: 0 }}
+            className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
+          >
+            {/* The drag handle div — mirrors RunnerHeader in StrengthRunner */}
+            <div
+              className="pointer-events-auto"
+              style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: '#ffffff', touchAction: 'none' }}
+              onPointerDown={(e) => {
+                if ((e.target as HTMLElement).closest('button')) return;
+                lapsDragControls.start(e);
+              }}
+            >
+              <div ref={storyBarInnerRef}>
+                <RouteStoryBar
+                  progress={
+                    goalProgress
+                      ? goalProgress.isComplete
+                        ? Math.min(goalProgress.rawRatio, 1.05)
+                        : Math.max(0.01, goalProgress.progress)
+                      : 0.01
+                  }
+                  color={goalProgress?.isComplete ? '#10B981' : undefined}
+                  allowOverflow={goalProgress?.isComplete}
+                  isPaused={isPaused}
+                  label={
+                    goalProgress?.isComplete
+                      ? 'מעבר ליעד'
+                      : goalProgress ? goalLabel(goalProgress.type) : 'מרחק'
+                  }
+                  valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
+                />
+              </div>
+            </div>
 
-          {/* GPS toast */}
+            {/* Fade strip — moves with the story bar */}
+            <div
+              className="pointer-events-none"
+              style={{ height: 18, background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)' }}
+              aria-hidden="true"
+            />
+          </motion.div>
+
+          {/* Toasts — z-[55], above both layers */}
           {gpsToast && (
             <div
-              className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+              className="absolute left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
             >
               <div
@@ -323,10 +393,9 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
             </div>
           )}
 
-          {/* Goal-reached toast */}
           {showGoalToast && (
             <div
-              className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+              className="absolute left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
               role="status"
               aria-live="polite"
@@ -343,35 +412,8 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         </>
       )}
 
-      {/* ── FLOW LAYER (z-45): RunLapsList slides down from top ─────────────
-          StoryBar drag strip → lapsDragControls → WorkoutFlowLayer opens.
-          The 28 px grabber strip at the bottom of the laps list → drag up → closes.
-          When open: MetricsDrawer locks to dock so the two surfaces never overlap. */}
-      <WorkoutFlowLayer
-        isOpen={isFlowLayerOpen}
-        onClose={handleFlowLayerClose}
-        onOpen={handleFlowLayerOpen}
-        externalDragControls={lapsDragControls}
-        topOffset={flowLayerTopOffset}
-      >
-        {/* Constrain laps list so it never covers the dock */}
-        <div
-          style={{
-            paddingTop: 8,
-            paddingBottom: 8,
-            maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px) - 56px - 56px)',
-            overflowY: 'auto',
-          }}
-        >
-          <RunLapsList />
-        </div>
-      </WorkoutFlowLayer>
-
-      {/* ── METRICS DRAWER (z-40): real bottom sheet ──────────────────────────
-          absolute inset-0, translateY drives visible area from top edge to
-          screen bottom. dragListener=false — drag only from grabber/strip.
-          When docked: only 56 px (RunMiniDockContent) visible at bottom.
-          When full: sheet covers from story-bar down to screen bottom. */}
+      {/* ── METRICS DRAWER (z-40) ────────────────────────────────────────────
+          Locks to dock when laps open, to peek during navigation, else free. */}
       <MetricsDrawer
         lockToAnchor={drawerLock}
         defaultAnchor="peek"
@@ -390,10 +432,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         }
       </MetricsDrawer>
 
-      {/* ── PRIMARY CONTROLS ──────────────────────────────────────────────── */}
       <WorkoutControlCluster />
-
-      {/* ── GLOBAL OVERLAYS ───────────────────────────────────────────────── */}
       <LapSnapshotOverlay />
       <WorkoutSettingsDrawer
         isOpen={isSettingsOpen}
@@ -402,4 +441,3 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     </div>
   );
 }
-
