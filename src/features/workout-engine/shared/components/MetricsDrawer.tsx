@@ -1,12 +1,11 @@
 'use client';
 
 /**
- * MetricsDrawer — 3-anchor bottom sheet for free-run and walk sessions.
+ * MetricsDrawer — 2-anchor bottom sheet for free-run and walk sessions.
  *
  * Anchors (computed from live screen measurements):
- *   dock  — 56 px pill at the bottom, shows MiniDock content
+ *   dock  — 56 px pill at the bottom (Spotify-style black strip), shows MiniDock content
  *   peek  — ~48 % screen height, shows expanded carousel content
- *   full  — flush below the StoryBar, shows full carousel
  *
  * The caller passes a render-prop `children` that receives the current
  * anchor id so it can switch between dock content and expanded content
@@ -27,17 +26,16 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Layout constants (mirrored from useDraggableMetrics for CSS-var parity)
+// Layout constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BOTTOM_NAV_HEIGHT_PX = 72;
 const CONTROL_BAR_GAP_PX = 16;
 const PILL_HEIGHT_PX = 56;
-const STATUS_BAR_PADDING_PX = 20;
 
 // cssVarBase: added to the anchor's heightPx to produce --session-bar-clearance.
-// Must match the original formula: cardHeight + BOTTOM_NAV + GAP.
-const CSS_VAR_BASE = BOTTOM_NAV_HEIGHT_PX + CONTROL_BAR_GAP_PX;
+// Without a bottom nav, this is just the gap between the visible card edge
+// and the WorkoutControlCluster buttons.
+const CSS_VAR_BASE = CONTROL_BAR_GAP_PX;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paused-state palette (kept in sync with AdaptiveMetricsWrapper)
@@ -60,15 +58,12 @@ const DEFAULT_ACCENT = '#00ADEF';
 // Anchor factory
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildAnchors(m: SheetMeasurements, topBarOffset: number): SheetAnchor[] {
-  // dock: 56 px pill flush above the bottom nav.
-  const dockY = m.vh - BOTTOM_NAV_HEIGHT_PX - PILL_HEIGHT_PX;
+function buildAnchors(m: SheetMeasurements): SheetAnchor[] {
+  // dock: 56 px pill flush at screen bottom, respecting safe-area-inset-bottom.
+  const dockY = m.vh - PILL_HEIGHT_PX - m.sab;
 
-  // peek: roughly the midpoint, always below the full anchor.
+  // peek: roughly the midpoint of the screen.
   const peekY = Math.round(m.vh * 0.52);
-
-  // full: below the safe-area + story bar, matching the original top anchor.
-  const fullY = Math.max(STATUS_BAR_PADDING_PX, m.sat + 12) + topBarOffset;
 
   return [
     {
@@ -78,14 +73,9 @@ function buildAnchors(m: SheetMeasurements, topBarOffset: number): SheetAnchor[]
     },
     {
       id: 'peek',
+      // Visible height = full screen below card top.
       yPx: peekY,
-      // Visible height = distance from card top to bottom nav top.
-      heightPx: Math.max(0, m.vh - peekY - BOTTOM_NAV_HEIGHT_PX),
-    },
-    {
-      id: 'full',
-      yPx: fullY,
-      heightPx: Math.max(0, m.vh - fullY - BOTTOM_NAV_HEIGHT_PX),
+      heightPx: Math.max(0, m.vh - peekY),
     },
   ];
 }
@@ -95,12 +85,6 @@ function buildAnchors(m: SheetMeasurements, topBarOffset: number): SheetAnchor[]
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface MetricsDrawerProps {
-  /**
-   * Extra Y offset (px) added to the full anchor so the card starts BELOW
-   * any fixed header (e.g. RouteStoryBar). Matches the `topBarOffset` prop
-   * on the legacy AdaptiveMetricsWrapper.
-   */
-  topBarOffset?: number;
   /**
    * When set, force-snaps the card to this anchor id. Set null to release.
    * Pass 'dock' when WorkoutFlowLayer is open; 'peek' during navigation.
@@ -122,7 +106,6 @@ export interface MetricsDrawerProps {
 }
 
 export default function MetricsDrawer({
-  topBarOffset = 0,
   lockToAnchor = null,
   defaultAnchor = 'peek',
   onOpenSettings,
@@ -140,7 +123,7 @@ export default function MetricsDrawer({
 
   const { cardRef, currentAnchor, controls, handleDragEnd, dragConstraints, isPill } =
     useSheetDrag(
-      (m) => buildAnchors(m, topBarOffset),
+      buildAnchors,
       defaultAnchor,
       {
         velocityThreshold: 250,
@@ -194,17 +177,23 @@ export default function MetricsDrawer({
     >
       <div
         ref={cardRef}
-        className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden bg-white pointer-events-auto"
+        className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden pointer-events-auto"
         style={{
           // Rounded only at the top — flush with screen edges on all sides.
           borderRadius: '20px 20px 0 0',
-          borderTop: isPaused
-            ? `2px solid ${PAUSED_BORDER}`
-            : '1px solid rgba(0, 0, 0, 0.08)',
-          boxShadow: isPaused
-            ? '0 -4px 24px rgba(255, 140, 0, 0.22)'
-            : '0 -2px 20px rgba(0, 0, 0, 0.07)',
-          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+          // Dock = Spotify-style black pill; expanded = white card.
+          background: isPill ? '#000000' : '#ffffff',
+          borderTop: isPill
+            ? 'none'
+            : isPaused
+              ? `2px solid ${PAUSED_BORDER}`
+              : '1px solid rgba(0, 0, 0, 0.08)',
+          boxShadow: isPill
+            ? '0 -4px 24px rgba(0,0,0,0.35)'
+            : isPaused
+              ? '0 -4px 24px rgba(255, 140, 0, 0.22)'
+              : '0 -2px 20px rgba(0, 0, 0, 0.07)',
+          transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
           ...cardThemeVars,
         }}
         data-paused={isPaused ? 'true' : 'false'}

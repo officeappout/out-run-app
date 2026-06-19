@@ -1,28 +1,28 @@
 'use client';
 
 /**
- * FreeRunActive — interaction model (v2)
+ * FreeRunActive — interaction model (v3)
  * ----------------------------------------
  * Mirrors StrengthRunner's two-layer architecture:
  *
  *   BASE LAYER  — MapShell (map, always visible below everything)
- *   TOP LAYER   — MetricsDrawer bottom sheet (slides between dock/peek/full)
+ *   TOP LAYER   — MetricsDrawer bottom sheet (slides between dock/peek)
  *   FLOW LAYER  — RunLapsList (slides DOWN from top when triggered)
  *
  * Drag mechanics:
- *   MetricsDrawer:  grabber at sheet top → drag UP/DOWN → dock/peek/full
- *   WorkoutFlowLayer: handle below story bar → tap → laps slide down
- *   When FlowLayer open: MetricsDrawer locks to dock (56 px strip)
+ *   MetricsDrawer:  grabber at sheet top → drag UP/DOWN → dock/peek
+ *   WorkoutFlowLayer: drag DOWN on the StoryBar → laps slide down over map
+ *                     drag UP on the grabber strip at bottom of laps → close
+ *   When FlowLayer open: MetricsDrawer locks to dock (56 px black strip)
  *
  * Navigation (guided route):
- *   isNavigationActive → MetricsDrawer locks to 'peek' (same as original
- *   lockToBottom: never cover TurnCarousel at top).
+ *   isNavigationActive → MetricsDrawer locks to 'peek'.
  *
- * No bottom nav tabs — removed. FlowLayer trigger replaces laps tab.
+ * No bottom nav tabs — removed. No floating "הקפות" button. StoryBar = drag handle.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useDragControls } from 'framer-motion';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -157,6 +157,9 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFlowLayerOpen, setIsFlowLayerOpen] = useState(false);
 
+  // Drag controls shared between the StoryBar (drag handle) and WorkoutFlowLayer.
+  const lapsDragControls = useDragControls();
+
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
@@ -244,6 +247,29 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       {/* ── STORY BAR (z-50) ───────────────────────────────────────────────── */}
       {shouldShowStoryBar && (
         <>
+          {/*
+            Transparent drag-capture strip over the StoryBar area.
+            z-[51] so it sits above the StoryBar (z-50) without blocking buttons.
+            onPointerDown initiates WorkoutFlowLayer's drag — same pattern as
+            StrengthRunner's RunnerHeader calling dragControls.start(e).
+          */}
+          {!isFlowLayerOpen && (
+            <div
+              className="absolute left-0 right-0 z-[51] pointer-events-auto"
+              style={{
+                top: 0,
+                height: `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`,
+                touchAction: 'none',
+                cursor: 'grab',
+              }}
+              onPointerDown={(e) => {
+                if ((e.target as HTMLElement).closest('button')) return;
+                lapsDragControls.start(e);
+              }}
+              aria-hidden="true"
+            />
+          )}
+
           <div
             className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
             style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: '#ffffff' }}
@@ -318,20 +344,15 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       )}
 
       {/* ── FLOW LAYER (z-45): RunLapsList slides down from top ─────────────
-          The trigger (laps handle) is always visible just below the story
-          bar. Tapping it opens the full laps list over the map. When open,
-          MetricsDrawer locks to dock so the two surfaces never overlap. */}
+          StoryBar drag strip → lapsDragControls → WorkoutFlowLayer opens.
+          The 28 px grabber strip at the bottom of the laps list → drag up → closes.
+          When open: MetricsDrawer locks to dock so the two surfaces never overlap. */}
       <WorkoutFlowLayer
         isOpen={isFlowLayerOpen}
         onClose={handleFlowLayerClose}
+        onOpen={handleFlowLayerOpen}
+        externalDragControls={lapsDragControls}
         topOffset={flowLayerTopOffset}
-        trigger={
-          <LapsHandle
-            isOpen={isFlowLayerOpen}
-            onOpen={handleFlowLayerOpen}
-            onClose={handleFlowLayerClose}
-          />
-        }
       >
         {/* Constrain laps list so it never covers the dock */}
         <div
@@ -352,7 +373,6 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
           When docked: only 56 px (RunMiniDockContent) visible at bottom.
           When full: sheet covers from story-bar down to screen bottom. */}
       <MetricsDrawer
-        topBarOffset={shouldShowStoryBar ? storyBarHeight : 0}
         lockToAnchor={drawerLock}
         defaultAnchor="peek"
         onOpenSettings={() => setIsSettingsOpen(true)}
@@ -383,48 +403,3 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LapsHandle — the drag/tap affordance just below the story bar.
-// When closed: dark pill "הקפות ▼" hint.
-// When open: lighter close handle at the bottom of the laps panel.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function LapsHandle({
-  isOpen,
-  onOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-1.5 px-3 py-1 rounded-full pointer-events-auto active:scale-95 transition-all"
-      style={{
-        background: isOpen ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)',
-        backdropFilter: isOpen ? undefined : 'blur(8px)',
-        WebkitBackdropFilter: isOpen ? undefined : 'blur(8px)',
-        boxShadow: isOpen ? '0 1px 8px rgba(0,0,0,0.12)' : undefined,
-      }}
-      onClick={isOpen ? onClose : onOpen}
-      aria-label={isOpen ? 'סגור הקפות' : 'פתח הקפות'}
-    >
-      <span
-        className="text-xs font-bold tracking-wide"
-        style={{ color: isOpen ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.9)', direction: 'rtl' }}
-      >
-        הקפות
-      </span>
-      <ChevronDown
-        size={12}
-        style={{
-          color: isOpen ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.7)',
-          transform: isOpen ? 'rotate(180deg)' : 'none',
-          transition: 'transform 0.2s ease',
-        }}
-      />
-    </button>
-  );
-}

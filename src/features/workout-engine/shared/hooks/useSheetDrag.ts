@@ -25,6 +25,8 @@ export interface SheetMeasurements {
   vh: number;
   /** env(safe-area-inset-top) in px. Falls back to 44 before first probe. */
   sat: number;
+  /** env(safe-area-inset-bottom) in px. 0 before first probe. */
+  sab: number;
   /** Measured card height from ResizeObserver (only when measureHeight=true). */
   mh: number;
 }
@@ -75,6 +77,20 @@ function readSafeAreaInsetTop(): number {
   ].join(';');
   document.body.appendChild(probe);
   const px = parseInt(window.getComputedStyle(probe).paddingTop, 10);
+  document.body.removeChild(probe);
+  return Number.isFinite(px) && px > 0 ? px : 0;
+}
+
+function readSafeAreaInsetBottom(): number {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return 0;
+  const probe = document.createElement('div');
+  probe.style.cssText = [
+    'position:fixed', 'bottom:0', 'left:0',
+    'visibility:hidden', 'pointer-events:none',
+    'padding-bottom:env(safe-area-inset-bottom)',
+  ].join(';');
+  document.body.appendChild(probe);
+  const px = parseInt(window.getComputedStyle(probe).paddingBottom, 10);
   document.body.removeChild(probe);
   return Number.isFinite(px) && px > 0 ? px : 0;
 }
@@ -141,6 +157,15 @@ export function useSheetDrag(
     return () => window.removeEventListener('orientationchange', sync);
   }, []);
 
+  const [safeAreaBottom, setSafeAreaBottom] = useState<number>(0);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sync = () => setSafeAreaBottom(readSafeAreaInsetBottom());
+    sync();
+    window.addEventListener('orientationchange', sync);
+    return () => window.removeEventListener('orientationchange', sync);
+  }, []);
+
   // ── Card height (optional) ─────────────────────────────────────────────────
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [measuredH, setMeasuredH] = useState<number>(240);
@@ -162,8 +187,8 @@ export function useSheetDrag(
   getAnchorsRef.current = getAnchors;
 
   const anchors = useMemo(
-    () => getAnchorsRef.current({ vh: viewportH, sat: safeAreaTop, mh: measuredH }),
-    [viewportH, safeAreaTop, measuredH],
+    () => getAnchorsRef.current({ vh: viewportH, sat: safeAreaTop, sab: safeAreaBottom, mh: measuredH }),
+    [viewportH, safeAreaTop, safeAreaBottom, measuredH],
   );
 
   // ── Current anchor id ──────────────────────────────────────────────────────
@@ -276,6 +301,8 @@ export function useSheetDrag(
     viewportH,
     /** Live safe-area inset top (useful for callers computing full anchor). */
     safeAreaTop,
+    /** Live safe-area inset bottom (useful for callers computing dock anchor). */
+    safeAreaBottom,
     /** Measured card height when measureHeight=true; 240 fallback otherwise. */
     measuredH,
     /** True when the current anchor id is 'dock' (pill mode). */

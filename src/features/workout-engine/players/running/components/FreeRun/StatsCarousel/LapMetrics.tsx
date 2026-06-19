@@ -73,48 +73,36 @@ export default function LapMetrics() {
 
   return (
     <div
-      className="w-full px-5 pt-5 pb-4 flex flex-col justify-center"
-      style={{
-        fontFamily: 'var(--font-simpler)',
-        minHeight: '180px',
-        // ── DEBUG marker ─────────────────────────────────────────────
-        // Subtle dashed cyan border ONLY when the fallback path renders
-        // (no laps in store). Lets the user verify visually that the
-        // slide is mounting even when the store hasn't been seeded yet.
-        // Remove once the data-flow regression is fixed.
-        ...(isFallback
-          ? { outline: '2px dashed rgba(0, 173, 239, 0.45)', outlineOffset: -4 }
-          : {}),
-      }}
+      className="w-full px-5 pt-3 pb-3 flex flex-col justify-center"
+      style={{ fontFamily: 'var(--font-simpler)', minHeight: '160px' }}
       data-testid="lap-metrics"
       data-fallback={isFallback ? 'true' : 'false'}
       data-status={status}
     >
       {/* Label row */}
-      <div className="flex items-center justify-center gap-3 mb-3">
+      <div className="flex items-center justify-center gap-3 mb-2">
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
         <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: HEADER_COLOR }}>
           הקפה נוכחית
-          {isFallback ? ' [DEBUG]' : ''}
         </span>
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
       </div>
 
       {/* Hero lap number */}
-      <div className="text-center mb-4">
+      <div className="text-center mb-2">
         <div
           className="leading-none tracking-tight font-black tabular-nums"
           style={{ fontSize: '5rem', color: NUM_COLOR }}
         >
           {lapNumber}
         </div>
-        <div className="text-xs font-bold mt-1 tracking-widest uppercase" style={{ color: ACCENT_COLOR }}>
+        <div className="text-xs font-bold mt-0.5 tracking-widest uppercase" style={{ color: ACCENT_COLOR }}>
           הקפה
         </div>
       </div>
 
       {/* Divider */}
-      <div className="w-full mb-4" style={{ height: '1px', background: DIVIDER_COLOR }} />
+      <div className="w-full mb-2" style={{ height: '1px', background: DIVIDER_COLOR }} />
 
       {/* Three-column stats */}
       <div className="flex items-center justify-center">
