@@ -676,10 +676,26 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                       </button>
                     </div>
 
+                    {/* Duration — always visible because it drives session end time */}
+                    <div className="flex items-center gap-2 px-2 py-1.5 border-t border-gray-100 bg-indigo-50/50">
+                      <label className="text-[10px] font-bold text-indigo-600 whitespace-nowrap">משך מפגש:</label>
+                      <input
+                        type="number"
+                        min={15}
+                        max={240}
+                        value={slot.durationMinutes ?? ''}
+                        onChange={(e) => updateSlot({ durationMinutes: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        placeholder="60"
+                        className="w-16 px-1.5 py-0.5 border border-indigo-200 rounded-lg text-xs text-center bg-white"
+                      />
+                      <span className="text-[10px] text-indigo-400">דקות</span>
+                    </div>
+
                     {/* Quick summary row (always visible) */}
                     <div className="flex flex-wrap gap-1 px-2 py-1.5 text-[10px] text-gray-400 border-t border-gray-100">
                       {slot.label && <span className="bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded-full font-bold">{slot.label}</span>}
                       {(slot.tags ?? []).length > 0 && slot.tags!.map(t => <span key={t} className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full">{t}</span>)}
+                      {slot.durationMinutes && <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-full">{slot.durationMinutes} דק׳</span>}
                       {slot.price != null && <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full">₪{slot.price}</span>}
                       {slot.maxParticipants && <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">{slot.maxParticipants} מקומות</span>}
                       {slot.location?.address && (

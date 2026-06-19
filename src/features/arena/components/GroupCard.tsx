@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Clock, MapPin, UserPlus, ImageOff, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
+import { CalendarCheck, Clock, MapPin, UserPlus, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
 import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
 import { distanceLabel } from '@/features/arena/utils/distance';
@@ -23,6 +23,10 @@ interface GroupCardProps {
   isJoined?: boolean;
   joining?: boolean;
   distanceKm?: number;
+  /** Compact horizontal discovery card for home-screen carousels */
+  compact?: boolean;
+  /** Live session indicator shown on the card image */
+  livePhase?: 'approaching' | 'lobby' | 'active';
   /** When provided, shows an 'עדכן מיקום' link. Pass only for group creator. */
   onUpdateLocation?: () => void;
   onJoin?: (groupId: string) => void;
@@ -31,12 +35,24 @@ interface GroupCardProps {
   onOpenChat?: () => void;
 }
 
+function travelTimeLabel(km: number): string {
+  const roadKm = km * 1.3;
+  if (roadKm < 1.5) {
+    const mins = Math.ceil((roadKm / 5) * 60);
+    return `~${mins} דק׳ הליכה`;
+  }
+  const mins = Math.ceil((roadKm / 30) * 60);
+  return `~${mins} דק׳ נסיעה`;
+}
+
 export default function GroupCard({
   group,
   members,
   isJoined,
   joining,
   distanceKm,
+  compact,
+  livePhase,
   onUpdateLocation,
   onJoin,
   onLockedJoin: _onLockedJoin,
@@ -50,6 +66,14 @@ export default function GroupCard({
   const [codeValue, setCodeValue] = useState('');
   const [codeError, setCodeError] = useState(false);
 
+  const todayDow = new Date().getDay();
+  const todaySlot = (() => {
+    const slots = group.scheduleSlots?.length
+      ? group.scheduleSlots
+      : group.schedule ? [group.schedule] : [];
+    return slots.find((s) => s.dayOfWeek === todayDow) ?? null;
+  })();
+
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
       return group.scheduleSlots.map(s => `יום ${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(' · ');
@@ -59,6 +83,63 @@ export default function GroupCard({
     }
     return null;
   })();
+
+  // ── Compact variant — discovery carousel cards ─────────────────────
+  if (compact) {
+    return (
+      <div
+        className="w-[148px] flex-shrink-0 bg-white dark:bg-slate-900 rounded-2xl shadow-md shadow-black/5 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+        dir="rtl"
+        onClick={onCardClick}
+      >
+        <div className="relative h-24 overflow-hidden">
+          {coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverImage} alt={group.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
+              <span className="text-3xl drop-shadow-md select-none">{catConfig.icon}</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent" />
+          {/* Fade image bottom into card body */}
+          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            <span>{catConfig.icon}</span>
+            <span>{catConfig.label}</span>
+          </div>
+          {group.source === 'user' && (
+            <div className="absolute top-1.5 left-1.5 bg-emerald-500/90 text-white text-xs font-black px-1.5 py-0.5 rounded-full">
+              קהילתי
+            </div>
+          )}
+          {livePhase && (
+            <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-1 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
+              livePhase === 'active' ? 'bg-green-500/90' : 'bg-orange-500/90'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                livePhase === 'active' ? 'bg-green-200 animate-pulse' : 'bg-orange-200 animate-bounce'
+              }`} />
+              {livePhase === 'active' ? 'לייב' : 'בקרוב'}
+            </div>
+          )}
+        </div>
+        <div className="px-2.5 py-2 space-y-0.5">
+          <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+            {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
+          </p>
+          {scheduleLabel && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
+          )}
+          {distanceKm != null && (
+            <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+              {travelTimeLabel(distanceKm)}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   function handleJoinClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -98,7 +179,7 @@ export default function GroupCard({
       onClick={onCardClick}
     >
       {/* ── Cover banner ──────────────────────────────────── */}
-      <div className="relative h-32 overflow-hidden">
+      <div className="relative h-36 overflow-hidden">
         {coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -112,46 +193,50 @@ export default function GroupCard({
           </div>
         )}
 
-        {/* Dark gradient overlay — always present for contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        {/* Dark gradient overlay — top half contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/8 to-transparent" />
+        {/* Fade image bottom into white card body */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
 
         {/* Category chip — top right */}
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
           <span>{catConfig.icon}</span>
           <span>{catConfig.label}</span>
         </div>
 
         {/* Schedule chip — bottom right over scrim */}
         {scheduleLabel && (
-          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
+          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
             <Clock className="w-3 h-3 opacity-80" />
             <span>{scheduleLabel}</span>
           </div>
         )}
 
-        {/* Community-created badge — top left of image */}
+        {/* Community-created badge — top left */}
         {group.source === 'user' && (
-          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-[9px] font-black px-2 py-0.5 rounded-full">
-            <Users className="w-2.5 h-2.5" />
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full">
+            <Users className="w-3 h-3" />
             <span>קהילתי</span>
           </div>
         )}
 
-        {/* No-image indicator */}
-        {!coverImage && (
-          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-black/20 text-white/60 text-[9px] px-2 py-0.5 rounded-full">
-            <ImageOff className="w-2.5 h-2.5" />
+        {/* Live session badge — bottom left */}
+        {livePhase && (
+          <div className={`absolute bottom-2.5 left-2.5 flex items-center gap-1 text-white text-xs font-black px-2.5 py-1 rounded-full backdrop-blur-sm ${
+            livePhase === 'active' ? 'bg-green-500/90' : 'bg-orange-500/90'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+              livePhase === 'active' ? 'bg-green-200 animate-pulse' : 'bg-orange-200 animate-bounce'
+            }`} />
+            {livePhase === 'active' ? '🟢 לייב' : '🟠 בקרוב'}
           </div>
         )}
       </div>
 
       {/* ── Card body ─────────────────────────────────────── */}
       <div className="relative p-4">
-        {/* Subtle top-fade blending image into card body */}
-        <div className="absolute -top-5 left-0 right-0 h-5 bg-gradient-to-b from-white dark:from-slate-900 to-transparent pointer-events-none" />
-
         <h4 className="text-[15px] font-black text-gray-900 dark:text-gray-50 leading-snug mb-1 line-clamp-1">
-          {group.name}
+          {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
         </h4>
 
         {group.description && (
@@ -160,11 +245,26 @@ export default function GroupCard({
           </p>
         )}
 
+        {/* Today's session row */}
+        {todaySlot && (
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-400 mb-2.5">
+            <CalendarCheck className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>מפגש היום · {todaySlot.time}</span>
+            {todaySlot.price != null && todaySlot.price > 0 && (
+              <span className="text-gray-500 dark:text-gray-400">· ₪{todaySlot.price}</span>
+            )}
+            {(todaySlot.price == null || todaySlot.price === 0) &&
+              group.price != null && group.price > 0 && (
+              <span className="text-gray-500 dark:text-gray-400">· ₪{group.price}</span>
+            )}
+          </div>
+        )}
+
         {/* Address + distance row */}
         {(group.meetingLocation?.address || distanceKm != null) && (
           <div className="flex items-center justify-between gap-2 mb-3">
             {group.meetingLocation?.address ? (
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 min-w-0">
                 <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                 <span className="truncate font-medium">{group.meetingLocation.address}</span>
               </div>
@@ -172,7 +272,7 @@ export default function GroupCard({
               <span />
             )}
             {distanceKm != null && (
-              <div className="flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold flex-shrink-0">
+              <div className="flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-shrink-0">
                 <Navigation className="w-3 h-3" />
                 <span>{distanceLabel(distanceKm)}</span>
               </div>
@@ -184,9 +284,10 @@ export default function GroupCard({
         {onUpdateLocation && (
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateLocation(); }}
-            className="flex items-center gap-1 text-[10px] text-cyan-600 dark:text-cyan-400 font-semibold mb-2.5 hover:underline active:opacity-70 transition-opacity"
+            aria-label="עדכן מיקום למיקומי הנוכחי"
+            className="flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 font-semibold mb-2.5 hover:underline active:opacity-70 transition-opacity"
           >
-            <Navigation className="w-2.5 h-2.5" />
+            <Navigation className="w-3 h-3" />
             עדכן מיקום למיקומי הנוכחי
           </button>
         )}
@@ -207,7 +308,8 @@ export default function GroupCard({
                 maxLength={6}
                 placeholder="XXXXXX"
                 autoFocus
-                className={`flex-1 text-center text-sm font-mono font-black tracking-widest border-2 rounded-xl px-3 py-2 focus:outline-none transition-colors ${
+                aria-label="קוד הצטרפות"
+                className={`flex-1 text-center text-sm font-mono font-black tracking-widest border-2 rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
                   codeError
                     ? 'border-red-400 bg-red-50 text-red-600'
                     : 'border-gray-200 focus:border-cyan-400'
@@ -216,19 +318,20 @@ export default function GroupCard({
               <button
                 disabled={joining || !codeValue.trim()}
                 onClick={handleCodeSubmit}
-                className="px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-black flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
+                className="px-3 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-black flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
               >
                 אישור
               </button>
               <button
                 onClick={exitCodeMode}
-                className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"
+                aria-label="ביטול הזנת קוד"
+                className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"
               >
-                <X className="w-3.5 h-3.5 text-gray-500" />
+                <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
             {codeError && (
-              <p className="text-xs text-red-500 font-semibold text-center">
+              <p role="alert" className="text-xs text-red-500 font-semibold text-center">
                 קוד שגוי, אנא נסה שנית
               </p>
             )}
@@ -243,7 +346,7 @@ export default function GroupCard({
 
             <button
               onClick={handleJoinClick}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${
+              className={`flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-black transition-all active:scale-95 min-h-[44px] ${
                 isJoined
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md shadow-cyan-500/25'
                   : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-md hover:shadow-lg'
@@ -257,7 +360,7 @@ export default function GroupCard({
               ) : !group.isPublic ? (
                 <>
                   <Lock className="w-3.5 h-3.5" />
-                  הזן קוד הצטרפות
+                  הזן קוד
                 </>
               ) : (
                 <>
