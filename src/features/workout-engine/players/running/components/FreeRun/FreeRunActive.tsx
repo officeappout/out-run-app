@@ -266,10 +266,10 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
             revealContent={<RunLapsList />}
             onRevealHeightChange={setLapsContentH}
           >
-            {/* Drag handle — story bar, inside the TOP LAYER motion.div */}
+            {/* Drag handle — story bar; motion.div owns top: safe-area so no padding here */}
             <div
               className="pointer-events-auto"
-              style={{ paddingTop: 'env(safe-area-inset-top, 0px)', background: '#ffffff', touchAction: 'none' }}
+              style={{ background: '#ffffff', touchAction: 'none' }}
               onPointerDown={(e) => {
                 if ((e.target as HTMLElement).closest('button')) return;
                 lapsDragControls.start(e);
