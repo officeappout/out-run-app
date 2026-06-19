@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Play, ChevronRight, AlertCircle } from 'lucide-react';
+import { X, Play, AlertCircle } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user';
@@ -14,6 +14,7 @@ const ACCENT = '#00ADEF';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type GoalType = 'time' | 'distance' | 'calories';
+type CarouselActivity = Extract<ActivityType, 'running' | 'walking' | 'cycling'>;
 
 interface ExtrasState {
   circular: boolean;
@@ -25,46 +26,48 @@ interface ExtrasState {
 
 interface FreeRunDrawerProps {
   currentActivity: ActivityType;
-  /**
-   * Optional: invoked when the user wants to go back and pick a different
-   * activity. When provided, a "← שנה פעילות" affordance is rendered in
-   * the drawer header; when omitted, the affordance is hidden and the
-   * activity is treated as locked for this session (legacy behaviour).
-   */
-  onBackToActivity?: () => void;
-  /** Free-mode start (no pre-built route). Existing behaviour. */
+  /** Called when the user switches activity via inline chips. */
+  onActivityChange?: (activity: CarouselActivity) => void;
+  /** Free-mode start (no pre-built route). */
   onStartWorkout: () => void;
   onClose: () => void;
   /**
-   * Route-mode start request. Called when the user picked "with route" mode
-   * and tapped the start CTA. The drawer hands off control with a
-   * pre-computed `targetKm` (derived from time/distance/calories goal) and
-   * unmounts itself; the parent is responsible for showing the floating
-   * RouteCarousel and routing the user back here on cancel. When omitted,
-   * the route-mode toggle silently degrades to free mode on tap.
+   * Route-mode start request. Drawer hands off control with a pre-computed
+   * `targetKm`; parent shows the floating RouteCarousel. When omitted,
+   * "עם מסלול" silently degrades to free mode.
    */
   onRequestRouteGeneration?: (config: {
     targetKm: number;
     includeStrength: boolean;
     surface: 'road' | 'trail';
   }) => void;
-  /**
-   * Required for the route-mode flow — the generator needs a starting
-   * GPS point. Free mode (no route) doesn't need this. Exposed so the
-   * drawer can disable the "with route" toggle when the user is offline /
-   * GPS-less rather than letting them tap a CTA that can't proceed.
-   */
+  /** Required for route generation; disables "עם מסלול" when absent. */
   userPosition?: { lat: number; lng: number } | null;
-  /**
-   * Resolved city name for the user (from useUserCityName). Surfaced as a
-   * confirmation chip so the user knows which city the generator will
-   * query for scored street segments. Forwarded into the carousel via the
-   * parent — NOT consumed directly by the generator from here anymore.
-   */
+  /** Resolved city — surfaced below the route button as confirmation. */
   cityName?: string;
 }
 
-// ── Pill — mirrors PartnerFilterBar.Pill exactly ──────────────────────────────
+// ── Activity data ──────────────────────────────────────────────────────────────
+
+const ACTIVITY_CHIPS: Array<{ id: CarouselActivity; label: string; emoji: string }> = [
+  { id: 'running', label: 'ריצה',   emoji: '🏃' },
+  { id: 'walking', label: 'הליכה',  emoji: '🚶' },
+  { id: 'cycling', label: 'רכיבה',  emoji: '🚴' },
+];
+
+/** Smart defaults per activity — placeholder until personalisation is wired. */
+const ACTIVITY_DEFAULTS: Record<CarouselActivity, {
+  goalType: GoalType;
+  time: number;
+  distance: number;
+  calories: number;
+}> = {
+  running: { goalType: 'distance', time: 30,  distance: 5,  calories: 350 },
+  walking: { goalType: 'time',     time: 30,  distance: 3,  calories: 200 },
+  cycling: { goalType: 'time',     time: 45,  distance: 15, calories: 400 },
+};
+
+// ── Pill ── reusable pill button (shared by GoalSheet tabs) ───────────────────
 
 function Pill({
   active,
@@ -92,17 +95,10 @@ function Pill({
   );
 }
 
-// ── RTL single-handle slider — mirrors PartnerFilterBar inline slider ──────────
-// Track height: 36px total (18px floating label zone + 18px track row).
-// Fill anchors from the right edge (RTL min) and extends left as value grows.
+// ── GoalSlider ── RTL single-handle slider ─────────────────────────────────────
 
 function GoalSlider({
-  min,
-  max,
-  step,
-  value,
-  onChange,
-  formatLabel,
+  min, max, step, value, onChange, formatLabel,
 }: {
   min: number;
   max: number;
@@ -112,43 +108,24 @@ function GoalSlider({
   formatLabel: (v: number) => string;
 }) {
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
-
   return (
     <div className="relative w-full" style={{ height: 36 }}>
-      {/* Floating value label — tracks thumb position from the right (RTL) */}
       <div
         className="absolute text-[11px] font-black pointer-events-none whitespace-nowrap"
         dir="ltr"
-        style={{
-          top: 0,
-          right: `${pct}%`,
-          transform: 'translateX(50%)',
-          color: ACCENT,
-        }}
+        style={{ top: 0, right: `${pct}%`, transform: 'translateX(50%)', color: ACCENT }}
       >
         {formatLabel(value)}
       </div>
-
-      {/* Track row */}
       <div className="absolute left-0 right-0" style={{ top: 18, height: 18 }}>
-        {/* Gray empty rail */}
         <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 bg-gray-200 rounded-full" />
-        {/* Accent fill: right edge → thumb (RTL convention) */}
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-          style={{
-            right: 0,
-            left: `${100 - pct}%`,
-            backgroundColor: ACCENT,
-          }}
+          style={{ right: 0, left: `${100 - pct}%`, backgroundColor: ACCENT }}
         />
         <input
           type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          dir="rtl"
+          min={min} max={max} step={step} value={value} dir="rtl"
           onChange={(e) => onChange(Number(e.target.value))}
           className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
           style={{ accentColor: ACCENT }}
@@ -158,13 +135,10 @@ function GoalSlider({
   );
 }
 
-// ── Toggle row — same chrome as WorkoutSettingsDrawer ─────────────────────────
+// ── ToggleRow ── emoji + label + animated toggle ───────────────────────────────
 
 function ToggleRow({
-  emoji,
-  label,
-  value,
-  onToggle,
+  emoji, label, value, onToggle,
 }: {
   emoji: string;
   label: string;
@@ -194,18 +168,164 @@ function ToggleRow({
   );
 }
 
-// ── Extras sheet — secondary bottom-sheet that slides on top (z-[102/103]) ────
+// ── Block 1: ActivityChips ─────────────────────────────────────────────────────
+// Inline chip row replacing the full ActivityCarousel.
 
-function ExtrasSheet({
-  isOpen,
-  onClose,
-  extras,
-  onToggle,
+function ActivityChips({
+  selected,
+  onSelect,
+}: {
+  selected: CarouselActivity;
+  onSelect: (a: CarouselActivity) => void;
+}) {
+  return (
+    <div className="px-5 mb-5">
+      <div className="flex gap-2">
+        {ACTIVITY_CHIPS.map(({ id, label, emoji }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onSelect(id)}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-full text-[13px] font-bold transition-colors active:scale-95"
+            style={{
+              height: 44,
+              backgroundColor: selected === id ? ACCENT : '#F3F4F6',
+              color: selected === id ? '#FFFFFF' : '#4B5563',
+            }}
+            aria-pressed={selected === id}
+          >
+            <span aria-hidden="true">{emoji}</span>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Block 2: GoalSummaryRow ────────────────────────────────────────────────────
+// Collapsed "מותאם עבורך" display; tapping "ערוך" opens GoalSheet.
+
+function GoalSummaryRow({
+  goalType, timeValue, distanceValue, caloriesValue, onEdit,
+}: {
+  goalType: GoalType;
+  timeValue: number;
+  distanceValue: number;
+  caloriesValue: number;
+  onEdit: () => void;
+}) {
+  const summary =
+    goalType === 'time'     ? `${timeValue} דק׳` :
+    goalType === 'distance' ? `${distanceValue.toFixed(1)} ק״מ` :
+                              `${caloriesValue} קק״ל`;
+
+  return (
+    <div
+      className="mx-5 mb-5 rounded-2xl px-4 py-3.5 flex items-center justify-between"
+      style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-2xl" aria-hidden="true">🎯</span>
+        <div>
+          <p className="text-[11px] text-gray-400 font-semibold leading-tight">מותאם עבורך</p>
+          <p className="text-[15px] font-black text-gray-900 leading-tight">{summary}</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="text-[13px] font-black active:scale-95 transition-transform px-3 py-1.5 rounded-full"
+        style={{ color: ACCENT, backgroundColor: `${ACCENT}18` }}
+        aria-label="ערוך מטרת אימון"
+      >
+        ערוך
+      </button>
+    </div>
+  );
+}
+
+// ── Block 3: EntryButtons ─────────────────────────────────────────────────────
+// Two clear entry points: "התחל חופשי" (primary) + "עם מסלול" (secondary).
+
+function EntryButtons({
+  onStartFree, onStartWithRoute, canStartWithRoute, cityName,
+}: {
+  onStartFree: () => void;
+  onStartWithRoute: () => void;
+  canStartWithRoute: boolean;
+  cityName?: string;
+}) {
+  return (
+    <div className="px-5">
+      <div className="flex gap-2.5">
+        {/* Primary CTA */}
+        <button
+          type="button"
+          onClick={onStartFree}
+          className="flex-1 flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.98] transition-transform rounded-2xl"
+          style={{ height: 52, backgroundColor: ACCENT }}
+          aria-label="התחל אימון חופשי"
+        >
+          <Play size={16} fill="currentColor" />
+          התחל חופשי
+        </button>
+
+        {/* Secondary CTA */}
+        <button
+          type="button"
+          onClick={onStartWithRoute}
+          disabled={!canStartWithRoute}
+          className="flex-1 flex items-center justify-center gap-2 text-[14px] font-black active:scale-[0.98] transition-transform rounded-2xl disabled:opacity-40"
+          style={{
+            height: 52,
+            border: `2px solid ${ACCENT}`,
+            color: ACCENT,
+            backgroundColor: '#FFFFFF',
+          }}
+          aria-label="התחל אימון עם מסלול מותאם"
+        >
+          🗺️ עם מסלול
+        </button>
+      </div>
+
+      {/* City confirmation — shown only for route flow */}
+      {canStartWithRoute && cityName && (
+        <p className="text-center text-[11px] text-gray-400 mt-2 leading-tight">
+          מסלולים יוצרו ב{cityName}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── GoalSheet ─────────────────────────────────────────────────────────────────
+// Bottom sheet for selecting goal type + adjusting the slider.
+// z-[102/103] — above the main drawer (z-[100]).
+
+function GoalSheet({
+  isOpen, onClose,
+  goalType, setGoalType,
+  timeValue, setTimeValue,
+  distanceValue, setDistanceValue,
+  caloriesValue, setCaloriesValue,
+  onOpenExtras,
+  isWeightDefault,
+  onNavigateToProfile,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  extras: ExtrasState;
-  onToggle: (key: keyof ExtrasState) => void;
+  goalType: GoalType;
+  setGoalType: (t: GoalType) => void;
+  timeValue: number;
+  setTimeValue: (v: number) => void;
+  distanceValue: number;
+  setDistanceValue: (v: number) => void;
+  caloriesValue: number;
+  setCaloriesValue: (v: number) => void;
+  onOpenExtras: () => void;
+  isWeightDefault: boolean;
+  onNavigateToProfile: () => void;
 }) {
   const dragControls = useDragControls();
 
@@ -248,51 +368,177 @@ function ExtrasSheet({
             </div>
 
             {/* Header */}
+            <div className="flex items-center justify-between px-5 pb-4">
+              <h2 className="text-base font-black text-gray-900">מטרת אימון</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="סגור"
+              >
+                <X size={14} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Goal type pills */}
+            <div className="px-5 mb-5">
+              <div className="flex gap-2">
+                <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>⏱ זמן</Pill>
+                <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>📏 מרחק</Pill>
+                <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>🔥 קלוריות</Pill>
+              </div>
+            </div>
+
+            {/* Slider */}
+            <div className="px-5 mb-5">
+              {goalType === 'time' && (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[13px] font-black text-gray-800">משך האימון</span>
+                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>{timeValue} דק׳</span>
+                  </div>
+                  <GoalSlider min={5} max={120} step={5} value={timeValue} onChange={setTimeValue} formatLabel={(v) => `${v} דק׳`} />
+                </>
+              )}
+
+              {goalType === 'distance' && (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[13px] font-black text-gray-800">מרחק</span>
+                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
+                  </div>
+                  <GoalSlider min={0.5} max={20} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => `${v.toFixed(1)} ק״מ`} />
+                </>
+              )}
+
+              {goalType === 'calories' && (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[13px] font-black text-gray-800">קלוריות</span>
+                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>{caloriesValue} קק״ל</span>
+                  </div>
+                  <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
+                  {isWeightDefault && (
+                    <div
+                      className="mt-3 rounded-2xl px-3.5 py-3 flex items-start gap-2.5"
+                      style={{ backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}
+                    >
+                      <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: '#F97316' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-black text-gray-800 leading-tight">לחישוב קלוריות מדויק, הזן את משקלך</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5 leading-tight">המשקל הנוכחי הוא ברירת מחדל (70 ק״ג)</p>
+                        <button
+                          type="button"
+                          onClick={onNavigateToProfile}
+                          className="mt-1.5 text-[11px] font-black"
+                          style={{ color: '#F97316', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                        >
+                          עדכן משקל בפרופיל
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Route extras shortcut */}
+            <div className="px-5 mb-4">
+              <button
+                type="button"
+                onClick={onOpenExtras}
+                className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+                style={{ backgroundColor: '#F3F4F6' }}
+              >
+                ⚙️ הגדרות מסלול נוספות
+              </button>
+            </div>
+
+            {/* Confirm */}
+            <div className="px-5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
+                style={{ backgroundColor: ACCENT }}
+              >
+                אישור
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── ExtrasSheet ── route preferences (z-[104/105], above GoalSheet) ───────────
+
+function ExtrasSheet({
+  isOpen, onClose, extras, onToggle,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  extras: ExtrasState;
+  onToggle: (key: keyof ExtrasState) => void;
+}) {
+  const dragControls = useDragControls();
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/30 z-[104] pointer-events-auto"
+          />
+
+          <motion.div
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.25}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 80 || info.velocity.y > 300) onClose();
+            }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 z-[105] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
+            dir="rtl"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+          >
+            <div
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => dragControls.start(e)}
+              style={{ touchAction: 'none' }}
+            >
+              <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
+            </div>
+
             <div className="px-5 pb-4">
               <h2 className="text-base font-black text-gray-900">הגדרות נוספות</h2>
             </div>
 
-            {/* Toggles */}
             <div className="px-5">
-              <ToggleRow
-                emoji="🔄"
-                label="מעגלי"
-                value={extras.circular}
-                onToggle={() => onToggle('circular')}
-              />
-              <ToggleRow
-                emoji="🏋️"
-                label="עבור דרך גינות כושר"
-                value={extras.gymParks}
-                onToggle={() => onToggle('gymParks')}
-              />
-              <ToggleRow
-                emoji="🪑"
-                label="עבור דרך ספסלים"
-                value={extras.benches}
-                onToggle={() => onToggle('benches')}
-              />
-              <ToggleRow
-                emoji="📍"
-                label="עבור דרך מדרגות"
-                value={extras.stairs}
-                onToggle={() => onToggle('stairs')}
-              />
-              <ToggleRow
-                emoji="🌿"
-                label="שבילי עפר (Trail)"
-                value={extras.trail}
-                onToggle={() => onToggle('trail')}
-              />
+              <ToggleRow emoji="🔄" label="מעגלי"              value={extras.circular} onToggle={() => onToggle('circular')} />
+              <ToggleRow emoji="🏋️" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
+              <ToggleRow emoji="🪑" label="עבור דרך ספסלים"      value={extras.benches}  onToggle={() => onToggle('benches')}  />
+              <ToggleRow emoji="📍" label="עבור דרך מדרגות"      value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
+              <ToggleRow emoji="🌿" label="שבילי עפר (Trail)"    value={extras.trail}    onToggle={() => onToggle('trail')}    />
             </div>
 
-            {/* Close CTA */}
             <div className="px-5 pt-5">
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform"
-                style={{ backgroundColor: ACCENT, borderRadius: 12 }}
+                className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
+                style={{ backgroundColor: ACCENT }}
               >
                 סגור
               </button>
@@ -304,102 +550,73 @@ function ExtrasSheet({
   );
 }
 
-// ── Static data ───────────────────────────────────────────────────────────────
-
-/**
- * Activity metadata used to render the "selected activity" chip in the header.
- * The full activity picker now lives in `ActivityCarousel.tsx`; this map is
- * just a small lookup so the drawer can label the user's current choice.
- */
-const ACTIVITY_LABELS: Record<ActivityType, { label: string; emoji: string }> = {
-  running: { label: 'ריצה', emoji: '🏃' },
-  walking: { label: 'הליכה', emoji: '🚶' },
-  cycling: { label: 'רכיבה', emoji: '🚴' },
-  workout: { label: 'אימון', emoji: '🏋️' },
-};
-
-const GOAL_PILLS: Array<{ id: GoalType | 'extras'; label: string; emoji: string }> = [
-  { id: 'time', label: 'זמן', emoji: '⏱' },
-  { id: 'distance', label: 'מרחק', emoji: '📏' },
-  { id: 'calories', label: 'קלוריות', emoji: '🔥' },
-  { id: 'extras', label: 'עוד', emoji: '⚙️' },
-];
-
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function FreeRunDrawer({
   currentActivity,
-  onBackToActivity,
+  onActivityChange,
   onStartWorkout,
   onClose,
   onRequestRouteGeneration,
   userPosition,
   cityName,
 }: FreeRunDrawerProps) {
-  const activityMeta = ACTIVITY_LABELS[currentActivity] ?? ACTIVITY_LABELS.walking;
   const dragControls = useDragControls();
+  const router = useRouter();
 
-  // Local UI state
-  const [withRoute, setWithRoute] = useState(false);
-  const [goalType, setGoalType] = useState<GoalType>('time');
-  const [timeValue, setTimeValue] = useState(30);
-  const [distanceValue, setDistanceValue] = useState(5);
-  const [caloriesValue, setCaloriesValue] = useState(300);
-  const [extrasOpen, setExtrasOpen] = useState(false);
+  // Normalise to a valid chip activity; 'workout' falls back to 'running'.
+  const initialActivity: CarouselActivity =
+    currentActivity === 'cycling' || currentActivity === 'walking'
+      ? currentActivity
+      : 'running';
+
+  const [selectedActivity, setSelectedActivity] = useState<CarouselActivity>(initialActivity);
+
+  // Goal state — seeded from smart defaults per activity.
+  const defaults = ACTIVITY_DEFAULTS[initialActivity];
+  const [goalType,      setGoalType]      = useState<GoalType>(defaults.goalType);
+  const [timeValue,     setTimeValue]     = useState(defaults.time);
+  const [distanceValue, setDistanceValue] = useState(defaults.distance);
+  const [caloriesValue, setCaloriesValue] = useState(defaults.calories);
+
+  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
+  const [extrasOpen,    setExtrasOpen]    = useState(false);
   const [extras, setExtras] = useState<ExtrasState>({
-    circular: false,
-    gymParks: false,
-    benches: false,
-    stairs: false,
-    trail: false,
+    circular: false, gymParks: false, benches: false, stairs: false, trail: false,
   });
 
-  // Weight check for calorie accuracy prompt
   const userWeight = useUserStore((s) => s.profile?.core?.weight ?? null);
   const isWeightDefault = !userWeight || userWeight === 70;
-  const router = useRouter();
 
   const toggleExtra = (key: keyof ExtrasState) =>
     setExtras((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const handleGoalPill = (id: GoalType | 'extras') => {
-    if (id === 'extras') {
-      setExtrasOpen(true);
-    } else {
-      setGoalType(id);
-    }
+  // Activity chip selection — resets goal to smart defaults and notifies parent.
+  const handleActivitySelect = (activity: CarouselActivity) => {
+    setSelectedActivity(activity);
+    const d = ACTIVITY_DEFAULTS[activity];
+    setGoalType(d.goalType);
+    setTimeValue(d.time);
+    setDistanceValue(d.distance);
+    setCaloriesValue(d.calories);
+    onActivityChange?.(activity);
   };
 
-  /**
-   * Convert the active goal (time / distance / calories) into a target km
-   * for the route generator. Mirrors the speed table used in
-   * useRouteGeneration.handleShuffle so a 30-min goal here produces the
-   * same target distance as the discover-mode shuffle.
-   */
+  /** Convert active goal to target km for the route generator. */
   const computeTargetKm = (): number => {
     if (goalType === 'distance') return distanceValue;
     const speedKmh =
-      currentActivity === 'cycling' ? 20 : currentActivity === 'running' ? 10 : 5;
-    if (goalType === 'time') {
-      return Math.max(0.5, (timeValue / 60) * speedKmh);
-    }
-    // calories → rough kcal/km by activity (matches the generator's calorie formula)
+      selectedActivity === 'cycling' ? 20 :
+      selectedActivity === 'running' ? 10 : 5;
+    if (goalType === 'time') return Math.max(0.5, (timeValue / 60) * speedKmh);
     const kcalPerKm =
-      currentActivity === 'cycling' ? 25 : currentActivity === 'running' ? 70 : 50;
+      selectedActivity === 'cycling' ? 25 :
+      selectedActivity === 'running' ? 70 : 50;
     return Math.max(0.5, caloriesValue / kcalPerKm);
   };
 
-  /**
-   * CTA handler. Free-mode = existing behaviour (parent's onStartWorkout).
-   * Route-mode = compute targetKm and hand off to the parent via
-   * onRequestRouteGeneration; the parent unmounts this drawer and shows
-   * the floating RouteCarousel over the visible map.
-   *
-   * If route-mode is requested but the parent didn't supply the necessary
-   * props (userPosition + onRequestRouteGeneration), we silently degrade
-   * to free-mode rather than block the user.
-   */
-  const handleStartCta = async () => {
+  /** Unlock audio + push goal into the running-player store. */
+  const applyGoalToPlayer = async () => {
     if (typeof window !== 'undefined') {
       const { audioService } = await import(
         '@/features/workout-engine/core/services/AudioService'
@@ -408,13 +625,6 @@ export default function FreeRunDrawer({
     }
     const player = useRunningPlayer.getState();
     player.setRunMode('free');
-
-    // Push the active goal into the running-player store so the
-    // RouteStoryBar inside AdaptiveMetricsWrapper can render its fill.
-    // Units are normalised here once: time → seconds, distance → km,
-    // calories → kcal. Every downstream consumer (useSessionGoalProgress,
-    // future telemetry) can do simple division without knowing where
-    // the value came from.
     if (goalType === 'time') {
       player.setSessionGoal({ type: 'time', value: timeValue * 60 });
     } else if (goalType === 'distance') {
@@ -422,28 +632,34 @@ export default function FreeRunDrawer({
     } else {
       player.setSessionGoal({ type: 'calories', value: caloriesValue });
     }
+  };
 
-    const canDoRouteMode =
-      withRoute && !!userPosition && !!onRequestRouteGeneration;
-    if (canDoRouteMode) {
-      onRequestRouteGeneration({
-        targetKm: computeTargetKm(),
-        includeStrength: extras.gymParks,
-        surface: extras.trail ? 'trail' : 'road',
-      });
-      return;
-    }
+  const handleStartFree = async () => {
+    await applyGoalToPlayer();
     onStartWorkout();
   };
+
+  const handleStartWithRoute = async () => {
+    await applyGoalToPlayer();
+    if (!userPosition || !onRequestRouteGeneration) {
+      // Degrade gracefully when route props are absent.
+      onStartWorkout();
+      return;
+    }
+    onRequestRouteGeneration({
+      targetKm: computeTargetKm(),
+      includeStrength: extras.gymParks,
+      surface: extras.trail ? 'trail' : 'road',
+    });
+  };
+
+  const canStartWithRoute = !!userPosition && !!onRequestRouteGeneration;
 
   return (
     <>
       <div className="fixed inset-0 z-[100] pointer-events-none">
         {/* Scrim */}
-        <div
-          className="absolute inset-0 pointer-events-auto"
-          onClick={onClose}
-        />
+        <div className="absolute inset-0 pointer-events-auto" onClick={onClose} />
 
         <motion.div
           drag="y"
@@ -465,7 +681,7 @@ export default function FreeRunDrawer({
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 90px)' }}
           >
-            {/* ── Drag handle ───────────────────────────────────────────── */}
+            {/* Drag handle */}
             <div
               className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => dragControls.start(e)}
@@ -474,43 +690,9 @@ export default function FreeRunDrawer({
               <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
             </div>
 
-            {/* ── Header ──────────────────────────────────────────────────
-                The activity pill is now the header centerpiece. The full
-                activity picker lives in ActivityCarousel (one stage earlier);
-                tapping the pill (when onBackToActivity is supplied) returns
-                the user to that picker. */}
-            <div className="flex items-center justify-between px-5 pb-5 gap-3">
-              <button
-                type="button"
-                onClick={onBackToActivity}
-                disabled={!onBackToActivity}
-                className="flex items-center gap-2 min-w-0 flex-1 text-start active:scale-[0.98] transition-transform disabled:active:scale-100 disabled:cursor-default"
-                aria-label={onBackToActivity ? 'שנה סוג פעילות' : undefined}
-              >
-                <span
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                  style={{ backgroundColor: `${ACCENT}1A` }}
-                  aria-hidden="true"
-                >
-                  {activityMeta.emoji}
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-base font-black text-gray-900 leading-tight truncate">
-                    אירובי חופשי · {activityMeta.label}
-                  </h2>
-                  {onBackToActivity ? (
-                    <p
-                      className="text-[12px] font-bold mt-0.5 flex items-center gap-0.5"
-                      style={{ color: ACCENT }}
-                    >
-                      <ChevronRight size={12} strokeWidth={3} />
-                      שנה פעילות
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500 mt-0.5">בחר את הגדרות האימון</p>
-                  )}
-                </div>
-              </button>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pb-4">
+              <h2 className="text-base font-black text-gray-900">אירובי חופשי</h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -521,174 +703,53 @@ export default function FreeRunDrawer({
               </button>
             </div>
 
-            {/* ── Section 2 — Mode ──────────────────────────────────────── */}
-            <div className="px-5 mb-5">
-              <span className="text-[13px] font-black text-gray-800 block mb-2.5">
-                מצב
-              </span>
-              <div className="flex gap-2">
-                <Pill active={withRoute} onClick={() => setWithRoute(true)}>
-                  🗺️ עם מסלול
-                </Pill>
-                <Pill active={!withRoute} onClick={() => setWithRoute(false)}>
-                  ⚡ חופשי
-                </Pill>
-              </div>
-              {/* City confirmation chip — only relevant for route mode. Gives the
-                  user transparency into which city the generator will query
-                  street_segments for. When undefined we still let them tap
-                  start; the generator falls back to random waypoints. */}
-              {withRoute && (
-                <div className="mt-2.5 text-[11px] text-gray-500 leading-tight">
-                  {cityName ? (
-                    <>
-                      <span className="text-gray-400">חיפוש מסלולים ב-</span>
-                      <span className="font-bold text-gray-700">{cityName}</span>
-                    </>
-                  ) : (
-                    <span className="text-amber-600">
-                      לא זוהתה עיר — נשתמש במסלול אקראי קרוב למיקום שלך
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* ── Block 1: Activity chips ──────────────────────────────────── */}
+            <ActivityChips selected={selectedActivity} onSelect={handleActivitySelect} />
 
-            {/* ── Section 3 — Goal ──────────────────────────────────────── */}
-            <div className="px-5 mb-5">
-              <span className="text-[13px] font-black text-gray-800 block mb-2.5">
-                מטרה
-              </span>
+            {/* ── Block 2: Goal summary (collapsed) ───────────────────────── */}
+            <GoalSummaryRow
+              goalType={goalType}
+              timeValue={timeValue}
+              distanceValue={distanceValue}
+              caloriesValue={caloriesValue}
+              onEdit={() => setGoalSheetOpen(true)}
+            />
 
-              {/* Goal type pills */}
-              <div className="flex gap-2 mb-4">
-                {GOAL_PILLS.map(({ id, label, emoji }) => (
-                  <Pill
-                    key={id}
-                    active={id !== 'extras' && goalType === id}
-                    onClick={() => handleGoalPill(id)}
-                  >
-                    {emoji} {label}
-                  </Pill>
-                ))}
-              </div>
-
-              {/* ── Slider: זמן ─────────────────────────────────────────── */}
-              {goalType === 'time' && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-black text-gray-800">משך האימון</span>
-                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>
-                      {timeValue} דק׳
-                    </span>
-                  </div>
-                  <GoalSlider
-                    min={5}
-                    max={120}
-                    step={5}
-                    value={timeValue}
-                    onChange={setTimeValue}
-                    formatLabel={(v) => `${v} דק׳`}
-                  />
-                </div>
-              )}
-
-              {/* ── Slider: מרחק ────────────────────────────────────────── */}
-              {goalType === 'distance' && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-black text-gray-800">מרחק</span>
-                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>
-                      {distanceValue.toFixed(1)} ק״מ
-                    </span>
-                  </div>
-                  <GoalSlider
-                    min={0.5}
-                    max={20}
-                    step={0.5}
-                    value={distanceValue}
-                    onChange={setDistanceValue}
-                    formatLabel={(v) => `${v.toFixed(1)} ק״מ`}
-                  />
-                </div>
-              )}
-
-              {/* ── Slider: קלוריות ─────────────────────────────────────── */}
-              {goalType === 'calories' && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[13px] font-black text-gray-800">קלוריות</span>
-                    <span className="text-[13px] font-black" style={{ color: ACCENT }}>
-                      {caloriesValue} קק״ל
-                    </span>
-                  </div>
-                  <GoalSlider
-                    min={50}
-                    max={800}
-                    step={50}
-                    value={caloriesValue}
-                    onChange={setCaloriesValue}
-                    formatLabel={(v) => `${v} קק״ל`}
-                  />
-                  {/* Weight accuracy nudge — shown when weight is missing or is the
-                      onboarding default (70 kg). Non-blocking: the user can still
-                      start; this just surfaces the precision gap. */}
-                  {isWeightDefault && (
-                    <div
-                      className="mt-3 rounded-2xl px-3.5 py-3 flex items-start gap-2.5"
-                      style={{ backgroundColor: '#FFF7ED', border: '1px solid #FED7AA' }}
-                    >
-                      <AlertCircle size={15} className="shrink-0 mt-0.5" style={{ color: '#F97316' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-black text-gray-800 leading-tight">
-                          לחישוב קלוריות מדויק, הזן את משקלך
-                        </p>
-                        <p className="text-[11px] text-gray-500 mt-0.5 leading-tight">
-                          המשקל הנוכחי הוא ברירת מחדל (70 ק״ג)
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => router.push('/profile')}
-                          className="mt-1.5 text-[11px] font-black"
-                          style={{ color: '#F97316', textDecoration: 'underline', textUnderlineOffset: '2px' }}
-                        >
-                          עדכן משקל בפרופיל
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* ── CTA ───────────────────────────────────────────────────── */}
-            <div className="px-5">
-              <button
-                type="button"
-                onClick={handleStartCta}
-                className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-                style={{ backgroundColor: ACCENT, borderRadius: 12 }}
-              >
-                <Play size={16} fill="currentColor" />
-                {withRoute ? 'מצא לי מסלול' : 'התחל אימון חופשי'}
-              </button>
-            </div>
+            {/* ── Block 3: Entry buttons ───────────────────────────────────── */}
+            <EntryButtons
+              onStartFree={handleStartFree}
+              onStartWithRoute={handleStartWithRoute}
+              canStartWithRoute={canStartWithRoute}
+              cityName={cityName}
+            />
           </div>
         </motion.div>
       </div>
 
-      {/* ── Extras sheet (z-[102/103] — above the main drawer at z-[100]) ── */}
+      {/* Goal sheet — z-[102/103] */}
+      <GoalSheet
+        isOpen={goalSheetOpen}
+        onClose={() => setGoalSheetOpen(false)}
+        goalType={goalType}
+        setGoalType={setGoalType}
+        timeValue={timeValue}
+        setTimeValue={setTimeValue}
+        distanceValue={distanceValue}
+        setDistanceValue={setDistanceValue}
+        caloriesValue={caloriesValue}
+        setCaloriesValue={setCaloriesValue}
+        onOpenExtras={() => { setGoalSheetOpen(false); setExtrasOpen(true); }}
+        isWeightDefault={isWeightDefault}
+        onNavigateToProfile={() => router.push('/profile')}
+      />
+
+      {/* Extras sheet — z-[104/105] (above GoalSheet) */}
       <ExtrasSheet
         isOpen={extrasOpen}
         onClose={() => setExtrasOpen(false)}
         extras={extras}
         onToggle={toggleExtra}
       />
-
-      {/* The route selector now lives at the parent level (DiscoverLayer)
-          as the floating RouteCarousel — a separate stage in the free-run
-          state machine that mounts AFTER this drawer unmounts. We only
-          surface the targetKm payload via `onRequestRouteGeneration`. */}
     </>
   );
 }

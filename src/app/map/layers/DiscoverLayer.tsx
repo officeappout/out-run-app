@@ -5,7 +5,6 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
-import ActivityCarousel from '@/features/parks/core/components/ActivityCarousel';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
@@ -91,21 +90,18 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
   const [mapMode, setMapMode] = useState<MapMode>('idle');
 
   // ── Free-run flow state machine ────────────────────────────────────────────
-  // Once `mapMode === 'freeRun'`, the user passes through three stages:
-  //   1. 'activity' — floating ActivityCarousel over the map (pick run/walk/cycle)
-  //   2. 'config'   — FreeRunDrawer (mode + goal + start CTA)
-  //   3. 'route'    — floating RouteCarousel (3 generated route cards over
-  //                    the map) — only entered if the user picks "with route"
-  //                    mode in stage 2 and taps "Generate".
+  // Once `mapMode === 'freeRun'`, the user passes through two stages:
+  //   1. 'config' — FreeRunDrawer (activity chips + goal + start CTAs)
+  //   2. 'route'  — floating RouteCarousel (3 generated route cards over the map)
+  //                 only entered when the user taps "עם מסלול".
   //
   // Stage transitions:
-  //   carousel card tap          → activity → config
-  //   drawer "שנה פעילות" chip   → config   → activity
-  //   drawer "Generate"          → config   → route   (with carousel-config payload)
-  //   route carousel back chip   → route    → config
-  //   route carousel "Start"     → route    → idle (workout starts)
-  type FreeRunStep = 'activity' | 'config' | 'route';
-  const [freeRunStep, setFreeRunStep] = useState<FreeRunStep>('activity');
+  //   drawer "התחל חופשי"  → config → idle (workout starts)
+  //   drawer "עם מסלול"    → config → route (with carousel-config payload)
+  //   route carousel back  → route  → config
+  //   route carousel start → route  → idle (workout starts)
+  type FreeRunStep = 'config' | 'route';
+  const [freeRunStep, setFreeRunStep] = useState<FreeRunStep>('config');
 
   // Carousel-config payload — captured when the user taps "Generate" in the
   // drawer so the floating RouteCarousel knows what targetKm to feed into
@@ -118,11 +114,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
     surface: 'road' | 'trail';
   } | null>(null);
 
-  // Reset to the activity stage every time we re-enter free-run mode so a
-  // back-and-forth between modes doesn't strand the user mid-config.
+  // Reset to config stage every time we re-enter free-run mode.
   useEffect(() => {
     if (mapMode === 'freeRun') {
-      setFreeRunStep('activity');
+      setFreeRunStep('config');
       setRouteCarouselConfig(null);
     }
   }, [mapMode]);
@@ -708,36 +703,20 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
               />
             )}
 
-            {/* ── Free-run flow — three stages, mutually exclusive ───────
-                Stage 1: ActivityCarousel (floating cards over the map).
-                Stage 2: FreeRunDrawer  (mode + goal + start CTA).
-                Stage 3: RouteCarousel  (floating route options over the map).
-                All guarded by `mapMode === 'freeRun'`; only one renders at
-                a time per the one-card-only UI rule. */}
-            {mapMode === 'freeRun' && freeRunStep === 'activity' && (
-              <ActivityCarousel
-                currentActivity={logic.preferences.activity}
-                onSelect={(activity) => {
-                  logic.handleActivityChange(activity);
-                  setFreeRunStep('config');
-                }}
-                onClose={() => setMapMode('idle')}
-              />
-            )}
-
+            {/* ── Free-run flow — two stages, mutually exclusive ─────────
+                Stage 1: FreeRunDrawer (activity chips + goal + start CTAs).
+                Stage 2: RouteCarousel (floating route cards over the map) —
+                         only entered when the user taps "עם מסלול".
+                Both guarded by `mapMode === 'freeRun'`. */}
             {mapMode === 'freeRun' && freeRunStep === 'config' && (
               <FreeRunDrawer
                 currentActivity={logic.preferences.activity}
-                onBackToActivity={() => setFreeRunStep('activity')}
+                onActivityChange={(activity) => logic.handleActivityChange(activity)}
                 onStartWorkout={logic.startActiveWorkout}
                 onClose={() => setMapMode('idle')}
                 userPosition={userLocation}
                 cityName={userCityName}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
-                  // The user picked "with route" + tapped Generate in the
-                  // drawer. Capture the full config payload, drop the drawer,
-                  // and let the floating RouteCarousel run the radar +
-                  // generator + 3-card UI on the visible map.
                   setRouteCarouselConfig({ targetKm, includeStrength, surface });
                   setFreeRunStep('route');
                 }}
