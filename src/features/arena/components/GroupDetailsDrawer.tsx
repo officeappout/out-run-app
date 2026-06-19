@@ -26,12 +26,11 @@ import {
   Check,
   CalendarPlus,
 } from 'lucide-react';
-import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot } from '@/types/community.types';
+import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot, LiveSessionPhase } from '@/types/community.types';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
-import AttendeesPreview from './AttendeesPreview';
 import NavigationSheet from './NavigationSheet';
 import ReportContentSheet from './ReportContentSheet';
 import {
@@ -146,13 +145,15 @@ interface GroupDetailsDrawerProps {
   onEdit?: (groupId: string) => void;
   /** Live session from useCommunitySessionBanner — shows a phase banner at the top of the drawer */
   liveSession?: UpcomingSession;
+  /** DEV only — fires when the dev phase override changes in the banner, so parent card badge updates too */
+  onLivePhaseChange?: (groupId: string, phase: LiveSessionPhase | null) => void;
 }
 
 export default function GroupDetailsDrawer({
   isOpen,
   onClose,
   group,
-  members,
+  members: _members,
   onJoin,
   onLeave,
   isJoined,
@@ -161,6 +162,7 @@ export default function GroupDetailsDrawer({
   onOpenChat,
   onEdit,
   liveSession,
+  onLivePhaseChange,
 }: GroupDetailsDrawerProps) {
   // ── ALL hooks MUST be at the top, before any conditional return ──
   const [navOpen, setNavOpen] = useState(false);
@@ -486,6 +488,8 @@ export default function GroupDetailsDrawer({
                   <CommunitySessionBanner
                     session={liveSession}
                     onDismiss={onClose}
+                    compact
+                    onDevPhaseChange={(phase) => onLivePhaseChange?.(liveSession.groupId, phase)}
                   />
                 )}
 
@@ -506,7 +510,7 @@ export default function GroupDetailsDrawer({
                 )}
 
                 {/* ── Next Session Banner (cyan) with spots integrated ── */}
-                {nextSessionData && (
+                {nextSessionData && !(liveSession && (liveSession.phase === 'approaching' || liveSession.phase === 'lobby' || liveSession.phase === 'active')) && (
                   <div className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 rounded-2xl p-4 border border-cyan-100 dark:border-cyan-800/40 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
@@ -527,44 +531,7 @@ export default function GroupDetailsDrawer({
                       )}
                     </div>
 
-                    {/* Per-slot equipment chips */}
-                    {effectiveEquipment.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {effectiveEquipment.map((eq) => (
-                          <span key={eq} className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-                            {eq}
-                          </span>
-                        ))}
-                      </div>
-                    )}
 
-                    {/* Booked avatars */}
-                    {attendance && attendance.currentCount > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex -space-x-2 rtl:space-x-reverse">
-                          {Object.entries(attendance.attendeeProfiles ?? {}).slice(0, 5).map(([uid, p]) => (
-                            p.photoURL ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img key={uid} src={p.photoURL} alt={p.name} className="w-6 h-6 rounded-full border-2 border-white object-cover" loading="lazy" decoding="async" />
-                            ) : (
-                              <div key={uid} className="w-6 h-6 rounded-full border-2 border-white bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                                <span className="text-[10px] text-white font-black">{p.name?.charAt(0)}</span>
-                              </div>
-                            )
-                          ))}
-                        </div>
-                        <span className="text-xs text-gray-500 font-bold" aria-live="polite">
-                          {attendance.currentCount} {attendance.currentCount === 1 ? 'נרשם/ה' : 'נרשמו'}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Waitlist counter */}
-                    {(attendance?.waitlist?.length ?? 0) > 0 && (
-                      <p className="text-xs text-amber-600 font-bold" aria-live="polite">
-                        {attendance!.waitlist!.length} ברשימת המתנה
-                      </p>
-                    )}
 
                     {/* Book / Waitlist / Cancel button (only if joined) */}
                     {isJoined && (
@@ -947,14 +914,6 @@ export default function GroupDetailsDrawer({
                   </div>
                 ) : null}
 
-                {/* Attendees */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-                  <AttendeesPreview attendees={members ?? []} total={group.currentParticipants} />
-                  <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" />
-                    {group.currentParticipants} {group.currentParticipants === 1 ? 'חבר' : 'חברים'}
-                  </span>
-                </div>
 
                 {/* ── Creator-only: Edit button ───────────────────── */}
                 {onEdit && userId === group.createdBy && (

@@ -136,6 +136,8 @@ export default function SearchPage() {
 
   // Live session phase map for group cards (joined groups only)
   const { sessions: bannerSessions } = useCommunitySessionBanner();
+  const [devOverrides, setDevOverrides] = useState<Record<string, 'approaching' | 'lobby' | 'active' | null>>({});
+  const IS_DEV = process.env.NODE_ENV === 'development';
   const livePhaseMap = useMemo(() => {
     const map: Record<string, 'approaching' | 'lobby' | 'active'> = {};
     bannerSessions.forEach((s) => {
@@ -143,8 +145,18 @@ export default function SearchPage() {
         map[s.groupId] = s.phase;
       }
     });
+    if (IS_DEV) {
+      Object.entries(devOverrides).forEach(([gid, phase]) => {
+        if (phase === 'approaching' || phase === 'lobby' || phase === 'active') {
+          map[gid] = phase;
+        } else {
+          delete map[gid];
+        }
+      });
+    }
     return map;
-  }, [bannerSessions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bannerSessions, devOverrides]);
 
   // Following list (UIDs) — already kept in sync with Firestore by /community.
   const following = useSocialStore((s) => s.following);
@@ -679,6 +691,9 @@ export default function SearchPage() {
         isJoined={selectedGroup ? joinedGroupIds.has(selectedGroup.id) : false}
         joining={selectedGroup ? joiningId === selectedGroup.id : false}
         liveSession={bannerSessions.find((s) => s.groupId === selectedGroup?.id)}
+        onLivePhaseChange={(gid, phase) => {
+          if (IS_DEV) setDevOverrides((prev) => ({ ...prev, [gid]: phase as 'approaching' | 'lobby' | 'active' | null }));
+        }}
       />
 
       <SessionDrawer
@@ -963,7 +978,14 @@ function DiscoverGroupsList({
   livePhaseMap?: Record<string, 'approaching' | 'lobby' | 'active'>;
   emptyMessage?: string;
 }) {
-  if (groups.length === 0) {
+  const phaseOrder: Record<string, number> = { active: 0, lobby: 1, approaching: 2 };
+  const sorted = [...groups].sort((a, b) => {
+    const pa = phaseOrder[livePhaseMap[a.id] ?? ''] ?? 3;
+    const pb = phaseOrder[livePhaseMap[b.id] ?? ''] ?? 3;
+    return pa !== pb ? pa - pb : (distanceMap[a.id] ?? 999) - (distanceMap[b.id] ?? 999);
+  });
+
+  if (sorted.length === 0) {
     return (
       <div className="flex flex-col items-center py-12 text-center" dir="rtl">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
@@ -978,8 +1000,8 @@ function DiscoverGroupsList({
   }
   return (
     <div className="space-y-2 pb-6" dir="rtl">
-      <p className="text-[11px] text-gray-500 px-1">{groups.length} קבוצות</p>
-      {groups.map((g) => (
+      <p className="text-[11px] text-gray-500 px-1">{sorted.length} קבוצות</p>
+      {sorted.map((g) => (
         <motion.div key={g.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <GroupCard
             group={g}

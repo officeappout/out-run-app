@@ -46,6 +46,10 @@ interface CommunitySessionBannerProps {
   session: UpcomingSession;
   onDismiss: () => void;
   onOpenGroup?: (groupId: string) => void;
+  /** In drawer context: suppress the group name (h2 above already shows it). */
+  compact?: boolean;
+  /** DEV only — fires when the dev phase override changes, so the parent can update the card badge. */
+  onDevPhaseChange?: (phase: LiveSessionPhase | null) => void;
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -103,6 +107,8 @@ export default function CommunitySessionBanner({
   session,
   onDismiss,
   onOpenGroup,
+  compact = false,
+  onDevPhaseChange,
 }: CommunitySessionBannerProps) {
   const profile = useUserStore((s) => s.profile);
   const uid      = profile?.id ?? '';
@@ -304,7 +310,7 @@ export default function CommunitySessionBanner({
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>
+          {!compact && <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>}
           <p className="text-[11px] text-gray-500 flex items-center gap-1">
             <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
             {timeLabel}
@@ -365,7 +371,7 @@ export default function CommunitySessionBanner({
             <Users className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>
+            {!compact && <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>}
             <p className="text-[11px] text-gray-600 truncate">
               {communityMsg.subText || communityMsg.text || 'מפגש קהילתי בקרוב'}
             </p>
@@ -427,7 +433,7 @@ export default function CommunitySessionBanner({
             <Users className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>
+            {!compact && <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>}
             <p className="text-[11px] text-emerald-700 font-bold">
               {countdown ?? 'המפגש החל!'}
             </p>
@@ -492,7 +498,7 @@ export default function CommunitySessionBanner({
             <Users className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-black text-white truncate">{session.groupName}</p>
+            {!compact && <p className="text-[13px] font-black text-white truncate">{session.groupName}</p>}
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
               <p className="text-[11px] text-green-300 font-bold">
@@ -549,7 +555,7 @@ export default function CommunitySessionBanner({
             <Trophy className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>
+            {!compact && <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>}
             <p className="text-[11px] text-amber-700 font-bold truncate">
               {celebrationText}{totalXP ? ` · +${totalXP} XP` : ''}
             </p>
@@ -611,7 +617,7 @@ export default function CommunitySessionBanner({
               {ALL_PHASES.map((p) => (
                 <button
                   key={p}
-                  onClick={() => setDevPhase(effectivePhase === p && devPhase ? null : p)}
+                  onClick={() => { const next = effectivePhase === p && devPhase ? null : p; setDevPhase(next); onDevPhaseChange?.(next); }}
                   className={`px-2.5 py-1 rounded-full text-[10px] font-black transition-all active:scale-95 ${
                     effectivePhase === p
                       ? 'bg-amber-400 text-gray-900'
@@ -623,7 +629,7 @@ export default function CommunitySessionBanner({
               ))}
               {devPhase && (
                 <button
-                  onClick={() => setDevPhase(null)}
+                  onClick={() => { setDevPhase(null); onDevPhaseChange?.(null); }}
                   className="px-2.5 py-1 rounded-full text-[10px] font-black bg-red-900 text-red-300 hover:bg-red-800 transition-colors"
                 >
                   ← real

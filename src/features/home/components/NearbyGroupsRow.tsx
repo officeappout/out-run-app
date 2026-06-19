@@ -40,6 +40,8 @@ const CHIPS: { key: CategoryFilter; label: string }[] = [
   { key: 'community',    label: 'קהילתי' },
 ];
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 interface Nearby { group: CommunityGroup; km: number }
 
 function computeNearby(
@@ -87,6 +89,7 @@ export default function NearbyGroupsRow() {
   const [selectedGroup, setSelectedGroup] = useState<CommunityGroup | null>(null);
   const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(new Set());
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [devOverrides, setDevOverrides] = useState<Record<string, 'approaching' | 'lobby' | 'active' | null>>({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -136,8 +139,17 @@ export default function NearbyGroupsRow() {
         map[s.groupId] = s.phase;
       }
     });
+    if (IS_DEV) {
+      Object.entries(devOverrides).forEach(([gid, phase]) => {
+        if (phase === 'approaching' || phase === 'lobby' || phase === 'active') {
+          map[gid] = phase;
+        } else {
+          delete map[gid];
+        }
+      });
+    }
     return map;
-  }, [bannerSessions]);
+  }, [bannerSessions, devOverrides]);
 
   const nearby = useMemo(
     () => userPos ? computeNearby(allGroups, userPos, userAuthorityId) : [],
@@ -149,6 +161,15 @@ export default function NearbyGroupsRow() {
     if (categoryFilter === 'community') return nearby.filter((g) => g.group.source === 'user');
     return nearby.filter((g) => g.group.category === categoryFilter);
   }, [nearby, categoryFilter]);
+
+  const sorted = useMemo(() => {
+    const phaseOrder: Record<string, number> = { active: 0, lobby: 1, approaching: 2 };
+    return [...filtered].sort((a, b) => {
+      const pa = phaseOrder[livePhaseMap[a.group.id] ?? ''] ?? 3;
+      const pb = phaseOrder[livePhaseMap[b.group.id] ?? ''] ?? 3;
+      return pa !== pb ? pa - pb : a.km - b.km;
+    });
+  }, [filtered, livePhaseMap]);
 
   async function handleJoin(groupId: string) {
     if (!userId) return;
@@ -189,7 +210,7 @@ export default function NearbyGroupsRow() {
             קבוצות קרובות אליך
             {!loading && (
               <span className="text-[13px] font-semibold text-gray-400 dark:text-gray-500">
-                ({filtered.length})
+                ({sorted.length})
               </span>
             )}
           </h3>
@@ -251,13 +272,13 @@ export default function NearbyGroupsRow() {
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : sorted.length === 0 ? (
           <p className="text-xs text-gray-400 dark:text-gray-500 px-1">
             אין קבוצות בקטגוריה זו באזורך
           </p>
         ) : (
           <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
-            {filtered.map(({ group, km }) => (
+            {sorted.map(({ group, km }) => (
               <GroupCard
                 key={group.id}
                 group={group}
@@ -281,6 +302,9 @@ export default function NearbyGroupsRow() {
         onJoin={handleJoin}
         onLeave={handleLeave}
         liveSession={bannerSessions.find((s) => s.groupId === selectedGroup?.id)}
+        onLivePhaseChange={(gid, phase) => {
+          if (IS_DEV) setDevOverrides((prev) => ({ ...prev, [gid]: phase as 'approaching' | 'lobby' | 'active' | null }));
+        }}
       />
     </>
   );

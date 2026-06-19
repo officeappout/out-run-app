@@ -676,6 +676,21 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                       </button>
                     </div>
 
+                    {/* Duration — always visible because it drives session end time */}
+                    <div className="flex items-center gap-2 px-2 py-1.5 border-t border-gray-100 bg-indigo-50/50">
+                      <label className="text-[10px] font-bold text-indigo-600 whitespace-nowrap">משך מפגש:</label>
+                      <input
+                        type="number"
+                        min={15}
+                        max={240}
+                        value={slot.durationMinutes ?? ''}
+                        onChange={(e) => updateSlot({ durationMinutes: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        placeholder="60"
+                        className="w-16 px-1.5 py-0.5 border border-indigo-200 rounded-lg text-xs text-center bg-white"
+                      />
+                      <span className="text-[10px] text-indigo-400">דקות</span>
+                    </div>
+
                     {/* Quick summary row (always visible) */}
                     <div className="flex flex-wrap gap-1 px-2 py-1.5 text-[10px] text-gray-400 border-t border-gray-100">
                       {slot.label && <span className="bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded-full font-bold">{slot.label}</span>}
@@ -698,7 +713,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     {isExpanded && (
                       <div className="border-t border-gray-200 p-3 space-y-3 bg-white">
                         {/* Row: Label, Max Participants, Price */}
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">תווית (אופציונלי)</label>
                             <input
@@ -707,18 +722,6 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                               onChange={(e) => updateSlot({ label: e.target.value })}
                               className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs"
                               placeholder="יוגה / ריצה..."
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-500 mb-0.5 block">משך (דקות)</label>
-                            <input
-                              type="number"
-                              min={15}
-                              max={240}
-                              value={slot.durationMinutes ?? ''}
-                              onChange={(e) => updateSlot({ durationMinutes: e.target.value === '' ? undefined : Number(e.target.value) })}
-                              className="w-full px-2 py-1 border border-gray-200 rounded-lg text-xs"
-                              placeholder="60"
                             />
                           </div>
                           <div>
