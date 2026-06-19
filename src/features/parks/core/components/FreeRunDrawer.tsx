@@ -337,7 +337,10 @@ function WeightInlineRow({
       className="mt-3 rounded-2xl px-4 py-3.5"
       style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}
     >
-      <p className="text-[12px] font-black text-gray-700 mb-2.5">⚖️ משקלך לחישוב מדויק</p>
+      <p className="text-[12px] font-black text-gray-700 mb-0.5">⚖️ משקלך לחישוב מדויק</p>
+      <p className="text-[11px] text-gray-400 leading-tight mb-2.5">
+        עדיין לא הזנת משקל — הערך הנוכחי הוא ברירת מחדל. כדי שחישוב הקלוריות יהיה מדויק, שווה לעדכן.
+      </p>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -384,7 +387,7 @@ function WeightInlineRow({
           {saving ? '...' : 'שמור'}
         </button>
       </div>
-      <p className="text-[10px] text-gray-400 mt-1.5">ישמר לפרופיל שלך</p>
+      <p className="text-[10px] text-gray-400 mt-1.5">אפשר לדלג — יישמר לפרופיל אם תבחר</p>
     </div>
   );
 }
