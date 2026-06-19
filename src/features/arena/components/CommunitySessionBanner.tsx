@@ -50,6 +50,10 @@ interface CommunitySessionBannerProps {
   compact?: boolean;
   /** DEV only — fires when the dev phase override changes, so the parent can update the card badge. */
   onDevPhaseChange?: (phase: LiveSessionPhase | null) => void;
+  /** Called when a non-member taps a join action — parent handles bookSession + member_status. */
+  onDropIn?: () => void;
+  /** Whether the current user is already a group member. Drives which action handler fires. */
+  isJoined?: boolean;
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -109,6 +113,8 @@ export default function CommunitySessionBanner({
   onOpenGroup,
   compact = false,
   onDevPhaseChange,
+  onDropIn,
+  isJoined = true,
 }: CommunitySessionBannerProps) {
   const profile = useUserStore((s) => s.profile);
   const uid      = profile?.id ?? '';
@@ -398,11 +404,11 @@ export default function CommunitySessionBanner({
               key="otw-btn"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              onClick={() => handleStatus('otw')}
+              onClick={isJoined ? () => handleStatus('otw') : onDropIn}
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-teal-500/30"
             >
-              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : '✋ אני בדרך'}
+              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : isJoined ? '✋ אני בדרך' : g('הצטרפי לאימון', 'הצטרף לאימון')}
             </motion.button>
           )}
         </AnimatePresence>
@@ -467,11 +473,11 @@ export default function CommunitySessionBanner({
               key="here-btn"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              onClick={() => handleStatus('here')}
+              onClick={isJoined ? () => handleStatus('here') : onDropIn}
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-emerald-500/30"
             >
-              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : g('הצטרפי ללובי', 'הצטרף ללובי')}
+              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : g('הצטרפי לאימון', 'הצטרף לאימון')}
             </motion.button>
           )}
         </AnimatePresence>
@@ -529,7 +535,7 @@ export default function CommunitySessionBanner({
         ) : null}
 
         <button
-          onClick={openGroup}
+          onClick={isJoined ? openGroup : onDropIn}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-green-800 text-[13px] font-black transition-all active:scale-[0.97]"
         >
           <Zap className="w-4 h-4 text-green-600" />

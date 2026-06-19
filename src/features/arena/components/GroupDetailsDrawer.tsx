@@ -29,6 +29,8 @@ import {
 import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot, LiveSessionPhase } from '@/types/community.types';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
+import { useGroupLiveSession } from '@/features/arena/hooks/useGroupLiveSession';
+import { setMyAttendeeStatus } from '@/features/arena/services/session-phase.service';
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import NavigationSheet from './NavigationSheet';
@@ -40,7 +42,7 @@ import {
   getSessionAttendance,
   computeNextSession as computeNextSessionBooking,
 } from '@/features/arena/services/booking.service';
-import { getGroupMembers, leaveGroup } from '@/features/arena/services/group.service';
+import { getGroupMembers, joinGroup, leaveGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -194,6 +196,9 @@ export default function GroupDetailsDrawer({
   const [isBooked, setIsBooked] = useState(false);
   const [isWaitlisted, setIsWaitlisted] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [dropInLoading,  setDropInLoading]  = useState(false);
+  const [showJoinPrompt, setShowJoinPrompt] = useState(false);
+  const [joiningGroup,   setJoiningGroup]   = useState(false);
 
   // "מי מגיע" — who's coming tabs
   const [whoTab, setWhoTab] = useState<'next' | 'week'>('next');
@@ -313,6 +318,42 @@ export default function GroupDetailsDrawer({
     }
   }, [userId, userName, userPhoto, groupId, nsd, nst, bookingLoading, isBooked, isWaitlisted, nextSlot]);
 
+  const handleDropIn = async () => {
+    if (!userId || !effectiveLiveSession || dropInLoading) return;
+    setDropInLoading(true);
+    try {
+      await bookSession(
+        group!.id, effectiveLiveSession.date, effectiveLiveSession.time,
+        userId, userName, userPhoto,
+        effectiveLiveSession.slot.maxParticipants,
+      );
+      await setMyAttendeeStatus(
+        userId, group!.id,
+        effectiveLiveSession.date, effectiveLiveSession.time,
+        'here',
+      );
+      setShowJoinPrompt(true);
+    } catch (err) {
+      console.error('[GroupDetailsDrawer] handleDropIn:', err);
+    } finally {
+      setDropInLoading(false);
+    }
+  };
+
+  const handleJoinFromPrompt = async () => {
+    if (!userId || !group || joiningGroup) return;
+    setJoiningGroup(true);
+    try {
+      await joinGroup(group.id, userId, userName);
+      setShowJoinPrompt(false);
+      onJoin?.(group.id);
+    } catch (err) {
+      console.error('[GroupDetailsDrawer] handleJoinFromPrompt:', err);
+    } finally {
+      setJoiningGroup(false);
+    }
+  };
+
   // ── Fetch member list when drawer opens ───────────────────────────────────
   useEffect(() => {
     if (!isOpen || !groupId) { setGroupMembers([]); return; }
@@ -348,10 +389,21 @@ export default function GroupDetailsDrawer({
     }
   }, [groupId, group, weekLoaded, weekLoading]);
 
+  // ── Non-member live session — fires when drawer is open and no parent liveSession ──
+  const fallbackLiveSession = useGroupLiveSession(group, isOpen && !liveSession);
+  const effectiveLiveSession = liveSession ?? fallbackLiveSession;
+
   // ── Early return AFTER all hooks ──────────────────────────────
   if (!group) return null;
 
   const isCreator = userId === group.createdBy;
+
+  const userAuthorityId = (profile as any)?.core?.authorityId ?? null;
+  const canDropIn = (
+    !group.isLocked &&
+    group.isPublic !== false &&
+    (!group.isCityOnly || userAuthorityId === group.authorityId)
+  );
 
   const catConfig = CATEGORY_CONFIG[group.category] ?? CATEGORY_CONFIG.other;
   const effectiveImages = (nextSlot?.images?.length ? nextSlot.images : group.images) ?? [];
@@ -480,18 +532,30 @@ export default function GroupDetailsDrawer({
               {/* ── Scrollable content ─────────────────────────── */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
                 {/* Live session banner — shown when a session is approaching / in lobby / active */}
-                {liveSession && (
-                  liveSession.phase === 'approaching' ||
-                  liveSession.phase === 'lobby' ||
-                  liveSession.phase === 'active'
-                ) && (
+                {effectiveLiveSession && (
+                  effectiveLiveSession.phase === 'approaching' ||
+                  effectiveLiveSession.phase === 'lobby' ||
+                  effectiveLiveSession.phase === 'active'
+                ) && (canDropIn ? (
                   <CommunitySessionBanner
-                    session={liveSession}
+                    session={effectiveLiveSession}
                     onDismiss={onClose}
                     compact
-                    onDevPhaseChange={(phase) => onLivePhaseChange?.(liveSession.groupId, phase)}
+                    isJoined={isJoined}
+                    onDropIn={!isJoined ? handleDropIn : undefined}
+                    onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
                   />
-                )}
+                ) : (
+                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs font-bold" dir="rtl">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                    <span>
+                      מפגש פעיל ·{' '}
+                      {group.isCityOnly
+                        ? `לתושבי ${destAddress?.split(',')[0] ?? 'העיר'} בלבד`
+                        : 'לחברים בלבד'}
+                    </span>
+                  </div>
+                ))}
 
                 {/* Title */}
                 <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
@@ -622,6 +686,41 @@ export default function GroupDetailsDrawer({
                       })}
                     </div>
                   </div>
+                )}
+
+                {/* Drop-in recruitment prompt — shown after non-member joins a live session */}
+                {showJoinPrompt && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800/40 rounded-2xl p-4 space-y-3"
+                    dir="rtl"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🏃</span>
+                      <div>
+                        <p className="text-sm font-black text-gray-900 dark:text-gray-100">כל הכבוד, הצטרפת לאימון!</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">רוצה לקבל תזכורות למפגשים הבאים?</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleJoinFromPrompt}
+                        disabled={joiningGroup}
+                        className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {joiningGroup
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : 'כן, הצטרפי לקבוצה'}
+                      </button>
+                      <button
+                        onClick={() => setShowJoinPrompt(false)}
+                        className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold transition-all active:scale-[0.97]"
+                      >
+                        אולי אחר כך
+                      </button>
+                    </div>
+                  </motion.div>
                 )}
 
                 {/* ── "מי מגיע" — who's coming (tabs: המפגש הבא / השבוע) ── */}
