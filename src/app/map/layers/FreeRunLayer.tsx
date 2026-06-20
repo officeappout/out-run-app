@@ -23,6 +23,7 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import TwoLayerShell from '@/features/workout-engine/shared/components/TwoLayerShell';
+import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 
@@ -72,7 +73,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
       dockH={56}
       isActive={isWorkoutActive}
       behindContent={<RunLapsList />}
-      miniContent={<RunMiniDockContent isLapsOpen />}
+      miniContent={({ onExpand }) => (
+        <MiniDock onExpand={onExpand}>
+          <RunMiniDockContent isLapsOpen />
+        </MiniDock>
+      )}
     >
       {({ dragControls, isMinimized, onExpand }) => (
         <>

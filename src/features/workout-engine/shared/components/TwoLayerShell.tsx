@@ -31,14 +31,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useLayerDrag, type LayerDragApi } from '../hooks/useLayerDrag';
-import MiniDock from './MiniDock';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface TwoLayerShellRenderProps {
   /** Framer-motion drag controls — pass to the story bar's onPointerDown. */
   dragControls: LayerDragApi['dragControls'];
-  /** True when the TOP LAYER has snapped to minimizedY (laps/mini-dock state). */
+  /** True when the TOP LAYER has snapped to minimizedY (mini-dock state). */
   isMinimized: boolean;
   /** Expand back to y=0 — equivalent to setIsMinimized(false). */
   onExpand: () => void;
@@ -49,10 +48,21 @@ interface TwoLayerShellProps {
   dockH: number;
   /** When false, drag is disabled and the layer resets to expanded. */
   isActive?: boolean;
+  /**
+   * Tailwind bg-class for the BASE layer container (default: 'bg-white').
+   * Callers supply their own: StrengthRunner passes 'bg-zinc-900', etc.
+   * Needed so the BASE has a solid background when the TOP drags away.
+   */
+  behindBg?: string;
   /** Content rendered in the BASE layer behind the draggable TOP. */
   behindContent: React.ReactNode;
-  /** Content rendered inside the MINI strip when isMinimized=true. */
-  miniContent: React.ReactNode;
+  /**
+   * Render-prop for the MINI strip (shown when isMinimized=true).
+   * Receives { onExpand } so the caller can wire an expand button without
+   * coupling to Shell internals. The caller wraps in MiniDock, MiniPlayerBar,
+   * or any custom component — Shell is agnostic.
+   */
+  miniContent: (api: { onExpand: () => void }) => React.ReactNode;
   /** TOP LAYER content — render-prop receives drag controls + minimized state. */
   children: (props: TwoLayerShellRenderProps) => React.ReactNode;
 }
@@ -60,6 +70,7 @@ interface TwoLayerShellProps {
 export default function TwoLayerShell({
   dockH,
   isActive,
+  behindBg = 'bg-white',
   behindContent,
   miniContent,
   children,
@@ -78,7 +89,7 @@ export default function TwoLayerShell({
           (not just after release). Safe-area padding keeps content from
           hiding under the status bar (top) and MiniDock (bottom). */}
       <div
-        className="absolute inset-0 z-0 bg-white"
+        className={`absolute inset-0 z-0 ${behindBg}`}
         style={{
           opacity: isActive ? 1 : 0,
           pointerEvents: isActive && isMinimized ? 'auto' : 'none',
@@ -118,25 +129,21 @@ export default function TwoLayerShell({
         {children({ dragControls, isMinimized, onExpand })}
 
         {/* ── MINI STRIP ──────────────────────────────────────────────────────
-            absolute top-0 inside motion.div so it sits at the physical
-            bottom of the screen when motion.div is at y=minimizedY.
-            rounded-t-2xl mirrors StrengthRunner's MiniPlayerBar corner radius. */}
+            absolute top-0 inside motion.div — sits at the physical bottom of
+            the screen when motion.div is at y=minimizedY (winH − dockH).
+            rounded-t-2xl matches StrengthRunner's MiniPlayerBar corner radius.
+            miniContent is a render-prop; the caller supplies its own component
+            (MiniDock, MiniPlayerBar, or custom) — Shell has no opinion. */}
         {isMinimized && (
           <div
-            className="absolute top-0 left-0 right-0 z-20 bg-black pointer-events-auto"
-            style={{
-              height: dockH,
-              borderTopLeftRadius: '1rem',
-              borderTopRightRadius: '1rem',
-            }}
+            className="absolute top-0 left-0 right-0 z-20 bg-black rounded-t-2xl pointer-events-auto"
+            style={{ height: dockH }}
             onPointerDown={(e) => {
               if ((e.target as HTMLElement).closest('button')) return;
               dragControls.start(e);
             }}
           >
-            <MiniDock onExpand={onExpand}>
-              {miniContent}
-            </MiniDock>
+            {miniContent({ onExpand })}
           </div>
         )}
       </motion.div>
