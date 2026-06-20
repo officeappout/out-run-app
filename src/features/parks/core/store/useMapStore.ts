@@ -152,6 +152,24 @@ interface MapStore {
   navCardHeight: number;
   setNavCardHeight: (h: number) => void;
   /**
+   * True while FreeRunActive's laps drawer is open (WorkoutFlowLayer
+   * y=revealH). Written by FreeRunActive; read by TurnCarousel to fully
+   * hide itself (return null + navCardHeight=0) so the laps panel is never
+   * occluded. Cleared on FreeRunActive unmount.
+   */
+  isLapsOpen: boolean;
+  setIsLapsOpen: (v: boolean) => void;
+  /**
+   * User-requested minimize of TurnCarousel. When true the carousel renders
+   * only a small pill (navCardHeight=0) so the metrics drawer can fill the
+   * screen. Cleared by tapping the pill. Unlike isLapsOpen this is purely
+   * user-driven and persists across GPS auto-advances; proximity < 50 m
+   * overrides it (safety) without mutating this flag, so tapping the pill
+   * after a turn restores the minimized state.
+   */
+  navCarouselMinimized: boolean;
+  setNavCarouselMinimized: (v: boolean) => void;
+  /**
    * Rendered height (px) of the floating RouteStoryBar. Written by
    * FreeRunActive via a ResizeObserver and reset to 0 on unmount. Used by
    * TurnCarousel to position itself directly BELOW the bar so the bar is
@@ -308,6 +326,10 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
   navCardHeight: 0,
   setNavCardHeight: (h) => set({ navCardHeight: h }),
+  isLapsOpen: false,
+  setIsLapsOpen: (v) => set({ isLapsOpen: v }),
+  navCarouselMinimized: false,
+  setNavCarouselMinimized: (v) => set({ navCarouselMinimized: v }),
   storyBarHeight: 0,
   setStoryBarHeight: (h) => set({ storyBarHeight: h }),
   activeTurnIdx: -1,
