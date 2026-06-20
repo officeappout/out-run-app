@@ -4,22 +4,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { useDragControls } from 'framer-motion';
 
 /**
- * usePlayerDragRunner — Spotify-style draggable layer for FreeRunLayer.
+ * useLayerDrag — Spotify-style draggable-layer state machine.
  *
- * Free-run variant of usePlayerDrag (StrengthRunner). Key difference:
- *   MINI_DOCK_H = 56 px  (MiniDock)  vs. 72 px (MiniPlayerBar in strength).
+ * Canonical hook for the BASE/TOP two-layer drag pattern shared across
+ * all running modes (and eventually strength). Replaces usePlayerDragRunner
+ * (free-run, 56 px) — StrengthRunner's usePlayerDrag (72 px) will migrate
+ * here in a future checkpoint.
  *
- * Same snap thresholds as StrengthRunner:
+ *   minimizedY = winH − dockH
  *   minimize:  offset.y > 100 || velocity.y > 500
- *   expand:    offset.y < -50 || velocity.y < -500
+ *   expand:    offset.y < −50 || velocity.y < −500
  *
- * Resets isMinimized to false when isWorkoutActive becomes false
- * (session ends / user exits) so the next session starts expanded.
+ * @param dockH     Height of the collapsed mini-dock in px (56 for running, 72 for strength).
+ * @param isActive  When false the layer resets to expanded (isMinimized=false).
+ *                  Pass the session's isWorkoutActive flag so the layer
+ *                  auto-collapses back on session end / exit.
  */
 
-const MINI_DOCK_H = 56;
-
-export interface PlayerDragRunnerApi {
+export interface LayerDragApi {
   dragControls: ReturnType<typeof useDragControls>;
   isMinimized: boolean;
   setIsMinimized: (v: boolean) => void;
@@ -30,13 +32,13 @@ export interface PlayerDragRunnerApi {
   ) => void;
 }
 
-export function usePlayerDragRunner(isWorkoutActive: boolean): PlayerDragRunnerApi {
+export function useLayerDrag(dockH: number, isActive?: boolean): LayerDragApi {
   const [isMinimized, setIsMinimized] = useState(false);
   const [winH, setWinH] = useState(
     typeof window !== 'undefined' ? window.innerHeight : 812,
   );
   const dragControls = useDragControls();
-  const minimizedY = winH - MINI_DOCK_H;
+  const minimizedY = winH - dockH;
 
   useEffect(() => {
     const update = () => setWinH(window.innerHeight);
@@ -46,8 +48,8 @@ export function usePlayerDragRunner(isWorkoutActive: boolean): PlayerDragRunnerA
   }, []);
 
   useEffect(() => {
-    if (!isWorkoutActive) setIsMinimized(false);
-  }, [isWorkoutActive]);
+    if (isActive === false) setIsMinimized(false);
+  }, [isActive]);
 
   const handleDragEnd = useCallback(
     (

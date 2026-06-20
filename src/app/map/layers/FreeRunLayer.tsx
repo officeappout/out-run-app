@@ -39,7 +39,7 @@ import { Play, Navigation, MapPin } from 'lucide-react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-import { usePlayerDragRunner } from '@/features/workout-engine/players/running/hooks/usePlayerDragRunner';
+import { useLayerDrag } from '@/features/workout-engine/shared/hooks/useLayerDrag';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
@@ -67,7 +67,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const { isWorkoutActive } = logic;
 
   const { dragControls, isMinimized, setIsMinimized, minimizedY, handleDragEnd } =
-    usePlayerDragRunner(isWorkoutActive);
+    useLayerDrag(56, isWorkoutActive);
 
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
