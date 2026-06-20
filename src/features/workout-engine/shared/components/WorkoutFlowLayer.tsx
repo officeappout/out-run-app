@@ -4,32 +4,36 @@
  * WorkoutFlowLayer — StrengthRunner-style notification-shade (Route A).
  *
  * Two-layer architecture, both anchored at `top: env(safe-area-inset-top, 0px)`.
+ * Mirrors StrengthRunner's inset-0 two-layer model 1:1, with one key swap:
+ *   StrengthRunner TOP LAYER  bg-black  → FreeRunActive TOP LAYER  transparent
+ *   StrengthRunner BASE LAYER bg-white  → RunLapsList  bg-white
  *
- *   BASE LAYER (z-49): revealContent (RunLapsList) — always rendered, fixed.
- *                      Completely hidden behind the TOP LAYER when closed.
+ * The map tiles ARE the equivalent of bg-black: they provide the opaque
+ * "covered" state — the map renders below FreeRunActive (z-40) and is
+ * always visible through the transparent TOP LAYER when laps are closed.
  *
- *   TOP LAYER  (z-50): motion.div — `minHeight: 100dvh-safeArea` fills the
- *                      screen so its white background fully covers the BASE
- *                      LAYER at y=0. Dragging DOWN slides this cover away,
- *                      exposing the BASE LAYER below — exactly how StrengthRunner's
- *                      inset-0 TOP LAYER slides to minimizedY.
+ *   BASE LAYER (z-49): revealContent (RunLapsList) — always mounted for
+ *                      ResizeObserver measurement; opacity:0 when closed so
+ *                      the map shows through instead of white.
+ *
+ *   TOP LAYER  (z-50): motion.div — transparent (no bg/minHeight).  At y=0
+ *                      the map shows through. Slides DOWN to y=revealH,
+ *                      exposing the BASE LAYER (RunLapsList) above it.
+ *                      MetricsDrawer (z-52) stays above this layer and acts
+ *                      as the MiniPlayerBar equivalent (MiniDock at bottom).
  *
  *   Open (y = revealH):
- *     • BASE LAYER fills the screen from safe-area-top to MiniDock top.
- *     • The story bar (children) is at MiniDock level — hidden behind
- *       MetricsDrawer (z-52).
+ *     • RunLapsList fills the screen from safe-area to MiniDock top.
+ *     • The story bar is at MiniDock level — hidden behind MetricsDrawer (z-52).
  *
  *   Closed (y = 0):
- *     • TOP LAYER white bg covers BASE LAYER; story bar is at top of screen.
+ *     • TOP LAYER transparent → map visible.  BASE LAYER opacity:0 → invisible.
+ *     • Zero white.
  *
- * maxRevealHeight limits RunLapsList to
- *   (100dvh - safe-area-top - 56px MiniDock - safe-area-bottom)
- * so revealH ≈ that value and opening pushes the story bar to MiniDock level.
+ * minimizedY = winH − 56 (MiniDock height)  ←  same formula as StrengthRunner
+ * maxRevealHeight = 100dvh − safeAreaTop − 56px MiniDock − safeAreaBottom
  *
- * No backdrop needed — BASE LAYER covers the map when open; MetricsDrawer
- * at z-52 handles map-tap absorption via its own pointer-events.
- *
- * Drag mechanics (mirrors StrengthRunner/usePlayerDrag):
+ * Drag mechanics (mirrors StrengthRunner/usePlayerDrag exactly):
  *   dragListener=false + externalDragControls.start(e) on handle pointerDown.
  *   dragConstraints: { top: 0, bottom: revealH }.
  *   Spring: open 280/28 — close 320/32.
@@ -41,7 +45,7 @@ import { motion, useAnimation, useDragControls, type PanInfo } from 'framer-moti
 export interface WorkoutFlowLayerProps {
   /**
    * Handle content (story bar) — in normal flow at the top of the TOP LAYER.
-   * Visible at safe-area-top when the panel is closed.
+   * Visible at safe-area-top when the panel is closed (story bar floats on map).
    * Its onPointerDown should call `externalDragControls.start(e)`.
    * Do NOT add safe-area-inset-top padding — the motion.div anchors there.
    */
@@ -75,6 +79,16 @@ export default function WorkoutFlowLayer({
   const controls = useAnimation();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [revealH, setRevealH] = useState(0);
+
+  // BASE LAYER always mounted — keep ResizeObserver working. Hide visually
+  // when closed so the map shows through (opacity:0 = no white, no block).
+  // Short transition avoids a hard flash when the panel snaps open/closed.
+  const baseStyle: React.CSSProperties = {
+    top: 'env(safe-area-inset-top, 0px)',
+    opacity: isOpen ? 1 : 0,
+    transition: 'opacity 0.15s ease',
+    pointerEvents: isOpen ? undefined : 'none',
+  };
 
   // Measure BASE LAYER height for drag constraints and spring target.
   useEffect(() => {
@@ -125,12 +139,12 @@ export default function WorkoutFlowLayer({
 
   return (
     <>
-      {/* BASE LAYER — RunLapsList: fixed at safe-area-top, always rendered.
-          At y=0 the TOP LAYER covers it completely (white bg + minHeight).
-          When TOP LAYER slides to y=revealH the BASE LAYER is fully exposed. */}
+      {/* BASE LAYER — RunLapsList: always mounted (ResizeObserver needs it).
+          opacity:0 when closed → map visible through transparent TOP LAYER.
+          opacity:1 when open  → white laps surface fills safe-area to MiniDock. */}
       <div
         className="absolute left-0 right-0 z-[49] pointer-events-none"
-        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        style={baseStyle}
       >
         <div
           ref={contentRef}
@@ -143,11 +157,10 @@ export default function WorkoutFlowLayer({
         </div>
       </div>
 
-      {/* TOP LAYER — story bar cover: slides DOWN to expose the BASE LAYER.
-          `minHeight` ensures it covers the full viewport at y=0 so the white
-          background completely hides RunLapsList (like StrengthRunner's
-          inset-0 bg-black covers WorkoutPlaylist).
-          dragListener=false → drag only starts from the handle's onPointerDown. */}
+      {/* TOP LAYER — transparent motion.div: the map IS the background.
+          Slides DOWN to y=revealH to reveal the BASE LAYER (RunLapsList).
+          No minHeight/background — the map tiles show through at y=0,
+          exactly as StrengthRunner's bg-black covers the playlist at y=0. */}
       <motion.div
         drag="y"
         dragControls={externalDragControls}
@@ -159,24 +172,10 @@ export default function WorkoutFlowLayer({
         animate={controls}
         initial={{ y: 0 }}
         className="absolute left-0 right-0 z-50 pointer-events-none"
-        style={{
-          top: 'env(safe-area-inset-top, 0px)',
-          minHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))',
-          background: 'white',
-        }}
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
-        {/* Drag handle (story bar) — in normal flow at top of motion.div */}
+        {/* Drag handle (story bar) — in normal flow, floats over the map */}
         {children}
-
-        {/* Fade strip — gradient below the story bar */}
-        <div
-          className="pointer-events-none"
-          style={{
-            height: 18,
-            background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
-          }}
-          aria-hidden="true"
-        />
       </motion.div>
     </>
   );
