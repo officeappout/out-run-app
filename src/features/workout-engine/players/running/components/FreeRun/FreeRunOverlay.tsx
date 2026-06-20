@@ -220,19 +220,19 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
     >
       {/* Mini-map — RIGHT (first in RTL). Only when map is hidden behind laps. */}
       {isLapsOpen && (
-        <MiniRouteMap coords={routeCoords} size={40} />
+        <MiniRouteMap coords={routeCoords} size={48} />
       )}
 
       <div className="flex items-baseline gap-1 flex-shrink-0">
-        <span className="text-xl font-black tabular-nums text-white leading-none">
+        <span className="text-2xl font-black tabular-nums text-white leading-none">
           {safeDistance.toFixed(2)}
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#00ADEF]">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#00ADEF]">
           KM
         </span>
       </div>
       <span className="text-white/40 text-sm">·</span>
-      <span className="text-xl font-black tabular-nums text-white leading-none flex-shrink-0">
+      <span className="text-2xl font-black tabular-nums text-white leading-none flex-shrink-0">
         {formatDuration(totalDuration)}
       </span>
 
@@ -262,9 +262,9 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
                 aria-label="המשך אימון"
                 onClick={(e) => { e.stopPropagation(); handleResume(); }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+                className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
               >
-                <Play size={14} fill="white" className="text-white" />
+                <Play size={26} fill="white" className="text-white" />
               </button>
               {/* Stop — primary */}
               <button
@@ -272,9 +272,9 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
                 aria-label="סיים אימון"
                 onClick={(e) => { e.stopPropagation(); handleStop(); }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+                className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
               >
-                <Square size={15} fill="white" className="text-white" />
+                <Square size={26} fill="white" className="text-white" />
               </button>
             </>
           ) : (
@@ -285,9 +285,9 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
                 aria-label="הקפה"
                 onClick={(e) => { e.stopPropagation(); handleLap(); }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+                className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
               >
-                <RotateCcw size={15} strokeWidth={2.5} className="text-white" />
+                <RotateCcw size={26} strokeWidth={2.5} className="text-white" />
               </button>
               {/* Pause — primary */}
               <button
@@ -295,9 +295,9 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
                 aria-label="השהה אימון"
                 onClick={(e) => { e.stopPropagation(); handlePause(); }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+                className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
               >
-                <Pause size={15} fill="white" className="text-white" />
+                <Pause size={26} fill="white" className="text-white" />
               </button>
             </>
           )}

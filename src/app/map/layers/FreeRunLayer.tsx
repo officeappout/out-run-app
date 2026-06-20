@@ -69,7 +69,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
 
   return (
     <TwoLayerShell
-      dockH={56}
+      dockH={66}
       isActive={isWorkoutActive}
       behindContent={<RunLapsList />}
       miniContent={({ onExpand }) => (
