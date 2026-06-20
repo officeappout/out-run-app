@@ -95,6 +95,12 @@ export interface MetricsDrawerProps {
   /** Opens the workout-settings drawer from the gear icon. */
   onOpenSettings?: () => void;
   /**
+   * Called whenever the drawer snaps to a new anchor ('dock' | 'peek').
+   * Use this to hide/show sibling components (e.g. WorkoutControlCluster)
+   * without coupling them to MetricsDrawer internals.
+   */
+  onAnchorChange?: (anchor: string) => void;
+  /**
    * Render-prop: receives the current anchor id so the caller can switch
    * between dock content and expanded content.
    *
@@ -109,6 +115,7 @@ export default function MetricsDrawer({
   lockToAnchor = null,
   defaultAnchor = 'peek',
   onOpenSettings,
+  onAnchorChange,
   children,
 }: MetricsDrawerProps) {
   // Paused-state theming (same contract as AdaptiveMetricsWrapper).
@@ -133,6 +140,7 @@ export default function MetricsDrawer({
         onAnchorChange: (id) => {
           // Map dock → 'top' (small footprint), anything else → 'bottom'.
           setMetricsCardPosition(id === 'dock' ? 'top' : 'bottom');
+          onAnchorChange?.(id);
         },
       },
     );

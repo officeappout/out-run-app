@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { useDragControls } from 'framer-motion';
-import { Square, RotateCcw, Pause, Play } from 'lucide-react';
+import { Square, RotateCcw, Pause, Play, ChevronDown } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -97,12 +97,12 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
         className="rounded-lg overflow-hidden flex-shrink-0"
         style={{
           width: size, height: size,
-          background: '#12121a',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: '#ffffff',
+          border: '0.5px solid rgba(0,0,0,0.13)',
         }}
       >
         <svg width={size} height={size}>
-          <circle cx={size / 2} cy={size / 2} r="3" fill="#00E5FF" />
+          <circle cx={size / 2} cy={size / 2} r="3" fill="#004E8A" />
         </svg>
       </div>
     );
@@ -140,21 +140,21 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
       className="rounded-lg overflow-hidden flex-shrink-0"
       style={{
         width: size, height: size,
-        background: '#12121a',
-        border: '1px solid rgba(0,229,255,0.22)',
+        background: '#ffffff',
+        border: '0.5px solid rgba(0,0,0,0.13)',
       }}
     >
       <svg width={size} height={size}>
         <polyline
           points={pts}
           fill="none"
-          stroke="#00E5FF"
+          stroke="#0088BB"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity="0.85"
+          opacity="0.9"
         />
-        <circle cx={cx.toFixed(1)} cy={cy.toFixed(1)} r="2.5" fill="#00E5FF" />
+        <circle cx={cx.toFixed(1)} cy={cy.toFixed(1)} r="2.5" fill="#004E8A" />
       </svg>
     </div>
   );
@@ -163,11 +163,14 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
 // ─────────────────────────────────────────────────────────────────────────────
 // RunMiniDockContent — exported so FreeRunLayer can use it for the minimized bar.
 //
-// isLapsOpen=true  → MINI STRIP (map hidden, laps showing):
-//   controls mirror WorkoutControlCluster state exactly (single source of truth):
-//     running → [Lap (RotateCcw)] [Pause (||)]
-//     paused  → [Resume (▶)]     [Stop  (■)]
-// isLapsOpen=false → MetricsDrawer dock (map visible): stats only, no controls.
+// Controls ALWAYS shown (mirrors WorkoutControlCluster — single source of truth):
+//   running → [Lap (RotateCcw)] [Pause (||)]
+//   paused  → [Resume (▶)]     [Stop  (■)]
+//
+// isLapsOpen=true  → MINI STRIP (laps visible, map hidden):
+//   mini-map thumbnail shown on the right.
+// isLapsOpen=false → MetricsDrawer dock (map visible, WorkoutControlCluster hidden):
+//   no mini-map (map is already the background); stats + inline controls only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
@@ -247,12 +250,10 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
 
       <div className="flex-1" />
 
-      {/* Controls — LEFT (last in RTL). State mirrors WorkoutControlCluster exactly.
+      {/* Controls — LEFT (last in RTL). Always shown regardless of isLapsOpen.
           dir="ltr" inner: [secondary (left)] [primary (right)]
-            running → [Lap] [Pause]
-            paused  → [Resume] [Stop]                                          */}
-      {isLapsOpen && (
-        <div className="flex items-center gap-1 flex-shrink-0" dir="ltr">
+            running → [Lap] [Pause]    paused → [Resume] [Stop]               */}
+      <div className="flex items-center gap-1 flex-shrink-0" dir="ltr">
           {isPaused ? (
             <>
               {/* Resume — secondary */}
@@ -301,7 +302,6 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
             </>
           )}
         </div>
-      )}
     </div>
   );
 }
@@ -335,6 +335,12 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
   const isPaused = sessionStatus === 'paused';
 
   const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
+
+  // Track MetricsDrawer anchor so WorkoutControlCluster can be hidden at dock.
+  // Initialised to 'peek' (matches MetricsDrawer defaultAnchor) so the cluster
+  // is visible on mount. onAnchorChange updates this whenever drawer snaps.
+  const [metricsAnchor, setMetricsAnchor] = useState('peek');
+  const metricsAtDock = metricsAnchor === 'dock';
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -414,7 +420,12 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
           className="absolute top-0 left-0 right-0 z-10 pointer-events-auto"
           style={{
             paddingTop: 'env(safe-area-inset-top, 0px)',
-            background: '#ffffff',
+            // Fade from solid white (status-bar area + content) to transparent
+            // so the map shows through below the story bar. Values copied from
+            // StrengthRunner's top-bar gradient model: 72% solid → 86% half
+            // fade → 100% transparent. paddingBottom creates the fade zone.
+            background: 'linear-gradient(to bottom, #fff 0%, #fff 72%, rgba(255,255,255,0.45) 86%, rgba(255,255,255,0) 100%)',
+            paddingBottom: 20,
             touchAction: 'none',
           }}
           onPointerDown={(e) => {
@@ -441,6 +452,13 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
               }
               valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
             />
+          </div>
+          {/* Drag affordance — small chevron in the fade zone bottom-left */}
+          <div
+            className="absolute bottom-1 left-4 pointer-events-none"
+            aria-hidden="true"
+          >
+            <ChevronDown size={14} strokeWidth={2} style={{ color: 'rgba(0,0,0,0.22)' }} />
           </div>
         </div>
       )}
@@ -483,13 +501,17 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
           Render-prop per correction 3:
             dock  → MiniDock with RunMiniDockContent (isLapsOpen=false = no stop button)
             peek  → StatsCarousel / CommuteStatsCarousel */}
+      {/* MetricsDrawer — onAnchorChange keeps metricsAnchor in sync so the
+          floating WorkoutControlCluster can hide when the drawer is at dock. */}
       <MetricsDrawer
         defaultAnchor="peek"
+        onAnchorChange={setMetricsAnchor}
         onOpenSettings={() => setIsSettingsOpen(true)}
       >
         {(anchor) =>
           anchor === 'dock' ? (
             <MiniDock>
+              {/* isLapsOpen=false: no mini-map (map visible); controls shown inline */}
               <RunMiniDockContent isLapsOpen={false} />
             </MiniDock>
           ) : isCommute ? (
@@ -500,7 +522,9 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
         }
       </MetricsDrawer>
 
-      <WorkoutControlCluster />
+      {/* Floating cluster: hidden when MetricsDrawer is at dock — controls are
+          then served inline by RunMiniDockContent inside the dock strip. */}
+      {!metricsAtDock && <WorkoutControlCluster />}
       <LapSnapshotOverlay />
       <WorkoutSettingsDrawer
         isOpen={isSettingsOpen}
