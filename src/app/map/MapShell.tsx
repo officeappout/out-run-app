@@ -47,6 +47,7 @@ import { useSharedSession } from '@/features/workout-engine/core/store/useShared
 import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
 import ParticipantStrip from '@/features/workout-engine/shared/components/ParticipantStrip';
 import MilestoneFeed from '@/features/workout-engine/shared/components/MilestoneFeed';
+import SessionLobbyOverlay from '@/features/workout-engine/shared/components/SessionLobbyOverlay';
 import { useRouteDeviationOrchestrator } from '@/features/parks/core/hooks/useRouteDeviationOrchestrator';
 import DiscoverLayer from './layers/DiscoverLayer';
 import BuilderLayer from './layers/BuilderLayer';
@@ -516,6 +517,18 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
       {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}
+
+      {/* ══════ SESSION LOBBY ══════
+           Group session waiting room — shown when phase === 'lobby'.
+           Host gets share link + Start button; members see roster.
+           Transitions to active → shows 3s countdown → "התחל ריצה" CTA.
+           z-[60] — above all map content, unmounts when phase leaves 'lobby'/'active-transition'. */}
+      {(sharedSession.phase === 'lobby' || sharedSession.phase === 'active') &&
+        sharedSession.groupId &&
+        mode !== 'free_run' &&
+        mode !== 'active' && (
+          <SessionLobbyOverlay onStartFreeRun={() => setMode('free_run')} />
+        )}
 
       {/* ══════ MILESTONE FEED ══════
            Social toasts during group sessions: "מיכל · 3 ק"מ", "יחד עברתם 5 ק"מ".
