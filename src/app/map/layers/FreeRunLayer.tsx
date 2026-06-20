@@ -103,13 +103,30 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
           {isWorkoutActive ? (
             /* ── Workout mode ─────────────────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
-              {/* FreeRunOverlay hidden when minimized — TwoLayerShell shows MiniDock instead */}
+              {/* Everything hidden when minimized — laps list must be unobstructed. */}
               {!isMinimized && (
-                <FreeRunOverlay
-                  dragControls={dragControls}
-                  isMinimized={isMinimized}
-                  onExpand={onExpand}
-                />
+                <>
+                  <FreeRunOverlay
+                    dragControls={dragControls}
+                    isMinimized={isMinimized}
+                    onExpand={onExpand}
+                  />
+                  {/* Fix #3 — center-me button.
+                      Gated by !isMinimized so it never leaks onto the laps list
+                      when the TOP LAYER is at minimizedY. */}
+                  <div className="absolute right-4 bottom-40 z-[55] pointer-events-auto">
+                    <button
+                      onClick={logic.handleLocationClick}
+                      className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white active:scale-95 transition-all"
+                    >
+                      <Navigation
+                        size={20}
+                        fill={logic.isFollowing ? BRAND_COLOR : 'none'}
+                        color={logic.isFollowing ? BRAND_COLOR : '#6B7280'}
+                      />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           ) : (
