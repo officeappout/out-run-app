@@ -778,7 +778,7 @@ export default function FreeRunDrawer({
           <div
             className="bg-white rounded-t-3xl shadow-2xl"
             dir="rtl"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 90px)' }}
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >
             {/* Drag handle */}
             <div

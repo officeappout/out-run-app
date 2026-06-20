@@ -37,6 +37,13 @@ const PILL_HEIGHT_PX = 56;
 // and the WorkoutControlCluster buttons.
 const CSS_VAR_BASE = CONTROL_BAR_GAP_PX;
 
+// Peek card: fixed content zone height (grabber ~20px + StatsCarousel ~240px + air).
+// Using a fixed px target (not a viewport fraction) keeps the card height consistent
+// across all screen sizes — vh×0.67 would clip content on iPhone SE (667px, sab=0).
+// peekY = vh − PEEK_CARD_H − sab so the usable content area above the home-indicator
+// zone is always exactly PEEK_CARD_H.
+const PEEK_CARD_H = 280;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Paused-state palette (kept in sync with AdaptiveMetricsWrapper)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,8 +69,11 @@ function buildAnchors(m: SheetMeasurements): SheetAnchor[] {
   // dock: 56 px pill flush at screen bottom, respecting safe-area-inset-bottom.
   const dockY = m.vh - PILL_HEIGHT_PX - m.sab;
 
-  // peek: roughly the midpoint of the screen.
-  const peekY = Math.round(m.vh * 0.52);
+  // peek: place card top so content zone = PEEK_CARD_H above the safe-area-bottom.
+  // heightPx = vh − peekY = PEEK_CARD_H + sab; --session-bar-clearance accounts for
+  // the full visible card height so WorkoutControlCluster always clears the card top.
+  const peekY = m.vh - PEEK_CARD_H - m.sab;
+  console.log('[MetricsDrawer] buildAnchors — vh:', m.vh, 'sab:', m.sab, 'peekY:', peekY, 'heightPx:', m.vh - peekY);
 
   return [
     {
