@@ -13,7 +13,7 @@ import { useDragControls } from 'framer-motion';
  *
  *   minimizedY = winH − dockH
  *   minimize:  offset.y > 100 || velocity.y > 500
- *   expand:    offset.y < −50 || velocity.y < −500
+ *   expand:    offset.y < −30 || velocity.y < −200
  *
  * @param dockH     Height of the collapsed mini-dock in px (56 for running, 72 for strength).
  * @param isActive  When false the layer resets to expanded (isMinimized=false).
@@ -69,7 +69,11 @@ export function useLayerDrag(dockH: number, isActive?: boolean): LayerDragApi {
         'winH:', winH,
       );
       if (isMinimized) {
-        if (offset.y < -50 || velocity.y < -500) {
+        // Threshold lowered from -50/-500 → -30/-200: a short upward flick
+        // (~30 px or any noticeable velocity) is enough to expand.  The primary
+        // fix is touch-action:none on the MINI strip (prevents the browser from
+        // cancelling the gesture at ~30 px); this lower threshold is a safety net.
+        if (offset.y < -30 || velocity.y < -200) {
           console.log('[useLayerDrag] → expand');
           setIsMinimized(false);
         }

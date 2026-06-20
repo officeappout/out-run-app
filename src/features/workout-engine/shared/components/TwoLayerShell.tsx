@@ -80,6 +80,11 @@ export default function TwoLayerShell({
 
   const onExpand = React.useCallback(() => setIsMinimized(false), [setIsMinimized]);
 
+  // Guard against double-fire: dragControls.start(e) can re-trigger onPointerDown
+  // in some WebView environments. One-frame debounce prevents the second call from
+  // restarting (and thereby resetting) the drag that the first call already started.
+  const miniDragStarted = React.useRef(false);
+
   return (
     <div className="absolute inset-0 z-10 overflow-hidden">
 
@@ -137,9 +142,22 @@ export default function TwoLayerShell({
         {isMinimized && (
           <div
             className="absolute top-0 left-0 right-0 z-20 bg-black rounded-t-2xl overflow-hidden pointer-events-auto"
-            style={{ height: dockH }}
+            style={{
+              height: dockH,
+              // touch-action:none is critical — without it the browser interprets an
+              // upward swipe as a scroll gesture and cancels pointer events after ~30 px,
+              // which is why dragEnd was arriving with offset.y ≈ -31 (below the -50 px
+              // expand threshold) and the layer snapped back instead of expanding.
+              touchAction: 'none',
+            }}
             onPointerDown={(e) => {
               if ((e.target as HTMLElement).closest('button')) return;
+              // One-frame guard prevents a second start() if the event fires twice
+              // (observed in some Capacitor WebView builds; second call resets the drag).
+              if (miniDragStarted.current) return;
+              miniDragStarted.current = true;
+              requestAnimationFrame(() => { miniDragStarted.current = false; });
+              e.stopPropagation();
               console.log('[TwoLayerShell] MINI strip drag start — minimizedY:', minimizedY, 'winH:', window.innerHeight);
               dragControls.start(e);
             }}
