@@ -83,13 +83,90 @@ function formatGoalValue(p: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RunMiniDockContent — exported so FreeRunLayer can use it for the minimized MiniDock
+// MiniRouteMap — SVG thumbnail of the GPS trail recorded so far.
+// coords: number[][] where each element is [lng, lat] (GeoJSON order, same as
+// useRunningPlayer.routeCoords). Shown only when isLapsOpen=true (map hidden).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MINI_MAP_SAMPLE = 150;
+
+function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number }) {
+  if (!coords || coords.length < 2) {
+    return (
+      <div
+        className="rounded-lg flex-shrink-0"
+        style={{
+          width: size, height: size,
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}
+      />
+    );
+  }
+
+  const step = Math.max(1, Math.floor(coords.length / MINI_MAP_SAMPLE));
+  const sampled: number[][] = [];
+  for (let i = 0; i < coords.length; i += step) sampled.push(coords[i]);
+  const lastCoord = coords[coords.length - 1];
+  if (sampled[sampled.length - 1] !== lastCoord) sampled.push(lastCoord);
+
+  const pad = 5;
+  const inner = size - pad * 2;
+
+  const lngs = sampled.map(c => c[0]);
+  const lats = sampled.map(c => c[1]);
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const dLng = maxLng - minLng || 1e-5;
+  const dLat = maxLat - minLat || 1e-5;
+
+  const pts = sampled
+    .map(c => {
+      const x = ((c[0] - minLng) / dLng) * inner + pad;
+      const y = ((maxLat - c[1]) / dLat) * inner + pad; // lat axis flipped (up = larger)
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  const cx = ((lastCoord[0] - minLng) / dLng) * inner + pad;
+  const cy = ((maxLat - lastCoord[1]) / dLat) * inner + pad;
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden flex-shrink-0"
+      style={{
+        width: size, height: size,
+        background: '#12121a',
+        border: '1px solid rgba(0,229,255,0.22)',
+      }}
+    >
+      <svg width={size} height={size}>
+        <polyline
+          points={pts}
+          fill="none"
+          stroke="#00E5FF"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.85"
+        />
+        <circle cx={cx.toFixed(1)} cy={cy.toFixed(1)} r="2.5" fill="#00E5FF" />
+      </svg>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RunMiniDockContent — exported so FreeRunLayer can use it for the minimized bar.
+// isLapsOpen=true  → MINI STRIP (map hidden, laps showing): show mini-map + stop glyph.
+// isLapsOpen=false → MetricsDrawer dock (map visible):       stats only.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const goalProgress = useSessionGoalProgress();
+  const routeCoords = useRunningPlayer((s) => s.routeCoords);
 
   const safeDistance = Number.isFinite(totalDistance) && totalDistance > 0 ? totalDistance : 0;
 
@@ -100,10 +177,15 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
 
   return (
     <div
-      className="flex items-center h-full px-3 gap-2 w-full"
+      className="flex items-center gap-2 w-full px-3"
       style={{ fontFamily: 'var(--font-simpler)' }}
       dir="ltr"
     >
+      {/* Mini-map — only when map is hidden behind laps (isLapsOpen=true) */}
+      {isLapsOpen && (
+        <MiniRouteMap coords={routeCoords} size={40} />
+      )}
+
       <div className="flex items-baseline gap-1 flex-shrink-0">
         <span className="text-xl font-black tabular-nums text-white leading-none">
           {safeDistance.toFixed(2)}
@@ -112,7 +194,7 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
           KM
         </span>
       </div>
-      <span className="text-white/40 text-sm">|</span>
+      <span className="text-white/40 text-sm">·</span>
       <span className="text-xl font-black tabular-nums text-white leading-none flex-shrink-0">
         {formatDuration(totalDuration)}
       </span>
@@ -131,16 +213,16 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
 
       <div className="flex-1" />
 
+      {/* Stop — clean white glyph, no background circle (fix #4) */}
       {isLapsOpen && (
         <button
           type="button"
           aria-label="סיים אימון"
           onClick={(e) => { e.stopPropagation(); handleStop(); }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-          style={{ background: '#EF4444' }}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
         >
-          <Square size={14} fill="white" className="text-white" />
+          <Square size={16} fill="white" className="text-white" />
         </button>
       )}
     </div>

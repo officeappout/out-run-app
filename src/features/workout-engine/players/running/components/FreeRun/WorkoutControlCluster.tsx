@@ -115,13 +115,15 @@ export default function WorkoutControlCluster() {
 
   return (
     <>
-      {/* Lap toast — floats 16 px above the cluster buttons.
-          Only relevant in the running state; gated by `!isPaused`. */}
+      {/* Lap toast — 16 px above the cluster row.
+          `--session-bar-clearance` = visible card height + 16 px gap (set on
+          document.documentElement by MetricsDrawer/useSheetDrag). Adding
+          62 px (button height) + 16 px gap keeps the toast clear of buttons. */}
       {lapToast && !isPaused && (
         <div
           className="absolute left-1/2 -translate-x-1/2 z-50 px-5 py-2 rounded-2xl font-black text-sm text-white pointer-events-none animate-bounce"
           style={{
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px + 62px + 16px)',
+            bottom: 'calc(var(--session-bar-clearance, 88px) + 78px)',
             background: 'linear-gradient(135deg, #10B981, #059669)',
             boxShadow: '0 6px 24px rgba(16,185,129,0.5)',
           }}
@@ -131,20 +133,22 @@ export default function WorkoutControlCluster() {
       )}
 
       {/*
-        Cluster row — anchored to the bottom of the screen, always above the
-        MetricsDrawer and the laps BASE layer (z-50).
+        Cluster row.
+        `--session-bar-clearance` is set live on document.documentElement by
+        MetricsDrawer (via useSheetDrag, cssVar option). Its value is:
+          anchor.heightPx + 16 px gap
+        At dock  (56 px pill): var ≈  72 px — cluster just above the pill.
+        At peek  (~48 % vh):   var ≈ 422 px — cluster just above card top.
+        Dynamically updates as the drawer animates between anchors.
 
         dir="rtl" + justify-between + px-[18px]:
           first child  → right edge (ימין) = Pause / Resume
           second child → left  edge (שמאל) = Lap   / Stop
-
-        paddingBottom accounts for the device safe-area (notch/home-bar) so
-        buttons never land under the system gesture strip.
       */}
       <div
-        className="absolute left-0 right-0 bottom-0 z-50 flex items-center justify-between px-[18px] pointer-events-auto"
+        className="absolute left-0 right-0 z-50 flex items-center justify-between px-[18px] pointer-events-auto"
         dir="rtl"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+        style={{ bottom: 'var(--session-bar-clearance, 88px)' }}
       >
         {isPaused ? (
           <>

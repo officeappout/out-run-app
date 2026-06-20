@@ -23,7 +23,6 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import TwoLayerShell from '@/features/workout-engine/shared/components/TwoLayerShell';
-import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 
@@ -74,9 +73,29 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
       isActive={isWorkoutActive}
       behindContent={<RunLapsList />}
       miniContent={({ onExpand }) => (
-        <MiniDock onExpand={onExpand}>
-          <RunMiniDockContent isLapsOpen />
-        </MiniDock>
+        /* Fix #4 — dark bar with drag indicator + RunMiniDockContent.
+           Not wrapped in MiniDock: drag affordance is the indicator pill,
+           not ChevronUp. The TwoLayerShell MINI strip already handles
+           drag-start (onPointerDown → dragControls.start) and the onClick
+           here covers tap-to-expand. */
+        <div
+          className="flex flex-col h-full"
+          onClick={onExpand}
+          style={{ cursor: 'pointer', background: '#0d0d0f' }}
+        >
+          {/* Drag indicator — thin pill at top center */}
+          <div className="flex justify-center" style={{ paddingTop: 5 }}>
+            <div
+              className="rounded-full"
+              style={{ width: 36, height: 3, background: 'rgba(255,255,255,0.18)' }}
+              aria-hidden="true"
+            />
+          </div>
+          {/* Stats + mini-map + stop glyph */}
+          <div className="flex-1 flex items-center min-w-0">
+            <RunMiniDockContent isLapsOpen />
+          </div>
+        </div>
       )}
     >
       {({ dragControls, isMinimized, onExpand }) => (
