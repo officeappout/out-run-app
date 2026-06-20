@@ -888,10 +888,22 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['memberCount', 'currentParticipants', 'updatedAt']);
 
-      // group_members sub-collection — any authenticated user can join/leave their own doc
+      // group_members sub-collection
+      // create: open for public groups; private groups require the matching inviteCode
+      //         (written by joinGroup after client-side validation) OR creator privilege.
+      //         This closes the self-add gap: the client-side code check was advisory only.
+      // update/delete: owner only (leave, profile update).
       match /members/{uid} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated() && request.auth.uid == uid;
+        allow update, delete: if isAuthenticated() && request.auth.uid == uid;
+        allow create: if isAuthenticated() && request.auth.uid == uid
+          && (
+            get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
+            || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('inviteCode', '')
+                 == request.resource.data.get('inviteCode', 'NONE_SUPPLIED')
+            || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('createdBy', '')
+                 == request.auth.uid
+          );
       }
 
       // attendance sub-collection — session booking / RSVP.
@@ -1113,6 +1125,24 @@ service cloud.firestore {
     match /referrals/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+    }
+
+    // ============================================================
+    // GROUP INVITATIONS — session-specific time-limited join tokens (Phase G).
+    // Created by the session host when opening the lobby.
+    // Consumed by joining users (attendance write happens client-side via the
+    // service after validation; only useCount is updated here).
+    // Tokens are cryptographic random — unguessable ID is the primary security layer.
+    // ============================================================
+    match /group_invitations/{token} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.hostUid;
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.hostUid;
+      // Only useCount may be incremented by authenticated users (token consumption).
+      allow update: if isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['useCount']);
     }
 
     match /manager_notifications/{docId} {

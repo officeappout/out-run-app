@@ -214,25 +214,32 @@ export async function joinGroup(
   name: string,
   options?: JoinGroupOptions,
 ): Promise<void> {
-  // Validate invite code when the caller supplies one (private-group gate)
+  // Validate invite code when the caller supplies one (private-group gate).
+  // If the group is private and validation passes, store the uppercased code so
+  // the Firestore rule (members/{uid} create) can verify it server-side.
+  let validatedInviteCode: string | undefined;
+
   if (options?.providedCode !== undefined) {
     const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
     if (!groupSnap.exists()) throw new Error('group-not-found');
     const data = groupSnap.data();
     if (data.isPublic === false) {
       const expected = ((data.inviteCode as string | undefined) ?? '').toUpperCase();
-      if (options.providedCode.toUpperCase() !== expected) {
-        throw new Error('invalid-invite-code');
-      }
+      const provided = options.providedCode.toUpperCase();
+      if (provided !== expected) throw new Error('invalid-invite-code');
+      validatedInviteCode = provided;
     }
   }
 
-  // Step 1 (critical): write member document
+  // Step 1 (critical): write member document.
+  // inviteCode is included for private groups so the Firestore rule can
+  // validate it server-side (closes the self-add-without-code gap).
   await setDoc(doc(db, 'community_groups', groupId, 'members', uid), {
     uid,
     name,
     joinedAt: serverTimestamp(),
     role: 'member',
+    ...(validatedInviteCode !== undefined ? { inviteCode: validatedInviteCode } : {}),
   });
 
   // Step 2 (critical): mirror groupId in user's social.groupIds
