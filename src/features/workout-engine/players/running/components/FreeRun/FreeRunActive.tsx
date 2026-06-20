@@ -40,6 +40,7 @@ import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -179,6 +180,16 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
 
+  // Safety-clear: if FreeRun mounts while a group session is stored but no longer
+  // active, remove the stale context (handles force-quit / abnormal exit from
+  // a previous group run).
+  useEffect(() => {
+    const s = useSharedSession.getState();
+    if (s.groupId && s.phase !== 'active') {
+      s.clearGroupSession();
+    }
+  }, []);
+
   const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -251,6 +262,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   // Publish laps-open state to MapStore so TurnCarousel can hide itself.
   const setStoreIsLapsOpen = useMapStore((s) => s.setIsLapsOpen);
   useEffect(() => {
+    console.log('[FreeRunActive] isLapsOpen →', isLapsOpen, '(guided-route path)');
     setStoreIsLapsOpen(isLapsOpen);
     return () => setStoreIsLapsOpen(false);
   }, [isLapsOpen, setStoreIsLapsOpen]);
