@@ -433,7 +433,8 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
             dragControls.start(e);
           }}
         >
-          <div ref={storyBarInnerRef}>
+          {/* relative so ChevronDown can be positioned inside at the story-bar row height */}
+          <div ref={storyBarInnerRef} className="relative">
             <RouteStoryBar
               progress={
                 goalProgress
@@ -452,13 +453,13 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
               }
               valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
             />
-          </div>
-          {/* Drag affordance — small chevron in the fade zone bottom-left */}
-          <div
-            className="absolute bottom-1 left-4 pointer-events-none"
-            aria-hidden="true"
-          >
-            <ChevronDown size={14} strokeWidth={2} style={{ color: 'rgba(0,0,0,0.22)' }} />
+            {/* Drag affordance — vertically centred with the progress/time row */}
+            <div
+              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            >
+              <ChevronDown size={14} strokeWidth={2} style={{ color: '#000' }} />
+            </div>
           </div>
         </div>
       )}
