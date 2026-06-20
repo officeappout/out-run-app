@@ -248,6 +248,13 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => setStoreStoryBarHeight(0);
   }, [shouldShowStoryBar, isLapsOpen, storyBarHeight, lapsContentH, setStoreStoryBarHeight]);
 
+  // Publish laps-open state to MapStore so TurnCarousel can hide itself.
+  const setStoreIsLapsOpen = useMapStore((s) => s.setIsLapsOpen);
+  useEffect(() => {
+    setStoreIsLapsOpen(isLapsOpen);
+    return () => setStoreIsLapsOpen(false);
+  }, [isLapsOpen, setStoreIsLapsOpen]);
+
   // MetricsDrawer lock: laps open → dock, navigation → peek, else free.
   const drawerLock: string | null =
     isLapsOpen ? 'dock'
