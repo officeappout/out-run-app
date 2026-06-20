@@ -99,6 +99,16 @@ function handleNativeDeepLink(url: string): void {
       return;
     }
 
+    // ── /session/<token> — group session invite deep link (Phase G) ────────
+    const sessionTokenMatch = pathname.match(/^\/session\/([^/]+)$/);
+    if (sessionTokenMatch) {
+      const sessionToken = sessionTokenMatch[1];
+      // Store so the gateway can consume it post-auth if the user isn't signed in.
+      localStorage.setItem('pending_session_token', sessionToken);
+      window.location.href = `/session/${sessionToken}`;
+      return;
+    }
+
     // ── /community?groupId=<id> — direct community group link ────────────
     const groupId = searchParams.get('groupId');
     if (pathname === '/community' && groupId) {

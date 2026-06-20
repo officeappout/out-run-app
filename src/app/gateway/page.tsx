@@ -13,6 +13,8 @@ import { MapPin, Loader2, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
 import { joinGroup } from '@/features/arena/services/group.service';
+import { consumeSessionInvitation } from '@/features/arena/services/group-invitation.service';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
@@ -195,6 +197,32 @@ export default function GatewayPage() {
     return `/community?groupId=${pendingGroupId}&joined=true`;
   };
 
+  // Phase G v1 — session invite token consumed post-auth.
+  // Returns '/map' if a pending token was found and consumed, null otherwise.
+  const consumePendingSessionInvite = async (
+    uid: string,
+    displayName: string,
+    photoURL?: string | null,
+  ): Promise<string | null> => {
+    const pendingToken = localStorage.getItem('pending_session_token');
+    if (!pendingToken) return null;
+    localStorage.removeItem('pending_session_token');
+
+    try {
+      const { groupId, attendanceId } = await consumeSessionInvitation(
+        pendingToken,
+        uid,
+        { name: displayName, ...(photoURL ? { photoURL } : {}) },
+      );
+      // Seed the group session context — onSnapshot fills memberIds/profiles
+      useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, '');
+    } catch (e) {
+      console.error('[Gateway] session invite consume failed:', e);
+    }
+
+    return '/map';
+  };
+
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──
   const handleExploreMap = async () => {
     isBusyRef.current = true;
@@ -280,9 +308,18 @@ export default function GatewayPage() {
         user.displayName ?? 'משתמש',
       );
       if (groupRedirect) {
-        setTimeout(() => {
-          router.push(groupRedirect);
-        }, 1200);
+        setTimeout(() => { router.push(groupRedirect); }, 1200);
+        return;
+      }
+
+      // If user came from a session invite deep link, consume token then redirect to map
+      const sessionRedirect = await consumePendingSessionInvite(
+        user.uid,
+        user.displayName ?? 'משתמש',
+        user.photoURL,
+      );
+      if (sessionRedirect) {
+        setTimeout(() => { router.push(sessionRedirect); }, 1200);
         return;
       }
 
@@ -334,6 +371,17 @@ export default function GatewayPage() {
       );
       if (groupRedirect) {
         router.push(groupRedirect);
+        return;
+      }
+
+      // If user came from a session invite deep link, consume token then redirect to map
+      const sessionRedirect = await consumePendingSessionInvite(
+        user.uid,
+        user.displayName ?? 'משתמש',
+        user.photoURL,
+      );
+      if (sessionRedirect) {
+        router.push(sessionRedirect);
         return;
       }
 
