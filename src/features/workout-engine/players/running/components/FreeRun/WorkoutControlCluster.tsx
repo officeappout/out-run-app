@@ -124,7 +124,7 @@ export default function WorkoutControlCluster() {
           className="absolute left-1/2 -translate-x-1/2 z-40 px-5 py-2 rounded-2xl font-black text-sm text-white pointer-events-none animate-bounce"
           style={{
             bottom:
-              'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px) + 88px)',
+              'calc(48dvh + env(safe-area-inset-bottom, 0px) + 8px + 88px)',
             background: 'linear-gradient(135deg, #10B981, #059669)',
             boxShadow: '0 6px 24px rgba(16,185,129,0.5)',
           }}
@@ -147,7 +147,7 @@ export default function WorkoutControlCluster() {
         dir="ltr"
         style={{
           bottom:
-            'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px))',
+            'calc(48dvh + env(safe-area-inset-bottom, 0px) + 8px)',
         }}
       >
         {isPaused ? (

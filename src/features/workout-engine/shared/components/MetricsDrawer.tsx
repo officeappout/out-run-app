@@ -177,7 +177,7 @@ export default function MetricsDrawer({
     >
       <div
         ref={cardRef}
-        className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden pointer-events-auto"
+        className="absolute top-0 left-0 right-0 bottom-0 overflow-hidden pointer-events-auto flex flex-col"
         style={{
           // Rounded only at the top — flush with screen edges on all sides.
           borderRadius: '20px 20px 0 0',
@@ -227,7 +227,7 @@ export default function MetricsDrawer({
 
             {/* Grabber — the only drag entry point in peek/full mode */}
             <div
-              className="flex justify-center pt-2 pb-1"
+              className="flex justify-center pt-2 pb-1 flex-shrink-0"
               onPointerDown={(e) => dragControls.start(e)}
               style={{ touchAction: 'none', cursor: 'grab' }}
             >
@@ -238,7 +238,9 @@ export default function MetricsDrawer({
               />
             </div>
 
-            {content}
+            <div className="flex-1 overflow-hidden">
+              {content}
+            </div>
           </>
         )}
       </div>

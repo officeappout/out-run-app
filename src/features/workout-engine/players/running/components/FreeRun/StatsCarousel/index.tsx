@@ -66,7 +66,7 @@ export default function StatsCarousel() {
           slide region itself owns the minHeight so an `overflow-hidden`
           ancestor (the metrics card) can never collapse around an
           off-screen slide. */}
-      <div className="relative" style={{ minHeight: 240 }}>
+      <div className="relative flex flex-col flex-1">
         {/* Drag handler lives on a SINGLE transparent overlay so the
             swipe gesture is captured ONCE for the whole slide region
             and not duplicated per-slide. Per-slide `drag` props were

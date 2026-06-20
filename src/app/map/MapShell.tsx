@@ -324,7 +324,11 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
         </div>
       )}
 
-      {/* ══════ BASE MAP ══════ */}
+      {/* ══════ BASE MAP ══════
+           Suppressed in free_run mode — FreeRunLayer owns AppMap there
+           (it lives inside the draggable motion.div so map + UI drag together).
+           Keeping two Mapbox instances alive simultaneously causes GPU/memory issues. */}
+      {mode !== 'free_run' && (
       <div className="absolute inset-0 z-0">
         <AppMap
           routes={mapRoutes}
@@ -379,6 +383,7 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
           navigationTurns={navigationTurns}
         />
       </div>
+      )} {/* end mode !== 'free_run' */}
 
       {/* ══════ TURN-BY-TURN CAROUSEL ══════
            Single rendering path for every navigation case — guided routes,
@@ -463,7 +468,7 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
       {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
-      {mode === 'free_run' && <FreeRunLayer logic={logic} />}
+      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
       {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}
