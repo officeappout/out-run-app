@@ -41,11 +41,15 @@ export function useLayerDrag(dockH: number, isActive?: boolean): LayerDragApi {
   const minimizedY = winH - dockH;
 
   useEffect(() => {
-    const update = () => setWinH(window.innerHeight);
+    const update = () => {
+      const h = window.innerHeight;
+      console.log('[useLayerDrag] resize → winH:', h, 'minimizedY will be:', h - dockH);
+      setWinH(h);
+    };
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, []);
+  }, [dockH]);
 
   useEffect(() => {
     if (isActive === false) setIsMinimized(false);
@@ -57,13 +61,26 @@ export function useLayerDrag(dockH: number, isActive?: boolean): LayerDragApi {
       info: { offset: { y: number }; velocity: { y: number } },
     ) => {
       const { offset, velocity } = info;
+      console.log(
+        '[useLayerDrag] dragEnd — isMinimized:', isMinimized,
+        'offset.y:', offset.y.toFixed(1),
+        'vel.y:', velocity.y.toFixed(1),
+        'minimizedY:', minimizedY,
+        'winH:', winH,
+      );
       if (isMinimized) {
-        if (offset.y < -50 || velocity.y < -500) setIsMinimized(false);
+        if (offset.y < -50 || velocity.y < -500) {
+          console.log('[useLayerDrag] → expand');
+          setIsMinimized(false);
+        }
       } else {
-        if (offset.y > 100 || velocity.y > 500) setIsMinimized(true);
+        if (offset.y > 100 || velocity.y > 500) {
+          console.log('[useLayerDrag] → minimize');
+          setIsMinimized(true);
+        }
       }
     },
-    [isMinimized],
+    [isMinimized, minimizedY, winH],
   );
 
   return { dragControls, isMinimized, setIsMinimized, minimizedY, handleDragEnd };

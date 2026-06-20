@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { useDragControls } from 'framer-motion';
-import { Square } from 'lucide-react';
+import { Square, RotateCcw } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -94,13 +94,17 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
   if (!coords || coords.length < 2) {
     return (
       <div
-        className="rounded-lg flex-shrink-0"
+        className="rounded-lg overflow-hidden flex-shrink-0"
         style={{
           width: size, height: size,
-          background: 'rgba(255,255,255,0.07)',
+          background: '#12121a',
           border: '1px solid rgba(255,255,255,0.08)',
         }}
-      />
+      >
+        <svg width={size} height={size}>
+          <circle cx={size / 2} cy={size / 2} r="3" fill="#00E5FF" />
+        </svg>
+      </div>
     );
   }
 
@@ -175,13 +179,23 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
     await finishWorkout();
   }, []);
 
+  const handleLap = useCallback(() => {
+    const state = useRunningPlayer.getState();
+    state.triggerLap();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(15);
+    }
+  }, []);
+
   return (
+    /* dir="rtl": first child → RIGHT edge, last child → LEFT edge.
+       Layout: [mini-map]:RIGHT … [stats] … [spacer] … [lap][stop]:LEFT */
     <div
       className="flex items-center gap-2 w-full px-3"
       style={{ fontFamily: 'var(--font-simpler)' }}
-      dir="ltr"
+      dir="rtl"
     >
-      {/* Mini-map — only when map is hidden behind laps (isLapsOpen=true) */}
+      {/* Mini-map — RIGHT (first in RTL). Only when map is hidden behind laps. */}
       {isLapsOpen && (
         <MiniRouteMap coords={routeCoords} size={40} />
       )}
@@ -213,17 +227,28 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
 
       <div className="flex-1" />
 
-      {/* Stop — clean white glyph, no background circle (fix #4) */}
+      {/* Controls — LEFT (last in RTL). Lap + Stop glyphs, clean white, no disc. */}
       {isLapsOpen && (
-        <button
-          type="button"
-          aria-label="סיים אימון"
-          onClick={(e) => { e.stopPropagation(); handleStop(); }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <Square size={16} fill="white" className="text-white" />
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0" dir="ltr">
+          <button
+            type="button"
+            aria-label="הקפה"
+            onClick={(e) => { e.stopPropagation(); handleLap(); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+          >
+            <RotateCcw size={15} strokeWidth={2.5} className="text-white" />
+          </button>
+          <button
+            type="button"
+            aria-label="סיים אימון"
+            onClick={(e) => { e.stopPropagation(); handleStop(); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+          >
+            <Square size={15} fill="white" className="text-white" />
+          </button>
+        </div>
       )}
     </div>
   );

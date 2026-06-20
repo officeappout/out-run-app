@@ -79,7 +79,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
            drag-start (onPointerDown → dragControls.start) and the onClick
            here covers tap-to-expand. */
         <div
-          className="flex flex-col h-full"
+          className="flex flex-col h-full rounded-t-2xl"
           onClick={onExpand}
           style={{ cursor: 'pointer', background: '#0d0d0f' }}
         >

@@ -136,10 +136,11 @@ export default function TwoLayerShell({
             (MiniDock, MiniPlayerBar, or custom) — Shell has no opinion. */}
         {isMinimized && (
           <div
-            className="absolute top-0 left-0 right-0 z-20 bg-black rounded-t-2xl pointer-events-auto"
+            className="absolute top-0 left-0 right-0 z-20 bg-black rounded-t-2xl overflow-hidden pointer-events-auto"
             style={{ height: dockH }}
             onPointerDown={(e) => {
               if ((e.target as HTMLElement).closest('button')) return;
+              console.log('[TwoLayerShell] MINI strip drag start — minimizedY:', minimizedY, 'winH:', window.innerHeight);
               dragControls.start(e);
             }}
           >
