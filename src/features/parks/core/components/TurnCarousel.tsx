@@ -32,6 +32,7 @@ import {
   CornerUpLeft,
   Navigation,
   Flag,
+  ChevronDown,
 } from 'lucide-react';
 import type { RouteTurn } from '../services/geoUtils';
 import { haversineMeters } from '../services/geoUtils';
@@ -318,6 +319,9 @@ export default function TurnCarousel({
   const setActiveTurnIdx = useMapStore((s) => s.setActiveTurnIdx);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
   const setCameraMode = useMapStore((s) => s.setCameraMode);
+  // Adaptive state (block 3+4)
+  const isLapsOpen = useMapStore((s) => s.isLapsOpen);
+  const navCarouselMinimized = useMapStore((s) => s.navCarouselMinimized);
 
   // Measure this component's rendered height and publish it to the store so
   // useDraggableMetrics can position the metrics card's top snap directly
@@ -361,6 +365,8 @@ export default function TurnCarousel({
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [userHasManuallySelected, setUserHasManuallySelected] = useState(false);
+  // Manual-expand for THIN→FULL; reset when GPS advances to next turn.
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Lazily resolve street names for the visible window of cards.
   const streetNames = useStreetNamesForTurns(allTurns, selectedIdx);
@@ -385,6 +391,61 @@ export default function TurnCarousel({
     const idx = turns.findIndex((t) => t.pathIndex >= nearestPathIdx);
     return idx === -1 ? Math.max(0, allTurns.length - 1) : idx;
   }, [routePath, currentLocation, turns, allTurns.length]);
+
+  // ── Proximity hysteresis ref (lives here; mutations happen below during render) ──
+  const proximityExpandRef = useRef(false);
+
+  // Distance to the next GPS turn. Computed inline so the ref mutation that
+  // drives hysteresis is synchronous with the current render frame.
+  const nextTurnForDist = allTurns[currentGpsTurnIdx];
+  const distToNextTurnM: number | null =
+    nextTurnForDist &&
+    isFiniteLatLng(currentLocation) &&
+    isFiniteNum(nextTurnForDist.lat) &&
+    isFiniteNum(nextTurnForDist.lng)
+      ? haversineMeters(
+          currentLocation.lat, currentLocation.lng,
+          nextTurnForDist.lat, nextTurnForDist.lng,
+        )
+      : null;
+
+  // Hysteresis: open gate at < 50 m, close gate at > 80 m — prevents flicker
+  // when the runner pauses right at the 50 m threshold.
+  if (distToNextTurnM !== null) {
+    if (!proximityExpandRef.current && distToNextTurnM < 50) proximityExpandRef.current = true;
+    if ( proximityExpandRef.current && distToNextTurnM > 80) proximityExpandRef.current = false;
+  }
+  const proximityExpand = proximityExpandRef.current;
+
+  // ── carouselState — single priority-ordered source of truth ──────────────
+  //
+  //  1. isLapsOpen   → HIDDEN  (laps panel occludes everything; layer bug fix)
+  //  2. proximityExpand < 50 m → FULL   (safety: can't miss a turn)
+  //  3. navCarouselMinimized   → BUBBLE (user minimized; pill shown in block 5)
+  //  4. isExpanded             → FULL   (manual tap from THIN)
+  //  5. default                → THIN
+  //
+  // Note: FULL from rule 2 does NOT mutate navCarouselMinimized; when
+  // proximity passes > 80 m the state falls back to rule 3 automatically.
+  const carouselState: 'hidden' | 'bubble' | 'full' | 'thin' =
+    isLapsOpen             ? 'hidden'
+    : proximityExpand      ? 'full'
+    : navCarouselMinimized ? 'bubble'
+    : isExpanded           ? 'full'
+                           : 'thin';
+
+  // Debug: log only on state transitions (not every GPS tick).
+  const prevCarouselStateRef = useRef<typeof carouselState | null>(null);
+  if (carouselState !== prevCarouselStateRef.current) {
+    console.log('[TurnCarousel] state →', carouselState, {
+      distToNextTurnM: distToNextTurnM?.toFixed(0),
+      proximityExpand,
+      isLapsOpen,
+      navCarouselMinimized,
+      isExpanded,
+    });
+    prevCarouselStateRef.current = carouselState;
+  }
 
   // Mirror currentGpsTurnIdx into a ref so the handleScroll debounce
   // callback (which closes over [] deps) can distinguish "scroll snapped
@@ -603,6 +664,23 @@ export default function TurnCarousel({
     }
   }, [userHasManuallySelected, setCameraMode]);
 
+  // ── navCardHeight = 0 when hidden or minimized ───────────────────────────
+  // ResizeObserver won't fire for hidden/bubble (the div isn't mounted), so
+  // we imperatively publish 0 here. THIN/FULL heights come from the observer.
+  useEffect(() => {
+    if (carouselState === 'hidden' || carouselState === 'bubble') {
+      setNavCardHeight(0);
+    }
+  }, [carouselState, setNavCardHeight]);
+
+  // ── Reset manual expansion when GPS advances to next turn ─────────────────
+  // isExpanded is turn-scoped: once the runner passes a turn, THIN is the
+  // correct default again. Proximity (< 50 m) will auto-expand to FULL for
+  // the next turn independently.
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [currentGpsTurnIdx]);
+
   // ── Resume GPS follow ─────────────────────────────────────────────────────
   const handleResumeFollow = useCallback(() => {
     // Release the camera lock first so useCameraController's next GPS-tick
@@ -631,8 +709,80 @@ export default function TurnCarousel({
   // shows distance-to-finish for that case and the duplicate would be noise.
   if (!allTurns || allTurns.length === 0) return null;
 
+  // ── Adaptive state: early exits ──────────────────────────────────────────
+  // HIDDEN: laps panel is open — carousel must not be visible at all.
+  if (carouselState === 'hidden') return null;
+
+  // BUBBLE: user minimized — MinimizedPill added in block 5.
+  // navCardHeight is already published to 0 by the effect above.
+  if (carouselState === 'bubble') return null;
+
+  // ── THIN: compact single-card strip ──────────────────────────────────────
+  if (carouselState === 'thin') {
+    const turn = allTurns[currentGpsTurnIdx];
+    if (!turn) return null;
+    const IconComp = getIconForInstruction(turn.instruction);
+    const resolvedStreet = streetNames.get(currentGpsTurnIdx);
+    const isDestination = turn.instruction === DEST_INSTRUCTION;
+    const accent = isDestination ? DEST_GREEN_LIGHT : PRIMARY;
+    const accentDark = isDestination ? DEST_GREEN : PRIMARY_DARK;
+    const liveDistM =
+      isFiniteLatLng(currentLocation) && isFiniteNum(turn.lat) && isFiniteNum(turn.lng)
+        ? haversineMeters(currentLocation.lat, currentLocation.lng, turn.lat, turn.lng)
+        : turn.distanceMeters;
+    const headline = isDestination
+      ? DEST_INSTRUCTION
+      : resolvedStreet
+      ?? (turn.instruction === STRAIGHT_INSTRUCTION ? FALLBACK_HEADLINE : turn.instruction);
+
+    return (
+      <div
+        ref={rootRef}
+        className="absolute left-0 right-0 z-30 px-3"
+        style={{ top: stackedTop }}
+      >
+        <button
+          className="w-full flex items-center gap-3 rounded-2xl px-4 bg-white pointer-events-auto"
+          style={{
+            border: `1px solid ${NEUTRAL_BORDER}`,
+            boxShadow: SOFT_SHADOW,
+            minHeight: 44,
+            paddingTop: 8,
+            paddingBottom: 8,
+          }}
+          onClick={() => setIsExpanded(true)}
+          dir="rtl"
+        >
+          {/* Icon tile (compact) */}
+          <div
+            dir="ltr"
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${accentDark}, ${accent})` }}
+          >
+            <IconComp size={17} className="text-white" strokeWidth={2.5} />
+          </div>
+          {/* Headline */}
+          <p className="flex-1 text-black text-sm font-black leading-tight truncate text-right">
+            {headline}
+          </p>
+          {/* Distance */}
+          {!isDestination && (
+            <p
+              className="text-sm font-black leading-none flex-shrink-0"
+              style={{ color: PRIMARY_DARK }}
+            >
+              {formatDistance(liveDistM)}
+            </p>
+          )}
+          {/* Expand chevron */}
+          <ChevronDown size={15} className="flex-shrink-0" style={{ color: NEUTRAL_DIM }} />
+        </button>
+      </div>
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
-  // Render
+  // FULL: existing carousel (carouselState === 'full')
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
