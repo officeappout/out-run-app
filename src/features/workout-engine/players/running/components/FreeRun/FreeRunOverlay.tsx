@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { useDragControls } from 'framer-motion';
-import { Square, RotateCcw } from 'lucide-react';
+import { Square, RotateCcw, Pause, Play } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -162,13 +162,23 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RunMiniDockContent — exported so FreeRunLayer can use it for the minimized bar.
-// isLapsOpen=true  → MINI STRIP (map hidden, laps showing): show mini-map + stop glyph.
-// isLapsOpen=false → MetricsDrawer dock (map visible):       stats only.
+//
+// isLapsOpen=true  → MINI STRIP (map hidden, laps showing):
+//   controls mirror WorkoutControlCluster state exactly (single source of truth):
+//     running → [Lap (RotateCcw)] [Pause (||)]
+//     paused  → [Resume (▶)]     [Stop  (■)]
+// isLapsOpen=false → MetricsDrawer dock (map visible): stats only, no controls.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
+  // status is the single source of truth shared with WorkoutControlCluster.
+  const sessionStatus = useSessionStore((s) => s.status);
+  const pauseSession  = useSessionStore((s) => s.pauseSession);
+  const resumeSession = useSessionStore((s) => s.resumeSession);
+  const isPaused = sessionStatus === 'paused';
+
   const goalProgress = useSessionGoalProgress();
   const routeCoords = useRunningPlayer((s) => s.routeCoords);
 
@@ -186,6 +196,16 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
       navigator.vibrate(15);
     }
   }, []);
+
+  const handlePause = useCallback(() => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(12);
+    pauseSession();
+  }, [pauseSession]);
+
+  const handleResume = useCallback(() => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(12);
+    resumeSession();
+  }, [resumeSession]);
 
   return (
     /* dir="rtl": first child → RIGHT edge, last child → LEFT edge.
@@ -227,27 +247,59 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
 
       <div className="flex-1" />
 
-      {/* Controls — LEFT (last in RTL). Lap + Stop glyphs, clean white, no disc. */}
+      {/* Controls — LEFT (last in RTL). State mirrors WorkoutControlCluster exactly.
+          dir="ltr" inner: [secondary (left)] [primary (right)]
+            running → [Lap] [Pause]
+            paused  → [Resume] [Stop]                                          */}
       {isLapsOpen && (
         <div className="flex items-center gap-1 flex-shrink-0" dir="ltr">
-          <button
-            type="button"
-            aria-label="הקפה"
-            onClick={(e) => { e.stopPropagation(); handleLap(); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
-          >
-            <RotateCcw size={15} strokeWidth={2.5} className="text-white" />
-          </button>
-          <button
-            type="button"
-            aria-label="סיים אימון"
-            onClick={(e) => { e.stopPropagation(); handleStop(); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
-          >
-            <Square size={15} fill="white" className="text-white" />
-          </button>
+          {isPaused ? (
+            <>
+              {/* Resume — secondary */}
+              <button
+                type="button"
+                aria-label="המשך אימון"
+                onClick={(e) => { e.stopPropagation(); handleResume(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <Play size={14} fill="white" className="text-white" />
+              </button>
+              {/* Stop — primary */}
+              <button
+                type="button"
+                aria-label="סיים אימון"
+                onClick={(e) => { e.stopPropagation(); handleStop(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <Square size={15} fill="white" className="text-white" />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Lap — secondary */}
+              <button
+                type="button"
+                aria-label="הקפה"
+                onClick={(e) => { e.stopPropagation(); handleLap(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <RotateCcw size={15} strokeWidth={2.5} className="text-white" />
+              </button>
+              {/* Pause — primary */}
+              <button
+                type="button"
+                aria-label="השהה אימון"
+                onClick={(e) => { e.stopPropagation(); handlePause(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <Pause size={15} fill="white" className="text-white" />
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
