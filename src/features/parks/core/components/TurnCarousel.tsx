@@ -33,6 +33,8 @@ import {
   Navigation,
   Flag,
   ChevronDown,
+  ChevronUp,
+  Minimize2,
 } from 'lucide-react';
 import type { RouteTurn } from '../services/geoUtils';
 import { haversineMeters } from '../services/geoUtils';
@@ -323,24 +325,7 @@ export default function TurnCarousel({
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
   const navCarouselMinimized = useMapStore((s) => s.navCarouselMinimized);
 
-  // Measure this component's rendered height and publish it to the store so
-  // useDraggableMetrics can position the metrics card's top snap directly
-  // below the carousel — no magic constants, real pixels.
   const rootRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = rootRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      const h =
-        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-      if (Number.isFinite(h) && h > 0) setNavCardHeight(Math.round(h));
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      setNavCardHeight(0);
-    };
-  }, [setNavCardHeight]);
 
   // Compose the top-offset CSS for the carousel root: stack BELOW the story
   // bar (which itself sits below the safe-area inset). 8 px breathing gap
@@ -664,6 +649,27 @@ export default function TurnCarousel({
     }
   }, [userHasManuallySelected, setCameraMode]);
 
+  // ── Measure rendered height — re-attaches when carouselState changes ────────
+  // THIN and FULL have different root element structures; deps on carouselState
+  // ensures the observer always watches the correct node. Hidden/bubble: skip
+  // entirely — the next effect handles the 0 publish for those states.
+  useEffect(() => {
+    if (carouselState === 'hidden' || carouselState === 'bubble') return;
+    const node = rootRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const h =
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      if (Number.isFinite(h) && h > 0) setNavCardHeight(Math.round(h));
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      setNavCardHeight(0);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carouselState, setNavCardHeight]);
+
   // ── navCardHeight = 0 when hidden or minimized ───────────────────────────
   // ResizeObserver won't fire for hidden/bubble (the div isn't mounted), so
   // we imperatively publish 0 here. THIN/FULL heights come from the observer.
@@ -713,9 +719,30 @@ export default function TurnCarousel({
   // HIDDEN: laps panel is open — carousel must not be visible at all.
   if (carouselState === 'hidden') return null;
 
-  // BUBBLE: user minimized — MinimizedPill added in block 5.
-  // navCardHeight is already published to 0 by the effect above.
-  if (carouselState === 'bubble') return null;
+  // BUBBLE: user minimized — show pill to restore.
+  // navCardHeight is already 0 (effect above), so MetricsDrawer fills the screen.
+  if (carouselState === 'bubble') {
+    return (
+      <div
+        className="absolute left-0 right-0 z-30 flex justify-center pointer-events-none"
+        style={{ top: stackedTop }}
+      >
+        <button
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white pointer-events-auto"
+          style={{
+            border: `1px solid ${NEUTRAL_BORDER}`,
+            boxShadow: SOFT_SHADOW,
+            color: PRIMARY_DARK,
+          }}
+          onClick={() => useMapStore.getState().setNavCarouselMinimized(false)}
+          dir="rtl"
+        >
+          <ChevronUp size={13} />
+          <span className="text-[11px] font-bold">ניווט</span>
+        </button>
+      </div>
+    );
+  }
 
   // ── THIN: compact single-card strip ──────────────────────────────────────
   if (carouselState === 'thin') {
@@ -741,42 +768,55 @@ export default function TurnCarousel({
         className="absolute left-0 right-0 z-30 px-3"
         style={{ top: stackedTop }}
       >
-        <button
-          className="w-full flex items-center gap-3 rounded-2xl px-4 bg-white pointer-events-auto"
-          style={{
-            border: `1px solid ${NEUTRAL_BORDER}`,
-            boxShadow: SOFT_SHADOW,
-            minHeight: 44,
-            paddingTop: 8,
-            paddingBottom: 8,
-          }}
-          onClick={() => setIsExpanded(true)}
-          dir="rtl"
-        >
-          {/* Icon tile (compact) */}
-          <div
-            dir="ltr"
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${accentDark}, ${accent})` }}
+        <div className="flex items-center gap-1.5">
+          {/* Minimize button — far left (visual RTL) */}
+          <button
+            className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white pointer-events-auto"
+            style={{ border: `1px solid ${NEUTRAL_BORDER}`, boxShadow: SOFT_SHADOW }}
+            onClick={() => useMapStore.getState().setNavCarouselMinimized(true)}
+            aria-label="מזעור ניווט"
           >
-            <IconComp size={17} className="text-white" strokeWidth={2.5} />
-          </div>
-          {/* Headline */}
-          <p className="flex-1 text-black text-sm font-black leading-tight truncate text-right">
-            {headline}
-          </p>
-          {/* Distance */}
-          {!isDestination && (
-            <p
-              className="text-sm font-black leading-none flex-shrink-0"
-              style={{ color: PRIMARY_DARK }}
+            <Minimize2 size={14} style={{ color: NEUTRAL_DIM }} />
+          </button>
+
+          {/* Main card — tap to expand */}
+          <button
+            className="flex-1 flex items-center gap-3 rounded-2xl px-4 bg-white pointer-events-auto"
+            style={{
+              border: `1px solid ${NEUTRAL_BORDER}`,
+              boxShadow: SOFT_SHADOW,
+              minHeight: 44,
+              paddingTop: 8,
+              paddingBottom: 8,
+            }}
+            onClick={() => setIsExpanded(true)}
+            dir="rtl"
+          >
+            {/* Icon tile (compact) */}
+            <div
+              dir="ltr"
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${accentDark}, ${accent})` }}
             >
-              {formatDistance(liveDistM)}
+              <IconComp size={17} className="text-white" strokeWidth={2.5} />
+            </div>
+            {/* Headline */}
+            <p className="flex-1 text-black text-sm font-black leading-tight truncate text-right">
+              {headline}
             </p>
-          )}
-          {/* Expand chevron */}
-          <ChevronDown size={15} className="flex-shrink-0" style={{ color: NEUTRAL_DIM }} />
-        </button>
+            {/* Distance */}
+            {!isDestination && (
+              <p
+                className="text-sm font-black leading-none flex-shrink-0"
+                style={{ color: PRIMARY_DARK }}
+              >
+                {formatDistance(liveDistM)}
+              </p>
+            )}
+            {/* Expand chevron */}
+            <ChevronDown size={15} className="flex-shrink-0" style={{ color: NEUTRAL_DIM }} />
+          </button>
+        </div>
       </div>
     );
   }
@@ -1008,9 +1048,24 @@ export default function TurnCarousel({
         })}
       </div>
 
-      {/* ── Resume GPS-follow pill — light theme ── */}
-      {userHasManuallySelected && (
-        <div className="flex justify-center mt-1.5" dir="rtl">
+      {/* ── Pills row: minimize (always) + GPS resume (peek only) ── */}
+      <div className="flex items-center justify-between px-4 mt-1.5" dir="rtl">
+        {/* Minimize — visible in FULL state (from both manual expand and proximity) */}
+        <button
+          onClick={() => useMapStore.getState().setNavCarouselMinimized(true)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold pointer-events-auto bg-white"
+          style={{
+            border: `1px solid ${NEUTRAL_BORDER}`,
+            color: NEUTRAL_DIM,
+            boxShadow: SOFT_SHADOW,
+          }}
+        >
+          <Minimize2 size={10} />
+          מזעור
+        </button>
+
+        {/* GPS follow pill — only while peeking */}
+        {userHasManuallySelected && (
           <button
             onClick={handleResumeFollow}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold pointer-events-auto bg-white"
@@ -1023,8 +1078,8 @@ export default function TurnCarousel({
             <Navigation size={11} />
             חזור למיקומי
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
