@@ -172,7 +172,7 @@ export default function MetricsDrawer({
       dragMomentum={false}
       onDragEnd={handleDragEnd}
       animate={controls}
-      className="absolute top-0 left-0 right-0 bottom-0 z-40 pointer-events-none"
+      className="absolute top-0 left-0 right-0 bottom-0 z-[52] pointer-events-none"
       style={{ touchAction: 'none' }}
     >
       <div

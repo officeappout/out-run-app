@@ -1,33 +1,35 @@
 'use client';
 
 /**
- * WorkoutFlowLayer — notification-shade reveal layer.
+ * WorkoutFlowLayer — StrengthRunner-style notification-shade (Route A).
  *
- * Single motion.div anchored below the safe-area.  At y=0 the revealContent
- * is clipped above the viewport; the handle (story bar) sits at the top of
- * the visible area.  Dragging DOWN slides the motion.div so revealContent
- * comes into view — exactly like an Android notification shade.
+ * Two-layer architecture, both anchored at `top: env(safe-area-inset-top, 0px)`.
  *
- *   ┌──────────────────────────────────────┐ ← screen top (y=0)
- *   │  status bar (safe-area-inset-top)    │
- *   ├──────────────────────────────────────┤ ← motion.div layout top (top: safe-area)
- *   │ [revealContent — abs, bottom:100%,   │
- *   │  hidden above this line when y=0]    │
- *   │ ────────────────────────────────     │
- *   │   story bar / handle (children)      │
- *   └──────────────────────────────────────┘
+ *   BASE LAYER (z-49): revealContent (RunLapsList) — always rendered, fixed.
+ *                      Completely hidden behind the TOP LAYER when closed.
+ *
+ *   TOP LAYER  (z-50): motion.div — `minHeight: 100dvh-safeArea` fills the
+ *                      screen so its white background fully covers the BASE
+ *                      LAYER at y=0. Dragging DOWN slides this cover away,
+ *                      exposing the BASE LAYER below — exactly how StrengthRunner's
+ *                      inset-0 TOP LAYER slides to minimizedY.
  *
  *   Open (y = revealH):
- *   ├──────────────────────────────────────┤ ← revealContent.top (y = safe-area)
- *   │   RunLapsList (visible)              │
- *   ├──────────────────────────────────────┤ ← story bar starts here (y = safe-area+revealH)
- *   │   story bar / handle                 │
- *   └──────────────────────────────────────┘
+ *     • BASE LAYER fills the screen from safe-area-top to MiniDock top.
+ *     • The story bar (children) is at MiniDock level — hidden behind
+ *       MetricsDrawer (z-52).
  *
- * The FreeRunActive outer div has `overflow-hidden` which clips revealContent
- * above y=0, making it invisible in the closed state.
+ *   Closed (y = 0):
+ *     • TOP LAYER white bg covers BASE LAYER; story bar is at top of screen.
  *
- * Drag mechanics (mirrors StrengthRunner exactly):
+ * maxRevealHeight limits RunLapsList to
+ *   (100dvh - safe-area-top - 56px MiniDock - safe-area-bottom)
+ * so revealH ≈ that value and opening pushes the story bar to MiniDock level.
+ *
+ * No backdrop needed — BASE LAYER covers the map when open; MetricsDrawer
+ * at z-52 handles map-tap absorption via its own pointer-events.
+ *
+ * Drag mechanics (mirrors StrengthRunner/usePlayerDrag):
  *   dragListener=false + externalDragControls.start(e) on handle pointerDown.
  *   dragConstraints: { top: 0, bottom: revealH }.
  *   Spring: open 280/28 — close 320/32.
@@ -38,22 +40,25 @@ import { motion, useAnimation, useDragControls, type PanInfo } from 'framer-moti
 
 export interface WorkoutFlowLayerProps {
   /**
-   * Handle content (story bar) rendered in the normal flow of the motion.div.
-   * Visible at the top of the screen when the panel is closed.
+   * Handle content (story bar) — in normal flow at the top of the TOP LAYER.
+   * Visible at safe-area-top when the panel is closed.
    * Its onPointerDown should call `externalDragControls.start(e)`.
-   * Do NOT add safe-area-inset-top padding here — the motion.div handles it.
+   * Do NOT add safe-area-inset-top padding — the motion.div anchors there.
    */
   children: React.ReactNode;
-  /** Content to reveal (RunLapsList) — positioned absolutely above the handle. */
+  /** Content to reveal (RunLapsList) — rendered in the BASE LAYER. */
   revealContent: React.ReactNode;
   isOpen: boolean;
   onClose: () => void;
   onOpen?: () => void;
   /** Created in the parent via `useDragControls()`. */
   externalDragControls: ReturnType<typeof useDragControls>;
-  /** Notifies parent when reveal content height changes (for map camera padding). */
+  /** Fires when BASE LAYER content height changes (map camera padding). */
   onRevealHeightChange?: (h: number) => void;
-  /** CSS max-height for the scrollable reveal container. */
+  /**
+   * CSS max-height for the RunLapsList scrollable container.
+   * Default fills from safe-area-top to just above the 56 px MiniDock.
+   */
   maxRevealHeight?: string;
 }
 
@@ -65,15 +70,15 @@ export default function WorkoutFlowLayer({
   onOpen,
   externalDragControls,
   onRevealHeightChange,
-  maxRevealHeight = 'calc(60dvh - env(safe-area-inset-top, 0px))',
+  maxRevealHeight = 'calc(100dvh - env(safe-area-inset-top, 0px) - 56px - env(safe-area-inset-bottom, 0px))',
 }: WorkoutFlowLayerProps) {
   const controls = useAnimation();
-  const revealRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [revealH, setRevealH] = useState(0);
 
-  // Measure reveal content height for drag constraints and spring target.
+  // Measure BASE LAYER height for drag constraints and spring target.
   useEffect(() => {
-    const node = revealRef.current;
+    const node = contentRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
     const obs = new ResizeObserver(([e]) => {
       const h = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height;
@@ -86,7 +91,7 @@ export default function WorkoutFlowLayer({
     return () => obs.disconnect();
   }, [onRevealHeightChange]);
 
-  // Spring-animate on open/close state change.
+  // Spring-animate TOP LAYER on open/close state change.
   useEffect(() => {
     controls.start({
       y: isOpen ? revealH : 0,
@@ -120,32 +125,29 @@ export default function WorkoutFlowLayer({
 
   return (
     <>
-      {/* Backdrop — absorbs map taps while open */}
-      {isOpen && (
+      {/* BASE LAYER — RunLapsList: fixed at safe-area-top, always rendered.
+          At y=0 the TOP LAYER covers it completely (white bg + minHeight).
+          When TOP LAYER slides to y=revealH the BASE LAYER is fully exposed. */}
+      <div
+        className="absolute left-0 right-0 z-[49] pointer-events-none"
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
         <div
-          className="absolute inset-0 z-[48] pointer-events-auto"
-          style={{
-            background: 'rgba(0,0,0,0.18)',
-            backdropFilter: 'blur(2px)',
-            WebkitBackdropFilter: 'blur(2px)',
-          }}
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+          ref={contentRef}
+          className="bg-white overflow-hidden pointer-events-auto"
+          style={{ boxShadow: isOpen ? '0 4px 24px rgba(0,0,0,0.12)' : 'none' }}
+        >
+          <div style={{ maxHeight: maxRevealHeight, overflowY: 'auto' }}>
+            {revealContent}
+          </div>
+        </div>
+      </div>
 
-      {/*
-        Single draggable motion.div.
-
-        `top: env(safe-area-inset-top, 0px)` anchors it just below the status bar.
-        The handle (children) lives in normal flow at the top of this div — always
-        visible in the closed state.
-
-        revealContent is absolutely positioned with `bottom: 100%` so its bottom
-        edge aligns with the motion.div's top.  In the closed state (y=0) it sits
-        above the viewport and is clipped by FreeRunActive's `overflow-hidden`.
-        When the motion.div slides to y=revealH the revealContent comes into view.
-      */}
+      {/* TOP LAYER — story bar cover: slides DOWN to expose the BASE LAYER.
+          `minHeight` ensures it covers the full viewport at y=0 so the white
+          background completely hides RunLapsList (like StrengthRunner's
+          inset-0 bg-black covers WorkoutPlaylist).
+          dragListener=false → drag only starts from the handle's onPointerDown. */}
       <motion.div
         drag="y"
         dragControls={externalDragControls}
@@ -157,26 +159,16 @@ export default function WorkoutFlowLayer({
         animate={controls}
         initial={{ y: 0 }}
         className="absolute left-0 right-0 z-50 pointer-events-none"
-        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        style={{
+          top: 'env(safe-area-inset-top, 0px)',
+          minHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))',
+          background: 'white',
+        }}
       >
-        {/* Reveal content — above the handle, clipped when closed */}
-        <div
-          ref={revealRef}
-          className="absolute left-0 right-0 bg-white pointer-events-auto"
-          style={{
-            bottom: '100%',
-            maxHeight: maxRevealHeight,
-            overflowY: 'auto',
-            boxShadow: isOpen ? '0 4px 24px rgba(0,0,0,0.12)' : 'none',
-          }}
-        >
-          {revealContent}
-        </div>
-
-        {/* Handle (story bar) — in-flow, always at top of motion.div */}
+        {/* Drag handle (story bar) — in normal flow at top of motion.div */}
         {children}
 
-        {/* Fade strip */}
+        {/* Fade strip — gradient below the story bar */}
         <div
           className="pointer-events-none"
           style={{

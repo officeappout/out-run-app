@@ -23,8 +23,9 @@
  * When navigation active: MetricsDrawer locks to peek.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDragControls } from 'framer-motion';
+import { Square } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -88,20 +89,26 @@ function formatGoalValue(p: {
 // RunMiniDockContent — content for the dock (56 px) anchor
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RunMiniDockContent() {
+function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const goalProgress = useSessionGoalProgress();
 
   const safeDistance = Number.isFinite(totalDistance) && totalDistance > 0 ? totalDistance : 0;
 
+  const handleStop = useCallback(async () => {
+    const { finishWorkout } = useRunningPlayer.getState();
+    await finishWorkout();
+  }, []);
+
   return (
     <div
-      className="flex items-center h-full px-4 gap-2 w-full"
+      className="flex items-center h-full px-3 gap-2 w-full"
       style={{ fontFamily: 'var(--font-simpler)' }}
       dir="ltr"
     >
-      <div className="flex items-baseline gap-1">
+      {/* Stats — distance · time */}
+      <div className="flex items-baseline gap-1 flex-shrink-0">
         <span className="text-xl font-black tabular-nums text-white leading-none">
           {safeDistance.toFixed(2)}
         </span>
@@ -109,13 +116,15 @@ function RunMiniDockContent() {
           KM
         </span>
       </div>
-      <span className="text-white/40 mx-1 text-sm">|</span>
-      <span className="text-xl font-black tabular-nums text-white leading-none">
+      <span className="text-white/40 text-sm">|</span>
+      <span className="text-xl font-black tabular-nums text-white leading-none flex-shrink-0">
         {formatDuration(totalDuration)}
       </span>
+
+      {/* Goal pill — middle */}
       {goalProgress && goalProgress.progress > 0 && (
         <div
-          className="ml-auto flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
+          className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
           style={{
             background: goalProgress.isComplete ? '#10B981' : 'rgba(255,255,255,0.15)',
             color: goalProgress.isComplete ? '#fff' : '#00ADEF',
@@ -123,6 +132,23 @@ function RunMiniDockContent() {
         >
           {Math.round(goalProgress.progress * 100)}%
         </div>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Stop button — only when laps panel is open (map covered) */}
+      {isLapsOpen && (
+        <button
+          type="button"
+          aria-label="סיים אימון"
+          onClick={(e) => { e.stopPropagation(); handleStop(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          style={{ background: '#EF4444' }}
+        >
+          <Square size={14} fill="white" className="text-white" />
+        </button>
       )}
     </div>
   );
@@ -343,7 +369,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         {(anchor) =>
           anchor === 'dock' ? (
             <MiniDock>
-              <RunMiniDockContent />
+              <RunMiniDockContent isLapsOpen={isLapsOpen} />
             </MiniDock>
           ) : isCommute ? (
             <CommuteStatsCarousel />
