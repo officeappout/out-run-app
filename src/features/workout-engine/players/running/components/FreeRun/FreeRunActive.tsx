@@ -261,6 +261,12 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => clearInterval(t);
   }, []);
 
+  // DEBUG — remove after routing confirmed
+  useEffect(() => {
+    console.log('[FreeRunActive OLD] mounted — should NOT appear during free_run mode');
+    return () => console.log('[FreeRunActive OLD] unmounted');
+  }, []);
+
   return (
     <div
       className="absolute inset-0 z-40 overflow-hidden pointer-events-none"

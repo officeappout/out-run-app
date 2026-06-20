@@ -73,6 +73,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
   const routeZones = useRunningPlayer((s) => s.routeZones);
 
+  // DEBUG — remove after routing confirmed
+  React.useEffect(() => {
+    console.log('[FreeRunLayer NEW] isWorkoutActive:', isWorkoutActive);
+  }, [isWorkoutActive]);
+
   const handleStartFreeRun = () => {
     logic.setWorkoutMode('free');
     logic.startActiveWorkout();
@@ -91,7 +96,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
       <div
         className="absolute inset-0 z-0 bg-white"
         style={{
-          opacity: isWorkoutActive && isMinimized ? 1 : 0,
+          opacity: isWorkoutActive ? 1 : 0,
           pointerEvents: isWorkoutActive && isMinimized ? 'auto' : 'none',
           transition: 'opacity 0.15s ease',
         }}
@@ -165,7 +170,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
             {isMinimized && (
               <div
                 className="absolute top-0 left-0 right-0 z-20 bg-black pointer-events-auto"
-                style={{ height: 56 }}
+                style={{ height: 56, borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}
                 onPointerDown={(e) => {
                   if ((e.target as HTMLElement).closest('button')) return;
                   dragControls.start(e);

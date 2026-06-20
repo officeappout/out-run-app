@@ -238,6 +238,12 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
     return () => clearInterval(t);
   }, []);
 
+  // DEBUG — remove after routing confirmed
+  useEffect(() => {
+    console.log('[FreeRunOverlay NEW] mounted');
+    return () => console.log('[FreeRunOverlay NEW] unmounted');
+  }, []);
+
   return (
     <>
       {/* Story bar — drag handle for the outer motion.div (FreeRunLayer).

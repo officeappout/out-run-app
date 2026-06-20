@@ -185,18 +185,28 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
 
   // ══════ MODE SYNC EFFECTS ══════
 
-  // When internal workout state becomes active, sync mode
+  // DEBUG — remove after routing confirmed
+  useEffect(() => {
+    console.log('[MapShell] mode=', mode, 'isWorkoutActive=', logic.isWorkoutActive, 'runMode=', runMode);
+  }, [mode, logic.isWorkoutActive, runMode]);
+
+  // When internal workout state becomes active, sync mode.
+  // Uses runMode from useRunningPlayer (set by _doStartActiveWorkout BEFORE
+  // setIsWorkoutActive) — NOT logic.workoutMode, which is a local discover/free
+  // flag that DiscoverLayer never updates before calling startActiveWorkout().
   useEffect(() => {
     if (logic.isWorkoutActive && !logic.showSummary) {
       if (mode === 'planned_preview' || mode === 'discover' || mode === 'builder' || mode === 'navigate') {
-        if (logic.workoutMode === 'free') {
+        // DEBUG — remove after routing confirmed
+        console.log('[MapShell] mode sync: mode=', mode, 'runMode=', runMode, 'isWorkoutActive=', logic.isWorkoutActive);
+        if (runMode === 'free') {
           setMode('free_run');
         } else {
           setMode('active');
         }
       }
     }
-  }, [logic.isWorkoutActive, logic.showSummary, logic.workoutMode, mode, setMode]);
+  }, [logic.isWorkoutActive, logic.showSummary, runMode, mode, setMode]);
 
   // When summary should show
   useEffect(() => {
