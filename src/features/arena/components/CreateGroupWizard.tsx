@@ -74,6 +74,12 @@ interface WizardForm {
   rules: string;
   imageFile: File | null;
   imagePreviewUrl: string | null;
+  /**
+   * null  = not yet chosen (StepMode pending)
+   * true  = "אימון משותף" — shows StepWhenWhere, creates group with scheduleSlots
+   * false = "כל אחד בקצב שלו" — skips StepWhenWhere, hasMeetups=false in Firestore
+   */
+  hasMeetups: boolean | null;
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -102,6 +108,7 @@ const BLANK_FORM: WizardForm = {
   rules: '',
   imageFile: null,
   imagePreviewUrl: null,
+  hasMeetups: null,
 };
 
 export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }: CreateGroupWizardProps) {
@@ -142,6 +149,9 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
         : group.schedule
           ? [group.schedule]
           : [];
+      // hasMeetups: prefer explicit Firestore value; fall back to inferring from
+      // existing scheduleSlots (legacy groups without the field).
+      const inferredHasMeetups = group.hasMeetups ?? (slots.length > 0 ? true : null);
       setForm({
         name: group.name,
         description: group.description ?? '',
@@ -156,6 +166,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
         rules: group.rules ?? '',
         imageFile: null,
         imagePreviewUrl: group.images?.[0] ?? null,
+        hasMeetups: inferredHasMeetups,
       });
     }).catch((err) => {
       console.error('[CreateGroupWizard] failed to load group for edit:', err);
