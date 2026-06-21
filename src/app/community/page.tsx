@@ -272,6 +272,7 @@ export default function CommunityPage() {
   // ── Deep-link: ?openCreate=true → reopen wizard after profile-only detour ─
   useEffect(() => {
     if (searchParams.get('openCreate') !== 'true') return;
+    setLeagueSheetOpen(false); // close league sheet so wizard is not buried beneath it
     setEditGroupId(null);
     setWizardOpen(true);
     const params = new URLSearchParams(searchParams.toString());

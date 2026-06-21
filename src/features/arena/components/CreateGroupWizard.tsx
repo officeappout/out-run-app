@@ -363,7 +363,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] bg-black/50"
+            className="fixed inset-0 z-[92] bg-black/50"
             style={{ backdropFilter: 'blur(4px)' }}
             onClick={handleClose}
           />
@@ -375,7 +375,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 32, mass: 0.9 }}
-            className="fixed bottom-0 left-0 right-0 z-[91] max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[93] max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl flex flex-col"
             style={{ height: '92dvh' }}
           >
             {/* ── Header ─────────────────────────────────────────── */}
