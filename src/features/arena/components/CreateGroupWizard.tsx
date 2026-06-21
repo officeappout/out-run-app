@@ -245,8 +245,13 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
     }
     // Leaving outreach interstitial → clear it
     if (outreachMode) { setOutreachMode(null); setOutreachSent(false); }
-    // "כל אחד בקצב שלו" — skip when+where, jump straight to privacy
-    if (step === 2 && form.hasMeetups === false) { setStep(4); return; }
+    // "כל אחד בקצב שלו" — skip when+where, jump straight to privacy;
+    // also reset default 'running' category since it's irrelevant for league/challenge groups
+    if (step === 2 && form.hasMeetups === false) {
+      if (form.category === 'running') updateForm('category', 'other');
+      setStep(4);
+      return;
+    }
     if (step < 5) setStep((s) => s + 1);
   };
 
@@ -887,7 +892,7 @@ function StepBasics({
       </div>
 
       <div>
-        <FieldLabel>קטגוריה</FieldLabel>
+        <FieldLabel>{form.hasMeetups === false ? 'קטגוריה (אופציונלי)' : 'קטגוריה'}</FieldLabel>
         <div className="grid grid-cols-3 gap-2">
           {CATEGORIES.map((cat) => (
             <button
