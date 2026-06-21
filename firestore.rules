@@ -55,6 +55,13 @@ service cloud.firestore {
       );
     }
 
+    // True when the authenticated user is the original creator (owner) of a group.
+    // Owners have elevated rights over admins: only they can demote admins or remove admins.
+    function isGroupOwner(groupId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('createdBy', '') == request.auth.uid;
+    }
+
     // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
     // Set via Admin SDK when assigning a user to a tenant.
     // Root/DB admins bypass tenant checks.
@@ -889,13 +896,40 @@ service cloud.firestore {
                        .hasOnly(['memberCount', 'currentParticipants', 'updatedAt']);
 
       // group_members sub-collection
-      // create: open for public groups; private groups require the matching inviteCode
-      //         (written by joinGroup after client-side validation) OR creator privilege.
-      //         This closes the self-add gap: the client-side code check was advisory only.
-      // update/delete: member can manage themselves (leave/profile); group admin can remove others.
+      // create:  public groups open; private groups require inviteCode or creator privilege.
+      // update:  field-level guards — role changes are restricted by caller rank.
+      // delete:  self-remove always allowed; admin removes members only; owner removes anyone.
       match /members/{uid} {
         allow read: if isAuthenticated();
-        allow update, delete: if isAuthenticated() && (request.auth.uid == uid || isGroupAdmin(groupId));
+
+        allow update: if isAuthenticated() && (
+          // OUT app admins bypass all group-level restrictions
+          isAdmin()
+          // Self-update: profile fields only — role is immutable by the member themselves
+          || (request.auth.uid == uid
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+          // Any group admin can promote a member → admin (cannot act on themselves)
+          || (isGroupAdmin(docId) && request.auth.uid != uid
+              && resource.data.role == 'member'
+              && request.resource.data.role == 'admin')
+          // Only the owner can demote admin → member (cannot demote themselves)
+          || (isGroupOwner(docId) && request.auth.uid != uid
+              && resource.data.role == 'admin'
+              && request.resource.data.role == 'member')
+        );
+
+        allow delete: if isAuthenticated() && (
+          // OUT app admins bypass all group-level restrictions
+          isAdmin()
+          // Self-remove (leave group) — any member including owner
+          || request.auth.uid == uid
+          // Admin removes a regular member (role='member') — cannot remove admins or owner
+          || (isGroupAdmin(docId) && request.auth.uid != uid
+              && resource.data.role == 'member')
+          // Owner removes anyone (including admins) except themselves
+          || (isGroupOwner(docId) && request.auth.uid != uid)
+        );
+
         allow create: if isAuthenticated() && request.auth.uid == uid
           && (
             get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true

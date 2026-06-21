@@ -14,7 +14,7 @@ import { readFileSync } from 'fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-const PROJECT_ID = 'outrun-test';
+const PROJECT_ID = 'appout-1';
 const GROUP_PRIVATE = 'group_private_test';
 const GROUP_PUBLIC  = 'group_public_test';
 const INVITE_CODE   = 'ABC123';
@@ -40,6 +40,7 @@ async function run() {
   });
 
   // ── 2. Seed group docs (bypasses rules) ───────────────────────────────────
+  await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'community_groups', GROUP_PRIVATE), {
@@ -105,6 +106,22 @@ async function run() {
     pass('Public group, no inviteCode → ACCEPTED (regression ✓)');
   } catch (err) {
     fail('Public group join (regression) should be ACCEPTED', err);
+  }
+
+  // ── Test 4: Group creator self-adds to private group (no inviteCode) → ACCEPTED ──
+  try {
+    const db = testEnv.authenticatedContext(HOST_UID).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'community_groups', GROUP_PRIVATE, 'members', HOST_UID), {
+        uid: HOST_UID,
+        name: 'Host Creator',
+        role: 'admin',
+        // no inviteCode — passes via createdBy == request.auth.uid branch
+      })
+    );
+    pass('Group creator self-adds to private group (no inviteCode) → ACCEPTED (createdBy branch ✓)');
+  } catch (err) {
+    fail('Group creator self-add should be ACCEPTED via createdBy branch', err);
   }
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
