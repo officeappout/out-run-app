@@ -771,6 +771,7 @@ export default function CommunityPage() {
                     }}
                     activeFilterLabel={getFilterLabel()}
                     isLoading={arenaLoading}
+                    createHref="/community?openCreate=true"
                   />
                 </div>
               </motion.div>
