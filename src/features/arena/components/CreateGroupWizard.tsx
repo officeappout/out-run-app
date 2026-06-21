@@ -53,7 +53,7 @@ const CATEGORIES: { value: CommunityGroupCategory; label: string; emoji: string 
 
 const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
-const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מיקום', 'לוח זמנים', 'פרטיות', 'סיום'];
+const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מתי ואיפה', 'פרטיות', 'סיום'];
 
 // Types that are always private — no public/private toggle shown for these
 const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
@@ -206,25 +206,24 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   // ── Validation per step ──────────────────────────────────────────────────
 
   const canAdvance = (): boolean => {
-    if (step === 0) return true;                                            // StepType
-    if (step === 1) return form.name.trim().length >= 2;                   // StepBasics
-    if (step === 2) return form.hasMeetups !== null;                       // StepMode
-    // StepLocation (step 3) — optional for non-geographic types
+    if (step === 0) return true;                                                    // StepType
+    if (step === 1) return form.name.trim().length >= 2;                           // StepBasics
+    if (step === 2) return form.hasMeetups !== null;                               // StepMode
+    // StepWhenWhere (step 3) — optional for non-geographic types
     if (step === 3) return ALWAYS_PRIVATE_TYPES.has(form.groupType) || form.locationSelected;
-    if (step === 4) return true;                                            // StepSchedule
-    if (step === 5) return true;                                            // StepPrivacy
+    if (step === 4) return true;                                                    // StepPrivacy
     return true;
   };
 
   const handleNext = () => {
-    // "כל אחד בקצב שלו" — skip location + schedule, jump straight to privacy
-    if (step === 2 && form.hasMeetups === false) { setStep(5); return; }
-    if (step < 6) setStep((s) => s + 1);
+    // "כל אחד בקצב שלו" — skip when+where, jump straight to privacy
+    if (step === 2 && form.hasMeetups === false) { setStep(4); return; }
+    if (step < 5) setStep((s) => s + 1);
   };
 
   const handleBack = () => {
     // Coming back from privacy when hasMeetups=false — return to StepMode
-    if (step === 5 && form.hasMeetups === false) { setStep(2); return; }
+    if (step === 4 && form.hasMeetups === false) { setStep(2); return; }
     if (step > 0) setStep((s) => s - 1);
     else onClose();
   };
@@ -529,15 +528,10 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       {step === 1 && <StepBasics form={form} updateForm={updateForm} />}
                       {step === 2 && <StepMode form={form} updateForm={updateForm} />}
                       {step === 3 && (
-                        <StepLocation
+                        <StepWhenWhere
                           form={form}
                           updateForm={updateForm}
                           authorityId={access.cityAuthorityId ?? ''}
-                        />
-                      )}
-                      {step === 4 && (
-                        <StepSchedule
-                          form={form}
                           slotDay={slotDay}
                           slotTime={slotTime}
                           setSlotDay={setSlotDay}
@@ -546,8 +540,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           removeSlot={removeSlot}
                         />
                       )}
-                      {step === 5 && <StepPrivacy form={form} updateForm={updateForm} />}
-                      {step === 6 && (
+                      {step === 4 && <StepPrivacy form={form} updateForm={updateForm} />}
+                      {step === 5 && (
                         <StepFinalize
                           form={form}
                           fileInputRef={fileInputRef}
@@ -573,7 +567,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       <ChevronRight className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    {step < 6 ? (
+                    {step < 5 ? (
                       <button
                         onClick={handleNext}
                         disabled={!canAdvance()}
@@ -602,8 +596,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     )}
                   </div>
 
-                  {/* Location hint — visible only on step 3 when no location is set */}
-                  {step === 3 && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
+                  {/* Location hint — visible only on step 3 (StepWhenWhere) when no location is set */}
+                  {step === 3 && form.hasMeetups === true && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
                     <p className="text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1">
                       <MapPin className="w-3 h-3" />
                       יש לבחור מיקום כדי להמשיך
@@ -809,16 +803,28 @@ function StepBasics({
   );
 }
 
-// ── Step 2: Location ──────────────────────────────────────────────────────────
+// ── Step 3: When & Where (location + schedule combined) ──────────────────────
 
-function StepLocation({
+function StepWhenWhere({
   form,
   updateForm,
   authorityId,
+  slotDay,
+  slotTime,
+  setSlotDay,
+  setSlotTime,
+  addSlot,
+  removeSlot,
 }: {
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
   authorityId: string;
+  slotDay: number;
+  slotTime: string;
+  setSlotDay: (d: number) => void;
+  setSlotTime: (t: string) => void;
+  addSlot: () => void;
+  removeSlot: (i: number) => void;
 }) {
   const [parks, setParks] = React.useState<Park[]>([]);
   const [parksLoading, setParksLoading] = React.useState(false);
@@ -952,114 +958,84 @@ function StepLocation({
           לחץ על המפה כדי לדייק את הפין
         </p>
       </div>
+
+      {/* ── Schedule ─────────────────────────────────────── */}
+      <div className="border-t border-gray-100 pt-5 space-y-4">
+        <div>
+          <FieldLabel>יום בשבוע</FieldLabel>
+          <div className="grid grid-cols-7 gap-1">
+            {DAYS.map((d, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSlotDay(i)}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  slotDay === i
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel>שעה</FieldLabel>
+          <div className="flex gap-2">
+            <input
+              type="time"
+              value={slotTime}
+              onChange={(e) => setSlotTime(e.target.value)}
+              className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+            <button
+              type="button"
+              onClick={addSlot}
+              disabled={!slotTime.match(/^\d{1,2}:\d{2}$/)}
+              className="px-4 py-3 rounded-xl bg-cyan-500 text-white text-sm font-black flex items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              הוסף
+            </button>
+          </div>
+        </div>
+
+        {form.scheduleSlots.length > 0 && (
+          <div className="space-y-2">
+            <FieldLabel>מועדים שנבחרו</FieldLabel>
+            {form.scheduleSlots.map((slot, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100"
+              >
+                <span className="text-sm font-bold text-gray-800">
+                  יום {DAYS_FULL[slot.dayOfWeek]} · {slot.time}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeSlot(i)}
+                  className="p-1.5 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {form.scheduleSlots.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-1">
+            ניתן להמשיך ללא לוח זמנים ולעדכן מאוחר יותר
+          </p>
+        )}
+      </div>
     </div>
   );
 }
-
-// ── Step 3: Schedule ──────────────────────────────────────────────────────────
 
 const DAYS_FULL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-
-function StepSchedule({
-  form,
-  slotDay,
-  slotTime,
-  setSlotDay,
-  setSlotTime,
-  addSlot,
-  removeSlot,
-}: {
-  form: WizardForm;
-  slotDay: number;
-  slotTime: string;
-  setSlotDay: (d: number) => void;
-  setSlotTime: (t: string) => void;
-  addSlot: () => void;
-  removeSlot: (i: number) => void;
-}) {
-  const timeValid = slotTime.match(/^\d{1,2}:\d{2}$/);
-
-  return (
-    <div className="space-y-5 pt-4">
-      <p className="text-xs text-gray-500 leading-relaxed">
-        הוסף מועדי מפגש קבועים. ניתן להוסיף מספר ימים ושעות.
-      </p>
-
-      {/* Day selector */}
-      <div>
-        <FieldLabel>יום בשבוע</FieldLabel>
-        <div className="grid grid-cols-7 gap-1">
-          {DAYS.map((d, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setSlotDay(i)}
-              className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-                slotDay === i
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Time input */}
-      <div>
-        <FieldLabel>שעה</FieldLabel>
-        <div className="flex gap-2">
-          <input
-            type="time"
-            value={slotTime}
-            onChange={(e) => setSlotTime(e.target.value)}
-            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          />
-          <button
-            type="button"
-            onClick={addSlot}
-            disabled={!timeValid}
-            className="px-4 py-3 rounded-xl bg-cyan-500 text-white text-sm font-black flex items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            הוסף
-          </button>
-        </div>
-      </div>
-
-      {/* Added slots list */}
-      {form.scheduleSlots.length > 0 && (
-        <div className="space-y-2">
-          <FieldLabel>מועדים שנבחרו</FieldLabel>
-          {form.scheduleSlots.map((slot, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100"
-            >
-              <span className="text-sm font-bold text-gray-800">
-                יום {DAYS_FULL[slot.dayOfWeek]} · {slot.time}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeSlot(i)}
-                className="p-1.5 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {form.scheduleSlots.length === 0 && (
-        <p className="text-xs text-gray-400 text-center py-2">
-          ניתן להמשיך ללא לוח זמנים ולעדכן מאוחר יותר
-        </p>
-      )}
-    </div>
-  );
-}
 
 // ── Step 4: Privacy & Rules ───────────────────────────────────────────────────
 
