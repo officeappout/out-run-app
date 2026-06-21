@@ -58,6 +58,10 @@ const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מתי
 // Types that are always private — no public/private toggle shown for these
 const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
 
+// B2B/B2E types: after type selection, show an outreach nudge before StepBasics.
+// User can still create a group by clicking "המשך ממילא".
+const OUTREACH_TYPES = new Set<CommunityGroupType>(['work', 'university']);
+
 // ── Form state type ───────────────────────────────────────────────────────────
 
 interface WizardForm {
@@ -121,6 +125,9 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   const myGender = profile?.core?.gender;
 
   const [step, setStep] = useState(0);
+  // outreachMode: shown after StepType for institutional types before StepBasics
+  const [outreachMode, setOutreachMode] = useState<'outreach' | null>(null);
+  const [outreachSent, setOutreachSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{
@@ -218,12 +225,26 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   };
 
   const handleNext = () => {
+    // StepType → show outreach interstitial for B2B types (work / university)
+    if (step === 0 && OUTREACH_TYPES.has(form.groupType) && !outreachMode) {
+      setOutreachMode('outreach');
+      return;
+    }
+    // Leaving outreach interstitial → clear it
+    if (outreachMode) { setOutreachMode(null); setOutreachSent(false); }
     // "כל אחד בקצב שלו" — skip when+where, jump straight to privacy
     if (step === 2 && form.hasMeetups === false) { setStep(4); return; }
     if (step < 5) setStep((s) => s + 1);
   };
 
   const handleBack = () => {
+    // Back from outreach interstitial → return to StepType
+    if (outreachMode) { setOutreachMode(null); setOutreachSent(false); return; }
+    // Back from StepBasics for outreach types → show outreach again
+    if (step === 1 && OUTREACH_TYPES.has(form.groupType)) {
+      setOutreachMode('outreach');
+      return;
+    }
     // Coming back from privacy when hasMeetups=false — return to StepMode
     if (step === 4 && form.hasMeetups === false) { setStep(2); return; }
     if (step > 0) setStep((s) => s - 1);
@@ -345,6 +366,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
   const handleClose = () => {
     setStep(0);
+    setOutreachMode(null);
+    setOutreachSent(false);
     setSubmitError(null);
     setForm(BLANK_FORM);
     setSuccessInfo(null);
@@ -423,7 +446,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     ))}
                   </div>
                   <p className="text-[11px] text-gray-500 font-semibold mt-1.5 text-center">
-                    {STEPS[step]}
+                    {outreachMode ? 'פנייה לארגון' : STEPS[step]}
                   </p>
                 </>
               )}
@@ -525,13 +548,21 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                 <div className="flex-1 overflow-y-auto px-5 pb-4" dir="rtl">
                   <AnimatePresence mode="wait">
                     <motion.div
-                      key={step}
+                      key={outreachMode ?? step}
                       initial={{ opacity: 0, x: -16 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 16 }}
                       transition={{ duration: 0.18 }}
                     >
-                      {step === 0 && <StepType form={form} updateForm={updateForm} />}
+                      {outreachMode === 'outreach' && (
+                        <StepOutreach
+                          groupType={form.groupType}
+                          outreachSent={outreachSent}
+                          onSend={() => setOutreachSent(true)}
+                          onContinue={handleNext}
+                        />
+                      )}
+                      {!outreachMode && step === 0 && <StepType form={form} updateForm={updateForm} />}
                       {step === 1 && <StepBasics form={form} updateForm={updateForm} />}
                       {step === 2 && <StepMode form={form} updateForm={updateForm} />}
                       {step === 3 && (
@@ -547,8 +578,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           removeSlot={removeSlot}
                         />
                       )}
-                      {step === 4 && <StepPrivacy form={form} updateForm={updateForm} />}
-                      {step === 5 && (
+                      {!outreachMode && step === 4 && <StepPrivacy form={form} updateForm={updateForm} />}
+                      {!outreachMode && step === 5 && (
                         <StepFinalize
                           form={form}
                           fileInputRef={fileInputRef}
@@ -574,13 +605,13 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       <ChevronRight className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    {step < 5 ? (
+                    {(outreachMode || step < 5) ? (
                       <button
                         onClick={handleNext}
-                        disabled={!canAdvance()}
+                        disabled={!outreachMode && !canAdvance()}
                         className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        המשך
+                        {outreachMode ? 'המשך ליצירה' : 'המשך'}
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                     ) : (
@@ -629,6 +660,76 @@ function t(male: string, female: string, gender?: string | null): string {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-gray-500 mb-1.5">{children}</label>;
+}
+
+// ── Outreach interstitial (work / university) ─────────────────────────────────
+
+function StepOutreach({
+  groupType,
+  outreachSent,
+  onSend,
+  onContinue,
+}: {
+  groupType: CommunityGroupType;
+  outreachSent: boolean;
+  onSend: () => void;
+  onContinue: () => void;
+}) {
+  const isWork       = groupType === 'work';
+  const label        = isWork ? 'מקום העבודה' : 'הקמפוס';
+  const recipient    = isWork ? 'HR / מנהל ישיר' : 'אגודת הסטודנטים';
+  const icon         = isWork ? '🏢' : '🎓';
+  const orgLabel     = isWork ? 'החברה' : 'הקמפוס';
+
+  const shareText =
+    `היי, אני מתאמן/ת עם Out ורוצה להביא את הפלטפורמה ל${label} שלנו! Out זו ליגת כושר עירונית שמחברת אנשים לאימונים חכמים בחוץ. בואו נדבר!\n\nhttps://appout.co.il/`;
+
+  return (
+    <div className="space-y-5 pt-4 text-right" dir="rtl">
+      <div className="bg-gradient-to-b from-amber-50 to-white rounded-3xl p-6 border border-amber-200/60 text-center">
+        <div className="text-4xl mb-3">{icon}</div>
+        <h3 className="text-base font-black text-gray-900">
+          רוצים ליגה רשמית ל{label}?
+        </h3>
+        <p className="text-xs text-gray-600 mt-2 leading-relaxed max-w-[280px] mx-auto">
+          פנו ל{recipient} ובקשו שישתפו פעולה עם Out — ואנחנו נפתח את הליגה הרשמית!
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <p className="text-sm font-bold text-gray-900 mb-2">איך זה עובד?</p>
+        <ol className="text-xs text-gray-600 space-y-1.5 list-decimal pr-4">
+          <li>שלחו את ההודעה ל{recipient}</li>
+          <li>הם יצרו קשר עם Out</li>
+          <li>הליגה הרשמית של {orgLabel} נפתחת!</li>
+        </ol>
+      </div>
+
+      <button
+        onClick={() => {
+          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+          onSend();
+        }}
+        disabled={outreachSent}
+        className={`w-full py-4 rounded-2xl font-black text-sm shadow-md active:scale-[0.98] transition-all ${
+          outreachSent
+            ? 'bg-emerald-500 text-white'
+            : 'bg-gradient-to-l from-amber-500 to-orange-500 text-white'
+        }`}
+      >
+        {outreachSent
+          ? `✅ נשלח! תודה ${icon}`
+          : `📩 שלח הודעה ל${recipient}`}
+      </button>
+
+      <button
+        onClick={onContinue}
+        className="w-full py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold text-sm active:scale-[0.98] transition-all"
+      >
+        {outreachSent ? 'המשך ליצירת הקבוצה →' : 'המשך בלי לשלוח'}
+      </button>
+    </div>
+  );
 }
 
 // ── Step 2: Mode ─────────────────────────────────────────────────────────────
