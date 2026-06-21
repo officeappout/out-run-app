@@ -155,6 +155,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
       // hasMeetups: prefer explicit Firestore value; fall back to inferring from
       // existing scheduleSlots (legacy groups without the field).
       const inferredHasMeetups = group.hasMeetups ?? (slots.length > 0 ? true : null);
+      // Skip StepType in edit mode — type is immutable after creation.
+      setStep(1);
       setForm({
         name: group.name,
         description: group.description ?? '',
@@ -272,14 +274,20 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
       const rulesStr = form.rules.trim() || null;
 
+      // hasMeetups=false → no location, no schedule slots
+      const effectiveHasMeetups = form.hasMeetups ?? true;
+      const effectiveSlots = effectiveHasMeetups ? form.scheduleSlots : [];
+      const effectiveLocation = effectiveHasMeetups ? meetingLocation : undefined;
+
       if (isEditMode && editGroupId) {
         // ── Edit Mode: update existing document ──────────────────────────────
         await updateGroup(editGroupId, {
           name: form.name.trim(),
           description: form.description.trim(),
           category: form.category,
-          scheduleSlots: form.scheduleSlots,
-          meetingLocation,
+          hasMeetups: effectiveHasMeetups,
+          scheduleSlots: effectiveSlots,
+          meetingLocation: effectiveLocation,
           isPublic: form.isPublic,
           allowJoinRequests: form.isPublic ? false : form.allowJoinRequests,
           rules: rulesStr,
@@ -288,8 +296,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
         onSuccess(editGroupId);
       } else {
         // ── Create Mode: create new document + celebrate ─────────────────────
-        const isSocialGroup = form.groupType === 'friends' || form.groupType === 'family';
-        // Social groups (friends/family) are not city-scoped; they're private by design.
+        const isSocialGroup = ALWAYS_PRIVATE_TYPES.has(form.groupType);
+        // Social/institutional groups are not city-scoped; they're private by design.
         const effectiveAuthorityId = isSocialGroup ? null : authorityId;
 
         const { groupId, inviteCode } = await createGroup(profile.id, profile.core.name, {
@@ -297,12 +305,13 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
           description: form.description.trim(),
           category: form.category,
           groupType: form.groupType,
+          hasMeetups: effectiveHasMeetups,
           scopeId: effectiveAuthorityId,
           ...(effectiveAuthorityId ? { authorityId: effectiveAuthorityId } : {}),
           isPublic: isSocialGroup ? false : form.isPublic,
           allowJoinRequests: (isSocialGroup || form.isPublic) ? false : form.allowJoinRequests,
-          scheduleSlots: form.scheduleSlots,
-          meetingLocation,
+          scheduleSlots: effectiveSlots,
+          meetingLocation: effectiveLocation,
           rules: rulesStr ?? undefined,
           images: resolvedImages,
           source: 'user',
@@ -335,9 +344,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   // ── Reset on close ───────────────────────────────────────────────────────
 
   const handleClose = () => {
-    // Edit mode stays on step 1 (type step is irrelevant for edits).
-    // Create mode resets to step 0 (type selection).
-    setStep(isEditMode ? 1 : 0);
+    setStep(0);
     setSubmitError(null);
     setForm(BLANK_FORM);
     setSuccessInfo(null);
