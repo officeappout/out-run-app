@@ -479,7 +479,7 @@ export default function CommunitySessionBanner({
               onClick={isJoined ? async () => {
                 useSharedSession.getState().startGroupSession(
                   session.groupId,
-                  `${session.date}_${session.time}`,
+                  `${session.date}_${session.time.replace(':', '-')}`,
                   session.attendance?.attendees ?? [],
                   session.attendance?.attendeeProfiles ?? {},
                   session.groupName,
@@ -559,7 +559,7 @@ export default function CommunitySessionBanner({
             // connect automatically when the FreeRun player mounts.
             useSharedSession.getState().startGroupSession(
               session.groupId,
-              `${session.date}_${session.time}`,
+              `${session.date}_${session.time.replace(':', '-')}`,
               session.attendance?.attendees ?? [],
               session.attendance?.attendeeProfiles ?? {},
               session.groupName,
