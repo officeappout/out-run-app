@@ -198,7 +198,7 @@ export default function GatewayPage() {
   };
 
   // Phase G v1 — session invite token consumed post-auth.
-  // Returns '/map' if a pending token was found and consumed, null otherwise.
+  // Returns the redirect URL if a pending token was found and consumed, null otherwise.
   const consumePendingSessionInvite = async (
     uid: string,
     displayName: string,
@@ -216,11 +216,12 @@ export default function GatewayPage() {
       );
       // Seed the group session context — onSnapshot fills memberIds/profiles
       useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, '');
+      // Open community page with group drawer — user sees live banner and can tap "הצטרף לאימון"
+      return `/community?groupId=${groupId}`;
     } catch (e) {
       console.error('[Gateway] session invite consume failed:', e);
+      return '/map';
     }
-
-    return '/map';
   };
 
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──

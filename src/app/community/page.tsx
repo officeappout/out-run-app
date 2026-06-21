@@ -502,7 +502,7 @@ export default function CommunityPage() {
         group={selectedGroup}
         onJoin={handleJoinGroup}
         onLeave={handleLeaveGroup}
-        isJoined={selectedGroup ? joinedGroupIds.has(selectedGroup.id) : false}
+        isJoined={selectedGroup ? (joinedGroupIds.has(selectedGroup.id) || selectedGroup.createdBy === userId) : false}
         joining={selectedGroup ? joiningId === selectedGroup.id : false}
         onOpenChat={() => { setSelectedGroup(null); openChat(); }}
         onEdit={(id) => { setSelectedGroup(null); setEditGroupId(id); setWizardOpen(true); }}

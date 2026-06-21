@@ -70,7 +70,9 @@ export default function SessionTokenPage() {
           invitation.groupName,
         );
 
-        router.push('/map');
+        // Navigate to community page and open group drawer via ?groupId= deep-link support.
+        // From the drawer the user sees the live session banner and can tap "הצטרף לאימון".
+        router.push(`/community?groupId=${groupId}`);
       } catch (err) {
         console.error('[SessionTokenPage] consume failed:', err);
         if (err instanceof Error && err.message === 'invitation-expired') {
