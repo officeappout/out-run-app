@@ -53,7 +53,10 @@ const CATEGORIES: { value: CommunityGroupCategory; label: string; emoji: string 
 
 const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
-const STEPS = ['בסיסים', 'מיקום', 'לוח זמנים', 'פרטיות', 'סיום'];
+const STEPS = ['סוג קבוצה', 'בסיסים', 'מיקום', 'לוח זמנים', 'פרטיות', 'סיום'];
+
+// Types that are always private — no public/private toggle shown for these
+const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
 
 // ── Form state type ───────────────────────────────────────────────────────────
 
@@ -203,16 +206,17 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   // ── Validation per step ──────────────────────────────────────────────────
 
   const canAdvance = (): boolean => {
-    if (step === 0) return form.name.trim().length >= 2;
-    // Location is optional for social groups (friends/family meet anywhere)
-    if (step === 1) return form.groupType === 'friends' || form.groupType === 'family' || form.locationSelected;
-    if (step === 2) return true;
+    if (step === 0) return true; // StepType: a type is always pre-selected
+    if (step === 1) return form.name.trim().length >= 2;
+    // Step 2: StepLocation — optional for non-geographic types
+    if (step === 2) return ALWAYS_PRIVATE_TYPES.has(form.groupType) || form.locationSelected;
     if (step === 3) return true;
+    if (step === 4) return true;
     return true;
   };
 
   const handleNext = () => {
-    if (step < 4) setStep((s) => s + 1);
+    if (step < 5) setStep((s) => s + 1);
   };
 
   const handleBack = () => {
@@ -327,7 +331,9 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   // ── Reset on close ───────────────────────────────────────────────────────
 
   const handleClose = () => {
-    setStep(0);
+    // Edit mode stays on step 1 (type step is irrelevant for edits).
+    // Create mode resets to step 0 (type selection).
+    setStep(isEditMode ? 1 : 0);
     setSubmitError(null);
     setForm(BLANK_FORM);
     setSuccessInfo(null);
@@ -514,15 +520,16 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       exit={{ opacity: 0, x: 16 }}
                       transition={{ duration: 0.18 }}
                     >
-                      {step === 0 && <StepBasics form={form} updateForm={updateForm} />}
-                      {step === 1 && (
+                      {step === 0 && <StepType form={form} updateForm={updateForm} />}
+                      {step === 1 && <StepBasics form={form} updateForm={updateForm} />}
+                      {step === 2 && (
                         <StepLocation
                           form={form}
                           updateForm={updateForm}
                           authorityId={access.cityAuthorityId ?? ''}
                         />
                       )}
-                      {step === 2 && (
+                      {step === 3 && (
                         <StepSchedule
                           form={form}
                           slotDay={slotDay}
@@ -533,8 +540,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           removeSlot={removeSlot}
                         />
                       )}
-                      {step === 3 && <StepPrivacy form={form} updateForm={updateForm} />}
-                      {step === 4 && (
+                      {step === 4 && <StepPrivacy form={form} updateForm={updateForm} />}
+                      {step === 5 && (
                         <StepFinalize
                           form={form}
                           fileInputRef={fileInputRef}
@@ -560,7 +567,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       <ChevronRight className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    {step < 4 ? (
+                    {step < 5 ? (
                       <button
                         onClick={handleNext}
                         disabled={!canAdvance()}
@@ -589,9 +596,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     )}
                   </div>
 
-                  {/* Location hint — visible only on step 1 when no location is set */}
-                  {step === 1 && !form.locationSelected &&
-                   form.groupType !== 'friends' && form.groupType !== 'family' && (
+                  {/* Location hint — visible only on step 2 when no location is set */}
+                  {step === 2 && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
                     <p className="text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1">
                       <MapPin className="w-3 h-3" />
                       יש לבחור מיקום כדי להמשיך
@@ -618,12 +624,61 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-gray-500 mb-1.5">{children}</label>;
 }
 
+// ── Step 0: Type ─────────────────────────────────────────────────────────────
+
+function StepType({
+  form,
+  updateForm,
+}: {
+  form: WizardForm;
+  updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
+}) {
+  const handleTypeChange = (value: CommunityGroupType) => {
+    updateForm('groupType', value);
+    // Always-private types force isPublic=false immediately
+    updateForm('isPublic', ALWAYS_PRIVATE_TYPES.has(value) ? false : true);
+  };
+
+  return (
+    <div className="space-y-4 pt-4">
+      <p className="text-xs text-gray-500 leading-relaxed">בחר את סוג הקהילה שתרצה ליצור</p>
+      <div className="grid grid-cols-2 gap-3">
+        {GROUP_TYPES.map((gt) => (
+          <button
+            key={gt.value}
+            type="button"
+            onClick={() => handleTypeChange(gt.value)}
+            className={`flex flex-col items-center gap-1.5 py-4 px-2 rounded-2xl border-2 transition-all active:scale-95 ${
+              form.groupType === gt.value
+                ? 'border-cyan-500 bg-cyan-50'
+                : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+            }`}
+          >
+            <span className="text-2xl">{gt.emoji}</span>
+            <span className="text-xs font-black text-gray-800 text-center leading-tight">{gt.label}</span>
+            <span className="text-[9px] text-gray-400 text-center leading-tight">{gt.sub}</span>
+          </button>
+        ))}
+      </div>
+      {ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
+        <p className="text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
+          🔒 קבוצה פרטית — הצטרפות בקוד הזמנה בלבד
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Step 1: Basics ────────────────────────────────────────────────────────────
 
 const GROUP_TYPES: { value: CommunityGroupType; emoji: string; label: string; sub: string }[] = [
-  { value: 'neighborhood', emoji: '🏘️', label: 'שכונה / קהילה',  sub: 'קבוצת אימון מקומית' },
-  { value: 'friends',      emoji: '👥', label: 'חברים',           sub: 'קבוצה פרטית לחברים' },
-  { value: 'family',       emoji: '👨‍👩‍👧', label: 'משפחה',           sub: 'אתגר משפחתי' },
+  { value: 'neighborhood', emoji: '🏘️', label: 'שכונה',    sub: 'קבוצת אימון מקומית' },
+  { value: 'friends',      emoji: '👥', label: 'חברים',    sub: 'קבוצה פרטית לחברים' },
+  { value: 'family',       emoji: '👨‍👩‍👧', label: 'משפחה',    sub: 'אתגר משפחתי' },
+  { value: 'work',         emoji: '💼', label: 'עבודה',    sub: 'אתגר ספורט בעבודה' },
+  { value: 'university',   emoji: '🎓', label: 'קמפוס',   sub: 'קהילת סטודנטים' },
+  { value: 'park',         emoji: '🌳', label: 'פארק',     sub: 'קהילת פארק' },
+  { value: 'school',       emoji: '🏫', label: 'ביה״ס',   sub: 'קהילת בית ספר' },
 ];
 
 function StepBasics({
@@ -633,49 +688,8 @@ function StepBasics({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
-  const isSocial = form.groupType === 'friends' || form.groupType === 'family';
-
-  const handleGroupTypeChange = (value: CommunityGroupType) => {
-    updateForm('groupType', value);
-    // Social groups are always private — enforce it immediately
-    if (value === 'friends' || value === 'family') {
-      updateForm('isPublic', false);
-    } else {
-      updateForm('isPublic', true);
-    }
-  };
-
   return (
     <div className="space-y-5 pt-4">
-
-      {/* Group type picker */}
-      <div>
-        <FieldLabel>סוג הקבוצה</FieldLabel>
-        <div className="grid grid-cols-3 gap-2">
-          {GROUP_TYPES.map((gt) => (
-            <button
-              key={gt.value}
-              type="button"
-              onClick={() => handleGroupTypeChange(gt.value)}
-              className={`flex flex-col items-center gap-1 py-3 px-1 rounded-xl border-2 transition-all ${
-                form.groupType === gt.value
-                  ? 'border-cyan-500 bg-cyan-50'
-                  : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-              }`}
-            >
-              <span className="text-xl">{gt.emoji}</span>
-              <span className="text-[11px] font-black text-gray-800 text-center leading-tight">{gt.label}</span>
-              <span className="text-[9px] text-gray-400 text-center leading-tight">{gt.sub}</span>
-            </button>
-          ))}
-        </div>
-        {isSocial && (
-          <p className="mt-2 text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
-            🔒 קבוצה פרטית — הצטרפות בקוד הזמנה בלבד
-          </p>
-        )}
-      </div>
-
       <div>
         <FieldLabel>שם הקבוצה *</FieldLabel>
         <input
@@ -727,65 +741,6 @@ function StepBasics({
         <p className="text-[10px] text-gray-400 mt-1 text-left">{form.description.length}/300</p>
       </div>
 
-      {/* Privacy — neighborhood groups only (social groups are always private) */}
-      {form.groupType === 'neighborhood' && (
-        <div>
-          <FieldLabel>מי יכול להצטרף?</FieldLabel>
-          <div className="grid grid-cols-2 gap-3">
-            {([
-              { value: true,  icon: <Globe className="w-4 h-4" />,  label: 'ציבורית', sub: 'כל אחד יכול להצטרף' },
-              { value: false, icon: <Lock className="w-4 h-4" />,   label: 'פרטית',   sub: 'רק בהזמנה' },
-            ] as const).map((opt) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => {
-                  updateForm('isPublic', opt.value);
-                  if (opt.value) updateForm('allowJoinRequests', false);
-                }}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
-                  form.isPublic === opt.value
-                    ? 'border-cyan-500 bg-cyan-50'
-                    : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                }`}
-              >
-                <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
-                  {opt.icon}
-                </span>
-                <span className="text-xs font-black text-gray-800">{opt.label}</span>
-                <span className="text-[9px] text-gray-400 text-center leading-tight">{opt.sub}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Join requests — only for private neighborhood groups */}
-      {form.groupType === 'neighborhood' && !form.isPublic && (
-        <div>
-          <FieldLabel>אפשר לבקש להצטרף?</FieldLabel>
-          <div className="grid grid-cols-2 gap-3">
-            {([
-              { value: true,  label: 'כן', sub: 'אנשים יכולים לשלוח בקשה' },
-              { value: false, label: 'לא', sub: 'הצטרפות בקוד הזמנה בלבד' },
-            ] as const).map((opt) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => updateForm('allowJoinRequests', opt.value)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
-                  form.allowJoinRequests === opt.value
-                    ? 'border-cyan-500 bg-cyan-50'
-                    : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                }`}
-              >
-                <span className="text-sm font-black text-gray-800">{opt.label}</span>
-                <span className="text-[9px] text-gray-400 text-center leading-tight">{opt.sub}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1051,35 +1006,77 @@ function StepPrivacy({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
+  const isAlwaysPrivate = ALWAYS_PRIVATE_TYPES.has(form.groupType);
+
   return (
     <div className="space-y-5 pt-4">
-      {/* Public / Private toggle */}
-      <div>
-        <FieldLabel>פרטיות</FieldLabel>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { value: true, icon: <Globe className="w-5 h-5" />, label: 'ציבורי', sub: 'כולם יכולים להצטרף' },
-            { value: false, icon: <Lock className="w-5 h-5" />, label: 'פרטי', sub: 'הצטרפות בקוד הזמנה' },
-          ].map((opt) => (
-            <button
-              key={String(opt.value)}
-              type="button"
-              onClick={() => updateForm('isPublic', opt.value)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                form.isPublic === opt.value
-                  ? 'border-cyan-500 bg-cyan-50'
-                  : 'border-gray-100 bg-gray-50'
-              }`}
-            >
-              <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
-                {opt.icon}
-              </span>
-              <span className="text-sm font-black text-gray-800">{opt.label}</span>
-              <span className="text-[10px] text-gray-500 text-center leading-tight">{opt.sub}</span>
-            </button>
-          ))}
+      {/* Public / Private toggle — hidden for always-private types */}
+      {isAlwaysPrivate ? (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-cyan-50 border border-cyan-100">
+          <Lock className="w-5 h-5 text-cyan-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-black text-gray-800">קבוצה פרטית</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">הצטרפות בקוד הזמנה בלבד — מתאים לסוג קבוצה זה</p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div>
+          <FieldLabel>פרטיות</FieldLabel>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { value: true,  icon: <Globe className="w-5 h-5" />, label: 'ציבורי', sub: 'כולם יכולים להצטרף' },
+              { value: false, icon: <Lock className="w-5 h-5" />,  label: 'פרטי',   sub: 'הצטרפות בקוד הזמנה' },
+            ].map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => {
+                  updateForm('isPublic', opt.value);
+                  if (opt.value) updateForm('allowJoinRequests', false);
+                }}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                  form.isPublic === opt.value
+                    ? 'border-cyan-500 bg-cyan-50'
+                    : 'border-gray-100 bg-gray-50'
+                }`}
+              >
+                <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
+                  {opt.icon}
+                </span>
+                <span className="text-sm font-black text-gray-800">{opt.label}</span>
+                <span className="text-[10px] text-gray-500 text-center leading-tight">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Join requests — only for non-always-private groups that chose private */}
+      {!isAlwaysPrivate && !form.isPublic && (
+        <div>
+          <FieldLabel>אפשר לבקש להצטרף?</FieldLabel>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { value: true,  label: 'כן', sub: 'אנשים יכולים לשלוח בקשה' },
+              { value: false, label: 'לא', sub: 'הצטרפות בקוד הזמנה בלבד' },
+            ] as const).map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => updateForm('allowJoinRequests', opt.value)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                  form.allowJoinRequests === opt.value
+                    ? 'border-cyan-500 bg-cyan-50'
+                    : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                }`}
+              >
+                <span className="text-sm font-black text-gray-800">{opt.label}</span>
+                <span className="text-[9px] text-gray-400 text-center leading-tight">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Rules */}
       <div>
