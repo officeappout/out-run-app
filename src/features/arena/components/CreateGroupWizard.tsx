@@ -53,7 +53,7 @@ const CATEGORIES: { value: CommunityGroupCategory; label: string; emoji: string 
 
 const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
-const STEPS = ['סוג קבוצה', 'בסיסים', 'מיקום', 'לוח זמנים', 'פרטיות', 'סיום'];
+const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מיקום', 'לוח זמנים', 'פרטיות', 'סיום'];
 
 // Types that are always private — no public/private toggle shown for these
 const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
@@ -206,20 +206,25 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   // ── Validation per step ──────────────────────────────────────────────────
 
   const canAdvance = (): boolean => {
-    if (step === 0) return true; // StepType: a type is always pre-selected
-    if (step === 1) return form.name.trim().length >= 2;
-    // Step 2: StepLocation — optional for non-geographic types
-    if (step === 2) return ALWAYS_PRIVATE_TYPES.has(form.groupType) || form.locationSelected;
-    if (step === 3) return true;
-    if (step === 4) return true;
+    if (step === 0) return true;                                            // StepType
+    if (step === 1) return form.name.trim().length >= 2;                   // StepBasics
+    if (step === 2) return form.hasMeetups !== null;                       // StepMode
+    // StepLocation (step 3) — optional for non-geographic types
+    if (step === 3) return ALWAYS_PRIVATE_TYPES.has(form.groupType) || form.locationSelected;
+    if (step === 4) return true;                                            // StepSchedule
+    if (step === 5) return true;                                            // StepPrivacy
     return true;
   };
 
   const handleNext = () => {
-    if (step < 5) setStep((s) => s + 1);
+    // "כל אחד בקצב שלו" — skip location + schedule, jump straight to privacy
+    if (step === 2 && form.hasMeetups === false) { setStep(5); return; }
+    if (step < 6) setStep((s) => s + 1);
   };
 
   const handleBack = () => {
+    // Coming back from privacy when hasMeetups=false — return to StepMode
+    if (step === 5 && form.hasMeetups === false) { setStep(2); return; }
     if (step > 0) setStep((s) => s - 1);
     else onClose();
   };
@@ -522,14 +527,15 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     >
                       {step === 0 && <StepType form={form} updateForm={updateForm} />}
                       {step === 1 && <StepBasics form={form} updateForm={updateForm} />}
-                      {step === 2 && (
+                      {step === 2 && <StepMode form={form} updateForm={updateForm} />}
+                      {step === 3 && (
                         <StepLocation
                           form={form}
                           updateForm={updateForm}
                           authorityId={access.cityAuthorityId ?? ''}
                         />
                       )}
-                      {step === 3 && (
+                      {step === 4 && (
                         <StepSchedule
                           form={form}
                           slotDay={slotDay}
@@ -540,8 +546,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           removeSlot={removeSlot}
                         />
                       )}
-                      {step === 4 && <StepPrivacy form={form} updateForm={updateForm} />}
-                      {step === 5 && (
+                      {step === 5 && <StepPrivacy form={form} updateForm={updateForm} />}
+                      {step === 6 && (
                         <StepFinalize
                           form={form}
                           fileInputRef={fileInputRef}
@@ -567,7 +573,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       <ChevronRight className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    {step < 5 ? (
+                    {step < 6 ? (
                       <button
                         onClick={handleNext}
                         disabled={!canAdvance()}
@@ -596,8 +602,8 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                     )}
                   </div>
 
-                  {/* Location hint — visible only on step 2 when no location is set */}
-                  {step === 2 && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
+                  {/* Location hint — visible only on step 3 when no location is set */}
+                  {step === 3 && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
                     <p className="text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1">
                       <MapPin className="w-3 h-3" />
                       יש לבחור מיקום כדי להמשיך
@@ -622,6 +628,64 @@ function t(male: string, female: string, gender?: string | null): string {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold text-gray-500 mb-1.5">{children}</label>;
+}
+
+// ── Step 2: Mode ─────────────────────────────────────────────────────────────
+
+function StepMode({
+  form,
+  updateForm,
+}: {
+  form: WizardForm;
+  updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
+}) {
+  const options: { value: boolean; emoji: string; label: string; sub: string }[] = [
+    {
+      value: true,
+      emoji: '🏃',
+      label: 'אימון משותף',
+      sub: 'מפגשים קבועים בזמן ומקום — הקבוצה מתאמנת ביחד',
+    },
+    {
+      value: false,
+      emoji: '🏆',
+      label: 'כל אחד בקצב שלו',
+      sub: 'ליגה, אתגר או תחרות — כל אחד מתאמן ומדווח תוצאות',
+    },
+  ];
+
+  return (
+    <div className="space-y-4 pt-4">
+      <p className="text-xs text-gray-500 leading-relaxed">
+        איך הקהילה שלך מתאמנת ביחד?
+      </p>
+      <div className="flex flex-col gap-3">
+        {options.map((opt) => (
+          <button
+            key={String(opt.value)}
+            type="button"
+            onClick={() => updateForm('hasMeetups', opt.value)}
+            className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-right ${
+              form.hasMeetups === opt.value
+                ? 'border-cyan-500 bg-cyan-50'
+                : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+            }`}
+          >
+            <span className="text-3xl flex-shrink-0 mt-0.5">{opt.emoji}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className={`text-sm font-black ${form.hasMeetups === opt.value ? 'text-cyan-700' : 'text-gray-800'}`}>
+                {opt.label}
+              </span>
+              <span className="text-[11px] text-gray-500 leading-relaxed">{opt.sub}</span>
+            </div>
+            {form.hasMeetups === opt.value && (
+              <Check className="w-4 h-4 text-cyan-500 flex-shrink-0 mt-1 mr-auto" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ── Step 0: Type ─────────────────────────────────────────────────────────────
