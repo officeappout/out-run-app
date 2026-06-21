@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getDoc, doc } from 'firebase/firestore';
+import { bookSession } from '@/features/arena/services/booking.service';
 import { AnimatePresence, motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
@@ -84,6 +85,9 @@ export default function SessionLobbyOverlay({ onStartFreeRun }: SessionLobbyOver
     setStarting(true);
     try {
       const { date, time } = parseAttendanceId(attendanceId);
+      // Ensure attendance doc exists before updateDoc in setSessionPhase.
+      // bookSession is idempotent — safe to call even if the user already booked.
+      await bookSession(groupId, date, time, uid, (profile as any)?.core?.name ?? '', (profile as any)?.core?.photoURL ?? null);
       await setSessionPhase(groupId, date, time, 'active', uid);
       // onSnapshot will fire → phase → 'active' → countdown begins
     } catch (err) {

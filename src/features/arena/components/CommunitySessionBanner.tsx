@@ -476,13 +476,19 @@ export default function CommunitySessionBanner({
               key="here-btn"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              onClick={isJoined ? () => {
+              onClick={isJoined ? async () => {
                 useSharedSession.getState().startGroupSession(
                   session.groupId,
                   `${session.date}_${session.time}`,
                   session.attendance?.attendees ?? [],
                   session.attendance?.attendeeProfiles ?? {},
                   session.groupName,
+                );
+                // Ensure attendance doc exists and add user to attendees
+                // before handleStatus writes member_statuses or host calls setSessionPhase
+                await bookSession(
+                  session.groupId, session.date, session.time,
+                  uid, userName, photoURL ?? null, session.slot.maxParticipants,
                 );
                 void handleStatus('here');
                 router.push('/map');
