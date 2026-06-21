@@ -55,7 +55,7 @@ const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מתי ואיפה', 'פרטיות', 'סיום'];
 
-// Types that are always private — no public/private toggle shown for these
+// Types that default to private — toggle still shown, but isPublic initialises to false for these
 const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
 
 // B2B/B2E types: after type selection, show an outreach nudge before StepBasics.
@@ -841,7 +841,7 @@ function StepType({
       </div>
       {ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
         <p className="text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
-          🔒 קבוצה פרטית — הצטרפות בקוד הזמנה בלבד
+          🔒 ברירת-מחדל פרטי — ניתן לשנות בשלב הפרטיות
         </p>
       )}
     </div>
@@ -1168,53 +1168,50 @@ function StepPrivacy({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
-  const isAlwaysPrivate = ALWAYS_PRIVATE_TYPES.has(form.groupType);
+  const isPrivateByDefault = ALWAYS_PRIVATE_TYPES.has(form.groupType);
 
   return (
     <div className="space-y-5 pt-4">
-      {/* Public / Private toggle — hidden for always-private types */}
-      {isAlwaysPrivate ? (
-        <div className="flex items-center gap-3 p-4 rounded-2xl bg-cyan-50 border border-cyan-100">
-          <Lock className="w-5 h-5 text-cyan-500 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-black text-gray-800">קבוצה פרטית</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">הצטרפות בקוד הזמנה בלבד — מתאים לסוג קבוצה זה</p>
-          </div>
-        </div>
-      ) : (
-        <div>
+      {/* Public / Private toggle — shown for ALL types; private-by-default types start private */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
           <FieldLabel>פרטיות</FieldLabel>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { value: true,  icon: <Globe className="w-5 h-5" />, label: 'ציבורי', sub: 'כולם יכולים להצטרף' },
-              { value: false, icon: <Lock className="w-5 h-5" />,  label: 'פרטי',   sub: 'הצטרפות בקוד הזמנה' },
-            ].map((opt) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => {
-                  updateForm('isPublic', opt.value);
-                  if (opt.value) updateForm('allowJoinRequests', false);
-                }}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                  form.isPublic === opt.value
-                    ? 'border-cyan-500 bg-cyan-50'
-                    : 'border-gray-100 bg-gray-50'
-                }`}
-              >
-                <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
-                  {opt.icon}
-                </span>
-                <span className="text-sm font-black text-gray-800">{opt.label}</span>
-                <span className="text-[10px] text-gray-500 text-center leading-tight">{opt.sub}</span>
-              </button>
-            ))}
-          </div>
+          {isPrivateByDefault && (
+            <span className="text-[10px] text-cyan-600 font-semibold bg-cyan-50 px-1.5 py-0.5 rounded-md">
+              ברירת-מחדל פרטי
+            </span>
+          )}
         </div>
-      )}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: true,  icon: <Globe className="w-5 h-5" />, label: 'ציבורי', sub: 'כולם יכולים להצטרף' },
+            { value: false, icon: <Lock className="w-5 h-5" />,  label: 'פרטי',   sub: 'הצטרפות בקוד הזמנה' },
+          ].map((opt) => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              onClick={() => {
+                updateForm('isPublic', opt.value);
+                if (opt.value) updateForm('allowJoinRequests', false);
+              }}
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                form.isPublic === opt.value
+                  ? 'border-cyan-500 bg-cyan-50'
+                  : 'border-gray-100 bg-gray-50'
+              }`}
+            >
+              <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
+                {opt.icon}
+              </span>
+              <span className="text-sm font-black text-gray-800">{opt.label}</span>
+              <span className="text-[10px] text-gray-500 text-center leading-tight">{opt.sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Join requests — only for non-always-private groups that chose private */}
-      {!isAlwaysPrivate && !form.isPublic && (
+      {/* Join requests — available when group is private */}
+      {!form.isPublic && (
         <div>
           <FieldLabel>אפשר לבקש להצטרף?</FieldLabel>
           <div className="grid grid-cols-2 gap-3">
