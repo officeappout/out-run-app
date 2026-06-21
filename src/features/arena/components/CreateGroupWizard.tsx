@@ -25,6 +25,7 @@ import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup, updateGroup, getGroupById } from '@/features/arena/services/group.service';
 import { uploadCommunityImage } from '@/features/admin/services/community.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
+import { reverseGeocode } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { CommunityGroup, CommunityGroupCategory, CommunityGroupType, ScheduleSlot } from '@/types/community.types';
 
@@ -792,6 +793,7 @@ function StepLocation({
   const [parks, setParks] = React.useState<Park[]>([]);
   const [parksLoading, setParksLoading] = React.useState(false);
   const [selectedParkId, setSelectedParkId] = React.useState<string | null>(null);
+  const [geocoding, setGeocoding] = React.useState(false);
 
   // Fetch city parks once when the step mounts
   React.useEffect(() => {
@@ -824,16 +826,23 @@ function StepLocation({
     [updateForm],
   );
 
-  // Map pin click → update coords, set fallback address only if none chosen yet
+  // Map pin click → update coords, reverse-geocode to fill address automatically
   const handleMapPinChange = useCallback(
     (coords: { lat: number; lng: number }) => {
       setSelectedParkId(null);
       updateForm('coords', coords);
-      if (!form.address.trim()) {
-        updateForm('address', 'מיקום על המפה');
-      }
       updateForm('locationSelected', true);
+      setGeocoding(true);
+      reverseGeocode(coords.lat, coords.lng)
+        .then(({ displayName }) => {
+          updateForm('address', displayName || 'מיקום על המפה');
+        })
+        .catch(() => {
+          if (!form.address.trim()) updateForm('address', 'מיקום על המפה');
+        })
+        .finally(() => setGeocoding(false));
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [form.address, updateForm],
   );
 
@@ -848,7 +857,10 @@ function StepLocation({
     <div className="space-y-5 pt-4">
       {/* ── Address autocomplete ─────────────────────────── */}
       <div>
-        <FieldLabel>חפש כתובת, פארק או מקום</FieldLabel>
+        <div className="flex items-center justify-between mb-1">
+          <FieldLabel>חפש כתובת, פארק או מקום</FieldLabel>
+          {geocoding && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin" />}
+        </div>
         <CommunityAddressSearch
           value={form.address}
           onChange={handleAddressSelect}
