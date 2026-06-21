@@ -139,7 +139,20 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
   const [codeCopied, setCodeCopied] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
 
-  const [form, setForm] = useState<WizardForm>(BLANK_FORM);
+  // Use user's saved anchor location as map default, fall back to Jerusalem.
+  const userCoords = (profile?.core?.anchorLat && profile?.core?.anchorLng)
+    ? { lat: profile.core.anchorLat, lng: profile.core.anchorLng }
+    : { lat: 31.7683, lng: 35.2137 };
+
+  const [form, setForm] = useState<WizardForm>({ ...BLANK_FORM, coords: userCoords });
+
+  // When wizard opens in create mode, sync coords to current user location
+  useEffect(() => {
+    if (isOpen && !editGroupId) {
+      setForm((prev) => ({ ...prev, coords: userCoords }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Schedule slot builder state
   const [slotDay, setSlotDay] = useState(0);
@@ -1008,6 +1021,7 @@ function StepWhenWhere({
         <CommunityAddressSearch
           value={form.address}
           onChange={handleAddressSelect}
+          proximity={form.coords}
         />
       </div>
 
