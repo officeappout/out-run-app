@@ -37,6 +37,7 @@ import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
+import { useMyGroups } from '@/features/arena/hooks/useMyGroups';
 import { useUserLocation } from '@/features/arena/hooks/useUserLocation';
 import { haversineKm } from '@/features/arena/utils/distance';
 import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
@@ -132,6 +133,7 @@ export default function SearchPage() {
 
   const access = useArenaAccess();
   const { events, groups } = useArenaData(access.cityAuthorityId);
+  const { groups: myGroups } = useMyGroups();
   const { userCoords } = useUserLocation();
   const exerciseCount = useExerciseLibraryStore((s) => s.allExercises.length);
 
@@ -321,9 +323,9 @@ export default function SearchPage() {
   const termLower = searchTerm.trim().toLowerCase();
 
   const filteredGroups = useMemo(() => {
-    let base = discoverMode === 'my'
-      ? groups.filter((g) => joinedGroupIds.has(g.id))
-      : groups;
+    // "שלי" mode: use useMyGroups() which fetches by social.groupIds directly,
+    // so private/friends/family groups (not in the city scope) appear correctly.
+    let base = discoverMode === 'my' ? myGroups : groups;
 
     if (groupCategoryFilter !== 'all') {
       base = groupCategoryFilter === 'community'
@@ -340,7 +342,7 @@ export default function SearchPage() {
     }
 
     return base;
-  }, [groups, joinedGroupIds, discoverMode, groupCategoryFilter, termLower]);
+  }, [groups, myGroups, joinedGroupIds, discoverMode, groupCategoryFilter, termLower]);
 
   // Distance map for groups — used to show travel time on discover cards
   const groupDistances = useMemo<Record<string, number>>(() => {
