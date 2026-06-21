@@ -392,16 +392,7 @@ export default function GroupDetailsDrawer({
     }
   }, [groupId, group, weekLoaded, weekLoading]);
 
-  // ── Non-member live session — fires when drawer is open and no parent liveSession ──
-  const fallbackLiveSession = useGroupLiveSession(group, isOpen && !liveSession);
-  const effectiveLiveSession = liveSession ?? fallbackLiveSession;
-
-  // ── Early return AFTER all hooks ──────────────────────────────
-  if (!group) return null;
-
-  const isCreator = userId === group.createdBy;
-  const isCurrentUserAdmin = isCreator || groupMembers.some((m) => m.uid === userId && m.role === 'admin');
-
+  // ── Moderation handlers — must be before early return (Rules of Hooks) ──────
   const handleToggleAdmin = useCallback(async (member: GroupMember) => {
     if (!groupId || actionPending) return;
     setActionPending(member.uid);
@@ -426,6 +417,16 @@ export default function GroupDetailsDrawer({
     setConfirmRemove(member);
     setActiveActionUid(null);
   }, [groupId, actionPending]);
+
+  // ── Non-member live session — fires when drawer is open and no parent liveSession ──
+  const fallbackLiveSession = useGroupLiveSession(group, isOpen && !liveSession);
+  const effectiveLiveSession = liveSession ?? fallbackLiveSession;
+
+  // ── Early return AFTER all hooks ──────────────────────────────
+  if (!group) return null;
+
+  const isCreator = userId === group.createdBy;
+  const isCurrentUserAdmin = isCreator || groupMembers.some((m) => m.uid === userId && m.role === 'admin');
 
   const userAuthorityId = (profile as any)?.core?.authorityId ?? null;
   const canDropIn = (
