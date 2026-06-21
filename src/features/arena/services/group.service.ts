@@ -65,6 +65,8 @@ export interface CreateGroupInput {
   /** Origin tier: 'user' for wizard-created groups, 'authority' for admin panel */
   source?: CommunityGroup['source'];
   isOfficial?: boolean;
+  /** true = scheduled meetups; false = league/competition (no session banners) */
+  hasMeetups?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -150,6 +152,7 @@ export async function createGroup(
     // social groups stay open. Firestore rules block self-setting this to true
     // on `source: 'user'` creates, so only admin/authority creates can lock.
     isLocked: INSTITUTIONAL_GROUP_TYPES.has(input.groupType),
+    hasMeetups: input.hasMeetups ?? true,
 
     currentParticipants: 1,
     memberCount: 1,
@@ -403,6 +406,7 @@ export interface UpdateGroupInput {
   allowJoinRequests?: boolean;
   rules?: string | null;
   images?: string[];
+  hasMeetups?: boolean;
 }
 
 /**

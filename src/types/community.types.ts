@@ -182,6 +182,14 @@ export interface CommunityGroup {
   isCityOnly?: boolean;
   /** Restrict visibility to users of a specific neighborhood authority */
   restrictedNeighborhoodId?: string;
+
+  // ── Session mode ──────────────────────────────────────────────────────
+  /**
+   * true  = "אימון משותף" — group has scheduled meetups, shows session banners
+   * false = "כל אחד בקצב שלו" — league/competition mode, no session banners
+   * undefined = legacy group; treated as true (meetups assumed)
+   */
+  hasMeetups?: boolean;
 }
 
 export type CommunityGroupCategory = 
