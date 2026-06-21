@@ -889,6 +889,13 @@ service cloud.firestore {
                     && request.auth.uid == resource.data.createdBy
                     && request.resource.data.get('isLocked', false) == resource.data.get('isLocked', false);
 
+      // Group owner OR admin may patch schedule + location fields only.
+      // Scoped to exactly these keys so a group admin cannot rename the group,
+      // flip isLocked, or change any other field.
+      allow update: if (isGroupOwner(docId) || isGroupAdmin(docId))
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['scheduleSlots', 'meetingLocation', 'updatedAt']);
+
       // Any authenticated user can update only the membership counters when joining/leaving.
       // 'updatedAt' is included because group.service.ts writes it alongside the counters.
       allow update: if isAuthenticated()
