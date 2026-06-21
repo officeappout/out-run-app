@@ -40,6 +40,7 @@ import {
   addCommunitySessionsToPlanner,
   removeCommunitySessionsFromPlanner,
 } from '@/features/user/scheduling/services/communitySchedule.service';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -178,6 +179,11 @@ export async function createGroup(
     await updateDoc(doc(db, 'users', creatorUid), {
       'social.groupIds': arrayUnion(groupId),
     });
+    // Diagnostic: verify the write landed in Firestore before store refresh
+    const verifySnap = await getDoc(doc(db, 'users', creatorUid));
+    console.log('[createGroup] social.groupIds after write:', verifySnap.data()?.social?.groupIds);
+    // Refresh store so useMyGroups() sees the new group immediately
+    useUserStore.getState().refreshProfile().catch(() => {});
   } catch (userErr) {
     console.warn('[createGroup] user social.groupIds update failed (non-fatal):', userErr);
   }
@@ -246,6 +252,8 @@ export async function joinGroup(
   await updateDoc(doc(db, 'users', uid), {
     'social.groupIds': arrayUnion(groupId),
   });
+  // Refresh store so useMyGroups() sees the new group immediately
+  useUserStore.getState().refreshProfile().catch(() => {});
 
   // Step 3 (non-fatal): increment member counters on the group document
   try {
