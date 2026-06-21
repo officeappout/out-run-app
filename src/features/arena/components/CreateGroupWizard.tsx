@@ -588,6 +588,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                           form={form}
                           updateForm={updateForm}
                           authorityId={access.cityAuthorityId ?? ''}
+                          hasRealAnchor={!!(profile?.core?.anchorLat && profile?.core?.anchorLng)}
                           slotDay={slotDay}
                           slotTime={slotTime}
                           setSlotDay={setSlotDay}
@@ -929,12 +930,24 @@ function StepBasics({
   );
 }
 
+// ── Haversine distance (km) between two lat/lng points ───────────────────────
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ── Step 3: When & Where (location + schedule combined) ──────────────────────
 
 function StepWhenWhere({
   form,
   updateForm,
   authorityId,
+  hasRealAnchor,
   slotDay,
   slotTime,
   setSlotDay,
@@ -945,6 +958,8 @@ function StepWhenWhere({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
   authorityId: string;
+  /** True when profile.core.anchorLat/Lng are set — enables proximity sort. */
+  hasRealAnchor: boolean;
   slotDay: number;
   slotTime: string;
   setSlotDay: (d: number) => void;
@@ -952,18 +967,28 @@ function StepWhenWhere({
   addSlot: () => void;
   removeSlot: (i: number) => void;
 }) {
-  const [parks, setParks] = React.useState<Park[]>([]);
+  const [rawParks, setRawParks] = React.useState<Park[]>([]);
   const [parksLoading, setParksLoading] = React.useState(false);
   const [selectedParkId, setSelectedParkId] = React.useState<string | null>(null);
   const [geocoding, setGeocoding] = React.useState(false);
+
+  // Derive sorted list: by distance when anchor/pin is known; fallback to A-Z (raw DB order).
+  const parks = React.useMemo(() => {
+    if (!hasRealAnchor && !form.locationSelected) return rawParks;
+    return [...rawParks].sort(
+      (a, b) =>
+        haversineKm(form.coords.lat, form.coords.lng, a.location.lat, a.location.lng) -
+        haversineKm(form.coords.lat, form.coords.lng, b.location.lat, b.location.lng),
+    );
+  }, [rawParks, hasRealAnchor, form.locationSelected, form.coords.lat, form.coords.lng]);
 
   // Fetch city parks once when the step mounts
   React.useEffect(() => {
     if (!authorityId) return;
     setParksLoading(true);
     getParksByAuthority(authorityId)
-      .then(setParks)
-      .catch(() => setParks([]))
+      .then(setRawParks)
+      .catch(() => setRawParks([]))
       .finally(() => setParksLoading(false));
   }, [authorityId]);
 
