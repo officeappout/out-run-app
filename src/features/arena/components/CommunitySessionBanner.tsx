@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Clock, CheckCircle2, Loader2, X,
@@ -15,6 +16,7 @@ import { useSmartMessage } from '@/features/messages';
 import { useUserStore } from '@/features/user';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import type { LiveSessionPhase, MemberSessionStatus } from '@/types/community.types';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -116,6 +118,7 @@ export default function CommunitySessionBanner({
   onDropIn,
   isJoined = true,
 }: CommunitySessionBannerProps) {
+  const router  = useRouter();
   const profile = useUserStore((s) => s.profile);
   const uid      = profile?.id ?? '';
   const userName = profile?.core?.name ?? '';
@@ -473,7 +476,17 @@ export default function CommunitySessionBanner({
               key="here-btn"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              onClick={isJoined ? () => handleStatus('here') : onDropIn}
+              onClick={isJoined ? () => {
+                useSharedSession.getState().startGroupSession(
+                  session.groupId,
+                  `${session.date}_${session.time}`,
+                  session.attendance?.attendees ?? [],
+                  session.attendance?.attendeeProfiles ?? {},
+                  session.groupName,
+                );
+                void handleStatus('here');
+                router.push('/map');
+              } : onDropIn}
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-emerald-500/30"
             >
@@ -535,7 +548,18 @@ export default function CommunitySessionBanner({
         ) : null}
 
         <button
-          onClick={isJoined ? openGroup : onDropIn}
+          onClick={() => {
+            // Activate group session context so ParticipantStrip + MilestoneFeed
+            // connect automatically when the FreeRun player mounts.
+            useSharedSession.getState().startGroupSession(
+              session.groupId,
+              `${session.date}_${session.time}`,
+              session.attendance?.attendees ?? [],
+              session.attendance?.attendeeProfiles ?? {},
+              session.groupName,
+            );
+            if (isJoined) openGroup(); else onDropIn?.();
+          }}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-green-800 text-[13px] font-black transition-all active:scale-[0.97]"
         >
           <Zap className="w-4 h-4 text-green-600" />

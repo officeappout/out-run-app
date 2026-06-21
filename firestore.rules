@@ -892,10 +892,10 @@ service cloud.firestore {
       // create: open for public groups; private groups require the matching inviteCode
       //         (written by joinGroup after client-side validation) OR creator privilege.
       //         This closes the self-add gap: the client-side code check was advisory only.
-      // update/delete: owner only (leave, profile update).
+      // update/delete: member can manage themselves (leave/profile); group admin can remove others.
       match /members/{uid} {
         allow read: if isAuthenticated();
-        allow update, delete: if isAuthenticated() && request.auth.uid == uid;
+        allow update, delete: if isAuthenticated() && (request.auth.uid == uid || isGroupAdmin(groupId));
         allow create: if isAuthenticated() && request.auth.uid == uid
           && (
             get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true

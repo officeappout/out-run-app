@@ -101,13 +101,17 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
     _unsub?.();
     _unsub = null;
 
+    // Seed phase optimistically so SessionLobbyOverlay appears immediately on /map
+    // before the Firestore onSnapshot fires. The snapshot will confirm or correct it.
+    const optimisticPhase = computePhase(parseMinutesUntil(attendanceId), undefined, 60);
+
     set({
       groupId,
       groupName,
       attendanceId,
       memberIds,
       attendeeProfiles,
-      phase: null,
+      phase: optimisticPhase,
       entryMethod: 'banner',
       sessionRef: { model: 'attendance', groupId, attendanceId },
     });
@@ -119,13 +123,15 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
     _unsub?.();
     _unsub = null;
 
+    const optimisticPhase = computePhase(parseMinutesUntil(attendanceId), undefined, 60);
+
     set({
       groupId,
       groupName,
       attendanceId,
       memberIds,
       attendeeProfiles,
-      phase: null,
+      phase: optimisticPhase,
       entryMethod: 'deep-link',
       sessionRef: { model: 'attendance', groupId, attendanceId },
     });
