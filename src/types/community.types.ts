@@ -190,6 +190,12 @@ export interface CommunityGroup {
    * undefined = legacy group; treated as true (meetups assumed)
    */
   hasMeetups?: boolean;
+
+  // ── Leader / Coach ────────────────────────────────────────────────────────
+  /** UID of the assigned coach / leader (set via admin panel). Also holds role='admin' in members sub-collection. */
+  leaderUserId?: string;
+  /** Display name of the assigned coach / leader (denormalised for reads). */
+  leaderName?: string;
 }
 
 export type CommunityGroupCategory = 

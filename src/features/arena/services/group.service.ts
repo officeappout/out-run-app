@@ -331,6 +331,50 @@ export async function leaveGroup(groupId: string, uid: string): Promise<void> {
   }
 }
 
+// ─── makeGroupAdmin ───────────────────────────────────────────────────────────
+
+export async function makeGroupAdmin(groupId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, 'community_groups', groupId, 'members', uid), {
+    role: 'admin',
+  });
+}
+
+// ─── removeGroupAdmin ─────────────────────────────────────────────────────────
+
+export async function removeGroupAdmin(groupId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, 'community_groups', groupId, 'members', uid), {
+    role: 'member',
+  });
+}
+
+// ─── removeGroupMember ────────────────────────────────────────────────────────
+// Admin-initiated removal of another member. Mirrors leaveGroup cascade (chat + planner).
+
+export async function removeGroupMember(groupId: string, uid: string): Promise<void> {
+  await deleteDoc(doc(db, 'community_groups', groupId, 'members', uid));
+
+  await updateDoc(doc(db, 'users', uid), {
+    'social.groupIds': arrayRemove(groupId),
+  });
+
+  try {
+    await removeMemberFromGroupChat(groupId, uid);
+  } catch {
+    console.warn('[removeGroupMember] chat removal failed (non-fatal)');
+  }
+
+  try {
+    const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
+    const data = groupSnap.data();
+    const slots = data?.scheduleSlots ?? (data?.schedule ? [data.schedule] : []);
+    if (slots.length > 0) {
+      await removeCommunitySessionsFromPlanner(uid, groupId, slots);
+    }
+  } catch (planErr) {
+    console.warn('[removeGroupMember] planner cleanup failed (non-fatal):', planErr);
+  }
+}
+
 // ─── getMyGroups ──────────────────────────────────────────────────────────────
 
 /**

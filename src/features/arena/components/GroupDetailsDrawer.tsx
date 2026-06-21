@@ -21,6 +21,7 @@ import {
   Share2,
   Pencil,
   Crown,
+  Shield,
   Lock,
   Copy,
   Check,
@@ -42,7 +43,7 @@ import {
   getSessionAttendance,
   computeNextSession as computeNextSessionBooking,
 } from '@/features/arena/services/booking.service';
-import { getGroupMembers, joinGroup, leaveGroup } from '@/features/arena/services/group.service';
+import { getGroupMembers, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -211,6 +212,8 @@ export default function GroupDetailsDrawer({
   const [membersLoading, setMembersLoading] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<GroupMember | null>(null);
   const [removingUid, setRemovingUid] = useState<string | null>(null);
+  const [activeActionUid, setActiveActionUid] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState<string | null>(null); // uid with in-flight action
 
   // Premium UX: when the drawer opens without a fix, courtesy-prompt for GPS
   // so the user can see nearby sessions — but only if they haven't denied us.
@@ -397,6 +400,32 @@ export default function GroupDetailsDrawer({
   if (!group) return null;
 
   const isCreator = userId === group.createdBy;
+  const isCurrentUserAdmin = isCreator || groupMembers.some((m) => m.uid === userId && m.role === 'admin');
+
+  const handleToggleAdmin = useCallback(async (member: GroupMember) => {
+    if (!groupId || actionPending) return;
+    setActionPending(member.uid);
+    try {
+      if (member.role === 'member') {
+        await makeGroupAdmin(groupId, member.uid);
+        setGroupMembers((prev) => prev.map((m) => m.uid === member.uid ? { ...m, role: 'admin' } : m));
+      } else {
+        await removeGroupAdmin(groupId, member.uid);
+        setGroupMembers((prev) => prev.map((m) => m.uid === member.uid ? { ...m, role: 'member' } : m));
+      }
+      setActiveActionUid(null);
+    } catch (err) {
+      console.error('[GroupDetailsDrawer] toggle admin failed:', err);
+    } finally {
+      setActionPending(null);
+    }
+  }, [groupId, actionPending]);
+
+  const handleRemoveMember = useCallback(async (member: GroupMember) => {
+    if (!groupId || actionPending) return;
+    setConfirmRemove(member);
+    setActiveActionUid(null);
+  }, [groupId, actionPending]);
 
   const userAuthorityId = (profile as any)?.core?.authorityId ?? null;
   const canDropIn = (
@@ -888,37 +917,89 @@ export default function GroupDetailsDrawer({
                         ))}
                       </div>
                     ) : (
-                      <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                      <div className="space-y-1.5 max-h-64 overflow-y-auto">
                         {groupMembers.map((member) => {
                           const initials = member.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('');
                           const isGroupCreator = member.uid === group.createdBy;
+                          const isGroupAdminMember = !isGroupCreator && member.role === 'admin';
+                          const isSelf = member.uid === userId;
+                          // actions owner can do on this member
+                          const canPromote = !isGroupCreator && member.role === 'member' && isCurrentUserAdmin;
+                          const canDemote  = !isGroupCreator && member.role === 'admin'  && isCreator;
+                          const canRemove  = !isGroupCreator && !isSelf && (isCreator || (isCurrentUserAdmin && member.role === 'member'));
+                          const hasActions = canPromote || canDemote || canRemove;
+                          const isExpanded = activeActionUid === member.uid;
                           return (
-                            <div
-                              key={member.uid}
-                              className="flex items-center gap-3 py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                                {initials.toUpperCase() || '?'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-                                  {member.name}
-                                </p>
-                                {isGroupCreator && (
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
-                                    <Crown className="w-3 h-3" />
-                                    מנהל/ת
+                            <div key={member.uid} className="rounded-xl overflow-hidden">
+                              {/* Member row */}
+                              <button
+                                type="button"
+                                disabled={!hasActions}
+                                onClick={() => hasActions && setActiveActionUid(isExpanded ? null : member.uid)}
+                                className={`w-full flex items-center gap-3 py-2 px-3 bg-gray-50 dark:bg-gray-800/50 transition-colors ${hasActions ? 'active:bg-gray-100 dark:active:bg-gray-700/60 cursor-pointer' : 'cursor-default'}`}
+                              >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isGroupCreator ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-cyan-400 to-blue-500'}`}>
+                                  {initials.toUpperCase() || '?'}
+                                </div>
+                                <div className="flex-1 min-w-0 text-right">
+                                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                                    {member.name}
                                   </p>
+                                  {isGroupCreator && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                                      <Crown className="w-3 h-3" />
+                                      בעלים
+                                    </p>
+                                  )}
+                                  {isGroupAdminMember && (
+                                    <p className="text-xs text-blue-500 dark:text-blue-400 font-bold flex items-center gap-0.5">
+                                      <Shield className="w-3 h-3" />
+                                      מנהל/ת
+                                    </p>
+                                  )}
+                                </div>
+                                {hasActions && (
+                                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                 )}
-                              </div>
-                              {isCreator && !isGroupCreator && (
-                                <button
-                                  onClick={() => setConfirmRemove(member)}
-                                  aria-label={`הסר את ${member.name} מהקהילה`}
-                                  className="w-11 h-11 rounded-full bg-red-50 dark:bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex-shrink-0"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
+                              </button>
+
+                              {/* Inline action panel */}
+                              {isExpanded && (
+                                <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
+                                    {member.name} · פעולות מנהל
+                                  </p>
+                                  {canPromote && (
+                                    <button
+                                      disabled={actionPending === member.uid}
+                                      onClick={() => handleToggleAdmin(member)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
+                                      הפוך למנהל
+                                      <span className="text-xs text-gray-400 font-normal mr-auto">אותן סמכויות כמו שלך</span>
+                                    </button>
+                                  )}
+                                  {canDemote && (
+                                    <button
+                                      disabled={actionPending === member.uid}
+                                      onClick={() => handleToggleAdmin(member)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-gray-400" />}
+                                      הסר ניהול
+                                    </button>
+                                  )}
+                                  {canRemove && (
+                                    <button
+                                      onClick={() => handleRemoveMember(member)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    >
+                                      <X className="w-4 h-4" />
+                                      הסר מהקבוצה
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           );
@@ -1340,7 +1421,7 @@ export default function GroupDetailsDrawer({
                     if (!groupId || !confirmRemove) return;
                     setRemovingUid(confirmRemove.uid);
                     try {
-                      await leaveGroup(groupId, confirmRemove.uid);
+                      await removeGroupMember(groupId, confirmRemove.uid);
                       setGroupMembers((prev) => prev.filter((m) => m.uid !== confirmRemove.uid));
                       setConfirmRemove(null);
                     } catch (err) {

@@ -296,7 +296,7 @@ export async function migrateLegacyGroupsToAuthority(authorityId: string): Promi
 export async function getGroupMembers(
   groupId: string,
   maxResults = 20,
-): Promise<{ uid: string; name: string; photoURL?: string; joinedAt: Date }[]> {
+): Promise<{ uid: string; name: string; photoURL?: string; joinedAt: Date; role: 'member' | 'admin' }[]> {
   try {
     const q = query(
       collection(db, GROUPS_COLLECTION, groupId, 'members'),
@@ -311,11 +311,47 @@ export async function getGroupMembers(
         name: data.name ?? 'משתמש',
         photoURL: data.photoURL ?? undefined,
         joinedAt: toDate(data.joinedAt) ?? new Date(),
+        role: (data.role === 'admin' ? 'admin' : 'member') as 'member' | 'admin',
       };
     });
   } catch (error) {
     console.error('Error fetching group members:', error);
     return [];
+  }
+}
+
+/**
+ * Assign a coach/leader to a group (admin panel).
+ * Writes leaderUserId + leaderName on the group doc and promotes the member to role='admin'.
+ * Passing uid=null clears the leader fields without changing any member role.
+ */
+export async function assignGroupLeader(
+  groupId: string,
+  uid: string | null,
+  name: string,
+): Promise<void> {
+  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+
+  if (!uid) {
+    await updateDoc(groupRef, {
+      leaderUserId: null,
+      leaderName: null,
+      updatedAt: serverTimestamp(),
+    });
+    return;
+  }
+
+  await updateDoc(groupRef, {
+    leaderUserId: uid,
+    leaderName: name,
+    updatedAt: serverTimestamp(),
+  });
+
+  // Promote to admin in members sub-collection (fire-and-forget; member may not exist yet)
+  try {
+    await updateDoc(doc(db, GROUPS_COLLECTION, groupId, 'members', uid), { role: 'admin' });
+  } catch {
+    // Member doc may not exist — not fatal; role will be set when they join
   }
 }
 
