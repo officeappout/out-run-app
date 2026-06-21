@@ -484,14 +484,19 @@ export default function CommunitySessionBanner({
                   session.attendance?.attendeeProfiles ?? {},
                   session.groupName,
                 );
-                // Ensure attendance doc exists and add user to attendees
-                // before handleStatus writes member_statuses or host calls setSessionPhase
+                // Ensure attendance doc exists (creates it when no one has booked yet)
                 await bookSession(
                   session.groupId, session.date, session.time,
                   uid, userName, photoURL ?? null, session.slot.maxParticipants,
                 );
                 void handleStatus('here');
-                router.push('/map');
+                // Close any open drawer first, then navigate.
+                // onDismiss is critical when the banner is inside GroupDetailsDrawer on /map —
+                // router.push('/map') is a no-op there, but closing the drawer reveals the overlay.
+                onDismiss?.();
+                if (typeof window !== 'undefined' && window.location.pathname !== '/map') {
+                  router.push('/map');
+                }
               } : onDropIn}
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-emerald-500/30"
@@ -554,9 +559,7 @@ export default function CommunitySessionBanner({
         ) : null}
 
         <button
-          onClick={() => {
-            // Activate group session context so ParticipantStrip + MilestoneFeed
-            // connect automatically when the FreeRun player mounts.
+          onClick={async () => {
             useSharedSession.getState().startGroupSession(
               session.groupId,
               `${session.date}_${session.time.replace(':', '-')}`,
@@ -564,7 +567,18 @@ export default function CommunitySessionBanner({
               session.attendance?.attendeeProfiles ?? {},
               session.groupName,
             );
-            if (isJoined) openGroup(); else onDropIn?.();
+            if (isJoined) {
+              await bookSession(
+                session.groupId, session.date, session.time,
+                uid, userName, photoURL ?? null, session.slot.maxParticipants,
+              );
+              onDismiss?.();
+              if (typeof window !== 'undefined' && window.location.pathname !== '/map') {
+                router.push('/map');
+              }
+            } else {
+              onDropIn?.();
+            }
           }}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-green-800 text-[13px] font-black transition-all active:scale-[0.97]"
         >
