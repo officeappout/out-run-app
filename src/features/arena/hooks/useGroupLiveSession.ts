@@ -40,6 +40,7 @@ export function useGroupLiveSession(
     setAttendance(null);
 
     if (!active || !group) return;
+    if (group.hasMeetups === false) return;
 
     const now        = new Date();
     const todayISO   = toISODate(now);
@@ -86,6 +87,8 @@ export function useGroupLiveSession(
   void tick;
 
   if (!active || !group) return null;
+  // League/competition groups never show a live session.
+  if (group.hasMeetups === false) return null;
 
   const now       = new Date();
   const todayISO  = toISODate(now);
