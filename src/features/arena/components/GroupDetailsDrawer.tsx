@@ -531,18 +531,28 @@ export default function GroupDetailsDrawer({
 
               {/* ── Scrollable content ─────────────────────────── */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
-                {/* Live session banner — shown when a session is approaching / in lobby / active */}
+                {/* Live session banner — shown when a session is approaching / in lobby / active.
+                    Members always see the banner (private group members included).
+                    Non-members see it only when canDropIn (public, unlocked, city-match). */}
                 {effectiveLiveSession && (
                   effectiveLiveSession.phase === 'approaching' ||
                   effectiveLiveSession.phase === 'lobby' ||
                   effectiveLiveSession.phase === 'active'
-                ) && (canDropIn ? (
+                ) && (isJoined ? (
                   <CommunitySessionBanner
                     session={effectiveLiveSession}
                     onDismiss={onClose}
                     compact
-                    isJoined={isJoined}
-                    onDropIn={!isJoined ? handleDropIn : undefined}
+                    isJoined
+                    onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
+                  />
+                ) : canDropIn ? (
+                  <CommunitySessionBanner
+                    session={effectiveLiveSession}
+                    onDismiss={onClose}
+                    compact
+                    isJoined={false}
+                    onDropIn={handleDropIn}
                     onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
                   />
                 ) : (
