@@ -22,9 +22,11 @@ import { Play, Navigation, MapPin } from 'lucide-react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-import TwoLayerShell from '@/features/workout-engine/shared/components/TwoLayerShell';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSessionShell';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
+import type { SessionPolicy } from '@/features/workout-engine/shared/types/session-policy';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -52,6 +54,8 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
   const routeZones = useRunningPlayer((s) => s.routeZones);
 
+  const { groupId } = useSharedSession();
+
   // DEBUG — remove after routing confirmed
   React.useEffect(() => {
     console.log('[FreeRunLayer NEW] isWorkoutActive:', isWorkoutActive);
@@ -67,8 +71,21 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
     setMode('discover');
   };
 
+  // Block 1: minimal policy — drives LiveSessionShell mode routing.
+  // goal/participants/route will be populated in later blocks.
+  const policy: SessionPolicy = {
+    mode: groupId ? 'group' : 'solo',
+    entry: 'discover',
+    coLocation: 'none',
+    goal: { type: 'none' },
+    participants: [],
+    selectedUid: null,
+    route: null,
+  };
+
   return (
-    <TwoLayerShell
+    <LiveSessionShell
+      policy={policy}
       dockH={66}
       isActive={isWorkoutActive}
       behindContent={<RunLapsList />}
@@ -196,6 +213,6 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
           )}
         </>
       )}
-    </TwoLayerShell>
+    </LiveSessionShell>
   );
 }
