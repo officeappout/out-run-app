@@ -183,6 +183,15 @@ service cloud.firestore {
              == resource.data.get('passiveXpAwardedToday', 0);
     }
 
+    // Null-safe read of user_memberships/{uid}.groupIds.
+    // get() on a non-existent path returns data == null; calling .get() on
+    // null would throw a TypeError and deny the rule.  This helper guards
+    // against that for users who have not yet been backfilled.
+    function memberGroupIds(uid) {
+      let d = get(/databases/$(database)/documents/user_memberships/$(uid)).data;
+      return d != null ? d.get('groupIds', []) : [];
+    }
+
     // ============================================================
     // USERS — owner reads/writes own doc, admins read/write all,
     //         cross-user read gated by core.discoverable == true
@@ -804,8 +813,7 @@ service cloud.firestore {
                      !('audienceGroupIds' in request.resource.data)
                      || request.resource.data.audienceGroupIds.size() == 0
                      || request.resource.data.audienceGroupIds.hasOnly(
-                          get(/databases/$(database)/documents/user_memberships/$(userId))
-                            .data.get('groupIds', []))
+                          memberGroupIds(userId))
                    );
 
       // Owner can always read their own doc
@@ -829,8 +837,7 @@ service cloud.firestore {
       // exceed the 1 MiB Rules get() limit on large profiles).
       allow read: if isAuthenticated()
                   && resource.data.mode == 'group'
-                  && get(/databases/$(database)/documents/user_memberships/$(request.auth.uid))
-                       .data.get('groupIds', [])
+                  && memberGroupIds(request.auth.uid)
                        .hasAny(resource.data.get('audienceGroupIds', []));
     }
 
