@@ -48,12 +48,26 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getAdminDb();
-    await db.doc(`users/${uid}`).update({
-      'social.groupIds': action === 'join'
-        ? FieldValue.arrayUnion(groupId)
-        : FieldValue.arrayRemove(groupId),
+
+    // Dual-write: keep users.social.groupIds (client read) and
+    // user_memberships.groupIds (Rules get() — avoids 1 MiB doc-size limit)
+    // in lock-step.  Both writes are batched so they never drift.
+    const batch = db.batch();
+    const membershipUpdate = action === 'join'
+      ? FieldValue.arrayUnion(groupId)
+      : FieldValue.arrayRemove(groupId);
+
+    batch.update(db.doc(`users/${uid}`), {
+      'social.groupIds': membershipUpdate,
       updatedAt: FieldValue.serverTimestamp(),
     });
+    batch.set(
+      db.doc(`user_memberships/${uid}`),
+      { groupIds: membershipUpdate, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    await batch.commit();
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
