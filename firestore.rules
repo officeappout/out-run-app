@@ -804,8 +804,8 @@ service cloud.firestore {
                      !('audienceGroupIds' in request.resource.data)
                      || request.resource.data.audienceGroupIds.size() == 0
                      || request.resource.data.audienceGroupIds.hasOnly(
-                          get(/databases/$(database)/documents/users/$(userId))
-                            .data.get('social', {}).get('groupIds', []))
+                          get(/databases/$(database)/documents/user_memberships/$(userId))
+                            .data.get('groupIds', []))
                    );
 
       // Owner can always read their own doc
@@ -821,15 +821,34 @@ service cloud.firestore {
                   && request.auth.uid in
                      get(/databases/$(database)/documents/connections/$(userId)).data.followers;
 
-      // Group: reader must share at least one group with the broadcaster
+      // Group: reader must share at least one group with the broadcaster.
       // (query: where mode=='group' AND audienceGroupIds array-contains myGroupId)
-      // Security: social.groupIds is server-managed (Group E) so the reader
-      // cannot spoof membership by writing arbitrary ids to their profile.
+      // Security: user_memberships is Admin-SDK-only (see match below) so the
+      // reader cannot spoof membership by self-writing groupIds.
+      // NOTE: reads user_memberships/{uid} (tiny doc) NOT users/{uid} (may
+      // exceed the 1 MiB Rules get() limit on large profiles).
       allow read: if isAuthenticated()
                   && resource.data.mode == 'group'
-                  && get(/databases/$(database)/documents/users/$(request.auth.uid))
-                       .data.get('social', {}).get('groupIds', [])
+                  && get(/databases/$(database)/documents/user_memberships/$(request.auth.uid))
+                       .data.get('groupIds', [])
                        .hasAny(resource.data.get('audienceGroupIds', []));
+    }
+
+    // ============================================================
+    // USER_MEMBERSHIPS — lean group-membership mirror for Rules evaluation.
+    //
+    // Mirrors users/{uid}.social.groupIds in a tiny dedicated document so
+    // that the presence group read/write rules can call get() without hitting
+    // the 1 MiB Firestore Rules document-size limit that silently returns null
+    // on large user profiles (running schedule + full progression data).
+    //
+    // Written exclusively by Admin SDK (group-membership API route + sync
+    // endpoint).  Client self-write is intentionally blocked — same Group E
+    // trust anchor as users.social.groupIds.
+    // ============================================================
+    match /user_memberships/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
     }
 
     // ============================================================
