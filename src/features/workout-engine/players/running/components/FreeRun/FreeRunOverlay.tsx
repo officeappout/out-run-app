@@ -31,7 +31,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import RouteStoryBar from '../shared/RouteStoryBar';
 import MetricsDrawer from '@/features/workout-engine/shared/components/MetricsDrawer';
 import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
-import StatsCarousel from './StatsCarousel';
+import StatsCarousel, { type DrawerSlide } from './StatsCarousel';
 import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
 import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
@@ -317,9 +317,11 @@ interface FreeRunOverlayProps {
   isMinimized: boolean;
   /** Callback to expand from minimized state (passed to MiniDock when needed). */
   onExpand: () => void;
+  /** Policy-driven slides from FreeRunLayer. Defaults to [main, laps] when absent. */
+  drawerSlides?: DrawerSlide[];
 }
 
-export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: FreeRunOverlayProps) {
+export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides }: FreeRunOverlayProps) {
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
@@ -518,7 +520,7 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand }: 
           ) : isCommute ? (
             <CommuteStatsCarousel />
           ) : (
-            <StatsCarousel />
+            <StatsCarousel slides={drawerSlides} />
           )
         }
       </MetricsDrawer>

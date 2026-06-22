@@ -26,13 +26,25 @@ import LapMetrics from './LapMetrics';
  *     is never smaller than the carousel itself, even before the inner
  *     component (e.g. LapMetrics) finishes layout.
  */
-export default function StatsCarousel() {
+export interface DrawerSlide {
+  id: string;
+  component: React.ComponentType;
+}
+
+const DEFAULT_SLIDES: DrawerSlide[] = [
+  { id: 'main', component: MainMetrics },
+  { id: 'laps', component: LapMetrics },
+];
+
+interface StatsCarouselProps {
+  /** Policy-driven slides. Defaults to [main, laps] when not provided. */
+  slides?: DrawerSlide[];
+}
+
+export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    { id: 'main', component: MainMetrics },
-    { id: 'lap', component: LapMetrics },
-  ];
+  const slides = slidesProp ?? DEFAULT_SLIDES;
 
   const slideWidthPercent = 100 / slides.length;
 
@@ -86,6 +98,7 @@ export default function StatsCarousel() {
         />
 
         <motion.div
+          key={slides.length}
           className="flex relative z-10"
           animate={{ x: `-${currentSlide * slideWidthPercent}%` }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}

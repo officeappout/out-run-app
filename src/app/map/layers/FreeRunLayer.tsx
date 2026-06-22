@@ -27,6 +27,10 @@ import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSe
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 import type { SessionPolicy } from '@/features/workout-engine/shared/types/session-policy';
+import type { DrawerSlide } from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel';
+import MainMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/MainMetrics';
+import LapMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/LapMetrics';
+import VSSlide from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/VSSlide';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -82,6 +86,17 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
     selectedUid: null,
     route: null,
   };
+
+  // Block 2: drawer slides derived from policy.mode.
+  // LiveSessionShell stays domain-agnostic; FreeRunLayer owns the component mapping.
+  const drawerSlides = React.useMemo<DrawerSlide[]>(() => {
+    const base: DrawerSlide[] = [
+      { id: 'main', component: MainMetrics },
+      { id: 'laps', component: LapMetrics },
+    ];
+    if (policy.mode !== 'solo') base.push({ id: 'vs', component: VSSlide });
+    return base;
+  }, [policy.mode]);
 
   return (
     <LiveSessionShell
@@ -146,6 +161,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     dragControls={dragControls}
                     isMinimized={isMinimized}
                     onExpand={onExpand}
+                    drawerSlides={drawerSlides}
                   />
                   {/* Fix #3 — center-me button.
                       Gated by !isMinimized so it never leaks onto the laps list
