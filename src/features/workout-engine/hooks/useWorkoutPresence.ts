@@ -33,6 +33,7 @@ import {
   type PresencePayload,
   type WorkoutActivityStatus,
 } from '@/features/safecity/services/presence.service';
+import { updateSocialGroupIds } from '@/features/arena/services/group.service';
 
 interface UseWorkoutPresenceParams {
   activityStatus: WorkoutActivityStatus;
@@ -151,6 +152,28 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
         ...(liveGender ? { gender: liveGender } : {}),
       };
     };
+
+    // Session-start guard: if entering a group session and social.groupIds is
+    // missing the groupId, the first group heartbeat will fail with
+    // PERMISSION-DENIED (write rule: audienceGroupIds.hasOnly(social.groupIds)).
+    // Fix it now — fire-and-forget so it doesn't block the effect setup.
+    // Scoped to liveGroupSessionId only; not a full reconciliation scan.
+    // Covers the "createGroup → immediate session" race where createGroup's
+    // membership sync fails before this session even starts.
+    const liveGroupIdAtMount = useSharedSession.getState().groupId;
+    if (liveGroupIdAtMount) {
+      const storedGroupIds: string[] = profile?.social?.groupIds ?? [];
+      if (!storedGroupIds.includes(liveGroupIdAtMount)) {
+        void (async () => {
+          try {
+            await updateSocialGroupIds(userId, liveGroupIdAtMount, 'join');
+            useUserStore.getState().refreshProfile().catch(() => {});
+          } catch (err) {
+            console.error('[WorkoutPresence] session-start groupIds guard failed:', err);
+          }
+        })();
+      }
+    }
 
     // Fire one immediate heartbeat the moment the FIRST GPS fix lands in the
     // store (e.g. the user granted permission a few seconds after the workout
