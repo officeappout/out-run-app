@@ -175,6 +175,21 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     drawerSlides={drawerSlides}
                     sideRailParticipants={sideRailParticipants}
                   />
+                  {/* Group count badge — below RouteStoryBar (~68px from top). */}
+                  {sideRailParticipants.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 z-[60] flex justify-center pointer-events-none"
+                      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)' }}
+                    >
+                      <div
+                        className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white"
+                        style={{ background: 'rgba(0,122,255,0.82)', backdropFilter: 'blur(8px)' }}
+                      >
+                        <span>🏃</span>
+                        <span>{sideRailParticipants.length + 1} רצים יחד</span>
+                      </div>
+                    </div>
+                  )}
                   {/* Fix #3 — center-me button.
                       Gated by !isMinimized so it never leaks onto the laps list
                       when the TOP LAYER is at minimizedY. */}
