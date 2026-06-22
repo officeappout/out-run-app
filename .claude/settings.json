@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat /Users/calisthenicsltd/Desktop/Development/Projects/appout-1/.claude/knowledge/project-state.md 2>/dev/null || true",
+            "command": "cat /Users/calisthenicsltd/Development/appout-1/.claude/knowledge/project-state.md 2>/dev/null || true",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat /Users/calisthenicsltd/Desktop/Development/Projects/appout-1/.claude/knowledge/project-state.md 2>/dev/null || true",
+            "command": "cat /Users/calisthenicsltd/Development/appout-1/.claude/knowledge/project-state.md 2>/dev/null || true",
             "timeout": 10
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"[auto-compact $(date '+%Y-%m-%dT%H:%M')]\" >> /Users/calisthenicsltd/Desktop/Development/Projects/appout-1/.claude/knowledge/compaction-log.txt 2>/dev/null || true",
+            "command": "echo \"[auto-compact $(date '+%Y-%m-%dT%H:%M')]\" >> /Users/calisthenicsltd/Development/appout-1/.claude/knowledge/compaction-log.txt 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
