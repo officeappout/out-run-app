@@ -344,6 +344,11 @@ export function usePresenceLayer(
             setRawMarkers(merged);
             setIsLoading(false);
           }, (err: any) => {
+            // Close the failed listener immediately — a listener that errors but
+            // stays registered causes the Firestore SDK to enter a retry loop
+            // that can crash the entire SDK (internal ca9/b815 errors). unsub is
+            // assigned by the time this async callback fires.
+            unsub();
             const code = err?.code ?? '(no code)';
             if (code === 'permission-denied') {
               console.error(
