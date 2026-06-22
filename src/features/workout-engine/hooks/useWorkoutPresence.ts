@@ -164,12 +164,25 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
     if (liveGroupIdAtMount) {
       const storedGroupIds: string[] = profile?.social?.groupIds ?? [];
       if (!storedGroupIds.includes(liveGroupIdAtMount)) {
+        console.info(
+          `[WorkoutPresence] session-start guard FIRED — groupId=${liveGroupIdAtMount} ` +
+          `missing from social.groupIds (stored: [${storedGroupIds.join(', ') || 'empty'}]). ` +
+          `Calling /api/social/group-membership join...`,
+        );
         void (async () => {
           try {
             await updateSocialGroupIds(userId, liveGroupIdAtMount, 'join');
+            console.info(
+              `[WorkoutPresence] session-start guard OK — groupId=${liveGroupIdAtMount} ` +
+              `added to social.groupIds. First heartbeat should now pass the write rule.`,
+            );
             useUserStore.getState().refreshProfile().catch(() => {});
           } catch (err) {
-            console.error('[WorkoutPresence] session-start groupIds guard failed:', err);
+            console.error(
+              `[WorkoutPresence] session-start guard FAILED — groupId=${liveGroupIdAtMount} ` +
+              `still missing. First group heartbeat will get PERMISSION-DENIED:`,
+              err,
+            );
           }
         })();
       }
