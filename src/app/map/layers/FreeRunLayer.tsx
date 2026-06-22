@@ -26,8 +26,9 @@ import { useSharedSession } from '@/features/workout-engine/core/store/useShared
 import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSessionShell';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
-import type { SessionPolicy } from '@/features/workout-engine/shared/types/session-policy';
+import type { SessionPolicy, Participant } from '@/features/workout-engine/shared/types/session-policy';
 import type { DrawerSlide } from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel';
+import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
 import MainMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/MainMetrics';
 import LapMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/LapMetrics';
 import VSSlide from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/VSSlide';
@@ -86,6 +87,23 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
     selectedUid: null,
     route: null,
   };
+
+  // Block 3: group presence → SideRail participants.
+  // FreeRunLayer maps PartnerPosition[] → Participant[] and passes down as prop.
+  const { partnerPositions } = useGroupPresenceListener();
+  const sideRailParticipants = React.useMemo<Participant[]>(
+    () =>
+      partnerPositions.map((p) => ({
+        uid: p.uid,
+        name: p.name,
+        personaImageUrl: p.personaImageUrl,
+        color: p.color,
+        distanceKm: p.distance ?? 0,
+        status: p.activityStatus,
+        isRemote: false,
+      })),
+    [partnerPositions],
+  );
 
   // Block 2: drawer slides derived from policy.mode.
   // LiveSessionShell stays domain-agnostic; FreeRunLayer owns the component mapping.
@@ -162,6 +180,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     isMinimized={isMinimized}
                     onExpand={onExpand}
                     drawerSlides={drawerSlides}
+                    sideRailParticipants={sideRailParticipants}
                   />
                   {/* Fix #3 — center-me button.
                       Gated by !isMinimized so it never leaks onto the laps list

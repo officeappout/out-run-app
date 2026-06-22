@@ -32,6 +32,8 @@ import RouteStoryBar from '../shared/RouteStoryBar';
 import MetricsDrawer from '@/features/workout-engine/shared/components/MetricsDrawer';
 import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
 import StatsCarousel, { type DrawerSlide } from './StatsCarousel';
+import SideRail from './SideRail';
+import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
 import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
@@ -319,9 +321,11 @@ interface FreeRunOverlayProps {
   onExpand: () => void;
   /** Policy-driven slides from FreeRunLayer. Defaults to [main, laps] when absent. */
   drawerSlides?: DrawerSlide[];
+  /** Presence participants for the vertical SideRail. Empty array = no rail rendered. */
+  sideRailParticipants?: Participant[];
 }
 
-export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides }: FreeRunOverlayProps) {
+export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides, sideRailParticipants }: FreeRunOverlayProps) {
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
@@ -499,6 +503,9 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
           </div>
         </div>
       )}
+
+      {/* SideRail — vertical participant strip, left side. Returns null when empty (solo). */}
+      <SideRail participants={sideRailParticipants ?? []} storyBarHeight={storyBarHeight} />
 
       {/* MetricsDrawer — no lockToAnchor (laps controlled by FreeRunLayer).
           Render-prop per correction 3:
