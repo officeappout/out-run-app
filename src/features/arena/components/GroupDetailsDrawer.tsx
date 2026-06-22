@@ -26,7 +26,14 @@ import {
   Copy,
   Check,
   CalendarPlus,
+  Settings,
+  Trash2,
+  ChevronLeft,
 } from 'lucide-react';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import CommunityAddressSearch from './CommunityAddressSearch';
+import MiniLocationPicker from '@/features/admin/components/MiniLocationPicker';
 import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot, LiveSessionPhase } from '@/types/community.types';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
@@ -43,7 +50,7 @@ import {
   getSessionAttendance,
   computeNextSession as computeNextSessionBooking,
 } from '@/features/arena/services/booking.service';
-import { getGroupMembers, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember } from '@/features/arena/services/group.service';
+import { getGroupMembers, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember, updateGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -133,6 +140,36 @@ function computeWeekSessions(slots: ScheduleSlot[]): { date: string; time: strin
   return results.sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 }
 
+/** Returns the next *future* date (YYYY-MM-DD) for a recurring weekly slot.
+ *  If today is the correct weekday but the slot time has already passed, rolls to next week. */
+function getNextSlotDate(dayOfWeek: number, time: string): string {
+  const now = new Date();
+  const [h, m] = time.split(':').map(Number);
+  const slotToday = new Date(now);
+  slotToday.setHours(h, m, 0, 0);
+
+  let diff = (dayOfWeek - now.getDay() + 7) % 7;
+  if (diff === 0 && slotToday.getTime() <= now.getTime()) diff = 7;
+
+  const result = new Date(now);
+  result.setDate(now.getDate() + diff);
+  return toISODate(result);
+}
+
+/** Guard: true when the next occurrence of this slot is within the 80-min lobby window
+ *  OR when an attendance doc already exists for that occurrence (members already RSVP'd). */
+async function isSlotLocked(groupId: string, slot: ScheduleSlot): Promise<boolean> {
+  const nextDate = getNextSlotDate(slot.dayOfWeek, slot.time);
+  const nextMs   = new Date(`${nextDate}T${slot.time}:00`).getTime();
+  const minutesUntil = (nextMs - Date.now()) / 60_000;
+
+  if (minutesUntil >= 0 && minutesUntil <= 80) return true;
+
+  const attId  = `${nextDate}_${slot.time.replace(':', '-')}`;
+  const snap   = await getDoc(doc(db, `community_groups/${groupId}/attendance/${attId}`));
+  return snap.exists();
+}
+
 interface GroupDetailsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -197,6 +234,8 @@ export default function GroupDetailsDrawer({
   const [isBooked, setIsBooked] = useState(false);
   const [isWaitlisted, setIsWaitlisted] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleMgrOpen, setScheduleMgrOpen] = useState(false);
+  const [editingSlotIndex, setEditingSlotIndex] = useState<number | null>(null);
   const [dropInLoading,  setDropInLoading]  = useState(false);
   const [showJoinPrompt, setShowJoinPrompt] = useState(false);
   const [joiningGroup,   setJoiningGroup]   = useState(false);
@@ -1117,6 +1156,29 @@ export default function GroupDetailsDrawer({
                   </button>
                 )}
 
+                {/* ── Owner / admin: Manage schedule ──────────────── */}
+                {isCurrentUserAdmin && group.hasMeetups !== false && (group.scheduleSlots?.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => { setScheduleMgrOpen(true); setEditingSlotIndex(null); }}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+                  >
+                    <Settings className="w-4 h-4" />
+                    ניהול מפגשים
+                  </button>
+                )}
+
+                {/* Schedule manager panel — inline overlay inside the drawer */}
+                {scheduleMgrOpen && group.scheduleSlots && (
+                  <ScheduleManagerPanel
+                    group={group}
+                    editingSlotIndex={editingSlotIndex}
+                    onEdit={(i) => setEditingSlotIndex(i as number | null)}
+                    onClose={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
+                    onSaved={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
+                    showToast={showToast}
+                  />
+                )}
+
                 {/* ── Share button — always visible ───────────────── */}
                 {(() => {
                   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
@@ -1467,5 +1529,257 @@ export default function GroupDetailsDrawer({
         reporterId={userId}
       />
     </>
+  );
+}
+
+// ── Schedule Manager Panel ────────────────────────────────────────────────────
+
+interface ScheduleManagerPanelProps {
+  group: CommunityGroup;
+  editingSlotIndex: number | null;
+  onEdit: (index: number | null) => void;
+  onClose: () => void;
+  onSaved: () => void;
+  showToast: (type: 'success' | 'error', text: string) => void;
+}
+
+function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSaved, showToast }: ScheduleManagerPanelProps) {
+  const slots = group.scheduleSlots ?? [];
+  const [lockedMap, setLockedMap] = React.useState<Record<number, boolean>>({});
+  const [checking, setChecking] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  // Check lock status for every slot on mount
+  React.useEffect(() => {
+    let cancelled = false;
+    setChecking(true);
+    Promise.all(
+      slots.map((slot, i) => isSlotLocked(group.id, slot).then((locked) => ({ i, locked })))
+    ).then((results) => {
+      if (cancelled) return;
+      const map: Record<number, boolean> = {};
+      results.forEach(({ i, locked }) => { map[i] = locked; });
+      setLockedMap(map);
+      setChecking(false);
+    });
+    return () => { cancelled = true; };
+  }, [group.id, slots.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRemoveSlot = async (index: number) => {
+    const newSlots = slots.filter((_, i) => i !== index);
+    setSaving(true);
+    try {
+      await updateGroup(group.id, { scheduleSlots: newSlots });
+      showToast('success', 'מפגש הוסר');
+      onSaved();
+    } catch {
+      showToast('error', 'שגיאה בשמירה');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editingSlotIndex !== null && editingSlotIndex >= 0) {
+    return (
+      <SlotEditorSheet
+        group={group}
+        slotIndex={editingSlotIndex}
+        onBack={() => onEdit(null)}
+        onSaved={onSaved}
+        showToast={showToast}
+      />
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden" dir="rtl">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <span className="text-sm font-black text-gray-900">ניהול מפגשים</span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Slot list */}
+      <div className="divide-y divide-gray-50">
+        {slots.map((slot, i) => {
+          const locked = lockedMap[i] ?? false;
+          const isOnly = slots.length === 1;
+          return (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              {/* Day + time */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900">
+                  {DAY_LABELS[slot.dayOfWeek]}{'  '}
+                  <span className="font-mono">{slot.time}</span>
+                </p>
+                {(slot.location?.address ?? group.meetingLocation?.address) && (
+                  <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                    {slot.location?.address ?? group.meetingLocation?.address}
+                  </p>
+                )}
+              </div>
+
+              {/* Lock badge */}
+              {(checking || locked) && (
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                  {checking ? '...' : 'פעיל'}
+                </span>
+              )}
+
+              {/* Edit */}
+              <button
+                onClick={() => !locked && !checking && onEdit(i)}
+                disabled={locked || checking || saving}
+                title={locked ? 'מפגש פעיל כרגע — לא ניתן לערוך' : 'ערוך'}
+                className={`p-2 rounded-xl transition-all active:scale-90 ${
+                  locked || checking ? 'text-gray-300 cursor-not-allowed' : 'text-cyan-600 hover:bg-cyan-50'
+                }`}
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+
+              {/* Remove */}
+              <button
+                onClick={() => !locked && !isOnly && !checking && handleRemoveSlot(i)}
+                disabled={locked || isOnly || checking || saving}
+                title={isOnly ? 'להפסיק מפגשים לגמרי — בקרוב' : locked ? 'מפגש פעיל כרגע' : 'הסר מפגש'}
+                className={`p-2 rounded-xl transition-all active:scale-90 ${
+                  locked || isOnly || checking ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:bg-red-50'
+                }`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Slot Editor Sheet ─────────────────────────────────────────────────────────
+
+interface SlotEditorSheetProps {
+  group: CommunityGroup;
+  slotIndex: number;
+  onBack: () => void;
+  onSaved: () => void;
+  showToast: (type: 'success' | 'error', text: string) => void;
+}
+
+function SlotEditorSheet({ group, slotIndex, onBack, onSaved, showToast }: SlotEditorSheetProps) {
+  const slot   = group.scheduleSlots![slotIndex];
+  const initLoc = slot.location ?? (group.meetingLocation
+    ? { address: group.meetingLocation.address, lat: group.meetingLocation.location?.lat ?? 31.7683, lng: group.meetingLocation.location?.lng ?? 35.2137 }
+    : { address: '', lat: 31.7683, lng: 35.2137 });
+
+  const [dayOfWeek, setDayOfWeek] = React.useState(slot.dayOfWeek);
+  const [time,      setTime]      = React.useState(slot.time);
+  const [address,   setAddress]   = React.useState(initLoc.address ?? '');
+  const [coords,    setCoords]    = React.useState({ lat: initLoc.lat ?? 31.7683, lng: initLoc.lng ?? 35.2137 });
+  const [saving,    setSaving]    = React.useState(false);
+
+  const handleAddressSelect = ({ address: addr, coords: c }: { address: string; coords: { lat: number; lng: number } }) => {
+    setAddress(addr);
+    setCoords(c);
+  };
+
+  const handleSave = async () => {
+    if (!time.match(/^\d{1,2}:\d{2}$/)) {
+      showToast('error', 'שעה לא תקינה');
+      return;
+    }
+    const updatedSlot: ScheduleSlot = {
+      ...slot,
+      dayOfWeek,
+      time,
+      location: { address, lat: coords.lat, lng: coords.lng },
+    };
+    const newSlots = group.scheduleSlots!.map((s, i) => (i === slotIndex ? updatedSlot : s));
+    setSaving(true);
+    try {
+      await updateGroup(group.id, { scheduleSlots: newSlots });
+      showToast('success', 'המפגש עודכן');
+      onSaved();
+    } catch {
+      showToast('error', 'שגיאה בשמירה');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden space-y-0" dir="rtl">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+        <button onClick={onBack} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-black text-gray-900 flex-1">עריכת מפגש</span>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* Day picker */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">יום בשבוע</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {DAY_LABELS.map((label, d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDayOfWeek(d)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                  dayOfWeek === d
+                    ? 'bg-cyan-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Time input */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">שעה</p>
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+        </div>
+
+        {/* Address search */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">מיקום</p>
+          <CommunityAddressSearch
+            value={address}
+            onChange={handleAddressSelect}
+            proximity={coords}
+          />
+        </div>
+
+        {/* Map pin */}
+        <MiniLocationPicker
+          value={coords}
+          onChange={(c) => setCoords(c)}
+        />
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 pb-4">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full py-3.5 rounded-2xl text-sm font-black text-white bg-cyan-500 active:scale-[0.97] transition-all disabled:opacity-50"
+        >
+          {saving ? 'שומר...' : 'שמור שינויים'}
+        </button>
+      </div>
+    </div>
   );
 }
