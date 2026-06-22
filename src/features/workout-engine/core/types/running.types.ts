@@ -374,6 +374,7 @@ export interface ActiveRunningProgram {
 // ==========================================
 export interface RunningProfile {
   isUnlocked: boolean;
+  level?: number;
   currentGoal: RunnerGoal;
   paceProfile?: PaceProfile;
   activeProgram?: ActiveRunningProgram;
