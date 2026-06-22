@@ -20,7 +20,6 @@ import {
   updateDoc,
   deleteDoc,
   arrayUnion,
-  arrayRemove,
   increment,
   serverTimestamp,
   Timestamp,
@@ -54,7 +53,7 @@ import { auth } from '@/lib/firebase';
  * arbitrary group IDs could spoof membership and read group members' locations.
  * The Admin SDK in the API route is the only authorized writer.
  */
-async function updateSocialGroupIds(uid: string, groupId: string, action: 'join' | 'leave'): Promise<void> {
+export async function updateSocialGroupIds(uid: string, groupId: string, action: 'join' | 'leave'): Promise<void> {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error('[group.service] No auth token for group-membership update');
 
@@ -381,9 +380,10 @@ export async function removeGroupAdmin(groupId: string, uid: string): Promise<vo
 export async function removeGroupMember(groupId: string, uid: string): Promise<void> {
   await deleteDoc(doc(db, 'community_groups', groupId, 'members', uid));
 
-  await updateDoc(doc(db, 'users', uid), {
-    'social.groupIds': arrayRemove(groupId),
-  });
+  // Remove from social.groupIds via server API — mirrors leaveGroup.
+  // Direct updateDoc(users/{uid}) is PERMISSION-DENIED for non-admin callers
+  // (uid ≠ currentUser) and silently breaks the chat/planner cascade below.
+  await updateSocialGroupIds(uid, groupId, 'leave');
 
   try {
     await removeMemberFromGroupChat(groupId, uid);
