@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { Flag } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
@@ -39,6 +40,8 @@ const formatTime = (seconds: number | undefined | null): string => {
  */
 export default function LapMetrics() {
   const laps = useRunningPlayer((s) => s.laps);
+  const autoLapMode = useRunningPlayer((s) => s.settings.autoLapMode);
+  const autoLapValue = useRunningPlayer((s) => s.settings.autoLapValue);
   const status = useSessionStore((s) => s.status);
 
   // Always returns a usable object — empty laps fall through to the
@@ -71,12 +74,36 @@ export default function LapMetrics() {
   const lapTime = formatTime(activeLap?.durationSeconds);
   const isFallback = '__fallback' in activeLap;
 
+  // Empty-state: no laps recorded yet — show prompt instead of zeros
+  if (isFallback) {
+    const lapSubtext =
+      autoLapMode === 'distance'
+        ? `תירשם אוטומטית כל ${autoLapValue} ק״מ`
+        : autoLapMode === 'time'
+        ? `תירשם אוטומטית כל ${autoLapValue} דקות`
+        : 'הקש על \'הקפה\' כדי לסמן';
+
+    return (
+      <div
+        className="flex flex-col items-center justify-center px-6 text-center"
+        style={{ fontFamily: 'var(--font-simpler)', minHeight: '160px' }}
+        data-testid="lap-metrics"
+        data-fallback="true"
+        data-status={status}
+      >
+        <Flag size={28} strokeWidth={1.5} style={{ color: ACCENT_COLOR, marginBottom: 10 }} />
+        <p className="text-sm font-bold" style={{ color: NUM_COLOR }}>עוד אין הקפות</p>
+        <p className="text-xs mt-1" style={{ color: LABEL_COLOR }}>{lapSubtext}</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className="w-full px-5 pt-3 pb-3 flex flex-col justify-center"
       style={{ fontFamily: 'var(--font-simpler)', minHeight: '160px' }}
       data-testid="lap-metrics"
-      data-fallback={isFallback ? 'true' : 'false'}
+      data-fallback="false"
       data-status={status}
     >
       {/* Label row */}
