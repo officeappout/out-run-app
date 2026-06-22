@@ -211,7 +211,15 @@ export async function createGroup(
     await updateSocialGroupIds(creatorUid, groupId, 'join');
     useUserStore.getState().refreshProfile().catch(() => {});
   } catch (userErr) {
-    console.warn('[createGroup] social.groupIds update failed (non-fatal):', userErr);
+    // Group doc + member sub-doc already committed — do NOT re-throw (caller
+    // would retry createGroup → duplicate group from a second addDoc).
+    // The session-start guard in useWorkoutPresence and the reconciliation
+    // route will fix social.groupIds before the next group heartbeat.
+    console.error(
+      `[createGroup] social.groupIds sync FAILED — group ${groupId} exists but ` +
+      `creator ${creatorUid} will get PERMISSION-DENIED on group presence until fixed:`,
+      userErr,
+    );
   }
 
   // Auto-create group chat thread so it appears in Messages/Inbox (non-fatal:
