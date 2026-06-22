@@ -48,12 +48,13 @@ This applies to every file in the codebase — no exceptions.
 - **Timestamps inside arrays:** `Timestamp.now()` — `serverTimestamp()` is invalid inside array elements
 - **Document `updatedAt`:** `FieldValue.serverTimestamp()` — always, at document root level
 
-## 6. isActiveClient — Paying Clients
+## 6. isActiveClient — Never Modify Without Written Approval
 **Source:** `CLAUDE.md` lines 42–43
 
-`isActiveClient: true` on **אשקלון** and **קריית ים** must NOT be modified without David's explicit written approval.
+`isActiveClient` must NOT be modified on any authority without David's explicit written approval.
 This field gates league access for real, paying users.
 Applies to every write path: API routes, scripts, agents, admin panel.
+For the current list of paying clients: see `.claude/knowledge/product-context.md` (not here — client lists are data, not law).
 
 ## 7. State Management — Zustand Only
 **Source:** `.cursorrules` lines 48–51

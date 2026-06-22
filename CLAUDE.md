@@ -52,8 +52,8 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 
 | Rule | Detail |
 |------|--------|
-| `isActiveClient` | **Never modify** without explicit confirmation — gates league access for real users |
-| Paying clients | אשקלון, קריית ים have `isActiveClient: true` — do not touch |
+| `isActiveClient` | **Never modify** on any authority without David's written approval — gates league access |
+| Paying clients | See `.claude/knowledge/product-context.md` for current list — city names are data, not law |
 | Valid statuses | Only 8: `draft → lead → meeting → quote → follow_up → closing → active → upsell` |
 | Array append | `FieldValue.arrayUnion` — never overwrite the whole array |
 | Array delete | Direct `getDoc` → filter → `updateDoc` — `arrayRemove` silently fails on objects |
