@@ -156,18 +156,34 @@ function getNextSlotDate(dayOfWeek: number, time: string): string {
   return toISODate(result);
 }
 
-/** Guard: true when the next occurrence of this slot is within the 80-min lobby window
- *  OR when an attendance doc already exists for that occurrence (members already RSVP'd). */
-async function isSlotLocked(groupId: string, slot: ScheduleSlot): Promise<boolean> {
-  const nextDate = getNextSlotDate(slot.dayOfWeek, slot.time);
-  const nextMs   = new Date(`${nextDate}T${slot.time}:00`).getTime();
-  const minutesUntil = (nextMs - Date.now()) / 60_000;
+interface SlotStatus {
+  /** true only within the 80-min lobby window — the sole hard block on editing */
+  locked: boolean;
+  /** existing RSVP count for the next occurrence (informational, not a lock) */
+  attendeeCount: number;
+}
 
-  if (minutesUntil >= 0 && minutesUntil <= 80) return true;
+/** Returns lock status + RSVP count for the next occurrence of a slot.
+ *  Lock = within 80-min lobby window only.
+ *  Existing attendance docs outside that window are shown as a count but don't block editing. */
+async function getSlotStatus(groupId: string, slot: ScheduleSlot): Promise<SlotStatus> {
+  const nextDate    = getNextSlotDate(slot.dayOfWeek, slot.time);
+  const nextMs      = new Date(`${nextDate}T${slot.time}:00`).getTime();
+  const minutesUntil = (nextMs - Date.now()) / 60_000;
+  const locked      = minutesUntil >= 0 && minutesUntil <= 80;
 
   const attId  = `${nextDate}_${slot.time.replace(':', '-')}`;
-  const snap   = await getDoc(doc(db, `community_groups/${groupId}/attendance/${attId}`));
-  return snap.exists();
+  const attRef = doc(db, `community_groups/${groupId}/attendance/${attId}`);
+  try {
+    const snap = await getDoc(attRef);
+    const data = snap.exists() ? snap.data() : null;
+    const attendeeCount = data
+      ? (typeof data.currentCount === 'number' ? data.currentCount : (data.attendees?.length ?? 0))
+      : 0;
+    return { locked, attendeeCount };
+  } catch {
+    return { locked, attendeeCount: 0 };
+  }
 }
 
 interface GroupDetailsDrawerProps {
@@ -1545,21 +1561,21 @@ interface ScheduleManagerPanelProps {
 
 function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSaved, showToast }: ScheduleManagerPanelProps) {
   const slots = group.scheduleSlots ?? [];
-  const [lockedMap, setLockedMap] = React.useState<Record<number, boolean>>({});
+  const [statusMap, setStatusMap] = React.useState<Record<number, SlotStatus>>({});
   const [checking, setChecking] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
 
-  // Check lock status for every slot on mount
+  // Fetch lock status + RSVP count for every slot on mount
   React.useEffect(() => {
     let cancelled = false;
     setChecking(true);
     Promise.all(
-      slots.map((slot, i) => isSlotLocked(group.id, slot).then((locked) => ({ i, locked })))
+      slots.map((slot, i) => getSlotStatus(group.id, slot).then((status) => ({ i, status })))
     ).then((results) => {
       if (cancelled) return;
-      const map: Record<number, boolean> = {};
-      results.forEach(({ i, locked }) => { map[i] = locked; });
-      setLockedMap(map);
+      const map: Record<number, SlotStatus> = {};
+      results.forEach(({ i, status }) => { map[i] = status; });
+      setStatusMap(map);
       setChecking(false);
     });
     return () => { cancelled = true; };
@@ -1604,7 +1620,9 @@ function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSave
       {/* Slot list */}
       <div className="divide-y divide-gray-50">
         {slots.map((slot, i) => {
-          const locked = lockedMap[i] ?? false;
+          const status = statusMap[i];
+          const locked = status?.locked ?? false;
+          const attendeeCount = status?.attendeeCount ?? 0;
           const isOnly = slots.length === 1;
           return (
             <div key={i} className="flex items-center gap-3 px-4 py-3">
@@ -1621,12 +1639,18 @@ function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSave
                 )}
               </div>
 
-              {/* Lock badge */}
-              {(checking || locked) && (
+              {/* RSVP count (informational) or lock badge */}
+              {checking ? (
+                <span className="text-[10px] text-gray-400 flex-shrink-0">...</span>
+              ) : locked ? (
                 <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
-                  {checking ? '...' : 'פעיל'}
+                  פעיל
                 </span>
-              )}
+              ) : attendeeCount > 0 ? (
+                <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                  {attendeeCount} נרשמו
+                </span>
+              ) : null}
 
               {/* Edit */}
               <button
