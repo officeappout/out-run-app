@@ -32,6 +32,7 @@ import { getAccessCodeResult, clearAccessCodeResult } from './access-code.servic
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { buildAttributionPayload } from '@/lib/marketingAttribution';
 import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
+import { updateUserAuthority } from '@/lib/firestore.service';
 
 // ── Canonical program slug allow-list ──────────────────────────────
 //
@@ -286,12 +287,19 @@ export async function syncOnboardingToFirestore(
       }
     }
 
+    // Collects the authorityId to write after the main setDoc.
+    // core.authorityId is locked by noTenantFieldsChanged() in firestore.rules —
+    // it must go through /api/user/update-authority (Admin SDK) rather than being
+    // embedded in the main write payload.
+    let authorityIdToSync: string | null = null;
+
     // If this is a new user (first time syncing), create initial structure
     if (!exists) {
       // Get authority ID from sessionStorage if set during city selection
-      const selectedAuthorityId = typeof window !== 'undefined' 
-        ? sessionStorage.getItem('selected_authority_id') 
+      const selectedAuthorityId = typeof window !== 'undefined'
+        ? sessionStorage.getItem('selected_authority_id')
         : null;
+      if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
       
       updateData.core = {
         name: userName || data.city || 'User', // Use name from sessionStorage, or city, or fallback
@@ -306,7 +314,7 @@ export async function syncOnboardingToFirestore(
         gender: userGender || (data.gender as 'male' | 'female' | 'other') || 'other', // Get gender from sessionStorage or data, default to 'other'
         weight: 70,
         isAnonymous: isAnonymous,
-        ...(selectedAuthorityId ? { authorityId: selectedAuthorityId } : {}), // Link to authority for B2G billing
+        // authorityId written separately via updateUserAuthority() after setDoc.
       };
       
       // Ensure gender is always set (even if it's 'other')
@@ -390,13 +398,12 @@ export async function syncOnboardingToFirestore(
           coreUpdate.gender = 'other';
         }
         
-        // Update authority ID from sessionStorage if set during city selection (for B2G billing)
-        const selectedAuthorityId = typeof window !== 'undefined' 
-          ? sessionStorage.getItem('selected_authority_id') 
+        // authority ID is written after the main setDoc via updateUserAuthority()
+        // because noTenantFieldsChanged() in firestore.rules blocks client writes.
+        const selectedAuthorityId = typeof window !== 'undefined'
+          ? sessionStorage.getItem('selected_authority_id')
           : null;
-        if (selectedAuthorityId) {
-          coreUpdate.authorityId = selectedAuthorityId;
-        }
+        if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
         
         // Sanitize undefined values - remove them
         Object.keys(coreUpdate).forEach(key => {
@@ -1694,6 +1701,15 @@ export async function syncOnboardingToFirestore(
     // Save to Firestore (merge with existing data)
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
+
+    // core.authorityId is locked from direct client writes (noTenantFieldsChanged).
+    // Write it after the main setDoc via Admin SDK endpoint — non-fatal if it fails
+    // (the rest of the onboarding data is already committed).
+    if (authorityIdToSync) {
+      await updateUserAuthority(authorityIdToSync).catch((err) =>
+        console.error('[OnboardingSync] updateUserAuthority failed (non-critical):', err),
+      );
+    }
 
     // ── Kelly Welcome Bot (Phase 1) ───────────────────────────────────────
     // Seed the one-time Kelly greeting DM the moment onboarding completes.
