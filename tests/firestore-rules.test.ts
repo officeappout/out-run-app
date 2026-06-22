@@ -1,0 +1,358 @@
+/**
+ * Firestore Rules — Cumulative Integration Test Suite
+ *
+ * Covers four workstreams deployed together:
+ *   presence-group  — Block 1 presence rules (group scope + audienceGroupIds validation)
+ *   Phase G         — community_groups/members create with inviteCode + admin-remove
+ *   H2              — member role-change guards (promote/demote/remove)
+ *   sessions        — scheduleSlots/meetingLocation hasOnly guard
+ *
+ * Run:  npx firebase emulators:exec --only firestore "npx tsx tests/firestore-rules.test.ts"
+ */
+
+import {
+  initializeTestEnvironment,
+  assertSucceeds,
+  assertFails,
+  type RulesTestEnvironment,
+} from '@firebase/rules-unit-testing';
+import { readFileSync } from 'node:fs';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
+
+// ─── Harness ──────────────────────────────────────────────────────────────────
+
+let pass = 0;
+let fail = 0;
+const failures: string[] = [];
+
+async function it(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+    console.log(`  ✓ ${name}`);
+    pass++;
+  } catch (e: any) {
+    console.error(`  ✗ ${name}`);
+    console.error(`    ${e?.message ?? e}`);
+    fail++;
+    failures.push(name);
+  }
+}
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
+
+const PROJECT_ID = 'appout-1';
+const rules = readFileSync('firestore.rules', 'utf8');
+
+let env: RulesTestEnvironment;
+
+async function setup() {
+  env = await initializeTestEnvironment({
+    projectId: PROJECT_ID,
+    firestore: {
+      rules,
+      host: '127.0.0.1',
+      port: 8080,
+    },
+  });
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+
+    // Users
+    await setDoc(doc(db, 'users', 'broadcaster1'), {
+      core: { name: 'B1', discoverable: true, isVerified: true },
+      social: { groupIds: ['grp1'] },
+    });
+    await setDoc(doc(db, 'users', 'broadcaster2'), {
+      core: { name: 'B2', discoverable: true },
+      social: { groupIds: [] },
+    });
+    await setDoc(doc(db, 'users', 'reader_member'), {
+      core: { name: 'RM', discoverable: true },
+      social: { groupIds: ['grp1'] },
+    });
+    await setDoc(doc(db, 'users', 'reader_outsider'), {
+      core: { name: 'RO', discoverable: true },
+      social: { groupIds: ['grp2'] },
+    });
+    await setDoc(doc(db, 'users', 'group_owner'), {
+      core: { name: 'Owner', discoverable: true },
+      social: { groupIds: ['grp_test'] },
+    });
+    await setDoc(doc(db, 'users', 'group_admin_user'), {
+      core: { name: 'Admin', discoverable: true },
+      social: { groupIds: ['grp_test'] },
+    });
+    await setDoc(doc(db, 'users', 'regular_member'), {
+      core: { name: 'Reg', discoverable: true },
+      social: { groupIds: ['grp_test'] },
+    });
+    await setDoc(doc(db, 'users', 'regular_member2'), {
+      core: { name: 'Reg2', discoverable: true },
+      social: { groupIds: ['grp_test'] },
+    });
+
+    // Presence docs
+    await setDoc(doc(db, 'presence', 'broadcaster1'), {
+      uid: 'broadcaster1',
+      name: 'B1',
+      ageGroup: 'adult',
+      mode: 'group',
+      audienceGroupIds: ['grp1'],
+      lat: 32.08,
+      lng: 34.78,
+      updatedAt: new Date(),
+    });
+    await setDoc(doc(db, 'presence', 'broadcaster2'), {
+      uid: 'broadcaster2',
+      name: 'B2',
+      ageGroup: 'adult',
+      mode: 'verified_global',
+      lat: 32.09,
+      lng: 34.79,
+      updatedAt: new Date(),
+    });
+
+    // Community groups
+    await setDoc(doc(db, 'community_groups', 'grp_test'), {
+      name: 'Test Group',
+      createdBy: 'group_owner',
+      isPublic: false,
+      isOfficial: false,
+      isLocked: false,
+      source: 'user',
+      inviteCode: 'SECRET42',
+    });
+    await setDoc(doc(db, 'community_groups', 'grp_public'), {
+      name: 'Public Group',
+      createdBy: 'group_owner',
+      isPublic: true,
+      isOfficial: false,
+      isLocked: false,
+      source: 'user',
+    });
+
+    // Members
+    await setDoc(doc(db, 'community_groups', 'grp_test', 'members', 'group_owner'), {
+      uid: 'group_owner', role: 'admin', joinedAt: new Date(),
+    });
+    await setDoc(doc(db, 'community_groups', 'grp_test', 'members', 'group_admin_user'), {
+      uid: 'group_admin_user', role: 'admin', joinedAt: new Date(),
+    });
+    await setDoc(doc(db, 'community_groups', 'grp_test', 'members', 'regular_member'), {
+      uid: 'regular_member', role: 'member', joinedAt: new Date(),
+    });
+    await setDoc(doc(db, 'community_groups', 'grp_test', 'members', 'regular_member2'), {
+      uid: 'regular_member2', role: 'member', joinedAt: new Date(),
+    });
+  });
+}
+
+// ─── Test Suites ──────────────────────────────────────────────────────────────
+
+async function testPresenceGroup() {
+  console.log('\npresence-group');
+
+  // P1 — group member reads broadcaster presence (shared groupId) → ALLOW
+  await it('P1 — group member reads group-mode presence (shared groupId) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reader_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'presence', 'broadcaster1')));
+  });
+
+  // P2 — outsider (no shared groupId) reads group-mode presence → DENY
+  await it('P2 — outsider reads group-mode presence (no shared groupId) → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'presence', 'broadcaster1')));
+  });
+
+  // P3 — owner writes presence with audienceGroupIds not in own social.groupIds → DENY
+  await it('P3 — presence write with spoofed audienceGroupIds (not in social.groupIds) → DENY', async () => {
+    // broadcaster2 has social.groupIds=[], tries to claim audienceGroupIds=['grp1']
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'presence', 'broadcaster2'), {
+      uid: 'broadcaster2',
+      name: 'B2',
+      ageGroup: 'adult',
+      mode: 'group',
+      audienceGroupIds: ['grp1'], // not in their social.groupIds
+      lat: 32.09,
+      lng: 34.79,
+      updatedAt: new Date(),
+    }));
+  });
+
+  // P4 — client tries to self-write social.groupIds → DENY
+  await it('P4 — client self-writes social.groupIds (noSocialGroupIdsChanged rule) → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster1');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'broadcaster1'), {
+      'social.groupIds': ['grp1', 'grp_spoofed'],
+    }));
+  });
+}
+
+async function testPhaseG() {
+  console.log('\nPhase G — inviteCode + admin-remove');
+
+  // G1 — public group join without inviteCode → ALLOW
+  await it('G1 — public group join (no inviteCode needed) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('regular_member');
+    await assertSucceeds(setDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_public', 'members', 'regular_member'),
+      { uid: 'regular_member', role: 'member', joinedAt: new Date() },
+    ));
+  });
+
+  // G2 — private group join with correct inviteCode → ALLOW
+  await it('G2 — private group join with correct inviteCode → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertSucceeds(setDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'reader_outsider'),
+      { uid: 'reader_outsider', role: 'member', inviteCode: 'SECRET42', joinedAt: new Date() },
+    ));
+  });
+
+  // G3 — private group join with wrong inviteCode → DENY
+  await it('G3 — private group join with wrong inviteCode → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_member');
+    await assertFails(setDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'reader_member'),
+      { uid: 'reader_member', role: 'member', inviteCode: 'WRONG', joinedAt: new Date() },
+    ));
+  });
+
+  // G4 — group admin removes regular member → ALLOW
+  await it('G4 — group admin removes regular member (role=member) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('group_admin_user');
+    await assertSucceeds(deleteDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'regular_member2'),
+    ));
+  });
+
+  // G5 — group admin tries to remove another admin → DENY
+  await it('G5 — group admin tries to remove another admin (role=admin) → DENY', async () => {
+    const ctx = env.authenticatedContext('group_admin_user');
+    await assertFails(deleteDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'group_owner'),
+    ));
+  });
+}
+
+async function testH2Roles() {
+  console.log('\nH2 — role-change guards');
+
+  // H2_1 — member self-updates role field → DENY
+  await it('H2_1 — member self-update of role field → DENY', async () => {
+    const ctx = env.authenticatedContext('regular_member');
+    await assertFails(updateDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'regular_member'),
+      { role: 'admin' },
+    ));
+  });
+
+  // H2_2 — group admin promotes member → admin → ALLOW
+  await it('H2_2 — group admin promotes member → admin → ALLOW', async () => {
+    const ctx = env.authenticatedContext('group_admin_user');
+    await assertSucceeds(updateDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'regular_member'),
+      { role: 'admin' },
+    ));
+  });
+
+  // H2_3 — non-owner admin tries to demote admin → member → DENY
+  await it('H2_3 — non-owner admin demotes admin → member (only owner can) → DENY', async () => {
+    // After H2_2, regular_member is now admin. group_admin_user cannot demote.
+    const ctx = env.authenticatedContext('group_admin_user');
+    await assertFails(updateDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'regular_member'),
+      { role: 'member' },
+    ));
+  });
+
+  // H2_4 — owner demotes admin → member → ALLOW
+  await it('H2_4 — owner demotes admin → member → ALLOW', async () => {
+    const ctx = env.authenticatedContext('group_owner');
+    await assertSucceeds(updateDoc(
+      doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'regular_member'),
+      { role: 'member' },
+    ));
+  });
+}
+
+async function testSessions() {
+  console.log('\nsessions — scheduleSlots/meetingLocation hasOnly guard');
+
+  // S1 — group owner updates scheduleSlots + meetingLocation + updatedAt → ALLOW
+  await it('S1 — owner updates scheduleSlots + meetingLocation + updatedAt → ALLOW', async () => {
+    const ctx = env.authenticatedContext('group_owner');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'community_groups', 'grp_test'), {
+      scheduleSlots: [{ day: 'ראשון', time: '08:00' }],
+      meetingLocation: { lat: 32.1, lng: 34.8, label: 'כיכר הספורט' },
+      updatedAt: new Date(),
+    }));
+  });
+
+  // S2 — group admin (non-owner) updates scheduleSlots + meetingLocation → ALLOW
+  await it('S2 — group admin (non-owner) updates scheduleSlots + meetingLocation → ALLOW', async () => {
+    const ctx = env.authenticatedContext('group_admin_user');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'community_groups', 'grp_test'), {
+      scheduleSlots: [{ day: 'שני', time: '09:00' }],
+      meetingLocation: { lat: 32.2, lng: 34.9, label: 'הגן הציבורי' },
+      updatedAt: new Date(),
+    }));
+  });
+
+  // S3 — regular member tries to update scheduleSlots → DENY
+  await it('S3 — regular member updates scheduleSlots → DENY', async () => {
+    const ctx = env.authenticatedContext('regular_member');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'community_groups', 'grp_test'), {
+      scheduleSlots: [{ day: 'שלישי', time: '10:00' }],
+      updatedAt: new Date(),
+    }));
+  });
+
+  // S4 — non-owner group admin updates scheduleSlots + name (name not in hasOnly) → DENY
+  // The creator rule allows the owner to update name freely; the hasOnly restriction
+  // only applies to non-owner group admins. Verify that a non-owner admin is blocked.
+  await it('S4 — non-owner admin updates scheduleSlots + name (name not in hasOnly) → DENY', async () => {
+    const ctx = env.authenticatedContext('group_admin_user');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'community_groups', 'grp_test'), {
+      scheduleSlots: [{ day: 'רביעי', time: '07:00' }],
+      name: 'Renamed Group',
+      updatedAt: new Date(),
+    }));
+  });
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+async function main() {
+  console.log('Setting up test environment...');
+  await setup();
+
+  await testPresenceGroup();
+  await testPhaseG();
+  await testH2Roles();
+  await testSessions();
+
+  console.log(`\n${'─'.repeat(50)}`);
+  console.log(`Results: ${pass} passed, ${fail} failed`);
+  if (failures.length > 0) {
+    console.log('\nFailed tests:');
+    failures.forEach((f) => console.log(`  ✗ ${f}`));
+  }
+
+  await env.cleanup();
+
+  if (fail > 0) process.exit(1);
+}
+
+main().catch((e) => {
+  console.error('Test harness error:', e);
+  process.exit(1);
+});

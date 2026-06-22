@@ -265,10 +265,14 @@ service cloud.firestore {
       //   dailyStats/steps/sessions/{date}                     (future)
       // Without this rule, queries on 3+ level sub-collections fail with
       // "Missing or insufficient permissions".
-      // Note: protected-field helpers only inspect the top-level user doc,
-      // so granting owners full subtree write here does NOT enable
-      // privilege escalation — none of those flags live in sub-collections.
-      match /{allPaths=**} {
+      //
+      // IMPORTANT: uses /{subCollection}/{subPaths=**} (NOT /{allPaths=**}).
+      // The single-segment {subCollection} prefix forces at least ONE path segment
+      // after userId, so this rule does NOT match users/{userId} itself. If written
+      // as /{allPaths=**}, the ** wildcard matches zero segments and the unconstrained
+      // `allow write` would bypass every noAdminFieldsChanged / noSocialGroupIdsChanged
+      // / noGameIntegrityFieldsChanged guard on the user doc.
+      match /{subCollection}/{subPaths=**} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
         allow read, write: if isRootAdmin() || isAdmin();
       }
