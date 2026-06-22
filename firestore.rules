@@ -145,6 +145,22 @@ service cloud.firestore {
              == resource.data.get('progression', {}).get('globalXP', 0);
     }
 
+    // Group E — social graph membership. `social.groupIds` is the trusted
+    // source that backs the presence `group` scope (who can see you on the
+    // map when mode='group'). Because the presence read rule derives access
+    // from this field, a client that could self-write arbitrary groupIds
+    // could spoof membership in any group and read members' locations.
+    //
+    // The ONLY authorized writer for social.groupIds is the Admin SDK via
+    // the `/api/social/group-membership` Next.js route, which is called by
+    // joinGroup / leaveGroup / createGroup in group.service.ts after the
+    // community_groups/{groupId}/members/{uid} write has already succeeded.
+    // Admins (Admin SDK) bypass these rules entirely.
+    function noSocialGroupIdsChanged() {
+      return request.resource.data.get('social', {}).get('groupIds', [])
+             == resource.data.get('social', {}).get('groupIds', []);
+    }
+
     // Group D — passive sensor fields on `dailyActivity`. Native Phase
     // (Apr 2026): HealthKit / Health Connect samples are written ONLY
     // by the `ingestHealthSamples` Cloud Function (Admin SDK bypasses
@@ -198,14 +214,16 @@ service cloud.firestore {
                     && request.resource.data.get('core', {}).get('role', '') == ''
                     && request.resource.data.get('core', {}).get('managedVertical', '') == '';
 
-      // UPDATE — owner may write everything EXCEPT the three protected
-      // groups (admin/role, tenant, game-integrity). The Guardian
-      // Cloud Function uses the Admin SDK to award XP/coins/calories
-      // and bypasses Group C; see noGameIntegrityFieldsChanged() above.
+      // UPDATE — owner may write everything EXCEPT the four protected
+      // groups (admin/role, tenant, game-integrity, social-group-ids). The
+      // Guardian Cloud Function uses the Admin SDK to award XP/coins/calories
+      // and bypasses Group C; /api/social/group-membership (Admin SDK) owns
+      // Group E. See the helper comments above for authorized write paths.
       allow update: if isOwner(userId)
                     && noAdminFieldsChanged()
                     && noTenantFieldsChanged()
-                    && noGameIntegrityFieldsChanged();
+                    && noGameIntegrityFieldsChanged()
+                    && noSocialGroupIdsChanged();
 
       // DELETE — owner can delete their own doc.
       allow delete: if isOwner(userId);
@@ -761,20 +779,53 @@ service cloud.firestore {
 
     // ============================================================
     // SAFE-CITY PRESENCE — live location heartbeat
-    // Users can only write their own presence doc (uid match).
-    // Read access enforced by privacy mode:
-    //   verified_global → any authenticated user
-    //   squad           → only users in the broadcaster's followers list
-    //   ghost           → owner only (doc is typically deleted)
+    //
+    // WRITE — owner only, with one constraint: if the payload includes
+    //   `audienceGroupIds`, every entry must already be in the writer's
+    //   `users/{uid}.social.groupIds` (server-managed, Group E above).
+    //   This prevents a malicious client from broadcasting to groups it
+    //   hasn't actually joined and appearing visible to their members.
+    //
+    // READ — gated by privacy mode:
+    //   verified_global → any authenticated user (statically provable)
+    //   squad           → users in the broadcaster's followers list
+    //   group           → members of any of the broadcaster's audienceGroupIds
+    //                     (checked against reader's server-managed groupIds)
+    //   ghost           → owner only (doc is typically deleted on ghost)
     // ============================================================
     match /presence/{userId} {
-      allow write: if isOwner(userId);
+      // Write: owner only + audienceGroupIds must be a subset of own groups
+      allow write: if isOwner(userId)
+                   && (
+                     !('audienceGroupIds' in request.resource.data)
+                     || request.resource.data.audienceGroupIds.size() == 0
+                     || request.resource.data.audienceGroupIds.hasOnly(
+                          get(/databases/$(database)/documents/users/$(userId))
+                            .data.get('social', {}).get('groupIds', []))
+                   );
+
+      // Owner can always read their own doc
       allow read: if isOwner(userId);
+
+      // Public: any authenticated user (query: where mode == 'verified_global')
       allow read: if isAuthenticated() && resource.data.mode == 'verified_global';
+
+      // Friends: reader must be in broadcaster's followers list
+      // (query: where uid in [followingList])
       allow read: if isAuthenticated()
                   && resource.data.mode == 'squad'
                   && request.auth.uid in
                      get(/databases/$(database)/documents/connections/$(userId)).data.followers;
+
+      // Group: reader must share at least one group with the broadcaster
+      // (query: where mode=='group' AND audienceGroupIds array-contains myGroupId)
+      // Security: social.groupIds is server-managed (Group E) so the reader
+      // cannot spoof membership by writing arbitrary ids to their profile.
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'group'
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                       .data.get('social', {}).get('groupIds', [])
+                       .hasAny(resource.data.get('audienceGroupIds', []));
     }
 
     // ============================================================

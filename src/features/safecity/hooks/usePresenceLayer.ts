@@ -183,8 +183,13 @@ export function usePresenceLayer(
   const lemurStage = profile?.progression?.lemurStage ?? undefined;
   const photoURL = profile?.core?.photoURL ?? undefined;
   const runningLevel = profile?.running?.level ?? undefined;
+  // Server-managed group membership (Group E in firestore.rules) — used to
+  // populate audienceGroupIds so group members can see this user on the map.
+  const groupIds: string[] = Array.isArray(profile?.social?.groupIds)
+    ? profile.social.groupIds
+    : [];
 
-  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel, currentLocation });
+  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel, currentLocation, groupIds });
   stateRef.current = {
     privacyMode,
     following,
@@ -198,6 +203,7 @@ export function usePresenceLayer(
     photoURL,
     runningLevel,
     currentLocation,
+    groupIds,
   };
 
   // Load social connections
@@ -276,6 +282,9 @@ export function usePresenceLayer(
         lemurStage: s.lemurStage,
         photoURL: s.photoURL,
         runningLevel: s.runningLevel,
+        // Populate audienceGroupIds from the user's server-managed group membership
+        // so that group members can see this user on the map (mode='group' scope).
+        audienceGroupIds: s.groupIds,
       };
       // [DIAG] This is the line that proves the heartbeat is firing AND
       // shows the exact `mode` we're about to persist. If `mode` here is

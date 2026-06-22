@@ -29,8 +29,10 @@
 import {
   doc,
   setDoc,
+  updateDoc,
   deleteDoc,
   serverTimestamp,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { PrivacyMode } from '../store/usePrivacyStore';
@@ -76,6 +78,7 @@ export interface PresenceActivity {
   status: WorkoutActivityStatus;
   workoutTitle?: string;
   startedAt: number; // Unix ms
+  distance?: number; // km — updated on each heartbeat during running/walking
 }
 
 export interface PresencePayload {
@@ -84,7 +87,8 @@ export interface PresencePayload {
   ageGroup: 'minor' | 'adult';
   isVerified: boolean;
   schoolName: string | null;
-  mode: PrivacyMode;
+  /** 'group' is only used during live group sessions (Block 4 override). */
+  mode: PrivacyMode | 'group';
   lat: number;
   lng: number;
   authorityId: string | null;
@@ -116,6 +120,13 @@ export interface PresencePayload {
    * the caller sent (or didn't send).
    */
   gender?: 'male' | 'female' | 'other';
+  /**
+   * Group IDs whose members may see this user on the map (mode='group' scope).
+   * Must be a subset of `users/{uid}.social.groupIds` — validated at Firestore
+   * write time by the security rule (Group E). Set by the heartbeat from the
+   * user's profile; overridden to `[groupSessionId]` during live group sessions.
+   */
+  audienceGroupIds?: string[];
 }
 
 export async function updatePresence(payload: PresencePayload): Promise<void> {
@@ -193,6 +204,13 @@ export async function updatePresence(payload: PresencePayload): Promise<void> {
   if (payload.programLevel != null) data.programLevel = payload.programLevel;
   if (payload.mockPace) data.mockPace = payload.mockPace;
   if (payload.gender) data.gender = payload.gender;
+  if (payload.audienceGroupIds && payload.audienceGroupIds.length > 0) {
+    data.audienceGroupIds = payload.audienceGroupIds;
+  } else {
+    // Explicitly clear the field when empty so stale group IDs don't linger
+    // after a user leaves all groups or exits a group session.
+    data.audienceGroupIds = [];
+  }
 
   try {
     await setDoc(doc(db, 'presence', payload.uid), data, { merge: true });
@@ -224,6 +242,26 @@ export async function clearPresence(uid: string): Promise<void> {
     await deleteDoc(doc(db, 'presence', uid));
   } catch {
     // Ignore — doc may not exist
+  }
+}
+
+/**
+ * Immediately removes a single groupId from the presence doc's audienceGroupIds.
+ *
+ * Called by leaveGroup() right after the Firestore membership write, so the
+ * user's location stops being visible to the group without waiting for the
+ * next heartbeat (≤2 min). Location leakage after group leave is a privacy
+ * sensitivity — this is intentionally non-optional.
+ */
+export async function removeGroupFromPresence(uid: string, groupId: string): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  try {
+    await updateDoc(doc(db, 'presence', uid), {
+      audienceGroupIds: arrayRemove(groupId),
+      updatedAt: serverTimestamp(),
+    });
+  } catch {
+    // Presence doc may not exist (ghost mode) — not an error
   }
 }
 

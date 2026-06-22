@@ -41,6 +41,36 @@ import {
   removeCommunitySessionsFromPlanner,
 } from '@/features/user/scheduling/services/communitySchedule.service';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { removeGroupFromPresence } from '@/features/safecity/services/presence.service';
+import { auth } from '@/lib/firebase';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Updates users/{uid}.social.groupIds via the server-side API route.
+ *
+ * social.groupIds is locked from client self-write (Group E in firestore.rules)
+ * because it backs the presence `group` scope — anyone who could self-write
+ * arbitrary group IDs could spoof membership and read group members' locations.
+ * The Admin SDK in the API route is the only authorized writer.
+ */
+async function updateSocialGroupIds(uid: string, groupId: string, action: 'join' | 'leave'): Promise<void> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('[group.service] No auth token for group-membership update');
+
+  const res = await fetch('/api/social/group-membership', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ groupId, action }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(`[group.service] group-membership API failed: ${body?.error ?? res.status}`);
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -176,19 +206,13 @@ export async function createGroup(
     role: 'admin',
   });
 
-  // Mirror groupId in user's social.groupIds array (non-fatal: rules may restrict
-  // this field on first-write or the social sub-map may not exist yet)
+  // Mirror groupId in user's social.groupIds — routed through the server API
+  // because this field is locked from client self-write (Group E in firestore.rules).
   try {
-    await updateDoc(doc(db, 'users', creatorUid), {
-      'social.groupIds': arrayUnion(groupId),
-    });
-    // Diagnostic: verify the write landed in Firestore before store refresh
-    const verifySnap = await getDoc(doc(db, 'users', creatorUid));
-    console.log('[createGroup] social.groupIds after write:', verifySnap.data()?.social?.groupIds);
-    // Refresh store so useMyGroups() sees the new group immediately
+    await updateSocialGroupIds(creatorUid, groupId, 'join');
     useUserStore.getState().refreshProfile().catch(() => {});
   } catch (userErr) {
-    console.warn('[createGroup] user social.groupIds update failed (non-fatal):', userErr);
+    console.warn('[createGroup] social.groupIds update failed (non-fatal):', userErr);
   }
 
   // Auto-create group chat thread so it appears in Messages/Inbox (non-fatal:
@@ -251,11 +275,9 @@ export async function joinGroup(
     ...(validatedInviteCode !== undefined ? { inviteCode: validatedInviteCode } : {}),
   });
 
-  // Step 2 (critical): mirror groupId in user's social.groupIds
-  await updateDoc(doc(db, 'users', uid), {
-    'social.groupIds': arrayUnion(groupId),
-  });
-  // Refresh store so useMyGroups() sees the new group immediately
+  // Step 2 (critical): mirror groupId in user's social.groupIds via server API
+  // (field is locked from client self-write — see Group E in firestore.rules).
+  await updateSocialGroupIds(uid, groupId, 'join');
   useUserStore.getState().refreshProfile().catch(() => {});
 
   // Step 3 (non-fatal): increment member counters on the group document
@@ -308,9 +330,15 @@ export async function joinGroup(
 export async function leaveGroup(groupId: string, uid: string): Promise<void> {
   await deleteDoc(doc(db, 'community_groups', groupId, 'members', uid));
 
-  await updateDoc(doc(db, 'users', uid), {
-    'social.groupIds': arrayRemove(groupId),
-  });
+  // Remove from social.groupIds via server API (locked from client self-write).
+  await updateSocialGroupIds(uid, groupId, 'leave');
+
+  // IMMEDIATELY remove groupId from the presence doc — do not wait for the
+  // next heartbeat (≤2 min). Location leakage after group leave is a privacy
+  // sensitivity, so this is an unconditional call, never a best-effort.
+  await removeGroupFromPresence(uid, groupId);
+
+  useUserStore.getState().refreshProfile().catch(() => {});
 
   try {
     await removeMemberFromGroupChat(groupId, uid);
