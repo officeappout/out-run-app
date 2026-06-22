@@ -48,7 +48,7 @@ interface LiveSessionShellProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LiveSessionShell({
-  policy,
+  policy: _policy,
   dockH,
   isActive,
   behindBg,
@@ -56,17 +56,7 @@ export default function LiveSessionShell({
   miniContent,
   children,
 }: LiveSessionShellProps) {
-  // DEBUG — remove after Block 1 verification
-  React.useEffect(() => {
-    console.log('[LiveSessionShell] mode:', policy.mode, '| coLocation:', policy.coLocation, '| participants:', policy.participants.length);
-  }, [policy.mode, policy.coLocation, policy.participants.length]);
-
-  // Blocks 2–8 will route slot content by policy.mode.
-  // All unimplemented modes fall back to the caller's children (solo rendering)
-  // so users with groupId see the same screen as today — never a blank screen.
-  if (policy.mode !== 'solo') {
-    console.warn('[LiveSessionShell] mode not yet implemented — falling back to solo:', policy.mode);
-  }
+  // group/duo/competition slot routing — Blocks 2–8.
 
   return (
     <TwoLayerShell

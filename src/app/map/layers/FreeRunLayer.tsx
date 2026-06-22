@@ -61,35 +61,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
 
   const { groupId } = useSharedSession();
 
-  // DEBUG — remove after routing confirmed
-  React.useEffect(() => {
-    console.log('[FreeRunLayer NEW] isWorkoutActive:', isWorkoutActive);
-  }, [isWorkoutActive]);
-
-  const handleStartFreeRun = () => {
-    logic.setWorkoutMode('free');
-    logic.startActiveWorkout();
-  };
-
-  const handleBackToDiscover = () => {
-    logic.setWorkoutMode('discover');
-    setMode('discover');
-  };
-
-  // Block 1: minimal policy — drives LiveSessionShell mode routing.
-  // goal/participants/route will be populated in later blocks.
-  const policy: SessionPolicy = {
-    mode: groupId ? 'group' : 'solo',
-    entry: 'discover',
-    coLocation: 'none',
-    goal: { type: 'none' },
-    participants: [],
-    selectedUid: null,
-    route: null,
-  };
-
-  // Block 3: group presence → SideRail participants.
-  // FreeRunLayer maps PartnerPosition[] → Participant[] and passes down as prop.
+  // Group presence — must be above the policy object so participants can be wired in.
   const { partnerPositions } = useGroupPresenceListener();
   const sideRailParticipants = React.useMemo<Participant[]>(
     () =>
@@ -105,8 +77,28 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
     [partnerPositions],
   );
 
-  // Block 2: drawer slides derived from policy.mode.
-  // LiveSessionShell stays domain-agnostic; FreeRunLayer owns the component mapping.
+  const handleStartFreeRun = () => {
+    logic.setWorkoutMode('free');
+    logic.startActiveWorkout();
+  };
+
+  const handleBackToDiscover = () => {
+    logic.setWorkoutMode('discover');
+    setMode('discover');
+  };
+
+  // Policy drives LiveSessionShell mode routing.
+  const policy: SessionPolicy = {
+    mode: groupId ? 'group' : 'solo',
+    entry: 'discover',
+    coLocation: 'none',
+    goal: { type: 'none' },
+    participants: sideRailParticipants,
+    selectedUid: null,
+    route: null,
+  };
+
+  // Drawer slides derived from policy.mode.
   const drawerSlides = React.useMemo<DrawerSlide[]>(() => {
     const base: DrawerSlide[] = [
       { id: 'main', component: MainMetrics },
