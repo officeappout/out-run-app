@@ -12,10 +12,23 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 | Product + feature overview | `PRODUCT_TECHNICAL_REPORT.md` |
 | File/folder map | `PROJECT_STRUCTURE.md` |
 | Schedule algorithm | `src/features/schedule/out-run-schedule-logic-v1.3.md` |
-| Workout engine rules | `.claude/knowledge/workout-engine-truth.md` |
-| XP / Level / Coins rules | `.claude/knowledge/xp-progression-truth.md` |
+| Workout engine rules | `.cursoragents/Workout_Engine_Truth.md` |
+| XP / Level / Coins rules | `.cursoragents/XP_Progression_Truth.md` |
 | CRM agent playbook | `.claude/agents/crm-agent.md` |
 | Live session state | `.claude/knowledge/project-state.md` |
+| Immutable ground truths | `.claude/rules/axioms.md` |
+
+---
+
+## Agent Operating Rules (7 laws)
+
+1. **Audit-before-code**: Before writing code for any domain task, load the truth file for that domain (XP → `.cursoragents/XP_Progression_Truth.md`; Workout → `.cursoragents/Workout_Engine_Truth.md`; CRM → `.claude/agents/crm-agent.md`). If the truth file is missing — stop and say so.
+2. **No self-grading**: The agent/session that writes code does not review its own output. Code review is a separate step, separate session.
+3. **Emulator-before-deploy** (⚠️ unverified as hard law — see `.claude/rules/axioms.md` §14): When modifying `firestore.rules`, use `firebase emulators:start --only firestore` to verify before deploying.
+4. **All-or-nothing writes**: Multi-document Firestore writes use transactions. Partial success is silent data corruption.
+5. **Field-guards**: Never assume a Firestore field exists. Always use optional chaining (`?.`) and explicit defaults.
+6. **Pixel-by-pixel UI safety**: Before changing any UI component, read adjacent components for z-index conflicts and shared state. See `.cursorrules` Z-Index Budget table.
+7. **Domain-agnostic**: `src/features/{domain}/` is self-contained. No cross-domain direct imports. Shared utilities belong in `src/lib/`.
 
 ---
 
