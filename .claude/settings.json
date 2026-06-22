@@ -34,6 +34,18 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/calisthenicsltd/Development/appout-1/scripts/safety-check.sh",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }
