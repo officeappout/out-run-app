@@ -3,17 +3,21 @@
  *
  * POST — finds every community_groups doc whose createdBy user is missing
  * that groupId in social.groupIds and writes it back via Admin SDK arrayUnion.
+ * Also backfills user_memberships/{uid} for all affected creators so the
+ * lean membership document (read by Firestore Rules) stays in sync.
  *
- * Root cause being fixed: createGroup's updateSocialGroupIds call sits inside
- * a non-throwing catch block — if the API call failed at creation time the
- * creator's social.groupIds never got the groupId, causing PERMISSION-DENIED
- * on all subsequent group-mode presence reads for that creator.
+ * Root cause fixed: createGroup's updateSocialGroupIds call sat inside a
+ * non-throwing catch, silently missing the groupId.  Additionally, the
+ * Firestore Rules get(users/{uid}) hits a 1 MiB doc-size limit on large
+ * profiles (running.schedule×36 + progression), returning null silently →
+ * PERMISSION-DENIED even when social.groupIds is correct.
  *
- * Run once after deploy with:
+ * Auth: x-agent-key header (AGENT_API_KEY env var).
+ * Run once after deploy:
  *   curl -X POST /api/social/reconcile-group-membership \
- *        -H "Authorization: <AGENT_API_KEY>"
+ *        -H "x-agent-key: $AGENT_API_KEY"
  *
- * Safe to run multiple times — arrayUnion is idempotent.
+ * Safe to run multiple times — arrayUnion + set+merge are idempotent.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -49,13 +53,27 @@ export async function POST(request: NextRequest) {
 
         if (storedGroupIds.includes(groupId)) {
           alreadyCorrect++;
+          // Still ensure user_memberships exists even if users doc is correct.
+          await db.doc(`user_memberships/${createdBy}`).set(
+            { groupIds: storedGroupIds, updatedAt: FieldValue.serverTimestamp() },
+            { merge: true },
+          );
           return;
         }
 
-        await db.doc(`users/${createdBy}`).update({
+        // Fix users.social.groupIds and user_memberships atomically.
+        const batch = db.batch();
+        batch.update(db.doc(`users/${createdBy}`), {
           'social.groupIds': FieldValue.arrayUnion(groupId),
           updatedAt: FieldValue.serverTimestamp(),
         });
+        const newGroupIds = [...storedGroupIds, groupId];
+        batch.set(
+          db.doc(`user_memberships/${createdBy}`),
+          { groupIds: newGroupIds, updatedAt: FieldValue.serverTimestamp() },
+          { merge: true },
+        );
+        await batch.commit();
         fixed.push({ groupId, createdBy });
       }),
     );
