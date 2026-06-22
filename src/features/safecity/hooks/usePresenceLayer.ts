@@ -31,6 +31,7 @@ import {
   startHeartbeat,
   stopHeartbeat,
   clearPresence,
+  updatePresence,
   type PresencePayload,
   type PresenceActivity,
 } from '../services/presence.service';
@@ -40,6 +41,7 @@ import {
   type HeatmapPoint,
 } from '../services/segregation.service';
 import type { PrivacyMode } from '../store/usePrivacyStore';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -159,6 +161,11 @@ export function usePresenceLayer(
   const { profile, _hasHydrated } = useUserStore();
   const { following, isLoaded: socialLoaded, loadConnections } = useSocialStore();
   const { mode: privacyMode } = usePrivacyStore();
+  // Reactive groupId — drives the session-boundary immediate-write effect below.
+  const groupSessionId = useSharedSession((s) => s.groupId);
+  // Ref that exposes the current getPayload builder to the session-boundary effect
+  // without re-creating the heartbeat interval on every render.
+  const getPayloadRef = useRef<(() => PresencePayload | null) | null>(null);
 
   const [socialMode, setSocialMode] = useState<SocialMapMode>('friends');
   const [rawMarkers, setRawMarkers] = useState<PresenceMarker[]>([]);
@@ -268,13 +275,21 @@ export function usePresenceLayer(
         });
         return null;
       }
+      // Session-aware mode override: during a live group session, force
+      // mode='group' and audienceGroupIds=[groupSessionId] so that all
+      // session members can see each other on the map. The map heartbeat
+      // is the only presence writer during running sessions — useWorkoutPresence
+      // is only mounted in the strength workout screen (/workouts/[id]/active).
+      // Revert is automatic: when groupId→null (session ends), the next call
+      // uses s.privacyMode and s.groupIds (the user's real privacy settings).
+      const liveGroupId = useSharedSession.getState().groupId;
       const payload: PresencePayload = {
         uid: s.userId,
         name: profile.core.name,
         ageGroup: s.ageGroup,
         isVerified: s.isVerified,
         schoolName: s.schoolName,
-        mode: s.privacyMode,
+        mode: liveGroupId ? 'group' : s.privacyMode,
         lat,
         lng,
         authorityId: s.authorityId,
@@ -282,20 +297,13 @@ export function usePresenceLayer(
         lemurStage: s.lemurStage,
         photoURL: s.photoURL,
         runningLevel: s.runningLevel,
-        // Populate audienceGroupIds from the user's server-managed group membership
-        // so that group members can see this user on the map (mode='group' scope).
-        audienceGroupIds: s.groupIds,
+        audienceGroupIds: liveGroupId ? [liveGroupId] : s.groupIds,
       };
-      // [DIAG] This is the line that proves the heartbeat is firing AND
-      // shows the exact `mode` we're about to persist. If `mode` here is
-      // 'verified_global' but the Firestore doc shows 'squad' (or vice
-      // versa), the discrepancy is downstream in updatePresence /
-      // Firestore caching. If you don't see this log at all, the
-      // heartbeat never fired — check the SKIPPED reasons above.
       console.log('[PresenceHeartbeat] tick WRITING presence', {
         tickCount,
         uid: payload.uid,
         mode: payload.mode,
+        liveGroupId: liveGroupId ?? null,
         ageGroup: payload.ageGroup,
         lat: payload.lat,
         lng: payload.lng,
@@ -304,14 +312,29 @@ export function usePresenceLayer(
       return payload;
     };
 
+    // Expose for the session-boundary immediate-write effect.
+    getPayloadRef.current = getPayload;
+
     startHeartbeat(getPayload);
     return () => {
       console.log('[PresenceHeartbeat] unmount — stopping heartbeat + clearing presence', { userId });
+      getPayloadRef.current = null;
       stopHeartbeat();
       if (userId) clearPresence(userId).catch(() => {});
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // ── Session-boundary immediate presence write ─────────────────────────────
+  // Without this, partners only appear after the next regular heartbeat tick
+  // (up to 2 min). Fires on both transitions:
+  //   null → groupId  (session start): writes mode='group', audienceGroupIds=[groupId]
+  //   groupId → null  (session end):   writes mode=privacyMode (reverts immediately)
+  useEffect(() => {
+    const p = getPayloadRef.current?.();
+    if (p) updatePresence(p).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSessionId]);
 
   // ── Real-time Firestore listener (single onSnapshot) ─────────────────────
   useEffect(() => {
@@ -340,7 +363,17 @@ export function usePresenceLayer(
 
       batches.forEach((batch, idx) => {
         try {
-          const q = query(collection(db, 'presence'), where('uid', 'in', batch));
+          // Option A: filter to verified_global only so squad-mode docs (whose
+          // read rule requires a cross-doc followers check) never enter the
+          // batch. A single squad doc whose followers list doesn't include the
+          // reader causes the entire in-batch query to fail with PERMISSION-DENIED
+          // (Firestore all-or-nothing semantics). Trade-off: friends who set
+          // mode='squad' won't appear; acceptable while the follow graph is sparse.
+          const q = query(
+            collection(db, 'presence'),
+            where('uid', 'in', batch),
+            where('mode', '==', 'verified_global'),
+          );
           const unsub = onSnapshot(q, (snap) => {
             const markers: PresenceMarker[] = [];
             snap.forEach((d) => {
