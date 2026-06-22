@@ -158,6 +158,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               mapMode="free_run"
               activityType={activityType}
               isNavigationMode={logic.isNavigationMode}
+              partnerPositions={partnerPositions}
             />
           </div>
 
