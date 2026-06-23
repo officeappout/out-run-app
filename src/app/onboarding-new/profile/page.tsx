@@ -6,8 +6,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -15,6 +13,7 @@ import OnboardingStoryBar from '@/features/user/onboarding/components/Onboarding
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -42,22 +41,29 @@ export default function IdentityProfilePage() {
   const searchParams = useSearchParams();
   /** When true the page was opened mid-session to collect a missing name only. */
   const isProfileOnly = searchParams.get('context') === 'profile-only';
-  const { profile, updateProfile } = useUserStore();
+  /** Fast path: collect identity then land at the deep-link destination. */
+  const isExpress = searchParams.get('context') === 'express';
+  const { profile, updateProfile, refreshProfile } = useUserStore();
   const direction = 'rtl';
 
   // Auth state — always start null so SSR and first client render match
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Group name stored by the join page when routing here from a group invite link.
+  const [pendingGroupName, setPendingGroupName] = useState<string | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
+    if (isExpress) {
+      setPendingGroupName(localStorage.getItem('pending_invite_group_name'));
+    }
     const unsub = onAuthStateChanged(auth, (user) => {
       setAuthUser(user);
       setAuthReady(true);
     });
     return () => unsub();
-  }, []);
+  }, [isExpress]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -80,6 +86,9 @@ export default function IdentityProfilePage() {
   const [isUnder14, setIsUnder14]       = useState(false);
   const [isDobInvalid, setIsDobInvalid] = useState(false);
   const [loading, setLoading]           = useState(false);
+
+  // True only in express mode AND when a group invite is pending — drives context-specific copy.
+  const isJoinContext = isExpress && !!pendingGroupName;
 
   // Pre-fill from existing profile if available
   useEffect(() => {
@@ -199,58 +208,118 @@ export default function IdentityProfilePage() {
         return;
       }
 
-      const birthDate = new Date(
-        parseInt(formData.birthYear),
-        parseInt(formData.birthMonth) - 1,
-        parseInt(formData.birthDay)
-      );
+      // ID token for the server route — ageGroup is computed server-side only.
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        alert('שגיאה באימות המשתמש. נסה לרענן את הדף.');
+        setLoading(false);
+        return;
+      }
 
-      if (isProfileOnly) {
-        await updateDoc(doc(db, 'users', uid), {
-          'core.name':      formData.name,
-          'core.gender':    formData.gender,
-          'core.birthDate': birthDate,
-          updatedAt: serverTimestamp(),
-        });
-        if (profile?.core) {
-          updateProfile({
-            core: {
-              ...profile.core,
-              name:      formData.name,
-              gender:    formData.gender as 'male' | 'female' | 'other',
-              birthDate,
-            },
-          });
+      const birthDay   = parseInt(formData.birthDay,   10);
+      const birthMonth = parseInt(formData.birthMonth, 10);
+      const birthYear  = parseInt(formData.birthYear,  10);
+
+      const res = await fetch('/api/user/complete-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          name:      formData.name,
+          gender:    formData.gender,
+          birthDay,
+          birthMonth,
+          birthYear,
+          // isNewUser drives the full setDoc scaffold in the API route
+          isNewUser: !isProfileOnly && !isExpress,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const errCode = (err as { error?: string }).error ?? 'Server error';
+        if (errCode === 'under-minimum-age') {
+          setIsUnder14(true);
+          setHasDobError(true);
+          setLoading(false);
+          return;
         }
-        router.push('/community?openCreate=true');
-      } else {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('onboarding_personal_name',   formData.name);
-          sessionStorage.setItem('onboarding_personal_gender', formData.gender);
-          sessionStorage.setItem('onboarding_personal_dob',    birthDate.toISOString().split('T')[0]);
-        }
-        await setDoc(doc(db, 'users', uid), {
-          id: uid,
-          onboardingPath:     'FULL_PROGRAM',
-          onboardingStatus:   'IN_PROGRESS',
-          onboardingStep:     'IDENTITY',
-          onboardingProgress: 0,
+        throw new Error(errCode);
+      }
+
+      const data = await res.json() as { ok: boolean; ageGroup: 'minor' | 'adult' };
+      const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+
+      // Sync ageGroup to the local store so downstream screens (join page gate,
+      // presence logic) see it immediately without waiting for Firestore re-sync.
+      if (profile?.core) {
+        updateProfile({
           core: {
-            name:               formData.name,
-            gender:             formData.gender,
+            ...profile.core,
+            name:      formData.name,
+            gender:    formData.gender as 'male' | 'female' | 'other',
             birthDate,
-            initialFitnessTier: 1,
-            trackingMode:       'wellness',
-            mainGoal:           'healthy_lifestyle',
-            weight:             0,
-            accessLevel:        1,
-            affiliations:       [],
-            unlockedProgramIds: [],
-            isVerified:         false,
+            ageGroup:  data.ageGroup,
           },
-          createdAt:  serverTimestamp(),
-          updatedAt:  serverTimestamp(),
-        }, { merge: true });
+        });
+      } else {
+        // New anonymous user — no profile in store yet.
+        // Load the document that complete-profile just wrote so downstream
+        // gates (ageGroup checks, join confirmation) see a populated profile.
+        await refreshProfile();
+      }
+
+      // Navigate
+      if (isProfileOnly) {
+        router.push('/community?openCreate=true');
+      } else if (isExpress) {
+        // Resolve the stored deep-link target (set by native/init.ts)
+        const pendingCode    = localStorage.getItem('pending_institution_code');
+        const pendingInvite  = localStorage.getItem('pending_invite_code');
+        const pendingSession = localStorage.getItem('pending_session_token');
+        const pendingGroup   = localStorage.getItem('pending_community_group_id');
+
+        if (pendingCode) {
+          router.push(`/onboarding-new/access-code?code=${encodeURIComponent(pendingCode)}`);
+        } else if (pendingInvite) {
+          // Confirm membership inline — no second tap needed. The user clicked
+          // "הצטרף" → identity screen → "המשך" → community. One linear flow.
+          try {
+            const confirmToken = await auth.currentUser?.getIdToken();
+            if (confirmToken) {
+              const confirmRes = await fetch('/api/join/confirm', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${confirmToken}` },
+                body:    JSON.stringify({ inviteCode: pendingInvite }),
+              });
+              if (confirmRes.ok) {
+                const { groupId } = await confirmRes.json() as { groupId: string };
+                localStorage.removeItem('pending_invite_code');
+                router.push(resolveJoinLanding(groupId));
+              } else {
+                // Confirm failed — fall back to the join page where the user can retry.
+                router.push(`/join/${encodeURIComponent(pendingInvite)}`);
+              }
+            } else {
+              router.push(`/join/${encodeURIComponent(pendingInvite)}`);
+            }
+          } catch {
+            router.push(`/join/${encodeURIComponent(pendingInvite)}`);
+          }
+        } else if (pendingSession) {
+          router.push(`/session/${encodeURIComponent(pendingSession)}`);
+        } else if (pendingGroup) {
+          router.push(`/community?groupId=${encodeURIComponent(pendingGroup)}`);
+        } else {
+          router.push('/home');
+        }
+      } else {
+        // Full onboarding: pass identity to downstream screens via sessionStorage
+        sessionStorage.setItem('onboarding_personal_name',   formData.name);
+        sessionStorage.setItem('onboarding_personal_gender', formData.gender);
+        sessionStorage.setItem('onboarding_personal_dob',    birthDate.toISOString().split('T')[0]);
         firePhaseConfetti();
         router.push('/onboarding-new/program-path');
       }
@@ -266,10 +335,22 @@ export default function IdentityProfilePage() {
   useEffect(() => {
     if (!isHydrated) return;
     if (authReady && !resolveUid(authUser)) {
+      // Guard: if an express join flow is in progress, the anon auth created by
+      // handleJoinClick may not have propagated to onAuthStateChanged yet.
+      // resolveUid already checks auth.currentUser synchronously as a fallback,
+      // but if that also returns null AND we have a pending invite, wait rather
+      // than bouncing back to gateway — the auth state will arrive momentarily.
+      if (
+        isExpress &&
+        typeof window !== 'undefined' &&
+        localStorage.getItem('pending_invite_code')
+      ) {
+        return;
+      }
       console.warn('[Profile] Auth settled with no uid — redirecting to /gateway');
       router.replace('/gateway');
     }
-  }, [authReady, isHydrated, authUser, router]);
+  }, [authReady, isHydrated, authUser, isExpress, router]);
 
   if (!resolvedUid) {
     return (
@@ -316,9 +397,9 @@ export default function IdentityProfilePage() {
 
           <div className="flex-1 min-h-[36px] flex flex-col justify-center">
             <OnboardingStoryBar
-              totalPhases={STRENGTH_PHASES.TOTAL}
-              currentPhase={STRENGTH_PHASES.PROFILE}
-              phaseLabel={STRENGTH_PHASES.labels[STRENGTH_PHASES.PROFILE]}
+              totalPhases={isExpress ? 1 : STRENGTH_PHASES.TOTAL}
+              currentPhase={isExpress ? 1 : STRENGTH_PHASES.PROFILE}
+              phaseLabel={isExpress ? undefined : STRENGTH_PHASES.labels[STRENGTH_PHASES.PROFILE]}
               noPadding
             />
           </div>
@@ -393,35 +474,47 @@ export default function IdentityProfilePage() {
               }}
             />
 
-            {/* Word-by-word mist-in animation */}
-            <motion.p
-              className="text-sm font-medium text-slate-600 leading-relaxed text-right"
-              dir="rtl"
-              variants={{
-                hidden: {},
-                show: { transition: { delayChildren: 0.35, staggerChildren: 0.05 } },
-              }}
-              initial="hidden"
-              animate="show"
-            >
-              {(isProfileOnly
-                ? 'היי אני קלי המאמן האישי שלך! כדי להקים את הקהילה החדשה, נשאר רק להגדיר כמה פרטים בסיסיים בפרופיל.'
-                : 'אני קלי, המאמן האישי שלך. כדי שנתפור לך תוכנית מדויקת, אני צריך רק כמה פרטים קטנים.'
-              ).split(' ').map((word, i) => (
-                <React.Fragment key={i}>
-                  <motion.span
-                    variants={{
-                      hidden: { opacity: 0, y: 4, filter: 'blur(4px)' },
-                      show:   { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.35, ease: 'easeOut' } },
-                    }}
-                    style={{ display: 'inline-block' }}
-                  >
-                    {word}
-                  </motion.span>
-                  {' '}
-                </React.Fragment>
-              ))}
-            </motion.p>
+            {isJoinContext ? (
+              /* Join-context two-line layout — group name prominent, no word animation */
+              <div className="text-right" dir="rtl">
+                <p className="text-base font-black text-slate-900 mb-1">
+                  מצטרפים לקבוצת {pendingGroupName}
+                </p>
+                <p className="text-sm font-medium text-slate-600">
+                  היי, אני קלי 👋 עוד כמה פרטים קטנים ומצטרפים.
+                </p>
+              </div>
+            ) : (
+              /* Word-by-word mist-in animation for non-join contexts */
+              <motion.p
+                className="text-sm font-medium text-slate-600 leading-relaxed text-right"
+                dir="rtl"
+                variants={{
+                  hidden: {},
+                  show: { transition: { delayChildren: 0.35, staggerChildren: 0.05 } },
+                }}
+                initial="hidden"
+                animate="show"
+              >
+                {(isProfileOnly
+                  ? 'היי אני קלי המאמן האישי שלך! כדי להקים את הקהילה החדשה, נשאר רק להגדיר כמה פרטים בסיסיים בפרופיל.'
+                  : 'אני קלי, המאמן האישי שלך. כדי שנתפור לך תוכנית מדויקת, אני צריך רק כמה פרטים קטנים.'
+                ).split(' ').map((word, i) => (
+                  <React.Fragment key={i}>
+                    <motion.span
+                      variants={{
+                        hidden: { opacity: 0, y: 4, filter: 'blur(4px)' },
+                        show:   { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.35, ease: 'easeOut' } },
+                      }}
+                      style={{ display: 'inline-block' }}
+                    >
+                      {word}
+                    </motion.span>
+                    {' '}
+                  </React.Fragment>
+                ))}
+              </motion.p>
+            )}
           </motion.div>
         </div>
 
@@ -435,7 +528,9 @@ export default function IdentityProfilePage() {
               איך היית רוצה שנפנה אלייך?
             </label>
             <p className="text-sm text-gray-400 text-right pr-1">
-              רק כדי שנדע מתי לפרגן לך ב'כל הכבוד מלך!' ומתי ב'אלופה, שברת את המסך!' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).
+              {isJoinContext
+                ? 'רק כדי לדעת איך לפנות.'
+                : 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'}
             </p>
             <div className="flex gap-3">
               {GENDER_OPTIONS.map(({ value, label, emoji }) => (
@@ -474,7 +569,7 @@ export default function IdentityProfilePage() {
               מתי חוגגים לך יום הולדת? 🎂
             </label>
             <p className="text-sm text-gray-400 text-right pr-1">
-              עוזר לנו להתאים את עצימות האימון לגילך.
+              {isJoinContext ? 'כדי שנתאים את החוויה לגיל.' : 'עוזר לנו להתאים את עצימות האימון לגילך.'}
             </p>
 
             <div className="flex gap-3 flex-row">

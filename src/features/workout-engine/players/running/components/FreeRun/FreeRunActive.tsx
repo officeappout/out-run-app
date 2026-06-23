@@ -40,6 +40,7 @@ import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
+import { useGroupSessionGoal } from '../../hooks/useGroupSessionGoal';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +176,10 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
       !!s.guidedRouteId ||
       (Array.isArray(s.activeRoutePath) && s.activeRoutePath.length >= 2),
   );
+
+  // Bridge: reads sessionGoal + myPersonalGoal from shared session store,
+  // resolves effective goal, and writes it into useRunningPlayer.
+  useGroupSessionGoal();
 
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);

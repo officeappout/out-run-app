@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import FreeRunActive from './FreeRunActive';
 import FreeRunSummary from './FreeRunSummary';
 
@@ -27,12 +28,20 @@ export default function FreeRun() {
     } else {
       stopGPSTracking();
     }
-    
+
     // Cleanup on unmount
     return () => {
       stopGPSTracking();
     };
   }, [status, startGPSTracking, stopGPSTracking]);
+
+  // Clear group session context when workout finishes — fires after the XP
+  // award calls have been initiated in useRunningPlayer.finishWorkout().
+  useEffect(() => {
+    if (status === 'finished') {
+      useSharedSession.getState().clearGroupSession();
+    }
+  }, [status]);
 
   const handleBack = () => {
     endSession();

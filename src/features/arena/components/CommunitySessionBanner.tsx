@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -155,6 +155,23 @@ export default function CommunitySessionBanner({
   const [showDevPanel, setShowDevPanel] = useState(false);
   const effectivePhase: LiveSessionPhase = devPhase ?? session.phase;
 
+  // When a joined member's session goes active, switch them to group presence mode
+  // automatically — without needing a button tap. This ensures the creator/host
+  // broadcasts mode:'group' even when they navigate to the map without using the
+  // "join workout" button, so guests can see them after the mode-filter is applied.
+  useEffect(() => {
+    if (effectivePhase !== 'active' || !isJoined || !session.groupId) return;
+    const { groupId: currentGroupId, startGroupSession } = useSharedSession.getState();
+    if (currentGroupId === session.groupId) return;
+    startGroupSession(
+      session.groupId,
+      `${session.date}_${session.time.replace(':', '-')}`,
+      session.attendance?.attendees ?? [],
+      session.attendance?.attendeeProfiles ?? {},
+      session.groupName,
+    );
+  }, [effectivePhase, isJoined, session]);
+
   // ── dual-source copy ───────────────────────────────────────────────────────
   const communityMsg = useSmartMessage('community_session');
 
@@ -184,6 +201,7 @@ export default function CommunitySessionBanner({
       await bookSession(
         session.groupId, session.date, session.time,
         uid, userName, photoURL, session.slot.maxParticipants,
+        session.slot.workoutGoal,
       );
       setBooked(true);
       setTimeout(() => setBooked(false), 2_000);
@@ -488,6 +506,7 @@ export default function CommunitySessionBanner({
                 await bookSession(
                   session.groupId, session.date, session.time,
                   uid, userName, photoURL ?? null, session.slot.maxParticipants,
+                  session.slot.workoutGoal,
                 );
                 void handleStatus('here');
                 // Close any open drawer first, then navigate.
@@ -571,6 +590,7 @@ export default function CommunitySessionBanner({
               await bookSession(
                 session.groupId, session.date, session.time,
                 uid, userName, photoURL ?? null, session.slot.maxParticipants,
+                session.slot.workoutGoal,
               );
               onDismiss?.();
               if (typeof window !== 'undefined' && window.location.pathname !== '/map') {

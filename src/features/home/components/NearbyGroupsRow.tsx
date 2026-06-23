@@ -6,7 +6,7 @@ import { Users, SlidersHorizontal } from 'lucide-react';
 import { haversineKm } from '@/features/parks/core/services/geoUtils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useUserStore } from '@/features/user';
-import { getPublicGroups, joinGroup, leaveGroup } from '@/features/arena/services/group.service';
+import { getPublicGroups, getMyGroups, joinGroup, leaveGroup } from '@/features/arena/services/group.service';
 import GroupCard from '@/features/arena/components/GroupCard';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
@@ -91,6 +91,9 @@ export default function NearbyGroupsRow() {
   const [joinedGroupIds, setJoinedGroupIds] = useState<Set<string>>(new Set());
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [devOverrides, setDevOverrides] = useState<Record<string, 'approaching' | 'lobby' | 'active' | null>>({});
+  // Private joined groups (isPublic:false) are absent from getPublicGroups().
+  // Fetch them by ID so members always find their group on the home screen.
+  const [privateJoinedGroups, setPrivateJoinedGroups] = useState<CommunityGroup[]>([]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -128,6 +131,20 @@ export default function NearbyGroupsRow() {
     }
   }, [profile?.social?.groupIds]);
 
+  // Fetch private joined groups (isPublic:false) that getPublicGroups() omits.
+  // Runs whenever the joined set or the public list changes.
+  useEffect(() => {
+    if (!joinedGroupIds.size) return;
+    const publicIds = new Set(allGroups.map((g) => g.id));
+    const privateIds = Array.from(joinedGroupIds).filter((id) => !publicIds.has(id));
+    if (!privateIds.length) { setPrivateJoinedGroups([]); return; }
+    let cancelled = false;
+    getMyGroups(privateIds)
+      .then((docs) => { if (!cancelled) setPrivateJoinedGroups(docs); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [joinedGroupIds, allGroups]);
+
   const userAuthorityId: string | null =
     (profile as any)?.core?.authorityId ?? null;
 
@@ -149,10 +166,35 @@ export default function NearbyGroupsRow() {
     return map;
   }, [publicPhases, devOverrides]);
 
-  const nearby = useMemo(
-    () => userPos ? computeNearby(allGroups, userPos, userAuthorityId) : [],
-    [allGroups, userPos, userAuthorityId],
-  );
+  const nearby = useMemo(() => {
+    if (!userPos) return [];
+    const nearbyList = computeNearby(allGroups, userPos, userAuthorityId);
+    const nearbyIds = new Set(nearbyList.map((n) => n.group.id));
+
+    // Public joined groups outside the discovery radius
+    const joinedFarAway = allGroups
+      .filter((g) => joinedGroupIds.has(g.id) && !nearbyIds.has(g.id))
+      .map((g) => {
+        const loc = g.meetingLocation?.location;
+        const km = (loc?.lat && loc?.lng)
+          ? haversineKm(userPos.lat, userPos.lng, loc.lat, loc.lng)
+          : 9999;
+        return { group: g, km };
+      });
+
+    // Private joined groups (isPublic:false) — not returned by getPublicGroups()
+    const privateJoined = privateJoinedGroups
+      .filter((g) => !nearbyIds.has(g.id))
+      .map((g) => {
+        const loc = g.meetingLocation?.location;
+        const km = (loc?.lat && loc?.lng)
+          ? haversineKm(userPos.lat, userPos.lng, loc.lat, loc.lng)
+          : 9999;
+        return { group: g, km };
+      });
+
+    return [...nearbyList, ...joinedFarAway, ...privateJoined];
+  }, [allGroups, userPos, userAuthorityId, joinedGroupIds, privateJoinedGroups]);
 
   const filtered = useMemo(() => {
     if (categoryFilter === 'all') return nearby;
@@ -163,11 +205,15 @@ export default function NearbyGroupsRow() {
   const sorted = useMemo(() => {
     const phaseOrder: Record<string, number> = { active: 0, lobby: 1, approaching: 2 };
     return [...filtered].sort((a, b) => {
+      // Joined groups always float above non-joined within the same phase bucket.
+      const aJoined = joinedGroupIds.has(a.group.id) ? 0 : 1;
+      const bJoined = joinedGroupIds.has(b.group.id) ? 0 : 1;
+      if (aJoined !== bJoined) return aJoined - bJoined;
       const pa = phaseOrder[livePhaseMap[a.group.id] ?? ''] ?? 3;
       const pb = phaseOrder[livePhaseMap[b.group.id] ?? ''] ?? 3;
       return pa !== pb ? pa - pb : a.km - b.km;
     });
-  }, [filtered, livePhaseMap]);
+  }, [filtered, livePhaseMap, joinedGroupIds]);
 
   async function handleJoin(groupId: string) {
     if (!userId) return;
@@ -282,6 +328,7 @@ export default function NearbyGroupsRow() {
                 group={group}
                 distanceKm={km}
                 compact
+                isJoined={joinedGroupIds.has(group.id)}
                 livePhase={livePhaseMap[group.id]}
                 onCardClick={() => setSelectedGroup(group)}
               />

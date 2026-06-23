@@ -18,7 +18,7 @@ import {
   increment,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -157,6 +157,29 @@ export async function consumeSessionInvitation(
       joinedViaToken: token,
     },
   });
+
+  // Set up the Firestore state that the thin client-side join path skips.
+  // /api/join/session-token (Admin SDK) writes two docs atomically:
+  //   • users/{uid}            — shell doc so health-declaration saves hit
+  //                              UPDATE (not CREATE), avoiding the core.role guard
+  //   • user_memberships/{uid} — presence-read gate (memberGroupIds() in rules)
+  // Non-fatal: the user is already in the attendance doc; a failed setup means
+  // degraded presence visibility, not a broken session join.
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (idToken) {
+    await fetch('/api/join/session-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ token, groupId }),
+    }).catch((err) => {
+      console.warn('[consumeSessionInvitation] membership setup failed (non-fatal):', err);
+    });
+  } else {
+    console.warn('[consumeSessionInvitation] no auth token — skipping membership setup for', uid);
+  }
 
   return { groupId, attendanceId };
 }

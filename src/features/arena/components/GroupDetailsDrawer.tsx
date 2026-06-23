@@ -351,6 +351,7 @@ export default function GroupDetailsDrawer({
           groupId, nsd, nst,
           userId, userName, userPhoto,
           nextSlot?.maxParticipants,
+          nextSlot?.workoutGoal,
         );
         if (result.success) {
           if (result.waitlisted) {
@@ -385,6 +386,7 @@ export default function GroupDetailsDrawer({
         group!.id, effectiveLiveSession.date, effectiveLiveSession.time,
         userId, userName, userPhoto,
         effectiveLiveSession.slot.maxParticipants,
+        effectiveLiveSession.slot.workoutGoal,
       );
       await setMyAttendeeStatus(
         userId, group!.id,

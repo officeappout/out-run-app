@@ -279,6 +279,8 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
                   unoptimized={!!item.imageUrl}
                   onError={(e) => { (e.target as HTMLImageElement).src = PARK_FALLBACK_IMAGE; }}
                 />
+                {/* Fade into card body */}
+                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                 {/* Distance badge */}
                 <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold text-white bg-black/50 backdrop-blur-sm tabular-nums">
                   {formatDist(item.distance)}

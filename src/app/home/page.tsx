@@ -23,7 +23,8 @@ import { useDayStatus } from '@/features/activity/hooks/useDayStatus';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
-import type { CommunityGroup } from '@/types/community.types';
+import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
+import type { CommunityGroup, ScheduleSlot } from '@/types/community.types';
 
 import {
   Shield, CheckCircle2, Circle, ChevronDown, X,
@@ -56,6 +57,18 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
 import AppHeader from '@/components/ui/AppHeader';
+import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
+import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
+
+const GROUP_VERB: Record<string, string> = {
+  walking:      'ילך',
+  running:      'ירוץ',
+  yoga:         'יתאמן',
+  calisthenics: 'יתאמן',
+  cycling:      'ירכב',
+  other:        'יתאמן',
+};
+
 
 // ════════════════════════════════════════════════════════════════════
 // 1. PROFILE PROGRESS BAR — Slim bar below header, expandable drawer
@@ -227,6 +240,7 @@ export default function HomePage() {
   const { flags: featureFlags } = useFeatureFlags(isSuperAdmin);
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
+  const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
   // True from the instant a new workout card is tapped until the engine
@@ -394,6 +408,14 @@ export default function HomePage() {
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
   const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
+  const [joinSuccessData, setJoinSuccessData] = useState<{
+    name: string;
+    verb: string;
+    scheduleSlots?: ScheduleSlot[];
+    category?: string;
+    address?: string;
+    group: CommunityGroup;
+  } | null>(null);
 
   const handleOpenGroupFromBanner = useCallback(async (groupId: string) => {
     try {
@@ -460,7 +482,7 @@ export default function HomePage() {
     setTimeout(() => handleHeroPress(), 200);
   }, []);
 
-  // Check for query params from post-workout CTA or JIT return
+  // Check for query params from post-workout CTA, JIT return, or join landing
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -472,6 +494,42 @@ export default function HomePage() {
         window.history.replaceState({}, '', '/home');
         // Defer so the page finishes mounting before triggering the workout flow
         setTimeout(() => handleHeroPress(), 300);
+      }
+      // ?openGroupDrawer=<groupId>&joined=true — navigate here after a group join
+      // so the home page opens the group drawer (or post-join celebration) instead
+      // of the community tab. Clears the params immediately to avoid re-opening on refresh.
+      const openGroupId = params.get('openGroupDrawer');
+      if (openGroupId) {
+        window.history.replaceState({}, '', '/home');
+        const justJoined = params.get('joined') === 'true';
+        getDoc(firestoreDoc(db, 'community_groups', openGroupId))
+          .then((snap) => {
+            if (!snap.exists()) return;
+            const group = { id: snap.id, ...snap.data() } as CommunityGroup;
+            if (justJoined) {
+              const allSlots: ScheduleSlot[] = group.scheduleSlots?.length
+                ? group.scheduleSlots
+                : group.schedule
+                  ? [group.schedule]
+                  : [];
+              setJoinSuccessData({
+                name:          group.name,
+                verb:          GROUP_VERB[group.category] ?? 'יתאמן',
+                scheduleSlots: allSlots,
+                category:      group.category,
+                address:       group.meetingLocation?.address,
+                group,
+              });
+              // Refresh so profile.social.groupIds picks up the membership
+              // written by /api/join/confirm before navigating here.
+              refreshProfile().catch(() => {});
+            } else {
+              setBannerGroup(group);
+            }
+          })
+          .catch((err) => {
+            console.error('[Home] failed to open group drawer from query param:', err);
+          });
       }
     }
   }, []);
@@ -843,8 +901,9 @@ export default function HomePage() {
         }
       }
 
-      // Open workout preview directly — no blocking equipment gate.
-      openWorkoutPreview(dateToUse);
+      // Health declaration hard-block (first start only). Passes through
+      // synchronously once the user has accepted or on repeat taps.
+      interceptWorkoutStart(() => openWorkoutPreview(dateToUse), 'strength');
     } else {
       if (typeof window !== 'undefined') {
         // onboarding_path persists via onboardingPrefs so a hard close
@@ -1433,6 +1492,30 @@ export default function HomePage() {
         group={bannerGroup}
         isJoined={true}
         liveSession={communitySessions.find((s) => s.groupId === bannerGroup?.id)}
+      />
+
+      <PostJoinSuccessDrawer
+        isOpen={!!joinSuccessData}
+        onClose={() => {
+          // Chain: celebration → group details drawer so user lands in group context.
+          const g = joinSuccessData?.group ?? null;
+          setJoinSuccessData(null);
+          if (g) setBannerGroup(g);
+        }}
+        name={joinSuccessData?.name ?? ''}
+        verb={joinSuccessData?.verb ?? 'יתאמן'}
+        scheduleSlots={joinSuccessData?.scheduleSlots}
+        category={joinSuccessData?.category}
+        address={joinSuccessData?.address}
+      />
+
+      {/* Health declaration hard-block — fires on first workout start */}
+      <JITSetupModal
+        isOpen={jitState.isModalOpen}
+        requirements={jitState.requirements}
+        onComplete={jitState.onComplete}
+        onDismiss={dismissJIT}
+        onCancel={cancelJIT}
       />
     </div>
   );

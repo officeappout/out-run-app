@@ -42,6 +42,7 @@ import {
 } from '../services/segregation.service';
 import type { PrivacyMode } from '../store/usePrivacyStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -250,7 +251,26 @@ export function usePresenceLayer(
       // Read location from stateRef so the heartbeat always uses the latest
       // GPS coordinates without needing to restart the effect on every position
       // change. stateRef.current is updated every render.
-      const loc = s.currentLocation;
+      let loc = s.currentLocation;
+
+      // GPS-store fallback: stateRef.current.currentLocation lags by one render
+      // cycle behind the native watchPosition callback (it flows through MapShell
+      // props). Reading the Zustand store directly closes that gap — critical for
+      // the first-fix subscription write and for the session-boundary write that
+      // fires before MapShell has had a chance to re-render with the new coords.
+      if (!loc) {
+        const storeFix = useGPSStore.getState().coords;
+        if (storeFix) loc = storeFix;
+      }
+
+      // Dev-only: when no real GPS is available (e.g. localhost), broadcast a
+      // fixed Tel-Aviv coordinate so two browser tabs can test group presence
+      // without a real device. Has zero effect in production (IS_DEV is false).
+      if (!loc && IS_DEV) {
+        loc = { lat: 32.0673, lng: 34.7726 };
+        console.log('[PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick', tickCount);
+      }
+
       if (!loc || !s.userId) {
         console.log('[PresenceHeartbeat] tick SKIPPED', {
           tickCount,
@@ -283,13 +303,20 @@ export function usePresenceLayer(
       // Revert is automatic: when groupId→null (session ends), the next call
       // uses s.privacyMode and s.groupIds (the user's real privacy settings).
       const liveGroupId = useSharedSession.getState().groupId;
+      const requestedMode = liveGroupId ? 'group' : s.privacyMode;
+      // Defense-in-depth: minors may only broadcast ghost or group regardless
+      // of the stored privacy preference. The UI guard and Firestore rule are
+      // the primary enforcement; this is a final client-side backstop.
+      const safeMode = s.ageGroup === 'minor' && requestedMode !== 'ghost' && requestedMode !== 'group'
+        ? 'ghost'
+        : requestedMode;
       const payload: PresencePayload = {
         uid: s.userId,
         name: profile.core.name,
         ageGroup: s.ageGroup,
         isVerified: s.isVerified,
         schoolName: s.schoolName,
-        mode: liveGroupId ? 'group' : s.privacyMode,
+        mode: safeMode,
         lat,
         lng,
         authorityId: s.authorityId,
@@ -316,9 +343,29 @@ export function usePresenceLayer(
     getPayloadRef.current = getPayload;
 
     startHeartbeat(getPayload);
+
+    // First-fix write: mirrors the identical pattern in useWorkoutPresence.
+    // startHeartbeat fires tick() immediately, but if GPS hasn't arrived yet
+    // that tick is skipped (no loc). This subscription catches the moment the
+    // first real fix lands and writes presence right then, without waiting 2 min.
+    // hadFix prevents duplicate writes: once fired, the flag latches to true.
+    let hadFix = useGPSStore.getState().coords !== null;
+    const unsubGPS = useGPSStore.subscribe((gpsState) => {
+      if (hadFix || !gpsState.coords) return;
+      hadFix = true;
+      const p = getPayload();
+      if (p) {
+        console.log('[PresenceHeartbeat] first-fix write triggered by GPS store');
+        updatePresence(p).catch((err) =>
+          console.warn('[PresenceHeartbeat] first-fix write failed:', err),
+        );
+      }
+    });
+
     return () => {
       console.log('[PresenceHeartbeat] unmount — stopping heartbeat + clearing presence', { userId });
       getPayloadRef.current = null;
+      unsubGPS();
       stopHeartbeat();
       if (userId) clearPresence(userId).catch(() => {});
     };

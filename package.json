@@ -92,6 +92,7 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
     "@capacitor/cli": "^6.2.0",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@types/canvas-confetti": "^1.9.0",
     "@types/dagre": "^0.7.53",
     "@types/jszip": "^3.4.0",

@@ -192,6 +192,25 @@ service cloud.firestore {
       return d != null ? d.get('groupIds', []) : [];
     }
 
+    // Null-safe read of userAge/{uid}.ageGroup.
+    // userAge is a ~50-byte doc written exclusively by Admin SDK via
+    // /api/user/complete-profile.  Returns 'minor' when the doc is
+    // missing — safe default; unbackfilled users are always restricted.
+    function getUserAgeGroup(userId) {
+      let d = get(/databases/$(database)/documents/userAge/$(userId)).data;
+      return d != null ? d.get('ageGroup', 'minor') : 'minor';
+    }
+
+    // core.ageGroup and core.birthDate are computed server-side.
+    // Clients must NEVER write them directly — the only authorized
+    // path is /api/user/complete-profile (Admin SDK bypass).
+    function noLockedCoreFieldsChanged() {
+      let cur = resource.data.get('core', {});
+      let nxt = request.resource.data.get('core', {});
+      return cur.get('ageGroup',  '') == nxt.get('ageGroup',  cur.get('ageGroup',  ''))
+          && cur.get('birthDate', null) == nxt.get('birthDate', cur.get('birthDate', null));
+    }
+
     // ============================================================
     // USERS — owner reads/writes own doc, admins read/write all,
     //         cross-user read gated by core.discoverable == true
@@ -211,10 +230,12 @@ service cloud.firestore {
                   || (isAuthenticated() && resource.data.core.discoverable == true);
 
       // CREATE — owner can create their own doc, but cannot self-assign
-      // any role/admin flag at creation time. Tenant/progression fields
-      // are allowed at create (validateAccessCode + initial seed need them).
+      // any role/admin flag at creation time, and cannot set the
+      // server-computed identity fields (ageGroup, birthDate).
       allow create: if isOwner(userId)
                     && !('role' in request.resource.data)
+                    && !('ageGroup'  in request.resource.data.get('core', {}))
+                    && !('birthDate' in request.resource.data.get('core', {}))
                     && request.resource.data.get('core', {}).get('isSuperAdmin', false) == false
                     && request.resource.data.get('core', {}).get('isSystemAdmin', false) == false
                     && request.resource.data.get('core', {}).get('isVerticalAdmin', false) == false
@@ -232,7 +253,8 @@ service cloud.firestore {
                     && noAdminFieldsChanged()
                     && noTenantFieldsChanged()
                     && noGameIntegrityFieldsChanged()
-                    && noSocialGroupIdsChanged();
+                    && noSocialGroupIdsChanged()
+                    && noLockedCoreFieldsChanged();
 
       // DELETE — owner can delete their own doc.
       allow delete: if isOwner(userId);
@@ -808,12 +830,18 @@ service cloud.firestore {
     // ============================================================
     match /presence/{userId} {
       // Write: owner only + audienceGroupIds must be a subset of own groups
+      // + minors (getUserAgeGroup == 'minor') may only use ghost or group mode.
+      // getUserAgeGroup reads userAge/{uid} (~50 bytes) — not users/{uid}.
       allow write: if isOwner(userId)
                    && (
                      !('audienceGroupIds' in request.resource.data)
                      || request.resource.data.audienceGroupIds.size() == 0
                      || request.resource.data.audienceGroupIds.hasOnly(
                           memberGroupIds(userId))
+                   )
+                   && (
+                     getUserAgeGroup(userId) == 'adult'
+                     || request.resource.data.get('mode', 'ghost') in ['ghost', 'group']
                    );
 
       // Owner can always read their own doc
@@ -854,6 +882,24 @@ service cloud.firestore {
     // trust anchor as users.social.groupIds.
     // ============================================================
     match /user_memberships/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // USER_AGE — tiny ageGroup mirror for Firestore Rules.
+    //
+    // Written exclusively by Admin SDK via /api/user/complete-profile.
+    // Client self-write is intentionally blocked — ageGroup is computed
+    // server-side from birthDate and must never be client-spoofable.
+    //
+    // getUserAgeGroup() reads this doc (~50 bytes) instead of users/{uid}
+    // to avoid the 1 MiB document-size limit on Firestore Rules get().
+    //
+    // Safe default: if this doc is missing, getUserAgeGroup() returns
+    // 'minor' — unbackfilled users are always treated as minors.
+    // ============================================================
+    match /userAge/{uid} {
       allow read:  if isOwner(uid) || isAdmin();
       allow write: if isAdmin();
     }

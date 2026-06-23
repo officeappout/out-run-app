@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Users, Globe, Settings2 } from 'lucide-react';
 import { usePrivacyStore, type PrivacyMode } from '../store/usePrivacyStore';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { computeAgeGroup } from '@/lib/age';
 
 const MODES: Array<{
   value: PrivacyMode;
@@ -49,22 +51,34 @@ const MODE_RING: Record<PrivacyMode, string> = {
 
 export default function PrivacyModeSwitcher() {
   const { mode, setMode } = usePrivacyStore();
+  const { profile } = useUserStore();
   const [open, setOpen] = useState(false);
 
-  const ActiveIcon = MODE_ICON[mode];
+  const isMinor = computeAgeGroup(profile?.core?.birthDate) === 'minor';
+  const availableModes = isMinor ? MODES.filter(m => m.value === 'ghost') : MODES;
+
+  // Force ghost if stored mode is not allowed for this age group
+  useEffect(() => {
+    if (isMinor && mode !== 'ghost') {
+      setMode('ghost');
+    }
+  }, [isMinor, mode, setMode]);
+
+  const safeMode: PrivacyMode = isMinor ? 'ghost' : mode;
+  const ActiveIcon = MODE_ICON[safeMode];
 
   return (
     <div className="relative" dir="rtl">
       {/* FAB trigger */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center ring-2 ${MODE_RING[mode]} active:scale-90 transition-transform`}
+        className={`w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center ring-2 ${MODE_RING[safeMode]} active:scale-90 transition-transform`}
         aria-label="הגדרות פרטיות"
       >
         {open ? (
           <Settings2 className="w-5 h-5 text-gray-700 animate-spin" style={{ animationDuration: '2s' }} />
         ) : (
-          <ActiveIcon className={`w-5 h-5 ${MODES.find((m) => m.value === mode)?.color}`} />
+          <ActiveIcon className={`w-5 h-5 ${MODES.find((m) => m.value === safeMode)?.color}`} />
         )}
       </button>
 
@@ -84,9 +98,9 @@ export default function PrivacyModeSwitcher() {
               </p>
             </div>
 
-            {MODES.map((m) => {
+            {availableModes.map((m) => {
               const Icon = m.icon;
-              const isActive = mode === m.value;
+              const isActive = safeMode === m.value;
               return (
                 <button
                   key={m.value}

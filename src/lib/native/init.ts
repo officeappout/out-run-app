@@ -116,6 +116,22 @@ function handleNativeDeepLink(url: string): void {
       return;
     }
 
+    // ── Institutional code — school / military / municipal onboarding ───────
+    // Two URL forms are supported:
+    //   /school/<CODE>          (path-based, e.g. from a QR code)
+    //   /join?code=<CODE>       (query-param variant for universal links)
+    // The code is stored in localStorage so it survives app-open auth flow,
+    // and the user is routed through the identity gate (?context=express)
+    // before the access code is validated.
+    const schoolPathMatch = pathname.match(/^\/school\/([A-Za-z0-9_-]+)$/);
+    const codeParam = searchParams.get('code');
+    const institutionCode = schoolPathMatch?.[1] ?? (pathname === '/join' ? codeParam : null);
+    if (institutionCode) {
+      localStorage.setItem('pending_institution_code', institutionCode);
+      window.location.href = '/onboarding-new/profile?context=express';
+      return;
+    }
+
     // ── Generic fallback — route to the path as-is ───────────────────────
     // Handles /league, /home, and any other in-app paths sent via push.
     const target = `${parsed.pathname}${parsed.search}`;

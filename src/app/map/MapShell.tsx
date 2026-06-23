@@ -632,6 +632,16 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     return true;
   }, [fromExplorer, manuallyCleared, hasHydrated, profile]);
 
+  // Universal identity gate: the map requires a name before rendering.
+  // Without a name, the presence heartbeat silently skips and the user is
+  // invisible — redirect to complete the identity step instead.
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (profile && !profile.core?.name) {
+      router.replace('/onboarding-new/profile');
+    }
+  }, [hasHydrated, profile, router]);
+
   // fromExplorer bypass: clean URL and sync location to Firestore
   useEffect(() => {
     if (!fromExplorer) return;

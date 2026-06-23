@@ -57,10 +57,15 @@ export async function POST(request: NextRequest) {
       ? FieldValue.arrayUnion(groupId)
       : FieldValue.arrayRemove(groupId);
 
-    batch.update(db.doc(`users/${uid}`), {
-      'social.groupIds': membershipUpdate,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    // set+mergeFields (not update) so the batch doesn't throw NOT_FOUND when
+    // users/{uid} doesn't exist yet (anonymous guest who joined via session-token
+    // path and hasn't completed full onboarding). If the doc is absent the merge
+    // creates it with only these two fields; existing docs are unaffected.
+    batch.set(
+      db.doc(`users/${uid}`),
+      { social: { groupIds: membershipUpdate }, updatedAt: FieldValue.serverTimestamp() },
+      { mergeFields: ['social.groupIds', 'updatedAt'] },
+    );
     batch.set(
       db.doc(`user_memberships/${uid}`),
       { groupIds: membershipUpdate, updatedAt: FieldValue.serverTimestamp() },

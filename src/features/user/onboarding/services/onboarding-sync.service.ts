@@ -304,7 +304,8 @@ export async function syncOnboardingToFirestore(
       updateData.core = {
         name: userName || data.city || 'User', // Use name from sessionStorage, or city, or fallback
         ...(user.email ? { email: user.email } : {}), // Only include email if it exists (not undefined)
-        role: 'USER', // Regular app user role
+        // core.role is intentionally absent — Firestore CREATE rule requires core.role == ''.
+        // The role is set to 'USER' by /api/user/complete-profile (Admin SDK) after onboarding.
         isApproved: false, // Regular users don't need admin approval
         requiresApproval: false, // Regular app users don't require approval
         isSuperAdmin: false,
@@ -371,11 +372,6 @@ export async function syncOnboardingToFirestore(
         const coreUpdate: any = {
           ...existingData.core,
         };
-        
-        // Ensure role is set for existing users (if not set, default to 'USER')
-        if (!coreUpdate.role) {
-          coreUpdate.role = 'USER';
-        }
         
         // Ensure requiresApproval is set (default to false for regular users)
         if (coreUpdate.requiresApproval === undefined) {

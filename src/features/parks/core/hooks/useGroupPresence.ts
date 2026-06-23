@@ -83,6 +83,8 @@ const GROUP_COLORS = [
  */
 const STALE_PRESENCE_MS = 5 * 60 * 1000;
 
+const MAX_PERMISSION_RETRIES = 3;
+
 export function useGroupPresence(
   groupSessionId?: string | null,
   // memberIds is kept in the signature for compatibility with existing callers
@@ -93,6 +95,16 @@ export function useGroupPresence(
   const [positions, setPositions] = useState<PartnerPosition[]>([]);
   const unsubRef = useRef<Unsubscribe | null>(null);
   const colorMapRef = useRef(new Map<string, string>());
+  // Retry counter — incremented when PERMISSION-DENIED fires (Firestore propagation
+  // race: user_memberships was written but hasn't reached the read path yet).
+  // Capped at MAX_PERMISSION_RETRIES to avoid infinite loops on genuine denials.
+  const [permissionRetry, setPermissionRetry] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset retry counter whenever the session changes.
+  useEffect(() => {
+    setPermissionRetry(0);
+  }, [groupSessionId]);
 
   function getColor(uid: string): string {
     if (!colorMapRef.current.has(uid)) {
@@ -103,6 +115,10 @@ export function useGroupPresence(
 
   useEffect(() => {
     unsubRef.current?.();
+    if (retryTimerRef.current !== null) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     const currentUid = auth.currentUser?.uid;
 
     // [DIAG] Confirms the listener is being set up at all and shows
@@ -257,20 +273,39 @@ export function useGroupPresence(
       // check App Check / security rules first.
       const code = err?.code ?? '(no code)';
       if (code === 'permission-denied') {
-        console.error(
-          '[useGroupPresence] Firestore presence listener PERMISSION-DENIED. ' +
-            'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) and Firestore rules ' +
-            'on the `presence` collection. Partners will NOT render until this is fixed.',
-          err,
-        );
+        if (permissionRetry < MAX_PERMISSION_RETRIES) {
+          // Transient race: user_memberships was written by join/confirm but
+          // hasn't propagated to the Firestore read path yet. Re-subscribe
+          // after 2 s to give the write time to become visible.
+          console.warn(
+            `[useGroupPresence] PERMISSION-DENIED — retry ${permissionRetry + 1}/${MAX_PERMISSION_RETRIES} in 2 s`,
+          );
+          retryTimerRef.current = setTimeout(
+            () => setPermissionRetry((c) => c + 1),
+            2000,
+          );
+        } else {
+          console.error(
+            '[useGroupPresence] PERMISSION-DENIED after max retries. ' +
+              'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY), Firestore rules, ' +
+              'and user_memberships doc. Partners will NOT render.',
+            err,
+          );
+        }
       } else {
         console.warn('[useGroupPresence] Firestore presence listener error:', code, err);
       }
     });
 
-    return () => unsubRef.current?.();
+    return () => {
+      unsubRef.current?.();
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupSessionId]);
+  }, [groupSessionId, permissionRetry]);
 
   return positions;
 }

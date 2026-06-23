@@ -12,7 +12,7 @@
 
 import { doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { MemberSessionStatus } from '@/types/community.types';
+import type { MemberSessionStatus, SessionGoalSpec } from '@/types/community.types';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -87,4 +87,31 @@ export async function setMyAttendeeStatus(
     ...(status === 'late' && lateMinutes ? { lateMinutes } : {}),
   };
   await setDoc(statusRef, payload, { merge: true });
+}
+
+/**
+ * Member sets (or clears) her personal goal for a specific session.
+ *
+ * Semantics of `goal`:
+ *   SessionGoalSpec → explicit override (case B)
+ *   null            → solo / no goal (case A)
+ *   (call omitted)  → undefined = inherit session goal (case C, the default)
+ *
+ * Firestore rule: `allow write: if isAuthenticated() && request.auth.uid == uid`
+ */
+export async function setPersonalSessionGoal(
+  uid: string,
+  groupId: string,
+  sessionId: string,
+  goal: SessionGoalSpec | null,
+): Promise<void> {
+  const statusRef = doc(
+    db,
+    `community_groups/${groupId}/attendance/${sessionId}/member_statuses/${uid}`,
+  );
+  await setDoc(
+    statusRef,
+    { uid, personalGoal: goal, updatedAt: Timestamp.now() },
+    { merge: true },
+  );
 }
