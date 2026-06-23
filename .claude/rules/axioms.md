@@ -121,3 +121,15 @@ When modifying `firestore.rules`, the recommended verification method is:
 
 Every API route under `src/app/api/admin/` must begin with `requireAdminApi(request)`.
 No exceptions. Firebase Admin SDK via `getAdminDb()` / `getAdminAuth()` from `src/lib/firebase-admin.ts`.
+
+## 16. PLACEHOLDER Rule — Knowledge Files
+**Source:** Established convention — Block D infrastructure session, 22.06.2026
+
+If a knowledge file contains `⚠️ PLACEHOLDER` anywhere in its body:
+- Treat the **entire topic** covered by that file as unknown
+- Do NOT present placeholder content as fact
+- Do NOT invent information around the gap or attempt to fill it from memory
+- Surface the gap explicitly: "הקובץ `<name>` מכיל PLACEHOLDER — אין לי מידע אמיתי על `<topic>`. יש לשאול את דוד."
+
+This applies to every agent and skill that loads knowledge files.
+A PLACEHOLDER file is safer than a missing file — it signals a known unknown instead of a silent gap.

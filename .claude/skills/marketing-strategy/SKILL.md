@@ -21,11 +21,11 @@ No generic advice — every recommendation traces back to a file or a named prin
 
 ### 1 — Load knowledge base
 Read all three files before producing any output:
-- `.claude/knowledge/brand-foundation.md` — positioning, pillars, core message, promise
+- `.claude/knowledge/brand-company.md` — positioning, pillars, core message, promise
 - `.claude/knowledge/product-context.md` — product stage, numbers, audience
 - `.claude/knowledge/social-state.md` — current accounts, diagnosis, channel priority
 
-Strategy must align with the four content pillars in `brand-foundation.md`.
+Strategy must align with the four content pillars in `brand-company.md`.
 OKRs should serve the brand promise, not contradict it.
 If any file is missing or outdated, flag it before continuing.
 

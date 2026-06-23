@@ -16,7 +16,8 @@ Produces a structured Hebrew content brief from three inputs:
 2. **Topic** — what the content is about
 3. **Goal** — what it should achieve (awareness / lead / engagement / retention)
 
-Reads `.claude/knowledge/brand-foundation.md` for pillar + core message alignment,
+Reads the appropriate brand document for pillar + core message alignment
+(`brand-personal.md` for personal profile, `brand-company.md` for app/company profile),
 then `.claude/rules/brand-voice.md` for tone and style.
 
 ---
@@ -24,7 +25,10 @@ then `.claude/rules/brand-voice.md` for tone and style.
 ## Steps
 
 ### 1 — Load brand foundation
-Read `.claude/knowledge/brand-foundation.md` before collecting inputs:
+Read the appropriate brand document before collecting inputs.
+If profile is `personal` (or audience is coaches/general): load `.claude/knowledge/brand-personal.md`
+If profile is `app` / `company` (or audience is municipalities/B2G): load `.claude/knowledge/brand-company.md`
+If profile is unclear at this stage, load both — you will confirm in step 2.
 - Identify which pillar the requested topic belongs to
 - Check anti-patterns — reject any angle that triggers one
 - Note the strategic rule: accessibility enters through the specific, never as the topic

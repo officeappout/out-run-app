@@ -35,7 +35,7 @@ weeklyGrowth bug תוקן (sample size guard, fallback נכון).
   draft-post, video-analysis, marketing-strategy, repurpose-to-short, content-calendar,
   performance-report
 - 3 agents: amit-cto, crm-agent, marketing-agent
-- knowledge files: brand-foundation, marketing-goals (OKR 16.9.2026), marketing-metrics
+- knowledge files: brand-personal, brand-company, social-state, marketing-goals (OKR 16.9.2026), marketing-metrics
 
 ---
 
@@ -59,7 +59,7 @@ weeklyGrowth bug תוקן (sample size guard, fallback נכון).
 
 **Marketing:**
 - 30 יום ראשונים: מיחזור ספריה — ללא ייצור חדש
-- brand-foundation.md = master source לכל תוכן
+- brand-personal.md = קול דוד האישי | brand-company.md = קול OUT | social-state.md = ערוצים + PLACEHOLDER מדדים חיים
 - KR2 (15+ saves) — 18 saves על ריל ראשון ✅ (בדיקת 17.06)
 
 ---
