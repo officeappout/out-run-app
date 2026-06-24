@@ -181,6 +181,8 @@ export function useCommunitySessionBanner() {
             const snap = await getDoc(doc(db, 'community_groups', gid));
             if (!snap.exists()) return;
             const data = snap.data() as CommunityGroup;
+            // League/competition groups (hasMeetups=false) never show a session banner.
+            if (data.hasMeetups === false) return;
             const allSlots = data.scheduleSlots?.length
               ? data.scheduleSlots
               : data.schedule ? [data.schedule] : [];

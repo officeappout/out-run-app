@@ -5,8 +5,10 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MapPin, Users, Clock, Loader2, AlertCircle } from 'lucide-react';
-import { getGroupByInviteCode, joinGroup } from '@/features/arena/services/group.service';
-import { onAuthStateChange } from '@/lib/auth.service';
+import { onAuthStateChange, signInGuest } from '@/lib/auth.service';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { useUserStore } from '@/features/user';
+import { auth } from '@/lib/firebase';
 import type { CommunityGroup } from '@/types/community.types';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
@@ -25,6 +27,7 @@ export default function JoinPage() {
   const router = useRouter();
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
+  const { profile } = useUserStore();
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -32,16 +35,16 @@ export default function JoinPage() {
 
   useEffect(() => {
     if (!inviteCode) return;
-    getGroupByInviteCode(inviteCode)
-      .then((g) => {
-        if (g) {
-          setGroup(g);
-          if (g.createdBy) localStorage.setItem('group_inviter_uid', g.createdBy);
-          localStorage.setItem('pending_invite_code', inviteCode);
-          localStorage.setItem('pending_group_id', g.id);
-        } else {
-          setNotFound(true);
-        }
+    // Use the public preview API (Admin SDK, no client auth required) so a
+    // new unauthenticated user can see the group before being asked to sign in.
+    // Joining (member write) is still gated behind auth — see handleJoinClick.
+    // Note: only pending_invite_code is stored here; pending_group_id is
+    // intentionally omitted so the gateway doesn't consume the invite early
+    // via consumePendingGroupInvite before identity collection is complete.
+    fetch(`/api/join/preview?code=${encodeURIComponent(inviteCode)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then(({ group: g }: { group: CommunityGroup & { id: string } }) => {
+        setGroup(g);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
@@ -54,40 +57,61 @@ export default function JoinPage() {
     const unsub = onAuthStateChange(async (user) => {
       unsub();
 
-      // Not signed in → route through the gateway. The pending_group_id /
-      // pending_invite_code keys stored above let the gateway auto-join after
-      // auth completes.
-      if (!user) {
-        router.push('/gateway');
+      // Gate: user must be signed in AND have a completed profile (ageGroup set
+      // by /api/user/complete-profile server-side). If either is missing, route
+      // through the express identity screen first — it collects name/gender/DOB,
+      // then B3 routing returns here once identity is complete.
+      const hasProfile = Boolean(user && profile?.core?.ageGroup);
+      if (!user || !hasProfile) {
+        // Ensure an anonymous auth session exists before routing to the express
+        // identity screen. Without this, the profile page finds no auth.currentUser
+        // and bounces back to the gateway selection screen.
+        if (!user) {
+          const { user: anonUser } = await signInGuest();
+          if (anonUser) setOnboardingPref('gateway_uid', anonUser.uid);
+        }
+        localStorage.setItem('pending_invite_code', inviteCode);
+        if (group?.name) localStorage.setItem('pending_invite_group_name', group.name);
+        router.push('/onboarding-new/profile?context=express');
+        setJoining(false);
         return;
       }
 
-      // Signed in → join immediately so the membership write happens before we
-      // land on /community. Passing the invite code satisfies the private-group
-      // gate in joinGroup (no-op for public groups).
+      // Signed in + profile complete → confirm membership via server.
+      // /api/join/confirm verifies the code server-side (Admin SDK), writes
+      // community_groups/{groupId}/members/{uid} + user_memberships/{uid}
+      // + users/{uid}.social.groupIds atomically in a single batch.
       try {
-        await joinGroup(
-          group.id,
-          user.uid,
-          user.displayName ?? 'משתמש',
-          inviteCode ? { providedCode: inviteCode } : undefined,
-        );
-        // Clear the pending keys — we just consumed them directly.
-        localStorage.removeItem('pending_group_id');
-        localStorage.removeItem('pending_invite_code');
-      } catch (e) {
-        console.error('[JoinPage] auto-join failed:', e);
-        if (e instanceof Error && e.message === 'invalid-invite-code') {
-          setJoining(false);
-          setNotFound(true);
-          return;
-        }
-        // Other failures are non-fatal — fall through and let the user retry
-        // from inside the group view.
-      }
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('no-token');
 
-      // `joined=true` triggers the PostJoinSuccessDrawer on /community.
-      router.push(`/community?groupId=${group.id}&joined=true`);
+        const res = await fetch('/api/join/confirm', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ inviteCode }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if ((err as { error?: string }).error === 'invalid-invite-code') {
+            setJoining(false);
+            setNotFound(true);
+            return;
+          }
+          throw new Error((err as { error?: string }).error ?? 'server-error');
+        }
+
+        const { groupId } = await res.json() as { groupId: string };
+        localStorage.removeItem('pending_invite_code');
+        // joined=true triggers the PostJoinSuccessDrawer on /community.
+        router.push(`/community?groupId=${groupId}&joined=true`);
+      } catch (e) {
+        console.error('[JoinPage] confirm failed:', e);
+        setJoining(false);
+      }
     });
   };
 

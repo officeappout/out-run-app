@@ -22,12 +22,13 @@ to the execution skill that should run next.
 
 ### 1 — Load knowledge
 Read before producing any output:
-- `.claude/knowledge/brand-foundation.md` — pillars, core message, anti-patterns
+- `.claude/knowledge/brand-company.md` — pillars, core message, anti-patterns
 - `.claude/knowledge/social-state.md` — channel priority, cadence, principles
 - `.claude/knowledge/product-context.md` — stage, audience segments
 
-Each slot's angle must map to one of the four content pillars from `brand-foundation.md`.
-Label each slot with its pillar (מסע אישי / נגישות / טכניקה / מיינדסט).
+Each slot's angle must map to one of the four content pillars from `brand-company.md` (§3):
+כל המרחב = חדר כושר אחד / קהילות בריאות שכונתיות / משחוק וליגות / מבוסס ידע ומחקר.
+For slots on David's personal channels, use the three pillars from `brand-personal.md` (§4) instead.
 
 If `marketing-strategy` output exists in this session, use its OKRs
 to align slot topics. If not, apply defaults from `social-state.md`.

@@ -32,6 +32,7 @@ import { getAccessCodeResult, clearAccessCodeResult } from './access-code.servic
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { buildAttributionPayload } from '@/lib/marketingAttribution';
 import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
+import { updateUserAuthority } from '@/lib/firestore.service';
 
 // ── Canonical program slug allow-list ──────────────────────────────
 //
@@ -224,10 +225,34 @@ export async function syncOnboardingToFirestore(
     }
 
     const userDocRef = doc(db, USERS_COLLECTION, user.uid);
-    
+
     // Check if document exists to determine if we should merge or create
     const userDoc = await getDoc(userDocRef);
     const exists = userDoc.exists();
+
+    // ── [DIAG] Who created the doc + what's in it? ──────────────────────────
+    // Answers two questions:
+    //   1. Is this CREATE or UPDATE? (did session-token/confirm run first?)
+    //   2. Does the existing doc have progression.globalLevel already seeded?
+    //      If not, the shell doc was created by old code or a route that didn't
+    //      include the progression seed — that is the root cause of the
+    //      noGameIntegrityFieldsChanged PERMISSION-DENIED.
+    const existingRaw = userDoc.data() ?? {};
+    console.log('[OnboardingSync][DIAG] doc snapshot', {
+      uid: user.uid,
+      step,
+      mode: exists ? 'UPDATE' : 'CREATE',
+      hasCore: 'core' in existingRaw,
+      coreRole: existingRaw.core?.role ?? '(absent)',
+      hasProgression: 'progression' in existingRaw,
+      progressionLevel: existingRaw.progression?.globalLevel ?? '(absent)',
+      progressionXP: existingRaw.progression?.globalXP ?? '(absent)',
+      progressionCoins: existingRaw.progression?.coins ?? '(absent)',
+      hasSocial: 'social' in existingRaw,
+      socialGroupIds: existingRaw.social?.groupIds ?? '(absent)',
+      tenantId: existingRaw.core?.tenantId ?? '(absent)',
+      authorityId: existingRaw.core?.authorityId ?? '(absent)',
+    });
     
     // Prepare user data structure
     const isAnonymous = user.isAnonymous;
@@ -286,17 +311,25 @@ export async function syncOnboardingToFirestore(
       }
     }
 
+    // Collects the authorityId to write after the main setDoc.
+    // core.authorityId is locked by noTenantFieldsChanged() in firestore.rules —
+    // it must go through /api/user/update-authority (Admin SDK) rather than being
+    // embedded in the main write payload.
+    let authorityIdToSync: string | null = null;
+
     // If this is a new user (first time syncing), create initial structure
     if (!exists) {
       // Get authority ID from sessionStorage if set during city selection
-      const selectedAuthorityId = typeof window !== 'undefined' 
-        ? sessionStorage.getItem('selected_authority_id') 
+      const selectedAuthorityId = typeof window !== 'undefined'
+        ? sessionStorage.getItem('selected_authority_id')
         : null;
+      if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
       
       updateData.core = {
         name: userName || data.city || 'User', // Use name from sessionStorage, or city, or fallback
         ...(user.email ? { email: user.email } : {}), // Only include email if it exists (not undefined)
-        role: 'USER', // Regular app user role
+        // core.role is intentionally absent — Firestore CREATE rule requires core.role == ''.
+        // The role is set to 'USER' by /api/user/complete-profile (Admin SDK) after onboarding.
         isApproved: false, // Regular users don't need admin approval
         requiresApproval: false, // Regular app users don't require approval
         isSuperAdmin: false,
@@ -306,7 +339,7 @@ export async function syncOnboardingToFirestore(
         gender: userGender || (data.gender as 'male' | 'female' | 'other') || 'other', // Get gender from sessionStorage or data, default to 'other'
         weight: 70,
         isAnonymous: isAnonymous,
-        ...(selectedAuthorityId ? { authorityId: selectedAuthorityId } : {}), // Link to authority for B2G billing
+        // authorityId written separately via updateUserAuthority() after setDoc.
       };
       
       // Ensure gender is always set (even if it's 'other')
@@ -363,12 +396,13 @@ export async function syncOnboardingToFirestore(
         const coreUpdate: any = {
           ...existingData.core,
         };
-        
-        // Ensure role is set for existing users (if not set, default to 'USER')
-        if (!coreUpdate.role) {
-          coreUpdate.role = 'USER';
-        }
-        
+
+        // ageGroup and birthDate are written by Admin SDK (/api/user/complete-profile).
+        // Echoing them back in a client setDoc triggers noLockedCoreFieldsChanged()
+        // → PERMISSION-DENIED. Leave them in Firestore unchanged by not sending them.
+        delete coreUpdate.ageGroup;
+        delete coreUpdate.birthDate;
+
         // Ensure requiresApproval is set (default to false for regular users)
         if (coreUpdate.requiresApproval === undefined) {
           coreUpdate.requiresApproval = false;
@@ -390,13 +424,12 @@ export async function syncOnboardingToFirestore(
           coreUpdate.gender = 'other';
         }
         
-        // Update authority ID from sessionStorage if set during city selection (for B2G billing)
-        const selectedAuthorityId = typeof window !== 'undefined' 
-          ? sessionStorage.getItem('selected_authority_id') 
+        // authority ID is written after the main setDoc via updateUserAuthority()
+        // because noTenantFieldsChanged() in firestore.rules blocks client writes.
+        const selectedAuthorityId = typeof window !== 'undefined'
+          ? sessionStorage.getItem('selected_authority_id')
           : null;
-        if (selectedAuthorityId) {
-          coreUpdate.authorityId = selectedAuthorityId;
-        }
+        if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
         
         // Sanitize undefined values - remove them
         Object.keys(coreUpdate).forEach(key => {
@@ -579,16 +612,17 @@ export async function syncOnboardingToFirestore(
         weight: data.weight,
       };
     }
-    // Sync birthDate from sessionStorage (set during the onboarding questionnaire)
-    // Key is 'onboarding_personal_dob' (written by profile/roadmap pages)
+    // Age-gate validation (client-side enforcement layer).
+    // SECURITY (Compliance Phase 2.1): under-14 must be blocked before any
+    // Firestore write. A modified client could bypass the UI check and call
+    // this directly — re-validate here and throw so no write happens.
     //
-    // SECURITY (Compliance Phase 2.1 — Age Gate):
-    //   The client-side validation in onboarding-new/profile/page.tsx blocks
-    //   under-14 sign-ups in the UI, but a malicious or modified client could
-    //   bypass that and call this sync directly. We re-validate here and throw
-    //   so no Firestore write happens for under-14 users. The thrown error
-    //   bubbles to the caller (OnboardingWizard / sync triggers) and must be
-    //   surfaced to the user as a blocking message. Do not silently swallow.
+    // NOTE: birthDate and ageGroup are NOT written to core here.
+    // Firestore rules lock both fields behind Admin SDK:
+    //   CREATE rule: !('ageGroup' in core) && !('birthDate' in core)
+    //   UPDATE rule: noLockedCoreFieldsChanged()
+    // Writing them from the client causes PERMISSION-DENIED for both paths.
+    // /api/user/complete-profile (Admin SDK) sets them authoritatively.
     if (typeof window !== 'undefined') {
       const storedBirthDate = sessionStorage.getItem('onboarding_personal_dob');
       if (storedBirthDate) {
@@ -603,11 +637,8 @@ export async function syncOnboardingToFirestore(
               (err as any).code = 'UNDER_AGE';
               throw err;
             }
-            updateData.core = {
-              ...updateData.core,
-              birthDate: Timestamp.fromDate(dateObj),
-              ageGroup: ageYears < 18 ? 'minor' : 'adult',
-            };
+            // birthDate and ageGroup are set by /api/user/complete-profile (Admin SDK).
+            // Do NOT add them to core here — both are blocked by Firestore rules.
           }
         } catch (e: any) {
           if (e?.code === 'UNDER_AGE') throw e;
@@ -1691,9 +1722,46 @@ export async function syncOnboardingToFirestore(
 
     const sanitizedUpdateData = sanitizeObject(updateData);
 
+    // ── [DIAG] Exact payload about to be written ─────────────────────────────
+    // Compare this against each UPDATE rule clause to find the failing one:
+    //   noAdminFieldsChanged   → core.role / isSuperAdmin / isApproved / managedVertical
+    //   noTenantFieldsChanged  → core.tenantId / unitId / unitPath / tenantType / authorityId
+    //   noGameIntegrityFields  → progression.globalLevel / globalXP / coins
+    //   noSocialGroupIdsChanged → social.groupIds
+    //   noLockedCoreFields     → core.ageGroup / birthDate
+    console.log('[OnboardingSync][DIAG] payload', {
+      uid: user.uid,
+      step,
+      mode: exists ? 'UPDATE' : 'CREATE',
+      topLevelKeys: Object.keys(sanitizedUpdateData),
+      coreKeys: sanitizedUpdateData.core ? Object.keys(sanitizedUpdateData.core) : '(absent)',
+      coreRole: sanitizedUpdateData.core?.role ?? '(absent)',
+      coreIsApproved: sanitizedUpdateData.core?.isApproved ?? '(absent)',
+      coreIsSuperAdmin: sanitizedUpdateData.core?.isSuperAdmin ?? '(absent)',
+      coreTenantId: sanitizedUpdateData.core?.tenantId ?? '(absent)',
+      coreUnitId: sanitizedUpdateData.core?.unitId ?? '(absent)',
+      coreAuthorityId: sanitizedUpdateData.core?.authorityId ?? '(absent)',
+      progressionLevel: sanitizedUpdateData.progression?.globalLevel ?? '(absent)',
+      progressionXP: sanitizedUpdateData.progression?.globalXP ?? '(absent)',
+      progressionCoins: sanitizedUpdateData.progression?.coins ?? '(absent)',
+      socialGroupIds: (sanitizedUpdateData as any).social?.groupIds ?? '(absent)',
+      coreAgeGroup: sanitizedUpdateData.core?.ageGroup ?? '(absent)',
+      coreBirthDate: sanitizedUpdateData.core?.birthDate ?? '(absent)',
+      topLevelRole: (sanitizedUpdateData as any).role ?? '(absent)',
+    });
+
     // Save to Firestore (merge with existing data)
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
+
+    // core.authorityId is locked from direct client writes (noTenantFieldsChanged).
+    // Write it after the main setDoc via Admin SDK endpoint — non-fatal if it fails
+    // (the rest of the onboarding data is already committed).
+    if (authorityIdToSync) {
+      await updateUserAuthority(authorityIdToSync).catch((err) =>
+        console.error('[OnboardingSync] updateUserAuthority failed (non-critical):', err),
+      );
+    }
 
     // ── Kelly Welcome Bot (Phase 1) ───────────────────────────────────────
     // Seed the one-time Kelly greeting DM the moment onboarding completes.
@@ -1756,8 +1824,19 @@ export async function syncOnboardingToFirestore(
 
     console.log(`[OnboardingSync] Synced step "${step}" to Firestore for user ${user.uid}`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[OnboardingSync] Error syncing to Firestore:', error);
+    // PERMISSION-DENIED analysis: which rule clause is the likely culprit?
+    if (error?.code === 'permission-denied' || String(error).includes('permission-denied')) {
+      console.error('[OnboardingSync][DIAG] PERMISSION-DENIED — check browser console for the two [DIAG] logs above.');
+      console.error('[OnboardingSync][DIAG] Rule checklist (UPDATE mode):');
+      console.error('  1. noAdminFieldsChanged   → incoming core.role must equal stored core.role');
+      console.error('  2. noTenantFieldsChanged  → incoming tenantId/unitId/authorityId must equal stored (or stored must be empty if rule allows initial write)');
+      console.error('  3. noGameIntegrityFields  → incoming progression.globalLevel/XP/coins must equal stored (or stored progression map absent)');
+      console.error('  4. noSocialGroupIdsChanged → incoming social.groupIds must equal stored (merge:true should preserve it)');
+      console.error('  5. noLockedCoreFields     → ageGroup/birthDate must be absent from payload');
+      console.error('[OnboardingSync][DIAG] Most likely: stored doc has no "progression" map but old rule required exact match (default 0) → rule fix in firestore.rules needed');
+    }
     // Don't throw - onboarding sync failures shouldn't break the flow
     return false;
   }

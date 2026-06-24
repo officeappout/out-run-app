@@ -1,97 +1,57 @@
 'use client';
 
 /**
- * FreeRunActive — orchestration shell
- * -----------------------------------
- * After the modularisation refactor + chrome de-clutter, this file does
- * ONE thing: lay out the active-workout chrome (floating settings / GPS
- * pill / map slot / bottom nav) and slot in the right view for the
- * current player state. Everything else has its own home:
+ * FreeRunActive — interaction model (v4)
+ * ----------------------------------------
+ * Exact replica of StrengthRunner's two-layer drag architecture:
  *
- *   • Drag + snap state machine          → `useDraggableMetrics.ts`
- *   • Metrics card layout + overlap fix  → `AdaptiveMetricsWrapper.tsx`
- *   • Coordinate validation              → `src/utils/geoValidation.ts`
- *   • Pause / Stop / Lap controls        → `<SessionControlBar />`
- *                                          (mounted globally by MapShell)
+ *   BASE LAYER (z-49)  — RunLapsList: always at screen top, revealed when the
+ *                        story-bar panel slides away (like the workout playlist).
+ *   TOP LAYER (z-50)   — Story-bar motion.div: the draggable panel. Starts at y=0
+ *                        covering the base layer. Dragging DOWN slides the bar
+ *                        away, revealing the laps content beneath it.
+ *   METRICS (z-40)     — MetricsDrawer bottom sheet (dock / peek).
  *
- * Chrome philosophy ("Maximise map visibility"):
- *   The opaque white header that USED to occupy the top of this view
- *   was removed in the de-clutter pass — the map now extends to the
- *   very top of the screen (behind the status bar). The two top-bar
- *   actions migrated as follows:
+ * Drag mechanics (mirrors StrengthRunner exactly):
+ *   motion.div drag="y", dragListener=false.
+ *   Story-bar div: onPointerDown → lapsDragControls.start(e) — the drag handle.
+ *   dragConstraints: { top: 0, bottom: lapsContentH }.
+ *   onDragEnd: offset>30 or velocity>300 → open; offset<-50 or velocity<-400 → close.
+ *   useAnimation controls the spring snap (stiffness 280/320, damping 28/32).
  *
- *     • Settings → MOVED INSIDE the metrics card (top-right corner of
- *                  AdaptiveMetricsWrapper). Centralising the gear with
- *                  the numbers it controls eliminates the floating-icon
- *                  density on the map and keeps every mid-workout
- *                  control on a single surface that the user can drag
- *                  to either the top or the bottom of the screen.
- *     • Back     → REMOVED. The user exits the workout via the global
- *                  SessionControlBar's stop button (mounted by MapShell).
- *                  Removing the duplicate eliminates a confusing UI
- *                  fork ("which button leaves the workout?").
- *
- *   The `onBack` prop is kept on the component signature for back-compat
- *   with FreeRunPaused (which still uses it) — it is intentionally
- *   unused by this active view.
- *
- * Layout source of truth:
- *   `isNavigationActive` is the SINGLE clean derived state that drives
- *   every layout decision in this subtree. It fires the moment the user
- *   has SELECTED a route (intent), not when the path finishes drawing,
- *   so the metrics card is already at the bottom by the time the polyline
- *   appears. Two-source check:
- *
- *     1. `guidedRouteId` — set by useWorkoutSession the instant the
- *        focused route is bound to the workout. This is the EARLIEST
- *        intent signal: it goes non-null BEFORE the path is published,
- *        and stays non-null across deviation reroutes (the id refers to
- *        the official route the user committed to).
- *     2. `activeRoutePath.length >= 2` — fallback for the rare case
- *        where the path is published without a route id (e.g. a purely
- *        synthetic generated route during free-run mode).
- *
- *   OR-ing the two means: as soon as EITHER fires, the layout flips to
- *   bottom. As long as EITHER stays true, the layout stays at bottom.
- *
- * Light theme only — solid white surfaces, black numbers, app-primary
- * cyan/blue accents. With the Settings gear now living inside the
- * metrics card, there are no permanent floating buttons on the map at
- * all — only the live pulse dot (top-left), the GPS pill (top-centre),
- * and the global SessionControlBar.
- *
- * `PlannedRunActive.tsx` is a separate component for guided workouts
- * and is INTENTIONALLY untouched by this refactor.
+ * When laps open: MetricsDrawer locks to dock (56 px black strip at bottom).
+ * When navigation active: MetricsDrawer locks to peek.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { Map, List } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDragControls } from 'framer-motion';
+import { Square } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import RouteStoryBar from '../shared/RouteStoryBar';
-import AdaptiveMetricsWrapper from './AdaptiveMetricsWrapper';
+import MetricsDrawer from '@/features/workout-engine/shared/components/MetricsDrawer';
+import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
+import WorkoutFlowLayer from '@/features/workout-engine/shared/components/WorkoutFlowLayer';
+import StatsCarousel from './StatsCarousel';
+import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
 import RunLapsList from './RunLapsList';
 import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
-import { BOTTOM_NAV_HEIGHT_PX } from '../../hooks/useDraggableMetrics';
+import { useGroupSessionGoal } from '../../hooks/useGroupSessionGoal';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
-// ── Story-bar floating height ────────────────────────────────────────────────
-// Previously this was a hardcoded constant (56 px). It is now measured at
-// runtime via a ResizeObserver on the inner RouteStoryBar wrapper so that any
-// future layout change to the bar is automatically reflected in the metrics
-// card's top snap position. The constant is kept as the initial/fallback value
-// for the first render (before the observer fires) so the snap is never wrong
-// by more than one frame.
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
 const STORY_BAR_FALLBACK_PX = 56;
 
-const PRIMARY = '#0EA5E9';
-const PRIMARY_DARK = '#0284C7';
-
-// ── Goal-bar formatters ──────────────────────────────────────────────────────
-// Kept here so RouteStoryBar stays a generic component with no Hebrew.
+// ─────────────────────────────────────────────────────────────────────────────
+// Formatters
+// ─────────────────────────────────────────────────────────────────────────────
 
 function goalLabel(type: 'distance' | 'time' | 'calories'): string {
   switch (type) {
@@ -127,77 +87,151 @@ function formatGoalValue(p: {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RunMiniDockContent — content for the dock (56 px) anchor
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
+  const totalDistance = useSessionStore((s) => s.totalDistance);
+  const totalDuration = useSessionStore((s) => s.totalDuration);
+  const goalProgress = useSessionGoalProgress();
+
+  const safeDistance = Number.isFinite(totalDistance) && totalDistance > 0 ? totalDistance : 0;
+
+  const handleStop = useCallback(async () => {
+    const { finishWorkout } = useRunningPlayer.getState();
+    await finishWorkout();
+  }, []);
+
+  return (
+    <div
+      className="flex items-center h-full px-3 gap-2 w-full"
+      style={{ fontFamily: 'var(--font-simpler)' }}
+      dir="ltr"
+    >
+      {/* Stats — distance · time */}
+      <div className="flex items-baseline gap-1 flex-shrink-0">
+        <span className="text-xl font-black tabular-nums text-white leading-none">
+          {safeDistance.toFixed(2)}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#00ADEF]">
+          KM
+        </span>
+      </div>
+      <span className="text-white/40 text-sm">|</span>
+      <span className="text-xl font-black tabular-nums text-white leading-none flex-shrink-0">
+        {formatDuration(totalDuration)}
+      </span>
+
+      {/* Goal pill — middle */}
+      {goalProgress && goalProgress.progress > 0 && (
+        <div
+          className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
+          style={{
+            background: goalProgress.isComplete ? '#10B981' : 'rgba(255,255,255,0.15)',
+            color: goalProgress.isComplete ? '#fff' : '#00ADEF',
+          }}
+        >
+          {Math.round(goalProgress.progress * 100)}%
+        </div>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Stop button — only when laps panel is open (map covered) */}
+      {isLapsOpen && (
+        <button
+          type="button"
+          aria-label="סיים אימון"
+          onClick={(e) => { e.stopPropagation(); handleStop(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          style={{ background: '#EF4444' }}
+        >
+          <Square size={14} fill="white" className="text-white" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface FreeRunActiveProps {
-  /**
-   * Back-compat hook for FreeRunPaused (sibling view that DOES expose a
-   * "back to map" CTA). Intentionally unused by this active view — the
-   * top header was stripped to maximise map visibility, and the Stop
-   * action lives on the global SessionControlBar.
-   */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onBack: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
-  const playerView = useRunningPlayer((s) => s.view);
-  const setPlayerView = useRunningPlayer((s) => s.setView);
-  const gpsAccuracy = useRunningPlayer((s) => s.gpsAccuracy);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
+  const sessionMode = useRunningPlayer((s) => s.sessionMode);
+  const isCommute = sessionMode === 'commute';
 
-  // ── Single clean derived state for layout ────────────────────────────────
-  // Two-source intent check (see file-header docs). The OR catches the
-  // earliest possible signal — `guidedRouteId` flips first because
-  // useWorkoutSession sets it BEFORE setActiveRoutePath, eliminating the
-  // 150 ms race where the card used to flicker through 'top' before
-  // snapping down. Returns a primitive boolean so the component re-renders
-  // ONLY when the answer flips, not on every routeCoords push.
   const isNavigationActive = useRunningPlayer(
     (s) =>
       !!s.guidedRouteId ||
       (Array.isArray(s.activeRoutePath) && s.activeRoutePath.length >= 2),
   );
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // Bridge: reads sessionGoal + myPersonalGoal from shared session store,
+  // resolves effective goal, and writes it into useRunningPlayer.
+  useGroupSessionGoal();
 
-  // Goal progress — drives the floating story bar.
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
 
-  // ── Smart story-bar visibility ─────────────────────────────────────────
-  // Field-test feedback: a freshly-started Free Run with NO goal AND no
-  // pre-built route showed an empty progress bar at the top of the
-  // screen, which read as "stalled" to the user. The bar is now hidden
-  // entirely whenever there is nothing to track:
-  //
-  //   • goalProgress !== null → user picked a time/distance/calories
-  //                             goal in FreeRunDrawer.
-  //   • isNavigationActive    → there's a guided route or active path
-  //                             (commute, generated route, etc.) that
-  //                             gives the bar a meaningful target.
-  //
-  // If neither fires the chrome is fully suppressed — map extends to
-  // the very top edge, the user only sees the metrics card and the
-  // map. The same gate downstream short-circuits the ResizeObserver
-  // and the topBarOffset prop into AdaptiveMetricsWrapper.
+  // Safety-clear: if FreeRun mounts while a group session is stored but no longer
+  // active, remove the stale context (handles force-quit / abnormal exit from
+  // a previous group run).
+  useEffect(() => {
+    const s = useSharedSession.getState();
+    if (s.groupId && s.phase !== 'active') {
+      s.clearGroupSession();
+    }
+  }, []);
+
   const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
 
-  // ── GPS status toast ────────────────────────────────────────────────────────
-  // Shows a brief pill toast when GPS degrades / recovers. Disappears after
-  // 4 s so it never becomes permanent chrome. No persistent indicator.
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLapsOpen, setIsLapsOpen] = useState(false);
+
+  // ── Laps panel drag — WorkoutFlowLayer owns animation + measurement ──────
+  const lapsDragControls = useDragControls();
+  const [lapsContentH, setLapsContentH] = useState(0);
+
+  // Force-close laps when the story bar disappears (goal cleared mid-run).
+  useEffect(() => {
+    if (!shouldShowStoryBar) setIsLapsOpen(false);
+  }, [shouldShowStoryBar]);
+
+  // ── Goal-reached celebration ─────────────────────────────────────────────
+  const prevIsCompleteRef = useRef(false);
+  const [showGoalToast, setShowGoalToast] = useState(false);
+  useEffect(() => {
+    const isNowComplete = goalProgress?.isComplete ?? false;
+    if (isNowComplete && !prevIsCompleteRef.current) {
+      setShowGoalToast(true);
+      const t = setTimeout(() => setShowGoalToast(false), 3000);
+      prevIsCompleteRef.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!isNowComplete) prevIsCompleteRef.current = false;
+  }, [goalProgress?.isComplete]);
+
+  // ── GPS status toast ─────────────────────────────────────────────────────
   const [gpsToast, setGpsToast] = useState<string | null>(null);
   const prevGpsStatusRef = useRef(gpsStatus);
   useEffect(() => {
     if (gpsStatus === prevGpsStatusRef.current) return;
     prevGpsStatusRef.current = gpsStatus;
-    if (gpsStatus === 'searching') {
-      setGpsToast('מחפש GPS…');
-    } else if (gpsStatus === 'poor') {
-      setGpsToast('GPS חלש — ממשיך לחפש');
-    } else if (gpsStatus === 'good' || gpsStatus === 'perfect') {
-      setGpsToast('GPS תקין ✓');
-    }
+    if (gpsStatus === 'searching')        setGpsToast('מחפש GPS…');
+    else if (gpsStatus === 'poor')        setGpsToast('GPS חלש — ממשיך לחפש');
+    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('GPS תקין ✓');
   }, [gpsStatus]);
   useEffect(() => {
     if (!gpsToast) return;
@@ -205,247 +239,177 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     return () => clearTimeout(t);
   }, [gpsToast]);
 
-  // ── Dynamic story-bar height ─────────────────────────────────────────────
-  // Measure the actual rendered height of RouteStoryBar (below the safe-area
-  // padding) so the metrics card's top snap is always flush under it AND so
-  // TurnCarousel can position itself directly below the bar. The measured
-  // value is kept in local state for AdaptiveMetricsWrapper and ALSO mirrored
-  // into useMapStore so TurnCarousel (a different subtree) can read it.
+  // ── Story-bar height → map camera padding ────────────────────────────────
   const storyBarInnerRef = useRef<HTMLDivElement>(null);
   const [storyBarHeight, setStoryBarHeight] = useState(STORY_BAR_FALLBACK_PX);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
+
   useEffect(() => {
     const node = storyBarInnerRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      const h =
-        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-      if (Number.isFinite(h) && h > 0) {
-        const rounded = Math.round(h);
-        setStoryBarHeight(rounded);
-        setStoreStoryBarHeight(rounded);
-      }
+    const obs = new ResizeObserver(([entry]) => {
+      const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      if (Number.isFinite(h) && h > 0) setStoryBarHeight(Math.round(h));
     });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      setStoreStoryBarHeight(0);
-    };
-  }, [setStoreStoryBarHeight]);
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, []);
 
-  // Force re-render each second to keep any timer-derived UI live.
-  // (StatsCarousel reads from useSessionStore directly; this tick is for
-  // derived UI that hasn't been ported to a store yet — kept small to
-  // avoid waste.)
+  // When laps are open the story bar has moved down — pad the map camera for both layers.
+  useEffect(() => {
+    const h = shouldShowStoryBar
+      ? (isLapsOpen ? storyBarHeight + lapsContentH : storyBarHeight)
+      : 0;
+    setStoreStoryBarHeight(h);
+    return () => setStoreStoryBarHeight(0);
+  }, [shouldShowStoryBar, isLapsOpen, storyBarHeight, lapsContentH, setStoreStoryBarHeight]);
+
+  // Publish laps-open state to MapStore so TurnCarousel can hide itself.
+  const setStoreIsLapsOpen = useMapStore((s) => s.setIsLapsOpen);
+  useEffect(() => {
+    console.log('[FreeRunActive] isLapsOpen →', isLapsOpen, '(guided-route path)');
+    setStoreIsLapsOpen(isLapsOpen);
+    return () => setStoreIsLapsOpen(false);
+  }, [isLapsOpen, setStoreIsLapsOpen]);
+
+  // MetricsDrawer lock: laps open → dock, navigation → peek, else free.
+  const drawerLock: string | null =
+    isLapsOpen ? 'dock'
+    : isNavigationActive ? 'peek'
+    : null;
+
+  // 1 Hz tick for HUD timer elements.
   const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
+  // DEBUG — remove after routing confirmed
+  useEffect(() => {
+    console.log('[FreeRunActive OLD] mounted — should NOT appear during free_run mode');
+    return () => console.log('[FreeRunActive OLD] unmounted');
+  }, []);
+
   return (
     <div
-      // z-40 raises the entire active-workout subtree (story bar, metrics
-      // card, etc.) above the TurnCarousel (z-30, rendered as a sibling by
-      // MapShell).  Without this, AdaptiveMetricsWrapper's inner z-index
-      // would be clamped by this stacking context and the metrics card
-      // would paint behind the navigation cards.
       className="absolute inset-0 z-40 overflow-hidden pointer-events-none"
       style={{ fontFamily: 'var(--font-simpler)' }}
-      // Title is now expressed semantically via the live region below
-      // since the visible header is gone — keeps screen readers informed
-      // about the current workout mode without taking pixels from the map.
       aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
       role="region"
     >
-      {playerView === 'main' && shouldShowStoryBar && (
+      {/*
+        ── LAPS PANEL + STORY BAR ───────────────────────────────────────────
+        Two-layer architecture mirrors StrengthRunner exactly:
+
+          BASE (z-49): RunLapsList — positioned at screen top, always rendered.
+                       Covered by the story bar motion.div when laps are closed.
+          TOP  (z-50): motion.div story bar — the draggable element.
+                       At y=0: covers the laps (story bar is at top). Normal state.
+                       At y=lapsContentH: story bar has slid DOWN, laps are fully visible.
+
+        The story bar div inside the motion.div is the drag handle:
+          onPointerDown → lapsDragControls.start(e)  (skips button targets)
+      */}
+      {shouldShowStoryBar && (
         <>
-          {/* ── STORY BAR HEADER ───────────────────────────────────────────────
-              Solid white container that wraps RouteStoryBar.  Provides a
-              clean, opaque surface for the goal-progress bar so dark text
-              reads on white instead of fighting a gradient.  Below the bar
-              a separate `aria-hidden` strip fades white → transparent over
-              16 px so the container blends smoothly into the map without a
-              hard horizontal seam.  z-50 keeps it as the top-most layer of
-              the active-workout chrome (above the metrics card at z-40).
-              Entire block is gated on `shouldShowStoryBar` so a goal-less
-              free run skips the chrome entirely and the map extends to
-              the top edge. */}
-          <div
-            className="absolute top-0 left-0 right-0 z-50 pointer-events-none"
-            style={{
-              paddingTop: 'env(safe-area-inset-top, 0px)',
-              background: '#ffffff',
-            }}
+          {/* WorkoutFlowLayer — notification-shade: RunLapsList behind story bar */}
+          <WorkoutFlowLayer
+            isOpen={isLapsOpen}
+            onClose={() => setIsLapsOpen(false)}
+            onOpen={() => setIsLapsOpen(true)}
+            externalDragControls={lapsDragControls}
+            revealContent={<RunLapsList />}
+            onRevealHeightChange={setLapsContentH}
           >
-            <div ref={storyBarInnerRef}>
-              <RouteStoryBar
-                // ── Dynamic progress with a 1% floor ────────────────────
-                // `goalProgress.progress` is `currentValue / targetValue`
-                // already clamped to [0, 1] inside useSessionGoalProgress.
-                // We floor it at 0.01 (1 %) so the bar shows a tiny sliver
-                // the moment the workout starts — the user gets immediate
-                // visual feedback that the HUD is live, instead of staring
-                // at an empty track during the first few GPS samples.
-                // Equivalent to the spec form
-                //   Math.max(1, (currentDistance / targetDistance) * 100)
-                // expressed in the 0–1 fraction space the bar consumes.
-                //
-                // Without a session goal there is no current/target ratio
-                // to compute. We keep the bar visible at the 1 % minimum
-                // so the chrome doesn't pop in/out depending on whether
-                // the user set a goal.
-                progress={
-                  goalProgress
-                    ? Math.max(0.01, goalProgress.progress)
-                    : 0.01
-                }
-                isPaused={isPaused}
-                label={goalProgress ? goalLabel(goalProgress.type) : 'מרחק'}
-                // valueText is empty when no goal is set — the prior
-                // '2.50 / 5.0 ק״מ' was a layout placeholder for testing
-                // that read as live data and confused the user.
-                valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
-              />
+            {/* Drag handle — story bar; motion.div owns top: safe-area so no padding here */}
+            <div
+              className="pointer-events-auto"
+              style={{ background: '#ffffff', touchAction: 'none' }}
+              onPointerDown={(e) => {
+                if ((e.target as HTMLElement).closest('button')) return;
+                lapsDragControls.start(e);
+              }}
+            >
+              <div ref={storyBarInnerRef}>
+                <RouteStoryBar
+                  progress={
+                    goalProgress
+                      ? goalProgress.isComplete
+                        ? Math.min(goalProgress.rawRatio, 1.05)
+                        : Math.max(0.01, goalProgress.progress)
+                      : 0.01
+                  }
+                  color={goalProgress?.isComplete ? '#10B981' : undefined}
+                  allowOverflow={goalProgress?.isComplete}
+                  isPaused={isPaused}
+                  label={
+                    goalProgress?.isComplete
+                      ? 'מעבר ליעד'
+                      : goalProgress ? goalLabel(goalProgress.type) : 'מרחק'
+                  }
+                  valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
+                />
+              </div>
             </div>
-          </div>
+          </WorkoutFlowLayer>
 
-          {/* Bottom fade strip — sits IMMEDIATELY below the white container
-              so the white surface dissolves into the map.  Positioned
-              absolutely from the top using the live storyBarHeight + safe
-              area so the strip stays attached as the bar resizes
-              (orientation, dynamic-island devices, future layout changes).
-              Height 18 px is enough to read as a soft fade without
-              wasting prime map real-estate. */}
-          <div
-            className="absolute left-0 right-0 z-50 pointer-events-none"
-            style={{
-              top: `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight}px)`,
-              height: 18,
-              background: 'linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%)',
-            }}
-            aria-hidden="true"
-          />
-
-          {/* ── GPS STATUS TOAST ───────────────────────────────────────────────
-              Temporary pill that appears for 4 s when GPS degrades or
-              recovers. No permanent indicator — keeps the top of the map
-              clean. Positioned just below the story bar. */}
+          {/* Toasts — z-[55], above WorkoutFlowLayer */}
           {gpsToast && (
             <div
-              className="absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+              className="absolute left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
             >
               <div
                 className="px-4 py-1.5 rounded-full text-xs font-bold text-white"
-                style={{
-                  background: 'rgba(0,0,0,0.72)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  letterSpacing: '0.01em',
-                }}
+                style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
                 dir="rtl"
               >
                 {gpsToast}
               </div>
             </div>
           )}
+
+          {showGoalToast && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 z-[55] pointer-events-none"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className="px-5 py-2 rounded-full text-sm font-black text-white"
+                style={{ background: '#10B981', boxShadow: '0 4px 16px rgba(16,185,129,0.45)' }}
+                dir="rtl"
+              >
+                🎯 הגעת ליעד!
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      {/* ── LAPS LIST — light overlay, scrollable. ───────────────────────── */}
-      {playerView === 'laps' && (
-        <div
-          className="absolute inset-0 z-10 pointer-events-auto bg-white"
-          style={{
-            paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-            paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))`,
-          }}
-        >
-          <RunLapsList />
-        </div>
-      )}
-
-      {/* ── MAP VIEW: smart, draggable metrics card ────────────────────────
-          `topBarOffset` collapses to 0 when the story bar is hidden so
-          the metrics card's top snap sits flush with the map edge —
-          otherwise the user would see a phantom 56 px gap reserved
-          for a header that never paints. */}
-      {playerView === 'main' && (
-        <AdaptiveMetricsWrapper
-          isNavigationActive={isNavigationActive}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          topBarOffset={shouldShowStoryBar ? storyBarHeight : 0}
-        />
-      )}
-
-      {/* ── PRIMARY CONTROLS: circular Lap / Pause / Stop cluster ────────
-          Replaces the global SessionControlBar for free-run sessions
-          (suppressed in MapShell by `runMode !== 'free' && runMode !==
-          'my_routes'`). Long-press for Pause + Stop matches the
-          structured-workout language in PlannedRunActive so the user
-          builds one mental model for "destructive action = hold to
-          confirm". The Lap button stays single-tap (a missed lap is
-          cheap; a stopped workout is not). */}
-      {playerView === 'main' && <WorkoutControlCluster />}
-
-      {/* ── BOTTOM NAV — solid white, hairline divider ───────────────────── */}
-      <nav
-        className="absolute bottom-0 left-0 right-0 z-30 flex pointer-events-auto bg-white"
-        style={{
-          minHeight: `${BOTTOM_NAV_HEIGHT_PX}px`,
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          borderTop: '1px solid rgba(0, 0, 0, 0.08)',
-          boxShadow: '0 -2px 16px rgba(0, 0, 0, 0.06)',
-        }}
+      {/* ── METRICS DRAWER (z-40) ────────────────────────────────────────────
+          Locks to dock when laps open, to peek during navigation, else free. */}
+      <MetricsDrawer
+        lockToAnchor={drawerLock}
+        defaultAnchor="peek"
+        onOpenSettings={() => setIsSettingsOpen(true)}
       >
-        <button
-          onClick={() => setPlayerView('main')}
-          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-black/5 transition-colors"
-        >
-          {playerView === 'main' && (
-            <span
-              className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
-              style={{ background: PRIMARY }}
-            />
-          )}
-          <Map
-            size={22}
-            style={{ color: playerView === 'main' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          />
-          <span
-            className="font-medium text-xs"
-            style={{ color: playerView === 'main' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          >
-            מפה
-          </span>
-        </button>
+        {(anchor) =>
+          anchor === 'dock' ? (
+            <MiniDock>
+              <RunMiniDockContent isLapsOpen={isLapsOpen} />
+            </MiniDock>
+          ) : isCommute ? (
+            <CommuteStatsCarousel />
+          ) : (
+            <StatsCarousel />
+          )
+        }
+      </MetricsDrawer>
 
-        <button
-          onClick={() => setPlayerView('laps')}
-          className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] active:bg-black/5 transition-colors"
-        >
-          {playerView === 'laps' && (
-            <span
-              className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full"
-              style={{ background: PRIMARY }}
-            />
-          )}
-          <List
-            size={22}
-            className="rotate-90"
-            style={{ color: playerView === 'laps' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          />
-          <span
-            className="font-medium text-xs"
-            style={{ color: playerView === 'laps' ? PRIMARY_DARK : 'rgba(0,0,0,0.45)' }}
-          >
-            הקפות
-          </span>
-        </button>
-      </nav>
-
-      {/* Global overlays */}
+      <WorkoutControlCluster />
       <LapSnapshotOverlay />
       <WorkoutSettingsDrawer
         isOpen={isSettingsOpen}

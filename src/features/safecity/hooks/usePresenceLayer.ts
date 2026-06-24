@@ -31,6 +31,7 @@ import {
   startHeartbeat,
   stopHeartbeat,
   clearPresence,
+  updatePresence,
   type PresencePayload,
   type PresenceActivity,
 } from '../services/presence.service';
@@ -40,6 +41,8 @@ import {
   type HeatmapPoint,
 } from '../services/segregation.service';
 import type { PrivacyMode } from '../store/usePrivacyStore';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -159,6 +162,11 @@ export function usePresenceLayer(
   const { profile, _hasHydrated } = useUserStore();
   const { following, isLoaded: socialLoaded, loadConnections } = useSocialStore();
   const { mode: privacyMode } = usePrivacyStore();
+  // Reactive groupId — drives the session-boundary immediate-write effect below.
+  const groupSessionId = useSharedSession((s) => s.groupId);
+  // Ref that exposes the current getPayload builder to the session-boundary effect
+  // without re-creating the heartbeat interval on every render.
+  const getPayloadRef = useRef<(() => PresencePayload | null) | null>(null);
 
   const [socialMode, setSocialMode] = useState<SocialMapMode>('friends');
   const [rawMarkers, setRawMarkers] = useState<PresenceMarker[]>([]);
@@ -183,8 +191,13 @@ export function usePresenceLayer(
   const lemurStage = profile?.progression?.lemurStage ?? undefined;
   const photoURL = profile?.core?.photoURL ?? undefined;
   const runningLevel = profile?.running?.level ?? undefined;
+  // Server-managed group membership (Group E in firestore.rules) — used to
+  // populate audienceGroupIds so group members can see this user on the map.
+  const groupIds: string[] = Array.isArray(profile?.social?.groupIds)
+    ? profile.social.groupIds
+    : [];
 
-  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel, currentLocation });
+  const stateRef = useRef({ privacyMode, following, ageGroup, isVerified: profile?.core?.isVerified ?? false, userId, authorityId: profile?.core?.authorityId ?? null, schoolName: '' as string | null, personaId, lemurStage, photoURL, runningLevel, currentLocation, groupIds });
   stateRef.current = {
     privacyMode,
     following,
@@ -198,6 +211,7 @@ export function usePresenceLayer(
     photoURL,
     runningLevel,
     currentLocation,
+    groupIds,
   };
 
   // Load social connections
@@ -237,7 +251,26 @@ export function usePresenceLayer(
       // Read location from stateRef so the heartbeat always uses the latest
       // GPS coordinates without needing to restart the effect on every position
       // change. stateRef.current is updated every render.
-      const loc = s.currentLocation;
+      let loc = s.currentLocation;
+
+      // GPS-store fallback: stateRef.current.currentLocation lags by one render
+      // cycle behind the native watchPosition callback (it flows through MapShell
+      // props). Reading the Zustand store directly closes that gap — critical for
+      // the first-fix subscription write and for the session-boundary write that
+      // fires before MapShell has had a chance to re-render with the new coords.
+      if (!loc) {
+        const storeFix = useGPSStore.getState().coords;
+        if (storeFix) loc = storeFix;
+      }
+
+      // Dev-only: when no real GPS is available (e.g. localhost), broadcast a
+      // fixed Tel-Aviv coordinate so two browser tabs can test group presence
+      // without a real device. Has zero effect in production (IS_DEV is false).
+      if (!loc && IS_DEV) {
+        loc = { lat: 32.0673, lng: 34.7726 };
+        console.log('[PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick', tickCount);
+      }
+
       if (!loc || !s.userId) {
         console.log('[PresenceHeartbeat] tick SKIPPED', {
           tickCount,
@@ -262,13 +295,28 @@ export function usePresenceLayer(
         });
         return null;
       }
+      // Session-aware mode override: during a live group session, force
+      // mode='group' and audienceGroupIds=[groupSessionId] so that all
+      // session members can see each other on the map. The map heartbeat
+      // is the only presence writer during running sessions — useWorkoutPresence
+      // is only mounted in the strength workout screen (/workouts/[id]/active).
+      // Revert is automatic: when groupId→null (session ends), the next call
+      // uses s.privacyMode and s.groupIds (the user's real privacy settings).
+      const liveGroupId = useSharedSession.getState().groupId;
+      const requestedMode = liveGroupId ? 'group' : s.privacyMode;
+      // Defense-in-depth: minors may only broadcast ghost or group regardless
+      // of the stored privacy preference. The UI guard and Firestore rule are
+      // the primary enforcement; this is a final client-side backstop.
+      const safeMode = s.ageGroup === 'minor' && requestedMode !== 'ghost' && requestedMode !== 'group'
+        ? 'ghost'
+        : requestedMode;
       const payload: PresencePayload = {
         uid: s.userId,
         name: profile.core.name,
         ageGroup: s.ageGroup,
         isVerified: s.isVerified,
         schoolName: s.schoolName,
-        mode: s.privacyMode,
+        mode: safeMode,
         lat,
         lng,
         authorityId: s.authorityId,
@@ -276,17 +324,13 @@ export function usePresenceLayer(
         lemurStage: s.lemurStage,
         photoURL: s.photoURL,
         runningLevel: s.runningLevel,
+        audienceGroupIds: liveGroupId ? [liveGroupId] : s.groupIds,
       };
-      // [DIAG] This is the line that proves the heartbeat is firing AND
-      // shows the exact `mode` we're about to persist. If `mode` here is
-      // 'verified_global' but the Firestore doc shows 'squad' (or vice
-      // versa), the discrepancy is downstream in updatePresence /
-      // Firestore caching. If you don't see this log at all, the
-      // heartbeat never fired — check the SKIPPED reasons above.
       console.log('[PresenceHeartbeat] tick WRITING presence', {
         tickCount,
         uid: payload.uid,
         mode: payload.mode,
+        liveGroupId: liveGroupId ?? null,
         ageGroup: payload.ageGroup,
         lat: payload.lat,
         lng: payload.lng,
@@ -295,14 +339,49 @@ export function usePresenceLayer(
       return payload;
     };
 
+    // Expose for the session-boundary immediate-write effect.
+    getPayloadRef.current = getPayload;
+
     startHeartbeat(getPayload);
+
+    // First-fix write: mirrors the identical pattern in useWorkoutPresence.
+    // startHeartbeat fires tick() immediately, but if GPS hasn't arrived yet
+    // that tick is skipped (no loc). This subscription catches the moment the
+    // first real fix lands and writes presence right then, without waiting 2 min.
+    // hadFix prevents duplicate writes: once fired, the flag latches to true.
+    let hadFix = useGPSStore.getState().coords !== null;
+    const unsubGPS = useGPSStore.subscribe((gpsState) => {
+      if (hadFix || !gpsState.coords) return;
+      hadFix = true;
+      const p = getPayload();
+      if (p) {
+        console.log('[PresenceHeartbeat] first-fix write triggered by GPS store');
+        updatePresence(p).catch((err) =>
+          console.warn('[PresenceHeartbeat] first-fix write failed:', err),
+        );
+      }
+    });
+
     return () => {
       console.log('[PresenceHeartbeat] unmount — stopping heartbeat + clearing presence', { userId });
+      getPayloadRef.current = null;
+      unsubGPS();
       stopHeartbeat();
       if (userId) clearPresence(userId).catch(() => {});
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // ── Session-boundary immediate presence write ─────────────────────────────
+  // Without this, partners only appear after the next regular heartbeat tick
+  // (up to 2 min). Fires on both transitions:
+  //   null → groupId  (session start): writes mode='group', audienceGroupIds=[groupId]
+  //   groupId → null  (session end):   writes mode=privacyMode (reverts immediately)
+  useEffect(() => {
+    const p = getPayloadRef.current?.();
+    if (p) updatePresence(p).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSessionId]);
 
   // ── Real-time Firestore listener (single onSnapshot) ─────────────────────
   useEffect(() => {
@@ -331,7 +410,17 @@ export function usePresenceLayer(
 
       batches.forEach((batch, idx) => {
         try {
-          const q = query(collection(db, 'presence'), where('uid', 'in', batch));
+          // Option A: filter to verified_global only so squad-mode docs (whose
+          // read rule requires a cross-doc followers check) never enter the
+          // batch. A single squad doc whose followers list doesn't include the
+          // reader causes the entire in-batch query to fail with PERMISSION-DENIED
+          // (Firestore all-or-nothing semantics). Trade-off: friends who set
+          // mode='squad' won't appear; acceptable while the follow graph is sparse.
+          const q = query(
+            collection(db, 'presence'),
+            where('uid', 'in', batch),
+            where('mode', '==', 'verified_global'),
+          );
           const unsub = onSnapshot(q, (snap) => {
             const markers: PresenceMarker[] = [];
             snap.forEach((d) => {
@@ -344,6 +433,11 @@ export function usePresenceLayer(
             setRawMarkers(merged);
             setIsLoading(false);
           }, (err: any) => {
+            // Close the failed listener immediately — a listener that errors but
+            // stays registered causes the Firestore SDK to enter a retry loop
+            // that can crash the entire SDK (internal ca9/b815 errors). unsub is
+            // assigned by the time this async callback fires.
+            unsub();
             const code = err?.code ?? '(no code)';
             if (code === 'permission-denied') {
               console.error(

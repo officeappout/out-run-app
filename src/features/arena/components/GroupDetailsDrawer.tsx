@@ -21,11 +21,20 @@ import {
   Share2,
   Pencil,
   Crown,
+  Shield,
   Lock,
   Copy,
   Check,
   CalendarPlus,
+  Settings,
+  Trash2,
+  ChevronLeft,
+  Plus,
 } from 'lucide-react';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import CommunityAddressSearch from './CommunityAddressSearch';
+import MiniLocationPicker from '@/features/admin/components/MiniLocationPicker';
 import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot, LiveSessionPhase } from '@/types/community.types';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
@@ -42,7 +51,7 @@ import {
   getSessionAttendance,
   computeNextSession as computeNextSessionBooking,
 } from '@/features/arena/services/booking.service';
-import { getGroupMembers, joinGroup, leaveGroup } from '@/features/arena/services/group.service';
+import { getGroupMembers, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember, updateGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -132,6 +141,52 @@ function computeWeekSessions(slots: ScheduleSlot[]): { date: string; time: strin
   return results.sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 }
 
+/** Returns the next *future* date (YYYY-MM-DD) for a recurring weekly slot.
+ *  If today is the correct weekday but the slot time has already passed, rolls to next week. */
+function getNextSlotDate(dayOfWeek: number, time: string): string {
+  const now = new Date();
+  const [h, m] = time.split(':').map(Number);
+  const slotToday = new Date(now);
+  slotToday.setHours(h, m, 0, 0);
+
+  let diff = (dayOfWeek - now.getDay() + 7) % 7;
+  if (diff === 0 && slotToday.getTime() <= now.getTime()) diff = 7;
+
+  const result = new Date(now);
+  result.setDate(now.getDate() + diff);
+  return toISODate(result);
+}
+
+interface SlotStatus {
+  /** true only within the 80-min lobby window — the sole hard block on editing */
+  locked: boolean;
+  /** existing RSVP count for the next occurrence (informational, not a lock) */
+  attendeeCount: number;
+}
+
+/** Returns lock status + RSVP count for the next occurrence of a slot.
+ *  Lock = within 80-min lobby window only.
+ *  Existing attendance docs outside that window are shown as a count but don't block editing. */
+async function getSlotStatus(groupId: string, slot: ScheduleSlot): Promise<SlotStatus> {
+  const nextDate    = getNextSlotDate(slot.dayOfWeek, slot.time);
+  const nextMs      = new Date(`${nextDate}T${slot.time}:00`).getTime();
+  const minutesUntil = (nextMs - Date.now()) / 60_000;
+  const locked      = minutesUntil >= 0 && minutesUntil <= 80;
+
+  const attId  = `${nextDate}_${slot.time.replace(':', '-')}`;
+  const attRef = doc(db, `community_groups/${groupId}/attendance/${attId}`);
+  try {
+    const snap = await getDoc(attRef);
+    const data = snap.exists() ? snap.data() : null;
+    const attendeeCount = data
+      ? (typeof data.currentCount === 'number' ? data.currentCount : (data.attendees?.length ?? 0))
+      : 0;
+    return { locked, attendeeCount };
+  } catch {
+    return { locked, attendeeCount: 0 };
+  }
+}
+
 interface GroupDetailsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -196,6 +251,8 @@ export default function GroupDetailsDrawer({
   const [isBooked, setIsBooked] = useState(false);
   const [isWaitlisted, setIsWaitlisted] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleMgrOpen, setScheduleMgrOpen] = useState(false);
+  const [editingSlotIndex, setEditingSlotIndex] = useState<number | null>(null);
   const [dropInLoading,  setDropInLoading]  = useState(false);
   const [showJoinPrompt, setShowJoinPrompt] = useState(false);
   const [joiningGroup,   setJoiningGroup]   = useState(false);
@@ -211,6 +268,8 @@ export default function GroupDetailsDrawer({
   const [membersLoading, setMembersLoading] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<GroupMember | null>(null);
   const [removingUid, setRemovingUid] = useState<string | null>(null);
+  const [activeActionUid, setActiveActionUid] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState<string | null>(null); // uid with in-flight action
 
   // Premium UX: when the drawer opens without a fix, courtesy-prompt for GPS
   // so the user can see nearby sessions — but only if they haven't denied us.
@@ -292,6 +351,7 @@ export default function GroupDetailsDrawer({
           groupId, nsd, nst,
           userId, userName, userPhoto,
           nextSlot?.maxParticipants,
+          nextSlot?.workoutGoal,
         );
         if (result.success) {
           if (result.waitlisted) {
@@ -326,6 +386,7 @@ export default function GroupDetailsDrawer({
         group!.id, effectiveLiveSession.date, effectiveLiveSession.time,
         userId, userName, userPhoto,
         effectiveLiveSession.slot.maxParticipants,
+        effectiveLiveSession.slot.workoutGoal,
       );
       await setMyAttendeeStatus(
         userId, group!.id,
@@ -389,6 +450,32 @@ export default function GroupDetailsDrawer({
     }
   }, [groupId, group, weekLoaded, weekLoading]);
 
+  // ── Moderation handlers — must be before early return (Rules of Hooks) ──────
+  const handleToggleAdmin = useCallback(async (member: GroupMember) => {
+    if (!groupId || actionPending) return;
+    setActionPending(member.uid);
+    try {
+      if (member.role === 'member') {
+        await makeGroupAdmin(groupId, member.uid);
+        setGroupMembers((prev) => prev.map((m) => m.uid === member.uid ? { ...m, role: 'admin' } : m));
+      } else {
+        await removeGroupAdmin(groupId, member.uid);
+        setGroupMembers((prev) => prev.map((m) => m.uid === member.uid ? { ...m, role: 'member' } : m));
+      }
+      setActiveActionUid(null);
+    } catch (err) {
+      console.error('[GroupDetailsDrawer] toggle admin failed:', err);
+    } finally {
+      setActionPending(null);
+    }
+  }, [groupId, actionPending]);
+
+  const handleRemoveMember = useCallback(async (member: GroupMember) => {
+    if (!groupId || actionPending) return;
+    setConfirmRemove(member);
+    setActiveActionUid(null);
+  }, [groupId, actionPending]);
+
   // ── Non-member live session — fires when drawer is open and no parent liveSession ──
   const fallbackLiveSession = useGroupLiveSession(group, isOpen && !liveSession);
   const effectiveLiveSession = liveSession ?? fallbackLiveSession;
@@ -397,6 +484,7 @@ export default function GroupDetailsDrawer({
   if (!group) return null;
 
   const isCreator = userId === group.createdBy;
+  const isCurrentUserAdmin = isCreator || groupMembers.some((m) => m.uid === userId && m.role === 'admin');
 
   const userAuthorityId = (profile as any)?.core?.authorityId ?? null;
   const canDropIn = (
@@ -531,18 +619,28 @@ export default function GroupDetailsDrawer({
 
               {/* ── Scrollable content ─────────────────────────── */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
-                {/* Live session banner — shown when a session is approaching / in lobby / active */}
+                {/* Live session banner — shown when a session is approaching / in lobby / active.
+                    Members always see the banner (private group members included).
+                    Non-members see it only when canDropIn (public, unlocked, city-match). */}
                 {effectiveLiveSession && (
                   effectiveLiveSession.phase === 'approaching' ||
                   effectiveLiveSession.phase === 'lobby' ||
                   effectiveLiveSession.phase === 'active'
-                ) && (canDropIn ? (
+                ) && (isJoined ? (
                   <CommunitySessionBanner
                     session={effectiveLiveSession}
                     onDismiss={onClose}
                     compact
-                    isJoined={isJoined}
-                    onDropIn={!isJoined ? handleDropIn : undefined}
+                    isJoined
+                    onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
+                  />
+                ) : canDropIn ? (
+                  <CommunitySessionBanner
+                    session={effectiveLiveSession}
+                    onDismiss={onClose}
+                    compact
+                    isJoined={false}
+                    onDropIn={handleDropIn}
                     onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
                   />
                 ) : (
@@ -878,37 +976,89 @@ export default function GroupDetailsDrawer({
                         ))}
                       </div>
                     ) : (
-                      <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                      <div className="space-y-1.5 max-h-64 overflow-y-auto">
                         {groupMembers.map((member) => {
                           const initials = member.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('');
                           const isGroupCreator = member.uid === group.createdBy;
+                          const isGroupAdminMember = !isGroupCreator && member.role === 'admin';
+                          const isSelf = member.uid === userId;
+                          // actions owner can do on this member
+                          const canPromote = !isGroupCreator && member.role === 'member' && isCurrentUserAdmin;
+                          const canDemote  = !isGroupCreator && member.role === 'admin'  && isCreator;
+                          const canRemove  = !isGroupCreator && !isSelf && (isCreator || (isCurrentUserAdmin && member.role === 'member'));
+                          const hasActions = canPromote || canDemote || canRemove;
+                          const isExpanded = activeActionUid === member.uid;
                           return (
-                            <div
-                              key={member.uid}
-                              className="flex items-center gap-3 py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/50"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                                {initials.toUpperCase() || '?'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-                                  {member.name}
-                                </p>
-                                {isGroupCreator && (
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
-                                    <Crown className="w-3 h-3" />
-                                    מנהל/ת
+                            <div key={member.uid} className="rounded-xl overflow-hidden">
+                              {/* Member row */}
+                              <button
+                                type="button"
+                                disabled={!hasActions}
+                                onClick={() => hasActions && setActiveActionUid(isExpanded ? null : member.uid)}
+                                className={`w-full flex items-center gap-3 py-2 px-3 bg-gray-50 dark:bg-gray-800/50 transition-colors ${hasActions ? 'active:bg-gray-100 dark:active:bg-gray-700/60 cursor-pointer' : 'cursor-default'}`}
+                              >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isGroupCreator ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-cyan-400 to-blue-500'}`}>
+                                  {initials.toUpperCase() || '?'}
+                                </div>
+                                <div className="flex-1 min-w-0 text-right">
+                                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                                    {member.name}
                                   </p>
+                                  {isGroupCreator && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                                      <Crown className="w-3 h-3" />
+                                      בעלים
+                                    </p>
+                                  )}
+                                  {isGroupAdminMember && (
+                                    <p className="text-xs text-blue-500 dark:text-blue-400 font-bold flex items-center gap-0.5">
+                                      <Shield className="w-3 h-3" />
+                                      מנהל/ת
+                                    </p>
+                                  )}
+                                </div>
+                                {hasActions && (
+                                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                 )}
-                              </div>
-                              {isCreator && !isGroupCreator && (
-                                <button
-                                  onClick={() => setConfirmRemove(member)}
-                                  aria-label={`הסר את ${member.name} מהקהילה`}
-                                  className="w-11 h-11 rounded-full bg-red-50 dark:bg-red-900/20 text-red-400 flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex-shrink-0"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
+                              </button>
+
+                              {/* Inline action panel */}
+                              {isExpanded && (
+                                <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
+                                    {member.name} · פעולות מנהל
+                                  </p>
+                                  {canPromote && (
+                                    <button
+                                      disabled={actionPending === member.uid}
+                                      onClick={() => handleToggleAdmin(member)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
+                                      הפוך למנהל
+                                      <span className="text-xs text-gray-400 font-normal mr-auto">אותן סמכויות כמו שלך</span>
+                                    </button>
+                                  )}
+                                  {canDemote && (
+                                    <button
+                                      disabled={actionPending === member.uid}
+                                      onClick={() => handleToggleAdmin(member)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-gray-400" />}
+                                      הסר ניהול
+                                    </button>
+                                  )}
+                                  {canRemove && (
+                                    <button
+                                      onClick={() => handleRemoveMember(member)}
+                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    >
+                                      <X className="w-4 h-4" />
+                                      הסר מהקבוצה
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           );
@@ -1023,6 +1173,29 @@ export default function GroupDetailsDrawer({
                     <Pencil className="w-4 h-4" />
                     ערוך קהילה
                   </button>
+                )}
+
+                {/* ── Owner / admin: Manage schedule ──────────────── */}
+                {isCurrentUserAdmin && group.hasMeetups !== false && (group.scheduleSlots?.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => { setScheduleMgrOpen(true); setEditingSlotIndex(null); }}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+                  >
+                    <Settings className="w-4 h-4" />
+                    ניהול מפגשים
+                  </button>
+                )}
+
+                {/* Schedule manager panel — inline overlay inside the drawer */}
+                {scheduleMgrOpen && group.scheduleSlots && (
+                  <ScheduleManagerPanel
+                    group={group}
+                    editingSlotIndex={editingSlotIndex}
+                    onEdit={(i) => setEditingSlotIndex(i as number | null)}
+                    onClose={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
+                    onSaved={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
+                    showToast={showToast}
+                  />
                 )}
 
                 {/* ── Share button — always visible ───────────────── */}
@@ -1330,7 +1503,7 @@ export default function GroupDetailsDrawer({
                     if (!groupId || !confirmRemove) return;
                     setRemovingUid(confirmRemove.uid);
                     try {
-                      await leaveGroup(groupId, confirmRemove.uid);
+                      await removeGroupMember(groupId, confirmRemove.uid);
                       setGroupMembers((prev) => prev.filter((m) => m.uid !== confirmRemove.uid));
                       setConfirmRemove(null);
                     } catch (err) {
@@ -1375,5 +1548,281 @@ export default function GroupDetailsDrawer({
         reporterId={userId}
       />
     </>
+  );
+}
+
+// ── Schedule Manager Panel ────────────────────────────────────────────────────
+
+interface ScheduleManagerPanelProps {
+  group: CommunityGroup;
+  editingSlotIndex: number | null;
+  onEdit: (index: number | null) => void;
+  onClose: () => void;
+  onSaved: () => void;
+  showToast: (type: 'success' | 'error', text: string) => void;
+}
+
+function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSaved, showToast }: ScheduleManagerPanelProps) {
+  const slots = group.scheduleSlots ?? [];
+  const [statusMap, setStatusMap] = React.useState<Record<number, SlotStatus>>({});
+  const [checking, setChecking] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  // Fetch lock status + RSVP count for every slot on mount
+  React.useEffect(() => {
+    let cancelled = false;
+    setChecking(true);
+    Promise.all(
+      slots.map((slot, i) => getSlotStatus(group.id, slot).then((status) => ({ i, status })))
+    ).then((results) => {
+      if (cancelled) return;
+      const map: Record<number, SlotStatus> = {};
+      results.forEach(({ i, status }) => { map[i] = status; });
+      setStatusMap(map);
+      setChecking(false);
+    });
+    return () => { cancelled = true; };
+  }, [group.id, slots.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRemoveSlot = async (index: number) => {
+    const newSlots = slots.filter((_, i) => i !== index);
+    setSaving(true);
+    try {
+      await updateGroup(group.id, { scheduleSlots: newSlots });
+      showToast('success', 'מפגש הוסר');
+      onSaved();
+    } catch {
+      showToast('error', 'שגיאה בשמירה');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editingSlotIndex !== null) {
+    return (
+      <SlotEditorSheet
+        group={group}
+        slotIndex={editingSlotIndex >= 0 ? editingSlotIndex : null}
+        onBack={() => onEdit(null)}
+        onSaved={onSaved}
+        showToast={showToast}
+      />
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden" dir="rtl">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <span className="text-sm font-black text-gray-900">ניהול מפגשים</span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Slot list */}
+      <div className="divide-y divide-gray-50">
+        {slots.map((slot, i) => {
+          const status = statusMap[i];
+          const locked = status?.locked ?? false;
+          const attendeeCount = status?.attendeeCount ?? 0;
+          const isOnly = slots.length === 1;
+          return (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              {/* Day + time */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900">
+                  {DAY_LABELS[slot.dayOfWeek]}{'  '}
+                  <span className="font-mono">{slot.time}</span>
+                </p>
+                {(slot.location?.address ?? group.meetingLocation?.address) && (
+                  <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                    {slot.location?.address ?? group.meetingLocation?.address}
+                  </p>
+                )}
+              </div>
+
+              {/* RSVP count (informational) or lock badge */}
+              {checking ? (
+                <span className="text-[10px] text-gray-400 flex-shrink-0">...</span>
+              ) : locked ? (
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                  פעיל
+                </span>
+              ) : attendeeCount > 0 ? (
+                <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                  {attendeeCount} נרשמו
+                </span>
+              ) : null}
+
+              {/* Edit */}
+              <button
+                onClick={() => !locked && !checking && onEdit(i)}
+                disabled={locked || checking || saving}
+                title={locked ? 'מפגש פעיל כרגע — לא ניתן לערוך' : 'ערוך'}
+                className={`p-2 rounded-xl transition-all active:scale-90 ${
+                  locked || checking ? 'text-gray-300 cursor-not-allowed' : 'text-cyan-600 hover:bg-cyan-50'
+                }`}
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+
+              {/* Remove */}
+              <button
+                onClick={() => !locked && !isOnly && !checking && handleRemoveSlot(i)}
+                disabled={locked || isOnly || checking || saving}
+                title={isOnly ? 'להפסיק מפגשים לגמרי — בקרוב' : locked ? 'מפגש פעיל כרגע' : 'הסר מפגש'}
+                className={`p-2 rounded-xl transition-all active:scale-90 ${
+                  locked || isOnly || checking ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:bg-red-50'
+                }`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add slot */}
+      <div className="px-4 pb-4 pt-2">
+        <button
+          onClick={() => onEdit(-1)}
+          disabled={saving || checking}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black text-cyan-600 bg-cyan-50 hover:bg-cyan-100 active:scale-[0.97] transition-all disabled:opacity-50"
+        >
+          <Plus className="w-4 h-4" />
+          הוסף מפגש
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Slot Editor Sheet ─────────────────────────────────────────────────────────
+
+interface SlotEditorSheetProps {
+  group: CommunityGroup;
+  slotIndex: number | null; // null = add new slot
+  onBack: () => void;
+  onSaved: () => void;
+  showToast: (type: 'success' | 'error', text: string) => void;
+}
+
+function SlotEditorSheet({ group, slotIndex, onBack, onSaved, showToast }: SlotEditorSheetProps) {
+  const slot    = slotIndex !== null ? group.scheduleSlots![slotIndex] : null;
+  const initLoc = slot?.location
+    ? { address: slot.location.address ?? '', lat: slot.location.lat ?? 31.7683, lng: slot.location.lng ?? 35.2137 }
+    : group.meetingLocation
+    ? { address: group.meetingLocation.address, lat: group.meetingLocation.location?.lat ?? 31.7683, lng: group.meetingLocation.location?.lng ?? 35.2137 }
+    : { address: '', lat: 31.7683, lng: 35.2137 };
+
+  const [dayOfWeek, setDayOfWeek] = React.useState(slot?.dayOfWeek ?? 1);
+  const [time,      setTime]      = React.useState(slot?.time ?? '08:00');
+  const [address,   setAddress]   = React.useState(initLoc.address ?? '');
+  const [coords,    setCoords]    = React.useState({ lat: initLoc.lat ?? 31.7683, lng: initLoc.lng ?? 35.2137 });
+  const [saving,    setSaving]    = React.useState(false);
+
+  const handleAddressSelect = ({ address: addr, coords: c }: { address: string; coords: { lat: number; lng: number } }) => {
+    setAddress(addr);
+    setCoords(c);
+  };
+
+  const handleSave = async () => {
+    if (!time.match(/^\d{1,2}:\d{2}$/)) {
+      showToast('error', 'שעה לא תקינה');
+      return;
+    }
+    const newSlotData: ScheduleSlot = {
+      ...(slot ?? { frequency: 'weekly' as const, durationMinutes: 60 }),
+      dayOfWeek,
+      time,
+      location: { address, lat: coords.lat, lng: coords.lng },
+    };
+    const newSlots = slotIndex !== null
+      ? group.scheduleSlots!.map((s, i) => (i === slotIndex ? newSlotData : s))
+      : [...(group.scheduleSlots ?? []), newSlotData];
+    setSaving(true);
+    try {
+      await updateGroup(group.id, { scheduleSlots: newSlots });
+      showToast('success', slotIndex !== null ? 'המפגש עודכן' : 'מפגש נוסף');
+      onSaved();
+    } catch {
+      showToast('error', 'שגיאה בשמירה');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden space-y-0" dir="rtl">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+        <button onClick={onBack} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-black text-gray-900 flex-1">{slotIndex !== null ? 'עריכת מפגש' : 'הוספת מפגש'}</span>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* Day picker */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">יום בשבוע</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {DAY_LABELS.map((label, d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDayOfWeek(d)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                  dayOfWeek === d
+                    ? 'bg-cyan-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Time input */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">שעה</p>
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
+        </div>
+
+        {/* Address search */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 mb-2">מיקום</p>
+          <CommunityAddressSearch
+            value={address}
+            onChange={handleAddressSelect}
+            proximity={coords}
+          />
+        </div>
+
+        {/* Map pin */}
+        <MiniLocationPicker
+          value={coords}
+          onChange={(c) => setCoords(c)}
+        />
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 pb-4">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full py-3.5 rounded-2xl text-sm font-black text-white bg-cyan-500 active:scale-[0.97] transition-all disabled:opacity-50"
+        >
+          {saving ? 'שומר...' : slotIndex !== null ? 'שמור שינויים' : 'הוסף מפגש'}
+        </button>
+      </div>
+    </div>
   );
 }

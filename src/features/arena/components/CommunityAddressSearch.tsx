@@ -21,12 +21,15 @@ interface CommunityAddressSearchProps {
   /** Called when the user selects a suggestion — provides both address text and coords */
   onChange: (result: AddressResult) => void;
   placeholder?: string;
+  /** Bias results toward this location (user's current map center) */
+  proximity?: { lat: number; lng: number };
 }
 
 export default function CommunityAddressSearch({
   value,
   onChange,
   placeholder = 'חפש כתובת, פארק או אתר...',
+  proximity,
 }: CommunityAddressSearchProps) {
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -75,6 +78,9 @@ export default function CommunityAddressSearch({
       url.searchParams.set('limit', '5');
       url.searchParams.set('country', 'IL');
       url.searchParams.set('types', 'poi,address,place,neighborhood,locality');
+      if (proximity) {
+        url.searchParams.set('proximity', `${proximity.lng},${proximity.lat}`);
+      }
 
       const res = await fetch(url.toString(), { signal: abortRef.current.signal });
       if (!res.ok) throw new Error('geocoding failed');
@@ -91,7 +97,7 @@ export default function CommunityAddressSearch({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [proximity]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

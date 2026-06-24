@@ -18,6 +18,7 @@ import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardi
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { usePrivacyStore, type PrivacyMode } from '@/features/safecity/store/usePrivacyStore';
+import { computeAgeGroup } from '@/lib/age';
 import { validateAccessCode } from '@/features/user/onboarding/services/access-code.service';
 import { disconnectHealth } from '@/lib/healthBridge/init';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
@@ -479,8 +480,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     // previously (keeps the choice consistent across devices). Falls back to
     // the privacy-first `ghost` default in usePrivacyStore otherwise.
     const savedPrivacy = settings?.privacyMode as PrivacyMode | undefined;
+    const userIsMinor = computeAgeGroup(profile?.core?.birthDate) === 'minor';
     if (savedPrivacy === 'ghost' || savedPrivacy === 'squad' || savedPrivacy === 'verified_global') {
-      setPrivacyMode(savedPrivacy);
+      // Minors can only be in ghost mode — clamp anything else on hydration.
+      setPrivacyMode(userIsMinor && savedPrivacy !== 'ghost' ? 'ghost' : savedPrivacy);
+    } else if (userIsMinor) {
+      setPrivacyMode('ghost');
     }
 
     // Reset transient UI state
@@ -1550,7 +1555,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       <p className="text-sm font-semibold text-gray-800 font-simpler">נראות במפה</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
-                      {PRIVACY_MODES.map((m) => {
+                      {(computeAgeGroup(profile?.core?.birthDate) === 'minor'
+                        ? PRIVACY_MODES.filter(m => m.value === 'ghost')
+                        : PRIVACY_MODES
+                      ).map((m) => {
                         const Icon = m.icon;
                         const isActive = privacyMode === m.value;
                         return (

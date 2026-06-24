@@ -55,6 +55,13 @@ service cloud.firestore {
       );
     }
 
+    // True when the authenticated user is the original creator (owner) of a group.
+    // Owners have elevated rights over admins: only they can demote admins or remove admins.
+    function isGroupOwner(groupId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('createdBy', '') == request.auth.uid;
+    }
+
     // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
     // Set via Admin SDK when assigning a user to a tenant.
     // Root/DB admins bypass tenant checks.
@@ -102,17 +109,25 @@ service cloud.firestore {
 
     // Group B — tenant/unit assignment. Owned by `validateAccessCode`
     // Cloud Function and admin tooling. Owners cannot self-assign.
+    //
+    // INITIAL-WRITE ALLOWANCE: when a field is at its default value ('' / [])
+    // in the stored doc, the client may write any value — this covers the
+    // onboarding path where a shell doc exists but has no core/tenant data yet
+    // (e.g. guest who joined via session-token before completing onboarding).
+    // Once a non-default value is stored, only Admin SDK can change it.
+    //
+    // Note: authorityId follows the same pattern. The deeper protection is that
+    // onboarding-sync does NOT include authorityId in its payload — that field
+    // always routes through /api/user/update-authority (Admin SDK). This rule
+    // is a belt-and-suspenders guard, not the primary lock on authorityId.
     function noTenantFieldsChanged() {
-      return request.resource.data.get('core', {}).get('tenantId', '')
-             == resource.data.get('core', {}).get('tenantId', '')
-          && request.resource.data.get('core', {}).get('tenantType', '')
-             == resource.data.get('core', {}).get('tenantType', '')
-          && request.resource.data.get('core', {}).get('unitId', '')
-             == resource.data.get('core', {}).get('unitId', '')
-          && request.resource.data.get('core', {}).get('unitPath', [])
-             == resource.data.get('core', {}).get('unitPath', [])
-          && request.resource.data.get('core', {}).get('authorityId', '')
-             == resource.data.get('core', {}).get('authorityId', '');
+      let cur = resource.data.get('core', {});
+      let nxt = request.resource.data.get('core', {});
+      return (cur.get('tenantId', '') == ''      || cur.get('tenantId', '')      == nxt.get('tenantId', ''))
+          && (cur.get('tenantType', '') == ''     || cur.get('tenantType', '')     == nxt.get('tenantType', ''))
+          && (cur.get('unitId', '') == ''         || cur.get('unitId', '')         == nxt.get('unitId', ''))
+          && (cur.get('unitPath', []).size() == 0 || cur.get('unitPath', [])       == nxt.get('unitPath', []))
+          && (cur.get('authorityId', '') == ''    || cur.get('authorityId', '')    == nxt.get('authorityId', ''));
     }
 
     // Group C — game-integrity / progression. Locking these prevents a
@@ -125,17 +140,36 @@ service cloud.firestore {
     // functions/src/awardWorkoutXP.ts for the server-side validation
     // (auth required, per-call delta caps, server-recomputed level).
     //
-    // All client code paths that previously wrote these fields directly
-    // were migrated as part of the Fortress Phase (Apr 2026). If a new
-    // call site appears, route it through src/lib/awardWorkoutXP.ts —
-    // do NOT relax this rule.
+    // INITIAL-WRITE ALLOWANCE: when the stored doc has no `progression` map
+    // at all (guest shell doc created by session-token/confirm before onboarding
+    // completes), the client may write the initial seed values. This eliminates
+    // the race between the Admin-SDK shell write and the client onboarding-sync
+    // call without loosening the lock on any already-earned value.
+    // Once `progression` exists in the stored doc, only awardWorkoutXP can
+    // change coins / globalLevel / globalXP.
     function noGameIntegrityFieldsChanged() {
-      return request.resource.data.get('progression', {}).get('coins', 0)
-             == resource.data.get('progression', {}).get('coins', 0)
-          && request.resource.data.get('progression', {}).get('globalLevel', 0)
-             == resource.data.get('progression', {}).get('globalLevel', 0)
-          && request.resource.data.get('progression', {}).get('globalXP', 0)
-             == resource.data.get('progression', {}).get('globalXP', 0);
+      let stored   = resource.data.progression;
+      let incoming = request.resource.data.progression;
+      return !('progression' in resource.data)
+          || (incoming.globalLevel == stored.globalLevel
+           && incoming.globalXP   == stored.globalXP
+           && incoming.coins      == stored.coins);
+    }
+
+    // Group E — social graph membership. `social.groupIds` is the trusted
+    // source that backs the presence `group` scope (who can see you on the
+    // map when mode='group'). Because the presence read rule derives access
+    // from this field, a client that could self-write arbitrary groupIds
+    // could spoof membership in any group and read members' locations.
+    //
+    // The ONLY authorized writer for social.groupIds is the Admin SDK via
+    // the `/api/social/group-membership` Next.js route, which is called by
+    // joinGroup / leaveGroup / createGroup in group.service.ts after the
+    // community_groups/{groupId}/members/{uid} write has already succeeded.
+    // Admins (Admin SDK) bypass these rules entirely.
+    function noSocialGroupIdsChanged() {
+      return request.resource.data.get('social', {}).get('groupIds', [])
+             == resource.data.get('social', {}).get('groupIds', []);
     }
 
     // Group D — passive sensor fields on `dailyActivity`. Native Phase
@@ -160,6 +194,34 @@ service cloud.firestore {
              == resource.data.get('passiveXpAwardedToday', 0);
     }
 
+    // Null-safe read of user_memberships/{uid}.groupIds.
+    // get() on a non-existent path returns data == null; calling .get() on
+    // null would throw a TypeError and deny the rule.  This helper guards
+    // against that for users who have not yet been backfilled.
+    function memberGroupIds(uid) {
+      let d = get(/databases/$(database)/documents/user_memberships/$(uid)).data;
+      return d != null ? d.get('groupIds', []) : [];
+    }
+
+    // Null-safe read of userAge/{uid}.ageGroup.
+    // userAge is a ~50-byte doc written exclusively by Admin SDK via
+    // /api/user/complete-profile.  Returns 'minor' when the doc is
+    // missing — safe default; unbackfilled users are always restricted.
+    function getUserAgeGroup(userId) {
+      let d = get(/databases/$(database)/documents/userAge/$(userId)).data;
+      return d != null ? d.get('ageGroup', 'minor') : 'minor';
+    }
+
+    // core.ageGroup and core.birthDate are computed server-side.
+    // Clients must NEVER write them directly — the only authorized
+    // path is /api/user/complete-profile (Admin SDK bypass).
+    function noLockedCoreFieldsChanged() {
+      let cur = resource.data.get('core', {});
+      let nxt = request.resource.data.get('core', {});
+      return cur.get('ageGroup',  '') == nxt.get('ageGroup',  cur.get('ageGroup',  ''))
+          && cur.get('birthDate', null) == nxt.get('birthDate', cur.get('birthDate', null));
+    }
+
     // ============================================================
     // USERS — owner reads/writes own doc, admins read/write all,
     //         cross-user read gated by core.discoverable == true
@@ -179,10 +241,12 @@ service cloud.firestore {
                   || (isAuthenticated() && resource.data.core.discoverable == true);
 
       // CREATE — owner can create their own doc, but cannot self-assign
-      // any role/admin flag at creation time. Tenant/progression fields
-      // are allowed at create (validateAccessCode + initial seed need them).
+      // any role/admin flag at creation time, and cannot set the
+      // server-computed identity fields (ageGroup, birthDate).
       allow create: if isOwner(userId)
                     && !('role' in request.resource.data)
+                    && !('ageGroup'  in request.resource.data.get('core', {}))
+                    && !('birthDate' in request.resource.data.get('core', {}))
                     && request.resource.data.get('core', {}).get('isSuperAdmin', false) == false
                     && request.resource.data.get('core', {}).get('isSystemAdmin', false) == false
                     && request.resource.data.get('core', {}).get('isVerticalAdmin', false) == false
@@ -191,14 +255,17 @@ service cloud.firestore {
                     && request.resource.data.get('core', {}).get('role', '') == ''
                     && request.resource.data.get('core', {}).get('managedVertical', '') == '';
 
-      // UPDATE — owner may write everything EXCEPT the three protected
-      // groups (admin/role, tenant, game-integrity). The Guardian
-      // Cloud Function uses the Admin SDK to award XP/coins/calories
-      // and bypasses Group C; see noGameIntegrityFieldsChanged() above.
+      // UPDATE — owner may write everything EXCEPT the four protected
+      // groups (admin/role, tenant, game-integrity, social-group-ids). The
+      // Guardian Cloud Function uses the Admin SDK to award XP/coins/calories
+      // and bypasses Group C; /api/social/group-membership (Admin SDK) owns
+      // Group E. See the helper comments above for authorized write paths.
       allow update: if isOwner(userId)
                     && noAdminFieldsChanged()
                     && noTenantFieldsChanged()
-                    && noGameIntegrityFieldsChanged();
+                    && noGameIntegrityFieldsChanged()
+                    && noSocialGroupIdsChanged()
+                    && noLockedCoreFieldsChanged();
 
       // DELETE — owner can delete their own doc.
       allow delete: if isOwner(userId);
@@ -240,10 +307,14 @@ service cloud.firestore {
       //   dailyStats/steps/sessions/{date}                     (future)
       // Without this rule, queries on 3+ level sub-collections fail with
       // "Missing or insufficient permissions".
-      // Note: protected-field helpers only inspect the top-level user doc,
-      // so granting owners full subtree write here does NOT enable
-      // privilege escalation — none of those flags live in sub-collections.
-      match /{allPaths=**} {
+      //
+      // IMPORTANT: uses /{subCollection}/{subPaths=**} (NOT /{allPaths=**}).
+      // The single-segment {subCollection} prefix forces at least ONE path segment
+      // after userId, so this rule does NOT match users/{userId} itself. If written
+      // as /{allPaths=**}, the ** wildcard matches zero segments and the unconstrained
+      // `allow write` would bypass every noAdminFieldsChanged / noSocialGroupIdsChanged
+      // / noGameIntegrityFieldsChanged guard on the user doc.
+      match /{subCollection}/{subPaths=**} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
         allow read, write: if isRootAdmin() || isAdmin();
       }
@@ -754,20 +825,94 @@ service cloud.firestore {
 
     // ============================================================
     // SAFE-CITY PRESENCE — live location heartbeat
-    // Users can only write their own presence doc (uid match).
-    // Read access enforced by privacy mode:
-    //   verified_global → any authenticated user
-    //   squad           → only users in the broadcaster's followers list
-    //   ghost           → owner only (doc is typically deleted)
+    //
+    // WRITE — owner only, with one constraint: if the payload includes
+    //   `audienceGroupIds`, every entry must already be in the writer's
+    //   `users/{uid}.social.groupIds` (server-managed, Group E above).
+    //   This prevents a malicious client from broadcasting to groups it
+    //   hasn't actually joined and appearing visible to their members.
+    //
+    // READ — gated by privacy mode:
+    //   verified_global → any authenticated user (statically provable)
+    //   squad           → users in the broadcaster's followers list
+    //   group           → members of any of the broadcaster's audienceGroupIds
+    //                     (checked against reader's server-managed groupIds)
+    //   ghost           → owner only (doc is typically deleted on ghost)
     // ============================================================
     match /presence/{userId} {
-      allow write: if isOwner(userId);
+      // Write: owner only + audienceGroupIds must be a subset of own groups
+      // + minors (getUserAgeGroup == 'minor') may only use ghost or group mode.
+      // getUserAgeGroup reads userAge/{uid} (~50 bytes) — not users/{uid}.
+      allow write: if isOwner(userId)
+                   && (
+                     !('audienceGroupIds' in request.resource.data)
+                     || request.resource.data.audienceGroupIds.size() == 0
+                     || request.resource.data.audienceGroupIds.hasOnly(
+                          memberGroupIds(userId))
+                   )
+                   && (
+                     getUserAgeGroup(userId) == 'adult'
+                     || request.resource.data.get('mode', 'ghost') in ['ghost', 'group']
+                   );
+
+      // Owner can always read their own doc
       allow read: if isOwner(userId);
+
+      // Public: any authenticated user (query: where mode == 'verified_global')
       allow read: if isAuthenticated() && resource.data.mode == 'verified_global';
+
+      // Friends: reader must be in broadcaster's followers list
+      // (query: where uid in [followingList])
       allow read: if isAuthenticated()
                   && resource.data.mode == 'squad'
                   && request.auth.uid in
                      get(/databases/$(database)/documents/connections/$(userId)).data.followers;
+
+      // Group: reader must share at least one group with the broadcaster.
+      // (query: where mode=='group' AND audienceGroupIds array-contains myGroupId)
+      // Security: user_memberships is Admin-SDK-only (see match below) so the
+      // reader cannot spoof membership by self-writing groupIds.
+      // NOTE: reads user_memberships/{uid} (tiny doc) NOT users/{uid} (may
+      // exceed the 1 MiB Rules get() limit on large profiles).
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'group'
+                  && memberGroupIds(request.auth.uid)
+                       .hasAny(resource.data.get('audienceGroupIds', []));
+    }
+
+    // ============================================================
+    // USER_MEMBERSHIPS — lean group-membership mirror for Rules evaluation.
+    //
+    // Mirrors users/{uid}.social.groupIds in a tiny dedicated document so
+    // that the presence group read/write rules can call get() without hitting
+    // the 1 MiB Firestore Rules document-size limit that silently returns null
+    // on large user profiles (running schedule + full progression data).
+    //
+    // Written exclusively by Admin SDK (group-membership API route + sync
+    // endpoint).  Client self-write is intentionally blocked — same Group E
+    // trust anchor as users.social.groupIds.
+    // ============================================================
+    match /user_memberships/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // USER_AGE — tiny ageGroup mirror for Firestore Rules.
+    //
+    // Written exclusively by Admin SDK via /api/user/complete-profile.
+    // Client self-write is intentionally blocked — ageGroup is computed
+    // server-side from birthDate and must never be client-spoofable.
+    //
+    // getUserAgeGroup() reads this doc (~50 bytes) instead of users/{uid}
+    // to avoid the 1 MiB document-size limit on Firestore Rules get().
+    //
+    // Safe default: if this doc is missing, getUserAgeGroup() returns
+    // 'minor' — unbackfilled users are always treated as minors.
+    // ============================================================
+    match /userAge/{uid} {
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isAdmin();
     }
 
     // ============================================================
@@ -882,16 +1027,62 @@ service cloud.firestore {
                     && request.auth.uid == resource.data.createdBy
                     && request.resource.data.get('isLocked', false) == resource.data.get('isLocked', false);
 
+      // Group owner OR admin may patch schedule + location fields only.
+      // Scoped to exactly these keys so a group admin cannot rename the group,
+      // flip isLocked, or change any other field.
+      allow update: if (isGroupOwner(docId) || isGroupAdmin(docId))
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['scheduleSlots', 'meetingLocation', 'updatedAt']);
+
       // Any authenticated user can update only the membership counters when joining/leaving.
       // 'updatedAt' is included because group.service.ts writes it alongside the counters.
       allow update: if isAuthenticated()
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['memberCount', 'currentParticipants', 'updatedAt']);
 
-      // group_members sub-collection — any authenticated user can join/leave their own doc
+      // group_members sub-collection
+      // create:  public groups open; private groups require inviteCode or creator privilege.
+      // update:  field-level guards — role changes are restricted by caller rank.
+      // delete:  self-remove always allowed; admin removes members only; owner removes anyone.
       match /members/{uid} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated() && request.auth.uid == uid;
+
+        allow update: if isAuthenticated() && (
+          // OUT app admins bypass all group-level restrictions
+          isAdmin()
+          // Self-update: profile fields only — role is immutable by the member themselves
+          || (request.auth.uid == uid
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+          // Any group admin can promote a member → admin (cannot act on themselves)
+          || (isGroupAdmin(docId) && request.auth.uid != uid
+              && resource.data.role == 'member'
+              && request.resource.data.role == 'admin')
+          // Only the owner can demote admin → member (cannot demote themselves)
+          || (isGroupOwner(docId) && request.auth.uid != uid
+              && resource.data.role == 'admin'
+              && request.resource.data.role == 'member')
+        );
+
+        allow delete: if isAuthenticated() && (
+          // OUT app admins bypass all group-level restrictions
+          isAdmin()
+          // Self-remove (leave group) — any member including owner
+          || request.auth.uid == uid
+          // Admin removes a regular member (role='member') — cannot remove admins or owner
+          || (isGroupAdmin(docId) && request.auth.uid != uid
+              && resource.data.role == 'member')
+          // Owner removes anyone (including admins) except themselves
+          || (isGroupOwner(docId) && request.auth.uid != uid)
+        );
+
+        allow create: if isAuthenticated() && request.auth.uid == uid
+          && (
+            get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
+            || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('inviteCode', '')
+                 == request.resource.data.get('inviteCode', 'NONE_SUPPLIED')
+            || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('createdBy', '')
+                 == request.auth.uid
+          );
       }
 
       // attendance sub-collection — session booking / RSVP.
@@ -1113,6 +1304,24 @@ service cloud.firestore {
     match /referrals/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+    }
+
+    // ============================================================
+    // GROUP INVITATIONS — session-specific time-limited join tokens (Phase G).
+    // Created by the session host when opening the lobby.
+    // Consumed by joining users (attendance write happens client-side via the
+    // service after validation; only useCount is updated here).
+    // Tokens are cryptographic random — unguessable ID is the primary security layer.
+    // ============================================================
+    match /group_invitations/{token} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.hostUid;
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.hostUid;
+      // Only useCount may be incremented by authenticated users (token consumption).
+      allow update: if isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['useCount']);
     }
 
     match /manager_notifications/{docId} {

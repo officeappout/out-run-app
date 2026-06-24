@@ -17,6 +17,7 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
+import { useGroupMembershipReconciliation } from '@/features/arena/hooks/useGroupMembershipReconciliation';
 import { MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import type { MapPurpose } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-types';
 
@@ -41,6 +42,9 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
   // If the user just confirmed their location in /explorer, bypass the gate entirely.
   // We read this once — before any state is set — so there is no flash-of-gate.
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
+
+  // Fix missing social.groupIds for groups this user created (once per login).
+  useGroupMembershipReconciliation();
 
   // Subscribe to individual slices so we only re-render on real changes and
   // can read the persisted values synchronously on the very first render.

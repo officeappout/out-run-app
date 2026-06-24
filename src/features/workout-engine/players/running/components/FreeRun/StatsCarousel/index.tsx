@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { motion, PanInfo } from 'framer-motion';
 import MainMetrics from './MainMetrics';
 import LapMetrics from './LapMetrics';
+import type { DrawerSlide } from '@/features/workout-engine/players/running/types/story-spec';
+
+// Re-export so existing callers that import DrawerSlide from StatsCarousel continue to work.
+export type { DrawerSlide };
 
 /**
  * StatsCarousel
@@ -26,14 +30,23 @@ import LapMetrics from './LapMetrics';
  *     is never smaller than the carousel itself, even before the inner
  *     component (e.g. LapMetrics) finishes layout.
  */
-export default function StatsCarousel() {
+const DEFAULT_SLIDES: DrawerSlide[] = [
+  { id: 'main', component: MainMetrics },
+  { id: 'laps', component: LapMetrics },
+];
+
+interface StatsCarouselProps {
+  /** Policy-driven slides. Defaults to [main, laps] when not provided. */
+  slides?: DrawerSlide[];
+}
+
+export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    { id: 'main', component: MainMetrics },
-    { id: 'lap', component: LapMetrics },
-  ];
+  const slides = slidesProp ?? DEFAULT_SLIDES;
 
+  // Clamp so removing a slide (e.g. deselecting VS rival) never shows blank space.
+  const safeSlide = Math.min(currentSlide, Math.max(0, slides.length - 1));
   const slideWidthPercent = 100 / slides.length;
 
   const handleDragEnd = (_: any, info: PanInfo) => {
@@ -66,7 +79,7 @@ export default function StatsCarousel() {
           slide region itself owns the minHeight so an `overflow-hidden`
           ancestor (the metrics card) can never collapse around an
           off-screen slide. */}
-      <div className="relative" style={{ minHeight: 240 }}>
+      <div className="relative flex flex-col flex-1">
         {/* Drag handler lives on a SINGLE transparent overlay so the
             swipe gesture is captured ONCE for the whole slide region
             and not duplicated per-slide. Per-slide `drag` props were
@@ -86,8 +99,9 @@ export default function StatsCarousel() {
         />
 
         <motion.div
+          key={slides.length}
           className="flex relative z-10"
-          animate={{ x: `-${currentSlide * slideWidthPercent}%` }}
+          animate={{ x: `-${safeSlide * slideWidthPercent}%` }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           style={{ width: `${slides.length * 100}%` }}
         >
@@ -128,9 +142,9 @@ export default function StatsCarousel() {
             onClick={() => setCurrentSlide(index)}
             className="h-1.5 rounded-full transition-all"
             style={{
-              width: index === currentSlide ? '1.5rem' : '0.375rem',
+              width: index === safeSlide ? '1.5rem' : '0.375rem',
               background:
-                index === currentSlide
+                index === safeSlide
                   ? 'var(--metrics-accent-color, #00ADEF)'
                   : 'rgba(0, 0, 0, 0.18)',
             }}

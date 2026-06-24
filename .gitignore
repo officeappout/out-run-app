@@ -72,3 +72,6 @@ google-services*.json
 # GoogleService-Info.plist is intentionally committed so CI/TestFlight builds work.
 firebase-key.json
 android/keystore.properties
+
+# Settings backups
+.claude/settings.json.bak*

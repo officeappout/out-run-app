@@ -13,6 +13,8 @@ import { MapPin, Loader2, Footprints } from 'lucide-react';
 import { detectCityFromGPS, addAffiliation } from '@/features/user/identity/services/affiliation.service';
 import { captureReferralParam, getStoredReferrer, clearStoredReferrer, processReferral, establishSocialConnection } from '@/features/safecity/services/referral.service';
 import { joinGroup } from '@/features/arena/services/group.service';
+import { consumeSessionInvitation } from '@/features/arena/services/group-invitation.service';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
@@ -119,6 +121,31 @@ export default function GatewayPage() {
           const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
           const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
 
+          // If a pending invite code is waiting, always go through express
+          // identity gate first — the join page stores this key when the user
+          // clicks "הצטרף" without a complete profile.
+          if (typeof window !== 'undefined' && localStorage.getItem('pending_invite_code')) {
+            router.push('/onboarding-new/profile?context=express');
+            return;
+          }
+
+          // If a pending session invite is waiting (stored by /session/[token] on
+          // page load), consume it before routing. Without this, users whose doc
+          // already exists (MAP_ONLY → /explorer, COMPLETED → /home) get routed
+          // away and consumeSessionInvitation() is never called — user_memberships
+          // is never written and presence reads stay PERMISSION-DENIED forever.
+          if (typeof window !== 'undefined' && localStorage.getItem('pending_session_token')) {
+            const sessionRedirect = await consumePendingSessionInvite(
+              user.uid,
+              user.displayName ?? 'משתמש',
+              user.photoURL ?? null,
+            );
+            if (sessionRedirect) {
+              router.push(sessionRedirect);
+              return;
+            }
+          }
+
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             const status = userData?.onboardingStatus;
@@ -193,6 +220,35 @@ export default function GatewayPage() {
 
     // joined=true tells the community page to fire PostJoinSuccessDrawer.
     return `/community?groupId=${pendingGroupId}&joined=true`;
+  };
+
+  // Phase G v1 — session invite token consumed post-auth.
+  // Returns the redirect URL if a pending token was found and consumed, null otherwise.
+  const consumePendingSessionInvite = async (
+    uid: string,
+    displayName: string,
+    photoURL?: string | null,
+  ): Promise<string | null> => {
+    const pendingToken = localStorage.getItem('pending_session_token');
+    if (!pendingToken) return null;
+    localStorage.removeItem('pending_session_token');
+
+    try {
+      const { groupId, attendanceId } = await consumeSessionInvitation(
+        pendingToken,
+        uid,
+        { name: displayName, ...(photoURL ? { photoURL } : {}) },
+      );
+      // Seed the group session context — onSnapshot fills memberIds/profiles.
+      // user_memberships is confirmed written (consumeSessionInvitation succeeded).
+      useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, '');
+      useSharedSession.getState().setMembershipReady();
+      // Open community page with group drawer — user sees live banner and can tap "הצטרף לאימון"
+      return `/community?groupId=${groupId}`;
+    } catch (e) {
+      console.error('[Gateway] session invite consume failed:', e);
+      return '/map';
+    }
   };
 
   // ── Path A: EXPLORE MAP — Quick start with GPS city detection ──
@@ -280,9 +336,18 @@ export default function GatewayPage() {
         user.displayName ?? 'משתמש',
       );
       if (groupRedirect) {
-        setTimeout(() => {
-          router.push(groupRedirect);
-        }, 1200);
+        setTimeout(() => { router.push(groupRedirect); }, 1200);
+        return;
+      }
+
+      // If user came from a session invite deep link, consume token then redirect to map
+      const sessionRedirect = await consumePendingSessionInvite(
+        user.uid,
+        user.displayName ?? 'משתמש',
+        user.photoURL,
+      );
+      if (sessionRedirect) {
+        setTimeout(() => { router.push(sessionRedirect); }, 1200);
         return;
       }
 
@@ -327,13 +392,35 @@ export default function GatewayPage() {
         localStorage.removeItem('group_inviter_uid');
       }
 
-      // If user came from a group invite deep link, auto-join then redirect
+      // If user came from a join link (/join/[code]), route to express identity
+      // gate first so identity is collected before membership is written.
+      // The join page sets pending_invite_code; /api/join/confirm handles the
+      // actual membership write after profile is complete.
+      if (localStorage.getItem('pending_invite_code')) {
+        router.push('/onboarding-new/profile?context=express');
+        return;
+      }
+
+      // If user came from a group invite deep link (non-join-page paths),
+      // auto-join then redirect. This path is kept for backwards compat with
+      // community page group-invite flows that don't go through /join/[code].
       const groupRedirect = await consumePendingGroupInvite(
         user.uid,
         user.displayName ?? 'משתמש',
       );
       if (groupRedirect) {
         router.push(groupRedirect);
+        return;
+      }
+
+      // If user came from a session invite deep link, consume token then redirect to map
+      const sessionRedirect = await consumePendingSessionInvite(
+        user.uid,
+        user.displayName ?? 'משתמש',
+        user.photoURL,
+      );
+      if (sessionRedirect) {
+        router.push(sessionRedirect);
         return;
       }
 

@@ -23,6 +23,8 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import {
   startWorkoutHeartbeat,
   stopWorkoutHeartbeat,
@@ -31,6 +33,7 @@ import {
   type PresencePayload,
   type WorkoutActivityStatus,
 } from '@/features/safecity/services/presence.service';
+import { updateSocialGroupIds } from '@/features/arena/services/group.service';
 
 interface UseWorkoutPresenceParams {
   activityStatus: WorkoutActivityStatus;
@@ -50,10 +53,15 @@ const MOCK_PACE_BY_STAGE = [
 export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutPresenceParams) {
   const { profile } = useUserStore();
   const { mode } = usePrivacyStore();
+  const { groupId: groupSessionId } = useSharedSession();
   const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
-    if (!profile?.id || !profile.core?.name || mode === 'ghost') return;
+    // In-session group workouts are always visible to session members regardless
+    // of ghost mode — that's the contract of "training together". But if the user
+    // is in ghost mode and NOT in a group session, respect their privacy choice.
+    if (!profile?.id || !profile.core?.name) return;
+    if (mode === 'ghost' && !groupSessionId) return;
 
     const userId = profile.id;
     const ageGroup = deriveAgeGroup(profile.core.birthDate);
@@ -99,13 +107,26 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
         ? undefined
         : liveProfile?.core?.gender;
 
+      // Block 4 — in-session always-visible override.
+      // During a live group session, force mode='group' so that all session
+      // members can see this user on the map regardless of their privacy setting.
+      // audienceGroupIds is set to just [groupSessionId] so only that session's
+      // members see the location (not the user's other groups). On session end,
+      // clearPresence() removes the doc; the map heartbeat re-creates it with the
+      // user's real privacy mode when they return to the map screen.
+      const liveGroupSessionId = useSharedSession.getState().groupId;
+      const presenceMode = liveGroupSessionId ? 'group' : mode;
+      const presenceAudienceGroupIds = liveGroupSessionId
+        ? [liveGroupSessionId]
+        : (Array.isArray(liveProfile?.social?.groupIds) ? liveProfile.social.groupIds : []);
+
       return {
         uid: userId,
         name: profile.core.name ?? '',
         ageGroup,
         isVerified: profile.core.isVerified ?? false,
         schoolName: schoolAff?.name ?? null,
-        mode,
+        mode: presenceMode,
         lat,
         lng,
         authorityId: profile.core.authorityId ?? null,
@@ -114,10 +135,15 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
           // Omit workoutTitle entirely when undefined — Firestore rejects undefined values
           ...(workoutTitle != null ? { workoutTitle } : {}),
           startedAt: startedAtRef.current,
+          // Broadcast distance so group partners can compute collective progress
+          ...(activityStatus === 'running' || activityStatus === 'walking'
+            ? { distance: useSessionStore.getState().totalDistance }
+            : {}),
         },
         lemurStage,
         level: lemurStage,
         currentStreak: useProgressionStore.getState().currentStreak,
+        audienceGroupIds: presenceAudienceGroupIds,
         // Omit programId/programName/programLevel when missing — Firestore rejects undefined.
         ...(activeProgram?.templateId != null ? { programId: activeProgram.templateId } : {}),
         ...(activeProgram?.name ? { programName: activeProgram.name } : {}),
@@ -126,6 +152,41 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
         ...(liveGender ? { gender: liveGender } : {}),
       };
     };
+
+    // Session-start guard: if entering a group session and social.groupIds is
+    // missing the groupId, the first group heartbeat will fail with
+    // PERMISSION-DENIED (write rule: audienceGroupIds.hasOnly(social.groupIds)).
+    // Fix it now — fire-and-forget so it doesn't block the effect setup.
+    // Scoped to liveGroupSessionId only; not a full reconciliation scan.
+    // Covers the "createGroup → immediate session" race where createGroup's
+    // membership sync fails before this session even starts.
+    const liveGroupIdAtMount = useSharedSession.getState().groupId;
+    if (liveGroupIdAtMount) {
+      const storedGroupIds: string[] = profile?.social?.groupIds ?? [];
+      if (!storedGroupIds.includes(liveGroupIdAtMount)) {
+        console.info(
+          `[WorkoutPresence] session-start guard FIRED — groupId=${liveGroupIdAtMount} ` +
+          `missing from social.groupIds (stored: [${storedGroupIds.join(', ') || 'empty'}]). ` +
+          `Calling /api/social/group-membership join...`,
+        );
+        void (async () => {
+          try {
+            await updateSocialGroupIds(userId, liveGroupIdAtMount, 'join');
+            console.info(
+              `[WorkoutPresence] session-start guard OK — groupId=${liveGroupIdAtMount} ` +
+              `added to social.groupIds. First heartbeat should now pass the write rule.`,
+            );
+            useUserStore.getState().refreshProfile().catch(() => {});
+          } catch (err) {
+            console.error(
+              `[WorkoutPresence] session-start guard FAILED — groupId=${liveGroupIdAtMount} ` +
+              `still missing. First group heartbeat will get PERMISSION-DENIED:`,
+              err,
+            );
+          }
+        })();
+      }
+    }
 
     // Fire one immediate heartbeat the moment the FIRST GPS fix lands in the
     // store (e.g. the user granted permission a few seconds after the workout
@@ -151,7 +212,7 @@ export function useWorkoutPresence({ activityStatus, workoutTitle }: UseWorkoutP
       clearPresence(userId).catch(() => {});
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, mode]);
+  }, [profile?.id, mode, groupSessionId]);
 }
 
 function deriveAgeGroup(birthDate?: Date | string | null): 'minor' | 'adult' {

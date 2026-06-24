@@ -32,6 +32,9 @@ import {
   CornerUpLeft,
   Navigation,
   Flag,
+  ChevronDown,
+  ChevronUp,
+  Minimize2,
 } from 'lucide-react';
 import type { RouteTurn } from '../services/geoUtils';
 import { haversineMeters } from '../services/geoUtils';
@@ -318,25 +321,11 @@ export default function TurnCarousel({
   const setActiveTurnIdx = useMapStore((s) => s.setActiveTurnIdx);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
   const setCameraMode = useMapStore((s) => s.setCameraMode);
+  // Adaptive state (block 3+4)
+  const isLapsOpen = useMapStore((s) => s.isLapsOpen);
+  const navCarouselMinimized = useMapStore((s) => s.navCarouselMinimized);
 
-  // Measure this component's rendered height and publish it to the store so
-  // useDraggableMetrics can position the metrics card's top snap directly
-  // below the carousel — no magic constants, real pixels.
   const rootRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = rootRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      const h =
-        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
-      if (Number.isFinite(h) && h > 0) setNavCardHeight(Math.round(h));
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      setNavCardHeight(0);
-    };
-  }, [setNavCardHeight]);
 
   // Compose the top-offset CSS for the carousel root: stack BELOW the story
   // bar (which itself sits below the safe-area inset). 8 px breathing gap
@@ -361,6 +350,8 @@ export default function TurnCarousel({
   // ── State ────────────────────────────────────────────────────────────────
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [userHasManuallySelected, setUserHasManuallySelected] = useState(false);
+  // Manual-expand for THIN→FULL; reset when GPS advances to next turn.
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Lazily resolve street names for the visible window of cards.
   const streetNames = useStreetNamesForTurns(allTurns, selectedIdx);
@@ -385,6 +376,61 @@ export default function TurnCarousel({
     const idx = turns.findIndex((t) => t.pathIndex >= nearestPathIdx);
     return idx === -1 ? Math.max(0, allTurns.length - 1) : idx;
   }, [routePath, currentLocation, turns, allTurns.length]);
+
+  // ── Proximity hysteresis ref (lives here; mutations happen below during render) ──
+  const proximityExpandRef = useRef(false);
+
+  // Distance to the next GPS turn. Computed inline so the ref mutation that
+  // drives hysteresis is synchronous with the current render frame.
+  const nextTurnForDist = allTurns[currentGpsTurnIdx];
+  const distToNextTurnM: number | null =
+    nextTurnForDist &&
+    isFiniteLatLng(currentLocation) &&
+    isFiniteNum(nextTurnForDist.lat) &&
+    isFiniteNum(nextTurnForDist.lng)
+      ? haversineMeters(
+          currentLocation.lat, currentLocation.lng,
+          nextTurnForDist.lat, nextTurnForDist.lng,
+        )
+      : null;
+
+  // Hysteresis: open gate at < 50 m, close gate at > 80 m — prevents flicker
+  // when the runner pauses right at the 50 m threshold.
+  if (distToNextTurnM !== null) {
+    if (!proximityExpandRef.current && distToNextTurnM < 50) proximityExpandRef.current = true;
+    if ( proximityExpandRef.current && distToNextTurnM > 80) proximityExpandRef.current = false;
+  }
+  const proximityExpand = proximityExpandRef.current;
+
+  // ── carouselState — single priority-ordered source of truth ──────────────
+  //
+  //  1. isLapsOpen   → HIDDEN  (laps panel occludes everything; layer bug fix)
+  //  2. proximityExpand < 50 m → FULL   (safety: can't miss a turn)
+  //  3. navCarouselMinimized   → BUBBLE (user minimized; pill shown in block 5)
+  //  4. isExpanded             → FULL   (manual tap from THIN)
+  //  5. default                → THIN
+  //
+  // Note: FULL from rule 2 does NOT mutate navCarouselMinimized; when
+  // proximity passes > 80 m the state falls back to rule 3 automatically.
+  const carouselState: 'hidden' | 'bubble' | 'full' | 'thin' =
+    isLapsOpen             ? 'hidden'
+    : proximityExpand      ? 'full'
+    : navCarouselMinimized ? 'bubble'
+    : isExpanded           ? 'full'
+                           : 'thin';
+
+  // Debug: log only on state transitions (not every GPS tick).
+  const prevCarouselStateRef = useRef<typeof carouselState | null>(null);
+  if (carouselState !== prevCarouselStateRef.current) {
+    console.log('[TurnCarousel] state →', carouselState, {
+      distToNextTurnM: distToNextTurnM?.toFixed(0),
+      proximityExpand,
+      isLapsOpen,
+      navCarouselMinimized,
+      isExpanded,
+    });
+    prevCarouselStateRef.current = carouselState;
+  }
 
   // Mirror currentGpsTurnIdx into a ref so the handleScroll debounce
   // callback (which closes over [] deps) can distinguish "scroll snapped
@@ -603,6 +649,44 @@ export default function TurnCarousel({
     }
   }, [userHasManuallySelected, setCameraMode]);
 
+  // ── Measure rendered height — re-attaches when carouselState changes ────────
+  // THIN and FULL have different root element structures; deps on carouselState
+  // ensures the observer always watches the correct node. Hidden/bubble: skip
+  // entirely — the next effect handles the 0 publish for those states.
+  useEffect(() => {
+    if (carouselState === 'hidden' || carouselState === 'bubble') return;
+    const node = rootRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const h =
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      if (Number.isFinite(h) && h > 0) setNavCardHeight(Math.round(h));
+    });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      setNavCardHeight(0);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carouselState, setNavCardHeight]);
+
+  // ── navCardHeight = 0 when hidden or minimized ───────────────────────────
+  // ResizeObserver won't fire for hidden/bubble (the div isn't mounted), so
+  // we imperatively publish 0 here. THIN/FULL heights come from the observer.
+  useEffect(() => {
+    if (carouselState === 'hidden' || carouselState === 'bubble') {
+      setNavCardHeight(0);
+    }
+  }, [carouselState, setNavCardHeight]);
+
+  // ── Reset manual expansion when GPS advances to next turn ─────────────────
+  // isExpanded is turn-scoped: once the runner passes a turn, THIN is the
+  // correct default again. Proximity (< 50 m) will auto-expand to FULL for
+  // the next turn independently.
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [currentGpsTurnIdx]);
+
   // ── Resume GPS follow ─────────────────────────────────────────────────────
   const handleResumeFollow = useCallback(() => {
     // Release the camera lock first so useCameraController's next GPS-tick
@@ -631,8 +715,114 @@ export default function TurnCarousel({
   // shows distance-to-finish for that case and the duplicate would be noise.
   if (!allTurns || allTurns.length === 0) return null;
 
+  // ── Adaptive state: early exits ──────────────────────────────────────────
+  // HIDDEN: laps panel is open — carousel must not be visible at all.
+  if (carouselState === 'hidden') return null;
+
+  // BUBBLE: user minimized — show pill to restore.
+  // navCardHeight is already 0 (effect above), so MetricsDrawer fills the screen.
+  if (carouselState === 'bubble') {
+    return (
+      <div
+        className="absolute left-0 right-0 z-30 flex justify-center pointer-events-none"
+        style={{ top: stackedTop }}
+      >
+        <button
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white pointer-events-auto"
+          style={{
+            border: `1px solid ${NEUTRAL_BORDER}`,
+            boxShadow: SOFT_SHADOW,
+            color: PRIMARY_DARK,
+          }}
+          onClick={() => useMapStore.getState().setNavCarouselMinimized(false)}
+          dir="rtl"
+        >
+          <ChevronUp size={13} />
+          <span className="text-[11px] font-bold">ניווט</span>
+        </button>
+      </div>
+    );
+  }
+
+  // ── THIN: compact single-card strip ──────────────────────────────────────
+  if (carouselState === 'thin') {
+    const turn = allTurns[currentGpsTurnIdx];
+    if (!turn) return null;
+    const IconComp = getIconForInstruction(turn.instruction);
+    const resolvedStreet = streetNames.get(currentGpsTurnIdx);
+    const isDestination = turn.instruction === DEST_INSTRUCTION;
+    const accent = isDestination ? DEST_GREEN_LIGHT : PRIMARY;
+    const accentDark = isDestination ? DEST_GREEN : PRIMARY_DARK;
+    const liveDistM =
+      isFiniteLatLng(currentLocation) && isFiniteNum(turn.lat) && isFiniteNum(turn.lng)
+        ? haversineMeters(currentLocation.lat, currentLocation.lng, turn.lat, turn.lng)
+        : turn.distanceMeters;
+    const headline = isDestination
+      ? DEST_INSTRUCTION
+      : resolvedStreet
+      ?? (turn.instruction === STRAIGHT_INSTRUCTION ? FALLBACK_HEADLINE : turn.instruction);
+
+    return (
+      <div
+        ref={rootRef}
+        className="absolute left-0 right-0 z-30 px-3"
+        style={{ top: stackedTop }}
+      >
+        <div className="flex items-center gap-1.5">
+          {/* Minimize button — far left (visual RTL) */}
+          <button
+            className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white pointer-events-auto"
+            style={{ border: `1px solid ${NEUTRAL_BORDER}`, boxShadow: SOFT_SHADOW }}
+            onClick={() => useMapStore.getState().setNavCarouselMinimized(true)}
+            aria-label="מזעור ניווט"
+          >
+            <Minimize2 size={14} style={{ color: NEUTRAL_DIM }} />
+          </button>
+
+          {/* Main card — tap to expand */}
+          <button
+            className="flex-1 flex items-center gap-3 rounded-2xl px-4 bg-white pointer-events-auto"
+            style={{
+              border: `1px solid ${NEUTRAL_BORDER}`,
+              boxShadow: SOFT_SHADOW,
+              minHeight: 44,
+              paddingTop: 8,
+              paddingBottom: 8,
+            }}
+            onClick={() => setIsExpanded(true)}
+            dir="rtl"
+          >
+            {/* Icon tile (compact) */}
+            <div
+              dir="ltr"
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${accentDark}, ${accent})` }}
+            >
+              <IconComp size={17} className="text-white" strokeWidth={2.5} />
+            </div>
+            {/* Headline */}
+            <p className="flex-1 text-black text-sm font-black leading-tight truncate text-right">
+              {headline}
+            </p>
+            {/* Distance */}
+            {!isDestination && (
+              <p
+                className="text-sm font-black leading-none flex-shrink-0"
+                style={{ color: PRIMARY_DARK }}
+              >
+                {formatDistance(liveDistM)}
+              </p>
+            )}
+            {/* Expand chevron */}
+            <ChevronDown size={15} className="flex-shrink-0" style={{ color: NEUTRAL_DIM }} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
-  // Render
+  // FULL: existing carousel (carouselState === 'full')
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
@@ -858,9 +1048,24 @@ export default function TurnCarousel({
         })}
       </div>
 
-      {/* ── Resume GPS-follow pill — light theme ── */}
-      {userHasManuallySelected && (
-        <div className="flex justify-center mt-1.5" dir="rtl">
+      {/* ── Pills row: minimize (always) + GPS resume (peek only) ── */}
+      <div className="flex items-center justify-between px-4 mt-1.5" dir="rtl">
+        {/* Minimize — visible in FULL state (from both manual expand and proximity) */}
+        <button
+          onClick={() => useMapStore.getState().setNavCarouselMinimized(true)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold pointer-events-auto bg-white"
+          style={{
+            border: `1px solid ${NEUTRAL_BORDER}`,
+            color: NEUTRAL_DIM,
+            boxShadow: SOFT_SHADOW,
+          }}
+        >
+          <Minimize2 size={10} />
+          מזעור
+        </button>
+
+        {/* GPS follow pill — only while peeking */}
+        {userHasManuallySelected && (
           <button
             onClick={handleResumeFollow}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold pointer-events-auto bg-white"
@@ -873,8 +1078,8 @@ export default function TurnCarousel({
             <Navigation size={11} />
             חזור למיקומי
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

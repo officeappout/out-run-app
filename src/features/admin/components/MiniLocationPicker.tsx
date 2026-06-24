@@ -35,6 +35,11 @@ export default function MiniLocationPicker({ value, onChange }: MiniLocationPick
     if (map) setMapHebrew(map);
   }, []);
 
+  // Pan map when value changes externally (park chip, address search)
+  React.useEffect(() => {
+    mapRef.current?.flyTo({ center: [value.lng, value.lat], zoom: 15, duration: 800 });
+  }, [value.lat, value.lng]);
+
   if (!MAPBOX_TOKEN) {
     return (
       <div className="h-40 w-full rounded-xl bg-gray-100 border border-gray-300 flex items-center justify-center text-sm text-gray-400 font-bold">

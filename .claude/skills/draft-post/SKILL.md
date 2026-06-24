@@ -33,11 +33,16 @@ Optional inputs that improve output:
 - Tone variant (`inspiring / educational / direct / story`)
 - Any specific constraint (`max 150 chars`, `no emojis`, `include a specific stat`)
 
-### 2 — Load brand foundation + voice profile
-First, read `.claude/knowledge/brand-foundation.md`:
+### 2 — Load brand document + voice profile
+Load the brand document matching the selected profile:
+- **`personal` profile** → `.claude/knowledge/brand-personal.md` (§3, §3.5, §4)
+- **`app` profile** → `.claude/knowledge/brand-company.md` (§2, §3, §5)
+
+From the brand document:
 - Identify which pillar this post serves
 - Check the anti-patterns section — reject any angle that triggers one
 - Apply the strategic rule: the core message enters implicitly, never as the headline
+- For `personal` posts: apply §3.5 B2G guardrail check before finalizing
 
 Then read `.claude/rules/brand-voice.md` and apply the selected profile's
 rules for tone, language, what to avoid, and preferred formats.
@@ -63,7 +68,7 @@ If the input is a raw topic, generate these from scratch using the profile rules
 
 פלטפורמה: <IG Reels caption / Feed / Carousel / Facebook / LinkedIn>
 פרופיל: personal / app
-עמוד תוכן: <מסע אישי / נגישות / טכניקה / מיינדסט>
+עמוד תוכן: <personal: מסע היזמות / טיפים ותוכן אימון / מאחורי הקלעים | app: כל המרחב = חדר כושר / קהילות / משחוק / ידע ומחקר>
 ---
 
 <hook line>

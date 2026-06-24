@@ -384,6 +384,9 @@ export async function syncFieldToFirestore(
  * when three separate syncFieldToFirestore calls race on the same document.
  *
  * Only the fields that are actually provided are written.
+ *
+ * core.authorityId is locked from client self-write by noTenantFieldsChanged()
+ * in firestore.rules — it is routed through /api/user/update-authority instead.
  */
 export async function syncLocationToFirestore(data: {
   authorityId?: string | null;
@@ -393,19 +396,58 @@ export async function syncLocationToFirestore(data: {
   const uid = auth.currentUser?.uid;
   if (!uid) return false;
 
+  const results: boolean[] = [];
+
+  // anchorLat / anchorLng — allowed direct client write (not in noTenantFieldsChanged).
   const fields: Record<string, unknown> = { updatedAt: serverTimestamp() };
-  if (data.authorityId != null) fields['core.authorityId'] = data.authorityId;
   if (data.anchorLat != null) fields['core.anchorLat'] = data.anchorLat;
   if (data.anchorLng != null) fields['core.anchorLng'] = data.anchorLng;
 
-  if (Object.keys(fields).length === 1) return true; // nothing to write
+  if (Object.keys(fields).length > 1) {
+    try {
+      const userRef = doc(db, 'users', uid);
+      await updateDoc(userRef, fields);
+      results.push(true);
+    } catch (error) {
+      console.error('[syncLocationToFirestore] Failed to sync anchor fields:', error);
+      results.push(false);
+    }
+  }
 
+  // core.authorityId — server-write-only via /api/user/update-authority.
+  if (data.authorityId != null) {
+    results.push(await updateUserAuthority(data.authorityId));
+  }
+
+  return results.length === 0 || results.every(Boolean);
+}
+
+/**
+ * Route core.authorityId through the server endpoint.
+ *
+ * core.authorityId is locked from client self-write by noTenantFieldsChanged()
+ * in firestore.rules (prevents self-assignment to paying municipalities).
+ * This function is the single call-site for all authority updates from the client.
+ */
+export async function updateUserAuthority(authorityId: string): Promise<boolean> {
   try {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, fields);
-    return true;
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return false;
+    const res = await fetch('/api/user/update-authority', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ authorityId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      console.error('[updateUserAuthority] failed:', body.error ?? res.status);
+    }
+    return res.ok;
   } catch (error) {
-    console.error('[syncLocationToFirestore] Failed to sync location fields:', error);
+    console.error('[updateUserAuthority] threw:', error);
     return false;
   }
 }

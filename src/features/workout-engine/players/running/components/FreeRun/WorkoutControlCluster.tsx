@@ -115,16 +115,15 @@ export default function WorkoutControlCluster() {
 
   return (
     <>
-      {/* Lap toast — sits ~88 px above the cluster row so it doesn't
-          collide with the buttons. Only relevant in the running state;
-          gated below by `!isPaused` so a stale toast can't survive into
-          the paused chrome. */}
+      {/* Lap toast — 16 px above the cluster row.
+          `--session-bar-clearance` = visible card height + 16 px gap (set on
+          document.documentElement by MetricsDrawer/useSheetDrag). Adding
+          62 px (button height) + 16 px gap keeps the toast clear of buttons. */}
       {lapToast && !isPaused && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-40 px-5 py-2 rounded-2xl font-black text-sm text-white pointer-events-none animate-bounce"
+          className="absolute left-1/2 -translate-x-1/2 z-50 px-5 py-2 rounded-2xl font-black text-sm text-white pointer-events-none animate-bounce"
           style={{
-            bottom:
-              'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px) + 88px)',
+            bottom: 'calc(var(--session-bar-clearance, 88px) + 78px)',
             background: 'linear-gradient(135deg, #10B981, #059669)',
             boxShadow: '0 6px 24px rgba(16,185,129,0.5)',
           }}
@@ -135,72 +134,63 @@ export default function WorkoutControlCluster() {
 
       {/*
         Cluster row.
-        ────────────
-        `dir="ltr"` so the visual order is constant regardless of the
-        parent's RTL container — long-press feedback and conic rings
-        shouldn't flip on language. The bottom offset respects both the
-        card's measured clearance AND the safe-area inset on notched
-        devices.
+        `--session-bar-clearance` is set live on document.documentElement by
+        MetricsDrawer (via useSheetDrag, cssVar option). Its value is:
+          anchor.heightPx + 16 px gap
+        At dock  (56 px pill): var ≈  72 px — cluster just above the pill.
+        At peek  (~48 % vh):   var ≈ 422 px — cluster just above card top.
+        Dynamically updates as the drawer animates between anchors.
+
+        dir="rtl" + justify-between + px-[18px]:
+          first child  → right edge (ימין) = Pause / Resume
+          second child → left  edge (שמאל) = Lap   / Stop
       */}
       <div
-        className="absolute left-0 right-0 z-40 flex items-center justify-center gap-5 pointer-events-auto px-6"
-        dir="ltr"
-        style={{
-          bottom:
-            'calc(env(safe-area-inset-bottom, 0px) + var(--session-bar-clearance, 88px))',
-        }}
+        className="absolute left-0 right-0 z-50 flex items-center justify-between px-[18px] pointer-events-auto"
+        dir="rtl"
+        style={{ bottom: 'var(--session-bar-clearance, 88px)' }}
       >
         {isPaused ? (
           <>
-            {/* Stop — long-press 700 ms with the destructive red palette.
-                Calls `finishWorkout` directly; the long-press IS the
-                confirmation. Replaces the Lap button on the LEFT so the
-                geometry of the cluster stays balanced (small / big) and
-                the orange Resume button keeps its anchor on the right. */}
+            {/* Resume — RIGHT (ימין). Single tap; orange disc. Reversible
+                transition so no long-press guard. */}
+            <CircleTapButton
+              icon={<Play size={26} fill="currentColor" className="text-white" />}
+              color={PAUSE_COLOR}
+              onClick={handleResume}
+              size={62}
+              ariaLabel="המשך אימון"
+            />
+
+            {/* Stop — LEFT (שמאל). Long-press 700 ms; destructive red.
+                Replaces Lap once paused — the long-press IS the guard. */}
             <LongPressCircleButton
               icon={<Square size={20} fill="currentColor" />}
               color={STOP_COLOR}
               onConfirm={handleStopConfirm}
               holdDuration={STOP_HOLD_SECONDS}
-              size={56}
+              size={62}
               ariaLabel="סיים אימון"
-            />
-
-            {/* Resume — single tap. Orange disc + white play icon
-                matches the paused-state metrics card so the user sees
-                a single coherent orange surface to "press play". No
-                long-press: resuming is non-destructive. */}
-            <CircleTapButton
-              icon={<Play size={26} fill="currentColor" className="text-white" />}
-              color={PAUSE_COLOR}
-              onClick={handleResume}
-              size={64}
-              ariaLabel="המשך אימון"
             />
           </>
         ) : (
           <>
-            {/* Lap — single tap. Cyan inner disc, faint outer ring acts
-                as a visual peer to any future long-press conic ring on
-                the right (so the pair reads as one cluster). */}
-            <CircleTapButton
-              icon={<RotateCcw size={20} strokeWidth={2.5} className="text-white" />}
-              color={LAP_COLOR}
-              onClick={handleLap}
-              size={56}
-              ariaLabel="הקפה חדשה"
-            />
-
-            {/* Pause — single tap. Pausing is a fully reversible state
-                transition (Resume restores everything), so no long-press
-                guard is needed here. The destructive guard lives on the
-                Stop button that surfaces AFTER the user has paused. */}
+            {/* Pause — RIGHT (ימין). Single tap; reversible. */}
             <CircleTapButton
               icon={<Pause size={26} fill="currentColor" className="text-white" />}
               color={PAUSE_COLOR}
               onClick={handlePause}
-              size={64}
+              size={62}
               ariaLabel="השהה אימון"
+            />
+
+            {/* Lap — LEFT (שמאל). Single tap; cyan disc. */}
+            <CircleTapButton
+              icon={<RotateCcw size={20} strokeWidth={2.5} className="text-white" />}
+              color={LAP_COLOR}
+              onClick={handleLap}
+              size={62}
+              ariaLabel="הקפה חדשה"
             />
           </>
         )}

@@ -42,8 +42,12 @@ import type { MapPurpose } from '@/features/user/onboarding/components/steps/Uni
 
 import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
-import { useGroupPresence } from '@/features/parks/core/hooks/useGroupPresence';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
+import ParticipantStrip from '@/features/workout-engine/shared/components/ParticipantStrip';
+import MilestoneFeed from '@/features/workout-engine/shared/components/MilestoneFeed';
+import SessionLobbyOverlay from '@/features/workout-engine/shared/components/SessionLobbyOverlay';
 import { useRouteDeviationOrchestrator } from '@/features/parks/core/hooks/useRouteDeviationOrchestrator';
 import DiscoverLayer from './layers/DiscoverLayer';
 import BuilderLayer from './layers/BuilderLayer';
@@ -100,12 +104,19 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
   const devSim = useDevSimulation();
   const effectivePos = devSim.effectiveLocation(logic.currentUserPos);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
+  const navCardHeight = useMapStore((s) => s.navCardHeight);
+  const isLapsOpen = useMapStore((s) => s.isLapsOpen);
 
   // Presence heartbeat — uses effectivePos so mock location is broadcast
   usePresenceLayer(effectivePos ?? null, true);
 
   const flyover = useFlyoverEntrance(effectivePos ?? null);
-  const livePartnerPositions = useGroupPresence();
+  const sharedSession = useSharedSession();
+  const { partnerPositions: groupPartnerPositions, totalDistanceKm, milestones } =
+    useGroupPresenceListener();
+  // When a group session is active, filter partner pins to group members only.
+  // Otherwise fall through to discovery-mode positions from useGroupPresenceListener.
+  const livePartnerPositions = groupPartnerPositions;
   const partnerActivityFilter = useMapStore((s) => s.partnerActivityFilter);
   const liveUsersVisible = useMapStore((s) => s.liveUsersVisible);
   const [mapProfileUser, setMapProfileUser] = useState<ProfileUser | null>(null);
@@ -185,18 +196,28 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
 
   // ══════ MODE SYNC EFFECTS ══════
 
-  // When internal workout state becomes active, sync mode
+  // DEBUG — remove after routing confirmed
+  useEffect(() => {
+    console.log('[MapShell] mode=', mode, 'isWorkoutActive=', logic.isWorkoutActive, 'runMode=', runMode);
+  }, [mode, logic.isWorkoutActive, runMode]);
+
+  // When internal workout state becomes active, sync mode.
+  // Uses runMode from useRunningPlayer (set by _doStartActiveWorkout BEFORE
+  // setIsWorkoutActive) — NOT logic.workoutMode, which is a local discover/free
+  // flag that DiscoverLayer never updates before calling startActiveWorkout().
   useEffect(() => {
     if (logic.isWorkoutActive && !logic.showSummary) {
       if (mode === 'planned_preview' || mode === 'discover' || mode === 'builder' || mode === 'navigate') {
-        if (logic.workoutMode === 'free') {
+        // DEBUG — remove after routing confirmed
+        console.log('[MapShell] mode sync: mode=', mode, 'runMode=', runMode, 'isWorkoutActive=', logic.isWorkoutActive);
+        if (runMode === 'free') {
           setMode('free_run');
         } else {
           setMode('active');
         }
       }
     }
-  }, [logic.isWorkoutActive, logic.showSummary, logic.workoutMode, mode, setMode]);
+  }, [logic.isWorkoutActive, logic.showSummary, runMode, mode, setMode]);
 
   // When summary should show
   useEffect(() => {
@@ -243,6 +264,15 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
   // ══════ Determine AppMap props based on mode ══════
   const isActiveMode = mode === 'active' || mode === 'free_run';
   const showLivePath = isActiveMode && logic.isWorkoutActive;
+
+  // True when TurnCarousel is mounted — ParticipantStrip must yield navCardHeight
+  // to TurnCarousel in that case (both write to the same store field).
+  const isTurnCarouselVisible =
+    mode !== 'summary' &&
+    sessionStatus !== 'finished' &&
+    (logic.isNavigationMode || (isActiveMode && !!logic.focusedRoute)) &&
+    !!effectivePos &&
+    !!logic.focusedRoute?.path;
 
   // Memoise navigationTurns so AppMap's `turnArrowGeoJSON` memo can stay
   // stable across MapShell re-renders. computeRouteTurns() builds a new
@@ -324,7 +354,11 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
         </div>
       )}
 
-      {/* ══════ BASE MAP ══════ */}
+      {/* ══════ BASE MAP ══════
+           Suppressed in free_run mode — FreeRunLayer owns AppMap there
+           (it lives inside the draggable motion.div so map + UI drag together).
+           Keeping two Mapbox instances alive simultaneously causes GPU/memory issues. */}
+      {mode !== 'free_run' && (
       <div className="absolute inset-0 z-0">
         <AppMap
           routes={mapRoutes}
@@ -379,6 +413,7 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
           navigationTurns={navigationTurns}
         />
       </div>
+      )} {/* end mode !== 'free_run' */}
 
       {/* ══════ TURN-BY-TURN CAROUSEL ══════
            Single rendering path for every navigation case — guided routes,
@@ -422,12 +457,24 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
         )
       }
 
+      {/* ══════ PARTICIPANT STRIP ══════
+           Shows during an active group session when TurnCarousel is NOT mounted
+           (they share navCardHeight — only one can own it at a time).
+           Guard is mode-based, never navCardHeight-value-based (avoids mount loop). */}
+      {sharedSession.phase === 'active' && !isTurnCarouselVisible && (
+        <ParticipantStrip
+          partnerPositions={groupPartnerPositions}
+          totalDistanceKm={totalDistanceKm}
+          groupName={sharedSession.groupName ?? ''}
+        />
+      )}
+
       {/* ══════ RECENTER BUTTON ══════
            Shown when user manually panned the map during an active workout.
            Tapping re-enables auto-follow, which triggers the nav camera effect
            to snap back (because isAutoFollowEnabled is in the effect's dep array). */}
       <AnimatePresence>
-        {isActiveMode && !isMapFollowEnabled && (
+        {isActiveMode && !isMapFollowEnabled && !isLapsOpen && (
           <motion.button
             key="recenter"
             initial={{ opacity: 0, scale: 0.8 }}
@@ -438,9 +485,12 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
             className="absolute z-40 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-sm"
             dir="rtl"
             style={{
+              // Bug 1 fix: anchor BELOW the nav card (storyBarHeight + navCardHeight + gap).
+              // When navCardHeight=0 (no nav card / HIDDEN / BUBBLE) this simplifies to
+              // storyBarHeight + 16 — same as before but consistent.
               top: storyBarHeight > 0
-                ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight + 12}px)`
-                : 'calc(env(safe-area-inset-top, 0px) + 8rem)',
+                ? `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight + navCardHeight + 16}px)`
+                : `calc(env(safe-area-inset-top, 0px) + ${navCardHeight + 16}px + 4rem)`,
               right: '1rem',
               background: 'rgba(5, 8, 18, 0.82)',
               backdropFilter: 'blur(14px)',
@@ -463,10 +513,27 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
       {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
-      {mode === 'free_run' && <FreeRunLayer logic={logic} />}
+      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
       {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}
+
+      {/* ══════ SESSION LOBBY ══════
+           Group session waiting room — shown when phase === 'lobby'.
+           Host gets share link + Start button; members see roster.
+           Transitions to active → shows 3s countdown → "התחל ריצה" CTA.
+           z-[60] — above all map content, unmounts when phase leaves 'lobby'/'active-transition'. */}
+      {(sharedSession.phase === 'lobby' || sharedSession.phase === 'active') &&
+        sharedSession.groupId &&
+        mode !== 'free_run' &&
+        mode !== 'active' && (
+          <SessionLobbyOverlay onStartFreeRun={() => setMode('free_run')} />
+        )}
+
+      {/* ══════ MILESTONE FEED ══════
+           Social toasts during group sessions: "מיכל · 3 ק"מ", "יחד עברתם 5 ק"מ".
+           z-[55] — above WorkoutControlCluster (z-[54]), fades in from left. */}
+      {sharedSession.phase === 'active' && <MilestoneFeed milestones={milestones} />}
 
       {/* ══════ SESSION CONTROLS (Play/Pause, Stop, Lap) — z-40, above workout layers ══════
            Suppressed for ALL running modes because each one now owns its own controls:
@@ -564,6 +631,16 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     if (profile.onboardingPath === 'MAP_ONLY') return false;
     return true;
   }, [fromExplorer, manuallyCleared, hasHydrated, profile]);
+
+  // Universal identity gate: the map requires a name before rendering.
+  // Without a name, the presence heartbeat silently skips and the user is
+  // invisible — redirect to complete the identity step instead.
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (profile && !profile.core?.name) {
+      router.replace('/onboarding-new/profile');
+    }
+  }, [hasHydrated, profile, router]);
 
   // fromExplorer bypass: clean URL and sync location to Firestore
   useEffect(() => {

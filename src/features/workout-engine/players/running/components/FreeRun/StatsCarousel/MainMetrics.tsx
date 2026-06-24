@@ -4,30 +4,17 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 
-// Light-theme palette for the metrics panel. The previous dark theme
-// keyed every accent off `CYAN`; in light theme we want maximum contrast
-// for the numbers (pure black) and a softer dark-gray for the labels.
-//
-// Each value is consumed via a CSS custom property set on the parent card
-// (`AdaptiveMetricsWrapper`) so the entire panel re-themes to the orange
-// family the moment `useSessionStore.status === 'paused'`. The constants
-// below are kept as the FALLBACK so the panel still renders correctly if
-// the parent ever forgets to declare the variables.
 const NUM_COLOR     = 'var(--metrics-num-color, #000000)';
 const LABEL_COLOR   = 'var(--metrics-label-color, rgba(0, 0, 0, 0.65))';
 const HEADER_COLOR  = 'var(--metrics-header-color, rgba(0, 0, 0, 0.45))';
 const DIVIDER_COLOR = 'var(--metrics-divider-color, rgba(0, 0, 0, 0.08))';
 
 export default function MainMetrics() {
-  // Atomic selectors — each read subscribes to ONE field, so a coord push
-  // (which mutates routeCoords on every accepted GPS sample) doesn't force
-  // this component to re-render unless the value it actually shows changes.
-  // Both stores are now ticked by the same interval inside
-  // useRunningPlayer.startGPSTracking, so totalDuration + currentPace
-  // advance in lockstep with the lap-side fields LapMetrics consumes.
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const currentPace = useRunningPlayer((s) => s.currentPace);
+  const totalCalories = useRunningPlayer((s) => s.totalCalories);
+  const sessionGoal = useRunningPlayer((s) => s.sessionGoal);
 
   const formatDuration = (totalSeconds: number): string => {
     if (!totalSeconds || totalSeconds <= 0) return '00:00';
@@ -43,18 +30,19 @@ export default function MainMetrics() {
   const safeDistance = totalDistance && isFinite(totalDistance) ? totalDistance : 0;
   const safeDuration = totalDuration && isFinite(totalDuration) ? totalDuration : 0;
   const safePace = currentPace && isFinite(currentPace) && currentPace > 0 ? currentPace : 0;
+  const safeCalories = totalCalories && isFinite(totalCalories) && totalCalories > 0 ? Math.round(totalCalories) : 0;
 
-  const distanceText = safeDistance.toFixed(2);
-  const durationText = formatDuration(safeDuration);
-  const paceText = formatPace(safePace);
+  // When the goal is distance, the top bar already shows distance progress —
+  // swap the hero to time so the same metric isn't duplicated.
+  const heroIsTime = sessionGoal?.type === 'distance';
 
   return (
     <div
-      className="w-full px-5 pt-5 pb-4 flex flex-col justify-center"
-      style={{ fontFamily: 'var(--font-simpler)', minHeight: '180px' }}
+      className="w-full px-5 pt-3 pb-3 flex flex-col justify-center"
+      style={{ fontFamily: 'var(--font-simpler)', minHeight: '160px' }}
     >
       {/* Label row */}
-      <div className="flex items-center justify-center gap-3 mb-3">
+      <div className="flex items-center justify-center gap-3 mb-2">
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
         <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: HEADER_COLOR }}>
           נתונים כלליים
@@ -62,44 +50,57 @@ export default function MainMetrics() {
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
       </div>
 
-      {/* Hero distance */}
-      <div className="text-center mb-4">
+      {/* Hero metric */}
+      <div className="text-center mb-2">
         <div
-          className="leading-none tracking-tight font-black"
+          className="leading-none tracking-tight font-black tabular-nums"
           style={{ fontSize: '5rem', color: NUM_COLOR }}
         >
-          {distanceText}
+          {heroIsTime ? formatDuration(safeDuration) : safeDistance.toFixed(2)}
         </div>
-        <div className="text-xs font-bold mt-1 tracking-widest uppercase" style={{ color: LABEL_COLOR }}>
-          קילומטר
+        <div className="text-xs font-bold mt-0.5 tracking-widest uppercase" style={{ color: LABEL_COLOR }}>
+          {heroIsTime ? 'זמן' : 'קילומטר'}
         </div>
       </div>
 
       {/* Divider */}
-      <div className="w-full mb-4" style={{ height: '1px', background: DIVIDER_COLOR }} />
+      <div className="w-full mb-2" style={{ height: '1px', background: DIVIDER_COLOR }} />
 
-      {/* Pace + Time row */}
+      {/* Secondary metrics row — three columns */}
       <div className="flex items-center justify-center">
-        {/* Pace */}
+        {/* Pace (always) */}
         <div
           className="flex-1 text-center"
-          style={{ borderLeft: `1px solid ${DIVIDER_COLOR}`, paddingLeft: '1rem' }}
+          style={{ borderLeft: `1px solid ${DIVIDER_COLOR}`, paddingLeft: '0.75rem' }}
         >
-          <div className="font-bold leading-none" style={{ fontSize: '2.4rem', color: NUM_COLOR }}>
-            {paceText}
+          <div className="font-bold leading-none tabular-nums" style={{ fontSize: '2rem', color: NUM_COLOR }}>
+            {formatPace(safePace)}
           </div>
-          <div className="text-[11px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
+          <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
             קצב ממוצע
           </div>
         </div>
 
-        {/* Time */}
-        <div className="flex-1 text-center" style={{ paddingRight: '1rem' }}>
-          <div className="font-bold leading-none" style={{ fontSize: '2.4rem', color: NUM_COLOR }}>
-            {durationText}
+        {/* Distance (when hero is time) or Time (when hero is distance) */}
+        <div
+          className="flex-1 text-center"
+          style={{ borderLeft: `1px solid ${DIVIDER_COLOR}`, paddingLeft: '0.75rem' }}
+        >
+          <div className="font-bold leading-none tabular-nums" style={{ fontSize: '2rem', color: NUM_COLOR }}>
+            {heroIsTime ? safeDistance.toFixed(2) : formatDuration(safeDuration)}
           </div>
-          <div className="text-[11px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            זמן
+          <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
+            {heroIsTime ? 'ק״מ' : 'זמן'}
+          </div>
+        </div>
+
+        {/* Calories (always) */}
+        <div className="flex-1 text-center" style={{ paddingRight: '0.75rem' }}>
+          <div className="font-bold leading-none tabular-nums" style={{ fontSize: '2rem', color: NUM_COLOR }}>
+            {safeCalories}
+          </div>
+          <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
+            קק״ל
           </div>
         </div>
       </div>

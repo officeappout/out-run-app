@@ -201,8 +201,12 @@ export function useWorkoutSession(
   const _doStartActiveWorkout = useCallback(() => {
     const rp = useRunningPlayer.getState();
     const planned = rp.currentWorkout;
+    // Preserve any sessionGoal set by FreeRunDrawer before the clear so it
+    // survives the clearRunningData() wipe and remains active for the bar.
+    const pendingGoal = rp.sessionGoal;
     rp.clearRunningData();
     rp.initializeRunningData();
+    if (pendingGoal) rp.setSessionGoal(pendingGoal);
     startSession('running');
     if (planned) { rp.setCurrentWorkout(planned); rp.setRunMode('plan'); }
     else { rp.setRunMode('free'); }

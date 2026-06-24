@@ -25,7 +25,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { SessionAttendance, ScheduleSlot } from '@/types/community.types';
+import type { SessionAttendance, ScheduleSlot, SessionGoalSpec } from '@/types/community.types';
 
 function attendanceDocId(date: string, time: string): string {
   return `${date}_${time.replace(':', '-')}`;
@@ -145,6 +145,7 @@ export async function bookSession(
   userName?: string,
   photoURL?: string | null,
   maxParticipants?: number,
+  sessionGoal?: SessionGoalSpec,
 ): Promise<{ success: boolean; full?: boolean; waitlisted?: boolean }> {
   if (!uid) {
     console.warn('[bookSession] called without uid — aborting');
@@ -189,6 +190,9 @@ export async function bookSession(
         maxParticipants: maxParticipants != null ? maxParticipants : null,
         attendeeProfiles: { [uid]: profile },
         createdAt: serverTimestamp(),
+        // Carry the slot's workout goal into the attendance doc so members can
+        // inherit it via resolveSessionGoal() without re-reading ScheduleSlot.
+        ...(sessionGoal ? { sessionGoal } : {}),
       });
       await setDoc(ref, newDoc);
     }

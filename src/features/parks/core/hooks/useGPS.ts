@@ -238,7 +238,24 @@ export function useGPS(): GPSState {
       },
     );
 
+    // Dev-only: if the browser permission dialog is left pending (no grant/deny),
+    // the error callback never fires and the map stays blank. Seed Sderot after 5s
+    // so presence heartbeats and group-session tests work without a real GPS fix.
+    // lastGPSPos.current is set by the success callback — if it's still null after
+    // 5s, no real position arrived and the fallback is safe to apply.
+    let devFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    if (process.env.NODE_ENV === 'development') {
+      devFallbackTimer = setTimeout(() => {
+        if (!hasFallback.current && lastGPSPos.current === null) {
+          hasFallback.current = true;
+          console.info('[useGPS] dev: no GPS fix in 5s — seeding FALLBACK_SDEROT for local testing');
+          setCurrentUserPos(FALLBACK_SDEROT);
+        }
+      }, 5000);
+    }
+
     return () => {
+      if (devFallbackTimer !== null) clearTimeout(devFallbackTimer);
       if (watchId.current != null) {
         try { navigator.geolocation.clearWatch(watchId.current); } catch { /* ignore */ }
         watchId.current = null;

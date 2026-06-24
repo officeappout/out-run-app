@@ -20,7 +20,6 @@ import {
   updateDoc,
   deleteDoc,
   arrayUnion,
-  arrayRemove,
   increment,
   serverTimestamp,
   Timestamp,
@@ -40,6 +39,37 @@ import {
   addCommunitySessionsToPlanner,
   removeCommunitySessionsFromPlanner,
 } from '@/features/user/scheduling/services/communitySchedule.service';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { removeGroupFromPresence } from '@/features/safecity/services/presence.service';
+import { auth } from '@/lib/firebase';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Updates users/{uid}.social.groupIds via the server-side API route.
+ *
+ * social.groupIds is locked from client self-write (Group E in firestore.rules)
+ * because it backs the presence `group` scope — anyone who could self-write
+ * arbitrary group IDs could spoof membership and read group members' locations.
+ * The Admin SDK in the API route is the only authorized writer.
+ */
+export async function updateSocialGroupIds(uid: string, groupId: string, action: 'join' | 'leave'): Promise<void> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('[group.service] No auth token for group-membership update');
+
+  const res = await fetch('/api/social/group-membership', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ groupId, action }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(`[group.service] group-membership API failed: ${body?.error ?? res.status}`);
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +94,8 @@ export interface CreateGroupInput {
   /** Origin tier: 'user' for wizard-created groups, 'authority' for admin panel */
   source?: CommunityGroup['source'];
   isOfficial?: boolean;
+  /** true = scheduled meetups; false = league/competition (no session banners) */
+  hasMeetups?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -149,6 +181,7 @@ export async function createGroup(
     // social groups stay open. Firestore rules block self-setting this to true
     // on `source: 'user'` creates, so only admin/authority creates can lock.
     isLocked: INSTITUTIONAL_GROUP_TYPES.has(input.groupType),
+    hasMeetups: input.hasMeetups ?? true,
 
     currentParticipants: 1,
     memberCount: 1,
@@ -172,14 +205,21 @@ export async function createGroup(
     role: 'admin',
   });
 
-  // Mirror groupId in user's social.groupIds array (non-fatal: rules may restrict
-  // this field on first-write or the social sub-map may not exist yet)
+  // Mirror groupId in user's social.groupIds — routed through the server API
+  // because this field is locked from client self-write (Group E in firestore.rules).
   try {
-    await updateDoc(doc(db, 'users', creatorUid), {
-      'social.groupIds': arrayUnion(groupId),
-    });
+    await updateSocialGroupIds(creatorUid, groupId, 'join');
+    useUserStore.getState().refreshProfile().catch(() => {});
   } catch (userErr) {
-    console.warn('[createGroup] user social.groupIds update failed (non-fatal):', userErr);
+    // Group doc + member sub-doc already committed — do NOT re-throw (caller
+    // would retry createGroup → duplicate group from a second addDoc).
+    // The session-start guard in useWorkoutPresence and the reconciliation
+    // route will fix social.groupIds before the next group heartbeat.
+    console.error(
+      `[createGroup] social.groupIds sync FAILED — group ${groupId} exists but ` +
+      `creator ${creatorUid} will get PERMISSION-DENIED on group presence until fixed:`,
+      userErr,
+    );
   }
 
   // Auto-create group chat thread so it appears in Messages/Inbox (non-fatal:
@@ -214,31 +254,38 @@ export async function joinGroup(
   name: string,
   options?: JoinGroupOptions,
 ): Promise<void> {
-  // Validate invite code when the caller supplies one (private-group gate)
+  // Validate invite code when the caller supplies one (private-group gate).
+  // If the group is private and validation passes, store the uppercased code so
+  // the Firestore rule (members/{uid} create) can verify it server-side.
+  let validatedInviteCode: string | undefined;
+
   if (options?.providedCode !== undefined) {
     const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
     if (!groupSnap.exists()) throw new Error('group-not-found');
     const data = groupSnap.data();
     if (data.isPublic === false) {
       const expected = ((data.inviteCode as string | undefined) ?? '').toUpperCase();
-      if (options.providedCode.toUpperCase() !== expected) {
-        throw new Error('invalid-invite-code');
-      }
+      const provided = options.providedCode.toUpperCase();
+      if (provided !== expected) throw new Error('invalid-invite-code');
+      validatedInviteCode = provided;
     }
   }
 
-  // Step 1 (critical): write member document
+  // Step 1 (critical): write member document.
+  // inviteCode is included for private groups so the Firestore rule can
+  // validate it server-side (closes the self-add-without-code gap).
   await setDoc(doc(db, 'community_groups', groupId, 'members', uid), {
     uid,
     name,
     joinedAt: serverTimestamp(),
     role: 'member',
+    ...(validatedInviteCode !== undefined ? { inviteCode: validatedInviteCode } : {}),
   });
 
-  // Step 2 (critical): mirror groupId in user's social.groupIds
-  await updateDoc(doc(db, 'users', uid), {
-    'social.groupIds': arrayUnion(groupId),
-  });
+  // Step 2 (critical): mirror groupId in user's social.groupIds via server API
+  // (field is locked from client self-write — see Group E in firestore.rules).
+  await updateSocialGroupIds(uid, groupId, 'join');
+  useUserStore.getState().refreshProfile().catch(() => {});
 
   // Step 3 (non-fatal): increment member counters on the group document
   try {
@@ -290,9 +337,15 @@ export async function joinGroup(
 export async function leaveGroup(groupId: string, uid: string): Promise<void> {
   await deleteDoc(doc(db, 'community_groups', groupId, 'members', uid));
 
-  await updateDoc(doc(db, 'users', uid), {
-    'social.groupIds': arrayRemove(groupId),
-  });
+  // Remove from social.groupIds via server API (locked from client self-write).
+  await updateSocialGroupIds(uid, groupId, 'leave');
+
+  // IMMEDIATELY remove groupId from the presence doc — do not wait for the
+  // next heartbeat (≤2 min). Location leakage after group leave is a privacy
+  // sensitivity, so this is an unconditional call, never a best-effort.
+  await removeGroupFromPresence(uid, groupId);
+
+  useUserStore.getState().refreshProfile().catch(() => {});
 
   try {
     await removeMemberFromGroupChat(groupId, uid);
@@ -310,6 +363,51 @@ export async function leaveGroup(groupId: string, uid: string): Promise<void> {
     }
   } catch (planErr) {
     console.warn('[leaveGroup] planner cleanup failed (non-fatal):', planErr);
+  }
+}
+
+// ─── makeGroupAdmin ───────────────────────────────────────────────────────────
+
+export async function makeGroupAdmin(groupId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, 'community_groups', groupId, 'members', uid), {
+    role: 'admin',
+  });
+}
+
+// ─── removeGroupAdmin ─────────────────────────────────────────────────────────
+
+export async function removeGroupAdmin(groupId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, 'community_groups', groupId, 'members', uid), {
+    role: 'member',
+  });
+}
+
+// ─── removeGroupMember ────────────────────────────────────────────────────────
+// Admin-initiated removal of another member. Mirrors leaveGroup cascade (chat + planner).
+
+export async function removeGroupMember(groupId: string, uid: string): Promise<void> {
+  await deleteDoc(doc(db, 'community_groups', groupId, 'members', uid));
+
+  // Remove from social.groupIds via server API — mirrors leaveGroup.
+  // Direct updateDoc(users/{uid}) is PERMISSION-DENIED for non-admin callers
+  // (uid ≠ currentUser) and silently breaks the chat/planner cascade below.
+  await updateSocialGroupIds(uid, groupId, 'leave');
+
+  try {
+    await removeMemberFromGroupChat(groupId, uid);
+  } catch {
+    console.warn('[removeGroupMember] chat removal failed (non-fatal)');
+  }
+
+  try {
+    const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
+    const data = groupSnap.data();
+    const slots = data?.scheduleSlots ?? (data?.schedule ? [data.schedule] : []);
+    if (slots.length > 0) {
+      await removeCommunitySessionsFromPlanner(uid, groupId, slots);
+    }
+  } catch (planErr) {
+    console.warn('[removeGroupMember] planner cleanup failed (non-fatal):', planErr);
   }
 }
 
@@ -388,6 +486,7 @@ export interface UpdateGroupInput {
   allowJoinRequests?: boolean;
   rules?: string | null;
   images?: string[];
+  hasMeetups?: boolean;
 }
 
 /**

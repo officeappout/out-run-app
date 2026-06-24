@@ -9,6 +9,7 @@ import {
   migrateLegacyGroupsToAuthority,
   getEventsByGroup,
   getGroupMembers,
+  assignGroupLeader,
   cleanupStaleMaterializedEvents,
 } from '@/features/admin/services/community.service';
 import { getParksByAuthority } from '@/features/parks';
@@ -103,6 +104,10 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
   const [groupMembersMap, setGroupMembersMap] = useState<Record<string, { uid: string; name: string; photoURL?: string }[]>>({});
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
+  // Coach / leader picker (edit form only)
+  const [leaderPickerMembers, setLeaderPickerMembers] = useState<{ uid: string; name: string; role: 'member' | 'admin' }[]>([]);
+  const [leaderPickerLoading, setLeaderPickerLoading] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid || null);
@@ -125,6 +130,17 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
       }
     }
   }, [inspectGroupId, groups]);
+
+  // Load members for coach picker when edit form opens
+  useEffect(() => {
+    if (!editingGroup) { setLeaderPickerMembers([]); return; }
+    let cancelled = false;
+    setLeaderPickerLoading(true);
+    getGroupMembers(editingGroup.id, 100).then((members) => {
+      if (!cancelled) setLeaderPickerMembers(members.map((m) => ({ uid: m.uid, name: m.name, role: m.role })));
+    }).catch(() => {}).finally(() => { if (!cancelled) setLeaderPickerLoading(false); });
+    return () => { cancelled = true; };
+  }, [editingGroup?.id]);
 
   useEffect(() => {
     if (sessionGroupId && sessionFormRef.current) {
@@ -207,6 +223,13 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
           source: 'authority',
           isOfficial: formData.isOfficial ?? true,
         });
+        // Sync leader assignment when leaderUserId changed
+        const prevLeader = editingGroup.leaderUserId ?? null;
+        const newLeader  = formData.leaderUserId ?? null;
+        if (newLeader !== prevLeader) {
+          const leaderName = leaderPickerMembers.find((m) => m.uid === newLeader)?.name ?? (formData.leaderName ?? '');
+          await assignGroupLeader(editingGroup.id, newLeader, leaderName);
+        }
       } else {
         if (!currentUserId) {
           alert('נא להתחבר למערכת');
@@ -1166,6 +1189,38 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                 <span className="text-sm font-bold text-gray-600">בחר / העלה מדיה</span>
               </button>
             </div>
+
+            {/* ── Coach / Leader (edit mode only) ─────────── */}
+            {editingGroup && (
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-blue-500" />
+                  מנהל / מאמן הקבוצה
+                </label>
+                {leaderPickerLoading ? (
+                  <div className="h-10 bg-gray-100 animate-pulse rounded-lg" />
+                ) : leaderPickerMembers.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">אין חברים רשומים בקבוצה עדיין</p>
+                ) : (
+                  <select
+                    value={formData.leaderUserId ?? ''}
+                    onChange={(e) => {
+                      const uid = e.target.value || null;
+                      const name = leaderPickerMembers.find((m) => m.uid === uid)?.name ?? '';
+                      setFormData({ ...formData, leaderUserId: uid ?? undefined, leaderName: name || undefined });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— ללא מנהל —</option>
+                    {leaderPickerMembers.map((m) => (
+                      <option key={m.uid} value={m.uid}>
+                        {m.name}{m.role === 'admin' ? ' (מנהל)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
 
             {/* ── Geo-Restrictions ─────────────────────────── */}
             <div className="grid grid-cols-2 gap-4">

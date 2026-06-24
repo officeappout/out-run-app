@@ -8,6 +8,18 @@
 export type LiveSessionPhase = 'far' | 'approaching' | 'lobby' | 'active' | 'ended';
 
 /**
+ * Goal specification for a group session or personal override.
+ *
+ * kind: 'goal'       — simple distance/time target (built now).
+ *                      value units: km (distance) | seconds (time).
+ * kind: 'structured' — reserved for future interval-workout reference.
+ */
+export type SessionGoalSpec =
+  | { kind: 'goal'; type: 'distance' | 'time'; value: number }
+  // future: | { kind: 'structured'; workoutId: string }
+  ;
+
+/**
  * Per-member travel status — written by the member herself to
  * community_groups/{groupId}/attendance/{sessionId}/member_statuses/{uid}
  */
@@ -17,6 +29,13 @@ export interface MemberSessionStatus {
   status: 'rsvp' | 'otw' | 'here' | 'late' | 'skip';
   lateMinutes?: 2 | 5 | 10 | 15;
   updatedAt: import('firebase/firestore').Timestamp;
+  /**
+   * Personal goal override for this session.
+   * undefined → inherit SessionAttendance.sessionGoal (case C default).
+   * SessionGoalSpec → explicit override (case B).
+   * null → solo / no goal (case A).
+   */
+  personalGoal?: SessionGoalSpec | null;
 }
 
 /**
@@ -71,6 +90,12 @@ export interface ScheduleSlot {
     /** FK → official_routes or curated_routes. Mutually exclusive with parkId on the parent. */
     routeId?: string;
   };
+  /**
+   * Default session goal for this recurring slot.
+   * Copied into SessionAttendance.sessionGoal at booking creation time.
+   * Source-of-truth at run time is always the attendance doc, not this field.
+   */
+  workoutGoal?: SessionGoalSpec;
 }
 
 /** Attendance doc stored at community_groups/{groupId}/attendance/{YYYY-MM-DD_HH-mm} */
@@ -96,6 +121,14 @@ export interface SessionAttendance {
 
   /** Leader extends the lobby window when a member marks herself late */
   lobbyExtendedUntil?: import('firebase/firestore').Timestamp;
+
+  /**
+   * Session-level goal set by the session creator (coach, peer, or system).
+   * Written at attendance-doc creation time (from ScheduleSlot.workoutGoal for scheduled
+   * sessions; directly by the creator for peer/ad-hoc sessions).
+   * Members without a personalGoal in member_statuses inherit this value.
+   */
+  sessionGoal?: SessionGoalSpec;
 
   /** Optional — filled during / after the session */
   collectiveProgress?: {
@@ -182,6 +215,20 @@ export interface CommunityGroup {
   isCityOnly?: boolean;
   /** Restrict visibility to users of a specific neighborhood authority */
   restrictedNeighborhoodId?: string;
+
+  // ── Session mode ──────────────────────────────────────────────────────
+  /**
+   * true  = "אימון משותף" — group has scheduled meetups, shows session banners
+   * false = "כל אחד בקצב שלו" — league/competition mode, no session banners
+   * undefined = legacy group; treated as true (meetups assumed)
+   */
+  hasMeetups?: boolean;
+
+  // ── Leader / Coach ────────────────────────────────────────────────────────
+  /** UID of the assigned coach / leader (set via admin panel). Also holds role='admin' in members sub-collection. */
+  leaderUserId?: string;
+  /** Display name of the assigned coach / leader (denormalised for reads). */
+  leaderName?: string;
 }
 
 export type CommunityGroupCategory = 

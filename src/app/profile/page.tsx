@@ -200,8 +200,22 @@ export default function ProfilePage() {
         if (!day || !month || !year || month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
           setEditSaving(false); return;
         }
-        const birthDate = new Date(year, month - 1, day);
-        await updateDoc(firestoreDoc(db, 'users', uid), { 'core.birthDate': birthDate });
+        // birthDate is a server-locked field — must go through /api/user/complete-profile
+        // so ageGroup is recomputed server-side and userAge/{uid} stays in sync.
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) { setEditSaving(false); return; }
+        const res = await fetch('/api/user/complete-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({
+            name: profile?.core?.name ?? '',
+            gender: profile?.core?.gender ?? 'other',
+            birthDay: day,
+            birthMonth: month,
+            birthYear: year,
+          }),
+        });
+        if (!res.ok) throw new Error(`complete-profile: ${res.status}`);
       }
       const fresh = await getUserFromFirestore(uid);
       if (fresh) useUserStore.getState().initializeProfile(fresh);

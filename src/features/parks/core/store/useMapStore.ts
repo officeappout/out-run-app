@@ -3,6 +3,7 @@ import { MapFacility, FacilityType } from '../types/facility.types';
 import { Park } from '../types/park.types';
 import type { Route } from '../types/route.types';
 import type { WalkStep } from '../hooks/useWalkToRoute';
+import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 
 export type LayerType = 'parks' | 'routes' | 'water' | 'toilet' | 'gym';
 
@@ -152,6 +153,24 @@ interface MapStore {
   navCardHeight: number;
   setNavCardHeight: (h: number) => void;
   /**
+   * True while FreeRunActive's laps drawer is open (WorkoutFlowLayer
+   * y=revealH). Written by FreeRunActive; read by TurnCarousel to fully
+   * hide itself (return null + navCardHeight=0) so the laps panel is never
+   * occluded. Cleared on FreeRunActive unmount.
+   */
+  isLapsOpen: boolean;
+  setIsLapsOpen: (v: boolean) => void;
+  /**
+   * User-requested minimize of TurnCarousel. When true the carousel renders
+   * only a small pill (navCardHeight=0) so the metrics drawer can fill the
+   * screen. Cleared by tapping the pill. Unlike isLapsOpen this is purely
+   * user-driven and persists across GPS auto-advances; proximity < 50 m
+   * overrides it (safety) without mutating this flag, so tapping the pill
+   * after a turn restores the minimized state.
+   */
+  navCarouselMinimized: boolean;
+  setNavCarouselMinimized: (v: boolean) => void;
+  /**
    * Rendered height (px) of the floating RouteStoryBar. Written by
    * FreeRunActive via a ResizeObserver and reset to 0 on unmount. Used by
    * TurnCarousel to position itself directly BELOW the bar so the bar is
@@ -253,6 +272,31 @@ interface MapStore {
    */
   cameraMode: 'follow_user' | 'preview_step';
   setCameraMode: (mode: 'follow_user' | 'preview_step') => void;
+
+  // ── Running session VS / story state ─────────────────────────────────────
+  /**
+   * UID of the group participant the user tapped for head-to-head comparison.
+   * Drives both RunStoryBar (versus story) and StatsCarousel (VSSlide).
+   * null = no rival selected.
+   */
+  selectedParticipantUid: string | null;
+  setSelectedParticipantUid: (uid: string | null) => void;
+
+  /**
+   * Index of the currently-visible story in RunStoryBar (0=distance, 1=time, 2=versus).
+   * Written by RunStoryBar swipe AND by tap-to-select (auto-jumps to versus story).
+   */
+  activeStoryIndex: number;
+  setActiveStoryIndex: (idx: number) => void;
+
+  /**
+   * Live participant array for the active group running session.
+   * Set by FreeRunLayer whenever sideRailParticipants changes.
+   * Read by VSSlide and computeStandings — avoids prop-drilling through the
+   * StatsCarousel component tree.
+   */
+  groupParticipants: Participant[];
+  setGroupParticipants: (participants: Participant[]) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -308,6 +352,10 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
   navCardHeight: 0,
   setNavCardHeight: (h) => set({ navCardHeight: h }),
+  isLapsOpen: false,
+  setIsLapsOpen: (v) => set({ isLapsOpen: v }),
+  navCarouselMinimized: false,
+  setNavCarouselMinimized: (v) => set({ navCarouselMinimized: v }),
   storyBarHeight: 0,
   setStoryBarHeight: (h) => set({ storyBarHeight: h }),
   activeTurnIdx: -1,
@@ -327,4 +375,11 @@ export const useMapStore = create<MapStore>((set, get) => ({
   bumpMapEmptyTapTick: () => set((s) => ({ mapEmptyTapTick: s.mapEmptyTapTick + 1 })),
   cameraMode: 'follow_user',
   setCameraMode: (mode) => set({ cameraMode: mode }),
+
+  selectedParticipantUid: null,
+  setSelectedParticipantUid: (uid) => set({ selectedParticipantUid: uid }),
+  activeStoryIndex: 0,
+  setActiveStoryIndex: (idx) => set({ activeStoryIndex: idx }),
+  groupParticipants: [],
+  setGroupParticipants: (participants) => set({ groupParticipants: participants }),
 }));

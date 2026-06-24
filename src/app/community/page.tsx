@@ -59,8 +59,14 @@ import type {
 import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/group.service';
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
-import type { CommunityGroup, CommunityEvent } from '@/types/community.types';
+import type { CommunityGroup, CommunityEvent, CommunityGroupType } from '@/types/community.types';
 import AppHeader from '@/components/ui/AppHeader';
+
+// Types that have a dedicated institutional scope card (city/org) — excluded from
+// per-group league cards so the sheet doesn't double-count them.
+const INSTITUTIONAL_GROUP_TYPES = new Set<CommunityGroupType>([
+  'work', 'university', 'school', 'military', 'youth_movement',
+]);
 
 type CommunityTopTab = 'feed' | 'leagues';
 
@@ -187,7 +193,7 @@ export default function CommunityPage() {
     const gids = profile?.social?.groupIds;
     if (!gids?.length) { setSocialGroups([]); return; }
     getMyGroups(gids).then((all) => {
-      setSocialGroups(all.filter((g) => g.groupType === 'family' || g.groupType === 'friends'));
+      setSocialGroups(all.filter((g) => !g.groupType || !INSTITUTIONAL_GROUP_TYPES.has(g.groupType)));
     }).catch(() => {});
   }, [profile?.social?.groupIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -272,6 +278,7 @@ export default function CommunityPage() {
   // ── Deep-link: ?openCreate=true → reopen wizard after profile-only detour ─
   useEffect(() => {
     if (searchParams.get('openCreate') !== 'true') return;
+    setLeagueSheetOpen(false); // close league sheet so wizard is not buried beneath it
     setEditGroupId(null);
     setWizardOpen(true);
     const params = new URLSearchParams(searchParams.toString());
@@ -502,7 +509,7 @@ export default function CommunityPage() {
         group={selectedGroup}
         onJoin={handleJoinGroup}
         onLeave={handleLeaveGroup}
-        isJoined={selectedGroup ? joinedGroupIds.has(selectedGroup.id) : false}
+        isJoined={selectedGroup ? (joinedGroupIds.has(selectedGroup.id) || selectedGroup.createdBy === userId) : false}
         joining={selectedGroup ? joiningId === selectedGroup.id : false}
         onOpenChat={() => { setSelectedGroup(null); openChat(); }}
         onEdit={(id) => { setSelectedGroup(null); setEditGroupId(id); setWizardOpen(true); }}
@@ -771,6 +778,7 @@ export default function CommunityPage() {
                     }}
                     activeFilterLabel={getFilterLabel()}
                     isLoading={arenaLoading}
+                    createHref="/community?openCreate=true"
                   />
                 </div>
               </motion.div>
@@ -947,14 +955,20 @@ export default function CommunityPage() {
       });
     }
 
-    // Social leagues — family / friends groups (always private, not city-bound)
+    // Per-group league cards — all non-institutional groups the user belongs to
     for (const g of socialGroups) {
       const cardKey = `league_${g.id}`;
+      const emoji =
+        g.groupType === 'family'       ? '👨‍👩‍👧' :
+        g.groupType === 'friends'      ? '👥' :
+        g.groupType === 'neighborhood' ? '🏘️' :
+        g.groupType === 'park'         ? '🌳' :
+        '🏃';
       cards.push({
         key: cardKey,
         name: g.name,
         subtitle: g.memberCount ? `${g.memberCount} חברים` : undefined,
-        emoji: g.groupType === 'family' ? '👨‍👩‍👧' : '👥',
+        emoji,
         memberCount: g.memberCount ?? null,
         rank: selectedLeague === cardKey ? activeMyEntry?.rank ?? null : null,
       });

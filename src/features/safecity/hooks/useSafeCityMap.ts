@@ -76,19 +76,32 @@ export function useSafeCityMap(currentLocation: { lat: number; lng: number } | n
 
   // ── Start heartbeat on mount ────────────────────────────────────────────
   useEffect(() => {
-    if (!userId || !profile?.core?.name) return;
+    if (!userId) return;
+    // Name is required for the presence payload. If it is missing the map
+    // was reached without completing the identity step — surface the gap
+    // instead of silently skipping the heartbeat.
+    if (!profile?.core?.name) {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/onboarding-new/profile?context=profile-only');
+      }
+      return;
+    }
 
     const getPayload = (): PresencePayload | null => {
       const s = stateRef.current;
       if (!currentLocation || !s.userId) return null;
 
+      // Defense-in-depth: clamp mode for minors.
+      const safeMode = s.ageGroup === 'minor' && s.mode !== 'ghost' && s.mode !== 'group'
+        ? 'ghost'
+        : s.mode;
       return {
         uid: s.userId,
         name: profile.core.name,
         ageGroup: s.ageGroup,
         isVerified: s.isVerified,
         schoolName: s.schoolName,
-        mode: s.mode,
+        mode: safeMode,
         lat: currentLocation.lat,
         lng: currentLocation.lng,
         authorityId: s.authorityId,

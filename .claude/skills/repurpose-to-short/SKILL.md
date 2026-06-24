@@ -39,10 +39,10 @@ Optional:
 - Brand-voice profile (default: `personal`)
 
 ### 2 — Load principles
-Read `.claude/knowledge/brand-foundation.md` — specifically:
-- Which pillar each moment belongs to (מסע אישי / נגישות / טכניקה / מיינדסט)
-- Anti-patterns to avoid in hooks and captions
-- Strategic rule: accessibility through the specific, not as the topic
+Read `.claude/knowledge/brand-personal.md` — specifically:
+- Which pillar each moment belongs to (§4: מסע היזמות / טיפים ותוכן אימון / מאחורי הקלעים ואישי)
+- Anti-patterns to avoid in hooks and captions (§4: "Anti-patterns לבדוק לפני שמפרסמים")
+- §3.5 guardrail: apply B2G filter before finalizing any personal post
 
 Then read `.claude/knowledge/social-state.md` — specifically:
 - "Hook on the impressive moment — not on the explanation"

@@ -33,6 +33,7 @@ export default function ParkCardImage({ src, fallback, alt, eager }: ParkCardIma
         onLoad={() => setLoaded(true)}
         onError={() => { setErrored(true); setLoaded(true); }}
       />
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
     </div>
   );
 }

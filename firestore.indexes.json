@@ -188,6 +188,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "groupType", "order": "ASCENDING" },
         { "fieldPath": "isActive", "order": "ASCENDING" }
       ]
@@ -232,6 +240,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "core.discoverable", "order": "ASCENDING" },
+        { "fieldPath": "core.name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "core.discoverable", "order": "ASCENDING" },
         { "fieldPath": "core.authorityId", "order": "ASCENDING" },
         { "fieldPath": "core.name", "order": "ASCENDING" }
       ]
@@ -242,6 +258,14 @@
       "fields": [
         { "fieldPath": "authorUid", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "presence",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "mode", "order": "ASCENDING" },
+        { "fieldPath": "audienceGroupIds", "arrayConfig": "CONTAINS" }
       ]
     },
     {
@@ -394,13 +418,6 @@
       "fields": [
         { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "currentStreak", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "dailyActivity",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "date", "order": "ASCENDING" }
       ]
     },
     {

@@ -99,10 +99,36 @@ function handleNativeDeepLink(url: string): void {
       return;
     }
 
+    // ── /session/<token> — group session invite deep link (Phase G) ────────
+    const sessionTokenMatch = pathname.match(/^\/session\/([^/]+)$/);
+    if (sessionTokenMatch) {
+      const sessionToken = sessionTokenMatch[1];
+      // Store so the gateway can consume it post-auth if the user isn't signed in.
+      localStorage.setItem('pending_session_token', sessionToken);
+      window.location.href = `/session/${sessionToken}`;
+      return;
+    }
+
     // ── /community?groupId=<id> — direct community group link ────────────
     const groupId = searchParams.get('groupId');
     if (pathname === '/community' && groupId) {
       window.location.href = `/community?groupId=${encodeURIComponent(groupId)}`;
+      return;
+    }
+
+    // ── Institutional code — school / military / municipal onboarding ───────
+    // Two URL forms are supported:
+    //   /school/<CODE>          (path-based, e.g. from a QR code)
+    //   /join?code=<CODE>       (query-param variant for universal links)
+    // The code is stored in localStorage so it survives app-open auth flow,
+    // and the user is routed through the identity gate (?context=express)
+    // before the access code is validated.
+    const schoolPathMatch = pathname.match(/^\/school\/([A-Za-z0-9_-]+)$/);
+    const codeParam = searchParams.get('code');
+    const institutionCode = schoolPathMatch?.[1] ?? (pathname === '/join' ? codeParam : null);
+    if (institutionCode) {
+      localStorage.setItem('pending_institution_code', institutionCode);
+      window.location.href = '/onboarding-new/profile?context=express';
       return;
     }
 

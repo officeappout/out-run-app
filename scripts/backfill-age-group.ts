@@ -2,28 +2,28 @@
 /**
  * backfill-age-group.ts
  *
- * One-time admin script — Compliance Phase 2 prerequisite.
+ * One-time admin script — MUST run before deploying the new Firestore rules.
  *
- * Reads `core.birthDate` for every user in `users/` and writes
- * `core.ageGroup` ('minor' if age < 18, 'adult' otherwise).
+ * Writes TWO documents per user from `core.birthDate`:
+ *   1. `users/{uid}.core.ageGroup` — 'minor' if age < 18, 'adult' otherwise.
+ *   2. `userAge/{uid}` — tiny mirror doc consumed by the new presence write
+ *      rule (avoids the 1 MiB get() limit on large user profiles).
  *
- * Why this is required
- * ────────────────────
- * The new chat-creation rule (firestore.rules → /chats DM allow create)
- * fails closed for any user whose `core.ageGroup` field is missing.
- * New onboarding writes the field, but legacy users who finished
- * onboarding before the field existed would be locked out of DMs
- * after the rule deploys. Run this script BEFORE deploying the rules.
+ * DEPLOYMENT ORDER (no-downtime migration):
+ *   1. Run this script (--dry-run first, then live).
+ *   2. Verify all users have `userAge/{uid}` written.
+ *   3. THEN deploy `firestore.rules` with the new presence + users guards.
+ *
+ * If rules are deployed before data is ready:
+ *   • Missing `userAge/{uid}` → getUserAgeGroup() returns 'minor'
+ *     → presence writes with mode≠ghost|group are rejected.
+ *   • This breaks presence for ALL unbackfilled users — hence the order.
  *
  * Behaviour
  * ─────────
  *   • Idempotent — safe to re-run; recomputes ageGroup from birthDate.
- *   • Skips users with no `core.birthDate` (cannot derive — operator
- *     must address these manually; they're listed in the report).
- *   • Flags any existing under-14 users in a separate counter; per
- *     compliance Phase 2.1 the app now blocks new under-14 sign-ups,
- *     but this script does NOT auto-delete legacy under-14 accounts.
- *     Review them manually after the run.
+ *   • Skips users with no `core.birthDate` (cannot derive — listed in report).
+ *   • Flags under-14 users for manual review; does NOT auto-delete them.
  *   • Batches writes (Firestore commit limit = 500) and paginates reads
  *     (1 000 users / page) so it scales to large user bases.
  *   • Supports --dry-run for a no-write preview.
@@ -137,20 +137,32 @@ async function processPage(
       }
 
       const existing = core.ageGroup;
-      if (existing === ageGroup) {
-        stats.alreadyCorrect++;
-        continue;
-      }
+      const ageGroupAlreadyCorrect = existing === ageGroup;
 
-      if (existing === 'minor' || existing === 'adult') {
+      if (ageGroupAlreadyCorrect) {
+        stats.alreadyCorrect++;
+      } else if (existing === 'minor' || existing === 'adult') {
         stats.changedExisting++;
       } else {
         stats.backfilled++;
       }
 
       if (!dryRun) {
-        batch.update(doc.ref, { 'core.ageGroup': ageGroup });
+        // Always write userAge/{uid} — it must exist for every user with a
+        // birthDate so the presence write rule can evaluate getUserAgeGroup().
+        // The early-exit bug (continue on alreadyCorrect) caused userAge to be
+        // missing for users whose core.ageGroup was already set before this
+        // backfill was introduced.
+        const userAgeRef = db.collection('userAge').doc(doc.id);
+        batch.set(userAgeRef, { ageGroup, computedAt: Timestamp.now() }, { merge: true });
         pendingWrites++;
+
+        // Only touch users/{uid} when ageGroup actually changed.
+        if (!ageGroupAlreadyCorrect) {
+          batch.update(doc.ref, { 'core.ageGroup': ageGroup });
+          pendingWrites++;
+        }
+
         if (pendingWrites >= COMMIT_BATCH_SIZE) {
           await batch.commit();
           batch = db.batch();
