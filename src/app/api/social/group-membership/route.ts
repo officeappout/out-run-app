@@ -1,13 +1,16 @@
 /**
- * /api/social/group-membership — Server-side update of users/{uid}.social.groupIds
+ * /api/social/group-membership — server-side update of users/{uid}.social.groupIds
  *
  * POST { groupId, action: 'join' | 'leave' }
  *
  * social.groupIds is the trust anchor for the presence `group` scope:
  * the Firestore rule for mode='group' reads the broadcaster's groupIds to
  * decide who may see their location. Because we need that field to be
- * tamper-proof, it is locked from client self-write (Group E in firestore.rules)
- * and all mutations flow through this route via the Admin SDK.
+ * tamper-proof, it is locked from client self-write and all mutations flow
+ * through this route via the Admin SDK.
+ *
+ * join  → joinEngine (atomic triple-write: members + user_memberships + social.groupIds)
+ * leave → direct batch (no engine — engine handles joins only)
  *
  * Authentication: Firebase ID token in Authorization: Bearer <token>.
  * The caller may only update their own doc (uid from the verified token).
@@ -16,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { joinEngine, JoinEngineError } from '@/lib/joinEngine';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,11 +32,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
-    const adminAuth = getAdminAuth();
     let uid: string;
+    let displayName: string;
     try {
-      const decoded = await adminAuth.verifyIdToken(idToken, true);
+      const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      displayName = decoded.name ?? 'משתמש';
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -49,62 +54,40 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminDb();
 
-    // Dual-write: keep users.social.groupIds (client read) and
-    // user_memberships.groupIds (Rules get() — avoids 1 MiB doc-size limit)
-    // in lock-step.  Both writes are batched so they never drift.
-
-    // Pre-seed check — same logic as /api/join/session-token and /api/join/confirm:
-    // if the users doc has no progression, seed it so the subsequent client-side
-    // onboarding-sync (UPDATE path) doesn't violate noGameIntegrityFieldsChanged()
-    // (incoming globalLevel:1 vs existing default 0 → PERMISSION-DENIED).
-    // Only on join; leave can't create a doc for a non-existent user anyway.
-    const existingUserSnap = action === 'join'
-      ? await db.doc(`users/${uid}`).get()
-      : null;
-    const hasProgression = existingUserSnap?.exists && Boolean(existingUserSnap.data()?.progression);
-
-    const membershipUpdate = action === 'join'
-      ? FieldValue.arrayUnion(groupId)
-      : FieldValue.arrayRemove(groupId);
-
-    const userDocPayload: Record<string, any> = {
-      social: { groupIds: membershipUpdate },
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    const userDocMergeFields: string[] = ['social.groupIds', 'updatedAt'];
-    if (action === 'join' && !hasProgression) {
-      userDocPayload.progression = {
-        globalLevel: 1,
-        globalXP: 0,
-        coins: 0,
-        totalCaloriesBurned: 0,
-        hasUnlockedAdvancedStats: false,
-        avatarId: 'default',
-        unlockedBadges: [],
-        domains: {},
-        activePrograms: [],
-        unlockedBonusExercises: [],
-      };
-      userDocMergeFields.push('progression');
+    if (action === 'join') {
+      // ── Join: delegate to engine (resolves, seeds, writes atomically) ────────
+      try {
+        await joinEngine({
+          target: { type: 'direct', groupId },
+          uid,
+          displayName,
+        });
+      } catch (err) {
+        if (err instanceof JoinEngineError) {
+          return NextResponse.json({ error: err.code }, { status: 400 });
+        }
+        throw err;
+      }
+    } else {
+      // ── Leave: dual-write (arrayRemove from social.groupIds + user_memberships) ─
+      // Engine is join-only; leave logic stays here.
+      // axiom §5: arrayRemove is valid for string-type elements (groupId is a string).
+      const batch = db.batch();
+      batch.set(
+        db.doc(`users/${uid}`),
+        {
+          social: { groupIds: FieldValue.arrayRemove(groupId) },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { mergeFields: ['social.groupIds', 'updatedAt'] },
+      );
+      batch.set(
+        db.doc(`user_memberships/${uid}`),
+        { groupIds: FieldValue.arrayRemove(groupId), updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      await batch.commit();
     }
-
-    const batch = db.batch();
-
-    // set+mergeFields (not update) so the batch doesn't throw NOT_FOUND when
-    // users/{uid} doesn't exist yet. If the doc is absent the merge creates it
-    // with the specified fields; existing docs are unaffected on unspecified fields.
-    batch.set(
-      db.doc(`users/${uid}`),
-      userDocPayload,
-      { mergeFields: userDocMergeFields },
-    );
-    batch.set(
-      db.doc(`user_memberships/${uid}`),
-      { groupIds: membershipUpdate, updatedAt: FieldValue.serverTimestamp() },
-      { merge: true },
-    );
-
-    await batch.commit();
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {

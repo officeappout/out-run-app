@@ -27,6 +27,7 @@ set -euo pipefail
 AUTHORIZED_SOCIAL=(
   "src/app/api/social/group-membership/route.ts"
   "src/app/api/social/reconcile-group-membership/route.ts"
+  "src/lib/joinEngine.ts"
 )
 
 VIOLATIONS=""
