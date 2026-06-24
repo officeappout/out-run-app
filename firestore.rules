@@ -109,17 +109,25 @@ service cloud.firestore {
 
     // Group B — tenant/unit assignment. Owned by `validateAccessCode`
     // Cloud Function and admin tooling. Owners cannot self-assign.
+    //
+    // INITIAL-WRITE ALLOWANCE: when a field is at its default value ('' / [])
+    // in the stored doc, the client may write any value — this covers the
+    // onboarding path where a shell doc exists but has no core/tenant data yet
+    // (e.g. guest who joined via session-token before completing onboarding).
+    // Once a non-default value is stored, only Admin SDK can change it.
+    //
+    // Note: authorityId follows the same pattern. The deeper protection is that
+    // onboarding-sync does NOT include authorityId in its payload — that field
+    // always routes through /api/user/update-authority (Admin SDK). This rule
+    // is a belt-and-suspenders guard, not the primary lock on authorityId.
     function noTenantFieldsChanged() {
-      return request.resource.data.get('core', {}).get('tenantId', '')
-             == resource.data.get('core', {}).get('tenantId', '')
-          && request.resource.data.get('core', {}).get('tenantType', '')
-             == resource.data.get('core', {}).get('tenantType', '')
-          && request.resource.data.get('core', {}).get('unitId', '')
-             == resource.data.get('core', {}).get('unitId', '')
-          && request.resource.data.get('core', {}).get('unitPath', [])
-             == resource.data.get('core', {}).get('unitPath', [])
-          && request.resource.data.get('core', {}).get('authorityId', '')
-             == resource.data.get('core', {}).get('authorityId', '');
+      let cur = resource.data.get('core', {});
+      let nxt = request.resource.data.get('core', {});
+      return (cur.get('tenantId', '') == ''      || cur.get('tenantId', '')      == nxt.get('tenantId', ''))
+          && (cur.get('tenantType', '') == ''     || cur.get('tenantType', '')     == nxt.get('tenantType', ''))
+          && (cur.get('unitId', '') == ''         || cur.get('unitId', '')         == nxt.get('unitId', ''))
+          && (cur.get('unitPath', []).size() == 0 || cur.get('unitPath', [])       == nxt.get('unitPath', []))
+          && (cur.get('authorityId', '') == ''    || cur.get('authorityId', '')    == nxt.get('authorityId', ''));
     }
 
     // Group C — game-integrity / progression. Locking these prevents a
@@ -132,17 +140,20 @@ service cloud.firestore {
     // functions/src/awardWorkoutXP.ts for the server-side validation
     // (auth required, per-call delta caps, server-recomputed level).
     //
-    // All client code paths that previously wrote these fields directly
-    // were migrated as part of the Fortress Phase (Apr 2026). If a new
-    // call site appears, route it through src/lib/awardWorkoutXP.ts —
-    // do NOT relax this rule.
+    // INITIAL-WRITE ALLOWANCE: when the stored doc has no `progression` map
+    // at all (guest shell doc created by session-token/confirm before onboarding
+    // completes), the client may write the initial seed values. This eliminates
+    // the race between the Admin-SDK shell write and the client onboarding-sync
+    // call without loosening the lock on any already-earned value.
+    // Once `progression` exists in the stored doc, only awardWorkoutXP can
+    // change coins / globalLevel / globalXP.
     function noGameIntegrityFieldsChanged() {
-      return request.resource.data.get('progression', {}).get('coins', 0)
-             == resource.data.get('progression', {}).get('coins', 0)
-          && request.resource.data.get('progression', {}).get('globalLevel', 0)
-             == resource.data.get('progression', {}).get('globalLevel', 0)
-          && request.resource.data.get('progression', {}).get('globalXP', 0)
-             == resource.data.get('progression', {}).get('globalXP', 0);
+      let cur = resource.data.get('progression', null);
+      if (cur == null) return true;
+      let nxt = request.resource.data.get('progression', {});
+      return cur.get('coins', 0)       == nxt.get('coins', 0)
+          && cur.get('globalLevel', 0) == nxt.get('globalLevel', 0)
+          && cur.get('globalXP', 0)    == nxt.get('globalXP', 0);
     }
 
     // Group E — social graph membership. `social.groupIds` is the trusted

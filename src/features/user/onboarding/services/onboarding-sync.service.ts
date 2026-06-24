@@ -225,10 +225,34 @@ export async function syncOnboardingToFirestore(
     }
 
     const userDocRef = doc(db, USERS_COLLECTION, user.uid);
-    
+
     // Check if document exists to determine if we should merge or create
     const userDoc = await getDoc(userDocRef);
     const exists = userDoc.exists();
+
+    // ── [DIAG] Who created the doc + what's in it? ──────────────────────────
+    // Answers two questions:
+    //   1. Is this CREATE or UPDATE? (did session-token/confirm run first?)
+    //   2. Does the existing doc have progression.globalLevel already seeded?
+    //      If not, the shell doc was created by old code or a route that didn't
+    //      include the progression seed — that is the root cause of the
+    //      noGameIntegrityFieldsChanged PERMISSION-DENIED.
+    const existingRaw = userDoc.data() ?? {};
+    console.log('[OnboardingSync][DIAG] doc snapshot', {
+      uid: user.uid,
+      step,
+      mode: exists ? 'UPDATE' : 'CREATE',
+      hasCore: 'core' in existingRaw,
+      coreRole: existingRaw.core?.role ?? '(absent)',
+      hasProgression: 'progression' in existingRaw,
+      progressionLevel: existingRaw.progression?.globalLevel ?? '(absent)',
+      progressionXP: existingRaw.progression?.globalXP ?? '(absent)',
+      progressionCoins: existingRaw.progression?.coins ?? '(absent)',
+      hasSocial: 'social' in existingRaw,
+      socialGroupIds: existingRaw.social?.groupIds ?? '(absent)',
+      tenantId: existingRaw.core?.tenantId ?? '(absent)',
+      authorityId: existingRaw.core?.authorityId ?? '(absent)',
+    });
     
     // Prepare user data structure
     const isAnonymous = user.isAnonymous;
@@ -1692,6 +1716,34 @@ export async function syncOnboardingToFirestore(
 
     const sanitizedUpdateData = sanitizeObject(updateData);
 
+    // ── [DIAG] Exact payload about to be written ─────────────────────────────
+    // Compare this against each UPDATE rule clause to find the failing one:
+    //   noAdminFieldsChanged   → core.role / isSuperAdmin / isApproved / managedVertical
+    //   noTenantFieldsChanged  → core.tenantId / unitId / unitPath / tenantType / authorityId
+    //   noGameIntegrityFields  → progression.globalLevel / globalXP / coins
+    //   noSocialGroupIdsChanged → social.groupIds
+    //   noLockedCoreFields     → core.ageGroup / birthDate
+    console.log('[OnboardingSync][DIAG] payload', {
+      uid: user.uid,
+      step,
+      mode: exists ? 'UPDATE' : 'CREATE',
+      topLevelKeys: Object.keys(sanitizedUpdateData),
+      coreKeys: sanitizedUpdateData.core ? Object.keys(sanitizedUpdateData.core) : '(absent)',
+      coreRole: sanitizedUpdateData.core?.role ?? '(absent)',
+      coreIsApproved: sanitizedUpdateData.core?.isApproved ?? '(absent)',
+      coreIsSuperAdmin: sanitizedUpdateData.core?.isSuperAdmin ?? '(absent)',
+      coreTenantId: sanitizedUpdateData.core?.tenantId ?? '(absent)',
+      coreUnitId: sanitizedUpdateData.core?.unitId ?? '(absent)',
+      coreAuthorityId: sanitizedUpdateData.core?.authorityId ?? '(absent)',
+      progressionLevel: sanitizedUpdateData.progression?.globalLevel ?? '(absent)',
+      progressionXP: sanitizedUpdateData.progression?.globalXP ?? '(absent)',
+      progressionCoins: sanitizedUpdateData.progression?.coins ?? '(absent)',
+      socialGroupIds: (sanitizedUpdateData as any).social?.groupIds ?? '(absent)',
+      coreAgeGroup: sanitizedUpdateData.core?.ageGroup ?? '(absent)',
+      coreBirthDate: sanitizedUpdateData.core?.birthDate ?? '(absent)',
+      topLevelRole: (sanitizedUpdateData as any).role ?? '(absent)',
+    });
+
     // Save to Firestore (merge with existing data)
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
@@ -1766,8 +1818,19 @@ export async function syncOnboardingToFirestore(
 
     console.log(`[OnboardingSync] Synced step "${step}" to Firestore for user ${user.uid}`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[OnboardingSync] Error syncing to Firestore:', error);
+    // PERMISSION-DENIED analysis: which rule clause is the likely culprit?
+    if (error?.code === 'permission-denied' || String(error).includes('permission-denied')) {
+      console.error('[OnboardingSync][DIAG] PERMISSION-DENIED — check browser console for the two [DIAG] logs above.');
+      console.error('[OnboardingSync][DIAG] Rule checklist (UPDATE mode):');
+      console.error('  1. noAdminFieldsChanged   → incoming core.role must equal stored core.role');
+      console.error('  2. noTenantFieldsChanged  → incoming tenantId/unitId/authorityId must equal stored (or stored must be empty if rule allows initial write)');
+      console.error('  3. noGameIntegrityFields  → incoming progression.globalLevel/XP/coins must equal stored (or stored progression map absent)');
+      console.error('  4. noSocialGroupIdsChanged → incoming social.groupIds must equal stored (merge:true should preserve it)');
+      console.error('  5. noLockedCoreFields     → ageGroup/birthDate must be absent from payload');
+      console.error('[OnboardingSync][DIAG] Most likely: stored doc has no "progression" map but old rule required exact match (default 0) → rule fix in firestore.rules needed');
+    }
     // Don't throw - onboarding sync failures shouldn't break the flow
     return false;
   }
