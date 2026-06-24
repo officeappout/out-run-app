@@ -9,13 +9,11 @@ const MAX_VISIBLE_AVATARS = 5;
 interface ParticipantStripProps {
   partnerPositions: PartnerPosition[];
   totalDistanceKm: number;
-  groupName: string;
 }
 
 export default function ParticipantStrip({
   partnerPositions,
   totalDistanceKm,
-  groupName,
 }: ParticipantStripProps) {
   const setNavCardHeight = useMapStore((s) => s.setNavCardHeight);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
@@ -44,17 +42,17 @@ export default function ParticipantStrip({
 
   const visible = partnerPositions.slice(0, MAX_VISIBLE_AVATARS);
   const overflow = partnerPositions.length - MAX_VISIBLE_AVATARS;
+  // Never fall back to groupName — it bleeds route/session names into the strip label.
+  // Before any distance is covered, show nothing (avatars speak for themselves).
   const distanceLabel =
-    totalDistanceKm > 0
-      ? `יחד עברתם ${totalDistanceKm.toFixed(1)} ק"מ`
-      : groupName;
+    totalDistanceKm > 0 ? `יחד עברתם ${totalDistanceKm.toFixed(1)} ק"מ` : null;
 
   return (
     <div
       ref={rootRef}
       className="absolute left-0 right-0 z-[30] pointer-events-auto px-3 py-2"
       style={{ top: stackedTop }}
-      aria-label={distanceLabel}
+      aria-label={distanceLabel ?? undefined}
     >
       <div
         className="flex items-center gap-2 rounded-2xl px-3 py-1.5"
@@ -87,13 +85,15 @@ export default function ParticipantStrip({
           )}
         </div>
 
-        {/* Collective distance / group name */}
-        <span
-          className="text-[13px] font-semibold text-gray-800 truncate"
-          style={{ direction: 'rtl' }}
-        >
-          {distanceLabel}
-        </span>
+        {/* Collective distance — hidden until first metre is covered */}
+        {distanceLabel && (
+          <span
+            className="text-[13px] font-semibold text-gray-800 truncate"
+            style={{ direction: 'rtl' }}
+          >
+            {distanceLabel}
+          </span>
+        )}
       </div>
     </div>
   );

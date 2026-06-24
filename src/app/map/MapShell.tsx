@@ -465,7 +465,6 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
         <ParticipantStrip
           partnerPositions={groupPartnerPositions}
           totalDistanceKm={totalDistanceKm}
-          groupName={sharedSession.groupName ?? ''}
         />
       )}
 
