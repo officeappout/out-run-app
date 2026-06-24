@@ -44,6 +44,19 @@ interface SharedSessionState {
    */
   myPersonalGoal: SessionGoalSpec | null | undefined;
 
+  /**
+   * joinEngine gate — true only after user_memberships/{uid} is confirmed written
+   * in Firestore.  useGroupPresenceListener passes groupId to useGroupPresence only
+   * when this is true, preventing the "member subscribes before user_memberships
+   * exists → PERMISSION-DENIED" race.
+   *
+   * startGroupSession sets this to true immediately (user was already a confirmed
+   * member when they joined via the banner). joinViaDeepLink sets it to false;
+   * callers must call setMembershipReady() after their confirm/session-token write
+   * succeeds. Cleared to false on clearGroupSession.
+   */
+  membershipReady: boolean;
+
   startGroupSession: (
     groupId: string,
     attendanceId: string,
@@ -59,6 +72,8 @@ interface SharedSessionState {
     attendeeProfiles: AttendeeProfiles,
     groupName: string,
   ) => void;
+  /** Call after the confirm/session-token HTTP request returns 200 to ungate the presence query. */
+  setMembershipReady: () => void;
   clearGroupSession: () => void;
 }
 
@@ -113,6 +128,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
   sessionRef: null,
   sessionGoal: undefined,
   myPersonalGoal: undefined,
+  membershipReady: false,
 
   startGroupSession(groupId, attendanceId, memberIds, attendeeProfiles, groupName) {
     _unsub?.();
@@ -131,6 +147,8 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       phase: optimisticPhase,
       entryMethod: 'banner',
       sessionRef: { model: 'attendance', groupId, attendanceId },
+      // Banner join = user is already a confirmed member → presence query is safe immediately.
+      membershipReady: true,
     });
 
     _unsub = subscribeToAttendance(groupId, attendanceId, memberIds, attendeeProfiles, set);
@@ -150,6 +168,10 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
     }
   },
 
+  setMembershipReady() {
+    set({ membershipReady: true });
+  },
+
   joinViaDeepLink(groupId, attendanceId, memberIds, attendeeProfiles, groupName) {
     _unsub?.();
     _unsub = null;
@@ -165,6 +187,9 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       phase: optimisticPhase,
       entryMethod: 'deep-link',
       sessionRef: { model: 'attendance', groupId, attendanceId },
+      // Deep-link join: user_memberships write is pending. Caller must call
+      // setMembershipReady() after the confirm/session-token HTTP 200 is received.
+      membershipReady: false,
     });
 
     _unsub = subscribeToAttendance(groupId, attendanceId, memberIds, attendeeProfiles, set);
@@ -198,6 +223,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       sessionRef: null,
       sessionGoal: undefined,
       myPersonalGoal: undefined,
+      membershipReady: false,
     });
   },
 }));

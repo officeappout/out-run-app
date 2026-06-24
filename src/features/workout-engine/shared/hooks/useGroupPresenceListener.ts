@@ -19,8 +19,14 @@ interface GroupPresenceListenerResult {
 }
 
 export function useGroupPresenceListener(): GroupPresenceListenerResult {
-  const { groupId, memberIds } = useSharedSession();
-  const partnerPositions = useGroupPresence(groupId ?? undefined, memberIds);
+  const { groupId, memberIds, membershipReady } = useSharedSession();
+  // joinEngine gate: only pass groupId to the presence query once user_memberships
+  // is confirmed written in Firestore. Without this, a fresh guest subscribes before
+  // user_memberships exists → memberGroupIds(uid)=[] → PERMISSION-DENIED on every doc.
+  const partnerPositions = useGroupPresence(
+    (membershipReady && groupId) ? groupId : undefined,
+    memberIds,
+  );
 
   const totalDistanceKm = partnerPositions.reduce(
     (sum, p) => sum + (p.distance ?? 0),

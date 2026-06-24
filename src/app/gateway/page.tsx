@@ -239,8 +239,10 @@ export default function GatewayPage() {
         uid,
         { name: displayName, ...(photoURL ? { photoURL } : {}) },
       );
-      // Seed the group session context — onSnapshot fills memberIds/profiles
+      // Seed the group session context — onSnapshot fills memberIds/profiles.
+      // user_memberships is confirmed written (consumeSessionInvitation succeeded).
       useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, '');
+      useSharedSession.getState().setMembershipReady();
       // Open community page with group drawer — user sees live banner and can tap "הצטרף לאימון"
       return `/community?groupId=${groupId}`;
     } catch (e) {

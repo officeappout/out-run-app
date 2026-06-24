@@ -61,7 +61,9 @@ export default function SessionTokenPage() {
 
         localStorage.removeItem('pending_session_token');
 
-        // Set up group session context — onSnapshot will populate memberIds/profiles
+        // Set up group session context — onSnapshot will populate memberIds/profiles.
+        // user_memberships is now confirmed written (consumeSessionInvitation succeeded),
+        // so we can immediately ungate the presence query via setMembershipReady().
         useSharedSession.getState().joinViaDeepLink(
           groupId,
           attendanceId,
@@ -69,6 +71,7 @@ export default function SessionTokenPage() {
           {},
           invitation.groupName,
         );
+        useSharedSession.getState().setMembershipReady();
 
         // Navigate to community page and open group drawer via ?groupId= deep-link support.
         // From the drawer the user sees the live session banner and can tap "הצטרף לאימון".
