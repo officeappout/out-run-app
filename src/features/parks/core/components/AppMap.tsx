@@ -546,20 +546,24 @@ export default function AppMap({
   //                              uses the `visiblePartners` array directly.
   const presenceGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',
-    features: activityFilteredPositions.map((p) => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-      properties: { uid: p.uid },
-    })),
+    features: activityFilteredPositions
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+      .map((p) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { uid: p.uid },
+      })),
   }), [activityFilteredPositions]);
 
   const visiblePartnersGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',
-    features: visiblePartners.map((p) => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-      properties: { uid: p.uid },
-    })),
+    features: visiblePartners
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+      .map((p) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { uid: p.uid },
+      })),
   }), [visiblePartners]);
 
   // Abort-aware park fetch. `fetchRealParks` resolves with the inventory

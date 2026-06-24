@@ -163,22 +163,46 @@ export async function consumeSessionInvitation(
   //   • users/{uid}            — shell doc so health-declaration saves hit
   //                              UPDATE (not CREATE), avoiding the core.role guard
   //   • user_memberships/{uid} — presence-read gate (memberGroupIds() in rules)
-  // Non-fatal: the user is already in the attendance doc; a failed setup means
-  // degraded presence visibility, not a broken session join.
+  //
+  // BLOCKING: joinViaDeepLink (the call that sets useSharedSession.groupId and
+  // fires the presence query) must not run until user_memberships is confirmed
+  // written.  Without it, memberGroupIds(guest)=[] → PERMISSION-DENIED on every
+  // presence doc → group partners never appear.
+  //
+  // Failure modes handled explicitly:
+  //   • No auth token   → throw (should never happen for authenticated users)
+  //   • Network error   → fetch throws → re-throw (logged below)
+  //   • HTTP !ok (5xx)  → log body for server-side diagnosis → throw
+  //   • HTTP 200        → user_memberships confirmed → fall through to return
   const idToken = await auth.currentUser?.getIdToken().catch(() => null);
-  if (idToken) {
-    await fetch('/api/join/session-token', {
+  if (!idToken) {
+    console.error('[consumeSessionInvitation] no auth token — cannot write user_memberships for', uid);
+    throw new Error('session-token-no-auth');
+  }
+
+  let sessionTokenRes: Response;
+  try {
+    sessionTokenRes = await fetch('/api/join/session-token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${idToken}`,
       },
       body: JSON.stringify({ token, groupId }),
-    }).catch((err) => {
-      console.warn('[consumeSessionInvitation] membership setup failed (non-fatal):', err);
     });
-  } else {
-    console.warn('[consumeSessionInvitation] no auth token — skipping membership setup for', uid);
+  } catch (networkErr) {
+    console.error('[consumeSessionInvitation] session-token network failure — user_memberships NOT written:', networkErr);
+    throw networkErr;
+  }
+
+  if (!sessionTokenRes.ok) {
+    let body = '(unreadable)';
+    try { body = await sessionTokenRes.text(); } catch {}
+    console.error(
+      `[consumeSessionInvitation] session-token HTTP ${sessionTokenRes.status} — user_memberships NOT written. ` +
+      `This is a server-side bug if status is 5xx. Body: ${body}`,
+    );
+    throw new Error(`session-token-server-error-${sessionTokenRes.status}`);
   }
 
   return { groupId, attendanceId };
