@@ -188,6 +188,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "groupType", "order": "ASCENDING" },
         { "fieldPath": "isActive", "order": "ASCENDING" }
       ]
@@ -225,6 +233,14 @@
       "fields": [
         { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
         { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "core.discoverable", "order": "ASCENDING" },
+        { "fieldPath": "core.name", "order": "ASCENDING" }
       ]
     },
     {
@@ -402,13 +418,6 @@
       "fields": [
         { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "currentStreak", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "dailyActivity",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "date", "order": "ASCENDING" }
       ]
     },
     {
