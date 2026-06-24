@@ -148,12 +148,12 @@ service cloud.firestore {
     // Once `progression` exists in the stored doc, only awardWorkoutXP can
     // change coins / globalLevel / globalXP.
     function noGameIntegrityFieldsChanged() {
-      let cur = resource.data.get('progression', null);
-      if (cur == null) return true;
-      let nxt = request.resource.data.get('progression', {});
-      return cur.get('coins', 0)       == nxt.get('coins', 0)
-          && cur.get('globalLevel', 0) == nxt.get('globalLevel', 0)
-          && cur.get('globalXP', 0)    == nxt.get('globalXP', 0);
+      let stored   = resource.data.progression;
+      let incoming = request.resource.data.progression;
+      return !('progression' in resource.data)
+          || (incoming.globalLevel == stored.globalLevel
+           && incoming.globalXP   == stored.globalXP
+           && incoming.coins      == stored.coins);
     }
 
     // Group E — social graph membership. `social.groupIds` is the trusted
