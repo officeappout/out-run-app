@@ -582,16 +582,17 @@ export async function syncOnboardingToFirestore(
         weight: data.weight,
       };
     }
-    // Sync birthDate from sessionStorage (set during the onboarding questionnaire)
-    // Key is 'onboarding_personal_dob' (written by profile/roadmap pages)
+    // Age-gate validation (client-side enforcement layer).
+    // SECURITY (Compliance Phase 2.1): under-14 must be blocked before any
+    // Firestore write. A modified client could bypass the UI check and call
+    // this directly — re-validate here and throw so no write happens.
     //
-    // SECURITY (Compliance Phase 2.1 — Age Gate):
-    //   The client-side validation in onboarding-new/profile/page.tsx blocks
-    //   under-14 sign-ups in the UI, but a malicious or modified client could
-    //   bypass that and call this sync directly. We re-validate here and throw
-    //   so no Firestore write happens for under-14 users. The thrown error
-    //   bubbles to the caller (OnboardingWizard / sync triggers) and must be
-    //   surfaced to the user as a blocking message. Do not silently swallow.
+    // NOTE: birthDate and ageGroup are NOT written to core here.
+    // Firestore rules lock both fields behind Admin SDK:
+    //   CREATE rule: !('ageGroup' in core) && !('birthDate' in core)
+    //   UPDATE rule: noLockedCoreFieldsChanged()
+    // Writing them from the client causes PERMISSION-DENIED for both paths.
+    // /api/user/complete-profile (Admin SDK) sets them authoritatively.
     if (typeof window !== 'undefined') {
       const storedBirthDate = sessionStorage.getItem('onboarding_personal_dob');
       if (storedBirthDate) {
@@ -606,11 +607,8 @@ export async function syncOnboardingToFirestore(
               (err as any).code = 'UNDER_AGE';
               throw err;
             }
-            updateData.core = {
-              ...updateData.core,
-              birthDate: Timestamp.fromDate(dateObj),
-              ageGroup: ageYears < 18 ? 'minor' : 'adult',
-            };
+            // birthDate and ageGroup are set by /api/user/complete-profile (Admin SDK).
+            // Do NOT add them to core here — both are blocked by Firestore rules.
           }
         } catch (e: any) {
           if (e?.code === 'UNDER_AGE') throw e;
