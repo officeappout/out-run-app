@@ -2,14 +2,18 @@
 
 import { useState } from 'react';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 
 interface SideRailProps {
   participants: Participant[];
   /** Height of the story bar in px — used to offset the rail below it. */
   storyBarHeight: number;
+  onSelect?: (uid: string) => void;
 }
 
-export default function SideRail({ participants, storyBarHeight }: SideRailProps) {
+export default function SideRail({ participants, storyBarHeight, onSelect }: SideRailProps) {
+  const selectedParticipantUid = useMapStore((s) => s.selectedParticipantUid);
+
   if (!participants.length) return null;
 
   const n = participants.length;
@@ -17,7 +21,7 @@ export default function SideRail({ participants, storyBarHeight }: SideRailProps
 
   return (
     <div
-      className="absolute left-3 flex flex-col items-center gap-3 z-[35] pointer-events-none"
+      className="absolute left-3 flex flex-col items-center gap-3 z-[35] pointer-events-auto"
       style={{
         top: `calc(env(safe-area-inset-top, 0px) + ${storyBarHeight + 8}px)`,
         bottom: 'calc(var(--session-bar-clearance, 0px) + 8px)',
@@ -29,6 +33,8 @@ export default function SideRail({ participants, storyBarHeight }: SideRailProps
           key={p.uid}
           participant={p}
           dist={Math.abs(i - centerIdx)}
+          isSelected={p.uid === selectedParticipantUid}
+          onSelect={onSelect}
         />
       ))}
     </div>
@@ -38,9 +44,11 @@ export default function SideRail({ participants, storyBarHeight }: SideRailProps
 interface AvatarBadgeProps {
   participant: Participant;
   dist: number;
+  isSelected: boolean;
+  onSelect?: (uid: string) => void;
 }
 
-function AvatarBadge({ participant, dist }: AvatarBadgeProps) {
+function AvatarBadge({ participant, dist, isSelected, onSelect }: AvatarBadgeProps) {
   const [imgError, setImgError] = useState(false);
 
   const scale = Math.max(0.45, 1 - dist * 0.18);
@@ -53,19 +61,34 @@ function AvatarBadge({ participant, dist }: AvatarBadgeProps) {
       : null;
 
   return (
-    <div
-      className="flex flex-col items-center gap-0.5"
+    <button
+      className="flex flex-col items-center gap-0.5 active:scale-90 transition-transform"
       style={{
         transform: `scale(${scale})`,
         opacity,
         transition: 'transform 0.25s, opacity 0.25s',
         transformOrigin: 'center center',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
       }}
+      onClick={() => onSelect?.(participant.uid)}
+      aria-label={`בחר ${participant.name}`}
     >
-      {/* Avatar circle */}
+      {/* Avatar circle with selection ring */}
       <div
         className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
-        style={{ border: `2px solid ${participant.color}`, background: '#1a1a2e' }}
+        style={{
+          border: isSelected
+            ? `3px solid ${participant.color}`
+            : `2px solid ${participant.color}`,
+          boxShadow: isSelected
+            ? `0 0 0 2px ${participant.color}55`
+            : 'none',
+          background: '#1a1a2e',
+          transition: 'border-width 0.15s, box-shadow 0.15s',
+        }}
       >
         {!imgError && participant.personaImageUrl ? (
           <img
@@ -98,6 +121,6 @@ function AvatarBadge({ participant, dist }: AvatarBadgeProps) {
           {distanceLabel}
         </span>
       )}
-    </div>
+    </button>
   );
 }

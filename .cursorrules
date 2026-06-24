@@ -33,7 +33,7 @@
 - z-0: Map canvas (AppMap)
 - z-20: Active workout overlay, navigate bottom
 - z-30: ParkPreview floating card
-- z-40: BottomJourneyContainer, HUD controls
+- z-40: BottomJourneyContainer, HUD controls, RunStoryBar (running session top strip)
 - z-50: Mapbox facility popups
 - z-[60]: WorkoutDrawer, NavigationHub (navigating), RoutePreviewCard
 - z-[70]: Search bars in discover mode

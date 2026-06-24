@@ -28,7 +28,7 @@ import { Square, RotateCcw, Pause, Play, ChevronDown } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
-import RouteStoryBar from '../shared/RouteStoryBar';
+import RunStoryBar from '../shared/RunStoryBar';
 import MetricsDrawer from '@/features/workout-engine/shared/components/MetricsDrawer';
 import MiniDock from '@/features/workout-engine/shared/components/MiniDock';
 import StatsCarousel, { type DrawerSlide } from './StatsCarousel';
@@ -50,14 +50,6 @@ const STORY_BAR_FALLBACK_PX = 56;
 // Formatters
 // ─────────────────────────────────────────────────────────────────────────────
 
-function goalLabel(type: 'distance' | 'time' | 'calories'): string {
-  switch (type) {
-    case 'distance': return 'מרחק';
-    case 'time':     return 'זמן';
-    case 'calories': return 'קלוריות';
-  }
-}
-
 function formatDuration(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '00:00';
   const hrs = Math.floor(totalSeconds / 3600);
@@ -67,21 +59,6 @@ function formatDuration(totalSeconds: number): string {
     return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-}
-
-function formatGoalValue(p: {
-  type: 'distance' | 'time' | 'calories';
-  currentValue: number;
-  targetValue: number;
-}): string {
-  switch (p.type) {
-    case 'distance':
-      return `${p.currentValue.toFixed(2)} / ${p.targetValue.toFixed(1)} ק״מ`;
-    case 'time':
-      return `${formatDuration(p.currentValue)} / ${formatDuration(p.targetValue)}`;
-    case 'calories':
-      return `${Math.round(p.currentValue)} / ${Math.round(p.targetValue)} קק״ל`;
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -323,9 +300,11 @@ interface FreeRunOverlayProps {
   drawerSlides?: DrawerSlide[];
   /** Presence participants for the vertical SideRail. Empty array = no rail rendered. */
   sideRailParticipants?: Participant[];
+  /** Called when the user taps a participant avatar — drives selectedParticipantUid in useMapStore. */
+  onSelectParticipant?: (uid: string) => void;
 }
 
-export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides, sideRailParticipants }: FreeRunOverlayProps) {
+export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides, sideRailParticipants, onSelectParticipant }: FreeRunOverlayProps) {
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
@@ -340,7 +319,8 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
   const sessionStatus = useSessionStore((s) => s.status);
   const isPaused = sessionStatus === 'paused';
 
-  const shouldShowStoryBar = goalProgress !== null || isNavigationActive;
+  // RunStoryBar always shows during active sessions — distance/time/VS regardless of goal.
+  const shouldShowStoryBar = true;
 
   // Track MetricsDrawer anchor so WorkoutControlCluster can be hidden at dock.
   // Initialised to 'peek' (matches MetricsDrawer defaultAnchor) so the cluster
@@ -426,10 +406,6 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
           className="absolute top-0 left-0 right-0 z-10 pointer-events-auto"
           style={{
             paddingTop: 'env(safe-area-inset-top, 0px)',
-            // Fade from solid white (status-bar area + content) to transparent
-            // so the map shows through below the story bar. Values copied from
-            // StrengthRunner's top-bar gradient model: 72% solid → 86% half
-            // fade → 100% transparent. paddingBottom creates the fade zone.
             background: 'linear-gradient(to bottom, #fff 0%, #fff 72%, rgba(255,255,255,0.45) 86%, rgba(255,255,255,0) 100%)',
             paddingBottom: 20,
             touchAction: 'none',
@@ -439,29 +415,10 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
             dragControls.start(e);
           }}
         >
-          {/* relative so ChevronDown can be positioned inside at the story-bar row height */}
           <div ref={storyBarInnerRef} className="relative">
-            <RouteStoryBar
-              progress={
-                goalProgress
-                  ? goalProgress.isComplete
-                    ? Math.min(goalProgress.rawRatio, 1.05)
-                    : Math.max(0.01, goalProgress.progress)
-                  : 0.01
-              }
-              color={goalProgress?.isComplete ? '#10B981' : undefined}
-              allowOverflow={goalProgress?.isComplete}
-              isPaused={isPaused}
-              label={
-                goalProgress?.isComplete
-                  ? 'מעבר ליעד'
-                  : goalProgress ? goalLabel(goalProgress.type) : 'מרחק'
-              }
-              valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
-            />
-            {/* Drag affordance — vertically centred with the progress/time row */}
+            <RunStoryBar isPaused={isPaused} />
             <div
-              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              className="absolute left-3 top-3 pointer-events-none"
               aria-hidden="true"
             >
               <ChevronDown size={14} strokeWidth={2} style={{ color: '#000' }} />
@@ -505,7 +462,11 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
       )}
 
       {/* SideRail — vertical participant strip, left side. Returns null when empty (solo). */}
-      <SideRail participants={sideRailParticipants ?? []} storyBarHeight={storyBarHeight} />
+      <SideRail
+        participants={sideRailParticipants ?? []}
+        storyBarHeight={storyBarHeight}
+        onSelect={onSelectParticipant}
+      />
 
       {/* MetricsDrawer — no lockToAnchor (laps controlled by FreeRunLayer).
           Render-prop per correction 3:

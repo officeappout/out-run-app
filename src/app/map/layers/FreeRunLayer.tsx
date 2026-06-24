@@ -16,7 +16,7 @@
  * hidden duplicate Mapbox instance running concurrently.
  */
 
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import dynamicImport from 'next/dynamic';
 import { Play, Navigation, MapPin } from 'lucide-react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
@@ -27,11 +27,12 @@ import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSe
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 import type { SessionPolicy, Participant } from '@/features/workout-engine/shared/types/session-policy';
-import type { DrawerSlide } from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel';
 import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import MainMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/MainMetrics';
 import LapMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/LapMetrics';
 import VSSlide from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/VSSlide';
+import type { DrawerSlide } from '@/features/workout-engine/players/running/types/story-spec';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -61,6 +62,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
 
   const { groupId } = useSharedSession();
 
+  const { setSelectedParticipantUid, setActiveStoryIndex, setGroupParticipants, selectedParticipantUid } =
+    useMapStore();
+
   // Group presence — must be above the policy object so participants can be wired in.
   const { partnerPositions } = useGroupPresenceListener();
   const sideRailParticipants = React.useMemo<Participant[]>(
@@ -75,6 +79,26 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
         isRemote: false,
       })),
     [partnerPositions],
+  );
+
+  // Keep groupParticipants store in sync so VSSlide / RunStoryBar can read without prop drilling.
+  useEffect(() => {
+    setGroupParticipants(sideRailParticipants);
+    return () => setGroupParticipants([]);
+  }, [sideRailParticipants, setGroupParticipants]);
+
+  // Tap-to-select: toggle selectedParticipantUid and auto-jump to VS story (index 2).
+  const handleSelectParticipant = useCallback(
+    (uid: string) => {
+      if (selectedParticipantUid === uid) {
+        setSelectedParticipantUid(null);
+        setActiveStoryIndex(0);
+      } else {
+        setSelectedParticipantUid(uid);
+        setActiveStoryIndex(2);
+      }
+    },
+    [selectedParticipantUid, setSelectedParticipantUid, setActiveStoryIndex],
   );
 
   const handleStartFreeRun = () => {
@@ -98,15 +122,17 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
     route: null,
   };
 
-  // Drawer slides derived from policy.mode.
-  const drawerSlides = React.useMemo<DrawerSlide[]>(() => {
-    const base: DrawerSlide[] = [
+  // Drawer slides: always main + laps; VS added when a rival is selected.
+  // Built inline (not via buildDrawerSlides) so component references are
+  // unambiguously in the client bundle of this 'use client' file.
+  const drawerSlides = React.useMemo<DrawerSlide[]>(
+    () => [
       { id: 'main', component: MainMetrics },
       { id: 'laps', component: LapMetrics },
-    ];
-    if (policy.mode !== 'solo') base.push({ id: 'vs', component: VSSlide });
-    return base;
-  }, [policy.mode]);
+      ...(selectedParticipantUid ? [{ id: 'vs', component: VSSlide }] : []),
+    ],
+    [selectedParticipantUid],
+  );
 
   return (
     <LiveSessionShell
@@ -174,6 +200,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     onExpand={onExpand}
                     drawerSlides={drawerSlides}
                     sideRailParticipants={sideRailParticipants}
+                    onSelectParticipant={handleSelectParticipant}
                   />
                   {/* Group count badge — below RouteStoryBar (~68px from top). */}
                   {sideRailParticipants.length > 0 && (

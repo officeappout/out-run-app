@@ -3,6 +3,7 @@ import { MapFacility, FacilityType } from '../types/facility.types';
 import { Park } from '../types/park.types';
 import type { Route } from '../types/route.types';
 import type { WalkStep } from '../hooks/useWalkToRoute';
+import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 
 export type LayerType = 'parks' | 'routes' | 'water' | 'toilet' | 'gym';
 
@@ -271,6 +272,31 @@ interface MapStore {
    */
   cameraMode: 'follow_user' | 'preview_step';
   setCameraMode: (mode: 'follow_user' | 'preview_step') => void;
+
+  // ── Running session VS / story state ─────────────────────────────────────
+  /**
+   * UID of the group participant the user tapped for head-to-head comparison.
+   * Drives both RunStoryBar (versus story) and StatsCarousel (VSSlide).
+   * null = no rival selected.
+   */
+  selectedParticipantUid: string | null;
+  setSelectedParticipantUid: (uid: string | null) => void;
+
+  /**
+   * Index of the currently-visible story in RunStoryBar (0=distance, 1=time, 2=versus).
+   * Written by RunStoryBar swipe AND by tap-to-select (auto-jumps to versus story).
+   */
+  activeStoryIndex: number;
+  setActiveStoryIndex: (idx: number) => void;
+
+  /**
+   * Live participant array for the active group running session.
+   * Set by FreeRunLayer whenever sideRailParticipants changes.
+   * Read by VSSlide and computeStandings — avoids prop-drilling through the
+   * StatsCarousel component tree.
+   */
+  groupParticipants: Participant[];
+  setGroupParticipants: (participants: Participant[]) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -349,4 +375,11 @@ export const useMapStore = create<MapStore>((set, get) => ({
   bumpMapEmptyTapTick: () => set((s) => ({ mapEmptyTapTick: s.mapEmptyTapTick + 1 })),
   cameraMode: 'follow_user',
   setCameraMode: (mode) => set({ cameraMode: mode }),
+
+  selectedParticipantUid: null,
+  setSelectedParticipantUid: (uid) => set({ selectedParticipantUid: uid }),
+  activeStoryIndex: 0,
+  setActiveStoryIndex: (idx) => set({ activeStoryIndex: idx }),
+  groupParticipants: [],
+  setGroupParticipants: (participants) => set({ groupParticipants: participants }),
 }));

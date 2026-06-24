@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { motion, PanInfo } from 'framer-motion';
 import MainMetrics from './MainMetrics';
 import LapMetrics from './LapMetrics';
+import type { DrawerSlide } from '@/features/workout-engine/players/running/types/story-spec';
+
+// Re-export so existing callers that import DrawerSlide from StatsCarousel continue to work.
+export type { DrawerSlide };
 
 /**
  * StatsCarousel
@@ -26,11 +30,6 @@ import LapMetrics from './LapMetrics';
  *     is never smaller than the carousel itself, even before the inner
  *     component (e.g. LapMetrics) finishes layout.
  */
-export interface DrawerSlide {
-  id: string;
-  component: React.ComponentType;
-}
-
 const DEFAULT_SLIDES: DrawerSlide[] = [
   { id: 'main', component: MainMetrics },
   { id: 'laps', component: LapMetrics },
@@ -46,6 +45,8 @@ export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps
 
   const slides = slidesProp ?? DEFAULT_SLIDES;
 
+  // Clamp so removing a slide (e.g. deselecting VS rival) never shows blank space.
+  const safeSlide = Math.min(currentSlide, Math.max(0, slides.length - 1));
   const slideWidthPercent = 100 / slides.length;
 
   const handleDragEnd = (_: any, info: PanInfo) => {
@@ -100,7 +101,7 @@ export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps
         <motion.div
           key={slides.length}
           className="flex relative z-10"
-          animate={{ x: `-${currentSlide * slideWidthPercent}%` }}
+          animate={{ x: `-${safeSlide * slideWidthPercent}%` }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           style={{ width: `${slides.length * 100}%` }}
         >
@@ -141,9 +142,9 @@ export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps
             onClick={() => setCurrentSlide(index)}
             className="h-1.5 rounded-full transition-all"
             style={{
-              width: index === currentSlide ? '1.5rem' : '0.375rem',
+              width: index === safeSlide ? '1.5rem' : '0.375rem',
               background:
-                index === currentSlide
+                index === safeSlide
                   ? 'var(--metrics-accent-color, #00ADEF)'
                   : 'rgba(0, 0, 0, 0.18)',
             }}
