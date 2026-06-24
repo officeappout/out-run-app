@@ -103,15 +103,42 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 4. Batch write (Admin SDK — bypasses firestore.rules) ─────────────────
+
+    // Pre-seed progression so the subsequent client-side setDoc (onboarding-sync
+    // UPDATE path) doesn't violate noGameIntegrityFieldsChanged(). Without this,
+    // the shell doc has no progression, so onboarding-sync writes globalLevel:1
+    // against an existing value of 0 (rule default) → 1≠0 → PERMISSION-DENIED.
+    //
+    // Only seed when the doc is absent or has no progression — never overwrite an
+    // existing user's earned XP/level (e.g. a regular user who scans a session QR).
+    const existingUserSnap = await db.doc(`users/${uid}`).get();
+    const hasProgression = existingUserSnap.exists && Boolean(existingUserSnap.data()?.progression);
+
+    const shellPayload: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
+    if (!hasProgression) {
+      shellPayload.progression = {
+        globalLevel: 1,
+        globalXP: 0,
+        coins: 0,
+        totalCaloriesBurned: 0,
+        hasUnlockedAdvancedStats: false,
+        avatarId: 'default',
+        unlockedBadges: [],
+        domains: {},
+        activePrograms: [],
+        unlockedBonusExercises: [],
+      };
+    }
+
     const batch = db.batch();
 
-    // Shell doc — creates users/{uid} if absent, otherwise a no-op merge.
-    // A bare updatedAt is enough: syncOnboardingToFirestore fills in the real
-    // fields on the next HEALTH_DECLARATION / COMPLETED step, which now hits
-    // UPDATE (not CREATE) and avoids the core.role == '' guard in CREATE rule.
+    // Shell doc — creates users/{uid} if absent, otherwise merges.
+    // Includes initial progression when the doc is new (no existing progression)
+    // so that the client-side onboarding-sync UPDATE hits UPDATE (not CREATE)
+    // and noGameIntegrityFieldsChanged() sees identical before/after values.
     batch.set(
       db.doc(`users/${uid}`),
-      { updatedAt: FieldValue.serverTimestamp() },
+      shellPayload,
       { merge: true },
     );
 

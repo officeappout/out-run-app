@@ -92,13 +92,41 @@ export async function POST(request: NextRequest) {
     const memberSnap = await memberRef.get();
     const alreadyMember = memberSnap.exists;
 
-    // ── Resolve display name from users doc if token name is missing ──────
-    // Anonymous users won't have a displayName in the token; fall back to
-    // core.name written by complete-profile.
+    // ── Read user doc — used for two purposes ────────────────────────────────
+    // 1. memberName fallback (anonymous tokens carry no displayName)
+    // 2. progression check — same "pre-seed" logic as /api/join/session-token:
+    //    if the doc is new or has no progression, we write default values so the
+    //    subsequent client-side onboarding-sync hits UPDATE with identical
+    //    before/after progression values and noGameIntegrityFieldsChanged() passes.
+    //    Without this, globalLevel 0 (rule default) vs incoming 1 → PERMISSION-DENIED.
+    const userSnap = await db.collection('users').doc(uid).get();
+    const userData = userSnap.data();
+
     let memberName = displayName;
     if (!memberName || memberName === 'משתמש') {
-      const userSnap = await db.collection('users').doc(uid).get();
-      memberName = userSnap.data()?.core?.name ?? 'משתמש';
+      memberName = userData?.core?.name ?? 'משתמש';
+    }
+
+    const hasProgression = userSnap.exists && Boolean(userData?.progression);
+    const userDocPayload: Record<string, any> = {
+      social: { groupIds: FieldValue.arrayUnion(groupId) },
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    const userDocMergeFields: string[] = ['social.groupIds', 'updatedAt'];
+    if (!hasProgression) {
+      userDocPayload.progression = {
+        globalLevel: 1,
+        globalXP: 0,
+        coins: 0,
+        totalCaloriesBurned: 0,
+        hasUnlockedAdvancedStats: false,
+        avatarId: 'default',
+        unlockedBadges: [],
+        domains: {},
+        activePrograms: [],
+        unlockedBonusExercises: [],
+      };
+      userDocMergeFields.push('progression');
     }
 
     // ── Atomic batch write ─────────────────────────────────────────────────
@@ -106,6 +134,7 @@ export async function POST(request: NextRequest) {
     //   1. community_groups/{groupId}/members/{uid}  — membership record
     //   2. user_memberships/{uid}                    — Rules mirror (presence gate)
     //   3. users/{uid}.social.groupIds               — client read array
+    //      (+progression seed when the doc is new — see above)
     const batch = db.batch();
 
     // 1. Member record — set+merge so joinedAt is preserved on re-joins
@@ -123,15 +152,11 @@ export async function POST(request: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // 3. Denormalised copy for client reads.
-    //    set+mergeFields (not update) so anonymous users without an existing
-    //    users/{uid} doc don't trigger NOT_FOUND and roll back the whole batch,
-    //    leaving user_memberships un-written and presence reads broken.
+    // 3. Denormalised copy for client reads + conditional progression seed.
     //    mergeFields ensures other social.* fields on existing docs are untouched.
-    batch.set(db.doc(`users/${uid}`), {
-      social: { groupIds: FieldValue.arrayUnion(groupId) },
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { mergeFields: ['social.groupIds', 'updatedAt'] });
+    //    'progression' is only added to mergeFields when the doc has no progression
+    //    (guards against overwriting earned XP on an existing user).
+    batch.set(db.doc(`users/${uid}`), userDocPayload, { mergeFields: userDocMergeFields });
 
     await batch.commit();
 

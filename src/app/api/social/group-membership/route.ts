@@ -52,19 +52,51 @@ export async function POST(request: NextRequest) {
     // Dual-write: keep users.social.groupIds (client read) and
     // user_memberships.groupIds (Rules get() — avoids 1 MiB doc-size limit)
     // in lock-step.  Both writes are batched so they never drift.
-    const batch = db.batch();
+
+    // Pre-seed check — same logic as /api/join/session-token and /api/join/confirm:
+    // if the users doc has no progression, seed it so the subsequent client-side
+    // onboarding-sync (UPDATE path) doesn't violate noGameIntegrityFieldsChanged()
+    // (incoming globalLevel:1 vs existing default 0 → PERMISSION-DENIED).
+    // Only on join; leave can't create a doc for a non-existent user anyway.
+    const existingUserSnap = action === 'join'
+      ? await db.doc(`users/${uid}`).get()
+      : null;
+    const hasProgression = existingUserSnap?.exists && Boolean(existingUserSnap.data()?.progression);
+
     const membershipUpdate = action === 'join'
       ? FieldValue.arrayUnion(groupId)
       : FieldValue.arrayRemove(groupId);
 
+    const userDocPayload: Record<string, any> = {
+      social: { groupIds: membershipUpdate },
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    const userDocMergeFields: string[] = ['social.groupIds', 'updatedAt'];
+    if (action === 'join' && !hasProgression) {
+      userDocPayload.progression = {
+        globalLevel: 1,
+        globalXP: 0,
+        coins: 0,
+        totalCaloriesBurned: 0,
+        hasUnlockedAdvancedStats: false,
+        avatarId: 'default',
+        unlockedBadges: [],
+        domains: {},
+        activePrograms: [],
+        unlockedBonusExercises: [],
+      };
+      userDocMergeFields.push('progression');
+    }
+
+    const batch = db.batch();
+
     // set+mergeFields (not update) so the batch doesn't throw NOT_FOUND when
-    // users/{uid} doesn't exist yet (anonymous guest who joined via session-token
-    // path and hasn't completed full onboarding). If the doc is absent the merge
-    // creates it with only these two fields; existing docs are unaffected.
+    // users/{uid} doesn't exist yet. If the doc is absent the merge creates it
+    // with the specified fields; existing docs are unaffected on unspecified fields.
     batch.set(
       db.doc(`users/${uid}`),
-      { social: { groupIds: membershipUpdate }, updatedAt: FieldValue.serverTimestamp() },
-      { mergeFields: ['social.groupIds', 'updatedAt'] },
+      userDocPayload,
+      { mergeFields: userDocMergeFields },
     );
     batch.set(
       db.doc(`user_memberships/${uid}`),
