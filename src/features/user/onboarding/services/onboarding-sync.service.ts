@@ -396,7 +396,13 @@ export async function syncOnboardingToFirestore(
         const coreUpdate: any = {
           ...existingData.core,
         };
-        
+
+        // ageGroup and birthDate are written by Admin SDK (/api/user/complete-profile).
+        // Echoing them back in a client setDoc triggers noLockedCoreFieldsChanged()
+        // → PERMISSION-DENIED. Leave them in Firestore unchanged by not sending them.
+        delete coreUpdate.ageGroup;
+        delete coreUpdate.birthDate;
+
         // Ensure requiresApproval is set (default to false for regular users)
         if (coreUpdate.requiresApproval === undefined) {
           coreUpdate.requiresApproval = false;

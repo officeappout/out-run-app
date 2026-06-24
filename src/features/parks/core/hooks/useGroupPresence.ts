@@ -144,7 +144,7 @@ export function useGroupPresence(
     //
     //   Discovery      → where('mode','==','verified_global')
     //                    Statically satisfiable — unchanged from before.
-    const q = groupSessionId
+    const q = (groupSessionId && typeof groupSessionId === 'string')
       ? query(
           collection(db, 'presence'),
           where('mode', '==', 'group'),
