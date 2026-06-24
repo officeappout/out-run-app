@@ -50,6 +50,7 @@ import {
     Image as ImageIcon,
     ImageOff,
     Footprints,
+    Search,
 } from 'lucide-react';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
@@ -1546,6 +1547,10 @@ export default function LocationsPage() {
     const [uploadingIcon, setUploadingIcon] = useState<string | null>(null); // key currently uploading
     const [brandingSyncSuccess, setBrandingSyncSuccess] = useState<string | null>(null); // key that just synced
 
+    // Search
+    const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
     // Auth & Data loading
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -1571,6 +1576,18 @@ export default function LocationsPage() {
     useEffect(() => {
         getCategoryBranding().then(config => setBrandingConfig(config)).catch(console.error);
     }, []);
+
+    // Debounce search input (300ms)
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+        return () => clearTimeout(t);
+    }, [searchQuery]);
+
+    // Reset search when switching tabs
+    useEffect(() => {
+        setSearchQuery('');
+        setDebouncedSearch('');
+    }, [activeTab]);
 
     // Extracted as useCallback so it can be called from handleSaveLocation
     // to immediately refresh the table after a successful route save.
@@ -1900,6 +1917,18 @@ export default function LocationsPage() {
         })()
         : filteredParksList;
 
+    // Apply search filter on top of the tab filter
+    const searchedParks = debouncedSearch
+        ? filteredParks.filter(park => {
+            const q = debouncedSearch.toLowerCase();
+            const name = (park.name || '').toLowerCase();
+            const city = (park.city || '').toLowerCase();
+            const authorityName = (getAuthorityName(park.authorityId) || '').toLowerCase();
+            const facilityType = (park.facilityType || '').toLowerCase();
+            return name.includes(q) || city.includes(q) || authorityName.includes(q) || facilityType.includes(q);
+        })
+        : filteredParks;
+
     const currentTabConfig = TABS.find(t => t.id === activeTab)!;
 
     if (loading) {
@@ -1922,8 +1951,12 @@ export default function LocationsPage() {
                         <h1 className="text-2xl font-black text-gray-900">ניהול מיקומים על המפה</h1>
                         <p className="text-sm text-gray-500 mt-0.5">
                             {activeTab === 'routes'
-                                ? `${officialRoutes.length} מסלולים רשמיים`
-                                : `${parks.length} מיקומים במערכת · ${filteredParks.length} ב${currentTabConfig.label}`}
+                                ? debouncedSearch
+                                    ? `${searchedParks.length} תוצאות מתוך ${officialRoutes.length} מסלולים`
+                                    : `${officialRoutes.length} מסלולים רשמיים`
+                                : debouncedSearch
+                                    ? `${searchedParks.length} תוצאות מתוך ${parks.length} מיקומים`
+                                    : `${parks.length} מיקומים במערכת · ${filteredParks.length} ב${currentTabConfig.label}`}
                         </p>
                     </div>
                 </div>
@@ -2036,6 +2069,30 @@ export default function LocationsPage() {
                     })}
                 </div>
             </div>
+
+            {/* Search bar — hidden for branding tab */}
+            {activeTab !== 'branding' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3 flex items-center gap-3">
+                    <Search size={18} className="text-gray-400 flex-shrink-0" />
+                    <input
+                        type="text"
+                        dir="rtl"
+                        placeholder="חיפוש לפי שם, עיר, רשות, סיווג..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="flex-1 text-sm text-gray-700 placeholder-gray-400 bg-transparent outline-none"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            aria-label="נקה חיפוש"
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Content: Branding tab vs Location table */}
             {activeTab === 'branding' ? (
@@ -2186,39 +2243,60 @@ export default function LocationsPage() {
                             <Loader2 className="w-6 h-6 animate-spin" />
                             <span className="text-sm font-bold text-gray-500">טוען מסלולים…</span>
                         </div>
-                    ) : filteredParks.length === 0 ? (
+                    ) : searchedParks.length === 0 ? (
                         <div className="text-center py-20">
                             <div
                                 className="inline-flex p-4 rounded-full mb-4"
                                 style={{ backgroundColor: `${currentTabConfig.color}15` }}
                             >
-                                <currentTabConfig.icon size={32} style={{ color: currentTabConfig.color }} />
+                                {debouncedSearch ? (
+                                    <Search size={32} style={{ color: currentTabConfig.color }} />
+                                ) : (
+                                    <currentTabConfig.icon size={32} style={{ color: currentTabConfig.color }} />
+                                )}
                             </div>
-                            <h3 className="text-lg font-bold text-gray-900">אין {currentTabConfig.label} במערכת</h3>
-                            <p className="text-gray-500 mt-2">התחל על ידי הוספת הראשון</p>
-                            {activeTab === 'parks' ? (
-                                <Link
-                                    href="/admin/parks/new"
-                                    className="mt-4 inline-flex items-center gap-2 text-white px-6 py-3 rounded-xl font-bold transition-all"
-                                    style={{ backgroundColor: currentTabConfig.color }}
-                                >
-                                    <Plus size={18} />
-                                    <span>הוסף פארק וגינה</span>
-                                </Link>
+                            {debouncedSearch ? (
+                                <>
+                                    <h3 className="text-lg font-bold text-gray-900">לא נמצאו מיקומים תואמים</h3>
+                                    <p className="text-gray-500 mt-2">נסה מילות חיפוש אחרות</p>
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        className="mt-4 inline-flex items-center gap-2 text-white px-6 py-3 rounded-xl font-bold transition-all"
+                                        style={{ backgroundColor: currentTabConfig.color }}
+                                    >
+                                        <X size={18} />
+                                        <span>נקה חיפוש</span>
+                                    </button>
+                                </>
                             ) : (
-                                <button
-                                    onClick={() => { setEditingPark(null); setShowAddModal(true); }}
-                                    className="mt-4 inline-flex items-center gap-2 text-white px-6 py-3 rounded-xl font-bold transition-all"
-                                    style={{ backgroundColor: currentTabConfig.color }}
-                                >
-                                    <Plus size={18} />
-                                    <span>הוסף {currentTabConfig.label}</span>
-                                </button>
+                                <>
+                                    <h3 className="text-lg font-bold text-gray-900">אין {currentTabConfig.label} במערכת</h3>
+                                    <p className="text-gray-500 mt-2">התחל על ידי הוספת הראשון</p>
+                                    {activeTab === 'parks' ? (
+                                        <Link
+                                            href="/admin/parks/new"
+                                            className="mt-4 inline-flex items-center gap-2 text-white px-6 py-3 rounded-xl font-bold transition-all"
+                                            style={{ backgroundColor: currentTabConfig.color }}
+                                        >
+                                            <Plus size={18} />
+                                            <span>הוסף פארק וגינה</span>
+                                        </Link>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setEditingPark(null); setShowAddModal(true); }}
+                                            className="mt-4 inline-flex items-center gap-2 text-white px-6 py-3 rounded-xl font-bold transition-all"
+                                            style={{ backgroundColor: currentTabConfig.color }}
+                                        >
+                                            <Plus size={18} />
+                                            <span>הוסף {currentTabConfig.label}</span>
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     ) : (
                             <LocationTable
-                            parks={filteredParks}
+                            parks={searchedParks}
                             getAuthorityName={getAuthorityName}
                             onEdit={(park) => {
                                 if (activeTab === 'parks') {
