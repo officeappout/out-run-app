@@ -10,12 +10,15 @@ import {
   getEventsByGroup,
   getGroupMembers,
   assignGroupLeader,
+  setMemberRole,
+  generateGroupInviteCode,
   cleanupStaleMaterializedEvents,
 } from '@/features/admin/services/community.service';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { getParksByAuthority } from '@/features/parks';
 import { CommunityGroup, CommunityGroupCategory, CommunityEvent, ScheduleSlot, TargetGender } from '@/types/community.types';
 import { Park } from '@/types/admin-types';
-import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
@@ -107,6 +110,12 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
   // Coach / leader picker (edit form only)
   const [leaderPickerMembers, setLeaderPickerMembers] = useState<{ uid: string; name: string; role: 'member' | 'admin' }[]>([]);
   const [leaderPickerLoading, setLeaderPickerLoading] = useState(false);
+
+  // Members panel (card-level management)
+  const [copiedGroupId, setCopiedGroupId] = useState<string | null>(null);
+  const [membersPanelGroupId, setMembersPanelGroupId] = useState<string | null>(null);
+  const [membersRoleMap, setMembersRoleMap] = useState<Record<string, { uid: string; name: string; photoURL?: string; role: 'member' | 'admin' }[]>>({});
+  const [membersRoleLoading, setMembersRoleLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -210,6 +219,59 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
       } finally {
         setSessionsLoading(false);
       }
+    }
+  };
+
+  const handleCopyJoinLink = async (group: CommunityGroup) => {
+    let code = group.inviteCode;
+    if (!code) {
+      try {
+        code = await generateGroupInviteCode(group.id);
+        setGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, inviteCode: code } : g));
+      } catch (err) {
+        console.error('Error generating invite code:', err);
+        alert('שגיאה ביצירת קישור');
+        return;
+      }
+    }
+    const link = `${APP_CONFIG_LINKS.WEB_BASE_URL}/join/${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedGroupId(group.id);
+    setTimeout(() => setCopiedGroupId((prev) => (prev === group.id ? null : prev)), 2000);
+  };
+
+  const handleToggleMembers = async (groupId: string) => {
+    if (membersPanelGroupId === groupId) {
+      setMembersPanelGroupId(null);
+      return;
+    }
+    setMembersPanelGroupId(groupId);
+    if (!membersRoleMap[groupId]) {
+      setMembersRoleLoading(true);
+      try {
+        const members = await getGroupMembers(groupId, 100);
+        setMembersRoleMap((prev) => ({ ...prev, [groupId]: members }));
+      } catch (err) {
+        console.error('Error loading members:', err);
+      } finally {
+        setMembersRoleLoading(false);
+      }
+    }
+  };
+
+  const handlePromoteMember = async (groupId: string, uid: string, name: string) => {
+    if (!confirm(`הפוך את ${name} למנהל/ת הקבוצה?`)) return;
+    try {
+      await setMemberRole(groupId, uid, 'admin');
+      setMembersRoleMap((prev) => ({
+        ...prev,
+        [groupId]: (prev[groupId] ?? []).map((m) =>
+          m.uid === uid ? { ...m, role: 'admin' as const } : m,
+        ),
+      }));
+    } catch (err) {
+      console.error('Error promoting member:', err);
+      alert('שגיאה בשינוי הרשאות');
     }
   };
 
@@ -1459,8 +1521,75 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                   </div>
                 )}
 
+                {/* Members panel */}
+                {membersPanelGroupId === group.id && (
+                  <div className="border-t border-gray-100">
+                    {membersRoleLoading && !membersRoleMap[group.id] ? (
+                      <div className="p-3 text-center text-xs text-gray-400 animate-pulse">טוען חברים...</div>
+                    ) : (membersRoleMap[group.id] ?? []).length === 0 ? (
+                      <div className="p-3 text-center text-xs text-gray-400">אין חברים עדיין</div>
+                    ) : (
+                      <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto">
+                        {(membersRoleMap[group.id] ?? []).map((m) => (
+                          <div key={m.uid} className="flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-50/50">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+                                {m.photoURL ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={m.photoURL} alt={m.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-gray-500">
+                                    {m.name.charAt(0)}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="truncate font-semibold text-gray-700">{m.name}</span>
+                              {m.role === 'admin' && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[9px] font-bold">מנהל</span>
+                              )}
+                            </div>
+                            {m.role === 'member' && (
+                              <button
+                                onClick={() => handlePromoteMember(group.id, m.uid, m.name)}
+                                className="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                              >
+                                <Crown size={11} />
+                                הפוך למנהל/ת
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Action buttons */}
                 <div className="flex items-center justify-end gap-1 px-3 py-2 border-t border-gray-100">
+                  <button
+                    onClick={() => handleCopyJoinLink(group)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                      copiedGroupId === group.id
+                        ? 'text-green-700 bg-green-50'
+                        : 'text-blue-700 bg-blue-50 hover:bg-blue-100'
+                    }`}
+                    title={`העתק קישור הצטרפות${group.inviteCode ? ` — /join/${group.inviteCode}` : ''}`}
+                  >
+                    {copiedGroupId === group.id ? <Check size={13} /> : <Link2 size={13} />}
+                    <span className="hidden md:inline">{copiedGroupId === group.id ? 'הועתק!' : 'קישור'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleToggleMembers(group.id)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                      membersPanelGroupId === group.id
+                        ? 'text-purple-700 bg-purple-100'
+                        : 'text-purple-700 bg-purple-50 hover:bg-purple-100'
+                    }`}
+                    title="ניהול חברים"
+                  >
+                    <Users size={13} />
+                    <span className="hidden md:inline">חברים</span>
+                  </button>
                   <button
                     onClick={() => setSessionGroupId(group.id)}
                     className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"

@@ -22,7 +22,7 @@ export const APP_CONFIG_LINKS = {
   GENERAL_INVITE_ONELINK: 'https://onelink.to/appout',
 
   /** Canonical production web base URL for entity sharing (workouts, groups). */
-  WEB_BASE_URL: 'https://outrun.app',
+  WEB_BASE_URL: 'https://outrun.co.il',
 
   /** Legacy Vercel deployment URL — kept for reference only, do not use. */
   LEGACY_VERCEL_URL: 'https://out-run-app.vercel.app',

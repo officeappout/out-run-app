@@ -213,6 +213,8 @@ export async function createGroup(
   try {
     const cleaned = cleanForFirestore({
       ...data,
+      // Ensure every group has an inviteCode so share links always work.
+      inviteCode: data.inviteCode ?? generateInviteCode(),
       // Admin panel always creates authority-managed groups.
       // Enforcing here prevents any missing-source issue at the service level.
       source: 'authority',
@@ -353,6 +355,34 @@ export async function assignGroupLeader(
   } catch {
     // Member doc may not exist — not fatal; role will be set when they join
   }
+}
+
+function generateInviteCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+/**
+ * Write a fresh inviteCode to an existing group that is missing one.
+ * Called lazily when the admin copies a join link for the first time.
+ * Returns the newly written code.
+ */
+export async function generateGroupInviteCode(groupId: string): Promise<string> {
+  const code = generateInviteCode();
+  await updateDoc(doc(db, GROUPS_COLLECTION, groupId), { inviteCode: code });
+  return code;
+}
+
+/**
+ * Promote or demote a group member's role.
+ * Allowed by Firestore rules for: OUT root admins (isAdmin) + existing group admins (promote only) + group owner.
+ */
+export async function setMemberRole(
+  groupId: string,
+  uid: string,
+  role: 'member' | 'admin',
+): Promise<void> {
+  const memberRef = doc(db, GROUPS_COLLECTION, groupId, 'members', uid);
+  await updateDoc(memberRef, { role });
 }
 
 /**
