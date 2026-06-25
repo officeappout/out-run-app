@@ -3,7 +3,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 
 const LABEL_MAP: Record<string, string> = {

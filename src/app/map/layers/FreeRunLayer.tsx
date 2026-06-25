@@ -28,6 +28,7 @@ import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/pl
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
 import type { SessionPolicy, Participant } from '@/features/workout-engine/shared/types/session-policy';
 import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
+import InviteRunButton from '@/features/workout-engine/players/running/components/FreeRun/InviteRunButton';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import MainMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/MainMetrics';
 import LapMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/LapMetrics';
@@ -202,6 +203,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     sideRailParticipants={sideRailParticipants}
                     onSelectParticipant={handleSelectParticipant}
                   />
+                  <InviteRunButton activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'} />
                   {/* Group count badge — below RouteStoryBar (~68px from top). */}
                   {sideRailParticipants.length > 0 && (
                     <div
@@ -238,6 +240,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
           ) : (
             /* ── Browse mode — pre-run UI ─────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none">
+              <InviteRunButton activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'} />
               {/* Mode toggle (discover / free) */}
               <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-0 right-0 z-30 px-4 pointer-events-auto">
                 <div className="max-w-xs mx-auto flex bg-white/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-100 overflow-hidden">

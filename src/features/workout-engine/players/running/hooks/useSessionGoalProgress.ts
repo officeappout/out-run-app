@@ -23,7 +23,7 @@
  */
 
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import { useRunningPlayer } from '../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 
 export interface SessionGoalProgress {
   /** 0–1, clamped. */

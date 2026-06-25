@@ -27,7 +27,7 @@
 
 import React from 'react';
 import { Flag, Clock, Navigation, MapPin } from 'lucide-react';
-import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useCommuteEta } from './useCommuteEta';
 
 const ACCENT = '#00ADEF';

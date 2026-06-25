@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRunningPlayer } from '../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 
 export const RunModeSelector = () => {
   // שורה קריטית: כאן אנחנו מתחברים ל"מוח" המרכזי (Store)

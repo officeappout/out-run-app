@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useSessionStore } from '../../../core/store/useSessionStore';
-import { useRunningPlayer } from '../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '../../../core/utils/formatPace';
 import type { RunBlock } from '../types/run-block.type';
 

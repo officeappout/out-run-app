@@ -82,9 +82,10 @@ export interface MapShellProps {
 // ── Inner orchestrator (requires MapModeProvider in tree) ─────────────────────
 interface MapShellInnerProps {
   spotFocus?: { lat: number; lng: number } | null;
+  initialOpenRun?: string | null;
 }
 
-function MapShellInner({ spotFocus }: MapShellInnerProps) {
+function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
   const routeZones = useRunningPlayer((s) => s.routeZones);
@@ -509,7 +510,7 @@ function MapShellInner({ spotFocus }: MapShellInnerProps) {
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
       {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
@@ -612,6 +613,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const router = useRouter();
   const searchParams = useSearchParams();
   const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
+  const initialOpenRun = searchParams.get('openRun'); // 'running' | 'walking' | null
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
 
@@ -634,9 +636,11 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   // Universal identity gate: the map requires a name before rendering.
   // Without a name, the presence heartbeat silently skips and the user is
   // invisible — redirect to complete the identity step instead.
+  // MAP_ONLY users (anonymous explore path + run-invite guests) are intentionally
+  // nameless — they bypass this gate.
   useEffect(() => {
     if (!hasHydrated) return;
-    if (profile && !profile.core?.name) {
+    if (profile && !profile.core?.name && profile.onboardingPath !== 'MAP_ONLY') {
       router.replace('/onboarding-new/profile');
     }
   }, [hasHydrated, profile, router]);
@@ -687,7 +691,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
       <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-        <MapShellInner spotFocus={spotFocus ?? null} />
+        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} />
       </MapModeProvider>
 
       {/* Location gate — high z-index overlay, not a tree gate */}

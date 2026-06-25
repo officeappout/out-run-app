@@ -48,7 +48,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause, Play, Square, RotateCcw } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import LongPressCircleButton from '../shared/LongPressCircleButton';
 
 const LAP_TOAST_MS = 1800;

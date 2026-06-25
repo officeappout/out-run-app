@@ -234,7 +234,7 @@ export default function GatewayPage() {
     localStorage.removeItem('pending_session_token');
 
     try {
-      const { groupId, attendanceId } = await consumeSessionInvitation(
+      const { groupId, attendanceId, source, activityType } = await consumeSessionInvitation(
         pendingToken,
         uid,
         { name: displayName, ...(photoURL ? { photoURL } : {}) },
@@ -243,10 +243,25 @@ export default function GatewayPage() {
       // user_memberships is confirmed written (consumeSessionInvitation succeeded).
       useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, '');
       useSharedSession.getState().setMembershipReady();
-      // Open community page with group drawer — user sees live banner and can tap "הצטרף לאימון"
+
+      if (source === 'run-invite' && activityType) {
+        // Write pending_run_invite so DiscoverLayer can restore partner context
+        // if the page reloads after navigation (Zustand reset on iOS hard-close).
+        // 🔴 KEY CLEANUP: pending_session_token already removed above; this key
+        // is consumed + deleted by DiscoverLayer on mount.
+        localStorage.setItem(
+          'pending_run_invite',
+          JSON.stringify({ groupId, attendanceId, activityType, source }),
+        );
+        return `/map?openRun=${activityType}`;
+      }
+
+      // Standard group session: open community page with group drawer.
       return `/community?groupId=${groupId}`;
     } catch (e) {
       console.error('[Gateway] session invite consume failed:', e);
+      // 🔴 KEY CLEANUP: clear stale run invite if consume failed
+      localStorage.removeItem('pending_run_invite');
       return '/map';
     }
   };

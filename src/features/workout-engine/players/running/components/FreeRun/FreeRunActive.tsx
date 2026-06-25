@@ -39,6 +39,7 @@ import RunLapsList from './RunLapsList';
 import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
+import InviteRunButton from './InviteRunButton';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 import { useGroupSessionGoal } from '../../hooks/useGroupSessionGoal';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
@@ -409,6 +410,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
         }
       </MetricsDrawer>
 
+      <InviteRunButton />
       <WorkoutControlCluster />
       <LapSnapshotOverlay />
       <WorkoutSettingsDrawer

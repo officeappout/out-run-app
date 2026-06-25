@@ -32,6 +32,22 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 
 ---
 
+## Verification-First Rules (learned from recurring bugs)
+
+**עיקרון-על: "נבנה" / "TSC נקי" ≠ עובד. תמיד לאמת על הקוד החי לפני שמסמנים done.**
+
+1. **אמת קומפוננטה חיה לפני חיווט UI.** לפני הוספת רכיב למסך — ודא איזו קומפוננטה *באמת* מרונדרת במצב היעד (trace `mode` + mount-log זמני). יש כפילי legacy ששמם מטעה (דוגמה: `FreeRunActive` ↔ `FreeRunLayer`). אל תסמוך על שם הקובץ בלבד.
+2. **אמת מקור-אמת לפני קריאת state.** לפני קריאת שדה מ-store — grep לכל ה-setters שלו. אם אף קוד חי לא כותב אליו, זה לא מקור האמת (דוגמה: `useRunningPlayer.activityType` תמיד `'running'` — ה-setter מוגדר אבל אף אחד לא קורא לו).
+3. **בדוק על המסך, לא רק TSC.** אחרי שינוי UI — smoke ידני: הרכיב מופיע? הערך הנכון עובר? קומפילציה נקייה לא מוכיחה רינדור.
+4. **stale code = החשוד מספר 1.** אם משהו "לא עובד" — קודם ודא שהקוד החדש נטען: restart dev, hard-refresh, ו-`git status` שהשינוי בעץ העבודה ובענף הנכון.
+5. **מדוד, אל תנחש.** לבאג UI/CSS — קרא ערכים אמיתיים (computed DOM, `getBoundingClientRect`) לפני שמציעים תיקון.
+6. **זהה ונקה legacy.** כשנוגעים בפיצ'ר — סמן מי חי ומי מת, ונקה כפילים. קוד מת עם שם דומה לקוד חי הוא פצצת זמן.
+7. **אסור להחליש חוקי Firestore.** תקן בצד הנתונים / query / join, לא בחוקים. זכור: "rules are not filters" — ה-query חייב לתאום לצורת החוק.
+8. **§17 triple-write.** כל נתיב join עובר דרך `joinEngine` וכותב `user_memberships` *לפני* presence. אל תיצור נתיב join חדש שעוקף את זה.
+9. **היגיינת git.** אל תקמט לוגים / debug / קבצי `.claude/knowledge` לקומיט.
+
+---
+
 ## Tech Stack
 - **Frontend:** Next.js 14.2 App Router, TypeScript, Tailwind, ShadCN
 - **Mobile:** React + Capacitor (iOS/Android), Mapbox GL, HealthKit bridge plugin

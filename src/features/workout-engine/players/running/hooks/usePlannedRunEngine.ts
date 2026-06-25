@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRunningPlayer } from '../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useRunningConfigStore } from '../../../core/store/useRunningConfigStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { computeZones, formatPaceSeconds } from '../../../core/services/running-engine.service';

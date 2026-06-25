@@ -23,7 +23,7 @@
  */
 
 import React from 'react';
-import { useRunningPlayer } from '../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '../../../core/store/useSessionStore';
 
 const PRIMARY = '#0EA5E9';

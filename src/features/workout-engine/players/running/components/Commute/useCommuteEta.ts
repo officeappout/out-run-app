@@ -32,7 +32,7 @@
  */
 
 import { useMemo } from 'react';
-import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 
 // 30 m radius — matches the spec used elsewhere for "user is on the
 // route". Tighter and we'd thrash the arrival flag on GPS jitter at

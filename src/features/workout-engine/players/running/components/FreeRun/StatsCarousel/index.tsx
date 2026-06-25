@@ -71,7 +71,8 @@ export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps
   return (
     <div
       className="relative w-full overflow-hidden"
-      style={{ fontFamily: 'var(--font-simpler)' }}
+      style={{ fontFamily: 'var(--font-simpler)', minHeight: 240 }}
+      dir="ltr"
     >
       {/* ── Slide region ─────────────────────────────────────────────────
           Wraps the slide strip + the drag overlay so the overlay's

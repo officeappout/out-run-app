@@ -35,6 +35,8 @@ export interface GroupInvitationDoc {
   expiresAt: Timestamp;
   maxUses?: number;
   useCount: number;
+  source?: 'run-invite';
+  activityType?: 'running' | 'walking';
 }
 
 export interface SessionMeta {
@@ -126,7 +128,7 @@ export async function consumeSessionInvitation(
   token: string,
   uid: string,
   userProfile: { name: string; photoURL?: string },
-): Promise<{ groupId: string; attendanceId: string }> {
+): Promise<{ groupId: string; attendanceId: string; source?: 'run-invite'; activityType?: 'running' | 'walking' }> {
   const snap = await getDoc(doc(db, 'group_invitations', token));
   if (!snap.exists()) throw new Error('invitation-not-found');
 
@@ -139,7 +141,7 @@ export async function consumeSessionInvitation(
     throw new Error('invitation-max-uses-reached');
   }
 
-  const { groupId, attendanceId } = data;
+  const { groupId, attendanceId, source, activityType } = data;
 
   // Increment useCount on the invitation doc
   await updateDoc(doc(db, 'group_invitations', token), {
@@ -205,5 +207,5 @@ export async function consumeSessionInvitation(
     throw new Error(`session-token-server-error-${sessionTokenRes.status}`);
   }
 
-  return { groupId, attendanceId };
+  return { groupId, attendanceId, source, activityType };
 }

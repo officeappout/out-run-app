@@ -481,7 +481,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     });
     
     set({ laps: updatedLaps });
-    
+
     // Show snapshot if we have a completed lap with data
     if (completedLapData && completedLapData.distanceMeters > 0) {
       // Save the completed lap and show snapshot

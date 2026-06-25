@@ -54,28 +54,38 @@ export default function SessionTokenPage() {
       }
 
       try {
-        const { groupId, attendanceId } = await consumeSessionInvitation(token, user.uid, {
+        const { groupId, attendanceId, source, activityType } = await consumeSessionInvitation(token, user.uid, {
           name: user.displayName ?? 'משתמש',
           ...(user.photoURL ? { photoURL: user.photoURL } : {}),
         });
 
         localStorage.removeItem('pending_session_token');
 
-        // Set up group session context — onSnapshot will populate memberIds/profiles.
-        // user_memberships is now confirmed written (consumeSessionInvitation succeeded),
-        // so we can immediately ungate the presence query via setMembershipReady().
-        useSharedSession.getState().joinViaDeepLink(
-          groupId,
-          attendanceId,
-          [],
-          {},
-          invitation.groupName,
-        );
-        useSharedSession.getState().setMembershipReady();
+        if (source === 'run-invite' && activityType) {
+          // Run invite: write pending_run_invite so DiscoverLayer can restore
+          // partner context if the page reloads (Zustand reset on iOS hard-close).
+          localStorage.setItem(
+            'pending_run_invite',
+            JSON.stringify({ groupId, attendanceId, activityType, source }),
+          );
 
-        // Navigate to community page and open group drawer via ?groupId= deep-link support.
-        // From the drawer the user sees the live session banner and can tap "הצטרף לאימון".
-        router.push(`/community?groupId=${groupId}`);
+          useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, invitation.groupName);
+          useSharedSession.getState().setMembershipReady();
+
+          router.push(`/map?openRun=${activityType}`);
+        } else {
+          // Standard group session: set context then go to community drawer.
+          useSharedSession.getState().joinViaDeepLink(
+            groupId,
+            attendanceId,
+            [],
+            {},
+            invitation.groupName,
+          );
+          useSharedSession.getState().setMembershipReady();
+
+          router.push(`/community?groupId=${groupId}`);
+        }
       } catch (err) {
         console.error('[SessionTokenPage] consume failed:', err);
         if (err instanceof Error && err.message === 'invitation-expired') {
@@ -121,28 +131,39 @@ export default function SessionTokenPage() {
   }
 
   // ── Session preview ──────────────────────────────────────────────────────────
+  const isRunInvite = invitation.source === 'run-invite';
+  const heroEmoji = isRunInvite
+    ? (invitation.activityType === 'walking' ? '🚶' : '🏃')
+    : '👥';
+  const subtitle = isRunInvite
+    ? (invitation.activityType === 'walking' ? 'הוזמנת ללכת ביחד' : 'הוזמנת לרוץ ביחד')
+    : 'הוזמנת להצטרף לאימון';
+  const ctaLabel = isRunInvite ? 'בוא/י לרוץ ביחד' : 'הצטרפ/י לאימון';
+
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col" dir="rtl">
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
         <div className="w-20 h-20 rounded-3xl bg-white/10 flex items-center justify-center text-4xl">
-          🏃
+          {heroEmoji}
         </div>
         <div>
           <h1 className="text-white text-2xl font-black mb-1">{invitation.groupName}</h1>
-          <p className="text-white/60 text-sm">הוזמנת להצטרף לאימון</p>
+          <p className="text-white/60 text-sm">{subtitle}</p>
         </div>
 
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <div className="flex items-center gap-3 bg-white/8 rounded-xl px-4 py-3">
-            <Calendar className="w-4 h-4 text-white/60 flex-shrink-0" />
-            <span className="text-white text-sm">{invitation.sessionDate}</span>
+        {!isRunInvite && (
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <div className="flex items-center gap-3 bg-white/8 rounded-xl px-4 py-3">
+              <Calendar className="w-4 h-4 text-white/60 flex-shrink-0" />
+              <span className="text-white text-sm">{invitation.sessionDate}</span>
+            </div>
+            <div className="flex items-center gap-3 bg-white/8 rounded-xl px-4 py-3">
+              <Clock className="w-4 h-4 text-white/60 flex-shrink-0" />
+              <span className="text-white text-sm">{invitation.sessionTime}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 bg-white/8 rounded-xl px-4 py-3">
-            <Clock className="w-4 h-4 text-white/60 flex-shrink-0" />
-            <span className="text-white text-sm">{invitation.sessionTime}</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* CTA */}
@@ -153,7 +174,7 @@ export default function SessionTokenPage() {
           className="w-full rounded-2xl py-4 text-black font-black text-lg disabled:opacity-50"
           style={{ background: '#FFFFFF' }}
         >
-          {joining ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'הצטרפ/י לאימון'}
+          {joining ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : ctaLabel}
         </button>
       </div>
     </div>

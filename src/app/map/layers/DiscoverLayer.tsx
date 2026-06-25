@@ -17,6 +17,7 @@ import RouteDetailSheet from '@/features/parks/client/components/route-preview/R
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
 import { useUserStore } from '@/features/user';
 import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
@@ -81,9 +82,10 @@ interface DiscoverLayerProps {
   logic: MapLogic;
   flyoverComplete: boolean;
   devSim?: DevSimulationState;
+  initialOpenRun?: string | null;
 }
 
-export default function DiscoverLayer({ logic, flyoverComplete, devSim }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun }: DiscoverLayerProps) {
   const { setMode } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -121,6 +123,43 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim }: Discov
       setRouteCarouselConfig(null);
     }
   }, [mapMode]);
+
+  // ── Run-invite deep-link: open FreeRunDrawer pre-configured ───────────────
+  // Triggered when the guest arrives via /map?openRun=running|walking after
+  // tapping the share link. Also consumes pending_run_invite from localStorage
+  // to restore partner session context if Zustand was reset (iOS hard-close).
+  //
+  // Graceful fallback: if localStorage is malformed or membership expired,
+  // the drawer still opens — the user can run alone without partner visibility.
+  const openRunConsumedRef = useRef(false);
+  useEffect(() => {
+    if (!initialOpenRun || openRunConsumedRef.current) return;
+    openRunConsumedRef.current = true;
+
+    // Pre-select host's activity type (default, not locked — user can change it)
+    logic.handleActivityChange(initialOpenRun as ActivityType);
+    setMapMode('freeRun');
+
+    // Consume pending_run_invite — restore partner context after Zustand reset
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('pending_run_invite') : null;
+    if (!raw) return;
+    localStorage.removeItem('pending_run_invite'); // 🔴 KEY CLEANUP — consume immediately
+    try {
+      const invite = JSON.parse(raw) as {
+        groupId?: string;
+        attendanceId?: string;
+        activityType?: string;
+        source?: string;
+      };
+      if (invite.source === 'run-invite' && invite.groupId && invite.attendanceId) {
+        useSharedSession.getState().joinViaDeepLink(invite.groupId, invite.attendanceId, [], {}, '');
+        useSharedSession.getState().setMembershipReady();
+      }
+    } catch {
+      // Malformed JSON — FreeRunDrawer is already open, just no partner context
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpenRun]);
 
   // ── Commute (A-to-B) flow state ───────────────────────────────────────────
   // `commuteRouteConfig` mirrors `routeCarouselConfig` for the commute

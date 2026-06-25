@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { useRunningPlayer } from '../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { FreeRunView } from './FreeRunView';
 import PlannedRun from './PlannedRun';
 import GuidedRouteView from './GuidedRouteView';

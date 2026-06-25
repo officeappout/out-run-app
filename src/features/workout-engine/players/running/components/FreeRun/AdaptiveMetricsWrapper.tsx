@@ -36,7 +36,7 @@ import { motion } from 'framer-motion';
 import type { CSSProperties } from 'react';
 import { Settings, Flag } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import StatsCarousel from './StatsCarousel';
 import CommuteStatsCarousel from '../Commute/CommuteStatsCarousel';
 import { useCommuteEta } from '../Commute/useCommuteEta';

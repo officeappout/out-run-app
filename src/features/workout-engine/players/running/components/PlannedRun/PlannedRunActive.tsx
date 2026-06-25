@@ -12,7 +12,7 @@ import {
   Square,
 } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import { useRunningPlayer } from '../../store/useRunningPlayer';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
