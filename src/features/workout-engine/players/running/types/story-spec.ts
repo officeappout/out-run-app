@@ -29,6 +29,15 @@ export interface StoryContext {
   sessionGoal: SessionGoal | null;
   selectedUid: string | null;
   standings: StandingsResult | null;
+  /** Collective progress — null when no group session or no session goal.
+   *  groupGoalTarget is computed as groupActiveCount × goalPerPerson (MVP assumption:
+   *  all active participants share the same session goal). When per-partner goal values
+   *  become available in presence payload, replace with a true sum without changing
+   *  the StorySpec — only the computation in RunStoryBar changes. */
+  groupTotalDistance: number | null;  // km — self + partners
+  groupGoalTarget: number | null;     // km — groupActiveCount × sessionGoal.value
+  groupActiveCount: number | null;    // partners_with_distance + 1 (self); null = no partners tracked
+  groupGoalUnit: 'distance' | 'time' | null;
 }
 
 export interface StorySpec {

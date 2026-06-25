@@ -128,7 +128,30 @@ export default function RunStoryBar({ isPaused = false }: RunStoryBarProps) {
     useMapStore();
 
   const standings = computeStandings(totalDistance, selectedParticipantUid, groupParticipants);
-  const ctx = { totalDistance, totalDuration, currentPace, sessionGoal, selectedUid: selectedParticipantUid, standings };
+
+  // Collective fields — only meaningful when partners are present.
+  // groupActiveCount: partners whose distanceKm > 0, plus self (always active here).
+  // groupGoalTarget: MVP ×N — replace with per-partner sum once goalValue lands in presence.
+  const hasPartners = groupParticipants.length > 0;
+  const partnersWithDistance = groupParticipants.filter((p) => p.distanceKm > 0);
+  const groupActiveCount = hasPartners ? partnersWithDistance.length + 1 : null;
+  const groupTotalDistance = hasPartners
+    ? totalDistance + groupParticipants.reduce((s, p) => s + p.distanceKm, 0)
+    : null;
+  const groupGoalUnit: 'distance' | 'time' | null =
+    sessionGoal?.type === 'distance' ? 'distance'
+    : sessionGoal?.type === 'time' ? 'time'
+    : null;
+  const groupGoalTarget =
+    groupGoalUnit === 'distance' && groupActiveCount !== null && sessionGoal
+      ? groupActiveCount * sessionGoal.value
+      : null;
+
+  const ctx = {
+    totalDistance, totalDuration, currentPace, sessionGoal,
+    selectedUid: selectedParticipantUid, standings,
+    groupTotalDistance, groupGoalTarget, groupActiveCount, groupGoalUnit,
+  };
   const stories = buildRunStories(ctx);
 
   const safeIdx = Math.min(activeStoryIndex, stories.length - 1);

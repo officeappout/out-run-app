@@ -789,7 +789,14 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                         </span>
                       )}
                       {(slot.images ?? []).length > 0 && <span className="bg-pink-50 text-pink-600 px-1.5 py-0.5 rounded-full">🖼 {slot.images!.length} תמונות</span>}
-                      {!slot.label && !(slot.tags ?? []).length && slot.price == null && !slot.maxParticipants && !slot.location?.address && !(slot.images ?? []).length && (
+                      {slot.workoutGoal && (
+                        <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">
+                          🎯 {slot.workoutGoal.type === 'distance'
+                            ? `${slot.workoutGoal.value.toFixed(1)} ק״מ`
+                            : `${Math.round(slot.workoutGoal.value / 60)} דק׳`}
+                        </span>
+                      )}
+                      {!slot.label && !(slot.tags ?? []).length && slot.price == null && !slot.maxParticipants && !slot.location?.address && !(slot.images ?? []).length && !slot.workoutGoal && (
                         <span className="text-gray-300 italic">הגדרות ברירת מחדל ישמשו</span>
                       )}
                     </div>
@@ -797,6 +804,66 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     {/* Expanded per-slot metadata */}
                     {isExpanded && (
                       <div className="border-t border-gray-200 p-3 space-y-3 bg-white">
+                        {/* Workout Goal */}
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 mb-1 block">
+                            יעד אימון <span className="text-gray-300 font-normal">(ברירת מחדל לכל משתתף)</span>
+                          </label>
+                          <div className="flex gap-1 mb-2">
+                            {(['distance', 'time', undefined] as const).map((type) => {
+                              const label = type === 'distance' ? 'מרחק' : type === 'time' ? 'זמן' : 'ללא יעד';
+                              const isSel = type === undefined ? !slot.workoutGoal : slot.workoutGoal?.type === type;
+                              return (
+                                <button
+                                  key={String(type)}
+                                  type="button"
+                                  onClick={() => {
+                                    if (type === undefined) {
+                                      updateSlot({ workoutGoal: undefined });
+                                    } else {
+                                      const defaultVal = type === 'distance' ? 5 : 30 * 60;
+                                      updateSlot({
+                                        workoutGoal: {
+                                          kind: 'goal',
+                                          type,
+                                          value: slot.workoutGoal?.type === type ? slot.workoutGoal.value : defaultVal,
+                                        },
+                                      });
+                                    }
+                                  }}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                                    isSel ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {slot.workoutGoal && (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min={slot.workoutGoal.type === 'distance' ? 1 : 15 * 60}
+                                max={slot.workoutGoal.type === 'distance' ? 20 : 120 * 60}
+                                step={slot.workoutGoal.type === 'distance' ? 0.5 : 5 * 60}
+                                value={slot.workoutGoal.value}
+                                onChange={(e) =>
+                                  updateSlot({
+                                    workoutGoal: { ...slot.workoutGoal!, value: Number(e.target.value) },
+                                  })
+                                }
+                                className="flex-1 accent-emerald-500"
+                              />
+                              <span className="text-xs font-bold text-emerald-600 w-16 text-center tabular-nums">
+                                {slot.workoutGoal.type === 'distance'
+                                  ? `${slot.workoutGoal.value.toFixed(1)} ק״מ`
+                                  : `${Math.round(slot.workoutGoal.value / 60)} דק׳`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
                         {/* Row: Label, Max Participants, Price */}
                         <div className="grid grid-cols-3 gap-2">
                           <div>

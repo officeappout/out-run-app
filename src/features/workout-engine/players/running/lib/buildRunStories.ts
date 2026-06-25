@@ -86,12 +86,38 @@ const versusStory: StorySpec = {
   visibleWhen: (ctx) => ctx.selectedUid !== null && (ctx.standings?.rival ?? null) !== null,
 };
 
+const groupAggregateStory: StorySpec = {
+  id: 'group-distance',
+  kind: 'group-aggregate',
+  label: 'יחד',
+  render: 'fill',
+  getValue: (ctx) => {
+    if (ctx.groupTotalDistance === null || ctx.groupGoalTarget === null) return '—';
+    const current = ctx.groupTotalDistance.toFixed(2);
+    const target = ctx.groupGoalTarget.toFixed(1);
+    return `יחד ${current} / ${target} ק״מ · ${ctx.groupActiveCount ?? 0} משתתפים`;
+  },
+  getProgress: (ctx) => {
+    if (ctx.groupTotalDistance === null || !ctx.groupGoalTarget) return null;
+    return Math.min(100, (ctx.groupTotalDistance / ctx.groupGoalTarget) * 100);
+  },
+  // Hidden when unit is not distance (partner durations not tracked in presence)
+  // or when no partners are tracked (groupActiveCount null → no group session).
+  visibleWhen: (ctx) =>
+    ctx.groupGoalUnit === 'distance' &&
+    ctx.groupGoalTarget !== null &&
+    ctx.groupActiveCount !== null,
+};
+
 // ── Builder (pure function — add new story consts + push here) ─────────────────
 
 export function buildRunStories(ctx: StoryContext): StorySpec[] {
   const stories: StorySpec[] = [distanceStory, timeStory];
   if (versusStory.visibleWhen(ctx)) {
     stories.push(versusStory);
+  }
+  if (groupAggregateStory.visibleWhen(ctx)) {
+    stories.push(groupAggregateStory);
   }
   return stories;
 }
