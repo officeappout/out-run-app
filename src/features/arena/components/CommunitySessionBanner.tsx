@@ -321,6 +321,23 @@ export default function CommunitySessionBanner({
     );
   }
 
+  // ── goal chip (reused across all phases) ─────────────────────────────────
+
+  function renderGoalChip(dark = false) {
+    if (!session.slot.workoutGoal) return null;
+    const { type, value } = session.slot.workoutGoal;
+    const label = type === 'distance' ? `${value.toFixed(1)} ק״מ` : `${Math.round(value / 60)} דק׳`;
+    return (
+      <span
+        className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+          dark ? 'bg-white/20 text-white/80' : 'bg-white border border-gray-200 text-gray-600'
+        }`}
+      >
+        🎯 יעד אישי · {label}
+      </span>
+    );
+  }
+
   // ── phase renders ──────────────────────────────────────────────────────────
 
   function renderFar() {
@@ -343,13 +360,7 @@ export default function CommunitySessionBanner({
             {timeLabel}
             {price ? <span className="text-amber-600 font-bold">· ₪{price}</span> : null}
           </p>
-          {session.slot.workoutGoal && (
-            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600">
-              🎯 יעד אישי · {session.slot.workoutGoal.type === 'distance'
-                ? `${session.slot.workoutGoal.value.toFixed(1)} ק״מ`
-                : `${Math.round(session.slot.workoutGoal.value / 60)} דק׳`}
-            </span>
-          )}
+          {renderGoalChip()}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -409,6 +420,7 @@ export default function CommunitySessionBanner({
             <p className="text-[11px] text-gray-600 truncate">
               {communityMsg.subText || communityMsg.text || 'מפגש קהילתי בקרוב'}
             </p>
+            {renderGoalChip()}
           </div>
           {countdown && (
             <span className="px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 text-[12px] font-black flex-shrink-0">
@@ -471,6 +483,7 @@ export default function CommunitySessionBanner({
             <p className="text-[11px] text-emerald-700 font-bold">
               {countdown ?? 'המפגש החל!'}
             </p>
+            {renderGoalChip()}
           </div>
           {price ? (
             <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black flex-shrink-0">
@@ -561,6 +574,7 @@ export default function CommunitySessionBanner({
                 פעיל{activeCount > 0 ? ` · ${activeCount} כאן` : ''}
               </p>
             </div>
+            {renderGoalChip(true)}
           </div>
           {totalXP ? (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 flex-shrink-0">

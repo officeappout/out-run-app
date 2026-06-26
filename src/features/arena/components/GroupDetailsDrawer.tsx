@@ -694,7 +694,13 @@ export default function GroupDetailsDrawer({
                       )}
                     </div>
 
-
+                    {nextSlot?.workoutGoal && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-cyan-200 text-[11px] font-bold text-cyan-700">
+                        🎯 יעד אישי · {nextSlot.workoutGoal.type === 'distance'
+                          ? `${nextSlot.workoutGoal.value.toFixed(1)} ק״מ`
+                          : `${Math.round(nextSlot.workoutGoal.value / 60)} דק׳`}
+                      </span>
+                    )}
 
                     {/* Book / Waitlist / Cancel button (only if joined) */}
                     {isJoined && (
