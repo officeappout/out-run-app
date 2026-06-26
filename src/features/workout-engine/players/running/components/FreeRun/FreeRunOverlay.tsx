@@ -39,6 +39,8 @@ import LapSnapshotOverlay from './LapSnapshotOverlay';
 import WorkoutSettingsDrawer from './WorkoutSettingsDrawer';
 import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
+import { useGroupSessionGoal } from '../../hooks/useGroupSessionGoal';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -314,6 +316,19 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
       !!s.guidedRouteId ||
       (Array.isArray(s.activeRoutePath) && s.activeRoutePath.length >= 2),
   );
+
+  // Bridge: reads sessionGoal + myPersonalGoal from shared session store,
+  // resolves effective goal, and writes it into useRunningPlayer.
+  useGroupSessionGoal();
+
+  // Safety-clear: remove stale group session context if this overlay mounts
+  // while a group session is stored but no longer active (force-quit / abnormal exit).
+  useEffect(() => {
+    const s = useSharedSession.getState();
+    if (s.groupId && s.phase !== 'active') {
+      s.clearGroupSession();
+    }
+  }, []);
 
   const goalProgress = useSessionGoalProgress();
   const sessionStatus = useSessionStore((s) => s.status);
