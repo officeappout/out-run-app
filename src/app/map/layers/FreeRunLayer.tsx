@@ -240,7 +240,6 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
           ) : (
             /* ── Browse mode — pre-run UI ─────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none">
-              <InviteRunButton activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'} />
               {/* Mode toggle (discover / free) */}
               <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-0 right-0 z-30 px-4 pointer-events-auto">
                 <div className="max-w-xs mx-auto flex bg-white/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-100 overflow-hidden">

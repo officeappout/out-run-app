@@ -80,8 +80,8 @@ export default function InviteRunButton({ activityType = 'running' }: InviteRunB
       aria-label="הזמן חבר לאימון"
       className="pointer-events-auto absolute flex items-center justify-center rounded-full active:scale-90 transition-transform disabled:opacity-60"
       style={{
-        top:    'calc(env(safe-area-inset-top, 0px) + 12px)',
-        right:  '12px',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 220px)',
+        right:  '16px',
         width:  44,
         height: 44,
         zIndex: 51,

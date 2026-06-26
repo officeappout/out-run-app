@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Play } from 'lucide-react';
+import { X, Play, UserPlus, Loader2 } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user';
 import { db, auth } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { createRunInvite } from '@/lib/workoutInvite';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
@@ -242,6 +244,79 @@ function GoalSummaryRow({
         aria-label="ערוך מטרת אימון"
       >
         ערוך
+      </button>
+    </div>
+  );
+}
+
+// ── Block 2b: InviteRow ────────────────────────────────────────────────────────
+// "הזמן חבר לאימון" — creates a run-invite link before the workout starts.
+// Placed between goal summary and entry buttons.
+
+function InviteRow({
+  activityType,
+}: {
+  activityType: 'running' | 'walking';
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const handleInvite = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { shareUrl, groupId, attendanceId, isNewGroup } =
+        await createRunInvite(activityType);
+
+      if (isNewGroup) {
+        const user = auth.currentUser;
+        const uid  = user?.uid ?? '';
+        const name = user?.displayName ?? 'אני';
+        const profiles = uid ? { [uid]: { name } } : {};
+        useSharedSession
+          .getState()
+          .startGroupSession(groupId, attendanceId, uid ? [uid] : [], profiles, '');
+      }
+
+      const text =
+        activityType === 'walking'
+          ? `בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`
+          : `בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ text }).catch(() => {
+          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+      }
+    } catch (err) {
+      console.error('[InviteRow] invite failed:', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="px-5 mb-4">
+      <button
+        type="button"
+        onClick={handleInvite}
+        disabled={busy}
+        className="w-full flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
+        style={{
+          height: 44,
+          backgroundColor: '#F0F9FF',
+          border: '1px solid #BAE6FD',
+          color: ACCENT,
+        }}
+      >
+        {busy
+          ? <Loader2 size={16} className="animate-spin" />
+          : <UserPlus size={16} strokeWidth={2.5} />
+        }
+        <span className="text-[13px] font-black">
+          {busy ? 'יוצר קישור...' : 'הזמן חבר לאימון'}
+        </span>
       </button>
     </div>
   );
@@ -812,6 +887,11 @@ export default function FreeRunDrawer({
               distanceValue={distanceValue}
               caloriesValue={caloriesValue}
               onEdit={() => setGoalSheetOpen(true)}
+            />
+
+            {/* ── Block 2b: Invite a friend ────────────────────────────────── */}
+            <InviteRow
+              activityType={selectedActivity === 'walking' ? 'walking' : 'running'}
             />
 
             {/* ── Block 3: Entry buttons ───────────────────────────────────── */}
