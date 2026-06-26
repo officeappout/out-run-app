@@ -17,6 +17,7 @@ import {
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { getParksByAuthority } from '@/features/parks';
 import { CommunityGroup, CommunityGroupCategory, CommunityEvent, ScheduleSlot, TargetGender } from '@/types/community.types';
+import { WorkoutGoalEditor } from '@/features/arena/components/WorkoutGoalEditor';
 import { Park } from '@/types/admin-types';
 import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -805,64 +806,11 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     {isExpanded && (
                       <div className="border-t border-gray-200 p-3 space-y-3 bg-white">
                         {/* Workout Goal */}
-                        <div>
-                          <label className="text-[10px] font-bold text-gray-500 mb-1 block">
-                            יעד אימון <span className="text-gray-300 font-normal">(ברירת מחדל לכל משתתף)</span>
-                          </label>
-                          <div className="flex gap-1 mb-2">
-                            {(['distance', 'time', undefined] as const).map((type) => {
-                              const label = type === 'distance' ? 'מרחק' : type === 'time' ? 'זמן' : 'ללא יעד';
-                              const isSel = type === undefined ? !slot.workoutGoal : slot.workoutGoal?.type === type;
-                              return (
-                                <button
-                                  key={String(type)}
-                                  type="button"
-                                  onClick={() => {
-                                    if (type === undefined) {
-                                      updateSlot({ workoutGoal: undefined });
-                                    } else {
-                                      const defaultVal = type === 'distance' ? 5 : 30 * 60;
-                                      updateSlot({
-                                        workoutGoal: {
-                                          kind: 'goal',
-                                          type,
-                                          value: slot.workoutGoal?.type === type ? slot.workoutGoal.value : defaultVal,
-                                        },
-                                      });
-                                    }
-                                  }}
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
-                                    isSel ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {slot.workoutGoal && (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min={slot.workoutGoal.type === 'distance' ? 1 : 15 * 60}
-                                max={slot.workoutGoal.type === 'distance' ? 20 : 120 * 60}
-                                step={slot.workoutGoal.type === 'distance' ? 0.5 : 5 * 60}
-                                value={slot.workoutGoal.value}
-                                onChange={(e) =>
-                                  updateSlot({
-                                    workoutGoal: { ...slot.workoutGoal!, value: Number(e.target.value) },
-                                  })
-                                }
-                                className="flex-1 accent-emerald-500"
-                              />
-                              <span className="text-xs font-bold text-emerald-600 w-16 text-center tabular-nums">
-                                {slot.workoutGoal.type === 'distance'
-                                  ? `${slot.workoutGoal.value.toFixed(1)} ק״מ`
-                                  : `${Math.round(slot.workoutGoal.value / 60)} דק׳`}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        <WorkoutGoalEditor
+                          value={slot.workoutGoal}
+                          onChange={(g) => updateSlot({ workoutGoal: g })}
+                          variant="admin"
+                        />
 
                         {/* Row: Label, Max Participants, Price */}
                         <div className="grid grid-cols-3 gap-2">

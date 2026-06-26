@@ -35,7 +35,8 @@ import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import CommunityAddressSearch from './CommunityAddressSearch';
 import MiniLocationPicker from '@/features/admin/components/MiniLocationPicker';
-import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot, LiveSessionPhase } from '@/types/community.types';
+import type { CommunityGroup, EventRegistration, SessionAttendance, GroupMember, ScheduleSlot, LiveSessionPhase, SessionGoalSpec } from '@/types/community.types';
+import { WorkoutGoalEditor } from './WorkoutGoalEditor';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import { useGroupLiveSession } from '@/features/arena/hooks/useGroupLiveSession';
@@ -1720,10 +1721,7 @@ function SlotEditorSheet({ group, slotIndex, onBack, onSaved, showToast }: SlotE
   const [time,        setTime]        = React.useState(slot?.time ?? '08:00');
   const [address,     setAddress]     = React.useState(initLoc.address ?? '');
   const [coords,      setCoords]      = React.useState({ lat: initLoc.lat ?? 31.7683, lng: initLoc.lng ?? 35.2137 });
-  const [goalType,    setGoalType]    = React.useState<'distance' | 'time' | null>(slot?.workoutGoal?.type ?? null);
-  const [goalValue,   setGoalValue]   = React.useState<number>(
-    slot?.workoutGoal?.value ?? (slot?.workoutGoal?.type === 'time' ? 30 * 60 : 5)
-  );
+  const [workoutGoal, setWorkoutGoal] = React.useState<SessionGoalSpec | undefined>(slot?.workoutGoal);
   const [saving,    setSaving]    = React.useState(false);
 
   const handleAddressSelect = ({ address: addr, coords: c }: { address: string; coords: { lat: number; lng: number } }) => {
@@ -1741,7 +1739,7 @@ function SlotEditorSheet({ group, slotIndex, onBack, onSaved, showToast }: SlotE
       dayOfWeek,
       time,
       location: { address, lat: coords.lat, lng: coords.lng },
-      workoutGoal: goalType ? { kind: 'goal', type: goalType, value: goalValue } : undefined,
+      workoutGoal,
     };
     const newSlots = slotIndex !== null
       ? group.scheduleSlots!.map((s, i) => (i === slotIndex ? newSlotData : s))
@@ -1818,56 +1816,11 @@ function SlotEditorSheet({ group, slotIndex, onBack, onSaved, showToast }: SlotE
         />
 
         {/* Workout Goal */}
-        <div>
-          <p className="text-xs font-bold text-gray-500 mb-2">יעד אימון <span className="font-normal text-gray-400">(ברירת מחדל לכל משתתף)</span></p>
-          <div className="flex gap-2 mb-3">
-            {([null, 'distance', 'time'] as const).map((type) => {
-              const label = type === null ? 'ללא יעד' : type === 'distance' ? '📍 מרחק' : '⏱ זמן';
-              const isSel = goalType === type;
-              return (
-                <button
-                  key={String(type)}
-                  type="button"
-                  onClick={() => {
-                    setGoalType(type);
-                    if (type === 'distance' && goalType !== 'distance') setGoalValue(5);
-                    if (type === 'time'     && goalType !== 'time')     setGoalValue(30 * 60);
-                  }}
-                  className={`flex-1 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 ${
-                    isSel
-                      ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          {goalType && (
-            <div className="bg-gray-50 rounded-2xl px-4 py-3 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">
-                  {goalType === 'distance' ? 'מרחק' : 'משך זמן'}
-                </span>
-                <span className="text-base font-black text-emerald-600 tabular-nums">
-                  {goalType === 'distance'
-                    ? `${goalValue.toFixed(1)} ק״מ`
-                    : `${Math.round(goalValue / 60)} דק׳`}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={goalType === 'distance' ? 1 : 15 * 60}
-                max={goalType === 'distance' ? 20 : 120 * 60}
-                step={goalType === 'distance' ? 0.5 : 5 * 60}
-                value={goalValue}
-                onChange={(e) => setGoalValue(Number(e.target.value))}
-                className="w-full accent-emerald-500"
-              />
-            </div>
-          )}
-        </div>
+        <WorkoutGoalEditor
+          value={workoutGoal}
+          onChange={setWorkoutGoal}
+          variant="app"
+        />
       </div>
 
       {/* Footer */}
