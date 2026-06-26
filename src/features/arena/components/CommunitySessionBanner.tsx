@@ -343,6 +343,13 @@ export default function CommunitySessionBanner({
             {timeLabel}
             {price ? <span className="text-amber-600 font-bold">· ₪{price}</span> : null}
           </p>
+          {session.slot.workoutGoal && (
+            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-600">
+              🎯 יעד אישי · {session.slot.workoutGoal.type === 'distance'
+                ? `${session.slot.workoutGoal.value.toFixed(1)} ק״מ`
+                : `${Math.round(session.slot.workoutGoal.value / 60)} דק׳`}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
