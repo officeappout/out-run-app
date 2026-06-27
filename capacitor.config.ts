@@ -13,15 +13,21 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // explicitly export APP_CHECK_DEBUG=true, so production builds are always safe.
 const appCheckDebug = process.env.APP_CHECK_DEBUG === 'true';
 
+// STAGING_URL overrides the production server URL for staging test builds.
+// Usage: npm run cap:sync:ios:staging  (sets STAGING_URL=https://staging.outrun.co.il)
+// Must be absent (or empty) in all production / CI builds — never commit a sync
+// artefact generated with STAGING_URL set.
+const serverUrl = process.env.STAGING_URL ?? 'https://outrun.co.il';
+
 const config: CapacitorConfig = {
   appId: 'co.il.appout.outrun',
   appName: 'Out Run',
-  webDir: 'capacitor-shell', 
+  webDir: 'capacitor-shell',
   bundledWebRuntime: false,
 
   server: {
     androidScheme: 'https',
-    url: 'https://outrun.co.il',
+    url: serverUrl,
     allowNavigation: ['outrun.co.il', '*.outrun.co.il'],
     cleartext: false,
   },
