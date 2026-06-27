@@ -61,6 +61,12 @@
 	<string>אפליקציית OUT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>אפליקציית OUT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל. האפליקציה אינה סורקת או אוספת תמונות אחרות בגלריה.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>אפליקציית OUT מבקשת גישה ליומן שלך כדי לסנכרן את לוח האימונים השבועי. הגישה מתבצעת רק לאחר אישורך המפורש.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>אפליקציית OUT מבקשת גישה ליומן שלך כדי לסנכרן את לוח האימונים השבועי. הגישה מתבצעת רק לאחר אישורך המפורש.</string>
+	<key>NSCalendarsWriteOnlyAccessDescription</key>
+	<string>אפליקציית OUT מבקשת רשות להוסיף אירועי אימון ליומן שלך. האפליקציה אינה ניגשת לאירועים קיימים.</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>co.il.appout.outrun.health.refresh</string>

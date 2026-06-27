@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import FirebaseCore
+import UserNotifications
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -18,6 +19,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
             FirebaseApp.configure()
         }
+
+        // Register for remote notifications so FirebaseMessaging can obtain an
+        // APNs token. Without this call the OS never provisions a token and
+        // FirebaseMessaging.getToken() hangs indefinitely (no aps-environment →
+        // APNs refuses the request silently). UNUserNotificationCenter.delegate
+        // must be set BEFORE the app finishes launching per Apple's guidance.
+        UNUserNotificationCenter.current().delegate = self
+        application.registerForRemoteNotifications()
 
         return true
     }
@@ -55,6 +64,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Feel free to add additional processing here, but if you want the App API to support
         // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
+
+}
+
+// MARK: - APNs + UNUserNotificationCenter delegate
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        ApplicationDelegateProxy.shared.application(
+            application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // Non-fatal — app runs without push notifications.
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .badge, .sound])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        ApplicationDelegateProxy.shared.userNotificationCenter(
+            center, didReceive: response, withCompletionHandler: completionHandler)
     }
 
 }

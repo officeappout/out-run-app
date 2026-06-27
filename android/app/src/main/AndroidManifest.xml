@@ -94,6 +94,11 @@
     <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
     <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED" />
 
+    <!-- Step-counter / activity sensor fallback for devices running Android < 10
+         or without Health Connect. On Android 10+ this is a runtime permission;
+         the plugin's requestPermissions() flow handles the runtime prompt. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
     <!-- Package visibility (Android 11 +): required to detect whether the
          Health Connect provider app is installed. Without this the
          HealthConnectClient.getSdkStatus() call returns SDK_UNAVAILABLE. -->
