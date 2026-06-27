@@ -75,6 +75,12 @@ export interface UserScheduleEntry {
   /** Denormalised community group display name — only when source === 'community'. */
   groupName?: string;
   /**
+   * True when the host scheduled this run solo (no members have joined yet at write
+   * time). Drives the group-badge visibility — solo entries hide the 👥 icon.
+   * NOT set for guest entries or real recurring group sessions.
+   */
+  isSoloScheduled?: boolean;
+  /**
    * Tombstone flag written by `removeScheduleEntry` when the last entry on a
    * recurring-template day is deleted.  When `true`, `hydrateFromTemplate`
    * skips the date so the deletion persists instead of being re-populated.

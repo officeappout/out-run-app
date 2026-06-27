@@ -80,11 +80,14 @@ export default function InviteRunButton({ activityType = 'running' }: InviteRunB
       aria-label="הזמן חבר לאימון"
       className="pointer-events-auto absolute flex items-center justify-center rounded-full active:scale-90 transition-transform disabled:opacity-60"
       style={{
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 220px)',
+        // Floats above WorkoutControlCluster (which sits at --session-bar-clearance).
+        // +74px = 62px cluster button height + 12px gap → no overlap.
+        // zIndex 55 keeps it above MetricsDrawer (z-52) even when the card covers this area.
+        bottom: 'calc(var(--session-bar-clearance, 88px) + 74px)',
         right:  '16px',
         width:  44,
         height: 44,
-        zIndex: 51,
+        zIndex: 55,
         background:    'rgba(0, 0, 0, 0.55)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',

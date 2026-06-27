@@ -66,7 +66,7 @@ export default function SessionTokenPage() {
           // partner context if the page reloads (Zustand reset on iOS hard-close).
           localStorage.setItem(
             'pending_run_invite',
-            JSON.stringify({ groupId, attendanceId, activityType, source }),
+            JSON.stringify({ token, groupId, attendanceId, activityType, source }),
           );
 
           useSharedSession.getState().joinViaDeepLink(groupId, attendanceId, [], {}, invitation.groupName);

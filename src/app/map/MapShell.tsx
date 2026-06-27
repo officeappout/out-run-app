@@ -527,7 +527,16 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
         sharedSession.groupId &&
         mode !== 'free_run' &&
         mode !== 'active' && (
-          <SessionLobbyOverlay onStartFreeRun={() => setMode('free_run')} />
+          <SessionLobbyOverlay
+            onStartFreeRun={() => {
+              logic.setWorkoutMode('free');
+              logic.startActiveWorkout();
+              setMode('free_run');
+            }}
+            ephemeralActivityType={
+              logic.preferences.activity === 'walking' ? 'walking' : 'running'
+            }
+          />
         )}
 
       {/* ══════ MILESTONE FEED ══════

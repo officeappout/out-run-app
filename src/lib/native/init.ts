@@ -357,6 +357,38 @@ async function attachPushAuthBridge(): Promise<void> {
       void initPushNotifications(user.uid, { silent: true }).catch((err) => {
         console.error('[native] initPushNotifications (silent) unhandled:', err);
       });
+
+      // Health: sync on every login if already granted; request on first login
+      // after onboarding is done (so the LifestyleWizard priming fires first for
+      // new users). If the user previously denied, PREF_KEY_ASKED is set but
+      // PREF_KEY_PERMISSIONS is not — we skip silently instead of nagging.
+      void (async () => {
+        try {
+          const { PREF_KEY_PERMISSIONS, PREF_KEY_ASKED, requestHealthPermissions, healthBridgeSyncNow } =
+            await import('@/lib/healthBridge/init');
+          const { Preferences } = await import('@capacitor/preferences');
+          const [{ value: prevGranted }, { value: prevAsked }] = await Promise.all([
+            Preferences.get({ key: PREF_KEY_PERMISSIONS }),
+            Preferences.get({ key: PREF_KEY_ASKED }),
+          ]);
+          if (prevGranted === '1') {
+            void healthBridgeSyncNow('login');
+          } else if (!prevAsked) {
+            // Only auto-request once onboarding is complete for this user
+            // (gateway_uid matches) so the OS sheet is never shown cold.
+            const { getOnboardingPrefAsync } = await import('@/lib/onboardingPrefs');
+            const gatewayUid = await getOnboardingPrefAsync('gateway_uid');
+            if (gatewayUid === user.uid) {
+              void requestHealthPermissions();
+            }
+          }
+          // prevAsked && !prevGranted → user denied → no-op.
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[native] health sign-in hook failed:', err);
+          }
+        }
+      })();
     } else if (lastUid) {
       // Sign-out: drop the previous owner's token from THEIR doc so a
       // queued notification can't reach the next user of this device.

@@ -12,9 +12,14 @@ import {
   type SessionMeta,
 } from '@/features/arena/services/group-invitation.service';
 import { setSessionPhase } from '@/features/arena/services/session-phase.service';
+import { createRunInvite } from '@/lib/workoutInvite';
 
 interface SessionLobbyOverlayProps {
   onStartFreeRun: () => void;
+  /** When set, lobby was created from a run-invite (not a scheduled strength session).
+   *  The host's share button issues a re-invite token via createRunInvite instead of
+   *  createSessionInvitation so the share URL carries the correct run-session path. */
+  ephemeralActivityType?: 'running' | 'walking';
 }
 
 const COUNTDOWN_SECS = 3;
@@ -26,7 +31,7 @@ function parseAttendanceId(id: string): { date: string; time: string } {
   return { date: date ?? '', time };
 }
 
-export default function SessionLobbyOverlay({ onStartFreeRun }: SessionLobbyOverlayProps) {
+export default function SessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: SessionLobbyOverlayProps) {
   const profile = useUserStore((s) => s.profile);
   const uid = (profile as any)?.id as string | undefined;
 
@@ -49,22 +54,29 @@ export default function SessionLobbyOverlay({ onStartFreeRun }: SessionLobbyOver
     });
   }, [groupId, uid]);
 
-  // Host: create session invitation token once
+  // Host: create session invitation token once.
+  // For ephemeral run sessions, use createRunInvite (re-invite mode — groupId already set).
+  // For scheduled strength sessions, use createSessionInvitation.
   useEffect(() => {
     if (!isHost || !groupId || !attendanceId || tokenCreatedRef.current) return;
     tokenCreatedRef.current = true;
 
-    const { date, time } = parseAttendanceId(attendanceId);
-    const meta: SessionMeta = {
-      sessionDate: date,
-      sessionTime: time,
-      groupName: groupName ?? '',
-    };
-
-    createSessionInvitation(groupId, attendanceId, uid!, meta)
-      .then(({ url }) => setShareUrl(url))
-      .catch((err) => console.warn('[SessionLobby] token creation failed:', err));
-  }, [isHost, groupId, attendanceId, groupName, uid]);
+    if (ephemeralActivityType) {
+      createRunInvite(ephemeralActivityType)
+        .then((result) => setShareUrl(result.shareUrl))
+        .catch((err) => console.warn('[SessionLobby] run re-invite failed:', err));
+    } else {
+      const { date, time } = parseAttendanceId(attendanceId);
+      const meta: SessionMeta = {
+        sessionDate: date,
+        sessionTime: time,
+        groupName: groupName ?? '',
+      };
+      createSessionInvitation(groupId, attendanceId, uid!, meta)
+        .then(({ url }) => setShareUrl(url))
+        .catch((err) => console.warn('[SessionLobby] token creation failed:', err));
+    }
+  }, [isHost, groupId, attendanceId, groupName, uid, ephemeralActivityType]);
 
   // Phase transition: lobby → active — start countdown
   useEffect(() => {

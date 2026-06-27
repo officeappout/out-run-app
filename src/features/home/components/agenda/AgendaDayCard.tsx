@@ -66,7 +66,7 @@ interface AgendaDayCardProps {
    */
   onCardDragEnd?: (entryId: string | undefined, releaseY: number) => void;
   /** Called after the user confirms deletion of a persisted entry. */
-  onDeleteEntry?: (entryId: string, date: string) => void;
+  onDeleteEntry?: (entryId: string, date: string, groupId?: string) => void;
   /** Called when the edit button (swipe-left) is tapped on a persisted personal entry. */
   onEditEntry?: (entry: UserScheduleEntry) => void;
   /** Called when a personal card is tapped — fires before onStartWorkout. */
@@ -107,11 +107,13 @@ const CATEGORY_ACCENT: Record<ScheduleActivityCategory, string> = {
   strength: '#00C9F2',
   cardio: '#84CC16',
   maintenance: '#A855F7',
+  walking: '#F59E0B',
 };
 const CATEGORY_PILL_LABEL: Record<ScheduleActivityCategory, string> = {
   strength: 'כוח',
   cardio: 'קרדיו',
   maintenance: 'תחזוקה',
+  walking: 'הליכה',
 };
 const STRENGTH_DURATION_ESTIMATE = '30–45 דק׳';
 
@@ -227,6 +229,7 @@ const COMMUNITY_TITLE_BY_CATEGORY: Record<string, string> = {
 };
 
 function getCommunityTitle(entry: UserScheduleEntry): string {
+  if (entry.groupName) return entry.groupName;
   const cat = entry.scheduledCategories?.[0] as string | undefined;
   if (!cat) return 'אימון קבוצתי';
   return COMMUNITY_TITLE_BY_CATEGORY[cat] ?? 'אימון קבוצתי';
@@ -281,10 +284,10 @@ interface StrengthCardProps {
   onDragEnd: (releaseY: number) => void;
   /**
    * Called when the red delete button (revealed by swipe-left) is tapped.
-   * Only fired for persisted entries (entryId is defined) that are not
-   * community entries and not on past days.
+   * Fired for persisted personal entries and solo-scheduled community entries
+   * (those with a groupId) on non-past days.
    */
-  onDeleteRequest?: (entryId: string) => void;
+  onDeleteRequest?: (entryId: string, groupId?: string) => void;
   /**
    * Called when the blue edit button (revealed by swipe-left) is tapped.
    * Only fired for persisted personal entries on non-past days.
@@ -322,8 +325,10 @@ function StrengthCard({
 
   // ── Swipe-to-reveal (x-axis) ──────────────────────────────────────────────
   const swipeX = useMotionValue(0);
-  // Swipe is only available for persisted personal entries on non-past days.
-  const canSwipe = !!(entry.entryId) && entry.source !== 'community' && baseMode !== 'past';
+  // Swipe available for persisted personal entries, and for solo-scheduled community
+  // entries (those with a groupId — e.g. a run/walk scheduled via FreeRunDrawer).
+  const canSwipe = !!(entry.entryId) && baseMode !== 'past' &&
+    (entry.source !== 'community' || !!(entry.groupId));
 
   // Measure the container to derive the correct snap point so the card
   // never slides fully off screen. We always leave ≥16px of the card visible.
@@ -421,8 +426,8 @@ function StrengthCard({
   const handleDeleteTap = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     closeSwipe();
-    if (entry.entryId) onDeleteRequest?.(entry.entryId);
-  }, [closeSwipe, entry.entryId, onDeleteRequest]);
+    if (entry.entryId) onDeleteRequest?.(entry.entryId, entry.groupId ?? undefined);
+  }, [closeSwipe, entry.entryId, entry.groupId, onDeleteRequest]);
 
   const handleEditTap = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -590,8 +595,8 @@ function StrengthCard({
               </div>
             )}
 
-            {/* Community badge — bottom-left corner of the card */}
-            {isCommunity && (
+            {/* Community badge — only for real group sessions, not solo-scheduled runs */}
+            {isCommunity && !entry.isSoloScheduled && (
               <div
                 className="absolute flex items-center justify-center"
                 style={{
@@ -642,8 +647,8 @@ export default function AgendaDayCard({
    * day (formerly written as `_2` Firestore docs).
    */
   const [entries, setEntries] = useState<UserScheduleEntry[] | undefined>(undefined);
-  /** entryId pending delete-confirmation; null when the sheet is hidden. */
-  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  /** Entry pending delete-confirmation; null when the sheet is hidden. */
+  const [deleteEntryId, setDeleteEntryId] = useState<{ entryId: string; groupId?: string } | null>(null);
   const baseMode = resolveCardMode(date);
   const d = new Date(date + 'T00:00:00');
   const dayLetter = getHebrewDayLetter(d);
@@ -931,7 +936,7 @@ export default function AgendaDayCard({
                   isToday={isToday}
                   baseMode={baseMode}
                   isShared={trainingCount > 1}
-                  isDraggable={isDraggable}
+                  isDraggable={isDraggable && e.source !== 'community'}
                   accentColor={
                     e.source === 'community'
                       ? (COMMUNITY_CATEGORY_COLORS[e.scheduledCategories?.[0] as string ?? ''] ?? '#9CA3AF')
@@ -941,7 +946,7 @@ export default function AgendaDayCard({
                   onCommunityTap={onCommunityTap}
                   onDragStart={onDragStart}
                   onDragEnd={(y) => handleCardDragRelease(e.entryId, y)}
-                  onDeleteRequest={onDeleteEntry ? (id) => setDeleteEntryId(id) : undefined}
+                  onDeleteRequest={onDeleteEntry ? (id, gid) => setDeleteEntryId({ entryId: id, groupId: gid }) : undefined}
                   onEditRequest={onEditEntry ? (id) => {
                     const found = entries?.find(x => x.entryId === id);
                     if (found) onEditEntry(found);
@@ -1005,7 +1010,7 @@ export default function AgendaDayCard({
             style={{ background: '#EF4444' }}
             onClick={() => {
               if (deleteEntryId) {
-                onDeleteEntry?.(deleteEntryId, date);
+                onDeleteEntry?.(deleteEntryId.entryId, date, deleteEntryId.groupId);
               }
               setDeleteEntryId(null);
             }}

@@ -22,6 +22,7 @@ import { toISODate, addDays, getHebrewDayLetter } from '@/features/user/scheduli
 import {
   moveScheduleEntry,
   removeScheduleEntry,
+  removeCommunityEntriesForGroup,
   updateScheduleDays,
   getScheduleEntry,
 } from '@/features/user/scheduling/services/userSchedule.service';
@@ -367,9 +368,14 @@ export default function RollingAgenda({
   }, [moveIntent, userId, profile, buildRecurringFallback, onScheduleChanged]);
 
   /** Called from AgendaDayCard after the user confirms deletion. */
-  const handleDeleteEntry = useCallback(async (entryId: string, date: string) => {
+  const handleDeleteEntry = useCallback(async (entryId: string, date: string, groupId?: string) => {
     try {
-      await removeScheduleEntry(userId, date, entryId);
+      if (groupId) {
+        // Community/scheduled-run entry: remove by groupId (ghost-prevention cleanup).
+        await removeCommunityEntriesForGroup(userId, date, groupId);
+      } else {
+        await removeScheduleEntry(userId, date, entryId);
+      }
       setLocalRefreshKey((k) => k + 1);
       onScheduleChanged?.();
     } catch {

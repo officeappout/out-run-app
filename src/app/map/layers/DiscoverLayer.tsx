@@ -18,6 +18,7 @@ import { MapLayersControl } from '@/features/parks/core/components/MapLayersCont
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { auth } from '@/lib/firebase';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
 import { useUserStore } from '@/features/user';
 import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
@@ -140,19 +141,54 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     logic.handleActivityChange(initialOpenRun as ActivityType);
     setMapMode('freeRun');
 
-    // Consume pending_run_invite — restore partner context after Zustand reset
+    // Consume pending_run_invite — restore partner context after Zustand reset (iOS hard-close).
+    // Normal navigation path: Zustand already has groupId + membershipReady=true from the
+    // session page; in that case we skip to avoid temporarily resetting membershipReady.
     const raw = typeof window !== 'undefined' ? localStorage.getItem('pending_run_invite') : null;
     if (!raw) return;
-    localStorage.removeItem('pending_run_invite'); // 🔴 KEY CLEANUP — consume immediately
+    localStorage.removeItem('pending_run_invite');
     try {
       const invite = JSON.parse(raw) as {
         groupId?: string;
         attendanceId?: string;
         activityType?: string;
         source?: string;
+        token?: string;
       };
-      if (invite.source === 'run-invite' && invite.groupId && invite.attendanceId) {
-        useSharedSession.getState().joinViaDeepLink(invite.groupId, invite.attendanceId, [], {}, '');
+      if (invite.source !== 'run-invite' || !invite.groupId || !invite.attendanceId) return;
+
+      const currentState = useSharedSession.getState();
+      if (currentState.groupId === invite.groupId && currentState.membershipReady) {
+        // Normal navigation — session context was set by the session page; skip.
+        return;
+      }
+
+      // iOS hard-close restore: Zustand was reset. Restore session context first.
+      useSharedSession.getState().joinViaDeepLink(invite.groupId, invite.attendanceId, [], {}, '');
+
+      if (invite.token) {
+        // Re-confirm user_memberships idempotently (joinEngine is set+merge+arrayUnion)
+        // before opening the presence gate — prevents PERMISSION-DENIED if the write
+        // was missed in the previous session lifecycle.
+        (async () => {
+          try {
+            const idToken = await auth.currentUser?.getIdToken();
+            if (idToken) {
+              await fetch('/api/join/session-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+                body: JSON.stringify({ token: invite.token, groupId: invite.groupId }),
+              });
+            }
+          } catch {
+            // Non-fatal: user_memberships was likely written in the previous session.
+          } finally {
+            useSharedSession.getState().setMembershipReady();
+          }
+        })();
+      } else {
+        // Legacy pending_run_invite (no token field): open gate — membership was written
+        // by consumeSessionInvitation before pending_run_invite was created.
         useSharedSession.getState().setMembershipReady();
       }
     } catch {

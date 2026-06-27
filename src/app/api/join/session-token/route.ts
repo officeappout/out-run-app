@@ -21,8 +21,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { joinEngine, JoinEngineError } from '@/lib/joinEngine';
+import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,11 +39,13 @@ export async function POST(request: NextRequest) {
 
     let uid: string;
     let displayName: string;
+    let photoURL: string | undefined;
     try {
       // checkRevoked=true so stolen anonymous tokens are rejected promptly.
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
       displayName = decoded.name ?? 'משתמש';
+      photoURL = (decoded as Record<string, unknown>).picture as string | undefined;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -64,6 +67,7 @@ export async function POST(request: NextRequest) {
         target: { type: 'session', token, claimedGroupId: groupId },
         uid,
         displayName,
+        photoURL,
       });
     } catch (err) {
       if (err instanceof JoinEngineError) {
@@ -82,6 +86,46 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: errorKey }, { status });
       }
       throw err;
+    }
+
+    // ── Guest schedule entry (scheduled runs only) ──────────────────────────
+    // Read the invitation doc to check for a scheduledFor timestamp.
+    // If present, add a community entry to the guest's userSchedule so the
+    // upcoming run appears in their calendar / home screen automatically.
+    //
+    // Non-fatal: join already succeeded; calendar is best-effort.
+    try {
+      const db = getAdminDb();
+      const invSnap = await db.doc(`group_invitations/${token}`).get();
+      const invData = invSnap.data();
+      const scheduledFor = invData?.scheduledFor as string | undefined;
+
+      if (scheduledFor) {
+        const tIdx = scheduledFor.indexOf('T');
+        const datePart = tIdx >= 0 ? scheduledFor.slice(0, tIdx) : scheduledFor;
+        const timePart = tIdx >= 0 ? scheduledFor.slice(tIdx + 1, tIdx + 6) : '00:00';
+        const invActivityType = invData?.activityType as string | undefined;
+        const invActivityLabel =
+          invActivityType === 'walking' ? 'הליכה' :
+          invActivityType === 'cycling' ? 'רכיבה' : 'ריצה';
+        const groupName = (invData?.groupName as string | undefined) ?? `${invActivityLabel} מתוזמנת`;
+        const groupId   = (invData?.groupId   as string | undefined) ?? body.groupId;
+        const scheduledCategories: string[] = invActivityType === 'walking' ? ['walking'] : ['cardio'];
+
+        await addScheduleEntryAdmin(db, uid, datePart, {
+          entryId:             `run_${groupId}`,
+          programIds:          [],
+          type:                'training',
+          source:              'community',
+          completed:           false,
+          scheduledCategories,
+          startTime:           timePart,
+          groupId,
+          groupName,
+        });
+      }
+    } catch (schedErr) {
+      console.error('[session-token] guest schedule entry FAILED — non-fatal:', schedErr);
     }
 
     return NextResponse.json({ ok: true });
