@@ -1,18 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// APP_CHECK_DEBUG controls the App Check provider for BOTH platforms.
-//
-// Development usage:
-//   APP_CHECK_DEBUG=true npm run cap:sync          → debug provider on both iOS + Android
-//   npm run cap:sync                               → production providers (deviceCheck / playIntegrity)
-//
 // NEVER commit ios/App/App/capacitor.config.json or android/app/google-services.json
-// after a debug sync — always run the production sync to restore before committing.
-//
-// The flag resolves to `false` in every CI / release pipeline that does not
-// explicitly export APP_CHECK_DEBUG=true, so production builds are always safe.
-const appCheckDebug = process.env.APP_CHECK_DEBUG === 'true';
-
+// to git — they are generated artefacts (produced by cap sync) and may contain debug
+// or staging configuration.
 const config: CapacitorConfig = {
   appId: 'co.il.appout.outrun',
   appName: 'Out Run',
@@ -42,8 +32,8 @@ const config: CapacitorConfig = {
       providers: ['apple.com', 'google.com'],
     },
     FirebaseAppCheck: {
-      providerIOS: appCheckDebug ? 'debug' : 'deviceCheck',
-      providerAndroid: appCheckDebug ? 'debug' : 'playIntegrity',
+      providerIOS: 'deviceCheck',
+      providerAndroid: 'playIntegrity',
       isTokenAutoRefreshEnabled: true,
     },
     // Push notifications (Sprint 3, Phase 4).
