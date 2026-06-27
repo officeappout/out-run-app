@@ -44,7 +44,9 @@ import {
 import { pushSample } from './eventEmitter';
 
 const PREF_KEY_CURSOR = 'outrun.healthBridge.cursorISO';
-const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
+export const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
+/** Set before the OS permission sheet fires so denied + killed-mid-dialog both record "asked". */
+export const PREF_KEY_ASKED = 'outrun.healthBridge.permissionsAsked';
 
 let installed = false;
 let bridgePromise: Promise<unknown> | null = null;
@@ -101,7 +103,7 @@ async function loadPlugin() {
  * is only advanced after a successful sync.
  */
 export async function healthBridgeSyncNow(
-  reason: 'app-active' | 'observer' | 'manual' | 'background' = 'manual',
+  reason: 'app-active' | 'observer' | 'manual' | 'background' | 'login' = 'manual',
 ): Promise<void> {
   if (!isNative()) return;
   try {
@@ -335,6 +337,10 @@ export async function requestHealthPermissions(): Promise<{ granted: boolean; ti
   if (!isNative()) return { granted: false };
   try {
     const HealthBridge = await loadPlugin();
+    // Persist "asked" before the OS sheet so a deny or mid-dialog kill still
+    // records that the user was prompted and we don't ask again on next login.
+    const Preferences = await getPrefs();
+    await Preferences.set({ key: PREF_KEY_ASKED, value: '1' });
     await withTimeout(
       (HealthBridge as any).requestPermissions({
         permissions: ['steps', 'activeEnergy', 'exerciseTime'],

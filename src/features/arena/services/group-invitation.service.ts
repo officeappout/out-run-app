@@ -13,9 +13,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
-  arrayUnion,
-  increment,
   Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -143,39 +140,22 @@ export async function consumeSessionInvitation(
 
   const { groupId, attendanceId, source, activityType } = data;
 
-  // Increment useCount on the invitation doc
-  await updateDoc(doc(db, 'group_invitations', token), {
-    useCount: increment(1),
-  });
-
-  // Write user into the attendance doc
-  // attendeeProfiles uses dot-notation merge so we don't overwrite other members
-  const attendanceRef = doc(db, 'community_groups', groupId, 'attendance', attendanceId);
-  await updateDoc(attendanceRef, {
-    attendees: arrayUnion(uid),
-    [`attendeeProfiles.${uid}`]: {
-      name: userProfile.name,
-      ...(userProfile.photoURL ? { photoURL: userProfile.photoURL } : {}),
-      joinedViaToken: token,
-    },
-  });
-
-  // Set up the Firestore state that the thin client-side join path skips.
-  // /api/join/session-token (Admin SDK) writes two docs atomically:
-  //   • users/{uid}            — shell doc so health-declaration saves hit
-  //                              UPDATE (not CREATE), avoiding the core.role guard
-  //   • user_memberships/{uid} — presence-read gate (memberGroupIds() in rules)
+  // /api/join/session-token → joinEngine writes ALL four docs atomically (Admin SDK batch):
+  //   1. community_groups/{groupId}/members/{uid}  — member record
+  //   2. user_memberships/{uid}                    — presence-read gate (§17)
+  //   3. users/{uid}.social.groupIds               — client-read denormalized array
+  //   4. attendance/{attendanceId}                 — attendee RSVP + attendeeProfiles
+  //   + group_invitations/{token}.useCount         — increment
   //
-  // BLOCKING: joinViaDeepLink (the call that sets useSharedSession.groupId and
-  // fires the presence query) must not run until user_memberships is confirmed
-  // written.  Without it, memberGroupIds(guest)=[] → PERMISSION-DENIED on every
-  // presence doc → group partners never appear.
+  // BLOCKING: joinViaDeepLink (sets useSharedSession.groupId → presence query opens)
+  // must NOT run until HTTP 200 confirms the batch committed. Without user_memberships,
+  // memberGroupIds(guest)=[] → PERMISSION-DENIED on every presence read.
   //
-  // Failure modes handled explicitly:
-  //   • No auth token   → throw (should never happen for authenticated users)
+  // Failure modes:
+  //   • No auth token   → throw (never happens for authenticated users)
   //   • Network error   → fetch throws → re-throw (logged below)
   //   • HTTP !ok (5xx)  → log body for server-side diagnosis → throw
-  //   • HTTP 200        → user_memberships confirmed → fall through to return
+  //   • HTTP 200        → all 4+1 writes confirmed → fall through
   const idToken = await auth.currentUser?.getIdToken().catch(() => null);
   if (!idToken) {
     console.error('[consumeSessionInvitation] no auth token — cannot write user_memberships for', uid);

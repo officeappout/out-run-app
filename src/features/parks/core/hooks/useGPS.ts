@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { useGPSStore } from '../store/useGPSStore';
+import { useGPSStore, type GPSCoords } from '../store/useGPSStore';
 
 const FALLBACK_SDEROT = { lat: 31.525, lng: 34.5955 };
 
@@ -58,8 +58,8 @@ function isValidCapacitorCoords(coords: { latitude: number; longitude: number } 
 }
 
 export interface GPSState {
-  currentUserPos: { lat: number; lng: number } | null;
-  setCurrentUserPos: (pos: { lat: number; lng: number } | null) => void;
+  currentUserPos: GPSCoords | null;
+  setCurrentUserPos: (pos: GPSCoords | null) => void;
   locationError: string | null;
   userBearing: number;
   isFollowing: boolean;
@@ -68,7 +68,7 @@ export interface GPSState {
 }
 
 export function useGPS(): GPSState {
-  const [currentUserPos, setCurrentUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [currentUserPos, setCurrentUserPos] = useState<GPSCoords | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [userBearing, setUserBearing] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -157,7 +157,7 @@ export function useGPS(): GPSState {
               lastGPSTime.current = now;
               lastGPSPos.current = { lat: newLat, lng: newLng };
               setLocationError(null);
-              setCurrentUserPos({ lat: newLat, lng: newLng });
+              setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: pos.coords.accuracy, altitude: pos.coords.altitude ?? null });
               if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
                 setUserBearing(pos.coords.heading);
               }
@@ -213,7 +213,7 @@ export function useGPS(): GPSState {
         lastGPSTime.current = now;
         lastGPSPos.current = { lat: newLat, lng: newLng };
         setLocationError(null);
-        setCurrentUserPos({ lat: newLat, lng: newLng });
+        setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: pos.coords.accuracy, altitude: pos.coords.altitude ?? null });
         useGPSStore.getState()._setPermissionState('granted');
         if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
           setUserBearing(pos.coords.heading);

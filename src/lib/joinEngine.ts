@@ -4,7 +4,8 @@
  * Every join entry point resolves through this module, guaranteeing:
  *   1. Target resolved to a verified groupId (never trust client-supplied IDs)
  *   2. User shell complete (progression seeded, never overwrites earned XP)
- *   3. Atomic triple-write: community_groups/members + user_memberships + users.social.groupIds
+ *   3. Atomic writes: community_groups/members + user_memberships + users.social.groupIds
+ *      + (session joins) attendance RSVP + group_invitations.useCount increment
  *   4. Returns only after batch.commit() — caller may ungate the presence query immediately
  *
  * Callers (thin wrappers):
@@ -94,6 +95,7 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
   let attendanceId: string | undefined;
   let nextFlow: 'group-home' | 'live-session' = 'group-home';
   let resolvedInviteCode: string | undefined;
+  let sessionToken: string | undefined;
 
   switch (input.target.type) {
     case 'group': {
@@ -151,6 +153,7 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
       groupId = inv.groupId;
       attendanceId = inv.attendanceId;
       nextFlow = 'live-session';
+      sessionToken = input.target.token;
       break;
     }
 
@@ -229,6 +232,31 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
   }
 
   batch.set(userRef, userDocPayload, { mergeFields });
+
+  // 4d. Session-token joins: attendance RSVP + useCount increment.
+  // These were previously client-side writes in consumeSessionInvitation, which created
+  // a partial-write window: if step 2 (attendance) threw, user_memberships was never
+  // written but joinViaDeepLink + setMembershipReady still fired → PERMISSION-DENIED on
+  // every presence read (memberGroupIds(guest) returned []). Moving both here makes the
+  // entire join atomic — axiom §17: no presence query ungate until commit() returns.
+  if (sessionToken && attendanceId) {
+    const attendeeProfile: Record<string, unknown> = { name: memberName, joinedViaToken: sessionToken };
+    if (input.photoURL) attendeeProfile.photoURL = input.photoURL;
+
+    batch.update(
+      db.doc(`community_groups/${groupId}/attendance/${attendanceId}`),
+      {
+        attendees: FieldValue.arrayUnion(input.uid),
+        [`attendeeProfiles.${input.uid}`]: attendeeProfile,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+    );
+
+    batch.update(
+      db.doc(`group_invitations/${sessionToken}`),
+      { useCount: FieldValue.increment(1) },
+    );
+  }
 
   // ── Step 5: Commit — throws on failure (caller must not swallow) ───────────
 

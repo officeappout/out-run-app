@@ -28,22 +28,31 @@ export interface RunInviteResult {
  *   for the same session (re-invite) — no new group is created.
  * - Otherwise, creates an ephemeral group and writes the host's membership
  *   atomically (axiom §17) before returning.
+ * - Pass `scheduledFor` (format: 'YYYY-MM-DDTHH:mm', local time) for a future
+ *   scheduled run. The API will set expiresAt = scheduledFor + 2h and write a
+ *   community schedule entry for the host automatically.
  *
  * Throws if the user is not authenticated or the API returns an error.
  */
 export async function createRunInvite(
   activityType: 'running' | 'walking',
+  options?: { scheduledFor?: string },
 ): Promise<RunInviteResult> {
   const idToken = await auth.currentUser?.getIdToken().catch(() => null);
   if (!idToken) throw new Error('invite-not-authenticated');
 
   const session = useSharedSession.getState();
-  const isReInvite = Boolean(session.groupId && session.attendanceId);
+  // Re-invite only makes sense for "now" (live session). Scheduled invites always
+  // create a new group so participants join at the right future time.
+  const isReInvite = Boolean(!options?.scheduledFor && session.groupId && session.attendanceId);
 
   const body: Record<string, unknown> = { activityType };
   if (isReInvite) {
     body.existingGroupId      = session.groupId;
     body.existingAttendanceId = session.attendanceId;
+  }
+  if (options?.scheduledFor) {
+    body.scheduledFor = options.scheduledFor;
   }
 
   const res = await fetch('/api/invite/run-session', {

@@ -29,6 +29,10 @@ export type GPSPermissionState = 'unknown' | 'granted' | 'denied' | 'prompt';
 export interface GPSCoords {
   lat: number;
   lng: number;
+  /** GPS fix accuracy in metres. Absent on FALLBACK_SDEROT or when the driver lacks it. */
+  accuracy?: number;
+  /** Altitude in metres above sea level. Null when the device doesn't provide it. Absent on fallback. */
+  altitude?: number | null;
 }
 
 interface GPSStore {

@@ -1,19 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Play, UserPlus, Loader2 } from 'lucide-react';
+import { X, Play, Loader2 } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user';
 import { db, auth } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import RunShareBar from '@/features/workout-engine/components/RunShareBar';
 import { createRunInvite } from '@/lib/workoutInvite';
-import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import type { RunInviteResult } from '@/lib/workoutInvite';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
+
+// ── Scheduled run helpers ─────────────────────────────────────────────────────
+
+/** Tomorrow's date as 'YYYY-MM-DD' (client-only; used as lazy state initializer). */
+function defaultSchedDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -249,78 +259,6 @@ function GoalSummaryRow({
   );
 }
 
-// ── Block 2b: InviteRow ────────────────────────────────────────────────────────
-// "הזמן חבר לאימון" — creates a run-invite link before the workout starts.
-// Placed between goal summary and entry buttons.
-
-function InviteRow({
-  activityType,
-}: {
-  activityType: 'running' | 'walking';
-}) {
-  const [busy, setBusy] = useState(false);
-
-  const handleInvite = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const { shareUrl, groupId, attendanceId, isNewGroup } =
-        await createRunInvite(activityType);
-
-      if (isNewGroup) {
-        const user = auth.currentUser;
-        const uid  = user?.uid ?? '';
-        const name = user?.displayName ?? 'אני';
-        const profiles = uid ? { [uid]: { name } } : {};
-        useSharedSession
-          .getState()
-          .startGroupSession(groupId, attendanceId, uid ? [uid] : [], profiles, '');
-      }
-
-      const text =
-        activityType === 'walking'
-          ? `בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`
-          : `בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`;
-
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ text }).catch(() => {
-          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-        });
-      } else {
-        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-      }
-    } catch (err) {
-      console.error('[InviteRow] invite failed:', err);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="px-5 mb-4">
-      <button
-        type="button"
-        onClick={handleInvite}
-        disabled={busy}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
-        style={{
-          height: 44,
-          backgroundColor: '#F0F9FF',
-          border: '1px solid #BAE6FD',
-          color: ACCENT,
-        }}
-      >
-        {busy
-          ? <Loader2 size={16} className="animate-spin" />
-          : <UserPlus size={16} strokeWidth={2.5} />
-        }
-        <span className="text-[13px] font-black">
-          {busy ? 'יוצר קישור...' : 'הזמן חבר לאימון'}
-        </span>
-      </button>
-    </div>
-  );
-}
 
 // ── Block 3: EntryButtons ─────────────────────────────────────────────────────
 // Two clear entry points: "התחל חופשי" (primary) + "עם מסלול" (secondary).
@@ -740,6 +678,15 @@ export default function FreeRunDrawer({
     circular: false, gymParks: false, benches: false, stairs: false, trail: false,
   });
 
+  // ── Scheduled run state ────────────────────────────────────────────────────
+  const [timing,    setTiming]    = useState<'now' | 'later'>('now');
+  const [schedDate, setSchedDate] = useState(defaultSchedDate);
+  const [schedTime, setSchedTime] = useState('18:00');
+  const [isSaving,  setIsSaving]  = useState(false);
+  // Ref-based cache: invalidated inline by key comparison so React re-renders
+  // between "שתף" and "שמור" cannot spuriously reset it via useEffect.
+  const savedInviteRef = useRef<{ key: string; result: RunInviteResult } | null>(null);
+
   const userWeight = useUserStore((s) => s.profile?.core?.weight ?? null);
   const gender     = useUserStore((s) => s.profile?.core?.gender);
   const genderDefault =
@@ -829,6 +776,59 @@ export default function FreeRunDrawer({
 
   const canStartWithRoute = !!userPosition && !!onRequestRouteGeneration;
 
+  // ── Scheduled run handlers ─────────────────────────────────────────────────
+
+  const scheduledFor = `${schedDate}T${schedTime}`;
+
+  /**
+   * Idempotent: first call creates the group + token + writes host schedule entry;
+   * subsequent calls return the cached result so "שמור" and "שתף" share the same
+   * group_invitations token (no duplicate groups).
+   */
+  const commitScheduled = async (): Promise<RunInviteResult> => {
+    const cacheKey = `${schedDate}T${schedTime}|${selectedActivity}`;
+    if (savedInviteRef.current?.key === cacheKey) return savedInviteRef.current.result;
+    const actType = selectedActivity === 'walking' ? 'walking' : 'running';
+    const result = await createRunInvite(actType, { scheduledFor });
+    savedInviteRef.current = { key: cacheKey, result };
+    return result;
+  };
+
+  /** "שמור" — commit (idempotent) then close the drawer. */
+  const handleSaveOnly = async () => {
+    setIsSaving(true);
+    try {
+      await commitScheduled();
+      onClose();
+    } catch (err) {
+      console.error('[FreeRunDrawer] save scheduled:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /** "שתף" for "אחר כך" — commit (idempotent) then open share sheet. */
+  const handleShareScheduled = async () => {
+    try {
+      const result = await commitScheduled();
+      const actType = selectedActivity === 'walking' ? 'walking' : 'running';
+      const dateLabel = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit' })
+        .format(new Date(scheduledFor));
+      const text = actType === 'walking'
+        ? `קבעתי הליכה ב-${dateLabel} בשעה ${schedTime} 🚶 בוא/י להצטרף! ${result.shareUrl}`
+        : `קבעתי ריצה ב-${dateLabel} בשעה ${schedTime} 🏃 בוא/י להצטרף! ${result.shareUrl}`;
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ text }).catch(() => {
+          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+      }
+    } catch (err) {
+      console.error('[FreeRunDrawer] share scheduled:', err);
+    }
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-[100] pointer-events-none">
@@ -889,18 +889,42 @@ export default function FreeRunDrawer({
               onEdit={() => setGoalSheetOpen(true)}
             />
 
-            {/* ── Block 2b: Invite a friend ────────────────────────────────── */}
-            <InviteRow
+            {/* ── Block 2b: Invite + broadcast (RunShareBar) ───────────────── */}
+            <RunShareBar
               activityType={selectedActivity === 'walking' ? 'walking' : 'running'}
+              userLocation={userPosition}
+              className="px-5 mb-4"
+              timing={timing}
+              onTimingChange={setTiming}
+              schedDate={schedDate}
+              schedTime={schedTime}
+              onDateChange={setSchedDate}
+              onTimeChange={setSchedTime}
+              onShareScheduled={handleShareScheduled}
             />
 
-            {/* ── Block 3: Entry buttons ───────────────────────────────────── */}
-            <EntryButtons
-              onStartFree={handleStartFree}
-              onStartWithRoute={handleStartWithRoute}
-              canStartWithRoute={canStartWithRoute}
-              cityName={cityName}
-            />
+            {/* ── Block 3: Entry buttons / Save ───────────────────────────── */}
+            {timing === 'later' ? (
+              <div className="px-5 pb-2">
+                <button
+                  type="button"
+                  onClick={handleSaveOnly}
+                  disabled={isSaving}
+                  className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl disabled:opacity-60"
+                  style={{ height: 52, backgroundColor: ACCENT }}
+                >
+                  {isSaving && <Loader2 size={16} className="animate-spin" />}
+                  <span>{isSaving ? 'שומר...' : '✓ שמור לאימונים'}</span>
+                </button>
+              </div>
+            ) : (
+              <EntryButtons
+                onStartFree={handleStartFree}
+                onStartWithRoute={handleStartWithRoute}
+                canStartWithRoute={canStartWithRoute}
+                cityName={cityName}
+              />
+            )}
           </div>
         </motion.div>
       </div>

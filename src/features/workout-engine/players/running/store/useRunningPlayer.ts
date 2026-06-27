@@ -6,7 +6,8 @@
 import { create } from 'zustand';
 import { Route } from '@/features/parks';
 import { Lap, GeoPoint } from '../../../core/types/session.types';
-import { watchPosition, clearWatch, calculateDistance } from '@/lib/services/location.service';
+import { calculateDistance } from '@/lib/services/location.service';
+import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type RunWorkout from '../types/run-workout.type';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
@@ -25,6 +26,11 @@ import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 let _coordBuffer: number[][] = [];
 let _zoneBuffer: (string | null)[] = [];
 const FLUSH_EVERY = 10;
+
+// Cleanup handle for the useGPSStore subscription opened by startGPSTracking.
+// Stored at module level (not Zustand state) so stopGPSTracking can reach it
+// without a state read, matching the pattern used for _coordBuffer above.
+let _gpsStoreUnsub: (() => void) | null = null;
 
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
@@ -713,13 +719,13 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       return;
     }
 
-    // ── Real GPS mode ──────────────────────────────────────────────────
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      console.warn('[useRunningPlayer] Geolocation not available');
-      set({ durationIntervalId: durationInterval });
-      return;
-    }
-
+    // ── Real GPS mode — single pipeline via useGPSStore ────────────────
+    // useGPSStore.coords is driven exclusively by useGPS.ts, which uses
+    // @capacitor/geolocation (CLLocationManager) on native and
+    // navigator.geolocation on web — the only path that works correctly
+    // on iOS Capacitor. Subscribing here instead of opening a second
+    // navigator.geolocation watcher eliminates the dual-pipeline split
+    // that caused distance to stay at 0 on native builds.
     set({ gpsStatus: 'searching', gpsAccuracy: null });
 
     let lastPos: { lat: number; lng: number } | null = null;
@@ -732,156 +738,135 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // produces a non-zero pace.
     const MIN_SPEED_MS = 0.3;
     const MAX_PACE_MIN_KM = 30;
+    // Upper bound on realistic running speed (~43 km/h). Catches poor-accuracy
+    // jumps that slipped past the 200 m gate without inflating distance.
+    const MAX_REALISTIC_SPEED_MS = 12;
 
-    const watchId = watchPosition(
-      (location) => {
-        // If simulation was enabled mid-workout, ignore any stale real callbacks
-        if (get().isSimulationActive) return;
+    _gpsStoreUnsub = useGPSStore.subscribe((state, prevState) => {
+      if (state.coords === prevState.coords) return; // no new fix
+      const coords = state.coords;
+      if (!coords) return;
 
-        const { lat, lng, accuracy } = location;
+      if (get().isSimulationActive) return;
 
-        // Reject NaN / Infinity / 0,0 samples BEFORE they touch any state.
-        // The math helpers downstream (haversine, crossTrack, pace) all
-        // produce NaN cascades when fed a bad coord, which then propagates
-        // into routeCoords and breaks fitBounds in TurnCarousel/AppMap.
-        // Dropping the sample early keeps `lastPosition` pointing at the
-        // last KNOWN-GOOD fix — far better than NaN-poisoning the state.
-        if (
-          typeof lat !== 'number' || typeof lng !== 'number' ||
-          !Number.isFinite(lat) || !Number.isFinite(lng) ||
-          (lat === 0 && lng === 0)
-        ) {
-          console.warn('[useRunningPlayer] Dropping invalid GPS sample:', location);
+      const { lat, lng } = coords;
+
+      // Reject NaN / Infinity / 0,0 samples — same guard as before, but
+      // now applied at the subscription layer instead of in the watcher cb.
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
+        console.warn('[useRunningPlayer] Dropping invalid GPS sample:', coords);
+        return;
+      }
+
+      // Phase 2 — accuracy gate: process every fix; mark quality instead of
+      // discarding. The previous location.service watcher rejected fixes with
+      // accuracy > 50 m, causing the first 30–90 s to produce zero distance.
+      // Now all fixes pass through; poor ones are labelled 'poor' and the
+      // speed sanity check below guards against inflation.
+      const accuracy = coords.accuracy ?? 999;
+      let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
+      if (accuracy <= 10) gpsStatus = 'perfect';
+      else if (accuracy <= 30) gpsStatus = 'good';
+      else gpsStatus = 'poor';
+
+      set({ gpsAccuracy: accuracy < 999 ? accuracy : null, gpsStatus });
+
+      const currentPos = { lat, lng };
+
+      if (lastPos) {
+        const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
+
+        // Discard satellite jump artefacts — a single sample > 200 m from the
+        // last known-good position is almost always a GPS cold-start glitch or
+        // multipath canyon spike, not real movement.
+        if (distanceDelta > MAX_JUMP_M) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(`[useRunningPlayer] GPS jump rejected: ${Math.round(distanceDelta)} m`);
+          }
+          lastPos = currentPos;
+          set({ lastPosition: currentPos });
           return;
         }
 
-        const currentPos = { lat, lng };
+        if (distanceDelta > DISTANCE_THRESHOLD) {
+          const now = Date.now();
+          const timeDeltaSeconds = lastTimestamp ? (now - lastTimestamp) / 1000 : 0;
 
-        let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
-        if (accuracy <= 10) gpsStatus = 'perfect';
-        else if (accuracy <= 30) gpsStatus = 'good';
-        else gpsStatus = 'poor';
-
-        set({ gpsAccuracy: accuracy, gpsStatus });
-
-        if (lastPos) {
-          const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
-
-          // Discard satellite jump artefacts — a single sample > 200 m from the
-          // last known-good position is almost always a GPS cold-start glitch or
-          // multipath canyon spike, not real movement.
-          if (distanceDelta > MAX_JUMP_M) {
+          // Speed sanity: poor-accuracy fixes can produce plausible-looking
+          // distances that are still physically impossible. Reject if the
+          // implied speed exceeds MAX_REALISTIC_SPEED_MS — accept the position
+          // update (lastPos / lastPosition) but discard the km contribution.
+          if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds > MAX_REALISTIC_SPEED_MS) {
             if (process.env.NODE_ENV !== 'production') {
-              console.warn(`[useRunningPlayer] GPS jump rejected: ${Math.round(distanceDelta)} m`);
+              console.warn(`[useRunningPlayer] Speed sanity rejected: ${Math.round(distanceDelta / timeDeltaSeconds)} m/s`);
             }
             lastPos = currentPos;
             set({ lastPosition: currentPos });
+            lastTimestamp = now;
             return;
           }
 
-          if (distanceDelta > DISTANCE_THRESHOLD) {
-            get().addCoord([lng, lat]);
-            get().addBlockDistance(distanceDelta);
+          get().addCoord([lng, lat]);
+          get().addBlockDistance(distanceDelta);
+          useSessionStore.getState().updateDistance(distanceDelta / 1000);
 
-            // Direct, statically-imported call. The previous require()-in-
-            // try/catch silently swallowed module resolution errors and was
-            // the primary suspect for KM staying at 0.00 during a workout
-            // (Investigation Finding 1A).
-            useSessionStore.getState().updateDistance(distanceDelta / 1000);
-
-            const now = Date.now();
-            const timeDeltaSeconds = lastTimestamp ? (now - lastTimestamp) / 1000 : 0;
-
-            if (timeDeltaSeconds > 0) {
-              const speedMs = distanceDelta / timeDeltaSeconds;
-              if (speedMs < MIN_SPEED_MS) {
-                set({ currentPace: 0 });
-              } else {
-                const instantPaceMinKm = 1000 / (speedMs * 60);
-                if (instantPaceMinKm <= MAX_PACE_MIN_KM) {
-                  get().updateRunData(distanceDelta / 1000, instantPaceMinKm);
-                }
+          if (timeDeltaSeconds > 0) {
+            const speedMs = distanceDelta / timeDeltaSeconds;
+            if (speedMs < MIN_SPEED_MS) {
+              set({ currentPace: 0 });
+            } else {
+              const instantPaceMinKm = 1000 / (speedMs * 60);
+              if (instantPaceMinKm <= MAX_PACE_MIN_KM) {
+                get().updateRunData(distanceDelta / 1000, instantPaceMinKm);
               }
             }
-            lastTimestamp = now;
           }
-        } else {
-          get().addCoord([lng, lat]);
-          lastTimestamp = Date.now();
+          lastTimestamp = now;
         }
+      } else {
+        get().addCoord([lng, lat]);
+        lastTimestamp = Date.now();
+      }
 
-        lastPos = currentPos;
-        set({ lastPosition: currentPos });
+      lastPos = currentPos;
+      set({ lastPosition: currentPos });
 
-        // ── Elevation gain accumulation ────────────────────────────────
-        // Only count ascents > 1 m between consecutive fixes to filter out
-        // the ±2–5 m vertical noise typical of consumer GPS chips.
-        const gpsAltitude = location.altitude;
-        if (gpsAltitude != null) {
-          const { lastAltitude } = get();
-          if (lastAltitude !== null) {
-            const delta = gpsAltitude - lastAltitude;
-            if (delta > 1) {
-              set((s) => ({ elevationGain: s.elevationGain + delta, lastAltitude: gpsAltitude }));
-            } else {
-              set({ lastAltitude: gpsAltitude });
-            }
+      // ── Elevation gain accumulation ────────────────────────────────
+      // altitude is carried through useGPS.ts → useGPSStore.coords.altitude.
+      // Only count ascents > 1 m to filter the ±2–5 m vertical noise typical
+      // of consumer GPS chips.
+      const gpsAltitude = coords.altitude ?? null;
+      if (gpsAltitude != null) {
+        const { lastAltitude } = get();
+        if (lastAltitude !== null) {
+          const delta = gpsAltitude - lastAltitude;
+          if (delta > 1) {
+            set((s) => ({ elevationGain: s.elevationGain + delta, lastAltitude: gpsAltitude }));
           } else {
             set({ lastAltitude: gpsAltitude });
           }
-        }
-
-        // Route-deviation pass — runs on EVERY accepted GPS sample, not only
-        // ones that beat the 5m DISTANCE_THRESHOLD above (the threshold gates
-        // distance/pace updates to avoid jitter, but a slow drift across the
-        // 40m boundary is still a deviation worth flagging).
-        get().checkRouteDeviation(currentPos);
-      },
-      (error) => {
-        if (get().isSimulationActive) return; // ignore errors when sim took over
-        // GeolocationPositionError codes:
-        //   1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT.
-        // Whatever the code, we deliberately DO NOT touch `lastPosition`
-        // or `routeCoords` here — the last-known-good fix is far more
-        // useful to the UI (TurnCarousel can still center the map on it,
-        // pace can still tick down, etc.) than wiping it to null and
-        // forcing every consumer through a degraded "GPS searching" path.
-        // We only flag the status pill so the user sees the chip is hunting.
-        if (error.code === 3) {
-          // Timeout is benign — fires every ~10s under bad sky cover. Quiet
-          // log so dev console isn't flooded during a long-press signal hunt.
-          console.warn('[useRunningPlayer] GPS timeout — keeping last known fix.');
         } else {
-          console.error('[useRunningPlayer] GPS error:', error.code, error.message);
+          set({ lastAltitude: gpsAltitude });
         }
-        set({ gpsStatus: 'searching', gpsAccuracy: null });
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 1000,
-        // 20 s (was 10 s) — `timeout` between successive watchPosition
-        // fixes. 10 s was firing TIMEOUT errors in dense urban canyons
-        // and breaking the watch mid-run; 20 s rides out short
-        // sky-view gaps (tunnels, indoor-outdoor transitions) without
-        // affecting steady-state cadence.
-        timeout: 20000,
-        // Loosened 25 → 50 m so urban GPS samples pass through and
-        // distance / pace / lap stats actually update during testing.
-        accuracyThreshold: 50,
       }
-    );
 
-    set({ gpsWatchId: watchId, durationIntervalId: durationInterval });
+      // Route-deviation pass — runs on EVERY accepted GPS sample, not only
+      // ones that beat the 5m DISTANCE_THRESHOLD above (the threshold gates
+      // distance/pace updates to avoid jitter, but a slow drift across the
+      // 40m boundary is still a deviation worth flagging).
+      get().checkRouteDeviation(currentPos);
+    });
+
+    set({ gpsWatchId: null, durationIntervalId: durationInterval });
   },
 
   // Stop GPS tracking
   stopGPSTracking: () => {
     const { gpsWatchId, durationIntervalId, releaseWakeLock } = get();
     
-    // Clear GPS watch
-    if (gpsWatchId !== null) {
-      clearWatch(gpsWatchId);
-    }
+    // Cancel the useGPSStore subscription opened by startGPSTracking.
+    _gpsStoreUnsub?.();
+    _gpsStoreUnsub = null;
     
     // Clear duration interval
     if (durationIntervalId !== null) {
@@ -1391,11 +1376,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     const { isSimulationActive: prev, gpsWatchId } = get();
     set({ isSimulationActive: active });
     if (active && !prev) {
-      // Transitioning INTO simulation — silence any running real GPS watcher
-      if (gpsWatchId !== null) {
-        clearWatch(gpsWatchId);
-        set({ gpsWatchId: null });
-      }
+      // Transitioning INTO simulation — cancel the useGPSStore subscription
+      _gpsStoreUnsub?.();
+      _gpsStoreUnsub = null;
+      set({ gpsWatchId: null });
       set({ gpsStatus: 'simulated', gpsAccuracy: 5 });
     }
   },

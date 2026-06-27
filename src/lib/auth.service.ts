@@ -363,22 +363,17 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
 
-      // The Capacitor plugin ALWAYS generates a nonce and embeds its SHA256
-      // hash in the Apple ID token. Firebase requires rawNonce (the pre-hash
-      // value) to verify the token — omitting it causes auth/missing-or-invalid-nonce.
-      // We MUST call signInWithCredential on the web Firebase SDK (not use the
-      // native plugin user directly) so that auth.currentUser is set and
-      // subsequent Firestore reads have a valid auth token.
-      const rawNonce = result.credential.nonce;
-      if (!rawNonce) {
-        console.error('[Auth Service] Apple sign-in: plugin returned no nonce. Cannot create a valid Firebase credential.');
-        return { user: null, error: 'apple_nonce_missing' };
-      }
-
+      // rawNonce is only present when the plugin ran a fresh authorization
+      // flow (Apple embeds the SHA256 hash in the idToken). On re-auth /
+      // credential-refresh Apple may omit the nonce from the token — in that
+      // case rawNonce must also be omitted so Firebase does not try to verify
+      // a hash that was never embedded. We MUST call signInWithCredential on
+      // the web Firebase SDK so that auth.currentUser is set and subsequent
+      // Firestore reads have a valid auth token.
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        rawNonce,
+        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
       });
 
       const webResult = await signInWithCredential(auth, credential);
@@ -584,17 +579,12 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
 
-      // Same nonce requirement as signInWithApple — rawNonce must always be present.
-      const rawNonce = result.credential.nonce;
-      if (!rawNonce) {
-        console.error('[Auth Service] Apple link: plugin returned no nonce. Cannot create a valid Firebase credential.');
-        return { user: null, error: 'apple_nonce_missing' };
-      }
-
+      // Same optional-nonce logic as signInWithApple — omit rawNonce when
+      // Apple did not embed a nonce hash in the token (re-auth path).
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        rawNonce,
+        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
       });
 
       const linkResult = await linkWithCredential(auth.currentUser, credential);
