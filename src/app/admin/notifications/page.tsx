@@ -1,0 +1,796 @@
+'use client';
+
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Bell,
+  Calendar,
+  Users,
+  MessageCircle,
+  Trophy,
+  Heart,
+  Send,
+  X,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Clock,
+  Zap,
+  AlertCircle,
+  RefreshCw,
+  Megaphone,
+} from 'lucide-react';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  orderBy,
+  limit,
+  query,
+  Timestamp,
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { sendEncouragementPush } from '@/features/admin/services/engagement.service';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ChannelKey =
+  | 'progression'
+  | 'retention'
+  | 'training_reminder'
+  | 'encouragement'
+  | 'social'
+  | 'chat';
+
+interface ChannelConfig {
+  enabled: boolean;
+  titleTemplate: string;
+  bodyTemplate: string;
+}
+
+interface NotifConfig {
+  channels: Partial<Record<ChannelKey, ChannelConfig>>;
+  updatedAt?: unknown;
+}
+
+interface RecentSend {
+  id: string;
+  title: string;
+  message: string;
+  channel: string;
+  status: string;
+  targetAudience: string;
+  sentAt: Date;
+  deliveredCount: number;
+}
+
+// ─── Catalog definition ───────────────────────────────────────────────────────
+
+interface CatalogEntry {
+  channel: ChannelKey;
+  label: string;
+  type: 'auto' | 'manual';
+  trigger: string;
+  icon: React.ElementType;
+  iconBg: string;
+  templateVars?: string[];
+  defaultTitle: string;
+  defaultBody: string;
+  rateCapHours?: number;
+  implemented: boolean;
+  note?: string;
+}
+
+const CATALOG: CatalogEntry[] = [
+  {
+    channel: 'progression',
+    label: 'עליית רמה',
+    type: 'auto',
+    trigger: 'onChange users/{uid}.progression.globalLevel',
+    icon: Trophy,
+    iconBg: 'bg-yellow-100 text-yellow-600',
+    templateVars: ['{level}'],
+    defaultTitle: 'עלית לרמה {level}! 🎉',
+    defaultBody: 'המשיכו כך — כל אימון מקדם אתכם!',
+    rateCapHours: 24,
+    implemented: true,
+  },
+  {
+    channel: 'retention',
+    label: 'חזרה לשגרה',
+    type: 'auto',
+    trigger: 'Scheduler — כל יום 10:00',
+    icon: Heart,
+    iconBg: 'bg-rose-100 text-rose-600',
+    templateVars: ['{name}', '{days_since}'],
+    defaultTitle: '{name}, {days_since} ימים בלי אימון',
+    defaultBody: 'הגוף שלך מחכה לך. אפילו 15 דקות ישנו את מצב הרוח שלך.',
+    rateCapHours: 48,
+    implemented: true,
+  },
+  {
+    channel: 'training_reminder',
+    label: 'תזכורת אימון',
+    type: 'auto',
+    trigger: 'Scheduler — כל יום 07:30',
+    icon: Calendar,
+    iconBg: 'bg-amber-100 text-amber-600',
+    templateVars: ['{workout_title}'],
+    defaultTitle: '📅 {workout_title} היום',
+    defaultBody: 'האימון שלך מחכה — פתח את האפליקציה ותתחיל.',
+    rateCapHours: 22,
+    implemented: true,
+  },
+  {
+    channel: 'encouragement',
+    label: 'עידוד מהעירייה',
+    type: 'manual',
+    trigger: 'שליחה ידנית מהפאנל',
+    icon: Megaphone,
+    iconBg: 'bg-blue-100 text-blue-600',
+    defaultTitle: '',
+    defaultBody: '',
+    implemented: true,
+  },
+  {
+    channel: 'social',
+    label: 'הצטרפות לקבוצה',
+    type: 'auto',
+    trigger: 'onCreate community_groups/{groupId}/members/{uid}',
+    icon: Users,
+    iconBg: 'bg-purple-100 text-purple-600',
+    templateVars: ['{joiner_name}', '{group_name}'],
+    defaultTitle: '{joiner_name} הצטרף לקבוצה!',
+    defaultBody: 'חבר חדש הצטרף — {group_name} גדלה 🎉',
+    rateCapHours: 24,
+    implemented: false,
+    note: 'שלב 7 — בפיתוח',
+  },
+  {
+    channel: 'chat',
+    label: 'הודעה בצ\'אט',
+    type: 'auto',
+    trigger: 'onCreate chats/{chatId}/messages',
+    icon: MessageCircle,
+    iconBg: 'bg-green-100 text-green-600',
+    defaultTitle: 'הודעה חדשה',
+    defaultBody: 'תוכן דינמי — שם השולח + תחילת ההודעה',
+    implemented: true,
+    note: 'תוכן נגזר מהודעה עצמה',
+  },
+];
+
+const AUDIENCE_LABELS: Record<string, string> = {
+  all: 'כל המשתמשים',
+  active_users: 'משתמשים פעילים',
+  inactive_users: 'משתמשים לא פעילים',
+  park_users: 'משתמשי פארק',
+};
+
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  pending: { label: 'ממתין', cls: 'bg-yellow-100 text-yellow-700' },
+  processing: { label: 'בעיבוד', cls: 'bg-blue-100 text-blue-700' },
+  sent: { label: 'נשלח', cls: 'bg-green-100 text-green-700' },
+  failed: { label: 'נכשל', cls: 'bg-red-100 text-red-700' },
+};
+
+const CONFIG_DOC = 'app_config/notification_configs';
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function NotificationsPage() {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [config, setConfig] = useState<NotifConfig>({ channels: {} });
+  const [editingChannel, setEditingChannel] = useState<ChannelKey | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftBody, setDraftBody] = useState('');
+  const [savingChannel, setSavingChannel] = useState<ChannelKey | null>(null);
+
+  const [recentSends, setRecentSends] = useState<RecentSend[]>([]);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // ── Per-channel test send
+  const [testingChannel, setTestingChannel] = useState<ChannelKey | null>(null);
+  const [testResults, setTestResults] = useState<Partial<Record<ChannelKey, 'ok' | 'err'>>>({});
+
+  const handleTestSend = async (channel: ChannelKey) => {
+    if (!currentUserId || testingChannel) return;
+    setTestingChannel(channel);
+    setTestResults((prev) => { const r = { ...prev }; delete r[channel]; return r; });
+    try {
+      const res = await fetch('/api/admin/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel, uid: currentUserId }),
+      });
+      const json = await res.json() as { delivered?: number; error?: string; reason?: string };
+      if (!res.ok || json.error) {
+        console.error('[test-push]', json.error ?? json.reason);
+        setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
+      } else {
+        setTestResults((prev) => ({ ...prev, [channel]: json.delivered && json.delivered > 0 ? 'ok' : 'err' }));
+      }
+    } catch (err) {
+      console.error('[test-push] fetch failed', err);
+      setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
+    } finally {
+      setTestingChannel(null);
+    }
+  };
+
+  // ── Manual send modal
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualBody, setManualBody] = useState('');
+  const [manualAudience, setManualAudience] = useState<'all' | 'active_users' | 'inactive_users' | 'park_users'>('all');
+  const [manualDeepLink, setManualDeepLink] = useState('/');
+  const [manualSending, setManualSending] = useState(false);
+  const [manualError, setManualError] = useState('');
+  const [manualSuccess, setManualSuccess] = useState(false);
+
+  // ── Auth
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
+    return unsub;
+  }, []);
+
+  // ── Load Firestore config
+  const loadConfig = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, 'app_config', 'notification_configs'));
+      if (snap.exists()) {
+        setConfig(snap.data() as NotifConfig);
+      }
+    } catch (err) {
+      console.error('[notifications] config load failed:', err);
+    }
+  }, []);
+
+  // ── Load recent sends
+  const loadRecentSends = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const q = query(
+        collection(db, 'push_messages'),
+        orderBy('sentAt', 'desc'),
+        limit(15),
+      );
+      const snap = await getDocs(q);
+      setRecentSends(
+        snap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const sentAt = data.sentAt instanceof Timestamp
+            ? data.sentAt.toDate()
+            : new Date();
+          return {
+            id: d.id,
+            title: String(data.title ?? ''),
+            message: String(data.message ?? ''),
+            channel: String(data.channel ?? 'encouragement'),
+            status: String(data.status ?? 'sent'),
+            targetAudience: String(data.targetAudience ?? 'all'),
+            sentAt,
+            deliveredCount: Number(data.deliveredCount ?? 0),
+          };
+        }),
+      );
+    } catch (err) {
+      console.error('[notifications] recent sends load failed:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConfig();
+    loadRecentSends();
+  }, [loadConfig, loadRecentSends]);
+
+  // ── Per-channel enable toggle
+  const handleToggle = async (channel: ChannelKey, enabled: boolean) => {
+    const updated: NotifConfig = {
+      ...config,
+      channels: {
+        ...config.channels,
+        [channel]: {
+          enabled,
+          titleTemplate: config.channels[channel]?.titleTemplate ?? CATALOG.find(c => c.channel === channel)?.defaultTitle ?? '',
+          bodyTemplate: config.channels[channel]?.bodyTemplate ?? CATALOG.find(c => c.channel === channel)?.defaultBody ?? '',
+        },
+      },
+    };
+    setConfig(updated);
+    try {
+      await setDoc(doc(db, 'app_config', 'notification_configs'), {
+        ...updated,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (err) {
+      console.error('[notifications] toggle save failed:', err);
+      // Revert optimistic update on failure
+      setConfig(config);
+    }
+  };
+
+  // ── Open template editor for a channel
+  const handleEditOpen = (entry: CatalogEntry) => {
+    setEditingChannel(entry.channel);
+    setDraftTitle(config.channels[entry.channel]?.titleTemplate ?? entry.defaultTitle);
+    setDraftBody(config.channels[entry.channel]?.bodyTemplate ?? entry.defaultBody);
+  };
+
+  // ── Save template
+  const handleTemplateSave = async () => {
+    if (!editingChannel) return;
+    setSavingChannel(editingChannel);
+    const updated: NotifConfig = {
+      ...config,
+      channels: {
+        ...config.channels,
+        [editingChannel]: {
+          enabled: config.channels[editingChannel]?.enabled ?? true,
+          titleTemplate: draftTitle,
+          bodyTemplate: draftBody,
+        },
+      },
+    };
+    setConfig(updated);
+    try {
+      await setDoc(doc(db, 'app_config', 'notification_configs'), {
+        ...updated,
+        updatedAt: Timestamp.now(),
+      });
+      setEditingChannel(null);
+    } catch (err) {
+      console.error('[notifications] template save failed:', err);
+    } finally {
+      setSavingChannel(null);
+    }
+  };
+
+  // ── Manual send
+  const handleManualSend = async () => {
+    if (!manualTitle.trim() || !manualBody.trim() || !currentUserId) return;
+    setManualSending(true);
+    setManualError('');
+    try {
+      await sendEncouragementPush('all', {
+        title: manualTitle.trim(),
+        message: manualBody.trim(),
+        targetAudience: manualAudience,
+        sentBy: { adminId: currentUserId, adminName: 'Admin' },
+        channel: 'encouragement',
+        deepLink: manualDeepLink || '/',
+      });
+      setManualSuccess(true);
+      setManualTitle('');
+      setManualBody('');
+      setManualDeepLink('/');
+      setManualAudience('all');
+      loadRecentSends();
+      setTimeout(() => {
+        setManualSuccess(false);
+        setManualOpen(false);
+      }, 2000);
+    } catch (err) {
+      console.error('[notifications] manual send failed:', err);
+      setManualError('שגיאה בשליחה. נסה שוב.');
+    } finally {
+      setManualSending(false);
+    }
+  };
+
+  // ── Stats helpers
+  const channelSendCount = (channel: string) =>
+    recentSends.filter((s) => s.channel === channel).length;
+
+  const totalDelivered = (channel: string) =>
+    recentSends.filter((s) => s.channel === channel).reduce((acc, s) => acc + s.deliveredCount, 0);
+
+  const isEnabled = (channel: ChannelKey) =>
+    config.channels[channel]?.enabled !== false; // default true
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-8" dir="rtl">
+      {/* ── Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">מרכז התראות</h1>
+          <p className="text-sm text-gray-400 mt-1">ניהול כל ערוצי הפוש — אוטומטי וידני</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => { loadConfig(); loadRecentSends(); }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-sm transition-colors"
+          >
+            <RefreshCw size={14} />
+            רענן
+          </button>
+          <button
+            onClick={() => { setManualOpen(true); setManualSuccess(false); setManualError(''); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          >
+            <Send size={14} />
+            שלח ידנית
+          </button>
+        </div>
+      </div>
+
+      {/* ── Catalog */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {CATALOG.map((entry) => {
+          const Icon = entry.icon;
+          const enabled = isEnabled(entry.channel);
+          const isEditing = editingChannel === entry.channel;
+          const sendCount = channelSendCount(entry.channel);
+          const delivered = totalDelivered(entry.channel);
+          const savedTitle = config.channels[entry.channel]?.titleTemplate ?? entry.defaultTitle;
+          const savedBody = config.channels[entry.channel]?.bodyTemplate ?? entry.defaultBody;
+
+          return (
+            <div
+              key={entry.channel}
+              className={`rounded-xl border transition-colors ${
+                enabled
+                  ? 'bg-white/5 border-white/10'
+                  : 'bg-white/[0.02] border-white/5 opacity-60'
+              }`}
+            >
+              {/* Card header */}
+              <div className="flex items-start gap-3 p-4">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${entry.iconBg}`}>
+                  <Icon size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-white">{entry.label}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      entry.type === 'auto'
+                        ? 'bg-indigo-900/50 text-indigo-300'
+                        : 'bg-orange-900/50 text-orange-300'
+                    }`}>
+                      {entry.type === 'auto' ? 'אוטומטי' : 'ידני'}
+                    </span>
+                    {!entry.implemented && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">
+                        בפיתוח
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{entry.trigger}</p>
+                </div>
+                {/* Toggle */}
+                <button
+                  onClick={() => handleToggle(entry.channel, !enabled)}
+                  disabled={!entry.implemented}
+                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 mt-1 ${
+                    !entry.implemented ? 'opacity-30 cursor-not-allowed' :
+                    enabled ? 'bg-green-500' : 'bg-gray-600'
+                  }`}
+                  title={enabled ? 'כבה' : 'הפעל'}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    enabled ? 'translate-x-1' : 'translate-x-5'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Stats row */}
+              {!statsLoading && (
+                <div className="flex gap-4 px-4 pb-3 text-xs text-gray-500">
+                  <span>{sendCount} שליחות (15 אחרונות)</span>
+                  {delivered > 0 && <span>· {delivered.toLocaleString()} נמסרו</span>}
+                  {entry.rateCapHours && (
+                    <span className="flex items-center gap-1">
+                      <Clock size={10} />
+                      cap {entry.rateCapHours}h
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Test send button */}
+              {entry.implemented && currentUserId && (
+                <div className="px-4 pb-3 flex items-center gap-2">
+                  <button
+                    onClick={() => handleTestSend(entry.channel)}
+                    disabled={testingChannel !== null}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {testingChannel === entry.channel ? (
+                      <RefreshCw size={11} className="animate-spin" />
+                    ) : (
+                      <Zap size={11} />
+                    )}
+                    שלח טסט אליי
+                  </button>
+                  {testResults[entry.channel] === 'ok' && (
+                    <span className="flex items-center gap-1 text-xs text-green-400">
+                      <CheckCircle2 size={11} />
+                      נשלח
+                    </span>
+                  )}
+                  {testResults[entry.channel] === 'err' && (
+                    <span className="flex items-center gap-1 text-xs text-red-400">
+                      <AlertCircle size={11} />
+                      נכשל
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Template section — only for auto channels with template vars */}
+              {entry.type === 'auto' && entry.templateVars && entry.channel !== 'chat' && (
+                <div className="border-t border-white/5 px-4 py-3">
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">כותרת</label>
+                        <input
+                          value={draftTitle}
+                          onChange={(e) => setDraftTitle(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">גוף</label>
+                        <textarea
+                          value={draftBody}
+                          onChange={(e) => setDraftBody(e.target.value)}
+                          rows={2}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1 flex-wrap">
+                          {entry.templateVars.map((v) => (
+                            <span key={v} className="text-xs bg-indigo-900/40 text-indigo-300 px-1.5 py-0.5 rounded font-mono">
+                              {v}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 mr-auto">
+                          <button
+                            onClick={() => setEditingChannel(null)}
+                            className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded"
+                          >
+                            ביטול
+                          </button>
+                          <button
+                            onClick={handleTemplateSave}
+                            disabled={savingChannel === entry.channel}
+                            className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded font-medium disabled:opacity-50"
+                          >
+                            {savingChannel === entry.channel ? '...' : 'שמור'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-300 font-medium truncate">{savedTitle}</p>
+                        <p className="text-xs text-gray-500 truncate">{savedBody}</p>
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          {entry.templateVars.map((v) => (
+                            <span key={v} className="text-xs bg-indigo-900/30 text-indigo-400 px-1.5 py-0.5 rounded font-mono">
+                              {v}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleEditOpen(entry)}
+                        className="text-xs text-gray-500 hover:text-indigo-400 whitespace-nowrap flex-shrink-0 mt-0.5"
+                      >
+                        ערוך
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Chat note */}
+              {entry.note && entry.channel === 'chat' && (
+                <div className="border-t border-white/5 px-4 py-2">
+                  <p className="text-xs text-gray-500">{entry.note}</p>
+                </div>
+              )}
+
+              {/* Manual channel note */}
+              {entry.type === 'manual' && (
+                <div className="border-t border-white/5 px-4 py-2">
+                  <p className="text-xs text-gray-500">
+                    שלח הודעה חופשית לכל קהל דרך{' '}
+                    <button
+                      onClick={() => setManualOpen(true)}
+                      className="text-indigo-400 hover:text-indigo-300 underline"
+                    >
+                      כפתור שלח ידנית
+                    </button>
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Recent sends */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">שליחות אחרונות</h2>
+        {statsLoading ? (
+          <div className="text-sm text-gray-500 py-4">טוען...</div>
+        ) : recentSends.length === 0 ? (
+          <div className="text-sm text-gray-500 py-4">אין שליחות עדיין</div>
+        ) : (
+          <div className="rounded-xl border border-white/10 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-xs text-gray-500">
+                  <th className="text-right px-4 py-2.5 font-medium">כותרת</th>
+                  <th className="text-right px-4 py-2.5 font-medium">ערוץ</th>
+                  <th className="text-right px-4 py-2.5 font-medium">קהל</th>
+                  <th className="text-right px-4 py-2.5 font-medium">סטטוס</th>
+                  <th className="text-right px-4 py-2.5 font-medium">נמסרו</th>
+                  <th className="text-right px-4 py-2.5 font-medium">תאריך</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {recentSends.map((send) => {
+                  const badge = STATUS_BADGE[send.status] ?? { label: send.status, cls: 'bg-gray-800 text-gray-400' };
+                  return (
+                    <tr key={send.id} className="hover:bg-white/[0.02]">
+                      <td className="px-4 py-2.5 text-gray-200 max-w-[200px] truncate">{send.title}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="text-xs bg-indigo-900/40 text-indigo-300 px-2 py-0.5 rounded">
+                          {send.channel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-400 text-xs">
+                        {AUDIENCE_LABELS[send.targetAudience] ?? send.targetAudience}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-xs px-2 py-0.5 rounded ${badge.cls}`}>{badge.label}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-400 text-xs">
+                        {send.deliveredCount > 0 ? send.deliveredCount.toLocaleString() : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">
+                        {send.sentAt.toLocaleDateString('he-IL')}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Manual send modal */}
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-5" dir="rtl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Megaphone size={18} className="text-blue-400" />
+                שלח הודעה ידנית
+              </h2>
+              <button
+                onClick={() => setManualOpen(false)}
+                className="text-gray-500 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">כותרת *</label>
+                <input
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="כותרת ההתראה"
+                  maxLength={80}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">גוף ההודעה *</label>
+                <textarea
+                  value={manualBody}
+                  onChange={(e) => setManualBody(e.target.value)}
+                  placeholder="טקסט מלא..."
+                  maxLength={200}
+                  rows={3}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none"
+                />
+                <p className="text-xs text-gray-600 mt-1 text-left">{manualBody.length}/200</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">קהל יעד</label>
+                <select
+                  value={manualAudience}
+                  onChange={(e) => setManualAudience(e.target.value as typeof manualAudience)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="all">כל המשתמשים</option>
+                  <option value="active_users">משתמשים פעילים</option>
+                  <option value="inactive_users">משתמשים לא פעילים</option>
+                  <option value="park_users">משתמשי פארק</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">קישור עמוק (deep link)</label>
+                <input
+                  value={manualDeepLink}
+                  onChange={(e) => setManualDeepLink(e.target.value)}
+                  placeholder="/"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Preview */}
+            {(manualTitle || manualBody) && (
+              <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+                <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                  <Bell size={10} />
+                  תצוגה מקדימה
+                </p>
+                <div className="flex items-start gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                    <Bell size={14} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{manualTitle || '...'}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{manualBody || '...'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {manualError && (
+              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 rounded-lg px-3 py-2">
+                <AlertCircle size={14} />
+                {manualError}
+              </div>
+            )}
+            {manualSuccess && (
+              <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/20 rounded-lg px-3 py-2">
+                <CheckCircle2 size={14} />
+                ההתראה נוספה לתור השליחה ✓
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setManualOpen(false)}
+                className="flex-1 py-2 rounded-lg border border-white/10 text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleManualSend}
+                disabled={manualSending || !manualTitle.trim() || !manualBody.trim() || !currentUserId}
+                className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {manualSending ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Send size={14} />
+                )}
+                {manualSending ? 'שולח...' : 'שלח'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
