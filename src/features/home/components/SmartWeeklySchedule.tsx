@@ -1363,12 +1363,14 @@ export default function SmartWeeklySchedule({
       {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
       {!showOverlay && <div className="flex items-center justify-between mb-2 px-1">
         {/* Calendar subscription:
-            - iOS: webcal:// handed to Apple Calendar via App.openUrl
-            - Android: webcal:// is unregistered; use Google Calendar subscribe URL instead
-            - Web: webcal:// href (handled by desktop calendar clients) */}
+            - iOS: webcal:// via window.open(_system) → UIApplication.open → Apple Calendar
+            - Android: Google Calendar subscribe URL via window.open(_system) → ACTION_VIEW intent
+            - Web: webcal:// href (desktop calendar clients)
+            Note: App.openUrl does not exist in @capacitor/app v6 — window.open(_system)
+            is the correct cross-platform Capacitor API for firing external URL intents. */}
         <button
           type="button"
-          onClick={async () => {
+          onClick={() => {
             if (!userId) return;
             const w = window as unknown as { Capacitor?: { getPlatform?: () => string } };
             const platform = w.Capacitor?.getPlatform?.() ?? 'web'; // 'ios' | 'android' | 'web'
@@ -1376,15 +1378,15 @@ export default function SmartWeeklySchedule({
               ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '')
               : (typeof window !== 'undefined' ? window.location.host : 'outrun.co.il');
             const webcalUrl = `webcal://${feedHost}/api/calendar/${userId}`;
-            if (platform === 'ios') {
-              const { App } = await import('@capacitor/app');
-              await App.openUrl({ url: webcalUrl });
-            } else if (platform === 'android') {
-              // Android has no built-in webcal:// handler. Open the Google Calendar
-              // subscribe flow — GCal App Links intercept it and show "Add calendar".
+            if (platform === 'android') {
+              // Android has no built-in webcal:// handler. Pass the Google Calendar
+              // subscribe URL to window.open(_system) — Capacitor fires ACTION_VIEW,
+              // GCal App Links intercept it and open the "Add calendar" flow.
               const gcalUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}`;
-              const { App } = await import('@capacitor/app');
-              await App.openUrl({ url: gcalUrl });
+              window.open(gcalUrl, '_system');
+            } else if (platform === 'ios') {
+              // iOS handles webcal:// natively via UIApplication.open.
+              window.open(webcalUrl, '_system');
             } else {
               window.location.href = webcalUrl;
             }
