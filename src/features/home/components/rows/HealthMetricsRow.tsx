@@ -6,7 +6,7 @@
  * Layout (RTL):
  *   header = "מדדי בריאות"
  *   right  = WHO 150 minutes (compact tile, ring + value / 150 דק׳)
- *   left   = Steps today (compact tile, click → /activity/steps)
+ *   left   = Steps today (compact tile, click → permission gate → /activity/steps)
  *
  * Visual size matches the "ExerciseRow" / strength tile design language
  * (small horizontal tile ~64px tall) so the row reads like the existing
@@ -24,6 +24,8 @@ import { DAILY_STEP_GOAL } from '@/config/health-goals';
 import SideBySideRow from './SideBySideRow';
 import SectionHeader from './SectionHeader';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
+import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 
 const WHO_TARGET = 150;
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
@@ -62,23 +64,31 @@ function StepsTile() {
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage = goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
 
-  // This tile navigates to the steps detail page only.
-  // Permission requests are handled exclusively by StepsSummaryCard and SettingsModal.
+  // Gate: if Health Connect / HealthKit permission not yet granted, show the
+  // disclosure modal first. onGranted → navigate to the detail page (or
+  // navigates immediately when permissions are already in place / on web).
+  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
+    onGranted: () => router.push('/activity/steps'),
+  });
+
   const handlePress = useCallback(() => {
-    router.push('/activity/steps');
-  }, [router]);
+    triggerHealthPermission();
+  }, [triggerHealthPermission]);
 
   return (
-    <CompactMetricTile
-      percentage={percentage}
-      icon={<Footprints size={16} className="-scale-x-100" />}
-      label="צעדים היום"
-      value={stepsToday.toLocaleString('he-IL')}
-      unit={`/ ${goal.toLocaleString('he-IL')} צעדים`}
-      onClick={handlePress}
-      colorClass="text-[#00C07A]"
-      ariaLabel={`צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`}
-    />
+    <>
+      <CompactMetricTile
+        percentage={percentage}
+        icon={<Footprints size={16} className="-scale-x-100" />}
+        label="צעדים היום"
+        value={stepsToday.toLocaleString('he-IL')}
+        unit={`/ ${goal.toLocaleString('he-IL')} צעדים`}
+        onClick={handlePress}
+        colorClass="text-[#00C07A]"
+        ariaLabel={`צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`}
+      />
+      <HealthConnectDisclosureModal {...disclosureProps} />
+    </>
   );
 }
 
