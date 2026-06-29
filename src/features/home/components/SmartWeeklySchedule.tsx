@@ -1362,30 +1362,30 @@ export default function SmartWeeklySchedule({
 
       {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
       {!showOverlay && <div className="flex items-center justify-between mb-2 px-1">
-        {/* webcal:// deep-link — use Capacitor App.openUrl on native so WKWebView
-            hands off to Apple Calendar / Google Calendar properly. Falls back to
-            a standard <a> href on pure-web / desktop. */}
+        {/* Calendar subscription:
+            - iOS: webcal:// handed to Apple Calendar via App.openUrl
+            - Android: webcal:// is unregistered; use Google Calendar subscribe URL instead
+            - Web: webcal:// href (handled by desktop calendar clients) */}
         <button
           type="button"
           onClick={async () => {
             if (!userId) return;
-            const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
-            const isNative = Boolean(w.Capacitor?.isNativePlatform?.());
-            // Native local-bundles expose window.location.host as 'localhost' —
-            // always use the canonical production host so iOS Calendar can reach
-            // the .ics feed hosted on the server.
-            const feedHost = isNative
+            const w = window as unknown as { Capacitor?: { getPlatform?: () => string } };
+            const platform = w.Capacitor?.getPlatform?.() ?? 'web'; // 'ios' | 'android' | 'web'
+            const feedHost = platform !== 'web'
               ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '')
               : (typeof window !== 'undefined' ? window.location.host : 'outrun.co.il');
             const webcalUrl = `webcal://${feedHost}/api/calendar/${userId}`;
-            try {
-              if (isNative) {
-                const { App } = await import('@capacitor/app');
-                await App.openUrl({ url: webcalUrl });
-              } else {
-                window.location.href = webcalUrl;
-              }
-            } catch {
+            if (platform === 'ios') {
+              const { App } = await import('@capacitor/app');
+              await App.openUrl({ url: webcalUrl });
+            } else if (platform === 'android') {
+              // Android has no built-in webcal:// handler. Open the Google Calendar
+              // subscribe flow — GCal App Links intercept it and show "Add calendar".
+              const gcalUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcalUrl)}`;
+              const { App } = await import('@capacitor/app');
+              await App.openUrl({ url: gcalUrl });
+            } else {
               window.location.href = webcalUrl;
             }
           }}
