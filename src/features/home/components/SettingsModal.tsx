@@ -7,7 +7,7 @@ import {
   X, User, Lock, Bell, Shield, Wrench, FileText, LogOut, Trash2,
   ChevronLeft, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
-  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare,
+  BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -34,6 +34,7 @@ import {
   getNotificationPrefs,
   setPushEnabled,
   setChannelEnabled,
+  type PushChannel,
 } from '@/features/notifications/services/notification-prefs.service';
 import { initPushNotifications } from '@/lib/native/push';
 
@@ -370,6 +371,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // ── Push notification saving guards (prevent double-tap) ─────────────────
   const [pushSaving,      setPushSaving]      = useState(false);
   const [chatNotifSaving, setChatNotifSaving] = useState(false);
+  // Generic saving guard for new channels (keyed by PushChannel)
+  const [channelSaving, setChannelSaving] = useState<Record<string, boolean>>({});
 
   // ── Native push permission status (App Store Guideline 4.5.4 — D1/D2) ─────
   // Source of truth for whether the OS will actually deliver notifications.
@@ -453,6 +456,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           store.patch({
             pushEnabled: prefs.pushEnabled,
             chatNotifEnabled: prefs.channels.chat ?? true,
+            progressionNotif: prefs.channels.progression ?? true,
+            socialNotif: prefs.channels.social ?? true,
+            communityNotif: prefs.channels.community ?? true,
+            retentionNotif: prefs.channels.retention ?? true,
+            trainingReminderNotif: prefs.channels.training_reminder ?? true,
+            encouragementNotif: prefs.channels.encouragement ?? true,
           });
         })
         .catch(() => {
@@ -767,6 +776,27 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setChatNotifSaving(false);
     }
   }, [store, chatNotifSaving, showToast]);
+
+  // ── Generic channel toggle for new channels ───────────────────────────────
+  const handleChannelToggle = useCallback(async (
+    channel: PushChannel,
+    storeKey: string,
+    v: boolean,
+  ) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || channelSaving[channel]) return;
+    store.patch({ [storeKey]: v });
+    setChannelSaving((prev) => ({ ...prev, [channel]: true }));
+    try {
+      await setChannelEnabled(uid, channel, v);
+    } catch (err) {
+      console.error(`[Settings] ${channel} write failed:`, err);
+      store.patch({ [storeKey]: !v });
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setChannelSaving((prev) => ({ ...prev, [channel]: false }));
+    }
+  }, [store, channelSaving, showToast]);
 
   // ── Units (debounced Firestore) ──────────────────────────────────────────
 
@@ -1432,6 +1462,98 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           disabled={!store.isLoaded || !store.pushEnabled || chatNotifSaving}
                         />
                       )
+                    }
+                  />
+
+                  {/* ── Per-category notification toggles ────────────────── */}
+                  {/* Progression — level-up, streak, PR */}
+                  <SettingsRow
+                    icon={
+                      channelSaving['progression']
+                        ? <Loader2 size={18} className="text-indigo-500 animate-spin" />
+                        : <Dumbbell size={18} className="text-indigo-500" />
+                    }
+                    iconBg="bg-indigo-50"
+                    label="התקדמות"
+                    sublabel="עלייה ברמה, שיאים אישיים"
+                    right={
+                      <Toggle
+                        checked={store.progressionNotif}
+                        onChange={(v) => { void handleChannelToggle('progression', 'progressionNotif', v); }}
+                        disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['progression']}
+                      />
+                    }
+                  />
+                  {/* Social — group joins, kudos */}
+                  <SettingsRow
+                    icon={
+                      channelSaving['social']
+                        ? <Loader2 size={18} className="text-purple-500 animate-spin" />
+                        : <Users size={18} className="text-purple-500" />
+                    }
+                    iconBg="bg-purple-50"
+                    label="חברתי"
+                    sublabel="הצטרפות לקבוצה, קאדוז"
+                    right={
+                      <Toggle
+                        checked={store.socialNotif}
+                        onChange={(v) => { void handleChannelToggle('social', 'socialNotif', v); }}
+                        disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['social']}
+                      />
+                    }
+                  />
+                  {/* Training reminder — scheduled workouts */}
+                  <SettingsRow
+                    icon={
+                      channelSaving['training_reminder']
+                        ? <Loader2 size={18} className="text-amber-500 animate-spin" />
+                        : <Calendar size={18} className="text-amber-500" />
+                    }
+                    iconBg="bg-amber-50"
+                    label="תזכורות אימון"
+                    sublabel="בוקר לפני אימון מתוזמן"
+                    right={
+                      <Toggle
+                        checked={store.trainingReminderNotif}
+                        onChange={(v) => { void handleChannelToggle('training_reminder', 'trainingReminderNotif', v); }}
+                        disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['training_reminder']}
+                      />
+                    }
+                  />
+                  {/* Encouragement — manual admin broadcasts */}
+                  <SettingsRow
+                    icon={
+                      channelSaving['encouragement']
+                        ? <Loader2 size={18} className="text-cyan-500 animate-spin" />
+                        : <Bell size={18} className="text-cyan-500" />
+                    }
+                    iconBg="bg-cyan-50"
+                    label="עידוד ומוטיבציה"
+                    sublabel="הודעות מהעירייה שלך"
+                    right={
+                      <Toggle
+                        checked={store.encouragementNotif}
+                        onChange={(v) => { void handleChannelToggle('encouragement', 'encouragementNotif', v); }}
+                        disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['encouragement']}
+                      />
+                    }
+                  />
+                  {/* Retention — re-engagement after inactivity */}
+                  <SettingsRow
+                    icon={
+                      channelSaving['retention']
+                        ? <Loader2 size={18} className="text-orange-500 animate-spin" />
+                        : <Heart size={18} className="text-orange-500" />
+                    }
+                    iconBg="bg-orange-50"
+                    label="חזרה לשגרה"
+                    sublabel="תזכורת כשלא התאמנת כמה ימים"
+                    right={
+                      <Toggle
+                        checked={store.retentionNotif}
+                        onChange={(v) => { void handleChannelToggle('retention', 'retentionNotif', v); }}
+                        disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['retention']}
+                      />
                     }
                   />
 

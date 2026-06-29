@@ -17,6 +17,7 @@ import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
 // instead of the previous `require()`-inside-try/catch eliminates the silent
 // failure path that left totalDistance stuck at 0 when bundler cache hiccuped.
 import { useSessionStore } from '../../../core/store/useSessionStore';
+import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 
 // ── Module-level coordinate buffers ──────────────────────────────────────────
@@ -177,6 +178,8 @@ interface RunningPlayerState {
    * matches what is in history — avoiding in-memory ghosts.
    */
   savedWorkoutSnapshot: WorkoutHistoryEntry | null;
+  /** Firestore document ID of the last saved workout. Used for delete/undo. */
+  savedWorkoutId: string | null;
 
   // Pace smoothing
   paceHistory: number[];
@@ -230,6 +233,12 @@ interface RunningPlayerState {
   sessionMode: RunSessionIntent;
   commuteContext: CommuteContext | null;
 
+  // True only when the user explicitly started a GROUP run (via lobby, invite
+  // accept, or RunShareBar fresh-group path). False for all solo runs.
+  // Prevents stale useSharedSession.groupId (set by CommunitySessionBanner)
+  // from being tagged onto a solo workout in finishWorkout().
+  isGroupRun: boolean;
+
   // Actions
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
   setActivityType: (type: 'running' | 'walking') => void;
@@ -268,6 +277,7 @@ interface RunningPlayerState {
    * 'workout' and nulls the destination context.
    */
   clearCommuteContext: () => void;
+  setIsGroupRun: (v: boolean) => void;
   setView: (view: 'main' | 'laps') => void;
   setLastViewport: (vp: any) => void;
   
@@ -290,6 +300,7 @@ interface RunningPlayerState {
   initializeRunningData: () => void;
   clearRunningData: () => void;
   finishWorkout: () => Promise<void>;
+  deleteLastWorkout: () => Promise<boolean>;
 
   // Map follow (Pillar 6)
   setMapFollowEnabled: (v: boolean) => void;
@@ -336,6 +347,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   elevationGain: 0,
   lastAltitude: null,
   savedWorkoutSnapshot: null,
+  savedWorkoutId: null,
   settings: {
     autoLapMode: 'off',
     autoLapValue: 1.0, // Default 1 km for distance mode
@@ -364,6 +376,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // Commute mode — defaults to 'workout' so existing flows are untouched.
   sessionMode: 'workout',
   commuteContext: null,
+  isGroupRun: false,
 
   // Setters
   setRunMode: (mode) => set({ runMode: mode }),
@@ -460,6 +473,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       sessionMode: 'workout',
       commuteContext: null,
     }),
+
+  setIsGroupRun: (v) => set({ isGroupRun: v }),
 
   setView: (view) => set({ view }),
   setLastViewport: (vp) => set({ lastViewport: vp }),
@@ -995,6 +1010,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       elevationGain: 0,
       lastAltitude: null,
       savedWorkoutSnapshot: null,
+  savedWorkoutId: null,
       // Reset deviation state at workout start so a previous session's
       // counters cannot leak into the new one and trigger a phantom recalc.
       routeDeviationMeters: null,
@@ -1010,6 +1026,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     stopGPSTracking();
     _coordBuffer = [];
     _zoneBuffer  = [];
+    // Clear shared session state so no stale groupId persists into the
+    // next solo run (CommunitySessionBanner can re-set it if a group
+    // session is genuinely ongoing — that is correct behaviour).
+    useSharedSession.getState().clearGroupSession();
     set({
       laps: [],
       currentPace: 0,
@@ -1020,6 +1040,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       elevationGain: 0,
       lastAltitude: null,
       savedWorkoutSnapshot: null,
+  savedWorkoutId: null,
+      isGroupRun: false,
       // Same reset as initializeRunningData. We DON'T reset
       // `offRouteEventToken` here — it's a monotonically-increasing event
       // counter, and rewinding it could replay a stale orchestrator effect.
@@ -1093,6 +1115,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
         if (!currentUser) {
           console.error('❌ [useRunningPlayer] Cannot save workout: No User ID found');
+          // Always transition to finished so the summary screen shows even without a save.
+          sessionState.endSession();
         } else {
           // ── Sanitise + compress route path ───────────────────────────
           // RDP simplification cuts a typical 2 000-point run to ~150–200
@@ -1111,6 +1135,15 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           const safePace = Number.isFinite(currentPace) ? currentPace : 0;
           const safeElevation = Number.isFinite(elevationGain) && elevationGain > 0 ? Math.round(elevationGain) : undefined;
           const durationMinutes = Math.max(Math.round(safeDuration / 60), 1);
+
+          // ── Minimum threshold guard ───────────────────────────────────
+          // Workouts under 60 s AND under 100 m are test taps / accidental
+          // starts. Skip save + XP + streak so they don't pollute history.
+          if (safeDuration < 60 && safeDistance < 0.1) {
+            console.log('[useRunningPlayer] Below minimum threshold — skipping save');
+            sessionState.endSession();
+            return;
+          }
 
           // ── XP calculation (must happen BEFORE save so xpEarned is on doc) ──
           // Commute sessions use a slimmer formula (no distance bonus,
@@ -1151,6 +1184,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             } catch { /* non-fatal */ }
           }
 
+          // ── Resolve group session fields before building the payload ──
+          // Only tag a workout as group when the user EXPLICITLY started a
+          // group run (isGroupRun=true). CommunitySessionBanner auto-sets
+          // useSharedSession.groupId for all joined members even when they
+          // are doing a solo run — we must not inherit that stale groupId.
+          const _sharedSession = useSharedSession.getState();
+          const groupSessionFields: { groupId?: string; attendanceId?: string } =
+            get().isGroupRun && _sharedSession.groupId && _sharedSession.attendanceId
+              ? { groupId: _sharedSession.groupId, attendanceId: _sharedSession.attendanceId }
+              : {};
+
           // ── Build the single authoritative workout document ───────────
           // Commute sessions are tagged via `sessionKind: 'commute'` plus
           // the optional destination metadata. We deliberately do NOT
@@ -1187,6 +1231,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                     : {}),
                 }
               : {}),
+            // Group session linkage — lets summary screen and future analytics
+            // query sibling workouts for the collective distance block.
+            ...groupSessionFields,
           };
 
           console.log('🚀 [useRunningPlayer] Saving workout (single write)...', {
@@ -1196,15 +1243,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
           let workoutSaved = false;
           try {
-            const success = await saveWorkout(workoutPayload);
-            if (success) {
+            const savedId = await saveWorkout(workoutPayload);
+            if (savedId) {
               workoutSaved = true;
               // Store the confirmed snapshot so summary screens show exactly
               // what was written, not in-memory approximations.
-              set({ savedWorkoutSnapshot: { ...workoutPayload, date: new Date() } });
-              console.log('✅ [useRunningPlayer] Workout saved successfully');
+              // category/displayIcon are omitted from workoutPayload (storage.service derives them);
+              // cast is safe because this snapshot is display-only, not re-written to Firestore.
+              set({
+                savedWorkoutSnapshot: { ...workoutPayload, date: new Date() } as WorkoutHistoryEntry,
+                savedWorkoutId: savedId,
+              });
+              console.log('✅ [useRunningPlayer] Workout saved:', savedId);
             } else {
-              console.error('❌ [useRunningPlayer] saveWorkout returned false');
+              console.error('❌ [useRunningPlayer] saveWorkout returned null');
             }
           } catch (saveError) {
             console.error('❌ [useRunningPlayer] Save error:', saveError);
@@ -1365,6 +1417,66 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           }
         }
       }
+    }
+  },
+
+  // ── deleteLastWorkout ──────────────────────────────────────────────────────
+  // Called from the summary screen "בטל אימון" button. Deletes the Firestore
+  // doc written by finishWorkout and reverses the XP award via the Guardian.
+  // Streak reversal (daysActive) is best-effort: if the workout was the only
+  // one today, we decrement daysActive and clear lastActiveDate.
+  deleteLastWorkout: async () => {
+    const { savedWorkoutId, savedWorkoutSnapshot } = get();
+    if (!savedWorkoutId) {
+      console.warn('[deleteLastWorkout] No saved workout ID — nothing to delete');
+      return false;
+    }
+
+    try {
+      const { deleteWorkout } = await import('@/features/workout-engine/core/services/storage.service');
+      const deleted = await deleteWorkout(savedWorkoutId);
+      if (!deleted) return false;
+
+      // Reverse XP via Guardian (negative delta)
+      const xpToReverse = savedWorkoutSnapshot?.xpEarned ?? 0;
+      if (xpToReverse > 0) {
+        import('@/lib/awardWorkoutXP').then(({ awardWorkoutXP }) => {
+          awardWorkoutXP({ xpDelta: -xpToReverse, source: 'workout:delete' }).catch(() => {});
+        }).catch(() => {});
+      }
+
+      // Reverse streak: if deleted workout was today's only one, roll back daysActive
+      import('@/lib/firebase').then(async ({ auth, db }) => {
+        const { collection, query, where, getDocs, doc, getDoc, updateDoc } = await import('firebase/firestore');
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        const today = new Date().toISOString().split('T')[0];
+        // Count remaining workouts for today (deleted one is already gone)
+        const q = query(collection(db, 'workouts'), where('userId', '==', uid));
+        const snap = await getDocs(q);
+        const todayRemaining = snap.docs.filter(d => {
+          const ts = d.data().date;
+          const dateStr = ts?.toDate ? ts.toDate().toISOString().split('T')[0] : '';
+          return dateStr === today;
+        }).length;
+        if (todayRemaining === 0) {
+          const userRef = doc(db, 'users', uid);
+          const userSnap = await getDoc(userRef);
+          const daysActive: number = userSnap.data()?.progression?.daysActive ?? 0;
+          updateDoc(userRef, {
+            'progression.daysActive': Math.max(0, daysActive - 1),
+            'progression.lastActiveDate': '',
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
+      // Clear local state
+      set({ savedWorkoutId: null, savedWorkoutSnapshot: null });
+      console.log('[deleteLastWorkout] Deleted:', savedWorkoutId);
+      return true;
+    } catch (err) {
+      console.error('[deleteLastWorkout] Failed:', err);
+      return false;
     }
   },
 

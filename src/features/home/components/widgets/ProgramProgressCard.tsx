@@ -49,7 +49,7 @@ function ProgressRing({
 
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
         <circle
           cx={center} cy={center} r={radius}
           fill="none" stroke="#E2E8F0" strokeWidth={strokeWidth}
@@ -112,7 +112,7 @@ export function ProgramProgressCard({
   const isCarousel = programCount > 1;
 
   const cardStyle: React.CSSProperties = isCarousel
-    ? { width: 320, minHeight: 107, flexShrink: 0 }
+    ? { minHeight: 107 }
     : {};
 
   return (

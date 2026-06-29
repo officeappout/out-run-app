@@ -55,11 +55,19 @@ export default function SummaryOrchestrator({
               date={workoutData.date}
               motivationalMessage={workoutData.motivationalMessage}
             />
-            <RunMapBlock
-              routeCoords={workoutData.routeCoords}
-              startCoord={startCoord}
-              endCoord={endCoord}
-            />
+            {workoutData.routeCoords.length > 1 ? (
+              <div style={{ height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+                <RunMapBlock
+                  routeCoords={workoutData.routeCoords}
+                  startCoord={startCoord}
+                  endCoord={endCoord}
+                />
+              </div>
+            ) : (
+              <div style={{ height: 200, borderRadius: 12, background: '#E7F1ED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa3a1', fontSize: 13, marginBottom: 16 }}>
+                אין נתוני מסלול
+              </div>
+            )}
             <SummaryStatsGrid
               time={workoutData.time}
               distance={workoutData.distance}
@@ -83,11 +91,19 @@ export default function SummaryOrchestrator({
               date={workoutData.date}
               motivationalMessage={workoutData.motivationalMessage}
             />
-            <RunMapBlock
-              routeCoords={workoutData.routeCoords}
-              startCoord={startCoord}
-              endCoord={endCoord}
-            />
+            {workoutData.routeCoords.length > 1 ? (
+              <div style={{ height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+                <RunMapBlock
+                  routeCoords={workoutData.routeCoords}
+                  startCoord={startCoord}
+                  endCoord={endCoord}
+                />
+              </div>
+            ) : (
+              <div style={{ height: 200, borderRadius: 12, background: '#E7F1ED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa3a1', fontSize: 13, marginBottom: 16 }}>
+                אין נתוני מסלול
+              </div>
+            )}
             <SummaryStatsGrid
               time={workoutData.time}
               distance={workoutData.distance}

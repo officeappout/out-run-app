@@ -8,6 +8,10 @@
 // COIN_SYSTEM_PAUSED: Set to true to re-enable the coin economy system
 export const IS_COIN_SYSTEM_ENABLED = false;
 
+// AEROBIC_SOLO: Ready for device verification. Shell is TSC-clean + fully wired.
+// While false, solo workouts use SummaryOrchestrator (FreeRunSummary) as fallback.
+export const AEROBIC_SOLO_ENABLED = true;
+
 // COMMUNITY_FEED_PAUSED: Social feed is hidden for the MVP.
 // Set to true to re-enable automatic post creation on workout completion.
 export const IS_COMMUNITY_FEED_ENABLED = false;

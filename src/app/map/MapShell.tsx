@@ -227,6 +227,17 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
     }
   }, [logic.showSummary, logic.showDopamine, mode, setMode]);
 
+  // Bridge: when the session finishes while in a running mode, signal showSummary
+  // so the effect above can transition mode → 'summary' and mount SummaryLayer.
+  // FreeRunLayer has no built-in finished→summary path; without this effect the
+  // screen freezes on the live drawer and the summary never appears.
+  useEffect(() => {
+    if (sessionStatus === 'finished' && (mode === 'free_run' || mode === 'active')) {
+      logic.setShowSummary(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStatus, mode]);
+
   // Sync workoutMode when mode changes (discover ↔ free_run)
   useEffect(() => {
     if (mode === 'free_run' && logic.workoutMode !== 'free') {
@@ -529,6 +540,7 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
         mode !== 'active' && (
           <SessionLobbyOverlay
             onStartFreeRun={() => {
+              useRunningPlayer.getState().setIsGroupRun(true);
               logic.setWorkoutMode('free');
               logic.startActiveWorkout();
               setMode('free_run');

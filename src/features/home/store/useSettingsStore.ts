@@ -12,6 +12,13 @@ export interface SettingsData {
   pushEnabled: boolean;
   /** Per-channel chat toggle — mirrors `users/{uid}.settings.notificationPrefs.chat` */
   chatNotifEnabled: boolean;
+  /** Per-channel toggles for new channels — mirrors notificationPrefs.{channel} */
+  progressionNotif: boolean;
+  socialNotif: boolean;
+  communityNotif: boolean;
+  retentionNotif: boolean;
+  trainingReminderNotif: boolean;
+  encouragementNotif: boolean;
 }
 
 interface SettingsState extends SettingsData {
@@ -33,6 +40,12 @@ const DEFAULTS: SettingsData = {
   healthBridgeEnabled: true,
   pushEnabled: true,
   chatNotifEnabled: true,
+  progressionNotif: true,
+  socialNotif: true,
+  communityNotif: true,
+  retentionNotif: true,
+  trainingReminderNotif: true,
+  encouragementNotif: true,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

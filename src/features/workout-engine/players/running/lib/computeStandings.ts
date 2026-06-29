@@ -1,4 +1,4 @@
-import type { Participant } from '../../shared/types/session-policy';
+import type { Participant } from '../../../shared/types/session-policy';
 import type { StandingsResult } from '../types/story-spec';
 
 /**

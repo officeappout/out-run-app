@@ -21,7 +21,11 @@ export type PushChannel =
   | 'health_milestone'
   | 'training_reminder'
   | 'system'
-  | 'chat';
+  | 'chat'
+  | 'social'
+  | 'progression'
+  | 'community'
+  | 'retention';
 
 export interface NotificationPreferences {
   pushEnabled: boolean;
@@ -36,6 +40,10 @@ const DEFAULT_PREFS: NotificationPreferences = {
     training_reminder: true,
     system: true,
     chat: true,
+    social: true,
+    progression: true,
+    community: true,
+    retention: true,
   },
 };
 
@@ -61,6 +69,10 @@ export async function getNotificationPrefs(
         training_reminder: prefs.training_reminder ?? true,
         system: prefs.system ?? true,
         chat: prefs.chat ?? true,
+        social: prefs.social ?? true,
+        progression: prefs.progression ?? true,
+        community: prefs.community ?? true,
+        retention: prefs.retention ?? true,
       },
     };
   } catch (err) {

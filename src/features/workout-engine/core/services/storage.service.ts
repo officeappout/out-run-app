@@ -74,6 +74,12 @@ export interface WorkoutHistoryEntry {
   commuteDestination?: [number, number];
   /** Human-readable destination label captured at start of the commute (e.g. saved place name or geocoder text). */
   commuteLabel?: string;
+
+  // ── Group session linkage ──────────────────────────────────────────────
+  /** Ephemeral group ID this workout belongs to (set when run as part of a group session). */
+  groupId?: string;
+  /** Attendance document ID (YYYY-MM-DD_HH-mm) for the group session. */
+  attendanceId?: string;
 }
 
 /**
@@ -101,12 +107,12 @@ function getWorkoutMetadata(activityType: string): {
 /**
  * Save a completed workout to Firestore
  */
-export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'date' | 'workoutType' | 'category' | 'displayIcon'> & Partial<Pick<WorkoutHistoryEntry, 'workoutType' | 'category' | 'displayIcon'>>): Promise<boolean> {
+export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'date' | 'workoutType' | 'category' | 'displayIcon'> & Partial<Pick<WorkoutHistoryEntry, 'workoutType' | 'category' | 'displayIcon'>>): Promise<string | null> {
   try {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       console.error('❌ [DB] Cannot save workout: No User ID found');
-      return false;
+      return null;
     }
 
     // Verify userId is provided and matches current user
@@ -242,7 +248,7 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
           `📥 [DB] Workout queued offline (localId=${localWorkoutId}). ` +
           `Will sync on reconnect via OutboxFlusher.`,
         );
-        return true;
+        return localWorkoutId;
       } catch (queueError) {
         console.error('❌ [DB] Failed to enqueue workout offline:', queueError);
         throw saveError;
@@ -250,13 +256,41 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
     }
 
     console.log(`✅ [DB] Workout saved successfully with ID: ${docRef.id} (Type: ${metadata.workoutType}, Category: ${metadata.category}, Icon: ${metadata.displayIcon})`);
-    return true;
+    return docRef.id;
   } catch (error) {
     console.error('❌ [DB] Error saving workout:', error);
     if (error instanceof Error) {
       console.error('❌ [DB] Error details:', error.message, error.stack);
     }
-    return false;
+    return null;
+  }
+}
+
+/**
+ * Delete a workout document. Verifies ownership before deleting.
+ * Returns the deleted doc's data (for XP reversal) or null on failure.
+ */
+export async function deleteWorkout(workoutId: string): Promise<WorkoutHistoryEntry | null> {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+
+    const { doc, getDoc, deleteDoc } = await import('firebase/firestore');
+    const ref = doc(db, 'workouts', workoutId);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists() || snap.data().userId !== currentUser.uid) {
+      console.warn('[deleteWorkout] Not found or access denied:', workoutId);
+      return null;
+    }
+
+    const data = snap.data() as WorkoutHistoryEntry;
+    await deleteDoc(ref);
+    console.log('[deleteWorkout] Deleted:', workoutId);
+    return data;
+  } catch (err) {
+    console.error('[deleteWorkout] Failed:', err);
+    return null;
   }
 }
 

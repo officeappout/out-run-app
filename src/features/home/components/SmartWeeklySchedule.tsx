@@ -24,6 +24,7 @@ import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
+import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -1368,11 +1369,17 @@ export default function SmartWeeklySchedule({
           type="button"
           onClick={async () => {
             if (!userId) return;
-            const host = typeof window !== 'undefined' ? window.location.host : 'out-run-app.vercel.app';
-            const webcalUrl = `webcal://${host}/api/calendar/${userId}`;
+            const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
+            const isNative = Boolean(w.Capacitor?.isNativePlatform?.());
+            // Native local-bundles expose window.location.host as 'localhost' —
+            // always use the canonical production host so iOS Calendar can reach
+            // the .ics feed hosted on the server.
+            const feedHost = isNative
+              ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '')
+              : (typeof window !== 'undefined' ? window.location.host : 'outrun.co.il');
+            const webcalUrl = `webcal://${feedHost}/api/calendar/${userId}`;
             try {
-              const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
-              if (w.Capacitor?.isNativePlatform?.()) {
+              if (isNative) {
                 const { App } = await import('@capacitor/app');
                 await App.openUrl({ url: webcalUrl });
               } else {

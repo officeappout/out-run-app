@@ -2,16 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
+import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import { Save, Share2, Coins, Flag, Clock, Navigation as NavIcon, Sparkles, Maximize2, X } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from 'recharts';
+import LapPaceChart from '@/features/workout-engine/summary/components/shared/LapPaceChart';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -282,7 +275,7 @@ export default function FreeRunSummary({
         className="relative w-full px-4 pt-4 pb-2"
         style={{ height: '180px', minHeight: '180px', maxHeight: '180px' }}
       >
-        {routeCoords.length > 0 ? (
+        {routeCoords.length > 1 ? (
           <button
             type="button"
             onClick={() => setExpandedMap(true)}
@@ -687,171 +680,8 @@ export default function FreeRunSummary({
   );
 }
 
-/**
- * MeasuredChartBox
- * ────────────────
- * Copied verbatim from `ExerciseDetailSheet.tsx`. Eliminates Recharts'
- * "width/height of -1" warning at the source by gating chart mount on
- * a real ResizeObserver measurement instead of using
- * <ResponsiveContainer> (which races the parent's first paint and
- * fires the warning before its own observer has a stable measurement).
- *
- * Children receive concrete numeric `width` and `height` in pixels —
- * pass them straight to <AreaChart width={...} height={...}>, no
- * ResponsiveContainer needed.
- */
-function MeasuredChartBox({
-  children,
-  className,
-}: {
-  children: (size: { width: number; height: number }) => ReactNode;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    let raf = 0;
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => {
-          setSize((prev) =>
-            prev && prev.width === width && prev.height === height
-              ? prev
-              : { width, height },
-          );
-        });
-      }
-    });
-    ro.observe(el);
-    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
-  }, []);
-
-  return (
-    <div ref={ref} className={className}>
-      {size ? children(size) : null}
-    </div>
-  );
-}
-
-/**
- * LapPaceChart
- * ────────────
- * Per-lap pace line chart rendered in the "Laps" tab of the workout
- * summary. Uses the exact same Recharts AreaChart pattern as
- * `ExerciseProgressionSection` in ExerciseDetailSheet.tsx — same
- * gradient, same muted grid, same dot + activeDot styling, same dark
- * tooltip chrome.
- *
- * Differences from the exercise trend chart:
- *   • `dataKey = "pace"` (min/km) instead of "maxReps"
- *   • Y-axis is `reversed` so lower pace values (faster laps) sit at
- *     the TOP of the chart — the visual metaphor is "peaks = fastest"
- *   • Tick and tooltip values are formatted via `formatPace`
- *     (shared helper) so the axis reads `05:03` dot-min/km style
- *
- * Empty state: if laps array is empty OR every `splitPace` is
- * non-positive (the session never recorded a valid pace), a quiet
- * placeholder replaces the chart so we don't paint a flat zero line.
- */
-function LapPaceChart({ laps }: { laps: Lap[] }) {
-  const data = laps
-    .filter((l) => Number.isFinite(l.splitPace))
-    .map((l) => ({ lap: l.lapNumber, pace: l.splitPace }));
-  const hasData = data.some((d) => d.pace > 0);
-
-  // Stable per-mount gradient id — multiple LapPaceCharts on the same
-  // page would otherwise collide on `#freerunLapPaceGrad` and the
-  // second chart would pick up the first chart's gradient.
-  const gradId = useMemo(
-    () => `freerun_lap_pace_${Math.random().toString(36).slice(2, 9)}`,
-    [],
-  );
-
-  return (
-    <div
-      className="bg-gray-50 rounded-xl shadow-sm p-4"
-      dir="rtl"
-      style={{ fontFamily: 'var(--font-simpler)' }}
-    >
-      <div className="flex items-center justify-between mb-3 px-1">
-        <h3 className="text-sm font-bold text-gray-900">קצב לפי הקפה</h3>
-        <span className="text-[11px] font-semibold text-gray-500">דק׳/ק״מ · נמוך = מהיר</span>
-      </div>
-
-      {!hasData ? (
-        <div className="h-[150px] flex items-center justify-center">
-          <p className="text-xs text-gray-400">אין נתוני קצב להצגה</p>
-        </div>
-      ) : (
-        <MeasuredChartBox className="w-full aspect-[2/1] min-h-[150px]">
-          {({ width, height }) => (
-            <AreaChart
-              width={width}
-              height={height}
-              data={data}
-              margin={{ top: 4, right: 8, left: -4, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"  stopColor="#00ADEF" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#00ADEF" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 6" stroke="#F1F5F9" vertical={false} />
-              <XAxis
-                dataKey="lap"
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                reversed
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-                tickFormatter={(v: number) => formatPace(v)}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: '#1E293B', border: 'none', borderRadius: 10,
-                  fontSize: 11, fontWeight: 700, color: '#fff', padding: '6px 10px',
-                }}
-                // Cast on the function reference rather than the value
-                // param: Recharts 3.x widened the Formatter signature
-                // to a 5-arg generic over `ValueType` which our simple
-                // 1-arg formatter no longer satisfies structurally
-                // (the same mismatch exists in ExerciseDetailSheet.tsx
-                // — the pattern this chart was copied from). Safe
-                // because `value` is always a number here.
-                formatter={((value: number) => [formatPace(value), 'קצב']) as never}
-                labelFormatter={(lap) => `הקפה ${lap}`}
-                cursor={{ stroke: '#00ADEF', strokeWidth: 1, strokeDasharray: '4 4' }}
-              />
-              <Area
-                type="monotone"
-                dataKey="pace"
-                stroke="#00ADEF"
-                strokeWidth={2.5}
-                fill={`url(#${gradId})`}
-                dot={{ r: 4, fill: '#fff', stroke: '#00ADEF', strokeWidth: 2 }}
-                activeDot={{ r: 6, fill: '#00ADEF', stroke: '#fff', strokeWidth: 2 }}
-                isAnimationActive={data.length > 1}
-              />
-            </AreaChart>
-          )}
-        </MeasuredChartBox>
-      )}
-    </div>
-  );
-}
+// LapPaceChart and MeasuredChartBox extracted to shared components
+// (src/features/workout-engine/summary/components/shared/)
 
 /**
  * CommuteSlimSummary

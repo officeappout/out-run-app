@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { Participant } from '../../shared/types/session-policy';
+import type { Participant } from '../../../shared/types/session-policy';
 import type { SessionGoal } from '../store/useRunningPlayer';
 
 export type StoryKind = 'metric-goal' | 'versus' | 'group-aggregate';

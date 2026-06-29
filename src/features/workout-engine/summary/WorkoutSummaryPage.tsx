@@ -13,7 +13,8 @@ import SummaryOrchestrator, {
   WorkoutData,
   WorkoutType,
 } from './components/SummaryOrchestrator';
-import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
+import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED } from '@/config/feature-flags';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
@@ -52,6 +53,17 @@ export default function WorkoutSummaryPage({
   const handleFinish = async () => {
     if (isGuest) {
       // Basic Guest Finish
+      clearRunningData();
+      useSessionStore.getState().clearSession();
+      onFinish();
+      router.push('/home');
+      return;
+    }
+
+    // Below-threshold runs: finishWorkout did endSession() + early return, so
+    // savedWorkoutSnapshot is null. Skip all progression/calorie writes — just
+    // clean up state and go home.
+    if (!savedWorkoutSnapshot) {
       clearRunningData();
       useSessionStore.getState().clearSession();
       onFinish();
@@ -150,6 +162,50 @@ export default function WorkoutSummaryPage({
 
   // Prefer the confirmed snapshot written by finishWorkout over raw store state
   const snap = savedWorkoutSnapshot;
+
+  // Group walking/running summary — AerobicSummaryShell handles group sessions
+  if (snap?.groupId) {
+    const currentUser = auth.currentUser;
+    const effectiveActivityType =
+      snap.activityType === 'walking' || snap.activityType === 'running'
+        ? snap.activityType
+        : 'running';
+    return (
+      <AerobicSummaryShell
+        variant="group"
+        activityType={effectiveActivityType}
+        workout={{ ...snap, date: snap.date ?? new Date() }}
+        currentUid={currentUser?.uid}
+        streakDays={currentStreak}
+        xpEarned={0}
+        onSave={handleFinish}
+        onClose={handleFinish}
+      />
+    );
+  }
+
+  // Solo walking/running summary — behind AEROBIC_SOLO_ENABLED flag (default: false)
+  // Flip to true only after verifying on device. FreeRunSummary stays as fallback.
+  if (AEROBIC_SOLO_ENABLED) {
+    const currentUser = auth.currentUser;
+    const effectiveActivityType =
+      snap?.activityType === 'walking' || snap?.activityType === 'running'
+        ? snap.activityType
+        : 'running';
+    return (
+      <AerobicSummaryShell
+        variant="solo"
+        activityType={effectiveActivityType}
+        workout={{ ...snap!, date: snap?.date ?? new Date() }}
+        currentUid={currentUser?.uid}
+        streakDays={currentStreak}
+        xpEarned={0}
+        onSave={handleFinish}
+        onClose={handleFinish}
+      />
+    );
+  }
+
   const workoutData: WorkoutData = {
     time: snap?.duration ?? totalDuration,
     distance: snap?.distance ?? totalDistance,

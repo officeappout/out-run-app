@@ -345,27 +345,35 @@ async function attachPushAuthBridge(): Promise<void> {
       // ensure we have a fresh token for THIS uid.
       lastUid = user.uid;
 
-      // Fire-and-forget — push registration MUST NOT block or await here.
-      // A hanging checkPermissions() / getToken() call (e.g. APNs not yet
-      // provisioned on TestFlight, no network, misconfigured certificate)
-      // would otherwise keep this async callback pending indefinitely,
-      // which can appear to freeze the Sync button and other UI actions
-      // that depend on the Capacitor native bridge being responsive.
-      // withTimeout() in push.ts bounds the maximum hang to 15 s, but
-      // making this fire-and-forget ensures profile loading, Firestore
-      // listeners, and the rest of the native shell proceed immediately.
-      void initPushNotifications(user.uid, { silent: true }).catch((err) => {
-        console.error('[native] initPushNotifications (silent) unhandled:', err);
-      });
-
-      // Health: sync on every login if already granted; request on first login
-      // after onboarding is done (so the LifestyleWizard priming fires first for
-      // new users). If the user previously denied, PREF_KEY_ASKED is set but
-      // PREF_KEY_PERMISSIONS is not — we skip silently instead of nagging.
+      // Fire-and-forget — MUST NOT block or await here. A hanging native call
+      // (APNs not provisioned, no network, misconfigured certificate) would
+      // keep this async callback pending indefinitely, freezing the Sync button
+      // and other Capacitor bridge-dependent UI. withTimeout() in push.ts caps
+      // individual calls at 15 s, but fire-and-forget ensures the rest of the
+      // native shell proceeds immediately regardless.
+      //
+      // Reads onboarding state once and shares it across both permission flows.
       void (async () => {
         try {
-          const { PREF_KEY_PERMISSIONS, PREF_KEY_ASKED, requestHealthPermissions, healthBridgeSyncNow } =
-            await import('@/lib/healthBridge/init');
+          const { getOnboardingPrefAsync } = await import('@/lib/onboardingPrefs');
+          const gatewayUid = await getOnboardingPrefAsync('gateway_uid');
+          const onboardingDone = gatewayUid === user.uid;
+
+          // Push: silent during onboarding so LifestyleWizard owns the first-time
+          // dialog; non-silent for returning users so a reinstall gets the OS
+          // prompt back without going through onboarding again.
+          void initPushNotifications(user.uid, onboardingDone ? {} : { silent: true })
+            .catch((err) => {
+              console.error('[native] initPushNotifications (sign-in) unhandled:', err);
+            });
+
+          // Health: sync if already granted; request for any signed-in user who
+          // hasn't been asked yet (gateway_uid gate removed — every user deserves
+          // the prompt, HealthKit won't re-show the sheet if already decided).
+          const {
+            PREF_KEY_PERMISSIONS, PREF_KEY_ASKED,
+            requestHealthPermissions, healthBridgeSyncNow,
+          } = await import('@/lib/healthBridge/init');
           const { Preferences } = await import('@capacitor/preferences');
           const [{ value: prevGranted }, { value: prevAsked }] = await Promise.all([
             Preferences.get({ key: PREF_KEY_PERMISSIONS }),
@@ -374,18 +382,12 @@ async function attachPushAuthBridge(): Promise<void> {
           if (prevGranted === '1') {
             void healthBridgeSyncNow('login');
           } else if (!prevAsked) {
-            // Only auto-request once onboarding is complete for this user
-            // (gateway_uid matches) so the OS sheet is never shown cold.
-            const { getOnboardingPrefAsync } = await import('@/lib/onboardingPrefs');
-            const gatewayUid = await getOnboardingPrefAsync('gateway_uid');
-            if (gatewayUid === user.uid) {
-              void requestHealthPermissions();
-            }
+            void requestHealthPermissions();
           }
-          // prevAsked && !prevGranted → user denied → no-op.
+          // prevAsked && !prevGranted → user denied previously → no-op.
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
-            console.debug('[native] health sign-in hook failed:', err);
+            console.debug('[native] sign-in hook failed:', err);
           }
         }
       })();

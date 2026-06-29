@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -10,7 +10,7 @@ if (typeof window !== 'undefined' && !mapboxgl.getRTLTextPluginStatus()) {
   try {
     mapboxgl.setRTLTextPlugin(
       'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js',
-      null,
+      () => { /* errors handled by outer catch */ },
       true
     );
   } catch (err) {
@@ -22,7 +22,7 @@ const Map = dynamic(() => import('react-map-gl').then((mod) => mod.default), {
   ssr: false,
 });
 
-import { Source, Layer, MapRef } from 'react-map-gl';
+import { Source, Layer } from 'react-map-gl';
 
 interface RunMapBlockProps {
   routeCoords: number[][]; // [[lng, lat], ...]
@@ -34,7 +34,6 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
   const [mounted, setMounted] = useState(false);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const mapRef = useRef<MapRef>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -42,33 +41,18 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
     setMapboxToken(token);
   }, []);
 
+  // Default center: Tel Aviv. Used when there are no GPS coords (0-distance run).
+  const DEFAULT_LNG = 34.7818;
+  const DEFAULT_LAT = 32.0853;
+
   const lngs = routeCoords.map((coord) => coord[0]);
   const lats = routeCoords.map((coord) => coord[1]);
-  const minLng = lngs.length > 0 ? Math.min(...lngs) : 0;
-  const maxLng = lngs.length > 0 ? Math.max(...lngs) : 0;
-  const minLat = lats.length > 0 ? Math.min(...lats) : 0;
-  const maxLat = lats.length > 0 ? Math.max(...lats) : 0;
+  const minLng = lngs.length > 0 ? Math.min(...lngs) : DEFAULT_LNG;
+  const maxLng = lngs.length > 0 ? Math.max(...lngs) : DEFAULT_LNG;
+  const minLat = lats.length > 0 ? Math.min(...lats) : DEFAULT_LAT;
+  const maxLat = lats.length > 0 ? Math.max(...lats) : DEFAULT_LAT;
   const centerLng = (minLng + maxLng) / 2;
   const centerLat = (minLat + maxLat) / 2;
-
-  useEffect(() => {
-    if (isMapLoaded && mapRef.current && routeCoords.length > 1) {
-      try {
-        const bounds: [number, number, number, number] = [
-          minLng,
-          minLat,
-          maxLng,
-          maxLat,
-        ];
-        mapRef.current.fitBounds(bounds, {
-          padding: 40,
-          duration: 0,
-        });
-      } catch (err) {
-        console.warn('[RunMapBlock] Could not fit bounds:', err);
-      }
-    }
-  }, [isMapLoaded, minLng, minLat, maxLng, maxLat, routeCoords.length]);
 
   if (!mounted || !mapboxToken) {
     return (
@@ -77,17 +61,6 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
         style={{ fontFamily: 'var(--font-simpler)' }}
       >
         <p className="text-gray-400">טוען מפה...</p>
-      </div>
-    );
-  }
-
-  if (routeCoords.length === 0) {
-    return (
-      <div
-        className="w-full h-full bg-gray-200 flex items-center justify-center"
-        style={{ fontFamily: 'var(--font-simpler)' }}
-      >
-        <p className="text-gray-400">אין נתוני מסלול</p>
       </div>
     );
   }
@@ -146,19 +119,18 @@ export default function RunMapBlock({ routeCoords, startCoord, endCoord }: RunMa
         </div>
       )}
       <Map
-        ref={mapRef}
         onLoad={handleMapLoad}
-        initialViewState={{
-          longitude: centerLng,
-          latitude: centerLat,
-          zoom: 14,
-          bearing: 0,
-          pitch: 0,
-        }}
+        initialViewState={
+          routeCoords.length > 1
+            ? {
+                bounds: [minLng, minLat, maxLng, maxLat] as [number, number, number, number],
+                fitBoundsOptions: { padding: 40 },
+              }
+            : { longitude: centerLng, latitude: centerLat, zoom: 14, bearing: 0, pitch: 0 }
+        }
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={mapboxToken}
-        locale="he"
         interactive={false}
       >
           {routeCoords.length > 1 && (

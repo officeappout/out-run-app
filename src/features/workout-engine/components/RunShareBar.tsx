@@ -19,6 +19,7 @@ import { UserPlus, Loader2 } from 'lucide-react';
 import ShareAsLiveToggle from './ShareAsLiveToggle';
 import { createRunInvite } from '@/lib/workoutInvite';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { auth } from '@/lib/firebase';
 
 interface RunShareBarProps {
@@ -202,6 +203,8 @@ export default function RunShareBar({
         useSharedSession
           .getState()
           .startGroupSession(groupId, attendanceId, uid ? [uid] : [], profiles, '');
+        // Host explicitly converted a solo run to a group run via the share bar.
+        useRunningPlayer.getState().setIsGroupRun(true);
       }
 
       const text = timing === 'later'

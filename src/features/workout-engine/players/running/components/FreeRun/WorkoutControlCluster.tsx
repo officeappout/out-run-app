@@ -102,7 +102,15 @@ export default function WorkoutControlCluster() {
 
   const handleStopConfirm = useCallback(async () => {
     const { finishWorkout } = useRunningPlayer.getState();
-    await finishWorkout();
+    try {
+      await finishWorkout();
+    } catch {
+      // finishWorkout has its own catch that calls endSession(), but if anything
+      // escapes (e.g. a dynamic-import inside the catch block fails), force the
+      // transition so the summary always appears and the screen never freezes.
+      const { useSessionStore } = await import('@/features/workout-engine/core/store/useSessionStore');
+      useSessionStore.getState().endSession();
+    }
   }, []);
 
   useEffect(() => {

@@ -1250,17 +1250,16 @@ export default function HomePage() {
 
               {/* ── Tab content ──────────────────────────────────────── */}
               {homeTab === 'strength' ? (
-                /* התקדמות שבועית — program ring (flex-1) + consistency bars (111px) */
+                /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
+                   Grid (not flex) so each cell has an explicit physical boundary —
+                   no item can bleed into the neighbouring cell regardless of its
+                   internal width. Mirrors the "health" tab grid below. */
                 <div
-                  className="flex flex-row items-stretch gap-4 w-full overflow-hidden"
-                  dir="rtl"
+                  className="w-full grid gap-4 items-stretch"
+                  style={{ gridTemplateColumns: 'minmax(0, 1fr) 111px', direction: 'rtl' }}
                 >
-                  <div className="flex-1 min-w-0">
-                    <ProgramProgressRow />
-                  </div>
-                  <div className="w-[111px] flex-shrink-0">
-                    <ConsistencyWidget />
-                  </div>
+                  <ProgramProgressRow />
+                  <ConsistencyWidget />
                 </div>
               ) : (
                 /* מדדי בריאות — activity minutes (right) + steps (left) */
@@ -1292,15 +1291,9 @@ export default function HomePage() {
           );
         })()}
 
-        {/* Nearby community groups discovery carousel */}
-        <NearbyGroupsRow />
-
-        {/* Nearby Workout Locations — context-aware carousel (below the 5 rows) */}
-        <WorkoutLocationSuggestions
-          workoutType={isRunningMode ? 'running' : 'strength'}
-        />
-
         {/* Post-Workout Celebration Card — replaces the workout trio when completed.
+            Rendered here so it occupies the same vertical slot as the workout
+            section (above NearbyGroupsRow), not below it.
             Two render modes:
               • Fresh celebration (postWorkoutData): full title + streak + thumbnail.
               • Persistent "done for today" (todayWorkoutDone only): minimal restful
@@ -1323,6 +1316,14 @@ export default function HomePage() {
             />
           </motion.div>
         )}
+
+        {/* Nearby community groups discovery carousel */}
+        <NearbyGroupsRow />
+
+        {/* Nearby Workout Locations — context-aware carousel (below the 5 rows) */}
+        <WorkoutLocationSuggestions
+          workoutType={isRunningMode ? 'running' : 'strength'}
+        />
 
         {/* Lifestyle Bridge Overlay */}
         <AnimatePresence>

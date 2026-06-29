@@ -662,17 +662,21 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       // Optimistic local update
       set({ globalXP: newTotalXP, globalLevel: newLevel });
 
-      // Persist via Guardian (rules block direct client writes)
+      // Persist via Guardian (rules block direct client writes).
+      // Fire-and-forget: never await the Guardian so an App Check failure
+      // or network timeout cannot stall finishWorkout() and block the summary.
       if (typeof window !== 'undefined') {
-        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
-        const userId = useUserStore.getState().profile?.id;
-        if (userId) {
-          await guardianAward({ xpDelta: xpEarned, source: `workout:${params.activityType ?? 'running'}` });
-          // Record activity so daysActive / lemurStage update (idempotent per day)
-          get().recordActivity(userId).catch((e) =>
-            console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
-          );
-        }
+        import('@/features/user/identity/store/useUserStore').then(({ useUserStore }) => {
+          const userId = useUserStore.getState().profile?.id;
+          if (!userId) return;
+          guardianAward({ xpDelta: xpEarned, source: `workout:${params.activityType ?? 'running'}` })
+            .then(() => {
+              get().recordActivity(userId).catch((e) =>
+                console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
+              );
+            })
+            .catch((e) => console.warn('[ProgressionStore] guardianAward (running) failed:', e));
+        }).catch(() => {});
       }
 
       console.log(
@@ -713,18 +717,20 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
       // Optimistic local update
       set({ globalXP: newTotalXP, globalLevel: newLevel });
 
+      // Fire-and-forget — same rationale as awardRunningXP above.
       if (typeof window !== 'undefined') {
-        const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
-        const userId = useUserStore.getState().profile?.id;
-        if (userId) {
-          await guardianAward({ xpDelta: xpEarned, source: 'workout:commute' });
-          // Record activity so daysActive / lemurStage update (idempotent per day).
-          // A daily commute SHOULD count toward the streak — that's the whole
-          // gamification hook for this feature.
-          get().recordActivity(userId).catch((e) =>
-            console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
-          );
-        }
+        import('@/features/user/identity/store/useUserStore').then(({ useUserStore }) => {
+          const userId = useUserStore.getState().profile?.id;
+          if (!userId) return;
+          guardianAward({ xpDelta: xpEarned, source: 'workout:commute' })
+            .then(() => {
+              // Record activity so daysActive / lemurStage update (idempotent per day).
+              get().recordActivity(userId).catch((e) =>
+                console.warn('[ProgressionStore] recordActivity failed (non-critical):', e),
+              );
+            })
+            .catch((e) => console.warn('[ProgressionStore] guardianAward (commute) failed:', e));
+        }).catch(() => {});
       }
 
       console.log(
