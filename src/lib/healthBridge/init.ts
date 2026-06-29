@@ -259,6 +259,49 @@ export async function writeWorkoutToHealth(params: {
 }
 
 /**
+ * Public: check whether Health Connect is available on this device.
+ * Returns the SDK status without touching the PREF_KEY_ASKED flag.
+ */
+export async function checkHealthAvailability(): Promise<{
+  available: boolean;
+  reason?: 'sdk-unavailable' | 'provider-update-required';
+}> {
+  if (!isNative()) return { available: false };
+  try {
+    const HealthBridge = await loadPlugin();
+    const result = await (HealthBridge as any).isAvailable();
+    return {
+      available: Boolean(result?.available),
+      reason: result?.reason as 'sdk-unavailable' | 'provider-update-required' | undefined,
+    };
+  } catch {
+    return { available: false };
+  }
+}
+
+/**
+ * Public: read today's step count from the hardware step counter sensor,
+ * bypassing Health Connect entirely. Works on all Android 4.4+ devices
+ * that have a step counter chip, regardless of HC availability.
+ */
+export async function readStepsFromSensorFallback(): Promise<{
+  available: boolean;
+  stepsToday: number;
+}> {
+  if (!isNative()) return { available: false, stepsToday: 0 };
+  try {
+    const HealthBridge = await loadPlugin();
+    const result = await (HealthBridge as any).readStepsFromSensor();
+    return {
+      available: Boolean(result?.available),
+      stepsToday: Number(result?.stepsToday ?? 0),
+    };
+  } catch {
+    return { available: false, stepsToday: 0 };
+  }
+}
+
+/**
  * Public: idempotent first-time install.
  * Subscribes to `samplesAvailable`, enables background delivery if the
  * user has previously granted permissions (we cache that in
@@ -272,7 +315,20 @@ export async function initHealthBridge(): Promise<void> {
   try {
     const HealthBridge = await loadPlugin();
     const { available } = await (HealthBridge as any).isAvailable();
-    if (!available) return;
+    if (!available) {
+      // On Android, emit a one-shot sensor reading so the step tile has data
+      // even without Health Connect installed.
+      if (!platformIsIOS()) {
+        try {
+          const { available: sensorOk, stepsToday } = await readStepsFromSensorFallback();
+          if (sensorOk && stepsToday > 0) {
+            const today = new Date().toISOString().slice(0, 10);
+            pushSample({ type: 'steps', value: stepsToday, date: today, startDate: today, endDate: today });
+          }
+        } catch { /* sensor absent — silently skip */ }
+      }
+      return;
+    }
 
     // Subscribe — fires on observer queries (iOS) and the WorkManager
     // worker (Android), as well as foreground sync triggers.
@@ -333,10 +389,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
  * promise within `PERMISSION_TIMEOUT_MS`. On timeout we return
  * `{ granted: false }` and the UI spinner clears.
  */
-export async function requestHealthPermissions(): Promise<{ granted: boolean; timedOut?: boolean }> {
+export async function requestHealthPermissions(): Promise<{
+  granted: boolean;
+  timedOut?: boolean;
+  reason?: 'sdk-unavailable' | 'provider-update-required';
+}> {
   if (!isNative()) return { granted: false };
   try {
     const HealthBridge = await loadPlugin();
+    // Guard: check HC availability BEFORE setting PREF_KEY_ASKED.
+    // If HC is absent we never show an OS dialog, so marking "asked" would
+    // permanently suppress the auto-request on future sessions.
+    const availResult = await (HealthBridge as any).isAvailable();
+    if (!availResult?.available) {
+      return {
+        granted: false,
+        reason: availResult?.reason as 'sdk-unavailable' | 'provider-update-required' | undefined,
+      };
+    }
     // Persist "asked" before the OS sheet so a deny or mid-dialog kill still
     // records that the user was prompted and we don't ask again on next login.
     const Preferences = await getPrefs();

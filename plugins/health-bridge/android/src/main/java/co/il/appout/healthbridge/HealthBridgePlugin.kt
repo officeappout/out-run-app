@@ -2,6 +2,12 @@ package co.il.appout.healthbridge
 
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Handler
+import android.os.Looper
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -442,6 +448,80 @@ class HealthBridgePlugin : Plugin() {
         obj.put("activeMinutes", activeMinutes)
         if (source != null) obj.put("source", source)
         return obj
+    }
+
+    /**
+     * Reads today's step count from the hardware step counter sensor
+     * (TYPE_STEP_COUNTER). This sensor reports cumulative steps since last
+     * boot, so we maintain a per-day baseline in SharedPreferences to
+     * derive today's delta.
+     *
+     * Falls back gracefully when the sensor is absent or ACTIVITY_RECOGNITION
+     * is not granted. Resolves within 3 seconds (timeout or first sensor event).
+     *
+     * JS return: { available: Boolean, stepsToday: Long, totalSinceBoot: Long }
+     */
+    @PluginMethod
+    fun readStepsFromSensor(call: PluginCall) {
+        val ctx: Context = context ?: run {
+            call.resolve(JSObject().put("available", false).put("stepsToday", 0L).put("totalSinceBoot", 0L))
+            return
+        }
+        val sm = ctx.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: run {
+            call.resolve(JSObject().put("available", false).put("stepsToday", 0L).put("totalSinceBoot", 0L))
+            return
+        }
+        val sensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: run {
+            call.resolve(JSObject().put("available", false).put("stepsToday", 0L).put("totalSinceBoot", 0L))
+            return
+        }
+        val prefs = ctx.getSharedPreferences("outrun.sensor", Context.MODE_PRIVATE)
+        val handler = Handler(Looper.getMainLooper())
+
+        val listener = object : SensorEventListener {
+            override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
+            override fun onSensorChanged(event: SensorEvent) {
+                sm.unregisterListener(this)
+                handler.removeCallbacksAndMessages(null)
+
+                val totalSinceBoot = event.values[0].toLong()
+                val today = LocalDate.now(ZoneId.systemDefault()).toString()
+                val storedDay = prefs.getString("stepSensor.day", null)
+
+                val stepsToday: Long
+                if (storedDay == today) {
+                    val storedBaseline = prefs.getLong("stepSensor.baseline", totalSinceBoot)
+                    if (totalSinceBoot >= storedBaseline) {
+                        stepsToday = totalSinceBoot - storedBaseline
+                    } else {
+                        // Device rebooted — counter reset mid-day
+                        prefs.edit().putLong("stepSensor.baseline", totalSinceBoot).apply()
+                        stepsToday = 0L
+                    }
+                } else {
+                    // New day — record baseline, steps = 0
+                    prefs.edit()
+                        .putString("stepSensor.day", today)
+                        .putLong("stepSensor.baseline", totalSinceBoot)
+                        .apply()
+                    stepsToday = 0L
+                }
+
+                call.resolve(
+                    JSObject()
+                        .put("available", true)
+                        .put("stepsToday", stepsToday)
+                        .put("totalSinceBoot", totalSinceBoot)
+                )
+            }
+        }
+
+        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+
+        handler.postDelayed({
+            sm.unregisterListener(listener)
+            call.resolve(JSObject().put("available", true).put("stepsToday", 0L).put("totalSinceBoot", 0L))
+        }, 3_000L)
     }
 
     /**

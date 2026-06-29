@@ -67,13 +67,19 @@ function StepsTile() {
   // Gate: if Health Connect / HealthKit permission not yet granted, show the
   // disclosure modal first. onGranted → navigate to the detail page (or
   // navigates immediately when permissions are already in place / on web).
-  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
+  const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
 
   const handlePress = useCallback(() => {
     triggerHealthPermission();
   }, [triggerHealthPermission]);
+
+  const handleInstallHC = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    window.open('https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata', '_system');
+  }, []);
 
   return (
     <>
@@ -87,6 +93,17 @@ function StepsTile() {
         colorClass="text-[#00C07A]"
         ariaLabel={`צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`}
       />
+      {unavailableReason === 'install-required' && (
+        <button
+          onClick={handleInstallHC}
+          className="text-xs text-[#00C07A] text-center w-full mt-1 underline"
+        >
+          התקן Health Connect
+        </button>
+      )}
+      {unavailableReason === 'unsupported' && (
+        <p className="text-xs text-muted-foreground text-center mt-1">מכשיר לא נתמך</p>
+      )}
       <HealthConnectDisclosureModal {...disclosureProps} />
     </>
   );

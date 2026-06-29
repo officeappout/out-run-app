@@ -29,7 +29,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { requestHealthPermissions } from '@/lib/healthBridge/init';
+import { requestHealthPermissions, checkHealthAvailability } from '@/lib/healthBridge/init';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 
 function isNativeApp(): boolean {
@@ -56,6 +56,8 @@ interface UseHealthWithDisclosureReturn {
   openDisclosure: () => void;
   disclosureProps: DisclosureProps;
   isRequesting: boolean;
+  /** Set when HC is unavailable — drives "Install" / "Not supported" UI. */
+  unavailableReason: 'install-required' | 'unsupported' | null;
 }
 
 export function useHealthWithDisclosure(
@@ -68,6 +70,7 @@ export function useHealthWithDisclosure(
 
   const [showDisclosure, setShowDisclosure] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [unavailableReason, setUnavailableReason] = useState<'install-required' | 'unsupported' | null>(null);
 
   /** Actually calls the OS permission dialog. Only invoked after disclosure is confirmed. */
   const runPermissionRequest = useCallback(async () => {
@@ -91,6 +94,8 @@ export function useHealthWithDisclosure(
   /**
    * The entry point for every UI gesture (card tap, toggle press, etc.).
    * Short-circuits to onGranted() when permissions are already in place.
+   * On native, checks HC availability first — sets unavailableReason instead
+   * of opening the disclosure modal when HC is absent.
    */
   const triggerHealthPermission = useCallback(() => {
     if (healthBridgeEnabled) {
@@ -102,8 +107,15 @@ export function useHealthWithDisclosure(
       onGranted?.();
       return;
     }
-    // Native + not yet granted: show the required disclosure first.
-    setShowDisclosure(true);
+    // Native + not yet granted: check HC availability before showing disclosure.
+    void (async () => {
+      const { available, reason } = await checkHealthAvailability();
+      if (!available) {
+        setUnavailableReason(reason === 'provider-update-required' ? 'install-required' : 'unsupported');
+        return;
+      }
+      setShowDisclosure(true);
+    })();
   }, [healthBridgeEnabled, onGranted]);
 
   const disclosureProps: DisclosureProps = {
@@ -112,5 +124,5 @@ export function useHealthWithDisclosure(
     onDismiss: () => setShowDisclosure(false),
   };
 
-  return { triggerHealthPermission, openDisclosure: () => setShowDisclosure(true), disclosureProps, isRequesting };
+  return { triggerHealthPermission, openDisclosure: () => setShowDisclosure(true), disclosureProps, isRequesting, unavailableReason };
 }
