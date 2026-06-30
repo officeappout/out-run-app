@@ -46,7 +46,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   const percentage =
     goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
 
-  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
+  const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
 
