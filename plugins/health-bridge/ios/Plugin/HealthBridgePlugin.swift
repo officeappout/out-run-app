@@ -68,10 +68,8 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isAvailable(_ call: CAPPluginCall) {
         let available = HKHealthStore.isHealthDataAvailable()
-        if available {
-            call.resolve(["available": true])
-        } else {
-            call.resolve(["available": false, "reason": "healthkit-unavailable"])
+        DispatchQueue.main.async {
+            call.resolve(["available": available])
         }
     }
 
@@ -106,7 +104,9 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         // so that completed workouts are saved back to Apple Health.
         healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { [weak self] success, error in
             if let error = error {
-                call.reject("Authorization failed: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    call.reject("Authorization failed: \(error.localizedDescription)")
+                }
                 return
             }
             // The system can return success=true even when the user
@@ -182,7 +182,9 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
         builder.beginCollection(withStart: startDate) { success, error in
             guard success else {
-                call.reject("beginCollection failed: \(error?.localizedDescription ?? "unknown")")
+                DispatchQueue.main.async {
+                    call.reject("beginCollection failed: \(error?.localizedDescription ?? "unknown")")
+                }
                 return
             }
 
@@ -221,7 +223,9 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 builder.endCollection(withEnd: endDate) { success, error in
                     guard success else {
-                        call.reject("endCollection failed: \(error?.localizedDescription ?? "unknown")")
+                        DispatchQueue.main.async {
+                            call.reject("endCollection failed: \(error?.localizedDescription ?? "unknown")")
+                        }
                         return
                     }
                     builder.finishWorkout { workout, error in
@@ -361,10 +365,12 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         for q in observers { healthStore.stop(q) }
         observers.removeAll()
         healthStore.disableAllBackgroundDelivery { _, error in
-            if let error = error {
-                call.reject("disableBackgroundDelivery failed: \(error.localizedDescription)")
-            } else {
-                call.resolve()
+            DispatchQueue.main.async {
+                if let error = error {
+                    call.reject("disableBackgroundDelivery failed: \(error.localizedDescription)")
+                } else {
+                    call.resolve()
+                }
             }
         }
     }
