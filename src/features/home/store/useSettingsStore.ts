@@ -37,7 +37,7 @@ const DEFAULTS: SettingsData = {
   achievementAlerts: true,
   tipsAlerts: true,
   units: 'km',
-  healthBridgeEnabled: true,
+  healthBridgeEnabled: false,
   pushEnabled: true,
   chatNotifEnabled: true,
   progressionNotif: true,

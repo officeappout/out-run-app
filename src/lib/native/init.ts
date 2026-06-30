@@ -359,10 +359,13 @@ async function attachPushAuthBridge(): Promise<void> {
           const gatewayUid = await getOnboardingPrefAsync('gateway_uid');
           const onboardingDone = gatewayUid === user.uid;
 
-          // Push: silent during onboarding so LifestyleWizard owns the first-time
-          // dialog; non-silent for returning users so a reinstall gets the OS
-          // prompt back without going through onboarding again.
-          void initPushNotifications(user.uid, onboardingDone ? {} : { silent: true })
+          // Push: silent ONLY for anonymous users who haven't finished onboarding
+          // yet — LifestyleWizard owns the first-time permission dialog for them.
+          // Named accounts (non-anonymous) skip silent mode so the OS dialog fires
+          // on first launch even when gateway_uid isn't set (admin users, cleared
+          // Preferences after reinstall, accounts created outside onboarding flow).
+          const silentMode = user.isAnonymous && !onboardingDone;
+          void initPushNotifications(user.uid, silentMode ? { silent: true } : {})
             .catch((err) => {
               console.error('[native] initPushNotifications (sign-in) unhandled:', err);
             });
@@ -379,12 +382,26 @@ async function attachPushAuthBridge(): Promise<void> {
             Preferences.get({ key: PREF_KEY_PERMISSIONS }),
             Preferences.get({ key: PREF_KEY_ASKED }),
           ]);
+          // Sync the settings store so the StepsTile gate reflects the real
+          // permission state — store default is false, not true.
+          const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
+          useSettingsStore.getState().patch({ healthBridgeEnabled: prevGranted === '1' });
           if (prevGranted === '1') {
             void healthBridgeSyncNow('login');
-          } else if (!prevAsked) {
-            void requestHealthPermissions();
+          } else {
+            // On iOS, HealthKit silently returns denied if the user already
+            // decided — we can always retry safely. Clear a stale PREF_KEY_ASKED
+            // that was set before the plugin was ever called (old bug), so the
+            // tile-tap flow can reach the OS dialog.
+            const isIOS = (window as any).Capacitor?.getPlatform?.() === 'ios';
+            if (isIOS && prevAsked && !prevGranted) {
+              void Preferences.remove({ key: PREF_KEY_ASKED });
+            }
+            if (!prevAsked || isIOS) {
+              void requestHealthPermissions();
+            }
           }
-          // prevAsked && !prevGranted → user denied previously → no-op.
+          // Android: prevAsked && !prevGranted → user denied previously → no-op.
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
             console.debug('[native] sign-in hook failed:', err);
