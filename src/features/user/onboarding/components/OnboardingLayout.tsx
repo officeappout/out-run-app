@@ -434,7 +434,10 @@ export default function OnboardingLayout({
       >
         {renderUnifiedHeader(true)}
 
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4">
+        <main
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-4 md:p-6">
             {title && (
               <motion.h1
@@ -480,7 +483,10 @@ export default function OnboardingLayout({
       >
         {renderUnifiedHeader(false)}
 
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           {children}
         </div>
 

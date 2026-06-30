@@ -350,7 +350,10 @@ export default function StepsAnalyticsPage() {
         transition={{ duration: 0.28, ease: 'easeOut' }}
       >
         {/* ── Header ── */}
-        <div className="sticky top-0 z-10 flex items-center gap-2 px-4 pt-safe pt-3 pb-3 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+        <div
+          className="sticky top-0 z-10 flex items-center gap-2 px-4 pb-3 bg-white/90 backdrop-blur-sm border-b border-gray-100"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+        >
           <button
             onClick={() => router.back()}
             className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-600 active:bg-gray-100 transition-colors"
