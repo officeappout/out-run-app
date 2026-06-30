@@ -175,7 +175,9 @@ async function saveTokenToFirestore(uid: string, token: string): Promise<void> {
     // Fast path — document already exists (returning user, re-auth, token refresh).
     await updateDoc(userRef, updatePayload);
   } catch (err: any) {
-    if (err?.code === 'not-found') {
+    // Accept both 'not-found' and the namespaced variant 'firestore/not-found'
+    const code: string = err?.code ?? '';
+    if (code === 'not-found' || code === 'firestore/not-found') {
       // Slow path — document not yet created (new user mid-onboarding).
       // setDoc with merge:true safely creates the doc without overwriting
       // other fields written by concurrent onboarding steps. Nested object
@@ -193,6 +195,13 @@ async function saveTokenToFirestore(uid: string, token: string): Promise<void> {
         { merge: true },
       );
     } else {
+      // Log with full code before rethrowing so the error is visible in
+      // Safari Web Inspector / Chrome DevTools (Xcode/logcat show it via
+      // the outer catch in initPushNotifications, but Web Inspector may not).
+      console.warn(
+        `[push] saveTokenToFirestore failed (code=${code}, uid=${uid}):`,
+        err,
+      );
       throw err;
     }
   }
@@ -418,11 +427,39 @@ export async function initPushNotifications(
     }
 
     // ── Step 3: Fetch current token and persist ───────────────────────
-    const { token } = await withTimeout(
-      FirebaseMessaging.getToken(),
-      NATIVE_CALL_TIMEOUT_MS,
-      'getToken',
-    );
+    // On iOS, Firebase SDK 9+ fails getToken() immediately when APNs token
+    // is nil — it no longer waits. APNs token arrives async via
+    // didRegisterForRemoteNotificationsWithDeviceToken (called at app launch).
+    // Race window: fast login after cold start / first install / re-install.
+    // Fix: retry with 2s backoff; APNS token typically arrives within 1-3s.
+    const APNS_RETRY_DELAY_MS = 2_000;
+    const APNS_MAX_RETRIES    = 3;
+    let token: string | undefined;
+    let lastGetTokenErr: unknown;
+    for (let attempt = 0; attempt < APNS_MAX_RETRIES; attempt++) {
+      try {
+        const result = await withTimeout(
+          FirebaseMessaging.getToken(),
+          NATIVE_CALL_TIMEOUT_MS,
+          'getToken',
+        );
+        token = result.token;
+        break;
+      } catch (err: unknown) {
+        lastGetTokenErr = err;
+        const msg = String((err as Error)?.message ?? '').toLowerCase();
+        const isApnsRace =
+          getPlatformLabel() === 'ios' &&
+          attempt < APNS_MAX_RETRIES - 1 &&
+          msg.includes('apns');
+        if (!isApnsRace) throw err;
+        console.debug(
+          `[push] iOS APNS race — getToken attempt ${attempt + 1}/${APNS_MAX_RETRIES}, ` +
+          `retrying in ${APNS_RETRY_DELAY_MS}ms`,
+        );
+        await new Promise<void>(r => setTimeout(r, APNS_RETRY_DELAY_MS));
+      }
+    }
     if (!token) {
       console.warn('[push] FirebaseMessaging.getToken returned empty');
       return false;

@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import FirebaseCore
+import FirebaseMessaging
 import UserNotifications
 
 @UIApplicationMain
@@ -74,6 +75,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Belt-and-suspenders: explicitly forward APNS token to Firebase
+        // before routing through Capacitor's proxy. Firebase SDK 9+ fails
+        // getToken() immediately when apnsToken is nil; setting it here
+        // guarantees it's populated even if swizzling races with our delegate.
+        Messaging.messaging().apnsToken = deviceToken
         ApplicationDelegateProxy.shared.application(
             application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
     }
