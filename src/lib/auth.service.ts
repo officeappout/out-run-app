@@ -338,6 +338,7 @@ function withAppleTimeout<T>(promise: Promise<T>): Promise<T> {
   ]);
 }
 
+
 export async function signInWithApple(): Promise<{ user: User | null; error: string | null }> {
   // Apple Sign-In is not supported on Android — the ASAuthorizationController
   // sheet only exists on iOS/macOS. Return early before touching the plugin.
@@ -355,25 +356,66 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
       // instance as `auth` and pass Firebase's internal instanceof checks.
       const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
 
-      // withAppleTimeout prevents an indefinite hang on iPad when
-      // ASAuthorizationController silently fails to present its sheet.
-      const result = await withAppleTimeout(FirebaseAuthentication.signInWithApple());
+      // skipNativeAuth: true — the plugin generates the nonce internally (Swift side)
+      // and passes sha256(nonce) to Apple. We must NOT let the plugin also call the
+      // native Firebase iOS SDK (skipNativeAuth: false would do that), because doing
+      // so consumes the nonce once at the native level. When the JS SDK then calls
+      // signInWithCredential with the same nonce, Firebase backend rejects it as
+      // "already used" → auth/missing-or-invalid-nonce. With skipNativeAuth: true
+      // only the JS SDK path verifies the nonce, keeping it single-use as required.
+      const result = await withAppleTimeout(
+        FirebaseAuthentication.signInWithApple({ skipNativeAuth: true }),
+      );
 
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
+      if (!result.credential.nonce) {
+        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסה שוב.' };
+      }
 
-      // rawNonce is only present when the plugin ran a fresh authorization
-      // flow (Apple embeds the SHA256 hash in the idToken). On re-auth /
-      // credential-refresh Apple may omit the nonce from the token — in that
-      // case rawNonce must also be omitted so Firebase does not try to verify
-      // a hash that was never embedded. We MUST call signInWithCredential on
-      // the web Firebase SDK so that auth.currentUser is set and subsequent
-      // Firestore reads have a valid auth token.
+      // ── DEBUG: diagnose raw-vs-hash nonce mismatch ────────────────────
+      // Remove once Apple Sign-In is confirmed working.
+      try {
+        const pluginNonce = result.credential.nonce;
+        // Decode Apple idToken JWT payload (base64url, may lack padding)
+        const rawB64 = result.credential.idToken.split('.')[1] ?? '';
+        const pad = (4 - (rawB64.length % 4)) % 4;
+        const payloadJson = atob(rawB64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad));
+        const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+        const tokenNonce = payload['nonce'] as string | undefined;
+        // SHA-256 of what the plugin returned — if rawNonce, this should equal tokenNonce
+        const enc = new TextEncoder();
+        const hashBuf = await crypto.subtle.digest('SHA-256', enc.encode(pluginNonce));
+        const sha256OfPlugin = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+        console.group('[AppleAuth DEBUG]');
+        console.log('credential.nonce (from plugin):', pluginNonce);
+        console.log('idToken payload.nonce         :', tokenNonce ?? '⚠️ MISSING in token');
+        console.log('sha256(credential.nonce)      :', sha256OfPlugin);
+        console.log('');
+        console.log('Verdict:',
+          !tokenNonce
+            ? '⚠️ idToken has NO nonce claim — Apple may not have embedded one'
+            : pluginNonce === tokenNonce
+              ? '🔴 BUG: plugin returned HASH — Firebase will double-hash → mismatch'
+              : sha256OfPlugin === tokenNonce
+                ? '✅ plugin returned RAW nonce — nonce flow is correct; error is elsewhere'
+                : '🔴 UNKNOWN mismatch — neither raw nor hash matches token');
+        console.groupEnd();
+      } catch (dbgErr) {
+        console.warn('[AppleAuth DEBUG] failed:', dbgErr);
+      }
+      // ── END DEBUG ─────────────────────────────────────────────────────
+
+      // result.credential.nonce is the raw nonce the plugin generated and used when
+      // building the Apple request (plugin hashed it before sending to Apple, and Apple
+      // embedded the hash in the idToken). Firebase verifies by rehashing rawNonce.
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
+        rawNonce: result.credential.nonce,
       });
 
       const webResult = await signInWithCredential(auth, credential);
@@ -573,18 +615,23 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
       // instance as `auth` and pass Firebase's internal instanceof checks.
       const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
 
-      const result = await withAppleTimeout(FirebaseAuthentication.signInWithApple());
+      // skipNativeAuth: true — same reason as signInWithApple: prevents native iOS SDK
+      // from consuming the nonce before the JS SDK linkWithCredential call.
+      const result = await withAppleTimeout(
+        FirebaseAuthentication.signInWithApple({ skipNativeAuth: true }),
+      );
 
       if (!result.credential?.idToken) {
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
+      if (!result.credential.nonce) {
+        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסה שוב.' };
+      }
 
-      // Same optional-nonce logic as signInWithApple — omit rawNonce when
-      // Apple did not embed a nonce hash in the token (re-auth path).
       const appleProvider = new OAuthProvider('apple.com');
       const credential = appleProvider.credential({
         idToken: result.credential.idToken,
-        ...(result.credential.nonce ? { rawNonce: result.credential.nonce } : {}),
+        rawNonce: result.credential.nonce,
       });
 
       const linkResult = await linkWithCredential(auth.currentUser, credential);
