@@ -158,6 +158,10 @@ export async function initNativeShell(): Promise<void> {
     return;
   }
 
+  // Visible in native WebView console — confirms which web bundle is loaded.
+  // Bump the date string on every web rebuild to detect stale SW cache.
+  console.log('[boot] web build 2026-06-30 v=1.3.0 b=21');
+
   try {
     const [{ App }] = await Promise.all([import('@capacitor/app')]);
 
