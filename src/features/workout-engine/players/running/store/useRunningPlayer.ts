@@ -33,6 +33,17 @@ const FLUSH_EVERY = 10;
 // without a state read, matching the pattern used for _coordBuffer above.
 let _gpsStoreUnsub: (() => void) | null = null;
 
+// ── Poor-GPS hysteresis ───────────────────────────────────────────────────────
+// Counts consecutive poor-accuracy samples since the last good fix.
+// Skips accumulation only while count < POOR_RESUME_AFTER (spike guard).
+// Once N poor samples arrive, the user is in a genuinely coarse-GPS zone and
+// we fall through to normal accumulation — JUMP + SPEED guards catch outliers.
+let _consecutivePoorCount = 0;
+// Timestamp of the most-recent successful distance accumulation.
+// Safety net: if position keeps updating but distance hasn't advanced for
+// MAX_DISTANCE_FREEZE_MS, force-resume accumulation on the next sample.
+let _lastDistanceUpdateMs = 0;
+
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
 // canyons (typical accuracy is 5–15 m, worst-case 25–30 m). Tighter and we
@@ -807,25 +818,51 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         );
       }
 
-      // Skip distance accumulation for very poor accuracy samples once a good fix
-      // has been established — prevents phantom distance from sideways GPS drift.
-      // Threshold is 50 m (≈ 2× the "good" ceiling) so browser GPS (typically
-      // 30–50 m accurate) still contributes. During warm-up (!hasHadGoodFix)
-      // poor samples also contribute so measurement starts immediately.
+      // ── Poor-GPS hysteresis ─────────────────────────────────────────────────
+      // A single poor sample after a good fix is treated as a spike and skipped.
+      // But N consecutive poor samples mean the user is in a coarse-GPS zone and
+      // is genuinely moving — resume accumulation so distance never freezes.
+      // The downstream JUMP (200 m) and SPEED (12 m/s) guards catch actual outliers.
       //
-      // Intentionally do NOT advance lastPos here: the distance anchor stays
-      // pinned to the last good/perfect fix so the next good sample measures
-      // from a clean baseline (good→good), not from a noisy intermediate point.
-      // lastPosition (store/UI) is still updated so the map marker keeps moving.
+      // Separately, if the position keeps updating but no distance has been
+      // accumulated for MAX_DISTANCE_FREEZE_MS, force-resume regardless of count —
+      // a safety net against any future edge case that keeps _consecutivePoorCount
+      // below the threshold while the user is walking.
+      //
+      // When we DO skip (spike case): do NOT advance lastPos so the anchor stays
+      // pinned to the last good fix. lastPosition (store/UI) still updates so the
+      // map marker moves correctly.
+      const POOR_RESUME_AFTER = 2;           // skip max 1 poor spike; resume on the 2nd
+      const MAX_DISTANCE_FREEZE_MS = 10_000; // force resume if distance frozen > 10 s
+
       if (gpsStatus === 'poor' && wasGoodBefore) {
-        if (process.env.NODE_ENV !== 'production') {
-          const totalDist = useSessionStore.getState().totalDistance;
-          console.log(
-            `[GPS ⚠️] SKIPPED (poor>50m + hasHadGoodFix) — acc=${Math.round(accuracy)}m | total stays ${totalDist.toFixed(3)}km`
-          );
+        _consecutivePoorCount++;
+        const frozenTooLong =
+          _lastDistanceUpdateMs > 0 &&
+          Date.now() - _lastDistanceUpdateMs > MAX_DISTANCE_FREEZE_MS;
+
+        if (_consecutivePoorCount < POOR_RESUME_AFTER && !frozenTooLong) {
+          // Single spike — skip
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(
+              `[GPS ⚠️] SKIP spike poor ${Math.round(accuracy)}m (${_consecutivePoorCount}/${POOR_RESUME_AFTER})`
+            );
+          }
+          set({
+            lastPosition: { lat, lng },
+            lastFilterAction: `⚠️ SKIP poor ${Math.round(accuracy)}m (${_consecutivePoorCount}/${POOR_RESUME_AFTER})`,
+          });
+          return;
         }
-        set({ lastPosition: { lat, lng }, lastFilterAction: `⚠️ SKIP poor ${Math.round(accuracy)}m` });
-        return;
+
+        // N+ consecutive poor samples or frozen > 10 s → fall through to accumulation
+        if (process.env.NODE_ENV !== 'production') {
+          const reason = frozenTooLong ? 'timeout' : `${_consecutivePoorCount}× poor`;
+          console.log(`[GPS ⚠️→✅] poor resume (${reason}) acc=${Math.round(accuracy)}m`);
+        }
+      } else if (isGoodNow) {
+        // Good/perfect fix resets the consecutive-poor counter
+        _consecutivePoorCount = 0;
       }
 
       const currentPos = { lat, lng };
@@ -878,6 +915,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
               `[GPS ✅] ACCUMULATE: delta=${Math.round(distanceDelta)}m | total ${totalDistBefore.toFixed(3)} → ${(totalDistBefore + distanceDelta / 1000).toFixed(3)}km`
             );
           }
+          _lastDistanceUpdateMs = Date.now();
           set({ lastFilterAction: `✅ +${Math.round(distanceDelta)}m` });
 
           get().addCoord([lng, lat]);
@@ -943,7 +981,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // Cancel the useGPSStore subscription opened by startGPSTracking.
     _gpsStoreUnsub?.();
     _gpsStoreUnsub = null;
-    
+    _consecutivePoorCount = 0;
+    _lastDistanceUpdateMs = 0;
+
     // Clear duration interval
     if (durationIntervalId !== null) {
       clearInterval(durationIntervalId);
@@ -1063,6 +1103,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     console.log('[useRunningPlayer.initializeRunningData] seeding first lap', seedLap);
     _coordBuffer = [];
     _zoneBuffer  = [];
+    _consecutivePoorCount = 0;
+    _lastDistanceUpdateMs = 0;
     set({
       laps: [seedLap],
       currentPace: 0,
@@ -1093,6 +1135,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // next solo run (CommunitySessionBanner can re-set it if a group
     // session is genuinely ongoing — that is correct behaviour).
     useSharedSession.getState().clearGroupSession();
+    _consecutivePoorCount = 0;
+    _lastDistanceUpdateMs = 0;
     set({
       laps: [],
       currentPace: 0,
