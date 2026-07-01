@@ -504,6 +504,7 @@ export default function CommunitySessionBanner({
                   session.attendance?.attendees ?? [],
                   session.attendance?.attendeeProfiles ?? {},
                   session.groupName,
+                  session.routeId,
                 );
                 // Ensure attendance doc exists (creates it when no one has booked yet)
                 await bookSession(
@@ -589,6 +590,7 @@ export default function CommunitySessionBanner({
               session.attendance?.attendees ?? [],
               session.attendance?.attendeeProfiles ?? {},
               session.groupName,
+              session.routeId,
             );
             if (isJoined) {
               await bookSession(

@@ -23,6 +23,8 @@ interface SharedSessionState {
   groupName: string | null;
   /** Attendance doc key: "YYYY-MM-DD_HH-mm" */
   attendanceId: string | null;
+  /** FK → official_routes. Set when the admin linked a route to this slot; null = free run. */
+  routeId: string | null;
   memberIds: string[];
   attendeeProfiles: AttendeeProfiles;
   phase: LiveSessionPhase | null;
@@ -63,6 +65,7 @@ interface SharedSessionState {
     memberIds: string[],
     attendeeProfiles: AttendeeProfiles,
     groupName: string,
+    routeId?: string,
   ) => void;
   /** Same as startGroupSession but marks entryMethod as 'deep-link'. */
   joinViaDeepLink: (
@@ -71,6 +74,7 @@ interface SharedSessionState {
     memberIds: string[],
     attendeeProfiles: AttendeeProfiles,
     groupName: string,
+    routeId?: string,
   ) => void;
   /** Call after the confirm/session-token HTTP request returns 200 to ungate the presence query. */
   setMembershipReady: () => void;
@@ -121,6 +125,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
   groupId: null,
   groupName: null,
   attendanceId: null,
+  routeId: null,
   memberIds: [],
   attendeeProfiles: {},
   phase: null,
@@ -130,7 +135,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
   myPersonalGoal: undefined,
   membershipReady: false,
 
-  startGroupSession(groupId, attendanceId, memberIds, attendeeProfiles, groupName) {
+  startGroupSession(groupId, attendanceId, memberIds, attendeeProfiles, groupName, routeId) {
     _unsub?.();
     _unsub = null;
 
@@ -142,6 +147,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       groupId,
       groupName,
       attendanceId,
+      routeId: routeId ?? null,
       memberIds,
       attendeeProfiles,
       phase: optimisticPhase,
@@ -172,7 +178,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
     set({ membershipReady: true });
   },
 
-  joinViaDeepLink(groupId, attendanceId, memberIds, attendeeProfiles, groupName) {
+  joinViaDeepLink(groupId, attendanceId, memberIds, attendeeProfiles, groupName, routeId) {
     _unsub?.();
     _unsub = null;
 
@@ -182,6 +188,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       groupId,
       groupName,
       attendanceId,
+      routeId: routeId ?? null,
       memberIds,
       attendeeProfiles,
       phase: optimisticPhase,
@@ -216,6 +223,7 @@ export const useSharedSession = create<SharedSessionState>((set) => ({
       groupId: null,
       groupName: null,
       attendanceId: null,
+      routeId: null,
       memberIds: [],
       attendeeProfiles: {},
       phase: null,
