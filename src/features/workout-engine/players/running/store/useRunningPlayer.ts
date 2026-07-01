@@ -200,6 +200,8 @@ interface RunningPlayerState {
   // Gates distance accumulation for poor-accuracy samples (avoids phantom distance
   // while still allowing warm-up phase to measure before first good lock).
   hasHadGoodFix: boolean;
+  /** Last GPS filter decision — populated on every sample; read by GpsDebugHud (?debug=gps). */
+  lastFilterAction: string | null;
   // When true, real watchPosition is completely bypassed; sim positions drive the workout
   isSimulationActive: boolean;
 
@@ -365,6 +367,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   gpsAccuracy: null,
   gpsStatus: 'searching',
   hasHadGoodFix: false,
+  lastFilterAction: null,
   isSimulationActive: false,
 
   // Planned Run Initial State
@@ -786,7 +789,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       const accuracy = coords.accuracy ?? 999;
       let gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
       if (accuracy <= 10) gpsStatus = 'perfect';
-      else if (accuracy <= 30) gpsStatus = 'good';
+      else if (accuracy <= 50) gpsStatus = 'good';   // raised from 30m — browser GPS is typically 30–60m
       else gpsStatus = 'poor';
 
       const wasGoodBefore = get().hasHadGoodFix;
@@ -797,18 +800,31 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         ...(isGoodNow && !wasGoodBefore ? { hasHadGoodFix: true } : {}),
       });
 
-      // Skip distance accumulation for poor-accuracy samples once a good fix
-      // has been established — prevents phantom distance from sideways GPS drift
-      // (e.g. 30–80 m off that slips past the speed sanity check). During warm-up
-      // (!hasHadGoodFix) poor samples still contribute so the workout starts
-      // measuring immediately even before GPS locks.
+      if (process.env.NODE_ENV !== 'production') {
+        const totalDist = useSessionStore.getState().totalDistance;
+        console.log(
+          `[GPS 📍] acc=${Math.round(accuracy)}m status=${gpsStatus} hasHadGoodFix=${wasGoodBefore} | total=${totalDist.toFixed(3)}km`
+        );
+      }
+
+      // Skip distance accumulation for very poor accuracy samples once a good fix
+      // has been established — prevents phantom distance from sideways GPS drift.
+      // Threshold is 50 m (≈ 2× the "good" ceiling) so browser GPS (typically
+      // 30–50 m accurate) still contributes. During warm-up (!hasHadGoodFix)
+      // poor samples also contribute so measurement starts immediately.
       //
       // Intentionally do NOT advance lastPos here: the distance anchor stays
       // pinned to the last good/perfect fix so the next good sample measures
       // from a clean baseline (good→good), not from a noisy intermediate point.
       // lastPosition (store/UI) is still updated so the map marker keeps moving.
       if (gpsStatus === 'poor' && wasGoodBefore) {
-        set({ lastPosition: { lat, lng } });
+        if (process.env.NODE_ENV !== 'production') {
+          const totalDist = useSessionStore.getState().totalDistance;
+          console.log(
+            `[GPS ⚠️] SKIPPED (poor>50m + hasHadGoodFix) — acc=${Math.round(accuracy)}m | total stays ${totalDist.toFixed(3)}km`
+          );
+        }
+        set({ lastPosition: { lat, lng }, lastFilterAction: `⚠️ SKIP poor ${Math.round(accuracy)}m` });
         return;
       }
 
@@ -822,11 +838,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         // multipath canyon spike, not real movement.
         if (distanceDelta > MAX_JUMP_M) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn(`[useRunningPlayer] GPS jump rejected: ${Math.round(distanceDelta)} m`);
+            console.warn(`[GPS ⛔] JUMP rejected: ${Math.round(distanceDelta)}m (>${MAX_JUMP_M}m)`);
           }
           lastPos = currentPos;
-          set({ lastPosition: currentPos });
+          set({ lastPosition: currentPos, lastFilterAction: `⛔ JUMP ${Math.round(distanceDelta)}m` });
           return;
+        }
+
+        if (process.env.NODE_ENV !== 'production' && distanceDelta <= DISTANCE_THRESHOLD) {
+          const totalDist = useSessionStore.getState().totalDistance;
+          console.log(
+            `[GPS 🔇] below threshold: delta=${Math.round(distanceDelta)}m (<${DISTANCE_THRESHOLD}m) | total=${totalDist.toFixed(3)}km`
+          );
         }
 
         if (distanceDelta > DISTANCE_THRESHOLD) {
@@ -839,13 +862,23 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           // update (lastPos / lastPosition) but discard the km contribution.
           if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds > MAX_REALISTIC_SPEED_MS) {
             if (process.env.NODE_ENV !== 'production') {
-              console.warn(`[useRunningPlayer] Speed sanity rejected: ${Math.round(distanceDelta / timeDeltaSeconds)} m/s`);
+              console.warn(
+                `[GPS ⛔] SPEED rejected: ${Math.round(distanceDelta / timeDeltaSeconds)}m/s (>${MAX_REALISTIC_SPEED_MS}m/s) delta=${Math.round(distanceDelta)}m dt=${timeDeltaSeconds.toFixed(1)}s`
+              );
             }
             lastPos = currentPos;
-            set({ lastPosition: currentPos });
+            set({ lastPosition: currentPos, lastFilterAction: `⛔ SPEED ${Math.round(distanceDelta / timeDeltaSeconds)}m/s` });
             lastTimestamp = now;
             return;
           }
+
+          if (process.env.NODE_ENV !== 'production') {
+            const totalDistBefore = useSessionStore.getState().totalDistance;
+            console.log(
+              `[GPS ✅] ACCUMULATE: delta=${Math.round(distanceDelta)}m | total ${totalDistBefore.toFixed(3)} → ${(totalDistBefore + distanceDelta / 1000).toFixed(3)}km`
+            );
+          }
+          set({ lastFilterAction: `✅ +${Math.round(distanceDelta)}m` });
 
           get().addCoord([lng, lat]);
           get().addBlockDistance(distanceDelta);
@@ -863,6 +896,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             }
           }
           lastTimestamp = now;
+        } else {
+          set({ lastFilterAction: `🔇 <${DISTANCE_THRESHOLD}m (${Math.round(distanceDelta)}m)` });
         }
       } else {
         get().addCoord([lng, lat]);
@@ -1044,6 +1079,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       consecutiveOffRouteSamples: 0,
       isOffRoute: false,
       isRecalculatingRoute: false,
+      lastFilterAction: null,
     });
   },
 
@@ -1084,6 +1120,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       lastCompletedLap: null,
       lastPosition: null,
       totalCalories: 0,
+      lastFilterAction: null,
       isMapFollowEnabled: true,
       currentWorkout: null,
       currentBlockIndex: 0,

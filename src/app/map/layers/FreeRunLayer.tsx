@@ -16,13 +16,17 @@
  * hidden duplicate Mapbox instance running concurrently.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamicImport from 'next/dynamic';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Play, Navigation, MapPin } from 'lucide-react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useMapLogic } from '@/features/parks';
+import type { Route } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import GpsDebugHud from '@/features/workout-engine/players/running/components/FreeRun/GpsDebugHud';
 import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSessionShell';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
 import RunLapsList from '@/features/workout-engine/players/running/components/FreeRun/RunLapsList';
@@ -57,11 +61,83 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const { setMode, activityType } = useMapMode();
   const { isWorkoutActive } = logic;
 
+  // ?debug=gps flag — read once on mount (debug feature, SSR-safe)
+  const isDebugGps = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('debug') === 'gps';
+  }, []);
+
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
   const routeZones = useRunningPlayer((s) => s.routeZones);
+  const setGuidedRouteId = useRunningPlayer((s) => s.setGuidedRouteId);
+  const setGuidedRouteName = useRunningPlayer((s) => s.setGuidedRouteName);
+  const setGuidedRouteDistanceKm = useRunningPlayer((s) => s.setGuidedRouteDistanceKm);
+  const setActiveRoutePath = useRunningPlayer((s) => s.setActiveRoutePath);
 
-  const { groupId } = useSharedSession();
+  const { groupId, routeId: sessionRouteId } = useSharedSession();
+
+  // Fetch and wire the group session route into the running player whenever
+  // the session changes. Runs during browse (pre-workout) so the route is
+  // already loaded when the member taps "start". routeId === undefined means
+  // manual meeting-point — falls through as a free run without crashing.
+  // The fetched route is also passed to AppMap so the polyline is visible
+  // on the map even before the workout begins.
+  const [groupRoute, setGroupRoute] = useState<Route | null>(null);
+  useEffect(() => {
+    if (!groupId || !sessionRouteId) {
+      setGroupRoute(null);
+      setGuidedRouteId(null);
+      setGuidedRouteName(null);
+      setGuidedRouteDistanceKm(null);
+      setActiveRoutePath([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'official_routes', sessionRouteId));
+        if (cancelled || !snap.exists()) return;
+        const data = snap.data() as {
+          name?: string;
+          path?: [number, number][];
+          distance?: number;
+          duration?: number;
+          type?: string;
+          difficulty?: string;
+          rating?: number;
+          calories?: number;
+        };
+        const path = Array.isArray(data.path) && data.path.length >= 2 ? data.path : null;
+        if (!path) return;
+        // Minimal Route object for AppMap display — required fields filled with
+        // sensible defaults so AppMap never reads undefined where it expects a value.
+        const routeForMap: Route = {
+          id: snap.id,
+          name: data.name ?? '',
+          path,
+          distance: data.distance ?? 0,
+          duration: data.duration ?? 0,
+          score: 0,
+          type: (data.type ?? 'running') as Route['type'],
+          difficulty: (data.difficulty ?? 'easy') as Route['difficulty'],
+          rating: data.rating ?? 0,
+          calories: data.calories ?? 0,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          features: {} as any,
+          segments: [],
+        };
+        setGroupRoute(routeForMap);
+        setGuidedRouteId(sessionRouteId);
+        setGuidedRouteName(data.name ?? null);
+        setGuidedRouteDistanceKm(typeof data.distance === 'number' ? data.distance : null);
+        setActiveRoutePath(path);
+      } catch (err) {
+        if (!cancelled) console.warn('[FreeRunLayer] group route load failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [groupId, sessionRouteId, setGuidedRouteId, setGuidedRouteName, setGuidedRouteDistanceKm, setActiveRoutePath]);
 
   const { setSelectedParticipantUid, setActiveStoryIndex, setGroupParticipants, selectedParticipantUid } =
     useMapStore();
@@ -177,8 +253,8 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               isActiveWorkout={isWorkoutActive}
               livePath={isWorkoutActive ? logic.livePath : undefined}
               livePathZones={isWorkoutActive ? routeZones : undefined}
-              focusedRoute={logic.focusedRoute}
-              routes={logic.focusedRoute ? [logic.focusedRoute] : []}
+              focusedRoute={groupRoute ?? logic.focusedRoute}
+              routes={groupRoute ? [groupRoute] : logic.focusedRoute ? [logic.focusedRoute] : []}
               userBearing={logic.userBearing ?? 0}
               isAutoFollowEnabled={isMapFollowEnabled}
               onUserPanDetected={() => setMapFollowEnabled(false)}
@@ -283,7 +359,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               </div>
             </div>
           )}
-        </>
+        {/* GPS debug HUD — only when URL contains ?debug=gps */}
+        {isDebugGps && <GpsDebugHud />}
+      </>
       )}
     </LiveSessionShell>
   );
