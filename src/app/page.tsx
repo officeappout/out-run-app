@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithGoogle, signInWithApple, onAuthStateChange } from '@/lib/auth.service';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
@@ -416,10 +417,38 @@ export default function LandingPage() {
   // Rule: if a Firestore profile already exists for this uid the user has
   // been through onboarding before — send them straight to /home.
   // If no doc exists they are brand-new — send to /gateway to start onboarding.
-  // Detailed in-progress onboarding routing (step, status) is handled by the
-  // onAuthStateChange listener above, which runs concurrently and will redirect
-  // further if needed once the auth state propagates.
+  // Exception: if a pending_invite_code exists in localStorage (set by /join/[inviteCode]),
+  // confirm the join inline and land on the group drawer — regardless of existing/new user.
   const redirectAfterAuth = useCallback(async (uid: string) => {
+    const pendingInvite = typeof window !== 'undefined'
+      ? localStorage.getItem('pending_invite_code')
+      : null;
+
+    if (pendingInvite) {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          const res = await fetch('/api/join/confirm', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body:    JSON.stringify({ inviteCode: pendingInvite }),
+          });
+          if (res.ok) {
+            const { groupId } = await res.json() as { groupId: string };
+            localStorage.removeItem('pending_invite_code');
+            router.push(resolveJoinLanding(groupId));
+            return;
+          }
+        }
+      } catch {
+        // fall through to default navigation
+      }
+      // Confirm failed — send back to join page so the user can retry
+      localStorage.removeItem('pending_invite_code');
+      router.push(`/join/${encodeURIComponent(pendingInvite)}`);
+      return;
+    }
+
     const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
     const userDocSnap = await getDoc(firestoreDoc(db, 'users', uid));
     if (userDocSnap.exists()) {
