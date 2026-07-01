@@ -25,7 +25,7 @@
  * `src/lib/native/push.ts` navigates the web view to this path on tap.
  */
 
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
@@ -51,11 +51,12 @@ interface ChatDoc {
   participants?: unknown;
 }
 
-export const chatMessageNotification = functions
-  .runWith({ timeoutSeconds: 60, memory: '256MB' })
-  .firestore.document('chats/{chatId}/messages/{messageId}')
-  .onCreate(async (snap, context) => {
-    const chatId = context.params.chatId as string;
+export const chatMessageNotification = onDocumentCreated(
+  { document: 'chats/{chatId}/messages/{messageId}', timeoutSeconds: 60, memory: '256MiB' },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const chatId = event.params.chatId as string;
     const data = snap.data() as MessageDoc | undefined;
 
     if (!data) {
@@ -239,4 +240,5 @@ export const chatMessageNotification = functions
       `[chatMessageNotification] ${chatId} done: delivered=${deliveredCount} ` +
         `failed=${failedCount} pruned=${tokensToRemove.length}`,
     );
-  });
+  },
+);

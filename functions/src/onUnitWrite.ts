@@ -6,7 +6,8 @@
  * the `tenants` and `authorities` root documents.
  */
 
-import * as functions from 'firebase-functions';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
 if (!admin.apps.length) {
@@ -15,10 +16,10 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-export const onUnitWrite = functions.firestore
-  .document('tenants/{tenantId}/units/{unitId}')
-  .onWrite(async (_change, context) => {
-    const { tenantId } = context.params;
+export const onUnitWrite = onDocumentWritten(
+  'tenants/{tenantId}/units/{unitId}',
+  async (event) => {
+    const { tenantId } = event.params;
 
     const unitsSnap = await db.collection('tenants').doc(tenantId).collection('units').get();
     const count = unitsSnap.size;
@@ -46,5 +47,6 @@ export const onUnitWrite = functions.firestore
     }
 
     await Promise.all(updates);
-    functions.logger.info(`[onUnitWrite] Updated unitCount for ${tenantId}: ${count}`);
-  });
+    logger.info(`[onUnitWrite] Updated unitCount for ${tenantId}: ${count}`);
+  },
+);

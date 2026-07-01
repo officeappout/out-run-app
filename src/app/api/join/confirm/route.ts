@@ -37,11 +37,14 @@ export async function POST(request: NextRequest) {
     }
 
     let uid: string;
-    let displayName: string;
+    let displayName: string | undefined;
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
-      displayName = decoded.name ?? 'משתמש';
+      // Pass token name only if it's a real name (Google/Apple sign-in).
+      // Anonymous users have no name in the token; passing 'משתמש' as a truthy
+      // placeholder would shadow the real name in joinEngine's Firestore fallback.
+      displayName = decoded.name || undefined;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }

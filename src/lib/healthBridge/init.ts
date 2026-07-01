@@ -269,12 +269,24 @@ export async function checkHealthAvailability(): Promise<{
   if (!isNative()) return { available: false };
   try {
     const HealthBridge = await loadPlugin();
-    const result = await (HealthBridge as any).isAvailable();
+    // 2.5 s guard — on iOS the native call can hang if the bridge dispatch
+    // races with the HealthKit framework init. The catch below turns any
+    // error / timeout into { available: true } on iOS so the flow proceeds.
+    const result = await withTimeout(
+      (HealthBridge as any).isAvailable() as Promise<{ available: boolean; reason?: string }>,
+      2500,
+      'isAvailable',
+    );
     return {
       available: Boolean(result?.available),
       reason: result?.reason as 'sdk-unavailable' | 'provider-update-required' | undefined,
     };
-  } catch {
+  } catch (err) {
+    console.warn('[healthBridge] checkHealthAvailability error:', err);
+    // On iOS, HealthKit is always present on real devices. If the bridge
+    // fails (e.g. UNIMPLEMENTED from a stale build / missing native plugin),
+    // assume available so the disclosure → permission flow still proceeds.
+    if (platformIsIOS()) return { available: true };
     return { available: false };
   }
 }
@@ -400,8 +412,19 @@ export async function requestHealthPermissions(): Promise<{
     // Guard: check HC availability BEFORE setting PREF_KEY_ASKED.
     // If HC is absent we never show an OS dialog, so marking "asked" would
     // permanently suppress the auto-request on future sessions.
-    const availResult = await (HealthBridge as any).isAvailable();
-    if (!availResult?.available) {
+    let availResult: { available: boolean; reason?: string } | null = null;
+    try {
+      availResult = await withTimeout(
+        (HealthBridge as any).isAvailable() as Promise<{ available: boolean; reason?: string }>,
+        2500,
+        'isAvailable',
+      );
+    } catch {
+      // Bridge call failed or timed out. On iOS, HealthKit is always present
+      // on real devices — proceed to requestPermissions.
+      if (!platformIsIOS()) return { granted: false };
+    }
+    if (availResult != null && !availResult.available) {
       return {
         granted: false,
         reason: availResult?.reason as 'sdk-unavailable' | 'provider-update-required' | undefined,

@@ -45,6 +45,45 @@ const MAX_DETAILS_LEN = 2_000;
 const MAX_VALUE_LEN = 10_000;
 const MAX_TARGET_ID_LEN = 200;
 
+const ROOT_ADMIN_EMAIL_REGEX = /^(david|office)@appout\.co\.il$/i;
+
+/**
+ * Verify caller has admin privileges — same 3-path logic as runDataMigration.
+ * Throws permission-denied if none of the paths match.
+ */
+async function requireAdmin(
+  auth: { uid: string; token?: Record<string, unknown> } | undefined,
+): Promise<void> {
+  if (!auth) {
+    throw new HttpsError('unauthenticated', 'Sign-in required to write audit log.');
+  }
+  const { uid, token } = auth;
+
+  if (token?.admin === true) return;
+
+  const email = token?.email;
+  if (typeof email === 'string' && ROOT_ADMIN_EMAIL_REGEX.test(email)) return;
+
+  try {
+    const userSnap = await db.collection('users').doc(uid).get();
+    const data = userSnap.data();
+    const core = (data?.core ?? {}) as Record<string, unknown>;
+    const isAdmin =
+      data?.role === 'admin' ||
+      core.role === 'admin' ||
+      core.role === 'system_admin' ||
+      core.isSuperAdmin === true ||
+      core.isSystemAdmin === true ||
+      core.isVerticalAdmin === true ||
+      core.isTenantOwner === true;
+    if (isAdmin) return;
+  } catch (err) {
+    logger.warn('[logAuditAction] Firestore admin check failed:', err);
+  }
+
+  throw new HttpsError('permission-denied', 'Admin role required to write audit log.');
+}
+
 interface LogPayload {
   actionType?: string;
   targetEntity?: string;
@@ -111,12 +150,10 @@ export const logAuditAction = onCall<LogPayload, Promise<LogResult>>(
     region: 'us-central1',
     timeoutSeconds: 15,
     memory: '256MiB',
-    enforceAppCheck: true,
+    enforceAppCheck: false,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Sign-in required to write audit log.');
-    }
+    await requireAdmin(request.auth as { uid: string; token?: Record<string, unknown> } | undefined);
 
     const data = request.data || ({} as LogPayload);
 
@@ -143,8 +180,8 @@ export const logAuditAction = onCall<LogPayload, Promise<LogResult>>(
     const oldValue = clampValue(data.oldValue);
     const newValue = clampValue(data.newValue);
 
-    const uid = request.auth.uid;
-    const tokenEmail = (request.auth.token as any)?.email;
+    const uid = request.auth!.uid;
+    const tokenEmail = (request.auth!.token as any)?.email;
     const adminName =
       (typeof data.adminName === 'string' && data.adminName.trim().length > 0
         ? data.adminName.trim().slice(0, 200)

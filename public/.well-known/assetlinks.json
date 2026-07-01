@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "co.il.appout.outrun",
+      "sha256_cert_fingerprints": [
+        "PLACEHOLDER_PLAY_APP_SIGNING_SHA256",
+        "PLACEHOLDER_UPLOAD_KEY_SHA256"
+      ]
+    }
+  }
+]

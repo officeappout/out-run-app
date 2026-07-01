@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "PPX5UJJ35T.co.il.appout.outrun",
+        "paths": [
+          "/join/*",
+          "/session/*",
+          "/school/*",
+          "/community",
+          "/gateway"
+        ]
+      }
+    ]
+  }
+}

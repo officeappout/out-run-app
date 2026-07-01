@@ -11,7 +11,9 @@
  * and deletes groups where isActive=false and createdAt < 24h ago.
  */
 
-import * as functions from 'firebase-functions';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
 if (!admin.apps.length) {
@@ -22,10 +24,10 @@ const db = admin.firestore();
 
 // ─── onGroupMemberWrite ───────────────────────────────────────────────────────
 
-export const onGroupMemberWrite = functions.firestore
-  .document('community_groups/{groupId}/members/{uid}')
-  .onWrite(async (_change, context) => {
-    const { groupId } = context.params;
+export const onGroupMemberWrite = onDocumentWritten(
+  'community_groups/{groupId}/members/{uid}',
+  async (event) => {
+    const { groupId } = event.params;
     const groupRef = db.doc(`community_groups/${groupId}`);
 
     const membersSnap = await db
@@ -34,7 +36,7 @@ export const onGroupMemberWrite = functions.firestore
     const count = membersSnap.size;
 
     const groupSnap = await groupRef.get();
-    if (!groupSnap.exists) return null;
+    if (!groupSnap.exists) return;
 
     const group = groupSnap.data()!;
     const minimumMembers: number = group.minimumMembers ?? 1;
@@ -47,11 +49,12 @@ export const onGroupMemberWrite = functions.firestore
 
     if (!group.isActive && count >= minimumMembers) {
       updates.isActive = true;
-      console.log(`[onGroupMemberWrite] Activating group ${groupId} (${count}/${minimumMembers} members)`);
+      logger.info(`[onGroupMemberWrite] Activating group ${groupId} (${count}/${minimumMembers} members)`);
     }
 
-    return groupRef.update(updates);
-  });
+    await groupRef.update(updates);
+  },
+);
 
 // ─── deleteZombieGroups ───────────────────────────────────────────────────────
 
@@ -60,10 +63,9 @@ export const onGroupMemberWrite = functions.firestore
  * Deletes community groups that are still inactive 24 hours after creation.
  * This prevents orphaned "ghost" groups from cluttering the DB.
  */
-export const deleteZombieGroups = functions.pubsub
-  .schedule('0 3 * * *')
-  .timeZone('UTC')
-  .onRun(async () => {
+export const deleteZombieGroups = onSchedule(
+  { schedule: '0 3 * * *', timeZone: 'UTC' },
+  async () => {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const zombies = await db
@@ -73,14 +75,14 @@ export const deleteZombieGroups = functions.pubsub
       .get();
 
     if (zombies.empty) {
-      console.log('[deleteZombieGroups] No zombie groups found.');
-      return null;
+      logger.info('[deleteZombieGroups] No zombie groups found.');
+      return;
     }
 
     const batch = db.batch();
     zombies.docs.forEach((doc) => batch.delete(doc.ref));
     await batch.commit();
 
-    console.log(`[deleteZombieGroups] Deleted ${zombies.size} zombie groups.`);
-    return null;
-  });
+    logger.info(`[deleteZombieGroups] Deleted ${zombies.size} zombie groups.`);
+  },
+);

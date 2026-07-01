@@ -68,25 +68,23 @@ function getLogCallable() {
 }
 
 /**
- * Persist an audit row.
+ * Persist an audit row — fire-and-forget.
  *
- * Failures are swallowed and logged to the console — auditing must
- * never break a user-facing flow. (Mirrors the previous behaviour.)
+ * Returns void synchronously. Audit failures are swallowed via .catch()
+ * and must never break a user-facing flow.
  */
-export async function logAction(data: AuditLogData): Promise<void> {
-  try {
-    await getLogCallable()({
-      adminName: data.adminName,
-      actionType: data.actionType,
-      targetEntity: data.targetEntity,
-      targetId: data.targetId,
-      details: data.details,
-      oldValue: data.oldValue,
-      newValue: data.newValue,
-    });
-  } catch (error) {
+export function logAction(data: AuditLogData): void {
+  getLogCallable()({
+    adminName: data.adminName,
+    actionType: data.actionType,
+    targetEntity: data.targetEntity,
+    targetId: data.targetId,
+    details: data.details,
+    oldValue: data.oldValue,
+    newValue: data.newValue,
+  }).catch((error: unknown) => {
     console.error('[audit.service] Failed to record audit log:', error);
-  }
+  });
 }
 
 /* ────────────────────────────────────────────────────────────────────

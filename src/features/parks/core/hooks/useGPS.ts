@@ -132,7 +132,7 @@ export function useGPS(): GPSState {
           useGPSStore.getState()._setPermissionState('granted');
 
           capWatchId.current = await Geolocation.watchPosition(
-            { enableHighAccuracy: true, timeout: 20000 },
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
             (pos, err) => {
               if (!active) return;
               if (err || !pos) {

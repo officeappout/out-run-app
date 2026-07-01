@@ -212,6 +212,7 @@ export default function NotificationsPage() {
         console.error('[test-push]', json.error ?? json.reason);
         setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
       } else {
+        if (json.reason) console.warn('[test-push] no delivery:', json.reason);
         setTestResults((prev) => ({ ...prev, [channel]: json.delivered && json.delivered > 0 ? 'ok' : 'err' }));
       }
     } catch (err) {

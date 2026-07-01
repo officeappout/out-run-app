@@ -33,7 +33,7 @@
  * a notification twice when the function times out and retries.
  */
 
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
@@ -77,11 +77,12 @@ interface PushQueueDoc {
   deepLink?: string;
 }
 
-export const sendPushFromQueue = functions
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
-  .firestore.document('push_messages/{messageId}')
-  .onCreate(async (snap, context) => {
-    const messageId = context.params.messageId as string;
+export const sendPushFromQueue = onDocumentCreated(
+  { document: 'push_messages/{messageId}', timeoutSeconds: 540, memory: '512MiB' },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const messageId = event.params.messageId as string;
     const data = snap.data() as PushQueueDoc | undefined;
     if (!data) {
       logger.warn(`[sendPushFromQueue] empty payload for ${messageId}`);
@@ -256,7 +257,8 @@ export const sendPushFromQueue = functions
       `[sendPushFromQueue] ${messageId} done: delivered=${deliveredCount} ` +
         `failed=${failedCount} pruned=${tokensToRemove.length}`,
     );
-  });
+  },
+);
 
 // ──────────────────────────────────────────────────────────────────────
 // Helpers
@@ -288,12 +290,11 @@ async function resolveAudience(
   authorityId: string,
   parkId?: string | null,
 ): Promise<Set<string>> {
-  // Base query — every user mapped to this authority. The project
-  // already stores authorityId on `users/{uid}.core.authorityId`, so
-  // we filter on that path.
-  const baseQuery = db
-    .collection('users')
-    .where('core.authorityId', '==', authorityId);
+  // authorityId === 'all' → root-admin global broadcast; skip authority filter.
+  // Any other value scopes the query to that municipality only.
+  const baseQuery = authorityId === 'all'
+    ? db.collection('users')
+    : db.collection('users').where('core.authorityId', '==', authorityId);
 
   if (audience === 'all') {
     const snap = await baseQuery.select().get();

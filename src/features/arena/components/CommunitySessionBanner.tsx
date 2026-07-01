@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -154,23 +154,6 @@ export default function CommunitySessionBanner({
   const [devPhase,     setDevPhase]     = useState<LiveSessionPhase | null>(null);
   const [showDevPanel, setShowDevPanel] = useState(false);
   const effectivePhase: LiveSessionPhase = devPhase ?? session.phase;
-
-  // When a joined member's session goes active, switch them to group presence mode
-  // automatically — without needing a button tap. This ensures the creator/host
-  // broadcasts mode:'group' even when they navigate to the map without using the
-  // "join workout" button, so guests can see them after the mode-filter is applied.
-  useEffect(() => {
-    if (effectivePhase !== 'active' || !isJoined || !session.groupId) return;
-    const { groupId: currentGroupId, startGroupSession } = useSharedSession.getState();
-    if (currentGroupId === session.groupId) return;
-    startGroupSession(
-      session.groupId,
-      `${session.date}_${session.time.replace(':', '-')}`,
-      session.attendance?.attendees ?? [],
-      session.attendance?.attendeeProfiles ?? {},
-      session.groupName,
-    );
-  }, [effectivePhase, isJoined, session]);
 
   // ── dual-source copy ───────────────────────────────────────────────────────
   const communityMsg = useSmartMessage('community_session');

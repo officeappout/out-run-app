@@ -13,7 +13,9 @@
  *    to leaderboard_snapshots/{tenantId}_{unitId}_{period}.
  */
 
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
 if (!admin.apps.length) { admin.initializeApp(); }
@@ -32,9 +34,11 @@ function getCurrentPeriod(): string {
 
 // ── 1. Firestore Trigger — sharded increment ─────────────────────────
 
-export const onFeedPostCreate = functions.firestore
-  .document('feed_posts/{docId}')
-  .onCreate(async (snap) => {
+export const onFeedPostCreate = onDocumentCreated(
+  'feed_posts/{docId}',
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
     const data = snap.data();
     const uid: string = data.userId ?? data.uid ?? '';
     const tenantId: string = data.tenantId ?? '_global';
@@ -42,7 +46,7 @@ export const onFeedPostCreate = functions.firestore
     const xp: number = typeof data.xpAwarded === 'number' ? data.xpAwarded : 1;
 
     if (!uid) {
-      functions.logger.warn('onFeedPostCreate: no userId, skipping');
+      logger.warn('onFeedPostCreate: no userId, skipping');
       return;
     }
 
@@ -62,14 +66,14 @@ export const onFeedPostCreate = functions.firestore
       posts: admin.firestore.FieldValue.increment(1),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
-  });
+  },
+);
 
 // ── 2. Scheduled Rollup — nightly at 03:00 UTC ──────────────────────
 
-export const rollupLeaderboard = functions.pubsub
-  .schedule('0 3 * * *')
-  .timeZone('Asia/Jerusalem')
-  .onRun(async () => {
+export const rollupLeaderboard = onSchedule(
+  { schedule: '0 3 * * *', timeZone: 'Asia/Jerusalem' },
+  async () => {
     const period = getCurrentPeriod();
 
     // Query all shards for the current period
@@ -79,7 +83,7 @@ export const rollupLeaderboard = functions.pubsub
       .get();
 
     if (shardsSnap.empty) {
-      functions.logger.info(`rollupLeaderboard: no shards for period ${period}`);
+      logger.info(`rollupLeaderboard: no shards for period ${period}`);
       return;
     }
 
@@ -140,7 +144,8 @@ export const rollupLeaderboard = functions.pubsub
       await batch.commit();
     }
 
-    functions.logger.info(
+    logger.info(
       `rollupLeaderboard: processed ${shardsSnap.size} shards into ${buckets.size} snapshots for period ${period}`,
     );
-  });
+  },
+);

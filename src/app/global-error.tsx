@@ -32,6 +32,8 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    console.error('[global-error]', error.message, '\nstack:', error.stack, '\ndigest:', error.digest);
+
     if (isChunkLoadError(error)) {
       // Hard-reload fetches fresh HTML + fresh chunks from the current deploy.
       // Avoid an infinite reload loop by checking a session flag.

@@ -196,6 +196,10 @@ interface RunningPlayerState {
   wakeLock: WakeLockSentinel | null;
   gpsAccuracy: number | null;
   gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
+  // Set to true the first time a good/perfect fix arrives; reset on stopGPSTracking.
+  // Gates distance accumulation for poor-accuracy samples (avoids phantom distance
+  // while still allowing warm-up phase to measure before first good lock).
+  hasHadGoodFix: boolean;
   // When true, real watchPosition is completely bypassed; sim positions drive the workout
   isSimulationActive: boolean;
 
@@ -360,6 +364,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   wakeLock: null,
   gpsAccuracy: null,
   gpsStatus: 'searching',
+  hasHadGoodFix: false,
   isSimulationActive: false,
 
   // Planned Run Initial State
@@ -784,7 +789,28 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       else if (accuracy <= 30) gpsStatus = 'good';
       else gpsStatus = 'poor';
 
-      set({ gpsAccuracy: accuracy < 999 ? accuracy : null, gpsStatus });
+      const wasGoodBefore = get().hasHadGoodFix;
+      const isGoodNow = gpsStatus === 'good' || gpsStatus === 'perfect';
+      set({
+        gpsAccuracy: accuracy < 999 ? accuracy : null,
+        gpsStatus,
+        ...(isGoodNow && !wasGoodBefore ? { hasHadGoodFix: true } : {}),
+      });
+
+      // Skip distance accumulation for poor-accuracy samples once a good fix
+      // has been established — prevents phantom distance from sideways GPS drift
+      // (e.g. 30–80 m off that slips past the speed sanity check). During warm-up
+      // (!hasHadGoodFix) poor samples still contribute so the workout starts
+      // measuring immediately even before GPS locks.
+      //
+      // Intentionally do NOT advance lastPos here: the distance anchor stays
+      // pinned to the last good/perfect fix so the next good sample measures
+      // from a clean baseline (good→good), not from a noisy intermediate point.
+      // lastPosition (store/UI) is still updated so the map marker keeps moving.
+      if (gpsStatus === 'poor' && wasGoodBefore) {
+        set({ lastPosition: { lat, lng } });
+        return;
+      }
 
       const currentPos = { lat, lng };
 
@@ -892,11 +918,12 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     releaseWakeLock();
     
     // Reset GPS status
-    set({ 
-      gpsWatchId: null, 
+    set({
+      gpsWatchId: null,
       durationIntervalId: null,
       gpsAccuracy: null,
       gpsStatus: 'searching',
+      hasHadGoodFix: false,
     });
   },
   
