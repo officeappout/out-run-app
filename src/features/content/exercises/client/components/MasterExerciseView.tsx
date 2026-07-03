@@ -544,7 +544,10 @@ export default function MasterExerciseView({
 
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  useEffect(() => { setSwitcherOpen(false); }, [exercise.id]);
+  // Tracks whether the user has explicitly tapped the method switcher (בית/פארק).
+  // false = show fullTutorial by default; true = show the selected method's per-method video.
+  const [hasUserPickedMethod, setHasUserPickedMethod] = useState(false);
+  useEffect(() => { setSwitcherOpen(false); setHasUserPickedMethod(false); }, [exercise.id]);
 
   // Show the location badge only when at least 1 video method exists.
   const hasSwitcher = methodOptions.length >= 1;
@@ -612,15 +615,25 @@ export default function MasterExerciseView({
 
   if (!sheetData) return null;
 
-  // Show the tutorial player (controls, HLS) when:
-  //   a) the selected method has an explicit fullTutorial ExternalVideo, OR
-  //   b) the method has a mainVideoUrl (bulk-upload CDN link) — these are per-method
-  //      and must switch when the user changes method. Preview mode reuses the same
-  //      <video> element and the browser silently ignores src changes without remount;
-  //      tutorial mode forces a key-driven remount via the videoId change.
+  // Show the tutorial player (controls, HLS) when there is any playable video source.
   const tutorialAsHero = !!sheetData.tutorial || !!heroAssets.legacy;
   const heroVideo  = sheetData.tutorial ?? heroAssets.video;
   const heroMode   = tutorialAsHero ? 'tutorial' : 'preview';
+
+  // ── Video source routing ───────────────────────────────────────────────────
+  // Default (hasUserPickedMethod = false):
+  //   • If fullTutorial exists → pass video=fullTutorial, no legacyVideoUrl.
+  //     ExerciseVideoPlayer shows the fullTutorial by default.
+  //   • If no fullTutorial (heroVideo=undefined) → pass legacyVideoUrl=mainVideoUrl
+  //     so the method's short clip still plays on load.
+  //
+  // After explicit method pick (hasUserPickedMethod = true):
+  //   • If method has mainVideoUrl → pass video=undefined + legacyVideoUrl=mainVideoUrl.
+  //     ExerciseVideoPlayer extracts the UUID and loads that stream via HLS.
+  //   • If method has no mainVideoUrl → fall back to fullTutorial (unchanged).
+  const preferPerMethod = hasUserPickedMethod || !heroVideo;
+  const heroVideoForPlayer  = (preferPerMethod && !!heroAssets.legacy) ? undefined : heroVideo;
+  const heroLegacyForPlayer = preferPerMethod ? heroAssets.legacy : null;
 
   return (
     <div dir="rtl">
@@ -630,8 +643,8 @@ export default function MasterExerciseView({
         style={{ aspectRatio: '9 / 16', maxHeight: '55vh' }}
       >
         <ExerciseVideoPlayer
-          video={heroVideo}
-          legacyVideoUrl={heroAssets.legacy}
+          video={heroVideoForPlayer}
+          legacyVideoUrl={heroLegacyForPlayer}
           posterUrl={heroAssets.posterUrl}
           mode={heroMode}
           className="absolute inset-0 w-full h-full"
@@ -771,6 +784,7 @@ export default function MasterExerciseView({
                                         // eslint-disable-next-line no-console
                                         console.log(`🔄 [Switcher State] Updating active index to: ${opt.idx}`);
                                         setSelectedMethodIdx(opt.idx);
+                                        setHasUserPickedMethod(true);
                                         setSwitcherOpen(false);
                                       }}
                                       className={`w-full flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${

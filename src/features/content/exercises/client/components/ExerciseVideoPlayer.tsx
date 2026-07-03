@@ -135,16 +135,18 @@ export default function ExerciseVideoPlayer({
   const allowMount = !lazyPlay || mode === 'tutorial' || hasBeenVisible;
 
   // ── Pre-detect Bunny UUID from legacyVideoUrl ─────────────────────────
-  // Extracted unconditionally — legacyVideoUrl is always per-method (mainVideoUrl from the
-  // bulk-upload script). We do NOT gate on !video?.provider: a shared exercise-level
-  // fullTutorial (video.videoId) must NOT take priority over a per-method mainVideoUrl.
-  const legacyBunnyId = legacyVideoUrl
-    ? extractBunnyVideoIdFromUrl(legacyVideoUrl)
-    : null;
+  // Only extract when no ExternalVideo provider is set. MasterExerciseView controls which
+  // source is active: it passes video=undefined + legacyVideoUrl=mainVideoUrl when the user
+  // has explicitly picked a per-method variant; otherwise it passes video=fullTutorial + no
+  // legacyVideoUrl, so this stays null and the fullTutorial plays by default.
+  const legacyBunnyId =
+    !video?.provider && legacyVideoUrl
+      ? extractBunnyVideoIdFromUrl(legacyVideoUrl)
+      : null;
 
   // ── Tutorial video ID ─────────────────────────────────────────────────
-  // Priority: per-method legacyBunnyId (mainVideoUrl) > exercise-level ExternalVideo.videoId.
-  // This ensures the HLS effect re-runs with the correct stream when the method changes.
+  // Priority: legacyBunnyId (per-method, only set after explicit user pick) first,
+  // then fullTutorial videoId. Never undefined — null → HLS skips, empty state shows.
   const tutorialVideoId: string | null =
     mode === 'tutorial'
       ? (legacyBunnyId ?? (video?.provider === 'bunny' && video.videoId ? video.videoId : null))
