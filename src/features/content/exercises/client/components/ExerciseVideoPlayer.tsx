@@ -85,6 +85,7 @@ export default function ExerciseVideoPlayer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef     = useRef<HTMLVideoElement | null>(null); // preview / internal / legacy
   const tutorialRef  = useRef<HTMLVideoElement | null>(null); // Bunny tutorial HLS player
+  const touchStart   = useRef<{ x: number; y: number } | null>(null);
 
   // `iframeLoaded` is only needed for YouTube iframes (Bunny no longer uses iframes).
   // Resets whenever the video source changes so the poster re-shows on navigation.
@@ -134,23 +135,22 @@ export default function ExerciseVideoPlayer({
   const allowMount = !lazyPlay || mode === 'tutorial' || hasBeenVisible;
 
   // ── Pre-detect Bunny UUID from legacyVideoUrl ─────────────────────────
-  // Computed before hook calls so the dependency array is stable across renders.
-  const legacyBunnyId =
-    !video?.provider && legacyVideoUrl
-      ? extractBunnyVideoIdFromUrl(legacyVideoUrl)
-      : null;
+  // Extracted unconditionally — legacyVideoUrl is always per-method (mainVideoUrl from the
+  // bulk-upload script). We do NOT gate on !video?.provider: a shared exercise-level
+  // fullTutorial (video.videoId) must NOT take priority over a per-method mainVideoUrl.
+  const legacyBunnyId = legacyVideoUrl
+    ? extractBunnyVideoIdFromUrl(legacyVideoUrl)
+    : null;
 
   // ── Tutorial video ID ─────────────────────────────────────────────────
-  // Computed here (pre-hook) and used as the HLS effect dependency.
-  // Priority: explicit ExternalVideo.videoId first, then legacyBunnyId (mainVideoUrl UUID).
+  // Priority: per-method legacyBunnyId (mainVideoUrl) > exercise-level ExternalVideo.videoId.
+  // This ensures the HLS effect re-runs with the correct stream when the method changes.
   const tutorialVideoId: string | null =
     mode === 'tutorial'
-      ? (video?.provider === 'bunny' && video.videoId
-          ? video.videoId
-          : legacyBunnyId)
+      ? (legacyBunnyId ?? (video?.provider === 'bunny' && video.videoId ? video.videoId : null))
       : null;
 
-  console.log('[VideoPlayer] tutorial videoId:', tutorialVideoId, '| legacyBunnyId:', legacyBunnyId);
+  console.log('[VideoPlayer] tutorialVideoId:', tutorialVideoId, '| legacy:', legacyBunnyId, '| video?.videoId:', video?.videoId);
 
   // ── HLS attachment for Bunny tutorial videos ──────────────────────────
   //
@@ -221,6 +221,23 @@ export default function ExerciseVideoPlayer({
     };
   }, [tutorialVideoId]);
 
+  // ── Re-mute when exiting fullscreen ───────────────────────────────────
+  // enterFullscreen() unmutes the video so the user hears sound in fullscreen.
+  // This effect restores muted=true when they exit, so the inline hero stays silent.
+  useEffect(() => {
+    if (!tutorialVideoId) return;
+    const vid = tutorialRef.current;
+    if (!vid) return;
+    const onExit = () => { if (tutorialRef.current) tutorialRef.current.muted = true; };
+    const onDocChange = () => { if (!document.fullscreenElement) onExit(); };
+    document.addEventListener('fullscreenchange', onDocChange);
+    vid.addEventListener('webkitendfullscreen', onExit);
+    return () => {
+      document.removeEventListener('fullscreenchange', onDocChange);
+      vid.removeEventListener('webkitendfullscreen', onExit);
+    };
+  }, [tutorialVideoId]);
+
   // ── Network-aware stream URL ───────────────────────────────────────────
   // Tutorial mode uses HLS (above). Only preview clips go through the
   // network-quality-aware MP4 resolver.
@@ -276,6 +293,8 @@ export default function ExerciseVideoPlayer({
       const enterFullscreen = () => {
         const vid = tutorialRef.current;
         if (!vid) return;
+        // Unmute so the user hears sound during fullscreen.
+        vid.muted = false;
         // iOS WKWebView uses a non-standard API; standard API for Chrome/Android
         if (typeof (vid as any).webkitEnterFullscreen === 'function') {
           (vid as any).webkitEnterFullscreen();
@@ -284,11 +303,35 @@ export default function ExerciseVideoPlayer({
         }
       };
 
+      // Swipe-up → fullscreen; swipe-down → exit fullscreen (Chrome/Android).
+      // Horizontal movement is ignored so the scrubber works normally.
+      const handleTouchStart = (e: React.TouchEvent) => {
+        touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      };
+      const handleTouchEnd = (e: React.TouchEvent) => {
+        if (!touchStart.current) return;
+        const dx = e.changedTouches[0].clientX - touchStart.current.x;
+        const dy = e.changedTouches[0].clientY - touchStart.current.y;
+        touchStart.current = null;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 10) return; // tap — let onClick handle
+        if (Math.abs(dy) >= 50 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+          e.preventDefault(); // suppress the synthetic click after swipe
+          if (dy < 0) {
+            enterFullscreen(); // swipe up → fullscreen
+          } else if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {}); // swipe down → exit (Chrome/Android)
+          }
+        }
+      };
+
       return (
         <div
           ref={containerRef}
           className={`${className ?? ''} relative overflow-hidden`}
           onClick={enterFullscreen}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           <video
             key={tutorialKey}
