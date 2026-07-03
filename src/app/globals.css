@@ -403,3 +403,34 @@ input, textarea, [contenteditable="true"] {
   -ms-user-select: text;
   user-select: text;
 }
+
+/* ── Video fullscreen: always show the full frame (no cropping) ──────── */
+video:-webkit-full-screen { object-fit: contain; background: #000; }
+video:fullscreen           { object-fit: contain; background: #000; }
+
+/* ── Tutorial player: restore native control panel — but NOT overlay buttons ──
+   The blanket `display:flex` on overlay-enclosure/overlay-play-button caused a
+   white box in the bottom-left corner on tap (empty element with no icon).
+   We restore only the panel and its useful child controls. ── */
+video.tutorial-player::-webkit-media-controls,
+video.tutorial-player::-webkit-media-controls-panel {
+  display: flex !important;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+video.tutorial-player::-webkit-media-controls-timeline,
+video.tutorial-player::-webkit-media-controls-mute-button,
+video.tutorial-player::-webkit-media-controls-fullscreen-button,
+video.tutorial-player::-webkit-media-controls-current-time-display,
+video.tutorial-player::-webkit-media-controls-time-remaining-display,
+video.tutorial-player::-webkit-media-controls-play-button {
+  display: inline-flex !important;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+/* overlay-play-button and its enclosure caused the white box — keep hidden */
+video.tutorial-player::-webkit-media-controls-overlay-play-button,
+video.tutorial-player::-webkit-media-controls-overlay-enclosure,
+video.tutorial-player::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}

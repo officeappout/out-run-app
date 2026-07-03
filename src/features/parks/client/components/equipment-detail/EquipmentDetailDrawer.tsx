@@ -97,6 +97,7 @@ function parseVideoEmbed(url: string | undefined): { src: string } | null {
   if (yt) return { src: `https://www.youtube.com/embed/${yt[1]}` };
   const vimeo = url.match(/(?:vimeo\.com\/)(\d+)/);
   if (vimeo) return { src: `https://player.vimeo.com/video/${vimeo[1]}` };
+  if (/iframe\.bunnycdn\.com\/embed\//.test(url)) return { src: url };
   return null;
 }
 

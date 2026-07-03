@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
-  Target, PersonStanding, Lock, Play, Check,
+  Target, PersonStanding, Lock, Check,
   Home, Trees, Dumbbell, MapPin, ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
@@ -542,8 +542,6 @@ export default function MasterExerciseView({
   const { sheetData, trend, isLoadingTrend, progressionChain, userLevelInTrack, programs } =
     useExerciseMasterData(exercise, activeLocation, programLabels, selectedMethodIdx);
 
-  const [showTutorial, setShowTutorial] = useState(false);
-  useEffect(() => { setShowTutorial(false); }, [exercise.id]);
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
   useEffect(() => { setSwitcherOpen(false); }, [exercise.id]);
@@ -614,23 +612,32 @@ export default function MasterExerciseView({
 
   if (!sheetData) return null;
 
+  // Show the tutorial player (controls, HLS) when:
+  //   a) the selected method has an explicit fullTutorial ExternalVideo, OR
+  //   b) the method has a mainVideoUrl (bulk-upload CDN link) — these are per-method
+  //      and must switch when the user changes method. Preview mode reuses the same
+  //      <video> element and the browser silently ignores src changes without remount;
+  //      tutorial mode forces a key-driven remount via the videoId change.
+  const tutorialAsHero = !!sheetData.tutorial || !!heroAssets.legacy;
+  const heroVideo  = sheetData.tutorial ?? heroAssets.video;
+  const heroMode   = tutorialAsHero ? 'tutorial' : 'preview';
+
   return (
     <div dir="rtl">
-      {/* ── Section 1: Hero video (with gradient fade into content) ──────── */}
+      {/* ── Section 1: Hero video ──────────────────────────────────────────── */}
       <div
-        className="relative w-full bg-slate-900 overflow-hidden"
-        style={{ aspectRatio: '9 / 16', maxHeight: '45vh' }}
+        className={`relative w-full overflow-hidden ${tutorialAsHero ? 'bg-[#F8FAFC]' : 'bg-slate-900'}`}
+        style={{ aspectRatio: '9 / 16', maxHeight: '55vh' }}
       >
         <ExerciseVideoPlayer
-          video={heroAssets.video}
+          video={heroVideo}
           legacyVideoUrl={heroAssets.legacy}
           posterUrl={heroAssets.posterUrl}
-          mode="preview"
+          mode={heroMode}
           className="absolute inset-0 w-full h-full"
         />
-        {/* Gradient mask — strictly decorative. `pointer-events-none` + `z-10`
-            keep it from intercepting taps/scroll on the player underneath, and
-            it sits flush on the bottom edge so the video frame never clips. */}
+        {/* Soft gradient fade at the bottom of the video — always visible.
+            pointer-events: none keeps controls and taps fully working. */}
         <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
 
@@ -948,31 +955,8 @@ export default function MasterExerciseView({
           </section>
         ) : null}
 
-        {/* ── Section 5: Deep tutorial embed (lazy) ─────────────────────── */}
-        {sheetData.tutorial && (
-          <section className="mb-6">
-            {showTutorial ? (
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-900">
-                <ExerciseVideoPlayer
-                  video={sheetData.tutorial}
-                  posterUrl={sheetData.posterUrl}
-                  mode="tutorial"
-                  className="absolute inset-0 w-full h-full"
-                />
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowTutorial(true)}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-[#00BAF7] text-[#00ADEF] font-bold py-3.5 active:scale-[0.98] transition-transform"
-                style={SECTION_FONT}
-              >
-                <Play size={18} className="fill-current" />
-                צפה בפירוק טכני מלא
-              </button>
-            )}
-          </section>
-        )}
+        {/* Section 5 (tutorial embed) was here — tutorial is now shown directly
+            as the hero video when fullTutorial exists, so no button needed. */}
 
         {/* ── Section 6: Anatomy — primary (right) + secondary slider (left) ──
             Both sides share identical icon bounding boxes (44×44), line-heights
