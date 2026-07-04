@@ -121,6 +121,7 @@ function extractBunnyVideoId(url: string | undefined): string | null {
  *  poster — shown until first frame decoded (typically the brand product image). */
 function BunnyVideoPlayer({ videoId, poster }: { videoId: string; poster?: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const vid = ref.current;
@@ -170,17 +171,72 @@ function BunnyVideoPlayer({ videoId, poster }: { videoId: string; poster?: strin
     };
   }, [videoId]);
 
+  // Re-mute when exiting fullscreen so the inline hero stays silent.
+  // Captures `vid` at effect-run time so cleanup removes from the correct element.
+  useEffect(() => {
+    const vid = ref.current;
+    if (!vid) return;
+    const onExit = () => { if (ref.current) ref.current.muted = true; };
+    const onDocChange = () => { if (!document.fullscreenElement) onExit(); };
+    document.addEventListener('fullscreenchange', onDocChange);
+    vid.addEventListener('webkitendfullscreen', onExit);
+    return () => {
+      document.removeEventListener('fullscreenchange', onDocChange);
+      vid.removeEventListener('webkitendfullscreen', onExit);
+    };
+  }, [videoId]);
+
+  const enterFullscreen = () => {
+    const vid = ref.current;
+    if (!vid) return;
+    vid.muted = false;
+    if (typeof (vid as any).webkitEnterFullscreen === 'function') {
+      (vid as any).webkitEnterFullscreen();
+    } else if (vid.requestFullscreen) {
+      vid.requestFullscreen().catch(() => {});
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 10) return; // tap — let native controls handle it
+    if (Math.abs(dy) >= 50 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      e.preventDefault();
+      if (dy < 0) {
+        enterFullscreen(); // swipe up → fullscreen
+      } else if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {}); // swipe down → exit (Chrome/Android)
+      }
+    }
+  };
+
   return (
-    <video
-      key={videoId}
-      ref={ref}
-      poster={poster}
-      className="absolute inset-0 w-full h-full object-cover"
-      muted
-      playsInline
-      controls
-      preload="metadata"
-    />
+    <div
+      className="absolute inset-0 w-full h-full"
+      onClick={enterFullscreen}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <video
+        key={videoId}
+        ref={ref}
+        poster={poster}
+        className="absolute inset-0 w-full h-full object-cover"
+        muted
+        playsInline
+        {...{ 'webkit-playsinline': 'true' }}
+        controls
+        preload="metadata"
+      />
+    </div>
   );
 }
 
