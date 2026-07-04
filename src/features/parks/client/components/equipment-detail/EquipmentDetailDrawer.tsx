@@ -43,7 +43,6 @@ import {
   X,
   Dumbbell,
   Loader2,
-  Video as VideoIcon,
   AlertTriangle,
   Target,
 } from 'lucide-react';
@@ -118,8 +117,9 @@ function extractBunnyVideoId(url: string | undefined): string | null {
 }
 
 /** Native HLS player for a Bunny Stream video.
- *  Safari/iOS → native HLS. Chrome/Android → hls.js (dynamic import). Fallback → 720p MP4. */
-function BunnyVideoPlayer({ videoId }: { videoId: string }) {
+ *  Safari/iOS → native HLS (autoplay). Chrome/Android → hls.js. Fallback → 720p MP4.
+ *  poster — shown until first frame decoded (typically the brand product image). */
+function BunnyVideoPlayer({ videoId, poster }: { videoId: string; poster?: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -135,6 +135,7 @@ function BunnyVideoPlayer({ videoId }: { videoId: string }) {
     if (vid.canPlayType('application/vnd.apple.mpegurl')) {
       vid.src = hlsUrl;
       vid.load();
+      vid.play().catch(() => {});
       return () => { cancelled = true; };
     }
 
@@ -146,6 +147,7 @@ function BunnyVideoPlayer({ videoId }: { videoId: string }) {
         if (!Hls.isSupported()) {
           v.src = mp4Url;
           v.load();
+          v.play().catch(() => {});
           return;
         }
         const hls = new Hls({ startLevel: 2, maxBufferLength: 20, enableWorker: true });
@@ -159,7 +161,7 @@ function BunnyVideoPlayer({ videoId }: { videoId: string }) {
       .catch(() => {
         if (cancelled) return;
         const v = ref.current;
-        if (v) { v.src = mp4Url; v.load(); }
+        if (v) { v.src = mp4Url; v.load(); v.play().catch(() => {}); }
       });
 
     return () => {
@@ -172,6 +174,7 @@ function BunnyVideoPlayer({ videoId }: { videoId: string }) {
     <video
       key={videoId}
       ref={ref}
+      poster={poster}
       className="absolute inset-0 w-full h-full object-cover"
       muted
       playsInline
@@ -496,16 +499,33 @@ export default function EquipmentDetailDrawer({
                 </div>
               ) : (
                 <>
-                  {/* Hero — brand image with graceful fallback chain
-                      (brand image → equipment SVG icon → Dumbbell glyph).
-                      Aspect-ratio fixed so the drawer never jumps when
-                      the user switches between brands with different
-                      photo dimensions. */}
+                  {/* Hero — video-first (same pattern as MasterExerciseView).
+                      Priority: Bunny HLS → YouTube/Vimeo iframe → brand image → icon/glyph.
+                      Video aspect: 16:9 (landscape equipment demo).
+                      Image/icon aspect: 4:3 (portrait product shot).
+                      Bottom gradient fade matches MasterExerciseView. */}
                   <div
-                    className="relative w-full bg-gray-100 dark:bg-slate-800"
-                    style={{ aspectRatio: '4 / 3' }}
+                    className={`relative w-full overflow-hidden ${
+                      bunnyVideoId || videoEmbed
+                        ? 'bg-slate-900'
+                        : 'bg-gray-100 dark:bg-slate-800'
+                    }`}
+                    style={{ aspectRatio: bunnyVideoId || videoEmbed ? '16 / 9' : '4 / 3' }}
                   >
-                    {activeBrand?.imageUrl ? (
+                    {bunnyVideoId ? (
+                      <BunnyVideoPlayer
+                        videoId={bunnyVideoId}
+                        poster={activeBrand?.imageUrl ?? undefined}
+                      />
+                    ) : videoEmbed ? (
+                      <iframe
+                        src={videoEmbed.src}
+                        className="absolute inset-0 w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={`${equipmentName} demo video`}
+                      />
+                    ) : activeBrand?.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={activeBrand.imageUrl}
@@ -527,12 +547,12 @@ export default function EquipmentDetailDrawer({
                             className="w-24 h-24 object-contain opacity-80"
                           />
                         ) : (
-                          <Dumbbell
-                            size={64}
-                            className="text-gray-300 dark:text-slate-600"
-                          />
+                          <Dumbbell size={64} className="text-gray-300 dark:text-slate-600" />
                         )}
                       </div>
+                    )}
+                    {(bunnyVideoId || videoEmbed) && (
+                      <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                     )}
                   </div>
 
@@ -722,50 +742,6 @@ export default function EquipmentDetailDrawer({
                             {(equipment as any).description}
                           </p>
                         </div>
-                      </section>
-                    )}
-
-                    {/* Video embed — YouTube / Vimeo. Only rendered
-                        when the active brand carries a `videoUrl`. */}
-                    {activeBrand?.videoUrl && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3 flex items-center gap-1.5"
-                          style={SECTION_FONT}
-                        >
-                          <VideoIcon size={16} className="text-cyan-500" />
-                          סרטון הדגמה
-                        </h3>
-                        {bunnyVideoId ? (
-                          <div
-                            className="relative w-full overflow-hidden rounded-2xl bg-black"
-                            style={{ aspectRatio: '16 / 9' }}
-                          >
-                            <BunnyVideoPlayer videoId={bunnyVideoId} />
-                          </div>
-                        ) : videoEmbed ? (
-                          <div
-                            className="relative w-full overflow-hidden rounded-2xl bg-black"
-                            style={{ aspectRatio: '16 / 9' }}
-                          >
-                            <iframe
-                              src={videoEmbed.src}
-                              className="absolute inset-0 w-full h-full"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              title={`${equipmentName} demo video`}
-                            />
-                          </div>
-                        ) : (
-                          <a
-                            href={activeBrand.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-sm font-bold text-center"
-                          >
-                            פתח סרטון בחלון חיצוני
-                          </a>
-                        )}
                       </section>
                     )}
 
