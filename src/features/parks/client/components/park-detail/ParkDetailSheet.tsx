@@ -1174,6 +1174,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
         onClose={() => setSelectedEquipment(null)}
         equipmentId={selectedEquipment?.id ?? null}
         brandName={selectedEquipment?.brand ?? null}
+        pinnedToPark
       />
     </>
   );

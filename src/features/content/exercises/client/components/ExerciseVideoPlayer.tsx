@@ -152,8 +152,6 @@ export default function ExerciseVideoPlayer({
       ? (legacyBunnyId ?? (video?.provider === 'bunny' && video.videoId ? video.videoId : null))
       : null;
 
-  console.log('[VideoPlayer] tutorialVideoId:', tutorialVideoId, '| legacy:', legacyBunnyId, '| video?.videoId:', video?.videoId);
-
   // ── HLS attachment for Bunny tutorial videos ──────────────────────────
   //
   // Strategy (in priority order):
