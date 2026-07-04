@@ -310,7 +310,12 @@ export interface Park {
   hasNaturalShade?: boolean;
   hasBikeRacks?: boolean;
   hasNearbyShelter?: boolean;
-  
+
+  // Brand identity — the dominant equipment brand installed in this park.
+  // Resolved from equipment majority when primaryBrand is absent (see migration script).
+  // Per-equipment override: ParkGymEquipment.brandName takes precedence when set.
+  primaryBrand?: string;
+
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;

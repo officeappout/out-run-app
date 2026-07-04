@@ -36,9 +36,12 @@ const OLD_FILES_HOST = 'https://files.appout.co.il';
 const OLD_PATH_PREFIX = '/home/backend/out-local-files/upload-files/';
 const OUTDOOR_BRANDS_COLLECTION = 'outdoorBrands';
 
+// companyid from the legacy system: 8 = Urbanics, 9 = Ludos.
+// The original mapping had these inverted — corrected 2026-07-04.
+// Cross-check: companyid 8 dominates 91% of single-brand parks → matches Urbanics.
 const BRAND_MAP: Record<string, string> = {
-  '8': 'Ludos',
-  '9': 'Urbanics',
+  '8': 'Urbanics',
+  '9': 'Ludos',
 };
 
 // ---------------------------------------------------------------------------

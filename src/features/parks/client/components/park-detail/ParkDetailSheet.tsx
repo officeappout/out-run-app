@@ -906,13 +906,14 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                           const parkRef = park.gymEquipment?.find(
                             (g) => g.equipmentId === eq.id,
                           );
-                          const brandName = parkRef?.brandName ?? '';
+                          // Resolution: per-equipment override → park-level primaryBrand → ''
+                          const brandName = parkRef?.brandName || park.primaryBrand || '';
                           const brandImage = brandName
                             ? eq.brands?.find((b) => b.brandName === brandName)?.imageUrl
                             : eq.brands?.[0]?.imageUrl;
-                          const hasVideo = brandName
-                            ? !!eq.brands?.find((b) => b.brandName === brandName)?.videoUrl
-                            : !!eq.brands?.[0]?.videoUrl;
+                          // hasVideo reflects the drawer's fallback: if any brand of this
+                          // equipment has a video, the drawer will surface it (QW1 fallback).
+                          const hasVideo = !!eq.brands?.some((b) => !!b.videoUrl);
 
                           return (
                             <button

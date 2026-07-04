@@ -408,14 +408,25 @@ export default function EquipmentDetailDrawer({
     return equipment.brands[activeBrandIndex] ?? equipment.brands[0] ?? null;
   }, [equipment, activeBrandIndex]);
 
+  // If the active brand has no video, fall back to the first other brand that does.
+  // This makes mixed-brand parks harmless: the user sees the equipment's demo video
+  // regardless of which brand was tagged, without needing a mass data audit.
+  const effectiveVideoUrl = useMemo((): string | undefined => {
+    if (activeBrand?.videoUrl) return activeBrand.videoUrl;
+    return (
+      equipment?.brands?.find((b, i) => i !== activeBrandIndex && !!b.videoUrl)?.videoUrl ??
+      undefined
+    );
+  }, [activeBrand, equipment?.brands, activeBrandIndex]);
+
   const videoEmbed = useMemo(
-    () => parseVideoEmbed(activeBrand?.videoUrl),
-    [activeBrand?.videoUrl],
+    () => parseVideoEmbed(effectiveVideoUrl),
+    [effectiveVideoUrl],
   );
 
   const bunnyVideoId = useMemo(
-    () => extractBunnyVideoId(activeBrand?.videoUrl),
-    [activeBrand?.videoUrl],
+    () => extractBunnyVideoId(effectiveVideoUrl),
+    [effectiveVideoUrl],
   );
 
   const equipmentName = useMemo(
@@ -566,7 +577,7 @@ export default function EquipmentDetailDrawer({
                       >
                         {equipmentName}
                       </h1>
-                      {activeBrand?.brandName && (
+                      {!pinnedToPark && activeBrand?.brandName && (
                         <p
                           className="mt-1 text-sm text-gray-500 dark:text-gray-400"
                           style={SECTION_FONT}
@@ -745,77 +756,50 @@ export default function EquipmentDetailDrawer({
                       </section>
                     )}
 
-                    {/* Brand section — park context shows a static badge only;
-                        catalogue context (pinnedToPark=false) shows a full
-                        switcher when the equipment has more than one brand. */}
-                    {pinnedToPark && activeBrand ? (
+                    {/* Brand switcher — catalogue context only (pinnedToPark=false).
+                        In park context the brand is irrelevant to the user; hiding it
+                        also makes mixed-brand tagging harmless. */}
+                    {!pinnedToPark && equipment.brands && equipment.brands.length > 1 && (
                       <section className="mb-6">
                         <h3
                           className="text-right text-[16px] font-semibold mb-3"
                           style={SECTION_FONT}
                         >
-                          מותג
+                          מותגים זמינים
                         </h3>
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-cyan-500 text-white shadow-sm w-fit">
-                          {activeBrand.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={activeBrand.imageUrl}
-                              alt=""
-                              className="w-5 h-5 rounded-full object-cover bg-white"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          )}
-                          <span className="text-xs font-bold">
-                            {activeBrand.brandName}
-                          </span>
+                        <div className="flex flex-wrap gap-2">
+                          {equipment.brands.map((b, i) => {
+                            const isActive = i === activeBrandIndex;
+                            return (
+                              <button
+                                key={`${b.brandName}_${i}`}
+                                type="button"
+                                onClick={() => setActiveBrandIndex(i)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
+                                  isActive
+                                    ? 'bg-cyan-500 text-white shadow-sm'
+                                    : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200'
+                                }`}
+                              >
+                                {b.imageUrl && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={b.imageUrl}
+                                    alt=""
+                                    className="w-5 h-5 rounded-full object-cover bg-white"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                )}
+                                <span className="text-xs font-bold">
+                                  {b.brandName || `מותג ${i + 1}`}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </section>
-                    ) : (
-                      equipment.brands && equipment.brands.length > 1 && (
-                        <section className="mb-6">
-                          <h3
-                            className="text-right text-[16px] font-semibold mb-3"
-                            style={SECTION_FONT}
-                          >
-                            מותגים זמינים
-                          </h3>
-                          <div className="flex flex-wrap gap-2">
-                            {equipment.brands.map((b, i) => {
-                              const isActive = i === activeBrandIndex;
-                              return (
-                                <button
-                                  key={`${b.brandName}_${i}`}
-                                  type="button"
-                                  onClick={() => setActiveBrandIndex(i)}
-                                  className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
-                                    isActive
-                                      ? 'bg-cyan-500 text-white shadow-sm'
-                                      : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200'
-                                  }`}
-                                >
-                                  {b.imageUrl && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={b.imageUrl}
-                                      alt=""
-                                      className="w-5 h-5 rounded-full object-cover bg-white"
-                                      onError={(e) => {
-                                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                      }}
-                                    />
-                                  )}
-                                  <span className="text-xs font-bold">
-                                    {b.brandName || `מותג ${i + 1}`}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      )
                     )}
                   </div>
                 </>
