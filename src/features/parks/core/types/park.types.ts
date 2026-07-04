@@ -316,6 +316,10 @@ export interface Park {
   // Per-equipment override: ParkGymEquipment.brandName takes precedence when set.
   primaryBrand?: string;
 
+  // Hero image focal point — CSS object-position value (e.g. "center", "top", "left center").
+  // Set per-park in admin; ParkPreview reads it for object-position on the hero img.
+  imagePosition?: string;
+
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;

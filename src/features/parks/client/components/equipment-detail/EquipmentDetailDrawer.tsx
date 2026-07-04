@@ -53,6 +53,7 @@ import type {
 } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
+import { bunnyImg } from '@/lib/bunny-image';
 
 // ── Visual tokens — copied from ExerciseDetailSheet so the two
 //    drawers feel like the same product surface. Keep these in sync
@@ -301,7 +302,7 @@ const AUTO_CUES_BY_MUSCLE: Record<string, string[]> = {
 };
 
 function deriveAutoCues(equipment: GymEquipment): string[] {
-  const primary = equipment.muscleGroups?.[0];
+  const primary = equipment.primaryMuscle ?? equipment.muscleGroups?.[0];
   if (primary && AUTO_CUES_BY_MUSCLE[primary]) {
     return AUTO_CUES_BY_MUSCLE[primary];
   }
@@ -467,10 +468,10 @@ export default function EquipmentDetailDrawer({
     [equipment?.name],
   );
 
-  const primaryMuscle = equipment?.muscleGroups?.[0];
+  const primaryMuscle = equipment?.primaryMuscle ?? equipment?.muscleGroups?.[0];
   const secondaryMuscles = useMemo(
-    () => equipment?.muscleGroups?.slice(1) ?? [],
-    [equipment?.muscleGroups],
+    () => equipment?.secondaryMuscles ?? equipment?.muscleGroups?.slice(1) ?? [],
+    [equipment?.primaryMuscle, equipment?.secondaryMuscles, equipment?.muscleGroups],
   );
 
   const cues = useMemo(
@@ -572,7 +573,7 @@ export default function EquipmentDetailDrawer({
                     ) : activeBrand?.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={activeBrand.imageUrl}
+                        src={bunnyImg(activeBrand.imageUrl, 720)}
                         alt={equipmentName}
                         className="absolute inset-0 w-full h-full object-cover"
                         loading="lazy"
@@ -817,7 +818,7 @@ export default function EquipmentDetailDrawer({
                                 {b.imageUrl && (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={b.imageUrl}
+                                    src={bunnyImg(b.imageUrl, 40)}
                                     alt=""
                                     className="w-5 h-5 rounded-full object-cover bg-white"
                                     onError={(e) => {

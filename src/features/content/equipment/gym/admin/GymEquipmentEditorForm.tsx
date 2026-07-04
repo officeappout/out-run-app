@@ -19,6 +19,7 @@ import {
   Building,
   Navigation,
   Search,
+  Target,
 } from 'lucide-react';
 import { EquipmentLocation } from '../core/gym-equipment.types';
 import { safeRenderText } from '@/utils/render-helpers';
@@ -31,7 +32,7 @@ interface GymEquipmentEditorFormProps {
 }
 
 // Muscle group labels in Hebrew (same as exercise form)
-const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
+const MUSCLE_GROUP_LABELS: Partial<Record<MuscleGroup, string>> = {
   chest: 'חזה',
   back: 'גב',
   shoulders: 'כתפיים',
@@ -49,7 +50,12 @@ const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   full_body: 'כל הגוף',
   core: 'ליבה',
   legs: 'רגליים',
+  serratus: 'סראטוס',
+  adductors: 'מקרבי ירך',
+  hip_flexors: 'כופפי ירך',
 };
+
+const ALL_EQUIPMENT_MUSCLES = Object.keys(MUSCLE_GROUP_LABELS) as MuscleGroup[];
 
 // Exercise type labels
 const EXERCISE_TYPE_LABELS: Record<ExerciseType, { label: string; icon: React.ReactNode }> = {
@@ -78,6 +84,8 @@ export default function GymEquipmentEditorForm({
     recommendedLevel: 1,
     isFunctional: false,
     muscleGroups: [],
+    primaryMuscle: undefined,
+    secondaryMuscles: [],
     brands: [],
     availableInLocations: [],
     defaultLocation: undefined,
@@ -106,6 +114,8 @@ export default function GymEquipmentEditorForm({
           ? (initialData.name as any).he || (initialData.name as any).en || String(initialData.name)
           : initialData.name || '',
         muscleGroups: initialData.muscleGroups || [],
+        primaryMuscle: initialData.primaryMuscle,
+        secondaryMuscles: initialData.secondaryMuscles || [],
         brands: initialData.brands?.map((brand) => ({
           ...brand,
           brandId: brand.brandId || undefined,
@@ -348,27 +358,106 @@ export default function GymEquipmentEditorForm({
           קבוצות שרירים
         </h2>
 
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {(Object.keys(MUSCLE_GROUP_LABELS) as MuscleGroup[]).map((muscle) => (
-            <button
-              key={muscle}
-              type="button"
-              onClick={() =>
+        <div className="space-y-6">
+          {/* Primary Muscle */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+              <span className="inline-flex items-center justify-center w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full">1</span>
+              שריר ראשי (Primary Muscle)
+            </label>
+            <p className="text-xs text-gray-500 mb-3">השריר העיקרי שהמתקן מאמן</p>
+            <select
+              value={formData.primaryMuscle || ''}
+              onChange={(e) => {
+                const muscle = e.target.value as MuscleGroup | '';
                 setFormData({
                   ...formData,
-                  muscleGroups: toggleArrayItem(formData.muscleGroups || [], muscle),
-                })
-              }
-              className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                (formData.muscleGroups || []).includes(muscle)
-                  ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+                  primaryMuscle: muscle || undefined,
+                  secondaryMuscles: muscle
+                    ? (formData.secondaryMuscles || []).filter((m) => m !== muscle)
+                    : formData.secondaryMuscles,
+                });
+              }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm font-medium"
             >
-              {(formData.muscleGroups || []).includes(muscle) && <Check size={16} />}
-              <span className="text-sm font-bold">{MUSCLE_GROUP_LABELS[muscle]}</span>
-            </button>
-          ))}
+              <option value="">בחר שריר ראשי...</option>
+              {ALL_EQUIPMENT_MUSCLES.map((muscle) => (
+                <option key={muscle} value={muscle}>
+                  {MUSCLE_GROUP_LABELS[muscle]}
+                </option>
+              ))}
+            </select>
+            {formData.primaryMuscle && (
+              <div className="mt-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-bold border border-orange-300">
+                  <Target size={14} />
+                  {MUSCLE_GROUP_LABELS[formData.primaryMuscle]}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Secondary Muscles */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+              <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-500 text-white text-xs font-bold rounded-full">2</span>
+              שרירים משניים (Secondary Muscles)
+            </label>
+            <p className="text-xs text-gray-500 mb-3">שרירים נוספים שמופעלים (אפשר לבחור מספר)</p>
+            {(formData.secondaryMuscles || []).length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {(formData.secondaryMuscles || []).map((muscle) => (
+                  <span
+                    key={muscle}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm font-medium"
+                  >
+                    {MUSCLE_GROUP_LABELS[muscle]}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          secondaryMuscles: (formData.secondaryMuscles || []).filter((m) => m !== muscle),
+                        })
+                      }
+                      className="hover:bg-gray-200 rounded-full p-0.5 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+              {ALL_EQUIPMENT_MUSCLES
+                .filter((m) => m !== formData.primaryMuscle)
+                .map((muscle) => {
+                  const isSelected = (formData.secondaryMuscles || []).includes(muscle);
+                  return (
+                    <button
+                      key={muscle}
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          secondaryMuscles: isSelected
+                            ? (formData.secondaryMuscles || []).filter((m) => m !== muscle)
+                            : [...(formData.secondaryMuscles || []), muscle],
+                        })
+                      }
+                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${
+                        isSelected
+                          ? 'bg-cyan-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {isSelected && <Check size={12} />}
+                      {MUSCLE_GROUP_LABELS[muscle]}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
         </div>
       </div>
 

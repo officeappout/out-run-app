@@ -25,7 +25,10 @@ export interface GymEquipment {
   type: ExerciseType; // 'reps' | 'time' | 'rest'
   recommendedLevel: number; // 1-20
   isFunctional: boolean; // Functional equipment toggle
-  muscleGroups: MuscleGroup[]; // Array of muscle groups this equipment targets
+  /** @deprecated All values are placeholder 'full_body'. Use primaryMuscle + secondaryMuscles. */
+  muscleGroups: MuscleGroup[]; // kept for backward-compat read path; do not write new data here
+  primaryMuscle?: MuscleGroup;
+  secondaryMuscles?: MuscleGroup[];
   brands: EquipmentBrand[]; // Array of manufacturers/brands for this equipment
   availableInLocations?: EquipmentLocation[]; // Locations where this equipment is available
   defaultLocation?: EquipmentLocation; // Default/primary location for this equipment

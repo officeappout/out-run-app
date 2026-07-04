@@ -8,6 +8,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { getReviewsForPark } from '@/features/parks/core/services/contribution.service';
 import type { Park } from '@/features/parks/core/types/park.types';
+import { bunnyImg } from '@/lib/bunny-image';
 import type { UserContribution } from '@/types/contribution.types';
 import IconChip from './IconChip';
 import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from './amenity-icons';
@@ -424,9 +425,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
   const photoGallery = useMemo(() => {
     const urls: string[] = [];
-    if (park?.images?.length) urls.push(...park.images);
+    // Prefer imageUrl (Bunny CDN) over legacy image fields
+    if (park?.imageUrl) urls.push(park.imageUrl);
+    else if (park?.images?.length) urls.push(...park.images);
     else if (park?.image) urls.push(park.image);
-    else if (park?.imageUrl) urls.push(park.imageUrl);
     reviews.filter(r => r.photoUrl).forEach(r => urls.push(r.photoUrl!));
     return urls.slice(0, 8);
   }, [park, reviews]);
@@ -557,9 +559,9 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   className="relative w-full overflow-hidden"
                   style={{ height: heroHeight, opacity: imageOpacity, scale: imageScale }}
                 >
-                  {(park.image || park.imageUrl || park.images?.[0]) ? (
+                  {(park.imageUrl || park.image || park.images?.[0]) ? (
                     <img
-                      src={park.images?.[0] || park.image || park.imageUrl || ''}
+                      src={bunnyImg(park.imageUrl || park.images?.[0] || park.image, 800)}
                       alt={park.name}
                       className="absolute inset-0 w-full h-full object-cover"
                     />
@@ -936,7 +938,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                               <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
                                 {brandImage ? (
                                   <img
-                                    src={brandImage}
+                                    src={bunnyImg(brandImage, 200)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                     loading="lazy"

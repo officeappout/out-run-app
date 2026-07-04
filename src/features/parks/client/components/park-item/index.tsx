@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ParkWithDistance from '../../types/park-with-distance.type';
 import getDistanceStr from '@/lib/distanseStr';
 import useCardPage from '@/@core/hooks/useCardPage';
+import { bunnyImg } from '@/lib/bunny-image';
 
 type ParkItemProps = {
   park: ParkWithDistance;
@@ -25,10 +26,11 @@ function ParkItem({ park }: ParkItemProps) {
     >
       {/* תמונה קטנה בצד */}
       <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm">
-        <img 
-          src={park.imageUrl || '/api/placeholder/80/80'} 
+        <img
+          src={bunnyImg(park.imageUrl, 80) || '/api/placeholder/80/80'}
           alt={park.name}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          loading="lazy"
         />
       </div>
 
