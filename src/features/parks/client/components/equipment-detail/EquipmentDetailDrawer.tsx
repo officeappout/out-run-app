@@ -35,8 +35,9 @@
  *   sheet that should win every stacking battle).
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { buildBunnyHlsUrl, buildBunnyStreamUrl } from '@/lib/bunny/bunny.config';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -97,8 +98,87 @@ function parseVideoEmbed(url: string | undefined): { src: string } | null {
   if (yt) return { src: `https://www.youtube.com/embed/${yt[1]}` };
   const vimeo = url.match(/(?:vimeo\.com\/)(\d+)/);
   if (vimeo) return { src: `https://player.vimeo.com/video/${vimeo[1]}` };
-  if (/iframe\.bunnycdn\.com\/embed\//.test(url)) return { src: url };
   return null;
+}
+
+/** Extract a Bunny Stream video UUID from a stored videoUrl. Handles:
+ *  - https://iframe.bunnycdn.com/embed/{libraryId}/{uuid}
+ *  - https://vz-...b-cdn.net/{uuid}/...
+ *  - bare UUID string
+ */
+function extractBunnyVideoId(url: string | undefined): string | null {
+  if (!url) return null;
+  const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const embedM = url.match(/iframe\.bunnycdn\.com\/embed\/\d+\/([0-9a-f-]{36})/i);
+  if (embedM) return embedM[1];
+  const cdnM = url.match(new RegExp(`/(${UUID_RE.source})/`, 'i'));
+  if (cdnM) return cdnM[1];
+  if (UUID_RE.test(url) && url.length === 36) return url;
+  return null;
+}
+
+/** Native HLS player for a Bunny Stream video.
+ *  Safari/iOS → native HLS. Chrome/Android → hls.js (dynamic import). Fallback → 720p MP4. */
+function BunnyVideoPlayer({ videoId }: { videoId: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const vid = ref.current;
+    if (!vid) return;
+
+    let cancelled = false;
+    let hlsInstance: { destroy: () => void } | null = null;
+
+    const hlsUrl = buildBunnyHlsUrl(videoId);
+    const mp4Url = buildBunnyStreamUrl(videoId, 720);
+
+    if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+      vid.src = hlsUrl;
+      vid.load();
+      return () => { cancelled = true; };
+    }
+
+    import('hls.js')
+      .then(({ default: Hls }) => {
+        if (cancelled) return;
+        const v = ref.current;
+        if (!v) return;
+        if (!Hls.isSupported()) {
+          v.src = mp4Url;
+          v.load();
+          return;
+        }
+        const hls = new Hls({ startLevel: 2, maxBufferLength: 20, enableWorker: true });
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (!cancelled) v.play().catch(() => {});
+        });
+        hlsInstance = hls;
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const v = ref.current;
+        if (v) { v.src = mp4Url; v.load(); }
+      });
+
+    return () => {
+      cancelled = true;
+      hlsInstance?.destroy();
+    };
+  }, [videoId]);
+
+  return (
+    <video
+      key={videoId}
+      ref={ref}
+      className="absolute inset-0 w-full h-full object-cover"
+      muted
+      playsInline
+      controls
+      preload="metadata"
+    />
+  );
 }
 
 /**
@@ -320,6 +400,11 @@ export default function EquipmentDetailDrawer({
 
   const videoEmbed = useMemo(
     () => parseVideoEmbed(activeBrand?.videoUrl),
+    [activeBrand?.videoUrl],
+  );
+
+  const bunnyVideoId = useMemo(
+    () => extractBunnyVideoId(activeBrand?.videoUrl),
     [activeBrand?.videoUrl],
   );
 
@@ -644,7 +729,14 @@ export default function EquipmentDetailDrawer({
                           <VideoIcon size={16} className="text-cyan-500" />
                           סרטון הדגמה
                         </h3>
-                        {videoEmbed ? (
+                        {bunnyVideoId ? (
+                          <div
+                            className="relative w-full overflow-hidden rounded-2xl bg-black"
+                            style={{ aspectRatio: '16 / 9' }}
+                          >
+                            <BunnyVideoPlayer videoId={bunnyVideoId} />
+                          </div>
+                        ) : videoEmbed ? (
                           <div
                             className="relative w-full overflow-hidden rounded-2xl bg-black"
                             style={{ aspectRatio: '16 / 9' }}
