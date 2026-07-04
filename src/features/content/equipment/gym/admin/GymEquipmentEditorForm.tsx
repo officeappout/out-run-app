@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { GymEquipmentFormData, EquipmentBrand } from '../core/gym-equipment.types';
-import { MuscleGroup } from '../../../exercises/core/exercise.types';
+import { MuscleGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
 import { ExerciseType } from '../../../exercises/core/exercise.types';
+import { Program } from '../../../programs/core/program.types';
+import { getAllPrograms } from '../../../programs/core/program.service';
+import TargetProgramSection from '@/features/content/shared/components/TargetProgramSection';
 import {
   Dumbbell,
   Clock,
@@ -96,6 +99,10 @@ export default function GymEquipmentEditorForm({
   const [outdoorBrands, setOutdoorBrands] = useState<OutdoorBrand[]>([]);
   const [brandSearchTerm, setBrandSearchTerm] = useState<Record<number, string>>({});
   const [focusedBrandIndex, setFocusedBrandIndex] = useState<number | null>(null);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [targetPrograms, setTargetPrograms] = useState<TargetProgramRef[]>(
+    initialData?.targetPrograms ?? [],
+  );
 
   useEffect(() => {
     loadOutdoorBrands();
@@ -103,6 +110,9 @@ export default function GymEquipmentEditorForm({
       .then((r) => r.json())
       .then((data) => setSvgIcons(Array.isArray(data) ? data : []))
       .catch(() => setSvgIcons([]));
+    getAllPrograms()
+      .then((progs) => setPrograms(progs))
+      .catch(() => setPrograms([]));
   }, []);
 
   useEffect(() => {
@@ -146,7 +156,7 @@ export default function GymEquipmentEditorForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit({ ...formData, targetPrograms });
   };
 
   const toggleArrayItem = <T,>(array: T[], item: T): T[] => {
@@ -460,6 +470,14 @@ export default function GymEquipmentEditorForm({
           </div>
         </div>
       </div>
+
+      {/* Program Assignments Section */}
+      <TargetProgramSection
+        programs={programs}
+        targetPrograms={targetPrograms}
+        setTargetPrograms={setTargetPrograms}
+        title="שיוך לתוכניות ורמות"
+      />
 
       {/* Available Locations Section */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">

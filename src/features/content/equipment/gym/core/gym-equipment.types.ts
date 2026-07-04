@@ -2,7 +2,7 @@
  * Gym Equipment Management Types
  * Defines the structure for gym equipment in the 'gym_equipment' collection
  */
-import { ExerciseType, MuscleGroup } from '../../../exercises/core/exercise.types';
+import { ExerciseType, MuscleGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
 
 export interface EquipmentBrand {
   brandName: string; // e.g., "Ludos", "Urbanics"
@@ -38,6 +38,8 @@ export interface GymEquipment {
    * Used by resolveEquipmentSvgPath via registerGearAlias at runtime.
    */
   iconKey?: string;
+  /** Program + level assignments (metadata-only; not used by workout engine yet). */
+  targetPrograms?: TargetProgramRef[];
   createdAt?: Date;
   updatedAt?: Date;
 }
