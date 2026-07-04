@@ -12,26 +12,7 @@ const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
 const WHITE_FADE = 'linear-gradient(to top, white 0%, white 8%, rgba(255,255,255,0.2) 28%, transparent 100%)';
 
-const MUSCLE_ICON_PATHS: Record<string, string> = {
-  chest: '/icons/muscles/male/chest.svg',
-  back: '/icons/muscles/male/back.svg',
-  shoulders: '/icons/muscles/male/shoulders.svg',
-  biceps: '/icons/muscles/male/biceps.svg',
-  triceps: '/icons/muscles/male/triceps.svg',
-  forearms: '/icons/muscles/male/forearms.svg',
-  traps: '/icons/muscles/male/traps.svg',
-  lats: '/icons/muscles/male/back.svg',
-  upper_back: '/icons/muscles/male/back.svg',
-  quads: '/icons/muscles/male/quads.svg',
-  hamstrings: '/icons/muscles/male/hamstrings.svg',
-  glutes: '/icons/muscles/male/glutes.svg',
-  calves: '/icons/muscles/male/calves.svg',
-  core: '/icons/muscles/male/abs.svg',
-  abs: '/icons/muscles/male/abs.svg',
-  obliques: '/icons/muscles/male/obliques.svg',
-  legs: '/icons/programs/leg.svg',
-  full_body: '/icons/programs/full_body.svg',
-};
+import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 
 function extractYouTubeId(url: string): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=))([a-zA-Z0-9_-]{11})/);
@@ -317,7 +298,7 @@ export default function ExerciseDetailContent({
                 <div className="flex flex-wrap gap-2">
                   {(() => {
                     const label = getMuscleGroupLabel(resolvedPrimary);
-                    const iconSrc = MUSCLE_ICON_PATHS[resolvedPrimary] || '/icons/programs/muscle.svg';
+                    const iconSrc = MUSCLE_ICON_PATHS[resolvedPrimary] || MUSCLE_FALLBACK_ICON;
                     return (
                       <div className="flex-shrink-0 flex items-center gap-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -339,7 +320,7 @@ export default function ExerciseDetailContent({
                 <div className="flex flex-wrap gap-2">
                   {resolvedSecondary.map((m) => {
                     const label = getMuscleGroupLabel(m);
-                    const iconSrc = MUSCLE_ICON_PATHS[m] || '/icons/programs/muscle.svg';
+                    const iconSrc = MUSCLE_ICON_PATHS[m] || MUSCLE_FALLBACK_ICON;
                     return (
                       <div key={m} className="flex-shrink-0 flex items-center gap-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}

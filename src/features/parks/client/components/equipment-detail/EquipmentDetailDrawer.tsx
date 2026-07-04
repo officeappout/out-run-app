@@ -52,36 +52,13 @@ import type {
   GymEquipment,
 } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 
 // ── Visual tokens — copied from ExerciseDetailSheet so the two
 //    drawers feel like the same product surface. Keep these in sync
 //    with `ExerciseDetailSheet.tsx` if either side evolves. ─────────
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
-
-// Same muscle-icon registry the exercise drawer uses. Inlined here
-// (rather than imported) so this drawer doesn't pull a strength /
-// player feature into the parks bundle just for the path map.
-const MUSCLE_ICON_PATHS: Record<string, string> = {
-  chest: '/icons/muscles/male/chest.svg',
-  back: '/icons/muscles/male/back.svg',
-  shoulders: '/icons/muscles/male/shoulders.svg',
-  biceps: '/icons/muscles/male/biceps.svg',
-  triceps: '/icons/muscles/male/triceps.svg',
-  forearms: '/icons/muscles/male/forearms.svg',
-  traps: '/icons/muscles/male/traps.svg',
-  lats: '/icons/muscles/male/back.svg',
-  upper_back: '/icons/muscles/male/back.svg',
-  quads: '/icons/muscles/male/quads.svg',
-  hamstrings: '/icons/muscles/male/hamstrings.svg',
-  glutes: '/icons/muscles/male/glutes.svg',
-  calves: '/icons/muscles/male/calves.svg',
-  core: '/icons/muscles/male/abs.svg',
-  abs: '/icons/muscles/male/abs.svg',
-  obliques: '/icons/muscles/male/obliques.svg',
-  legs: '/icons/programs/leg.svg',
-  full_body: '/icons/programs/full_body.svg',
-};
 
 /**
  * Extract a YouTube or Vimeo video id from a free-form url so we can
@@ -686,7 +663,7 @@ export default function EquipmentDetailDrawer({
                           <img
                             src={
                               MUSCLE_ICON_PATHS[primaryMuscle] ??
-                              '/icons/programs/muscle.svg'
+                              MUSCLE_FALLBACK_ICON
                             }
                             alt=""
                             width={36}
@@ -724,7 +701,7 @@ export default function EquipmentDetailDrawer({
                               <img
                                 src={
                                   MUSCLE_ICON_PATHS[m] ??
-                                  '/icons/programs/muscle.svg'
+                                  MUSCLE_FALLBACK_ICON
                                 }
                                 alt=""
                                 width={36}
