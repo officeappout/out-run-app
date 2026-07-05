@@ -133,7 +133,8 @@ export default function GymEquipmentEditorForm({
         iconKey: initialData.iconKey || '',
       };
       setFormData(sanitizedData);
-      
+      setTargetPrograms(initialData.targetPrograms || []);
+
       // Initialize search terms for existing brands
       const searchTerms: Record<number, string> = {};
       sanitizedData.brands.forEach((brand, index) => {

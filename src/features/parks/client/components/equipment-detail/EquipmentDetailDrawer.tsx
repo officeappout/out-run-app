@@ -54,6 +54,8 @@ import type {
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import { bunnyImg } from '@/lib/bunny-image';
+import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import type { Program } from '@/features/content/programs/core/program.types';
 
 // ── Visual tokens — copied from ExerciseDetailSheet so the two
 //    drawers feel like the same product surface. Keep these in sync
@@ -359,6 +361,7 @@ export default function EquipmentDetailDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeBrandIndex, setActiveBrandIndex] = useState(0);
+  const [programs, setPrograms] = useState<Program[]>([]);
 
   // Fetch the equipment doc when the drawer opens or the id changes.
   // We keep the previous data on screen during refetch so the drawer
@@ -407,6 +410,12 @@ export default function EquipmentDetailDrawer({
       cancelled = true;
     };
   }, [isOpen, equipmentId, brandName]);
+
+  // Load program names for targetPrograms display (only when needed).
+  useEffect(() => {
+    if (!equipment?.targetPrograms?.length) return;
+    getAllPrograms().then(setPrograms).catch(() => {});
+  }, [equipment?.id]);
 
   // Reset state when the drawer closes so the next open starts clean.
   useEffect(() => {
@@ -624,19 +633,8 @@ export default function EquipmentDetailDrawer({
                       )}
                     </div>
 
-                    {/* Quick-meta pill row — level + functional flag */}
+                    {/* Quick-meta pill row — functional flag only (recommendedLevel removed; targetPrograms shown below) */}
                     <div className="flex flex-wrap gap-2 mb-6">
-                      {typeof equipment.recommendedLevel === 'number' && (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300"
-                          style={{
-                            border:
-                              '1px solid rgba(8, 145, 178, 0.2)',
-                          }}
-                        >
-                          רמה מומלצת {equipment.recommendedLevel}
-                        </span>
-                      )}
                       {equipment.isFunctional && (
                         <span
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
@@ -719,6 +717,34 @@ export default function EquipmentDetailDrawer({
                               </span>
                             </div>
                           ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Target programs (תוכניות מוקצות) */}
+                    {equipment.targetPrograms && equipment.targetPrograms.length > 0 && (
+                      <section className="mb-6">
+                        <h3
+                          className="text-right text-[16px] font-semibold mb-3"
+                          style={SECTION_FONT}
+                        >
+                          תוכניות מוקצות
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {equipment.targetPrograms.map((tp) => {
+                            const prog = programs.find((p) => p.id === tp.programId);
+                            const label = prog ? (typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? tp.programId) : tp.programId;
+                            return (
+                              <span
+                                key={tp.programId}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                                style={{ border: '1px solid rgba(99, 102, 241, 0.2)' }}
+                              >
+                                <Target size={12} />
+                                {label} · Level {tp.level}
+                              </span>
+                            );
+                          })}
                         </div>
                       </section>
                     )}
