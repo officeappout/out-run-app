@@ -601,6 +601,18 @@
         { "fieldPath": "onboardingStatus", "order": "ASCENDING" },
         { "fieldPath": "createdAt",        "order": "ASCENDING" }
       ]
+    },
+
+    // ── Challenge submissions — gender-filtered leaderboard ────────────────
+    // Required by /api/challenge/leaderboard?gender=male|female
+    // Uses COLLECTION_GROUP to cover all community_groups/{groupId}/challenge_submissions
+    {
+      "collectionGroup": "challenge_submissions",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "gender",     "order": "ASCENDING" },
+        { "fieldPath": "bestValue",  "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -50,32 +50,49 @@ export async function GET(request: NextRequest) {
     const db = getAdminDb();
     const collRef = db.collection(`community_groups/${groupId}/challenge_submissions`);
 
-    // Apply gender filter if provided
-    const query = genderFilter
-      ? collRef.where('gender', '==', genderFilter).orderBy('bestValue', 'desc').limit(limitParam)
-      : collRef.orderBy('bestValue', 'desc').limit(limitParam);
+    let rows: LeaderboardRow[];
+    let total: number;
 
-    const snap = await query.get();
+    if (genderFilter) {
+      // Firestore requires a composite index for .where().orderBy() on different fields.
+      // That index may not exist yet, so we fetch all docs for this gender without orderBy
+      // and sort client-side. For event-scale datasets (≤500 participants) this is fine.
+      const genderSnap = await collRef.where('gender', '==', genderFilter).get();
+      const sorted = genderSnap.docs
+        .slice()
+        .sort((a, b) => (b.data().bestValue ?? 0) - (a.data().bestValue ?? 0))
+        .slice(0, limitParam);
 
-    const rows: LeaderboardRow[] = snap.docs.map((doc, idx) => {
-      const d = doc.data();
-      return {
-        rank: idx + 1,
-        uid: doc.id,
-        name: d.name ?? 'משתתף',
-        ageGroup: d.ageGroup ?? 'adult',
-        gender: d.gender ?? 'other',
-        bestValue: d.bestValue ?? 0,
-        displayTime: formatSeconds(d.bestValue ?? 0),
-      };
-    });
-
-    // Total count (optionally filtered by gender)
-    const countQuery = genderFilter
-      ? collRef.where('gender', '==', genderFilter).count()
-      : collRef.count();
-    const totalSnap = await countQuery.get();
-    const total: number = totalSnap.data().count;
+      rows = sorted.map((doc, idx) => {
+        const d = doc.data();
+        return {
+          rank: idx + 1,
+          uid: doc.id,
+          name: d.name ?? 'משתתף',
+          ageGroup: d.ageGroup ?? 'adult',
+          gender: d.gender ?? 'other',
+          bestValue: d.bestValue ?? 0,
+          displayTime: formatSeconds(d.bestValue ?? 0),
+        };
+      });
+      total = genderSnap.size;
+    } else {
+      const snap = await collRef.orderBy('bestValue', 'desc').limit(limitParam).get();
+      rows = snap.docs.map((doc, idx) => {
+        const d = doc.data();
+        return {
+          rank: idx + 1,
+          uid: doc.id,
+          name: d.name ?? 'משתתף',
+          ageGroup: d.ageGroup ?? 'adult',
+          gender: d.gender ?? 'other',
+          bestValue: d.bestValue ?? 0,
+          displayTime: formatSeconds(d.bestValue ?? 0),
+        };
+      });
+      const totalSnap = await collRef.count().get();
+      total = totalSnap.data().count;
+    }
 
     return NextResponse.json({ ok: true, rows, total });
   } catch (err) {

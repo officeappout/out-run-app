@@ -575,7 +575,7 @@ export async function linkWithGoogleAccount() {
     ) {
       return { user: null, error: 'google_canceled' };
     }
-    if (error.code === 'auth/credential-already-in-use') {
+    if (error.code === 'auth/credential-already-in-use' || error.code === 'auth/email-already-in-use') {
       return { user: null, error: 'google_account_exists' };
     }
     if (error.code === 'auth/popup-closed-by-user') {
@@ -695,6 +695,89 @@ export async function linkEmailPassword(email: string, password: string) {
     }
     
     return { user: null, error: error.message };
+  }
+}
+
+/**
+ * Sign in to an EXISTING Google account — used when linkWithGoogleAccount
+ * returns 'google_account_exists'. Does NOT link; signs in directly.
+ * Native path: same Capacitor plugin. Web path: signInWithPopup.
+ */
+export async function signInWithGoogleDirect(): Promise<{ user: User | null; error: string | null }> {
+  try {
+    if (isNativePlatform()) {
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+      const result = await withGoogleTimeout(FirebaseAuthentication.signInWithGoogle());
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'No credentials from Google Sign In.' };
+      }
+      const credential = GoogleAuthProvider.credential(
+        result.credential.idToken,
+        result.credential.accessToken ?? undefined,
+      );
+      const signInResult = await signInWithCredential(auth, credential);
+      return { user: signInResult.user, error: null };
+    } else {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      return { user: result.user, error: null };
+    }
+  } catch (error: any) {
+    const msg: string = error?.message ?? String(error);
+    if (msg === 'GOOGLE_SIGNIN_TIMEOUT') return { user: null, error: 'google_timeout' };
+    if (error?.code === 'ERR_CANCELED' || msg.includes('cancel') || msg.includes('dismiss') || msg.includes('sign_in_canceled')) {
+      return { user: null, error: 'google_canceled' };
+    }
+    if (error.code === 'auth/popup-closed-by-user') return { user: null, error: 'popup_closed' };
+    return { user: null, error: msg };
+  }
+}
+
+/**
+ * Sign in to an EXISTING Apple account — used when linkWithAppleAccount
+ * returns 'apple_account_exists'. Does NOT link; signs in directly.
+ */
+export async function signInWithAppleDirect(): Promise<{ user: User | null; error: string | null }> {
+  if (typeof window !== 'undefined') {
+    const cap = window as unknown as { Capacitor?: { getPlatform?: () => string } };
+    if (cap.Capacitor?.getPlatform?.() === 'android') {
+      return { user: null, error: 'Apple Sign-In is not available on Android' };
+    }
+  }
+  try {
+    if (isNativePlatform()) {
+      const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+      const result = await withAppleTimeout(
+        FirebaseAuthentication.signInWithApple({ skipNativeAuth: true }),
+      );
+      if (!result.credential?.idToken) {
+        return { user: null, error: 'No credentials from Apple Sign In.' };
+      }
+      if (!result.credential.nonce) {
+        return { user: null, error: 'Apple Sign In did not return nonce.' };
+      }
+      const appleProvider = new OAuthProvider('apple.com');
+      const credential = appleProvider.credential({
+        idToken: result.credential.idToken,
+        rawNonce: result.credential.nonce,
+      });
+      const signInResult = await signInWithCredential(auth, credential);
+      return { user: signInResult.user, error: null };
+    } else {
+      const provider = new OAuthProvider('apple.com');
+      provider.addScope('email');
+      provider.addScope('name');
+      const result = await signInWithPopup(auth, provider);
+      return { user: result.user, error: null };
+    }
+  } catch (error: any) {
+    const msg: string = error?.message ?? String(error);
+    if (msg === 'APPLE_SIGNIN_TIMEOUT') return { user: null, error: 'apple_timeout' };
+    if (error?.code === 'ERR_CANCELED' || msg.includes('cancel') || msg.includes('dismiss') ||
+      msg.includes('com.apple.AuthenticationServices.AuthorizationError error 1001')) {
+      return { user: null, error: 'apple_canceled' };
+    }
+    return { user: null, error: msg };
   }
 }
 

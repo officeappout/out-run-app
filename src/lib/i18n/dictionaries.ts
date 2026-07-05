@@ -177,6 +177,11 @@ export type DictionaryKey =
   | 'challenge.done.error.accountExists'
   | 'challenge.done.error.generic'
   | 'challenge.done.error.general'
+  | 'challenge.done.existingAccount'
+  | 'challenge.done.signin'
+  | 'challenge.done.download.title'
+  | 'challenge.done.download.ios'
+  | 'challenge.done.download.android'
 
   // Challenge booth — plasma display
   | 'challenge.booth.participants'
@@ -366,6 +371,11 @@ export const he: Record<DictionaryKey, string> = {
   'challenge.done.error.accountExists': 'חשבון Google זה כבר משויך לפרופיל אחר.',
   'challenge.done.error.generic': 'שגיאת חיבור. אנא ודא שהכתובת הוסמכה ב-Firebase Console.',
   'challenge.done.error.general': 'שגיאה — אנא נסה שוב.',
+  'challenge.done.existingAccount': 'כבר יש לך חשבון OUT',
+  'challenge.done.signin': 'התחבר',
+  'challenge.done.download.title': 'הורד את OUT',
+  'challenge.done.download.ios': 'הורד לאייפון',
+  'challenge.done.download.android': 'הורד לאנדרואד',
 
   // Challenge booth — plasma display
   'challenge.booth.participants': 'משתתפים',
@@ -452,6 +462,11 @@ export const en: Record<DictionaryKey, string> = {
   'challenge.done.error.accountExists': 'This Google account is linked to another profile.',
   'challenge.done.error.generic': 'Connection error. Verify the domain is authorized in Firebase Console.',
   'challenge.done.error.general': 'Error — please try again.',
+  'challenge.done.existingAccount': 'You already have an OUT account',
+  'challenge.done.signin': 'Sign in',
+  'challenge.done.download.title': 'Download OUT',
+  'challenge.done.download.ios': 'Download for iPhone',
+  'challenge.done.download.android': 'Download for Android',
 
   // Challenge booth — plasma display
   'challenge.booth.participants': 'Participants',

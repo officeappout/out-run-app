@@ -5,11 +5,20 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2, Trophy } from 'lucide-react';
-import { linkWithGoogleAccount, linkWithAppleAccount } from '@/lib/auth.service';
+import {
+  linkWithGoogleAccount,
+  linkWithAppleAccount,
+  signInWithGoogleDirect,
+  signInWithAppleDirect,
+} from '@/lib/auth.service';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { DictionaryKey } from '@/lib/i18n/dictionaries';
 import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
+
+// ── Store links — update IOS_STORE_URL when the app is published on the App Store ──
+const ANDROID_STORE_URL = 'https://play.google.com/store/apps/details?id=co.il.appout.outrun';
+const IOS_STORE_URL     = 'https://outrun.co.il'; // TODO: replace with apps.apple.com/…/id[APP_ID]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -28,25 +37,37 @@ export default function ChallengeDonePage() {
   const { direction } = useLanguage();
   const { t } = useTranslation();
 
-  const [elapsed, setElapsed]             = useState(0);
-  const [name, setName]                   = useState('');
-  const [gender, setGender]               = useState<string>('');
-  const [groupId, setGroupId]             = useState<string | null>(null);
+  const [elapsed, setElapsed]           = useState(0);
+  const [name, setName]                 = useState('');
+  const [gender, setGender]             = useState<string>('');
+  const [groupId, setGroupId]           = useState<string | null>(null);
 
-  const [genderRank, setGenderRank]       = useState<number | null>(null);
-  const [genderTotal, setGenderTotal]     = useState<number | null>(null);
-  const [overallRank, setOverallRank]     = useState<number | null>(null);
-  const [overallTotal, setOverallTotal]   = useState<number | null>(null);
-  const [loadingRank, setLoadingRank]     = useState(true);
+  const [genderRank, setGenderRank]     = useState<number | null>(null);
+  const [genderTotal, setGenderTotal]   = useState<number | null>(null);
+  const [overallRank, setOverallRank]   = useState<number | null>(null);
+  const [overallTotal, setOverallTotal] = useState<number | null>(null);
+  const [loadingRank, setLoadingRank]   = useState(true);
 
-  const [linkLoading, setLinkLoading]     = useState<'google' | 'apple' | null>(null);
-  const [linked, setLinked]               = useState(false);
-  const [linkError, setLinkError]         = useState<string | null>(null);
-  const [isAndroid, setIsAndroid]         = useState(false);
+  // Auth state
+  const [linkLoading, setLinkLoading]   = useState<'google' | 'apple' | null>(null);
+  const [linked, setLinked]             = useState(false);
+  const [linkError, setLinkError]       = useState<string | null>(null);
+  // When the provider account already exists — show "התחבר" flow
+  const [existingProvider, setExistingProvider] = useState<'google' | 'apple' | null>(null);
 
+  // Platform
+  const [isIOS, setIsIOS]       = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+
+  // ── Initialise from sessionStorage + fetch leaderboard ──────────────────────
   useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    setIsIOS(/iphone|ipad/.test(ua));
+    setIsAndroid(/android/.test(ua));
+
     const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
-    setIsAndroid(cap?.getPlatform?.() === 'android');
+    // isAndroid state above is used for Apple button visibility; Capacitor check is redundant
+    // but harmless — use the UA-based detection set above.
 
     const elapsedRaw  = parseInt(sessionStorage.getItem('challenge_elapsed') ?? '0', 10);
     const gid         = sessionStorage.getItem('challenge_group_id');
@@ -87,48 +108,54 @@ export default function ChallengeDonePage() {
       })
       .catch(() => {})
       .finally(() => setLoadingRank(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Google link ───────────────────────────────────────────────────────────────
   const handleGoogleLink = async () => {
     setLinkLoading('google');
     setLinkError(null);
-    try {
-      const { user, error: err } = await linkWithGoogleAccount();
-      if (err === 'google_canceled' || err === 'popup_closed') {
-        // silent
-      } else if (err === 'not_anonymous') {
-        setLinked(true);
-      } else if (err === 'google_account_exists') {
-        setLinkError(t('challenge.done.error.accountExists'));
-      } else if (err) {
-        setLinkError(t('challenge.done.error.generic'));
-      } else if (user) {
-        setLinked(true);
-      }
-    } catch {
-      setLinkError(t('challenge.done.error.general'));
-    }
+    const { user, error: err } = await linkWithGoogleAccount();
     setLinkLoading(null);
+
+    if (err === 'google_canceled' || err === 'popup_closed') return;
+    if (err === 'not_anonymous')         { setLinked(true); return; }
+    if (err === 'google_account_exists') { setExistingProvider('google'); return; }
+    if (err)                             { setLinkError(t('challenge.done.error.generic')); return; }
+    if (user)                            { setLinked(true); }
   };
 
+  // ── Apple link ────────────────────────────────────────────────────────────────
   const handleAppleLink = async () => {
     setLinkLoading('apple');
     setLinkError(null);
-    try {
-      const { user, error: err } = await linkWithAppleAccount();
-      if (err === 'apple_canceled') {
-        // silent
-      } else if (err === 'not_anonymous') {
-        setLinked(true);
-      } else if (err) {
-        setLinkError(t('challenge.done.error.general'));
-      } else if (user) {
-        setLinked(true);
-      }
-    } catch {
-      setLinkError(t('challenge.done.error.general'));
-    }
+    const { user, error: err } = await linkWithAppleAccount();
     setLinkLoading(null);
+
+    if (err === 'apple_canceled') return;
+    if (err === 'not_anonymous')         { setLinked(true); return; }
+    if (err === 'apple_account_exists')  { setExistingProvider('apple'); return; }
+    if (err)                             { setLinkError(t('challenge.done.error.general')); return; }
+    if (user)                            { setLinked(true); }
+  };
+
+  // ── Sign-in to existing account ───────────────────────────────────────────────
+  const handleSignInExisting = async () => {
+    if (!existingProvider) return;
+    setLinkLoading(existingProvider);
+    setLinkError(null);
+
+    const { user, error: err } = existingProvider === 'google'
+      ? await signInWithGoogleDirect()
+      : await signInWithAppleDirect();
+
+    setLinkLoading(null);
+    if (err === 'google_canceled' || err === 'apple_canceled' || err === 'popup_closed') {
+      setExistingProvider(null);
+      return;
+    }
+    if (err) { setLinkError(t('challenge.done.error.general')); return; }
+    if (user) { setLinked(true); }
   };
 
   const timeUnitLabel = elapsed >= 60 ? t('challenge.done.minutes') : t('challenge.done.seconds');
@@ -159,9 +186,7 @@ export default function ChallengeDonePage() {
               ? `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`
               : String(elapsed)}
           </span>
-          <span className="mb-3 text-2xl font-bold text-gray-400">
-            {timeUnitLabel}
-          </span>
+          <span className="mb-3 text-2xl font-bold text-gray-400">{timeUnitLabel}</span>
         </div>
 
         {/* Rank pills */}
@@ -171,6 +196,7 @@ export default function ChallengeDonePage() {
           </div>
         ) : (
           <div className="mt-4 flex flex-col items-center gap-2">
+            {/* Gender rank — primary */}
             {genderRank !== null && gender && gender !== 'other' && (
               <div
                 className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-base font-bold"
@@ -181,6 +207,7 @@ export default function ChallengeDonePage() {
                 {genderTotal !== null ? ` ${t('challenge.done.rank.of')} ${genderTotal}` : ''} — {genderUnitLabel(gender, t)}
               </div>
             )}
+            {/* Overall rank — secondary */}
             {overallRank !== null && (
               <div
                 className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold"
@@ -196,15 +223,53 @@ export default function ChallengeDonePage() {
         {/* Divider */}
         <div className="w-full border-t border-gray-100 my-8" />
 
-        {/* Registration CTA */}
-        {!linked ? (
+        {/* ── Auth section ─────────────────────────────────────────────────── */}
+        {linked ? (
+          /* Success — account saved */
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl" style={{ background: '#cffafe' }}>
+              ✅
+            </div>
+            <p className="font-bold text-gray-800">{t('challenge.done.saved')}</p>
+            <p className="text-sm text-gray-500">{t('challenge.done.savedDesc')}</p>
+          </div>
+
+        ) : existingProvider ? (
+          /* Existing account — offer to sign in */
+          <div className="flex flex-col items-center gap-3 w-full">
+            <div className="text-3xl">👋</div>
+            <p className="text-base font-semibold text-gray-800">{t('challenge.done.existingAccount')}</p>
+            <p className="text-sm text-gray-500">
+              {direction === 'rtl'
+                ? 'התוצאה שלך נשמרה. התחבר לחשבון הקיים שלך.'
+                : 'Your result is saved. Sign in to your existing account.'}
+            </p>
+            <button
+              onClick={handleSignInExisting}
+              disabled={!!linkLoading}
+              className="w-full h-12 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-colors active:scale-95"
+              style={{ background: '#0e7490', color: '#fff' }}
+            >
+              {linkLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                `${t('challenge.done.signin')} — ${existingProvider === 'google' ? 'Google' : 'Apple'}`
+              )}
+            </button>
+            <button
+              onClick={() => setExistingProvider(null)}
+              className="text-xs text-gray-400 underline"
+            >
+              {direction === 'rtl' ? 'ביטול' : 'Cancel'}
+            </button>
+            {linkError && <p className="text-xs text-red-500">{linkError}</p>}
+          </div>
+
+        ) : (
+          /* Default — link to new account */
           <>
-            <p className="text-base font-semibold text-gray-800 mb-1">
-              {t('challenge.done.saveTitle')}
-            </p>
-            <p className="text-sm text-gray-500 mb-5">
-              {t('challenge.done.saveDesc')}
-            </p>
+            <p className="text-base font-semibold text-gray-800 mb-1">{t('challenge.done.saveTitle')}</p>
+            <p className="text-sm text-gray-500 mb-5">{t('challenge.done.saveDesc')}</p>
 
             {/* Google */}
             <button
@@ -228,7 +293,7 @@ export default function ChallengeDonePage() {
               )}
             </button>
 
-            {/* Apple — iOS only */}
+            {/* Apple — not on Android */}
             {!isAndroid && (
               <button
                 onClick={handleAppleLink}
@@ -249,31 +314,45 @@ export default function ChallengeDonePage() {
               </button>
             )}
 
-            {linkError && (
-              <p className="text-xs text-red-500 mb-3">{linkError}</p>
-            )}
-
+            {linkError && <p className="text-xs text-red-500 mb-3">{linkError}</p>}
             <p className="text-xs text-gray-400">{t('challenge.done.free')}</p>
           </>
-        ) : (
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl" style={{ background: '#cffafe' }}>
-              ✅
-            </div>
-            <p className="font-bold text-gray-800">{t('challenge.done.saved')}</p>
-            <p className="text-sm text-gray-500">{t('challenge.done.savedDesc')}</p>
-          </div>
         )}
 
-        {/* QR placeholder */}
-        <div className="mt-8 flex flex-col items-center gap-2">
-          <div
-            className="w-24 h-24 rounded-xl flex items-center justify-center text-xs text-gray-400 font-medium border border-dashed border-gray-300"
-            style={{ fontFamily: 'monospace' }}
-          >
-            QR
-          </div>
-          <p className="text-xs text-gray-400">{t('challenge.done.qrLabel')}</p>
+        {/* Divider */}
+        <div className="w-full border-t border-gray-100 my-8" />
+
+        {/* ── Download section — platform-aware ───────────────────────────── */}
+        <p className="text-sm font-semibold text-gray-700 mb-4">{t('challenge.done.download.title')}</p>
+        <div className="flex flex-col gap-3 w-full">
+          {(isIOS || !isAndroid) && (
+            <a
+              href={IOS_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full h-12 rounded-xl border flex items-center justify-center gap-3 text-sm font-semibold transition-colors active:bg-gray-50 no-underline"
+              style={{ borderColor: '#e2e8f0', color: '#374151' }}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+              </svg>
+              {t('challenge.done.download.ios')}
+            </a>
+          )}
+          {(isAndroid || !isIOS) && (
+            <a
+              href={ANDROID_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full h-12 rounded-xl border flex items-center justify-center gap-3 text-sm font-semibold transition-colors active:bg-gray-50 no-underline"
+              style={{ borderColor: '#e2e8f0', color: '#374151' }}
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+                <path fill="#3DDC84" d="M17.523 15.339L7.477 15.34l-2.477 4.16C5.323 19.94 6.03 20.5 6.87 20.5h10.26c.84 0 1.547-.56 1.87-1l-2.477-4.16ZM5.523 8.661l-2.046 3.5h17.046l-2.046-3.5H5.523ZM15.12 3.5 12 8.5 8.88 3.5H15.12Z"/>
+              </svg>
+              {t('challenge.done.download.android')}
+            </a>
+          )}
         </div>
 
       </div>
