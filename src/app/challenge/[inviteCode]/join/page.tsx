@@ -49,16 +49,15 @@ export default function ChallengeJoinPage() {
     setError(null);
 
     try {
-      // 1. Ensure anonymous auth session exists
-      let uid = auth.currentUser?.uid;
-      if (!uid) {
-        const { user, error: authError } = await signInGuest();
-        if (authError || !user) throw new Error('auth-failed');
-        uid = user.uid;
-      }
+      // 1. Ensure fresh anonymous session — sign out any stale session first
+      //    so each participant always gets their own uid.
+      await auth.signOut().catch(() => {});
+      const { user, error: authError } = await signInGuest();
+      if (authError || !user) throw new Error('auth-failed');
 
-      // 2. Get ID token
-      const idToken = await auth.currentUser?.getIdToken();
+      // 2. Get ID token from the returned user directly (not auth.currentUser
+      //    which can be stale during the auth-state-change event).
+      const idToken = await user.getIdToken();
       if (!idToken) throw new Error('no-token');
 
       // 3. Join challenge group + save profile
@@ -92,6 +91,7 @@ export default function ChallengeJoinPage() {
       // 4. Persist groupId for the timer + done pages
       sessionStorage.setItem('challenge_group_id', groupId);
       sessionStorage.setItem('challenge_name', name.trim());
+      sessionStorage.setItem('challenge_gender', gender as string);
 
       // 5. Go to timer
       router.push(`/challenge/${inviteCode}/timer`);

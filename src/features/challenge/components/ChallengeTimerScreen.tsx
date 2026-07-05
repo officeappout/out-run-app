@@ -68,6 +68,7 @@ export default function ChallengeTimerScreen({
           duration={targetSeconds}
           exerciseName={exerciseName}
           repsOrDurationText={instructionText}
+          hideControls
           onComplete={(elapsed) => {
             setIsPaused(true);
             onComplete(elapsed);

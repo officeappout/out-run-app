@@ -2,18 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-/**
- * /challenge/[inviteCode]/done
- *
- * Post-challenge result screen:
- *   - Shows elapsed time + rank (fetched from leaderboard)
- *   - Google/Apple linkWithCredential CTA (uid preserved — axiom §18 analog)
- *   - QR code placeholder for app download
- *   - "משתתף הבא" button → back to landing
- */
-
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Loader2, Trophy } from 'lucide-react';
 import { linkWithGoogleAccount, linkWithAppleAccount } from '@/lib/auth.service';
 
@@ -28,26 +18,36 @@ function formatSeconds(s: number): string {
   return `${s}`;
 }
 
+const GENDER_LABEL: Record<string, string> = {
+  male: 'גברים',
+  female: 'נשים',
+  other: 'כללי',
+};
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function ChallengeDonePage() {
   const params     = useParams();
-  const router     = useRouter();
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
-  const [elapsed, setElapsed]       = useState(0);
-  const [rank, setRank]             = useState<number | null>(null);
-  const [total, setTotal]           = useState<number | null>(null);
-  const [name, setName]             = useState('');
-  const [groupId, setGroupId]       = useState<string | null>(null);
-  const [loadingRank, setLoadingRank] = useState(true);
+  const [elapsed, setElapsed]             = useState(0);
+  const [name, setName]                   = useState('');
+  const [gender, setGender]               = useState<string>('');
+  const [groupId, setGroupId]             = useState<string | null>(null);
 
-  const [linkLoading, setLinkLoading] = useState<'google' | 'apple' | null>(null);
-  const [linked, setLinked]           = useState(false);
-  const [linkError, setLinkError]     = useState<string | null>(null);
-  const [isAndroid, setIsAndroid]     = useState(false);
+  // Rank state — gender-specific + overall
+  const [genderRank, setGenderRank]       = useState<number | null>(null);
+  const [genderTotal, setGenderTotal]     = useState<number | null>(null);
+  const [overallRank, setOverallRank]     = useState<number | null>(null);
+  const [overallTotal, setOverallTotal]   = useState<number | null>(null);
+  const [loadingRank, setLoadingRank]     = useState(true);
 
-  // ── Read session data ────────────────────────────────────────────────────────
+  const [linkLoading, setLinkLoading]     = useState<'google' | 'apple' | null>(null);
+  const [linked, setLinked]               = useState(false);
+  const [linkError, setLinkError]         = useState<string | null>(null);
+  const [isAndroid, setIsAndroid]         = useState(false);
+
+  // ── Read session data + fetch both leaderboards ──────────────────────────────
   useEffect(() => {
     const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
     setIsAndroid(cap?.getPlatform?.() === 'android');
@@ -55,24 +55,45 @@ export default function ChallengeDonePage() {
     const elapsedRaw = parseInt(sessionStorage.getItem('challenge_elapsed') ?? '0', 10);
     const gid        = sessionStorage.getItem('challenge_group_id');
     const savedName  = sessionStorage.getItem('challenge_name') ?? '';
+    const savedGender = sessionStorage.getItem('challenge_gender') ?? '';
+
     setElapsed(elapsedRaw);
     setGroupId(gid);
     setName(savedName);
+    setGender(savedGender);
 
     if (!gid || !elapsedRaw) {
       setLoadingRank(false);
       return;
     }
 
-    // Fetch leaderboard to compute rank
-    fetch(`/api/challenge/leaderboard?groupId=${gid}&limit=50`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (!data?.rows) return;
-        const rows: { bestValue: number }[] = data.rows;
-        const userRank = rows.findIndex((r) => r.bestValue <= elapsedRaw) + 1;
-        setRank(userRank > 0 ? userRank : rows.length + 1);
-        setTotal(data.total);
+    const computeRank = (rows: { bestValue: number }[], total: number, val: number) => {
+      // rows is sorted desc; find first row where bestValue <= val (our rank)
+      const idx = rows.findIndex((r) => r.bestValue <= val);
+      return { rank: idx >= 0 ? idx + 1 : rows.length + 1, total };
+    };
+
+    // Fetch gender-specific leaderboard (for rank within gender)
+    // and overall leaderboard (for absolute rank) in parallel
+    Promise.all([
+      savedGender
+        ? fetch(`/api/challenge/leaderboard?groupId=${gid}&gender=${savedGender}&limit=50`)
+            .then((r) => r.ok ? r.json() : null)
+        : Promise.resolve(null),
+      fetch(`/api/challenge/leaderboard?groupId=${gid}&limit=50`)
+        .then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([genderData, allData]) => {
+        if (genderData?.rows) {
+          const { rank, total } = computeRank(genderData.rows, genderData.total, elapsedRaw);
+          setGenderRank(rank);
+          setGenderTotal(total);
+        }
+        if (allData?.rows) {
+          const { rank, total } = computeRank(allData.rows, allData.total, elapsedRaw);
+          setOverallRank(rank);
+          setOverallTotal(total);
+        }
       })
       .catch(() => {})
       .finally(() => setLoadingRank(false));
@@ -84,8 +105,14 @@ export default function ChallengeDonePage() {
     setLinkError(null);
     try {
       const { user, error: err } = await linkWithGoogleAccount();
-      if (err && err !== 'google_canceled') {
-        setLinkError('שגיאה בחיבור ל-Google. אנא נסה שוב.');
+      if (err === 'google_canceled' || err === 'popup_closed') {
+        // user closed popup — silent
+      } else if (err === 'not_anonymous') {
+        setLinked(true); // already linked from a previous attempt
+      } else if (err === 'google_account_exists') {
+        setLinkError('חשבון Google זה כבר משויך לפרופיל אחר.');
+      } else if (err) {
+        setLinkError('שגיאת חיבור. אנא ודא שהכתובת הוסמכה ב-Firebase Console.');
       } else if (user) {
         setLinked(true);
       }
@@ -101,8 +128,12 @@ export default function ChallengeDonePage() {
     setLinkError(null);
     try {
       const { user, error: err } = await linkWithAppleAccount();
-      if (err && err !== 'apple_canceled') {
-        setLinkError('שגיאה בחיבור ל-Apple. אנא נסה שוב.');
+      if (err === 'apple_canceled') {
+        // silent
+      } else if (err === 'not_anonymous') {
+        setLinked(true);
+      } else if (err) {
+        setLinkError('שגיאת חיבור Apple. אנא נסה שוב.');
       } else if (user) {
         setLinked(true);
       }
@@ -124,7 +155,10 @@ export default function ChallengeDonePage() {
 
         {/* Big elapsed time */}
         <div className="mt-4 flex items-end gap-1 justify-center">
-          <span className="font-black leading-none" style={{ fontSize: 72, color: '#06b6d4', fontVariantNumeric: 'tabular-nums' }}>
+          <span
+            className="font-black leading-none"
+            style={{ fontSize: 72, color: '#06b6d4', fontVariantNumeric: 'tabular-nums' }}
+          >
             {formatSeconds(elapsed)}
           </span>
           <span className="mb-3 text-2xl font-bold text-gray-400">
@@ -132,20 +166,34 @@ export default function ChallengeDonePage() {
           </span>
         </div>
 
-        {/* Rank pill */}
+        {/* Rank pills */}
         {loadingRank ? (
-          <div className="mt-4 h-9">
+          <div className="mt-4 h-9 flex items-center justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
           </div>
-        ) : rank !== null ? (
-          <div
-            className="mt-4 inline-flex items-center gap-2 px-5 py-2 rounded-full text-base font-bold"
-            style={{ background: '#cffafe', color: '#0e7490' }}
-          >
-            <Trophy className="w-4 h-4" />
-            מקום {rank}{total !== null ? ` מתוך ${total}` : ''}
+        ) : (
+          <div className="mt-4 flex flex-col items-center gap-2">
+            {/* Gender rank — primary */}
+            {genderRank !== null && gender && gender !== 'other' && (
+              <div
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-base font-bold"
+                style={{ background: '#cffafe', color: '#0e7490' }}
+              >
+                <Trophy className="w-4 h-4" />
+                מקום {genderRank}{genderTotal !== null ? ` מתוך ${genderTotal}` : ''} — {GENDER_LABEL[gender] ?? gender}
+              </div>
+            )}
+            {/* Overall rank — secondary */}
+            {overallRank !== null && (
+              <div
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold"
+                style={{ background: '#f1f5f9', color: '#64748b' }}
+              >
+                מקום {overallRank}{overallTotal !== null ? ` מתוך ${overallTotal}` : ''} — כללי
+              </div>
+            )}
           </div>
-        ) : null}
+        )}
 
         {/* Divider */}
         <div className="w-full border-t border-gray-100 my-8" />
@@ -171,7 +219,6 @@ export default function ChallengeDonePage() {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  {/* Google G icon */}
                   <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -211,7 +258,6 @@ export default function ChallengeDonePage() {
             <p className="text-xs text-gray-400">אין צורך בכרטיס אשראי · בחינם לנצח</p>
           </>
         ) : (
-          /* Linked successfully */
           <div className="flex flex-col items-center gap-2">
             <div
               className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
@@ -234,18 +280,6 @@ export default function ChallengeDonePage() {
           </div>
           <p className="text-xs text-gray-400">סרוק להורדת אפליקציית OUT</p>
         </div>
-
-        {/* Next participant */}
-        <button
-          onClick={() => {
-            sessionStorage.removeItem('challenge_elapsed');
-            sessionStorage.removeItem('challenge_name');
-            router.push(`/challenge/${inviteCode}`);
-          }}
-          className="mt-8 w-full h-12 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 active:bg-gray-50 transition-colors"
-        >
-          משתתף הבא ›
-        </button>
 
       </div>
     </div>

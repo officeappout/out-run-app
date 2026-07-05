@@ -41,17 +41,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const groupId = searchParams.get('groupId');
     const limitParam = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 50);
+    const genderFilter = searchParams.get('gender'); // 'male' | 'female' | 'other' | null=all
 
     if (!groupId) {
       return NextResponse.json({ error: 'groupId required' }, { status: 400 });
     }
 
     const db = getAdminDb();
-    const snap = await db
-      .collection(`community_groups/${groupId}/challenge_submissions`)
-      .orderBy('bestValue', 'desc')
-      .limit(limitParam)
-      .get();
+    const collRef = db.collection(`community_groups/${groupId}/challenge_submissions`);
+
+    // Apply gender filter if provided
+    const query = genderFilter
+      ? collRef.where('gender', '==', genderFilter).orderBy('bestValue', 'desc').limit(limitParam)
+      : collRef.orderBy('bestValue', 'desc').limit(limitParam);
+
+    const snap = await query.get();
 
     const rows: LeaderboardRow[] = snap.docs.map((doc, idx) => {
       const d = doc.data();
@@ -66,10 +70,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const totalSnap = await db
-      .collection(`community_groups/${groupId}/challenge_submissions`)
-      .count()
-      .get();
+    // Total count (optionally filtered by gender)
+    const countQuery = genderFilter
+      ? collRef.where('gender', '==', genderFilter).count()
+      : collRef.count();
+    const totalSnap = await countQuery.get();
     const total: number = totalSnap.data().count;
 
     return NextResponse.json({ ok: true, rows, total });

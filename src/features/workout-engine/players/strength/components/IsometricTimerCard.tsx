@@ -28,6 +28,8 @@ interface IsometricTimerCardProps {
   repsOrDurationText: string;
   onComplete: (elapsed: number) => void;
   side?: 'right' | 'left' | null;
+  /** When true, hides the pause and reset buttons (challenge booth mode). */
+  hideControls?: boolean;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -98,6 +100,7 @@ export default function IsometricTimerCard({
   repsOrDurationText,
   onComplete,
   side,
+  hideControls = false,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
@@ -428,7 +431,7 @@ export default function IsometricTimerCard({
         </p>
 
         {/* Pause / Reset controls */}
-        {isActive && (
+        {isActive && !hideControls && (
           <div className="flex justify-center gap-4 mb-4">
             <button
               onClick={resetTimer}

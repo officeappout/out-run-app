@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     let uid: string;
     try {
-      const decoded = await getAdminAuth().verifyIdToken(idToken, true);
+      const decoded = await getAdminAuth().verifyIdToken(idToken);
       uid = decoded.uid;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
