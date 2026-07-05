@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 // deter casual enumeration without requiring external infrastructure.
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 15;
+const MAX_REQUESTS_PER_WINDOW = 60;
 const ipWindows = new Map<string, number[]>();
 
 function isRateLimited(ip: string): boolean {

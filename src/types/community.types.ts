@@ -224,6 +224,24 @@ export interface CommunityGroup {
    */
   hasMeetups?: boolean;
 
+  // ── Challenge subtype ─────────────────────────────────────────────────
+  /**
+   * 'challenge' = single-metric competition (L-sit, push-ups, etc.)
+   * Requires hasMeetups: false. Adds challenge_submissions sub-collection.
+   */
+  groupSubtype?: 'challenge';
+  challengeMetric?: {
+    type: 'time' | 'reps' | 'distance';
+    unit: 'seconds' | 'reps' | 'km';
+    /** true = higher value wins (time hold, distance); false = lower wins (pace) */
+    higherIsBetter: boolean;
+    /** Soft target in the timer UI — count-up continues past it (overtime) */
+    targetValue?: number;
+  };
+  /** ISO date strings bounding the active challenge window (display only) */
+  startsAt?: string;
+  endsAt?: string;
+
   // ── Leader / Coach ────────────────────────────────────────────────────────
   /** UID of the assigned coach / leader (set via admin panel). Also holds role='admin' in members sub-collection. */
   leaderUserId?: string;
