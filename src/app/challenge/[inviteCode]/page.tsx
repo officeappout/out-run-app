@@ -12,7 +12,7 @@ import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangTo
 
 // ── Hero image — fill in when David sends the photo ───────────────────────────
 // Replace the empty string with an absolute URL or a /public path.
-const HERO_IMAGE_URL = '';
+const HERO_IMAGE_URL = '/images/maccabiah-hero.jpeg';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
