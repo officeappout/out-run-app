@@ -2,20 +2,10 @@
 
 export const dynamic = 'force-dynamic';
 
-/**
- * /booth/display?groupId=<groupId>
- *
- * Plasma / big-screen leaderboard for the challenge booth.
- * Opens on a laptop/tablet at the booth. Polls every 8 seconds.
- *
- * Layout: two tables side-by-side (גברים / נשים).
- * Fallback: single mixed table if one gender has < 2 entries.
- *
- * Usage: https://outrun.co.il/booth/display?groupId=maccabiah_lsit_2026
- */
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslation } from '@/hooks/useTranslation';
+import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,10 +43,12 @@ function GenderTable({
   title,
   rows,
   total,
+  waitingLabel,
 }: {
   title: string;
   rows: LeaderboardRow[];
   total: number;
+  waitingLabel: string;
 }) {
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -65,12 +57,12 @@ function GenderTable({
         style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)' }}
       >
         <span className="text-lg font-black" style={{ color: '#06b6d4' }}>{title}</span>
-        <span className="text-sm font-bold" style={{ color: '#475569' }}>{total} משתתפים</span>
+        <span className="text-sm font-bold" style={{ color: '#475569' }}>{total}</span>
       </div>
 
       {rows.length === 0 ? (
         <div className="flex-1 flex items-center justify-center" style={{ color: '#334155' }}>
-          <span className="text-base">ממתין למשתתפים...</span>
+          <span className="text-base">{waitingLabel}</span>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -126,19 +118,20 @@ function GenderTable({
 export default function BoothDisplayPage() {
   const searchParams = useSearchParams();
   const groupId      = searchParams.get('groupId') ?? '';
+  const { t } = useTranslation();
 
-  const [maleRows, setMaleRows]     = useState<LeaderboardRow[]>([]);
-  const [maleTotal, setMaleTotal]   = useState(0);
-  const [femaleRows, setFemaleRows] = useState<LeaderboardRow[]>([]);
+  const [maleRows, setMaleRows]       = useState<LeaderboardRow[]>([]);
+  const [maleTotal, setMaleTotal]     = useState(0);
+  const [femaleRows, setFemaleRows]   = useState<LeaderboardRow[]>([]);
   const [femaleTotal, setFemaleTotal] = useState(0);
-  const [mixedRows, setMixedRows]   = useState<LeaderboardRow[]>([]);
-  const [mixedTotal, setMixedTotal] = useState(0);
+  const [mixedRows, setMixedRows]     = useState<LeaderboardRow[]>([]);
+  const [mixedTotal, setMixedTotal]   = useState(0);
 
-  const [lastEntry, setLastEntry]   = useState<LeaderboardRow | null>(null);
+  const [lastEntry, setLastEntry]         = useState<LeaderboardRow | null>(null);
   const [bannerVisible, setBannerVisible] = useState(false);
-  const [error, setError]           = useState(false);
+  const [error, setError]                 = useState(false);
 
-  const prevUids = useRef<Set<string>>(new Set());
+  const prevUids    = useRef<Set<string>>(new Set());
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const poll = async () => {
@@ -150,7 +143,6 @@ export default function BoothDisplayPage() {
         fetchLeaderboard(groupId, undefined, 10),
       ]);
 
-      // Detect new entries across all genders
       const allRows = all?.rows ?? [];
       const fresh = allRows.find((r) => !prevUids.current.has(r.uid));
       if (fresh) {
@@ -180,14 +172,13 @@ export default function BoothDisplayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
-  // Use gender tables if either gender has >= 2 entries; otherwise show mixed
   const useSplit = maleTotal >= 2 || femaleTotal >= 2;
 
   if (!groupId) {
     return (
       <div className="min-h-dvh flex items-center justify-center"
-        style={{ background: '#020617', color: '#64748b', fontSize: 18 }} dir="rtl">
-        חסר ?groupId= בכתובת
+        style={{ background: '#020617', color: '#64748b', fontSize: 18 }}>
+        Missing ?groupId= in URL
       </div>
     );
   }
@@ -196,7 +187,7 @@ export default function BoothDisplayPage() {
     <div
       className="min-h-dvh flex flex-col"
       style={{ background: '#020617', fontFamily: 'system-ui, sans-serif' }}
-      dir="rtl"
+      dir="ltr"
     >
       {/* Header */}
       <div
@@ -208,12 +199,15 @@ export default function BoothDisplayPage() {
             OUT
           </span>
           <span className="text-xl font-bold" style={{ color: '#94a3b8' }}>
-            אתגר ה-L-Sit · מכביה 2026
+            L-Sit Challenge · Maccabiah 2026
           </span>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-black" style={{ color: '#06b6d4' }}>{mixedTotal}</div>
-          <div className="text-sm" style={{ color: '#64748b' }}>משתתפים</div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-3xl font-black" style={{ color: '#06b6d4' }}>{mixedTotal}</div>
+            <div className="text-sm" style={{ color: '#64748b' }}>{t('challenge.booth.participants')}</div>
+          </div>
+          <ChallengeLangToggle variant="dark" />
         </div>
       </div>
 
@@ -230,7 +224,7 @@ export default function BoothDisplayPage() {
             className="flex items-center justify-center gap-3 py-3 text-lg font-bold"
             style={{ background: 'rgba(6,182,212,0.15)', color: '#06b6d4' }}
           >
-            🔥 {lastEntry.name} — {lastEntry.displayTime} נכנס לדירוג!
+            🔥 {lastEntry.name} — {lastEntry.displayTime} {t('challenge.booth.newEntry.suffix')}
           </div>
         )}
       </div>
@@ -238,22 +232,35 @@ export default function BoothDisplayPage() {
       {/* Error */}
       {error && (
         <div className="text-center py-4 text-sm" style={{ color: '#ef4444' }}>
-          שגיאת חיבור — מנסה שוב...
+          {t('challenge.booth.error')}
         </div>
       )}
 
       {/* Leaderboard body */}
       <div className="flex-1 px-8 py-4">
         {useSplit ? (
-          /* Two gender tables side by side */
           <div className="flex gap-6 h-full">
-            <GenderTable title="גברים 👦" rows={maleRows} total={maleTotal} />
-            <GenderTable title="נשים 👧" rows={femaleRows} total={femaleTotal} />
+            <GenderTable
+              title={t('challenge.booth.men')}
+              rows={maleRows}
+              total={maleTotal}
+              waitingLabel={t('challenge.booth.waiting')}
+            />
+            <GenderTable
+              title={t('challenge.booth.women')}
+              rows={femaleRows}
+              total={femaleTotal}
+              waitingLabel={t('challenge.booth.waiting')}
+            />
           </div>
         ) : (
-          /* Mixed fallback */
           <div className="max-w-lg mx-auto">
-            <GenderTable title="דירוג כללי" rows={mixedRows} total={mixedTotal} />
+            <GenderTable
+              title={t('challenge.booth.overall')}
+              rows={mixedRows}
+              total={mixedTotal}
+              waitingLabel={t('challenge.booth.waiting')}
+            />
           </div>
         )}
       </div>
@@ -263,7 +270,7 @@ export default function BoothDisplayPage() {
         className="px-8 py-3 flex items-center justify-between text-sm"
         style={{ borderTop: '1px solid rgba(6,182,212,0.1)', color: '#334155' }}
       >
-        <span>מתרענן כל 8 שניות</span>
+        <span>{t('challenge.booth.refresh')}</span>
         <span>outrun.co.il</span>
       </div>
     </div>

@@ -2,55 +2,38 @@
 
 export const dynamic = 'force-dynamic';
 
-/**
- * /challenge/[inviteCode]/timer
- *
- * Challenge execution screen — video background + isometric timer.
- * Reads groupId from sessionStorage (set by /join page).
- * On complete: POSTs result to /api/challenge/submit → redirects to /done.
- *
- * Requires authenticated user (set up by /join page).
- * Falls back gracefully if exercises/l_sit has no video (videoUrl = null).
- */
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import ChallengeTimerScreen from '@/features/challenge/components/ChallengeTimerScreen';
+import { useTranslation } from '@/hooks/useTranslation';
+import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
 
-// ── L-sit exercise config (fetched from Firestore via a lightweight API) ─────
-// Exercise ID: Ma6QH3kwbEZoIiME7r0K = "ישיבת L" (base_movement_id: 'l_sit')
-// Video is in execution_methods[0].media.mainVideoUrl (Bunny CDN park version)
-const EXERCISE_ID   = 'Ma6QH3kwbEZoIiME7r0K';
-const EXERCISE_NAME = 'ישיבת L';
-const TARGET_SECS   = 60;           // soft target — count-up continues past this
-const INSTRUCTION   = 'החזק כמה שיותר זמן. שחרר כשאתה חייב.';
+const EXERCISE_ID = 'Ma6QH3kwbEZoIiME7r0K';
+const TARGET_SECS = 60;
 
 export default function ChallengeTimerPage() {
   const params     = useParams();
   const router     = useRouter();
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
-  const [videoUrl, setVideoUrl]     = useState<string | null>(null);
-  const [loadingVideo, setLoadingVideo] = useState(true);
-  const [groupId, setGroupId]       = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const { t } = useTranslation();
 
-  // ── Read groupId from sessionStorage ────────────────────────────────────────
+  const [videoUrl, setVideoUrl]         = useState<string | null>(null);
+  const [loadingVideo, setLoadingVideo] = useState(true);
+  const [groupId, setGroupId]           = useState<string | null>(null);
+  const [submitting, setSubmitting]     = useState(false);
+
   useEffect(() => {
     const gid = sessionStorage.getItem('challenge_group_id');
     if (!gid) {
-      // User navigated directly — send back to join
       router.replace(`/challenge/${inviteCode}/join`);
       return;
     }
     setGroupId(gid);
   }, [inviteCode, router]);
 
-  // ── Fetch exercise videoUrl from Firestore via lightweight API ───────────────
-  // We hit a minimal internal endpoint rather than using the client Firestore SDK
-  // so this page stays fully public-safe (no client auth dependency for the video).
   useEffect(() => {
     fetch(`/api/challenge/exercise?id=${EXERCISE_ID}`)
       .then((r) => r.ok ? r.json() : null)
@@ -59,7 +42,6 @@ export default function ChallengeTimerPage() {
       .finally(() => setLoadingVideo(false));
   }, []);
 
-  // ── Handle timer completion ───────────────────────────────────────────────────
   const handleComplete = async (elapsedSeconds: number) => {
     if (submitting || !groupId) return;
     setSubmitting(true);
@@ -80,12 +62,10 @@ export default function ChallengeTimerPage() {
       // Non-fatal — navigate to done regardless
     }
 
-    // Store elapsed for done page
     sessionStorage.setItem('challenge_elapsed', String(elapsedSeconds));
     router.push(`/challenge/${inviteCode}/done`);
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
   if (loadingVideo || !groupId) {
     return (
       <div className="flex items-center justify-center min-h-dvh bg-black">
@@ -95,13 +75,19 @@ export default function ChallengeTimerPage() {
   }
 
   return (
-    <ChallengeTimerScreen
-      exerciseId={EXERCISE_ID}
-      exerciseName={EXERCISE_NAME}
-      videoUrl={videoUrl}
-      targetSeconds={TARGET_SECS}
-      instructionText={INSTRUCTION}
-      onComplete={handleComplete}
-    />
+    <div className="relative">
+      <ChallengeTimerScreen
+        exerciseId={EXERCISE_ID}
+        exerciseName={t('challenge.timer.exerciseName')}
+        videoUrl={videoUrl}
+        targetSeconds={TARGET_SECS}
+        instructionText={t('challenge.timer.instruction')}
+        onComplete={handleComplete}
+      />
+      {/* Language toggle — unobtrusive overlay at top start corner */}
+      <div className="absolute top-4 left-4 z-30">
+        <ChallengeLangToggle variant="dark" />
+      </div>
+    </div>
   );
 }
