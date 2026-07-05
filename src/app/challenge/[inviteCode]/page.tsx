@@ -4,11 +4,15 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Users, Trophy, Timer, Loader2, AlertCircle } from 'lucide-react';
+import { Users, Timer, Loader2, AlertCircle } from 'lucide-react';
 import type { CommunityGroup } from '@/types/community.types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
+
+// ── Hero image — fill in when David sends the photo ───────────────────────────
+// Replace the empty string with an absolute URL or a /public path.
+const HERO_IMAGE_URL = '';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -33,7 +37,7 @@ export default function ChallengeLandingPage() {
   const { t } = useTranslation();
 
   const [group, setGroup]       = useState<CommunityGroup | null>(null);
-  const [stats, setStats]       = useState({ members: 0, topValue: 0, avgValue: 0 });
+  const [stats, setStats]       = useState({ members: 0, topMale: 0, topFemale: 0 });
   const [loading, setLoading]   = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -55,14 +59,20 @@ export default function ChallengeLandingPage() {
 
   useEffect(() => {
     if (!group?.id) return;
-    fetch(`/api/challenge/leaderboard?groupId=${group.id}&limit=50`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (!data?.rows?.length) return;
-        const values: number[] = data.rows.map((r: { bestValue: number }) => r.bestValue);
-        const top = values[0] ?? 0;
-        const avg = Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length);
-        setStats({ members: data.total, topValue: top, avgValue: avg });
+    Promise.all([
+      fetch(`/api/challenge/leaderboard?groupId=${group.id}&limit=1`)
+        .then((r) => r.ok ? r.json() : null),
+      fetch(`/api/challenge/leaderboard?groupId=${group.id}&gender=male&limit=1`)
+        .then((r) => r.ok ? r.json() : null),
+      fetch(`/api/challenge/leaderboard?groupId=${group.id}&gender=female&limit=1`)
+        .then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([allData, maleData, femaleData]) => {
+        setStats({
+          members:   allData?.total ?? 0,
+          topMale:   maleData?.rows?.[0]?.bestValue ?? 0,
+          topFemale: femaleData?.rows?.[0]?.bestValue ?? 0,
+        });
       })
       .catch(() => {});
   }, [group?.id]);
@@ -94,52 +104,79 @@ export default function ChallengeLandingPage() {
   ];
 
   const statCards = [
-    { icon: Users,  label: t('challenge.stats.participants'), value: stats.members > 0 ? String(stats.members) : '—' },
-    { icon: Trophy, label: t('challenge.stats.topScore'),     value: stats.topValue > 0 ? formatSeconds(stats.topValue) : '—' },
-    { icon: Timer,  label: t('challenge.stats.average'),      value: stats.avgValue > 0 ? formatSeconds(stats.avgValue) : '—' },
+    { icon: Users, label: t('challenge.stats.participants'), value: stats.members > 0 ? String(stats.members) : '—' },
+    { icon: Timer, label: t('challenge.stats.topMen'),       value: stats.topMale   > 0 ? formatSeconds(stats.topMale)   : '—' },
+    { icon: Timer, label: t('challenge.stats.topWomen'),     value: stats.topFemale > 0 ? formatSeconds(stats.topFemale) : '—' },
   ];
 
   return (
     <div className="min-h-dvh bg-white flex flex-col" dir={direction}>
 
-      {/* Hero */}
-      <div
-        className="relative flex flex-col justify-end px-5 pb-5 text-white"
-        style={{ minHeight: 200, background: 'linear-gradient(135deg, #0e7490 0%, #06b6d4 100%)' }}
-      >
-        {/* Badge — top-right in RTL, top-left in LTR */}
+      {/* ── Hero ───────────────────────────────────────────────────────────── */}
+      <div className="relative w-full overflow-hidden" style={{ minHeight: 260 }}>
+
+        {/* Background: photo if available, else fallback gradient */}
+        {HERO_IMAGE_URL ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={HERO_IMAGE_URL}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(135deg, #0e7490 0%, #06b6d4 100%)' }}
+          />
+        )}
+
+        {/* Fade-out: transparent at top, white at bottom */}
         <div
-          className="absolute top-4 end-4 text-xs font-bold px-3 py-1 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.9)', color: '#0e7490' }}
-        >
-          {t('challenge.landing.badge')}
-        </div>
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, transparent 30%, white 100%)' }}
+        />
 
-        {/* Language toggle — opposite corner */}
-        <div className="absolute top-3 start-3">
-          <ChallengeLangToggle variant="dark" />
-        </div>
+        {/* Content layer */}
+        <div className="relative z-10 flex flex-col justify-end px-5 pb-6 pt-14" style={{ minHeight: 260 }}>
 
-        <h1 className="text-3xl font-black leading-tight text-white" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}>
-          {challengeName}
-        </h1>
-        {group.description ? (
-          <p className="mt-1 text-sm text-white/80">{group.description}</p>
-        ) : null}
+          {/* Badge — top corner (RTL: end, LTR: end) */}
+          <div
+            className="absolute top-4 end-4 text-xs font-bold px-3 py-1 rounded-full"
+            style={{ background: 'rgba(255,255,255,0.9)', color: '#0e7490' }}
+          >
+            {t('challenge.landing.badge')}
+          </div>
+
+          {/* Language toggle — opposite corner */}
+          <div className="absolute top-3 start-3">
+            <ChallengeLangToggle variant="dark" />
+          </div>
+
+          {/* Title — sits on the fade area, dark text */}
+          <h1
+            className="text-3xl font-black leading-tight"
+            style={{ color: '#0f172a' }}
+          >
+            {challengeName}
+          </h1>
+          {group.description ? (
+            <p className="mt-1 text-sm text-gray-600">{group.description}</p>
+          ) : null}
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="px-5 pt-5 grid grid-cols-3 gap-3">
+      {/* ── Stats ──────────────────────────────────────────────────────────── */}
+      <div className="px-5 pt-4 grid grid-cols-3 gap-3">
         {statCards.map(({ icon: Icon, label, value }) => (
           <div key={label} className="flex flex-col items-center rounded-xl py-3 px-2" style={{ background: '#f1f5f9' }}>
             <Icon className="w-4 h-4 mb-1" style={{ color: '#0e7490' }} />
             <span className="text-xl font-black" style={{ color: '#0e7490' }}>{value}</span>
-            <span className="text-[11px] text-gray-500 mt-0.5">{label}</span>
+            <span className="text-[11px] text-gray-500 mt-0.5 text-center leading-tight">{label}</span>
           </div>
         ))}
       </div>
 
-      {/* Steps */}
+      {/* ── Steps ──────────────────────────────────────────────────────────── */}
       <div className="px-5 pt-6 flex-1">
         <h2 className="text-[15px] font-bold text-gray-800 mb-4">{t('challenge.landing.howItWorks')}</h2>
         <ol className="flex flex-col gap-4">
@@ -161,7 +198,7 @@ export default function ChallengeLandingPage() {
         </ol>
       </div>
 
-      {/* CTA */}
+      {/* ── CTA ────────────────────────────────────────────────────────────── */}
       <div className="px-5 pb-10 pt-6">
         <button
           onClick={() => router.push(`/challenge/${inviteCode}/join`)}

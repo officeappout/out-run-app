@@ -135,6 +135,8 @@ export type DictionaryKey =
   | 'challenge.landing.notFoundDesc'
   | 'challenge.stats.participants'
   | 'challenge.stats.topScore'
+  | 'challenge.stats.topMen'
+  | 'challenge.stats.topWomen'
   | 'challenge.stats.average'
 
   // Challenge booth — join form
@@ -317,18 +319,20 @@ export const he: Record<DictionaryKey, string> = {
   // Challenge booth — landing
   'challenge.landing.badge': 'אתגר מכביה 2026',
   'challenge.landing.howItWorks': 'איך זה עובד',
-  'challenge.landing.step1.title': 'הירשם',
+  'challenge.landing.step1.title': 'הרשמה',
   'challenge.landing.step1.desc': 'שם, גיל ומין. 20 שניות, בלי אפליקציה.',
-  'challenge.landing.step2.title': 'החזק L-sit',
-  'challenge.landing.step2.desc': 'הטיימר מודד — שחרר כשאתה חייב.',
-  'challenge.landing.step3.title': 'ראה את הדירוג שלך',
+  'challenge.landing.step2.title': 'מחזיקים L-sit',
+  'challenge.landing.step2.desc': 'הטיימר מודד — משחררים כשצריך.',
+  'challenge.landing.step3.title': 'הדירוג שלכם',
   'challenge.landing.step3.desc': 'בליגת האתגר, בזמן אמת.',
-  'challenge.landing.cta': 'הצטרף לאתגר',
+  'challenge.landing.cta': 'הצטרפו לאתגר',
   'challenge.landing.ctaNote': 'ללא הורדת אפליקציה · נכנסים ישר',
   'challenge.landing.notFound': 'הקישור לא תקין',
   'challenge.landing.notFoundDesc': 'לא נמצא אתגר פעיל בקישור זה.',
-  'challenge.stats.participants': 'משתתפים',
+  'challenge.stats.participants': 'משתתפים סה"כ',
   'challenge.stats.topScore': 'שיא נוכחי',
+  'challenge.stats.topMen': 'שיא גברים',
+  'challenge.stats.topWomen': 'שיא נשים',
   'challenge.stats.average': 'ממוצע',
 
   // Challenge booth — join form
@@ -342,13 +346,13 @@ export const he: Record<DictionaryKey, string> = {
   'challenge.join.gender.male': 'גבר',
   'challenge.join.gender.female': 'אישה',
   'challenge.join.gender.other': 'אחר',
-  'challenge.join.submit': 'התחל אתגר',
+  'challenge.join.submit': 'נסו את האתגר',
   'challenge.join.note': 'בלי הרשמה · נכנסים ישר',
-  'challenge.join.error.invalidCode': 'קישור לא תקין. אנא נסה שוב.',
-  'challenge.join.error.general': 'שגיאה — אנא נסה שוב.',
+  'challenge.join.error.invalidCode': 'קישור לא תקין. אנא נסו שוב.',
+  'challenge.join.error.general': 'שגיאה — אנא נסו שוב.',
 
   // Challenge booth — timer
-  'challenge.timer.instruction': 'החזק כמה שיותר זמן. שחרר כשאתה חייב.',
+  'challenge.timer.instruction': 'מחזיקים כמה שיותר זמן. משחררים כשצריך.',
   'challenge.timer.exerciseName': 'ישיבת L',
 
   // Challenge booth — done
@@ -361,7 +365,7 @@ export const he: Record<DictionaryKey, string> = {
   'challenge.done.rank.women': 'נשים',
   'challenge.done.rank.overall': 'כללי',
   'challenge.done.saveTitle': 'שמור את התוצאה שלך',
-  'challenge.done.saveDesc': 'הירשם עם Google או Apple כדי לראות את הדירוג שלך שוב ולהתאמן עם OUT',
+  'challenge.done.saveDesc': 'הצטרפו עם Google או Apple כדי לראות את הדירוג שלכם ולהתאמן עם OUT',
   'challenge.done.googleBtn': 'המשך עם Google',
   'challenge.done.appleBtn': 'המשך עם Apple',
   'challenge.done.free': 'אין צורך בכרטיס אשראי · בחינם לנצח',
@@ -370,8 +374,8 @@ export const he: Record<DictionaryKey, string> = {
   'challenge.done.qrLabel': 'סרוק להורדת אפליקציית OUT',
   'challenge.done.error.accountExists': 'חשבון Google זה כבר משויך לפרופיל אחר.',
   'challenge.done.error.generic': 'שגיאת חיבור. אנא ודא שהכתובת הוסמכה ב-Firebase Console.',
-  'challenge.done.error.general': 'שגיאה — אנא נסה שוב.',
-  'challenge.done.existingAccount': 'כבר יש לך חשבון OUT',
+  'challenge.done.error.general': 'שגיאה — אנא נסו שוב.',
+  'challenge.done.existingAccount': 'כבר יש לכם חשבון OUT',
   'challenge.done.signin': 'התחבר',
   'challenge.done.download.title': 'הורד את OUT',
   'challenge.done.download.ios': 'הורד לאייפון',
@@ -411,8 +415,8 @@ export const en: Record<DictionaryKey, string> = {
   'challenge.landing.step1.title': 'Register',
   'challenge.landing.step1.desc': 'Name, age & gender. 20 seconds, no app.',
   'challenge.landing.step2.title': 'Hold the L-sit',
-  'challenge.landing.step2.desc': 'The timer counts — release when you must.',
-  'challenge.landing.step3.title': 'See your rank',
+  'challenge.landing.step2.desc': 'The timer counts — release when ready.',
+  'challenge.landing.step3.title': 'Your ranking',
   'challenge.landing.step3.desc': 'In the challenge league, live.',
   'challenge.landing.cta': 'Join the Challenge',
   'challenge.landing.ctaNote': 'No app download · Jump right in',
@@ -420,6 +424,8 @@ export const en: Record<DictionaryKey, string> = {
   'challenge.landing.notFoundDesc': 'No active challenge found at this link.',
   'challenge.stats.participants': 'Participants',
   'challenge.stats.topScore': 'Current record',
+  'challenge.stats.topMen': "Men's record",
+  'challenge.stats.topWomen': "Women's record",
   'challenge.stats.average': 'Average',
 
   // Challenge booth — join form
@@ -433,13 +439,13 @@ export const en: Record<DictionaryKey, string> = {
   'challenge.join.gender.male': 'Male',
   'challenge.join.gender.female': 'Female',
   'challenge.join.gender.other': 'Other',
-  'challenge.join.submit': 'Start Challenge',
+  'challenge.join.submit': 'Try the Challenge',
   'challenge.join.note': 'No signup · Jump right in',
   'challenge.join.error.invalidCode': 'Invalid link. Please try again.',
   'challenge.join.error.general': 'Error — please try again.',
 
   // Challenge booth — timer
-  'challenge.timer.instruction': 'Hold as long as you can. Release when you must.',
+  'challenge.timer.instruction': 'Hold as long as possible. Release when ready.',
   'challenge.timer.exerciseName': 'L-Sit',
 
   // Challenge booth — done
@@ -452,7 +458,7 @@ export const en: Record<DictionaryKey, string> = {
   'challenge.done.rank.women': 'Women',
   'challenge.done.rank.overall': 'Overall',
   'challenge.done.saveTitle': 'Save your result',
-  'challenge.done.saveDesc': 'Sign up with Google or Apple to track your ranking and train with OUT',
+  'challenge.done.saveDesc': 'Sign up with Google or Apple to see your ranking and train with OUT',
   'challenge.done.googleBtn': 'Continue with Google',
   'challenge.done.appleBtn': 'Continue with Apple',
   'challenge.done.free': 'No credit card · Free forever',
