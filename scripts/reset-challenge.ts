@@ -28,19 +28,19 @@ const BATCH_SIZE       = 400; // Firestore limit is 500; keep headroom
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 if (!admin.apps.length) {
-  const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH
+  const keyJson  = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  const keyPath  = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH
     ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-  if (!keyPath) {
-    console.error('❌  Set FIREBASE_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_APPLICATION_CREDENTIALS');
+  if (keyJson) {
+    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(keyJson)) });
+  } else if (keyPath) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    admin.initializeApp({ credential: admin.credential.cert(require(path.resolve(keyPath))) });
+  } else {
+    console.error('❌  Set FIREBASE_SERVICE_ACCOUNT_KEY (JSON string) or FIREBASE_SERVICE_ACCOUNT_KEY_PATH');
     process.exit(1);
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const serviceAccount = require(path.resolve(keyPath));
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
 }
 
 const db = admin.firestore();
