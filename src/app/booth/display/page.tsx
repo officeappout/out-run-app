@@ -4,8 +4,11 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import QRCode from 'react-qr-code';
 import { useTranslation } from '@/hooks/useTranslation';
 import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
+
+const CHALLENGE_URL = 'https://outrun.co.il/challenge/LSIT26';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -265,13 +268,33 @@ export default function BoothDisplayPage() {
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer — refresh hint · QR center · domain */}
       <div
-        className="px-8 py-3 flex items-center justify-between text-sm"
-        style={{ borderTop: '1px solid rgba(6,182,212,0.1)', color: '#334155' }}
+        className="px-8 py-4 flex items-center justify-between"
+        style={{ borderTop: '1px solid rgba(6,182,212,0.15)' }}
       >
-        <span>{t('challenge.booth.refresh')}</span>
-        <span>outrun.co.il</span>
+        <span className="text-sm" style={{ color: '#334155' }}>{t('challenge.booth.refresh')}</span>
+
+        {/* QR — center */}
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs font-bold tracking-wide" style={{ color: '#94a3b8' }}>
+            סרקו והצטרפו לאתגר! · Scan to join!
+          </p>
+          <div
+            className="rounded-xl p-2"
+            style={{ background: '#ffffff' }}
+          >
+            <QRCode
+              value={CHALLENGE_URL}
+              size={96}
+              bgColor="#ffffff"
+              fgColor="#020617"
+              level="M"
+            />
+          </div>
+        </div>
+
+        <span className="text-sm" style={{ color: '#334155' }}>outrun.co.il</span>
       </div>
     </div>
   );

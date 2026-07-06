@@ -43,6 +43,7 @@ import type { MapPurpose } from '@/features/user/onboarding/components/steps/Uni
 import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useDemoPresence } from '@/features/parks/core/hooks/useDemoPresence';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
 import ParticipantStrip from '@/features/workout-engine/shared/components/ParticipantStrip';
@@ -83,9 +84,10 @@ export interface MapShellProps {
 interface MapShellInnerProps {
   spotFocus?: { lat: number; lng: number } | null;
   initialOpenRun?: string | null;
+  isDemoMode?: boolean;
 }
 
-function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
+function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
   const routeZones = useRunningPlayer((s) => s.routeZones);
@@ -108,8 +110,8 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
   const navCardHeight = useMapStore((s) => s.navCardHeight);
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
 
-  // Presence heartbeat — uses effectivePos so mock location is broadcast
-  usePresenceLayer(effectivePos ?? null, true);
+  // Presence heartbeat — disabled in demo mode so no writes reach Firestore
+  usePresenceLayer(effectivePos ?? null, !isDemoMode);
 
   const flyover = useFlyoverEntrance(effectivePos ?? null);
   const sharedSession = useSharedSession();
@@ -120,6 +122,13 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
   const livePartnerPositions = groupPartnerPositions;
   const partnerActivityFilter = useMapStore((s) => s.partnerActivityFilter);
   const liveUsersVisible = useMapStore((s) => s.liveUsersVisible);
+
+  // Demo mode — 40 deterministic fake pins, client-side only, zero Firestore I/O
+  const demoPartners = useDemoPresence();
+  const effectivePartners = isDemoMode ? demoPartners : livePartnerPositions;
+  // Tel Aviv center (Rabin Square) — AppMap opens at zoom 14 when initialCenter is set,
+  // which falls in the dots tier (13–15). Override the profile anchor in demo mode.
+  const demoCenter = isDemoMode ? { lat: 32.0806, lng: 34.7806 } : null;
   const [mapProfileUser, setMapProfileUser] = useState<ProfileUser | null>(null);
 
   // Sync effective position to route generation in the layout phase so the
@@ -375,7 +384,7 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
         <AppMap
           routes={mapRoutes}
           currentLocation={effectivePos}
-          initialCenter={initialMapCenter}
+          initialCenter={demoCenter ?? initialMapCenter}
           focusedRoute={logic.focusedRoute}
           userBearing={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedBearing : logic.userBearing}
           livePath={showLivePath ? logic.livePath : undefined}
@@ -415,9 +424,9 @@ function MapShellInner({ spotFocus, initialOpenRun }: MapShellInnerProps) {
           onLongPress={devSim.isMockEnabled ? devSim.setMockLocation : undefined}
           simulationActive={devSim.isMockEnabled && devSim.isSimulating}
           speedKmH={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedSpeedKmH : undefined}
-          partnerPositions={livePartnerPositions}
+          partnerPositions={effectivePartners}
           partnerActivityFilter={partnerActivityFilter}
-          liveUsersVisible={liveUsersVisible}
+          liveUsersVisible={isDemoMode ? true : liveUsersVisible}
           userPersonaId={profile?.personaId}
           onPartnerClick={(p) => setMapProfileUser({ uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage })}
           mapMode={mode}
@@ -635,6 +644,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const searchParams = useSearchParams();
   const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
   const initialOpenRun = searchParams.get('openRun'); // 'running' | 'walking' | null
+  const isDemoMode = searchParams.get('demo') === '1';
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
 
@@ -645,6 +655,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const [manuallyCleared, setManuallyCleared] = useState(false);
 
   const needsLocationGate = useMemo(() => {
+    if (isDemoMode) return false;   // booth demo: skip all gates
     if (fromExplorer) return false;
     if (manuallyCleared) return false;
     if (!hasHydrated) return false;
@@ -652,19 +663,21 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     if (profile.core?.authorityId) return false;
     if (profile.onboardingPath === 'MAP_ONLY') return false;
     return true;
-  }, [fromExplorer, manuallyCleared, hasHydrated, profile]);
+  }, [isDemoMode, fromExplorer, manuallyCleared, hasHydrated, profile]);
 
   // Universal identity gate: the map requires a name before rendering.
   // Without a name, the presence heartbeat silently skips and the user is
   // invisible — redirect to complete the identity step instead.
   // MAP_ONLY users (anonymous explore path + run-invite guests) are intentionally
   // nameless — they bypass this gate.
+  // Demo mode (?demo=1) also bypasses — it never writes presence and needs no profile.
   useEffect(() => {
+    if (isDemoMode) return;
     if (!hasHydrated) return;
     if (profile && !profile.core?.name && profile.onboardingPath !== 'MAP_ONLY') {
       router.replace('/onboarding-new/profile');
     }
-  }, [hasHydrated, profile, router]);
+  }, [isDemoMode, hasHydrated, profile, router]);
 
   // fromExplorer bypass: clean URL and sync location to Firestore
   useEffect(() => {
@@ -712,7 +725,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
       <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} />
+        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} isDemoMode={isDemoMode} />
       </MapModeProvider>
 
       {/* Location gate — high z-index overlay, not a tree gate */}
