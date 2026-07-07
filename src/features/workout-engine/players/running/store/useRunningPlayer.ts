@@ -43,6 +43,9 @@ let _consecutivePoorCount = 0;
 // Safety net: if position keeps updating but distance hasn't advanced for
 // MAX_DISTANCE_FREEZE_MS, force-resume accumulation on the next sample.
 let _lastDistanceUpdateMs = 0;
+// Count of fixes with accuracy ≤ WARMUP_MAX_ACCURACY_M since tracking started.
+// Gates distance accumulation until GPS has a stable lock.
+let _goodFixCount = 0;
 
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
@@ -767,7 +770,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // Movement gate: 5 m suppresses urban GPS jitter while still responding
     // to slow walking. Satellite jumps > MAX_JUMP_M are discarded entirely.
     const DISTANCE_THRESHOLD = 5;
-    const MAX_JUMP_M = 200;
+    const MAX_JUMP_M = 80; // tightened from 200 m — urban canyon multipath stays < 80 m
+    const WARMUP_MIN_GOOD_FIXES = 2;   // fixes required before accumulation starts
+    const WARMUP_MAX_ACCURACY_M = 30;  // accuracy threshold for warm-up counting
     // MIN_SPEED_MS / MAX_PACE_MIN_KM widened so a slow walk (≈1 m/s) still
     // produces a non-zero pace.
     const MIN_SPEED_MS = 0.3;
@@ -810,6 +815,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         gpsStatus,
         ...(isGoodNow && !wasGoodBefore ? { hasHadGoodFix: true } : {}),
       });
+      if (accuracy <= WARMUP_MAX_ACCURACY_M) {
+        _goodFixCount++;
+      }
 
       if (process.env.NODE_ENV !== 'production') {
         const totalDist = useSessionStore.getState().totalDistance;
@@ -832,7 +840,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       // When we DO skip (spike case): do NOT advance lastPos so the anchor stays
       // pinned to the last good fix. lastPosition (store/UI) still updates so the
       // map marker moves correctly.
-      const POOR_RESUME_AFTER = 2;           // skip max 1 poor spike; resume on the 2nd
+      const POOR_RESUME_AFTER = 3;           // skip max 2 poor spikes; resume on the 3rd
       const MAX_DISTANCE_FREEZE_MS = 10_000; // force resume if distance frozen > 10 s
 
       if (gpsStatus === 'poor' && wasGoodBefore) {
@@ -867,6 +875,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
       const currentPos = { lat, lng };
 
+      // ── Warm-up gate ──────────────────────────────────────────────────────
+      // Don't accumulate distance or route coords until GPS has a stable lock
+      // (≥ WARMUP_MIN_GOOD_FIXES fixes at accuracy ≤ WARMUP_MAX_ACCURACY_M).
+      // Position and timestamp update immediately so the map marker is live.
+      if (_goodFixCount < WARMUP_MIN_GOOD_FIXES) {
+        lastPos = currentPos;
+        lastTimestamp = Date.now();
+        set({ lastPosition: currentPos, lastFilterAction: `⏳ warm-up (${_goodFixCount}/${WARMUP_MIN_GOOD_FIXES})` });
+        return;
+      }
+
       if (lastPos) {
         const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
 
@@ -877,7 +896,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           if (process.env.NODE_ENV !== 'production') {
             console.warn(`[GPS ⛔] JUMP rejected: ${Math.round(distanceDelta)}m (>${MAX_JUMP_M}m)`);
           }
-          lastPos = currentPos;
+          // Do NOT update lastPos — anchor stays on the last good fix to break
+          // the domino effect (next sample would otherwise measure from the jumped pos).
           set({ lastPosition: currentPos, lastFilterAction: `⛔ JUMP ${Math.round(distanceDelta)}m` });
           return;
         }
@@ -903,7 +923,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 `[GPS ⛔] SPEED rejected: ${Math.round(distanceDelta / timeDeltaSeconds)}m/s (>${MAX_REALISTIC_SPEED_MS}m/s) delta=${Math.round(distanceDelta)}m dt=${timeDeltaSeconds.toFixed(1)}s`
               );
             }
-            lastPos = currentPos;
+            // Do NOT update lastPos — anchor stays on the last good fix.
             set({ lastPosition: currentPos, lastFilterAction: `⛔ SPEED ${Math.round(distanceDelta / timeDeltaSeconds)}m/s` });
             lastTimestamp = now;
             return;
@@ -918,7 +938,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           _lastDistanceUpdateMs = Date.now();
           set({ lastFilterAction: `✅ +${Math.round(distanceDelta)}m` });
 
-          get().addCoord([lng, lat]);
+          if (accuracy <= 40) {
+            get().addCoord([lng, lat]);
+          }
           get().addBlockDistance(distanceDelta);
           useSessionStore.getState().updateDistance(distanceDelta / 1000);
 
@@ -938,7 +960,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           set({ lastFilterAction: `🔇 <${DISTANCE_THRESHOLD}m (${Math.round(distanceDelta)}m)` });
         }
       } else {
-        get().addCoord([lng, lat]);
+        if (accuracy <= 40) {
+          get().addCoord([lng, lat]);
+        }
         lastTimestamp = Date.now();
       }
 
@@ -983,6 +1007,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _gpsStoreUnsub = null;
     _consecutivePoorCount = 0;
     _lastDistanceUpdateMs = 0;
+    _goodFixCount = 0;
 
     // Clear duration interval
     if (durationIntervalId !== null) {
@@ -1105,6 +1130,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _zoneBuffer  = [];
     _consecutivePoorCount = 0;
     _lastDistanceUpdateMs = 0;
+    _goodFixCount = 0;
     set({
       laps: [seedLap],
       currentPace: 0,
@@ -1137,6 +1163,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     useSharedSession.getState().clearGroupSession();
     _consecutivePoorCount = 0;
     _lastDistanceUpdateMs = 0;
+    _goodFixCount = 0;
     set({
       laps: [],
       currentPace: 0,
