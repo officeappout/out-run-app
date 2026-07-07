@@ -10,7 +10,8 @@ import { Park } from '../types/park.types';
 import { useRouteFilter, FilterPreferences } from './useRouteFilter';
 import { useUserCityName } from './useUserCityName';
 import { NavHubState } from '../components/NavigationHub';
-import { isRouteNearby, distanceToRouteStart } from '../services/geoUtils';
+import { isRouteNearby, isRouteInBounds, distanceToRouteStart } from '../services/geoUtils';
+import { useMapStore } from '../store/useMapStore';
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -95,6 +96,11 @@ export function useRouteGeneration(
 
   const proximityPos = effectiveUserPos ?? currentUserPos;
 
+  // Viewport-search state — read from the global store so DiscoverLayer can
+  // activate it without passing props through useMapLogic.
+  const viewportSearchActive = useMapStore((s) => s.viewportSearchActive);
+  const viewportBounds = useMapStore((s) => s.viewportBounds);
+
   const routesToDisplay = useMemo(() => {
     if (navState === 'navigating' && navigationRoutes[selectedNavActivity]) {
       return [navigationRoutes[selectedNavActivity]!];
@@ -103,6 +109,11 @@ export function useRouteGeneration(
     const dynamicIds = new Set(dynamicRoutes.map(r => r.id));
     const nearbyOfficial = officialRoutes.filter(r => {
       if (dynamicIds.has(r.id)) return false;
+      // Viewport-search mode: show routes whose midpoint is inside the current
+      // visible bbox instead of within 10 km of the user's GPS position.
+      if (viewportSearchActive && viewportBounds) {
+        return isRouteInBounds(r, viewportBounds);
+      }
       if (!proximityPos) return false;
       return isRouteNearby(r, proximityPos);
     });
@@ -111,11 +122,20 @@ export function useRouteGeneration(
 
     const MAX_DISPLAY = 3;
 
-    if (!proximityPos) return merged.slice(0, MAX_DISPLAY);
+    // Sort relative to viewport center when in viewport-search mode so the
+    // closest-to-center route card appears first in the carousel.
+    const sortPos = (viewportSearchActive && viewportBounds)
+      ? {
+          lat: (viewportBounds.neLat + viewportBounds.swLat) / 2,
+          lng: (viewportBounds.neLng + viewportBounds.swLng) / 2,
+        }
+      : proximityPos;
+
+    if (!sortPos) return merged.slice(0, MAX_DISPLAY);
     return merged
-      .sort((a, b) => distanceToRouteStart(a, proximityPos) - distanceToRouteStart(b, proximityPos))
+      .sort((a, b) => distanceToRouteStart(a, sortPos) - distanceToRouteStart(b, sortPos))
       .slice(0, MAX_DISPLAY);
-  }, [navState, navigationRoutes, selectedNavActivity, filteredRoutes, officialRoutes, proximityPos]);
+  }, [navState, navigationRoutes, selectedNavActivity, filteredRoutes, officialRoutes, proximityPos, viewportSearchActive, viewportBounds]);
 
   const handleShuffle = useCallback(async (activity?: ActivityType) => {
     if (!currentUserPos) return;

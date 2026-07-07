@@ -5,6 +5,14 @@ import type { Route } from '../types/route.types';
 import type { WalkStep } from '../hooks/useWalkToRoute';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 
+/** Serializable map viewport bounding box (no Mapbox types). */
+export interface ViewportBounds {
+  neLng: number;
+  neLat: number;
+  swLng: number;
+  swLat: number;
+}
+
 export type LayerType = 'parks' | 'routes' | 'water' | 'toilet' | 'gym';
 
 export type PartnerActivityFilter = 'all' | 'strength' | 'running' | 'walking';
@@ -297,6 +305,24 @@ interface MapStore {
    */
   groupParticipants: Participant[];
   setGroupParticipants: (participants: Participant[]) => void;
+
+  /**
+   * Current map viewport bounding box — written by AppMap on every
+   * moveEnd / zoomEnd and on initial load. Used by the "חפש באזור זה"
+   * flow to filter official routes to what is currently visible.
+   */
+  viewportBounds: ViewportBounds | null;
+  setViewportBounds: (b: ViewportBounds | null) => void;
+
+  /**
+   * True while the user is in viewport-search mode (they tapped
+   * "חפש באזור זה"). When true, useRouteGeneration replaces the
+   * proximity filter (10 km radius) with a bounds-containment check
+   * against the current viewportBounds. Reset by tapping the GPS button
+   * or leaving discover mode.
+   */
+  viewportSearchActive: boolean;
+  setViewportSearchActive: (v: boolean) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -382,4 +408,9 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setActiveStoryIndex: (idx) => set({ activeStoryIndex: idx }),
   groupParticipants: [],
   setGroupParticipants: (participants) => set({ groupParticipants: participants }),
+
+  viewportBounds: null,
+  setViewportBounds: (b) => set({ viewportBounds: b }),
+  viewportSearchActive: false,
+  setViewportSearchActive: (v) => set({ viewportSearchActive: v }),
 }));

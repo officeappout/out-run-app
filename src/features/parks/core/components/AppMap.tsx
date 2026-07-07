@@ -1139,6 +1139,24 @@ export default function AppMap({
 
     setIsMapLoaded(true);
     if (onMapRef && mapRef.current) onMapRef(mapRef.current);
+    // Seed the store so viewport-search has a baseline even before the user pans.
+    const initB = mapRef.current?.getBounds();
+    if (initB) {
+      useMapStore.getState().setViewportBounds({
+        neLng: initB.getNorthEast().lng, neLat: initB.getNorthEast().lat,
+        swLng: initB.getSouthWest().lng, swLat: initB.getSouthWest().lat,
+      });
+    }
+  };
+
+  const syncViewportToStore = () => {
+    const b = mapRef.current?.getBounds();
+    if (!b) return;
+    setViewportBounds(b);
+    useMapStore.getState().setViewportBounds({
+      neLng: b.getNorthEast().lng, neLat: b.getNorthEast().lat,
+      swLng: b.getSouthWest().lng, swLat: b.getSouthWest().lat,
+    });
   };
 
   return (
@@ -1149,9 +1167,9 @@ export default function AppMap({
         onZoom={(e) => setCurrentZoom(e.viewState.zoom)}
         onZoomEnd={(e) => {
           setCurrentZoom(e.viewState.zoom);
-          setViewportBounds(mapRef.current?.getBounds() ?? null);
+          syncViewportToStore();
         }}
-        onMoveEnd={() => setViewportBounds(mapRef.current?.getBounds() ?? null)}
+        onMoveEnd={syncViewportToStore}
         initialViewState={
           initialCenter
             ? { longitude: initialCenter.lng, latitude: initialCenter.lat, zoom: 14 }

@@ -41,6 +41,7 @@ import {
   Plus, X, Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -91,6 +92,41 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('idle');
+
+  // ── Viewport-search ("חפש באזור זה") state ───────────────────────────────
+  const viewportBounds = useMapStore((s) => s.viewportBounds);
+  const viewportSearchActive = useMapStore((s) => s.viewportSearchActive);
+  // Baseline bounds — set once viewportBounds first arrives (map loaded).
+  // When the user taps "חפש באזור זה" this is reset to the current bounds so
+  // the button only reappears after a subsequent pan.
+  const refBoundsRef = useRef<ViewportBounds | null>(null);
+
+  // Seed the baseline once (and only once) when map bounds first arrive.
+  useEffect(() => {
+    if (viewportBounds && !refBoundsRef.current) {
+      refBoundsRef.current = viewportBounds;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewportBounds !== null]);
+
+  // "חפש באזור זה" is visible when:
+  //   • map has loaded (refBoundsRef set)
+  //   • not already in viewport-search mode
+  //   • idle mode (button hidden in freeRun / commute / partners)
+  //   • user has panned > 30% of the viewport width or height from baseline
+  const showSearchAreaButton = (() => {
+    if (!viewportBounds || !refBoundsRef.current) return false;
+    if (viewportSearchActive) return false;
+    if (mapMode !== 'idle') return false;
+    const ref = refBoundsRef.current;
+    const vw = Math.abs(viewportBounds.neLng - viewportBounds.swLng);
+    const vh = Math.abs(viewportBounds.neLat - viewportBounds.swLat);
+    const refCx = (ref.neLng + ref.swLng) / 2;
+    const refCy = (ref.neLat + ref.swLat) / 2;
+    const curCx = (viewportBounds.neLng + viewportBounds.swLng) / 2;
+    const curCy = (viewportBounds.neLat + viewportBounds.swLat) / 2;
+    return Math.abs(curCx - refCx) > vw * 0.3 || Math.abs(curCy - refCy) > vh * 0.3;
+  })();
 
   // ── Free-run flow state machine ────────────────────────────────────────────
   // Once `mapMode === 'freeRun'`, the user passes through two stages:
@@ -550,6 +586,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     if (mode !== 'discover') {
       logic.setFocusedRoute(null);
       logic.setSelectedRoute(null);
+      // Clear viewport search so proximity filter resumes in any non-discover mode.
+      useMapStore.getState().setViewportSearchActive(false);
     }
     // Skip PartnerBubbles entirely — go straight to radar on every entry.
     if (mode === 'partners') {
@@ -557,6 +595,18 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       setShowRadar(true);
     }
   };
+
+  // Tap "חפש באזור זה" → activate viewport search and switch to discover mode.
+  const handleSearchArea = useCallback(() => {
+    useMapStore.getState().setViewportSearchActive(true);
+    // Suppress the auto-fit-all camera animation that fires on first discover
+    // entry — the user already positioned the map where they want to search.
+    initialDiscoverFitRef.current = true;
+    // Reset baseline so button reappears only after the next pan.
+    if (viewportBounds) refBoundsRef.current = viewportBounds;
+    setMapMode('discover');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewportBounds]);
 
   // ── THE LAW: SINGLE SCREEN STATE ──
   type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'COMMUTE' | 'DISCOVERY';
@@ -594,6 +644,29 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
             onSearchChange={logic.setSearchQuery}
             onFocus={() => logic.setNavState('searching')}
           />
+
+          {/* "חפש באזור זה" pill — appears after panning > 30% viewport from
+              the baseline position. Tapping activates viewport-search mode. */}
+          <AnimatePresence>
+            {showSearchAreaButton && (
+              <motion.div
+                key="search-area-btn"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18 }}
+                className="flex justify-center pointer-events-auto"
+              >
+                <button
+                  onClick={handleSearchArea}
+                  className="bg-white text-gray-800 text-sm font-semibold px-5 py-2 rounded-full shadow-md ring-1 ring-black/10 active:scale-95 transition-all"
+                  dir="rtl"
+                >
+                  חפש באזור זה
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Mode header pills — also hidden in commute mode so the
               top surface stays focused on the active navigation flow. */}
@@ -753,7 +826,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onReport={() => setReportOpen(true)}
               />
               <button
-                onClick={logic.handleLocationClick}
+                onClick={() => {
+                  // Also exits viewport-search mode and resets the pan baseline
+                  // so the button only reappears after the next deliberate pan.
+                  useMapStore.getState().setViewportSearchActive(false);
+                  if (viewportBounds) refBoundsRef.current = viewportBounds;
+                  logic.handleLocationClick();
+                }}
                 className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white pointer-events-auto active:scale-95 transition-all"
               >
                 <Navigation size={20} fill={logic.isFollowing ? BRAND_COLOR : 'none'} color={logic.isFollowing ? BRAND_COLOR : GRAY_COLOR} />

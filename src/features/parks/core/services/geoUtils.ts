@@ -42,6 +42,23 @@ export function isRouteNearby(
   return haversineKm(userPos.lat, userPos.lng, mid[1], mid[0]) <= radiusKm;
 }
 
+/**
+ * Returns true when a route's midpoint lies within the given bounding box.
+ * Path coordinates follow the project-wide [lng, lat] Mapbox convention.
+ * Used by the "חפש באזור זה" flow as an alternative to isRouteNearby.
+ */
+export function isRouteInBounds(
+  route: Route,
+  bounds: { neLng: number; neLat: number; swLng: number; swLat: number },
+): boolean {
+  if (!route.path || route.path.length === 0) return false;
+  const mid = route.path[Math.floor(route.path.length / 2)];
+  if (!mid || mid[0] == null || mid[1] == null) return false;
+  const [lng, lat] = mid;
+  return lng >= bounds.swLng && lng <= bounds.neLng &&
+         lat >= bounds.swLat && lat <= bounds.neLat;
+}
+
 /** Distance (km) from a position to the first coordinate of a route's path. */
 export function distanceToRouteStart(
   route: Route,
