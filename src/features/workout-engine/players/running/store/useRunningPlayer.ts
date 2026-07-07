@@ -46,6 +46,9 @@ let _lastDistanceUpdateMs = 0;
 // Count of fixes with accuracy ≤ WARMUP_MAX_ACCURACY_M since tracking started.
 // Gates distance accumulation until GPS has a stable lock.
 let _goodFixCount = 0;
+// Buffer of positions rejected by the JUMP or SPEED guard, used by the re-anchor
+// escape hatch. Reset on every successful accumulation or tracking restart.
+let _rejectBuffer: Array<{ lat: number; lng: number; ts: number }> = [];
 
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
@@ -780,6 +783,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // Upper bound on realistic running speed (~43 km/h). Catches poor-accuracy
     // jumps that slipped past the 200 m gate without inflating distance.
     const MAX_REALISTIC_SPEED_MS = 12;
+    // Re-anchor escape hatch: breaks the "frozen anchor" stall that occurs when
+    // the user genuinely moves > MAX_JUMP_M and stays there (all fixes rejected).
+    const REANCHOR_WINDOW = 5;           // consecutive rejected samples required
+    const REANCHOR_CLUSTER_RADIUS = 20;  // metres — max spread within the cluster
+    const REANCHOR_MIN_TIME_MS = 10_000; // ms — cluster must persist at least this long
 
     _gpsStoreUnsub = useGPSStore.subscribe((state, prevState) => {
       if (state.coords === prevState.coords) return; // no new fix
@@ -886,6 +894,23 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         return;
       }
 
+      // ── Re-anchor cluster check ───────────────────────────────────────────
+      // Called after every JUMP or SPEED reject. Returns the cluster centroid
+      // when REANCHOR_WINDOW consecutive rejected samples lie within
+      // REANCHOR_CLUSTER_RADIUS of each other for ≥ REANCHOR_MIN_TIME_MS,
+      // signalling genuine movement rather than a satellite artefact.
+      const checkReanchorCluster = (): { lat: number; lng: number } | null => {
+        if (_rejectBuffer.length < REANCHOR_WINDOW) return null;
+        const win = _rejectBuffer.slice(-REANCHOR_WINDOW);
+        if (win[win.length - 1].ts - win[0].ts < REANCHOR_MIN_TIME_MS) return null;
+        const centLat = win.reduce((s, p) => s + p.lat, 0) / REANCHOR_WINDOW;
+        const centLng = win.reduce((s, p) => s + p.lng, 0) / REANCHOR_WINDOW;
+        for (const p of win) {
+          if (calculateDistance(p.lat, p.lng, centLat, centLng) > REANCHOR_CLUSTER_RADIUS) return null;
+        }
+        return { lat: centLat, lng: centLng };
+      };
+
       if (lastPos) {
         const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
 
@@ -895,6 +920,21 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         if (distanceDelta > MAX_JUMP_M) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(`[GPS ⛔] JUMP rejected: ${Math.round(distanceDelta)}m (>${MAX_JUMP_M}m)`);
+          }
+          // Push to reject buffer and check if the escape hatch triggers.
+          _rejectBuffer.push({ lat: currentPos.lat, lng: currentPos.lng, ts: Date.now() });
+          const reanchor = checkReanchorCluster();
+          if (reanchor) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(
+                `[GPS ⚓] REANCHOR: ${REANCHOR_WINDOW} JUMP rejects clustered within ${REANCHOR_CLUSTER_RADIUS}m → new anchor (${reanchor.lat.toFixed(5)}, ${reanchor.lng.toFixed(5)})`
+              );
+            }
+            lastPos = reanchor;
+            lastTimestamp = Date.now();
+            _rejectBuffer = [];
+            set({ lastPosition: reanchor, lastFilterAction: `⚓ REANCHOR (${REANCHOR_WINDOW}× cluster)` });
+            return;
           }
           // Do NOT update lastPos — anchor stays on the last good fix to break
           // the domino effect (next sample would otherwise measure from the jumped pos).
@@ -923,6 +963,21 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 `[GPS ⛔] SPEED rejected: ${Math.round(distanceDelta / timeDeltaSeconds)}m/s (>${MAX_REALISTIC_SPEED_MS}m/s) delta=${Math.round(distanceDelta)}m dt=${timeDeltaSeconds.toFixed(1)}s`
               );
             }
+            // Push to reject buffer and check if the escape hatch triggers.
+            _rejectBuffer.push({ lat: currentPos.lat, lng: currentPos.lng, ts: Date.now() });
+            const reanchor = checkReanchorCluster();
+            if (reanchor) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.log(
+                  `[GPS ⚓] REANCHOR: ${REANCHOR_WINDOW} SPEED rejects clustered within ${REANCHOR_CLUSTER_RADIUS}m → new anchor (${reanchor.lat.toFixed(5)}, ${reanchor.lng.toFixed(5)})`
+                );
+              }
+              lastPos = reanchor;
+              lastTimestamp = Date.now();
+              _rejectBuffer = [];
+              set({ lastPosition: reanchor, lastFilterAction: `⚓ REANCHOR (${REANCHOR_WINDOW}× cluster)` });
+              return;
+            }
             // Do NOT update lastPos — anchor stays on the last good fix.
             set({ lastPosition: currentPos, lastFilterAction: `⛔ SPEED ${Math.round(distanceDelta / timeDeltaSeconds)}m/s` });
             lastTimestamp = now;
@@ -936,6 +991,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             );
           }
           _lastDistanceUpdateMs = Date.now();
+          _rejectBuffer = []; // Good accumulation — consecutive reject streak broken
           set({ lastFilterAction: `✅ +${Math.round(distanceDelta)}m` });
 
           if (accuracy <= 40) {
@@ -957,6 +1013,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           }
           lastTimestamp = now;
         } else {
+          _rejectBuffer = []; // Non-rejected sample — consecutive reject streak broken
           set({ lastFilterAction: `🔇 <${DISTANCE_THRESHOLD}m (${Math.round(distanceDelta)}m)` });
         }
       } else {
@@ -1008,6 +1065,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _consecutivePoorCount = 0;
     _lastDistanceUpdateMs = 0;
     _goodFixCount = 0;
+    _rejectBuffer = [];
 
     // Clear duration interval
     if (durationIntervalId !== null) {
@@ -1131,6 +1189,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _consecutivePoorCount = 0;
     _lastDistanceUpdateMs = 0;
     _goodFixCount = 0;
+    _rejectBuffer = [];
     set({
       laps: [seedLap],
       currentPace: 0,
@@ -1164,6 +1223,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _consecutivePoorCount = 0;
     _lastDistanceUpdateMs = 0;
     _goodFixCount = 0;
+    _rejectBuffer = [];
     set({
       laps: [],
       currentPace: 0,
