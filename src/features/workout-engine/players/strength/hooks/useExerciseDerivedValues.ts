@@ -393,6 +393,11 @@ export function useExerciseDerivedValues({
    */
   const exerciseFullTutorial = useMemo((): ExternalVideo | null => {
     const raw = activeExercise as any;
+    // Preferred: the value pre-resolved at plan-build time (enrichExercise /
+    // convertExercisesToWorkoutPlan). The flattened plan Exercise carries no
+    // execution_methods, so this is the ONLY source on the active-session path.
+    if (raw?.fullTutorial?.videoId) return raw.fullTutorial as ExternalVideo;
+    // Fallback for any entry path that passes a full Firestore exercise.
     const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
     for (const m of methods) {
       const t = resolveTutorialForLang(m?.media, 'he');

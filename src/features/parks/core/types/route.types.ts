@@ -4,6 +4,7 @@
  */
 
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
@@ -38,9 +39,11 @@ export interface Exercise {
   duration?: string;
   videoUrl?: string;
   imageUrl?: string;
+  /** Pre-resolved long-form instructional video (deep-searched at plan-build time). Drives the "צפה בהסבר המלא" CTA. */
+  fullTutorial?: ExternalVideo | null;
   instructions?: string[];
   icon?: string;
-  
+
   // Enriched metadata from Firestore Exercise
   /** Exercise type: 'reps' | 'time' */
   exerciseType?: 'reps' | 'time';

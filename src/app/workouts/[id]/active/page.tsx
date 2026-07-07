@@ -11,6 +11,7 @@ import { clearWorkoutCheckpoint } from '@/features/workout-engine/players/streng
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
 import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
@@ -238,6 +239,7 @@ function enrichExercise(
     duration,
     videoUrl,
     imageUrl,
+    fullTutorial: resolveExerciseMedia(ex as any, method as any).fullTutorial,
     exerciseType,
     exerciseRole: segmentRole,
     isFollowAlong,

@@ -18,12 +18,22 @@
  *   4. Exercise root imageUrl / coverImage / thumbnailUrl
  *   5. Falls back to resolved video URL (video thumbnail)
  *
+ * Search priority (fullTutorial — long-form instructional video):
+ *   1. Selected method's media.fullTutorial (HE, with HE fallback)
+ *   2. ANY execution method's media.fullTutorial
+ *   3. Exercise-level media.fullTutorial
+ *
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
+
+import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 export interface ResolvedMedia {
   videoUrl: string | undefined;
   imageUrl: string | undefined;
+  /** Long-form instructional video, deep-searched like videoUrl. Null when none uploaded. */
+  fullTutorial: ExternalVideo | null;
 }
 
 /**
@@ -70,5 +80,15 @@ export function resolveExerciseMedia(
     videoUrl || // last resort: video thumbnail
     undefined;
 
-  return { videoUrl, imageUrl };
+  // ── Full tutorial resolution (deep search, mirrors video priority) ──
+  const fullTutorial: ExternalVideo | null =
+    resolveTutorialForLang(methodMedia as any) ??
+    allMethods.reduce<ExternalVideo | undefined>(
+      (found, m: any) => found || resolveTutorialForLang(m?.media),
+      undefined,
+    ) ??
+    resolveTutorialForLang(exercise.media as any) ??
+    null;
+
+  return { videoUrl, imageUrl, fullTutorial };
 }
