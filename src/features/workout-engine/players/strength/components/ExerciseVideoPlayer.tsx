@@ -76,6 +76,9 @@ export default function ExerciseVideoPlayer({
   const [showTutorial, setShowTutorial] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // TEMP DIAGNOSTIC — confirms whether fullTutorial reaches the live player.
+  console.log('[FT player]', exerciseName, '| fullTutorial.videoId:', fullTutorial?.videoId ?? null, '| CTA renders:', !!fullTutorial?.videoId);
+
   // ── Global audio state (set by the user in WorkoutPreviewDrawer) ──
   const isAudioEnabled = useMemo(() => {
     if (typeof window === 'undefined') return false;

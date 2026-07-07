@@ -685,8 +685,11 @@ export default function HomePage() {
         // Unit priority: respect the admin's explicit type field first, then generator's isTimeBased
         const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
 
-        const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl } =
+        const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial } =
           resolveExerciseMedia(ex.exercise as any, ex.method as any);
+
+        // TEMP DIAGNOSTIC — confirms which builder runs + whether fullTutorial resolves.
+        console.log('[FT build/home]', glt(ex.exercise.name), '| fullTutorial:', resolvedFullTutorial?.videoId ?? null, '| execMethods:', (ex.exercise.execution_methods || ex.exercise.executionMethods || []).length);
 
         if (!resolvedImageUrl && !resolvedVideoUrl) {
           const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];
@@ -712,6 +715,7 @@ export default function HomePage() {
           ) : undefined,
           videoUrl: resolvedVideoUrl,
           imageUrl: resolvedImageUrl,
+          fullTutorial: resolvedFullTutorial ?? null,
           exerciseType: actuallyTimeBased ? 'time' as const : 'reps' as const,
           exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
           isFollowAlong: ex.exercise.isFollowAlong ?? false,
