@@ -3,6 +3,8 @@
 import { useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 /**
  * useExerciseDerivedValues — all 20+ display-value memos in one isolated hook
@@ -95,6 +97,8 @@ export interface ExerciseDerivedValuesResult {
   exerciseVideoUrl: string | null;
   /** Bare Bunny video UUID for the active exercise — drives network-aware resolution. */
   exerciseBunnyVideoId: string | null;
+  /** Long-form instructional video for the active exercise, if uploaded. Drives the "צפה בהסבר המלא" CTA. */
+  exerciseFullTutorial: ExternalVideo | null;
   nextExercise: NextExerciseInfo;
   repsOrDurationText: string;
   /** Last confirmed reps for the current exercise (previous set), for picker pre-fill. */
@@ -381,6 +385,24 @@ export function useExerciseDerivedValues({
   }, [activeExercise]);
 
   /**
+   * Long-form instructional video ("full tutorial") for the active exercise.
+   * Searched per execution method first (Lego-block: video binds to the method),
+   * then falls back to the exercise-root media slot. Resolves the HE track (with
+   * the built-in HE fallback in resolveTutorialForLang). Null when none uploaded —
+   * the "צפה בהסבר המלא" CTA is hidden in that case.
+   */
+  const exerciseFullTutorial = useMemo((): ExternalVideo | null => {
+    const raw = activeExercise as any;
+    const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
+    for (const m of methods) {
+      const t = resolveTutorialForLang(m?.media, 'he');
+      if (t?.videoId) return t;
+    }
+    const rootTutorial = resolveTutorialForLang(raw?.media, 'he');
+    return rootTutorial?.videoId ? rootTutorial : null;
+  }, [activeExercise]);
+
+  /**
    * nextExercise — look-ahead for the rest-screen preview.
    *
    * Priority order:
@@ -572,6 +594,7 @@ export function useExerciseDerivedValues({
     muscleGroups,
     exerciseVideoUrl,
     exerciseBunnyVideoId,
+    exerciseFullTutorial,
     nextExercise,
     repsOrDurationText,
     lastSavedReps,

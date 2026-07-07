@@ -6,6 +6,7 @@ import FillingButton from './FillingButton';
 import IsometricTimerCard from './IsometricTimerCard';
 import ExerciseDetailContent from './ExerciseDetailContent';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -48,6 +49,8 @@ export interface ActiveExerciseViewProps {
   safeVideoUrl: string | null;
   /** Resolved (offline-cached) video URL for the next exercise — used as a hidden pre-fetch. */
   cachedNextVideoUrl: string | null;
+  /** Long-form instructional video for the active exercise — drives the "צפה בהסבר המלא" CTA (null hides it). */
+  exerciseFullTutorial?: ExternalVideo | null;
   /** Stable id of the active exercise (used by ExerciseVideoPlayer + remount keys). */
   exerciseId: string;
   /** Name of the active exercise (drives the title under the metrics). */
@@ -106,6 +109,7 @@ export default function ActiveExerciseView({
   isPaused,
   safeVideoUrl,
   cachedNextVideoUrl,
+  exerciseFullTutorial,
   exerciseId,
   exerciseName,
   exerciseType,
@@ -157,6 +161,7 @@ export default function ActiveExerciseView({
         exerciseType={exerciseType}
         isPaused={isPaused}
         hasAudio={false}
+        fullTutorial={exerciseFullTutorial ?? null}
         onVideoProgress={onSetVideoProgress}
         onVideoEnded={isTimeExercise ? undefined : () => onComplete()}
         onLoadingChange={(loading) => {

@@ -9,10 +9,12 @@
  * Blur is only used in PREPARING state (StrengthRunner)
  */
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, X } from 'lucide-react';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -22,6 +24,8 @@ interface ExerciseVideoPlayerProps {
   isPaused: boolean;
   /** @deprecated — Audio is now controlled by the global isAudioEnabled sessionStorage flag */
   hasAudio?: boolean;
+  /** Long-form instructional video — renders the "צפה בהסבר המלא" CTA + fullscreen player when present. */
+  fullTutorial?: ExternalVideo | null;
   onVideoProgress?: (progress: number) => void;
   onVideoEnded?: () => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -62,12 +66,14 @@ export default function ExerciseVideoPlayer({
   exerciseType,
   isPaused,
   hasAudio: _legacyHasAudio = false,
+  fullTutorial = null,
   onVideoProgress,
   onVideoEnded,
   onLoadingChange,
 }: ExerciseVideoPlayerProps) {
   const [videoLoading, setVideoLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // ── Global audio state (set by the user in WorkoutPreviewDrawer) ──
@@ -137,6 +143,44 @@ export default function ExerciseVideoPlayer({
            lowerUrl.includes('.webm') ||
            lowerUrl.includes('video');
   }, [effectiveVideoUrl, isYouTubeVideo]);
+
+  // ── Mute policy ────────────────────────────────────────────────────────
+  // The short reps/time preview loop is ALWAYS muted: browsers (and iOS
+  // WKWebView in particular) refuse to *autoplay* an unmuted <video>, so an
+  // unmuted clip freezes on frame 0 — which is exactly the "stuck on a static
+  // image" symptom. Only follow-along mode (a full guided clip the user opted
+  // into) honours the global audio toggle.
+  const shouldMuteVideo = exerciseType === 'follow-along' ? !isAudioEnabled : true;
+
+  // ── Imperative playback driver ─────────────────────────────────────────
+  // The `autoPlay` attribute alone is unreliable on WKWebView, and React does
+  // not always reflect the `muted` *prop* onto the DOM property (a long-standing
+  // React quirk) — both cause the browser to treat the element as unmuted and
+  // block autoplay. Setting `.muted` on the element and calling `.play()`
+  // imperatively (mirroring the facility-page player, which never freezes) is
+  // what actually starts the loop. Retries once fully-muted if the first
+  // play() is rejected.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || isYouTubeVideo || !hasValidDirectVideoUrl) return;
+
+    v.muted = shouldMuteVideo;
+
+    if (isPaused) {
+      v.pause();
+      return;
+    }
+
+    const attempt = v.play();
+    if (attempt && typeof attempt.catch === 'function') {
+      attempt.catch(() => {
+        // Autoplay rejected (usually: element considered unmuted). Force-mute
+        // and retry — the loop keeps running silently rather than freezing.
+        v.muted = true;
+        v.play().catch(() => {});
+      });
+    }
+  }, [effectiveVideoUrl, hasValidDirectVideoUrl, isYouTubeVideo, isPaused, shouldMuteVideo]);
 
   // Handle loading state changes
   const handleLoadingChange = useCallback((loading: boolean) => {
@@ -253,7 +297,7 @@ export default function ExerciseVideoPlayer({
               className="absolute inset-0 w-full h-full object-contain"
               autoPlay={!isPaused}
               loop={exerciseType !== 'follow-along'}
-              muted={!isAudioEnabled}
+              muted={shouldMuteVideo}
               playsInline
               {...{"webkit-playsinline": "true"}}
               preload="auto"
@@ -294,6 +338,50 @@ export default function ExerciseVideoPlayer({
               <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* "צפה בהסבר המלא" CTA — shown only when a long-form tutorial exists.
+          Lives in the always-visible top strip (above the white metrics card),
+          where the scrollable overlay's spacer is pointer-events-none so this
+          button stays tappable. */}
+      {fullTutorial?.videoId && !showTutorial && (
+        <button
+          onClick={() => setShowTutorial(true)}
+          className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3.5 py-2 bg-black/55 hover:bg-black/75 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
+          style={{ fontFamily: 'var(--font-simpler)' }}
+          dir="rtl"
+        >
+          <GraduationCap size={16} />
+          <span className="text-[13px] font-bold">צפה בהסבר המלא</span>
+        </button>
+      )}
+
+      {/* Fullscreen long-form tutorial — reuses the facility-page provider-aware
+          player (Bunny HLS + controls). Rendered above the live player surface. */}
+      {showTutorial && fullTutorial?.videoId && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col" dir="rtl">
+          <div className="flex items-center justify-between px-4 py-3 shrink-0">
+            <span className="text-white text-base font-bold truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {exerciseName}
+            </span>
+            <button
+              onClick={() => setShowTutorial(false)}
+              className="flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20 shrink-0"
+              aria-label="סגור"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <TutorialVideoPlayer
+              video={fullTutorial}
+              mode="tutorial"
+              posterUrl={fullTutorial.thumbnailUrl ?? null}
+              objectFit="contain"
+              className="w-full h-full"
+            />
+          </div>
         </div>
       )}
 

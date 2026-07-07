@@ -447,6 +447,7 @@ export default function StrengthRunner({
         isPaused={sm.isPaused}
         safeVideoUrl={safeVideoUrl}
         cachedNextVideoUrl={safeNextVideoUrl}
+        exerciseFullTutorial={sm.exerciseFullTutorial}
         exerciseId={sm.activeExercise?.id || `ex-${sm.currentExerciseIndex}`}
         exerciseName={sm.exerciseName}
         exerciseType={sm.exerciseType}

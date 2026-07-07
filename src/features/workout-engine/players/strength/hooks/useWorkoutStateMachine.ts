@@ -10,6 +10,7 @@ import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
 // NextExerciseInfo now lives in useExerciseDerivedValues — imported for local use and re-exported
 import type { NextExerciseInfo } from './useExerciseDerivedValues';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 export type { NextExerciseInfo } from './useExerciseDerivedValues';
 
 // ============================================================================
@@ -98,6 +99,8 @@ export interface WorkoutStateMachineResult {
   exerciseVideoUrl: string | null;
   /** Bare Bunny UUID for the active exercise — drives network-aware resolution. */
   exerciseBunnyVideoId: string | null;
+  /** Long-form instructional video for the active exercise, if uploaded. */
+  exerciseFullTutorial: ExternalVideo | null;
   nextExercise: NextExerciseInfo;
   repsOrDurationText: string;
 
@@ -616,6 +619,7 @@ export function useWorkoutStateMachine(
     muscleGroups,
     exerciseVideoUrl,
     exerciseBunnyVideoId,
+    exerciseFullTutorial,
     nextExercise,
     repsOrDurationText,
     lastSavedReps,
@@ -1001,6 +1005,7 @@ export function useWorkoutStateMachine(
     muscleGroups,
     exerciseVideoUrl,
     exerciseBunnyVideoId,
+    exerciseFullTutorial,
     nextExercise,
     repsOrDurationText,
     currentRound: currentSetIndex + 1,
