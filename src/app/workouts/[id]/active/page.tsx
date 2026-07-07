@@ -29,6 +29,7 @@ import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
@@ -446,6 +447,38 @@ export default function ActiveWorkoutPage() {
   // === FLOW STATE ===
   const [flowState, setFlowState] = useState<FlowState>('active');
 
+  // === UNIFIED SESSION STORE (hybrid plumbing, Phase 0) ===
+  // Registers this strength player on useSessionStore so cross-mode fields
+  // (mode / status / totalDuration) have a live writer from the strength side
+  // too. Standalone strength OWNS the session (start + tick + end). If an
+  // outer session already exists (future combined workout: a paused run), we
+  // only switchMode('strength') and leave ticking/ending to the session owner.
+  const ownsSessionRef = useRef(false);
+  useEffect(() => {
+    const s = useSessionStore.getState();
+    if (s.status === 'active' || s.status === 'paused') {
+      if (s.mode === 'strength') {
+        // Remount of our own session (client-side nav) — reclaim ownership.
+        ownsSessionRef.current = true;
+      } else {
+        s.switchMode('strength');
+      }
+    } else {
+      s.startSession('strength');
+      ownsSessionRef.current = true;
+    }
+  }, []);
+
+  // Wall-clock ticker — mirrors workoutStats.duration semantics (pause is
+  // internal to StrengthRunner and does not stop the wall clock today).
+  // Gated on ownership so a future combined-workout host doesn't get double
+  // ticks: the running player's durationInterval already ticks the store.
+  useEffect(() => {
+    if (flowState !== 'active' || !ownsSessionRef.current) return;
+    const id = setInterval(() => useSessionStore.getState().tick(), 1000);
+    return () => clearInterval(id);
+  }, [flowState]);
+
   // === SMART MESSAGE (admin-managed post-workout motivation) ===
   const postWorkoutMsg = useSmartMessage('post_workout');
   const celebrationText = postWorkoutMsg
@@ -768,7 +801,11 @@ export default function ActiveWorkoutPage() {
     
     console.log('[ActiveWorkoutPage] Workout complete! Duration:', duration, 'seconds',
       `(${exerciseLog?.length || 0} exercises logged with real data)`);
-    
+
+    // End the unified session (owner only) — freezes totalDuration at the
+    // moment the player finishes, before the dopamine/summary screens.
+    if (ownsSessionRef.current) useSessionStore.getState().endSession();
+
     // Transition to dopamine screen (NOT router.push)
     setFlowState('dopamine');
   }, [workoutPlan, workoutStats.startTime, userProgression.percent]);
@@ -1008,6 +1045,33 @@ export default function ActiveWorkoutPage() {
           : xpAwardStatus === 'pending' ? sessionXP
           : 0;
 
+        // Phase 0 (hybrid plumbing): one strength segment record — the same
+        // planned-vs-actual segments[] shape the combined summary will
+        // consume. Keys are conditionally spread (no undefined in arrays).
+        const plannedExercises = stableWorkoutPlan?.segments?.reduce(
+          (acc, seg) => acc + (seg.exercises?.length ?? 0), 0) ?? 0;
+        const plannedSets = stableWorkoutPlan?.segments?.reduce(
+          (acc, seg) => acc + (seg.exercises?.reduce((a, ex) => a + (ex.sets ?? 0), 0) ?? 0), 0) ?? 0;
+        const strengthSegment = {
+          index: 0,
+          kind: 'strength' as const,
+          ...(stableWorkoutPlan?.name ? { label: stableWorkoutPlan.name } : {}),
+          ...(plannedExercises > 0 || plannedSets > 0
+            ? {
+                planned: {
+                  ...(plannedExercises > 0 ? { exercises: plannedExercises } : {}),
+                  ...(plannedSets > 0 ? { sets: plannedSets } : {}),
+                },
+              }
+            : {}),
+          actual: {
+            durationSec,
+            exercises: workoutStats.completedExercises.length,
+            sets: totalSetsCount,
+          },
+          ...(detectedPark ? { parkId: detectedPark.parkId } : {}),
+        };
+
         saved = await saveWorkout({
           userId: currentUser.uid,
           activityType: 'strength',
@@ -1018,9 +1082,13 @@ export default function ActiveWorkoutPage() {
           earnedCoins: 0,
           xpEarned: xpToStore,
           ...(xpAwardStatus === 'failed' ? { xpAwardFailed: true } : {}),
-          workoutType: 'STRENGTH',
+          // Lowercase on purpose: every reader compares === 'strength'.
+          // The old 'STRENGTH' literal only matched via the category
+          // fallback — legacy docs keep the uppercase value.
+          workoutType: 'strength',
           category: 'strength',
           displayIcon: 'dumbbell',
+          segments: [strengthSegment],
           ...(detectedPark
             ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
             : {}),
@@ -1105,8 +1173,11 @@ export default function ActiveWorkoutPage() {
     } catch (e) {
       console.error('[ActiveWorkoutPage] Failed to refresh profile before navigating:', e);
     }
+    // Release the unified session (owner only) — the store returns to idle so
+    // the next workout of any mode can startSession() cleanly.
+    if (ownsSessionRef.current) useSessionStore.getState().clearSession();
     router.push('/home');
-  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, profile, stableWorkoutPlan?.name]);
+  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, profile, stableWorkoutPlan]);
 
   // Handle pause
   const handlePause = () => {

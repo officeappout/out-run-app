@@ -207,7 +207,12 @@ export function useWorkoutSession(
     rp.clearRunningData();
     rp.initializeRunningData();
     if (pendingGoal) rp.setSessionGoal(pendingGoal);
-    startSession('running');
+    // Session mode comes from the running player's activityType — written by
+    // the FreeRunDrawer chips / commute picker just before start and NOT
+    // reset by clearRunningData. Walking is a first-class session mode.
+    startSession(
+      useRunningPlayer.getState().activityType === 'walking' ? 'walking' : 'running',
+    );
     if (planned) { rp.setCurrentWorkout(planned); rp.setRunMode('plan'); }
     else { rp.setRunMode('free'); }
     // Bind the official_routes id + display metadata of the focused route (if any).

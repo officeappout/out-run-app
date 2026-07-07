@@ -10,11 +10,58 @@ export interface RoutePoint {
   lng: number;
 }
 
+// ── Session segments (planned-vs-actual per unit) ──────────────────────────
+// A workout is a sequence of segments; solo runs / strength sessions are
+// one-segment sessions, a combined (hybrid) session chains several. Units are
+// NEVER summed across kinds — aggregation is per-unit (combined-spec §0).
+export type SessionSegmentKind = 'aerobic' | 'strength';
+
+/**
+ * Planned targets / actual results for one segment. All fields optional —
+ * callers must OMIT unknown keys (conditional spread), never pass undefined:
+ * Firestore rejects undefined inside array elements.
+ */
+export interface SegmentMetrics {
+  durationSec?: number;
+  distanceKm?: number;
+  paceMinKm?: number;
+  calories?: number;
+  /** Strength segments: exercise / set counts. */
+  exercises?: number;
+  sets?: number;
+}
+
+export interface SessionSegmentRecord {
+  /** Position of this segment within the session (0-based). */
+  index: number;
+  kind: SessionSegmentKind;
+  /**
+   * Aerobic segments only. Walking is a first-class aerobic unit — never
+   * collapse it into 'running'.
+   */
+  aerobicType?: 'running' | 'walking';
+  label?: string;
+  planned?: SegmentMetrics;
+  actual?: SegmentMetrics;
+  /** Park where a strength segment took place (station linkage). */
+  parkId?: string;
+  /**
+   * Epoch millis — plain numbers by design: serverTimestamp() is invalid
+   * inside Firestore array elements (CLAUDE.md Firestore rules).
+   */
+  startedAtMs?: number;
+  endedAtMs?: number;
+}
+
 export interface WorkoutHistoryEntry {
   id?: string;
   userId: string;
   date: Date;
-  activityType: 'running' | 'walking' | 'cycling' | 'workout';
+  /**
+   * 'workout' is the legacy alias for strength; the active strength page has
+   * been writing 'strength' since launch, so both live in stored docs.
+   */
+  activityType: 'running' | 'walking' | 'cycling' | 'workout' | 'strength' | 'hybrid';
   // Future-proof fields
   workoutType: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid';
   category: 'cardio' | 'strength' | 'hybrid';
@@ -46,6 +93,13 @@ export interface WorkoutHistoryEntry {
   laps?: Lap[];
   /** Total metres of positive elevation gained during the run. */
   elevationGain?: number;
+  /**
+   * Per-unit planned-vs-actual segment records. Solo sessions write a single
+   * segment; combined (hybrid) sessions chain aerobic + strength segments.
+   * Root-level distance/duration/calories stay the session-wide aggregates so
+   * existing history filters, leagues and challenges keep working unchanged.
+   */
+  segments?: SessionSegmentRecord[];
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this was a recovery/maintenance workout (does not consume weekly volume budget) */
@@ -98,8 +152,14 @@ function getWorkoutMetadata(activityType: string): {
     case 'cycling':
       return { workoutType: 'cycling', category: 'cardio', displayIcon: 'bike' };
     case 'workout':
+    case 'strength':
       return { workoutType: 'strength', category: 'strength', displayIcon: 'dumbbell' };
+    case 'hybrid':
+      return { workoutType: 'hybrid', category: 'hybrid', displayIcon: 'activity' };
     default:
+      // Unknown input — keep the historical running fallback, but every real
+      // activityType now has an explicit case above (hybrid no longer
+      // silently degrades to running).
       return { workoutType: 'running', category: 'cardio', displayIcon: 'run-fast' };
   }
 }

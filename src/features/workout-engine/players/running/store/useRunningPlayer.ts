@@ -1135,6 +1135,12 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
     const calculatedCalories = Math.round(totalDistanceKm * userWeight * 1.036);
 
+    // Mirror the calorie DELTA into the unified session store so
+    // totalCalories aggregates across mode switches (hybrid plumbing).
+    // Delta-based on purpose: the absolute recompute above is scoped to this
+    // player's leg, while the session store may span several legs.
+    useSessionStore.getState().updateCalories(distanceDeltaKm * userWeight * 1.036);
+
     let updatedLaps = laps.length === 0
       ? [{ id: '1', lapNumber: 1, distanceMeters: 0, durationSeconds: 0, splitPace: 0, isActive: true }]
       : laps;
@@ -1390,17 +1396,46 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
               ? { groupId: _sharedSession.groupId, attendanceId: _sharedSession.attendanceId }
               : {};
 
+          // ── Phase 0 (hybrid plumbing): single aerobic segment record ──
+          // Solo runs/walks are saved as one-segment sessions so the future
+          // combined summary consumes every workout through the same
+          // planned-vs-actual segments[] shape. Keys are conditionally
+          // spread — Firestore rejects undefined inside array elements.
+          const sessionGoal = get().sessionGoal;
+          const aerobicSegment = {
+            index: 0,
+            kind: 'aerobic' as const,
+            aerobicType: (activityType === 'walking' ? 'walking' : 'running') as 'running' | 'walking',
+            ...(sessionGoal
+              ? {
+                  planned: {
+                    ...(sessionGoal.type === 'time' ? { durationSec: sessionGoal.value } : {}),
+                    ...(sessionGoal.type === 'distance' ? { distanceKm: sessionGoal.value } : {}),
+                    ...(sessionGoal.type === 'calories' ? { calories: sessionGoal.value } : {}),
+                  },
+                }
+              : {}),
+            actual: {
+              durationSec: safeDuration,
+              distanceKm: safeDistance,
+              ...(safePace > 0 ? { paceMinKm: safePace } : {}),
+              calories: safeCalories,
+            },
+          };
+
           // ── Build the single authoritative workout document ───────────
           // Commute sessions are tagged via `sessionKind: 'commute'` plus
-          // the optional destination metadata. We deliberately do NOT
-          // change `workoutType` (which stays 'running') so existing
-          // history filters / category groupings still see the activity
-          // — the slim summary screen branches on `sessionKind` to
-          // hide celebratory chrome.
+          // the optional destination metadata — no dedicated workoutType,
+          // so existing history filters / category groupings still see the
+          // activity; the slim summary screen branches on `sessionKind` to
+          // hide celebratory chrome. workoutType mirrors activityType so a
+          // walking session is filed as walking (it was hardcoded 'running'
+          // until Phase 0 of the hybrid plumbing).
           const workoutPayload = {
             userId: currentUser.uid,
             activityType: activityType || 'running',
-            workoutType: 'running' as const,
+            workoutType: (activityType === 'walking' ? 'walking' : 'running') as 'running' | 'walking',
+            segments: [aerobicSegment],
             distance: safeDistance,
             duration: safeDuration,
             calories: safeCalories,

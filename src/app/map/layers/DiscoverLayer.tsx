@@ -789,6 +789,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 // activity. This is a write-only mirror; it stays
                 // local to this session start and isn't persisted.
                 logic.handleActivityChange(commuteActivity);
+                // Also mirror into the running player itself so the unified
+                // session mode + the saved doc file a walking commute as
+                // walking (cycling falls back to 'running' — no pipeline yet).
+                useRunningPlayer.getState().setActivityType(
+                  commuteActivity === 'walking' ? 'walking' : 'running',
+                );
                 logic.setFocusedRoute(route);
                 setMapMode('idle');
                 setCommuteRouteConfig(null);
