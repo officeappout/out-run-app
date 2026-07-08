@@ -143,6 +143,7 @@ export const SIDEBAR_CONFIGS: Record<string, PortalSidebarConfig> = {
       {
         title: 'תפעול',
         links: [
+          { href: '/admin/approval-center', icon: 'ShieldCheck', label: 'מרכז אישורים' },
           { href: '/admin/authority/community', icon: 'CalendarHeart', label: 'מרכז קהילה' },
           { href: '/admin/authority/reports', icon: 'Flag', label: 'דיווח תחזוקה ודירוג' },
           { href: '/admin/authority/team', icon: 'Users', label: 'ניהול צוות' },

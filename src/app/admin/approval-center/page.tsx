@@ -32,7 +32,12 @@ import {
   Mountain,
   Users,
   X,
+  ChevronLeft,
 } from 'lucide-react';
+import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
+import {
+  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, formatDistance,
+} from '@/features/admin/components/approval/approval-labels';
 
 type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc';
 
@@ -47,28 +52,6 @@ interface QueueItem {
   createdByUser?: string;
 }
 
-const CLIMB_TYPE_LABELS: Record<string, string> = {
-  'short-sharp': 'קצר-חד',
-  repeats: 'חזרות',
-  'long-gentle': 'ארוך-מתון',
-  'structure-ramp': 'רמפה בנויה',
-  stairs: 'מדרגות',
-};
-const CONTRIB_TYPE_LABELS: Record<string, string> = {
-  new_location: 'מיקום חדש',
-  suggest_edit: 'הצעת עריכה',
-  report: 'דיווח',
-  review: 'ביקורת',
-};
-const FACILITY_LABELS: Record<string, string> = {
-  gym_park: 'פארק כושר',
-  court: 'מגרש ספורט',
-  nature_community: 'טבע וקהילה',
-  urban_spot: 'תשתית עירונית',
-  route: 'מסלול טיול',
-  zen_spot: 'אזור מנוחה',
-};
-
 export default function ApprovalCenterPage() {
   const router = useRouter();
   const [adminName, setAdminName] = useState('');
@@ -80,6 +63,7 @@ export default function ApprovalCenterPage() {
   const [climbs, setClimbs] = useState<QueueItem[]>([]);
   const [ugc, setUgc] = useState<QueueItem[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -161,9 +145,7 @@ export default function ApprovalCenterPage() {
         .filter(d => { const st = (d.data() as any).status; return st !== 'archived' && st !== 'rejected'; })
         .map(d => {
         const x: any = d.data();
-        const dist = typeof x.distance === 'number'
-          ? (x.distance >= 1000 ? `${(x.distance / 1000).toFixed(1)} ק״מ` : `${Math.round(x.distance)}מ׳`)
-          : '';
+        const dist = formatDistance(x.distance);
         const act = x.activityType === 'running' ? 'ריצה' : x.activityType === 'walking' ? 'הליכה' : (x.activityType || '');
         return {
           entityType: 'route' as const, id: d.id,
@@ -218,6 +200,7 @@ export default function ApprovalCenterPage() {
     try {
       await approveEntity(entityType, id, { adminId: currentUserId || '', adminName });
       removeFromState(entityType, id);
+      setSelectedItem(prev => (prev?.id === id ? null : prev));
     } catch (e) {
       console.error(e);
       alert('שגיאה באישור הפריט');
@@ -231,6 +214,7 @@ export default function ApprovalCenterPage() {
     try {
       await rejectEntity(entityType, id, reason, { adminId: currentUserId || '', adminName });
       removeFromState(entityType, id);
+      setSelectedItem(prev => (prev?.id === id ? null : prev));
     } catch (e) {
       console.error(e);
       alert('שגיאה בדחיית הפריט');
@@ -322,27 +306,36 @@ export default function ApprovalCenterPage() {
           <div className="divide-y divide-gray-50">
             {active.items.map(item => (
               <div key={item.id} className="px-6 py-4 flex items-center gap-4 hover:bg-amber-50/30 transition-colors">
-                <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
-                  <active.rowIcon size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-sm truncate">{item.title}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 flex-wrap">
-                    {item.origin === 'authority_admin' && (
-                      <span className="flex items-center gap-1 text-purple-600"><Building2 size={10} /> מקור: רשות</span>
-                    )}
-                    {item.origin === 'super_admin' && (
-                      <span className="flex items-center gap-1 text-blue-600"><ShieldCheck size={10} /> מנהל ראשי</span>
-                    )}
-                    {item.origin === 'osm_import' && (
-                      <span className="flex items-center gap-1 text-orange-600"><Mountain size={10} /> ייבוא OSM</span>
-                    )}
-                    {item.subtitle && <span>{item.subtitle}</span>}
-                    {item.createdByUser && (
-                      <span className="text-gray-400">מגיש: {item.createdByUser.slice(0, 8)}…</span>
-                    )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedItem({ entityType: item.entityType, id: item.id, title: item.title })}
+                  className="flex items-center gap-4 flex-1 min-w-0 text-right group"
+                >
+                  <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
+                    <active.rowIcon size={18} />
                   </div>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate group-hover:text-cyan-700 transition-colors">{item.title}</p>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 flex-wrap">
+                      {item.origin === 'authority_admin' && (
+                        <span className="flex items-center gap-1 text-purple-600"><Building2 size={10} /> מקור: רשות</span>
+                      )}
+                      {item.origin === 'super_admin' && (
+                        <span className="flex items-center gap-1 text-blue-600"><ShieldCheck size={10} /> מנהל ראשי</span>
+                      )}
+                      {item.origin === 'osm_import' && (
+                        <span className="flex items-center gap-1 text-orange-600"><Mountain size={10} /> ייבוא OSM</span>
+                      )}
+                      {item.subtitle && <span>{item.subtitle}</span>}
+                      {item.createdByUser && (
+                        <span className="text-gray-400">מגיש: {item.createdByUser.slice(0, 8)}…</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="flex items-center gap-1 text-[11px] text-cyan-600 font-bold flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    פירוט <ChevronLeft size={13} />
+                  </span>
+                </button>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
                     <Clock size={9} /> {isSuperAdmin ? 'ממתין לאישורך' : 'ממתין לאישור'}
@@ -378,6 +371,16 @@ export default function ApprovalCenterPage() {
           {parks.length} מיקומים · {routes.length} מסלולים · {climbs.length} עליות · {ugc.length} תרומות = {totalPending} פריטים {isSuperAdmin ? 'ממתינים לאישורך' : 'ממתינים לאישור'}
         </p>
       )}
+
+      {/* Detail preview — verify location/geometry before approving */}
+      <ApprovalDetailModal
+        item={selectedItem}
+        isSuperAdmin={isSuperAdmin}
+        processingId={processingId}
+        onApprove={handleApprove}
+        onReject={handleReject}
+        onClose={() => setSelectedItem(null)}
+      />
     </div>
   );
 }
