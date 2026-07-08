@@ -5,7 +5,10 @@
  * users/{uid}/gps_traces and writes each as a local JSON file under
  * scripts/gps-traces/ for offline filter replay (B.3 fixtures).
  *
- * Usage: npx tsx scripts/fetch-gps-traces.ts [daysBack=7]
+ * Usage: npx tsx scripts/fetch-gps-traces.ts [daysBack=7] [uid]
+ *   With uid → queries users/{uid}/gps_traces directly (no collection-group
+ *   index needed). Without → collectionGroup query (requires the
+ *   COLLECTION_GROUP_DESC index on gps_traces.createdAt).
  */
 
 import * as dotenv from 'dotenv';
@@ -28,10 +31,13 @@ async function main() {
   const db = admin.firestore();
 
   const daysBack = Number(process.argv[2] ?? 7);
+  const uid = process.argv[3];
   const since = new Date(Date.now() - daysBack * 24 * 3600 * 1000);
 
-  const snap = await db
-    .collectionGroup('gps_traces')
+  const base = uid
+    ? db.collection('users').doc(uid).collection('gps_traces')
+    : db.collectionGroup('gps_traces');
+  const snap = await base
     .where('createdAt', '>=', since)
     .orderBy('createdAt', 'desc')
     .limit(20)

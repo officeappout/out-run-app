@@ -58,6 +58,12 @@ let _rejectBuffer: Array<{ lat: number; lng: number; ts: number }> = [];
 const TRACE_MAX_SAMPLES = 10_000;
 let _traceBuffer: Array<{ t: number; lat: number; lng: number; acc: number; alt?: number }> = [];
 
+// finishWorkout idempotency lock. Eight UI call sites can invoke finish
+// (mini-dock, control cluster, paused screens, session bar) and none of them
+// debounce — a double-tap during the ~1-2 s async save used to write the
+// workout doc AND award XP twice. Released in finishWorkout's finally.
+let _finishInFlight = false;
+
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
 // canyons (typical accuracy is 5–15 m, worst-case 25–30 m). Tighter and we
@@ -1372,6 +1378,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // social feed post) is written here. FreeRunSummary and WorkoutSummaryPage
   // must NOT call saveWorkout() — they are display-only after this runs.
   finishWorkout: async () => {
+    // ── Idempotency guard ──────────────────────────────────────────────────
+    // A second invocation while one is in flight (double-tap on finish) or
+    // after the session already finished (two mounted controls both firing)
+    // must be a no-op — otherwise the workout doc and its XP are duplicated.
+    if (_finishInFlight) {
+      console.warn('[useRunningPlayer] finishWorkout ignored — already in flight');
+      return;
+    }
+    if (useSessionStore.getState().status === 'finished') {
+      console.warn('[useRunningPlayer] finishWorkout ignored — session already finished');
+      return;
+    }
+    _finishInFlight = true;
+
     // Flush any GPS samples that accumulated in the buffer since the last
     // FLUSH_EVERY threshold — guarantees the final segment is not lost.
     if (_coordBuffer.length > 0) {
@@ -1728,6 +1748,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           useSessionStore.getState().endSession();
         }
       } finally {
+        _finishInFlight = false;
         set({ guidedRouteId: null, guidedRouteName: null, guidedRouteDistanceKm: null, guidedRouteTurns: null });
         // Drop commute intent + map pin once the session is persisted.
         // The slim FreeRunSummary reads the commute flag from
