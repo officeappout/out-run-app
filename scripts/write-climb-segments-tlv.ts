@@ -38,9 +38,11 @@ function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, eve
 async function overpass(q: string): Promise<any> { for (let a = 0; a < 6; a++) for (const m of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter']) { try { const buf: Buffer = await new Promise((res, rej) => { const req = https.request(m, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'OUT/1.0 (office@appout.co.il)' } }, r => { const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode))); }); req.on('error', rej); req.write('data=' + encodeURIComponent(q)); req.end(); }); return JSON.parse(buf.toString()); } catch { await new Promise(r => setTimeout(r, 7000)); } } throw new Error('overpass failed'); }
 const bboxOf = (pts: number[][]) => ({ minLat: Math.min(...pts.map(p => p[0])), maxLat: Math.max(...pts.map(p => p[0])), minLng: Math.min(...pts.map(p => p[1])), maxLng: Math.max(...pts.map(p => p[1])) });
 const len = (pts: number[][]) => pts.reduce((s, _, i) => i ? s + hav(pts[i - 1], pts[i]) : 0, 0);
-// Persisted climb geometry: [lat,lng] internal → [lng,lat] tuples, to match the
-// app/route render contract (Mapbox order). Reader renders these as a coloured line.
-const toLine = (pts: number[][]) => pts.map(p => [p[1], p[0]] as [number, number]);
+// Persisted climb geometry: [lat,lng] internal → {lng,lat} OBJECTS. Firestore
+// forbids nested arrays, so (like official_routes.path) we store objects, not
+// [lng,lat] tuples. The reader (normalizeStoredRoutePath) turns them back into
+// [lng,lat] tuples for Mapbox.
+const toLine = (pts: number[][]) => pts.map(p => ({ lng: p[1], lat: p[0] }));
 
 // Reverse-geocode a center to a street name for climbs whose OSM way had no name
 // tag (wayName missing or a bare "way/1234" ref). Mapbox token comes from .env.local.
