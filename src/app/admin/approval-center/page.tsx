@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
 import {
-  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, formatDistance,
+  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, formatDistance, climbDisplayName,
 } from '@/features/admin/components/approval/approval-labels';
 
 type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc';
@@ -168,7 +168,7 @@ export default function ApprovalCenterPage() {
         const grade = x.avgGrade != null ? ` @ ${x.avgGrade}%` : '';
         return {
           entityType: 'climb' as const, id: d.id,
-          title: x.wayName || CLIMB_TYPE_LABELS[x.climbType] || 'עלייה',
+          title: climbDisplayName(x),
           subtitle: [CLIMB_TYPE_LABELS[x.climbType] || x.climbType, x.lengthM ? `${x.lengthM}מ׳${grade}` : '', x.dir].filter(Boolean).join(' · '),
           origin: x.origin,
         };

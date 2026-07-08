@@ -38,6 +38,24 @@ function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, eve
 async function overpass(q: string): Promise<any> { for (let a = 0; a < 6; a++) for (const m of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter']) { try { const buf: Buffer = await new Promise((res, rej) => { const req = https.request(m, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'OUT/1.0 (office@appout.co.il)' } }, r => { const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode))); }); req.on('error', rej); req.write('data=' + encodeURIComponent(q)); req.end(); }); return JSON.parse(buf.toString()); } catch { await new Promise(r => setTimeout(r, 7000)); } } throw new Error('overpass failed'); }
 const bboxOf = (pts: number[][]) => ({ minLat: Math.min(...pts.map(p => p[0])), maxLat: Math.max(...pts.map(p => p[0])), minLng: Math.min(...pts.map(p => p[1])), maxLng: Math.max(...pts.map(p => p[1])) });
 const len = (pts: number[][]) => pts.reduce((s, _, i) => i ? s + hav(pts[i - 1], pts[i]) : 0, 0);
+// Persisted climb geometry: [lat,lng] internal → [lng,lat] tuples, to match the
+// app/route render contract (Mapbox order). Reader renders these as a coloured line.
+const toLine = (pts: number[][]) => pts.map(p => [p[1], p[0]] as [number, number]);
+
+// Reverse-geocode a center to a street name for climbs whose OSM way had no name
+// tag (wayName missing or a bare "way/1234" ref). Mapbox token comes from .env.local.
+const MAPBOX = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  if (!MAPBOX) return null;
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=address&language=he&limit=1&access_token=${MAPBOX}`;
+    const buf: Buffer = await new Promise((res, rej) => { https.get(url, r => { const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode))); }).on('error', rej); });
+    const j = JSON.parse(buf.toString());
+    const f = j.features?.[0];
+    return (f?.text as string) || (f?.place_name as string)?.split(',')[0] || null;
+  } catch { return null; }
+}
+const isRealName = (n: unknown): n is string => typeof n === 'string' && n.trim().length > 0 && !/^way\/\d+$/i.test(n.trim());
 
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 
@@ -47,15 +65,15 @@ async function build() {
   const terr = JSON.parse(fs.readFileSync('/tmp/tlv_climb_segments.json', 'utf8'));
   for (const c of terr) {
     const center = { lat: c.center[0], lng: c.center[1] };
-    docs.push({ _id: `terrain_${c.id.split(':')[1]}_${Math.round(c.center[0] * 1e4)}`, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf([c.start, c.end]), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
+    docs.push({ _id: `terrain_${c.id.split(':')[1]}_${Math.round(c.center[0] * 1e4)}`, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf([c.start, c.end]), geometry: toLine([c.start, c.end]), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
   }
   // 2) structure — incline / ramp foot ways
   const ds = await overpass(`[out:json][timeout:90];(way["highway"~"footway|path|pedestrian"]["incline"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});way["ramp"="yes"]["highway"~"footway|path|pedestrian|steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax}););out geom tags;`);
   const seenS = new Set<number>();
-  for (const w of ds.elements) { if (!w.geometry || w.geometry.length < 2 || seenS.has(w.id)) continue; seenS.add(w.id); const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const inc = w.tags.incline || ''; const pct = /^-?\d+(\.\d+)?%$/.test(inc) ? Math.abs(parseFloat(inc)) : null; docs.push({ _id: `structure_${w.id}`, type: 'structure', climbType: 'structure-ramp', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), lengthM: Math.round(len(g)), avgGrade: pct, maxGrade: pct, dir: inc === 'down' ? 'down' : 'up', geohash: geohash(mid[0], mid[1]), source: `osm:${w.tags.highway}${w.tags.ramp === 'yes' ? '+ramp' : ''}`, inclineTag: inc || (w.tags.ramp === 'yes' ? 'ramp=yes' : null) }); }
+  for (const w of ds.elements) { if (!w.geometry || w.geometry.length < 2 || seenS.has(w.id)) continue; seenS.add(w.id); const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const inc = w.tags.incline || ''; const pct = /^-?\d+(\.\d+)?%$/.test(inc) ? Math.abs(parseFloat(inc)) : null; docs.push({ _id: `structure_${w.id}`, type: 'structure', climbType: 'structure-ramp', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM: Math.round(len(g)), avgGrade: pct, maxGrade: pct, dir: inc === 'down' ? 'down' : 'up', geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: `osm:${w.tags.highway}${w.tags.ramp === 'yes' ? '+ramp' : ''}`, inclineTag: inc || (w.tags.ramp === 'yes' ? 'ramp=yes' : null) }); }
   // 3) stairs — highway=steps
   const dst = await overpass(`[out:json][timeout:120];way["highway"="steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});out geom tags;`);
-  for (const w of dst.elements) { if (!w.geometry || w.geometry.length < 2) continue; const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue; docs.push({ _id: `stairs_${w.id}`, type: 'stairs', climbType: 'stairs', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), lengthM, stepCount, avgGrade: null, maxGrade: null, dir: w.tags.incline || null, geohash: geohash(mid[0], mid[1]), source: 'osm:steps' }); }
+  for (const w of dst.elements) { if (!w.geometry || w.geometry.length < 2) continue; const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue; docs.push({ _id: `stairs_${w.id}`, type: 'stairs', climbType: 'stairs', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM, stepCount, avgGrade: null, maxGrade: null, dir: w.tags.incline || null, geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: 'osm:steps' }); }
   return docs;
 }
 
@@ -76,7 +94,22 @@ async function main() {
   const docs = await build();
   const byType: any = {}; docs.forEach(d => byType[d.type] = (byType[d.type] || 0) + 1);
   console.log(`built ${docs.length} climb_segments →`, JSON.stringify(byType));
-  if (DRY) { console.log('[dry-run] sample:', JSON.stringify(docs[0], null, 1)); console.log('[dry-run] structure sample:', JSON.stringify(docs.find(d => d.type === 'structure'), null, 1)); return; }
+
+  // Resolve human street names where the OSM way carried none (missing or a bare
+  // "way/1234" ref) — reverse-geocode the center. Runs in dry-run too so the
+  // sample output shows the resolved names before any write.
+  const need = docs.filter(d => !isRealName(d.wayName));
+  console.log(`resolving ${need.length}/${docs.length} names via reverse-geocode${MAPBOX ? '' : ' (SKIPPED — no NEXT_PUBLIC_MAPBOX_TOKEN)'} ...`);
+  let geocoded = 0;
+  for (const d of need) {
+    const name = await reverseGeocode(d.center.lat, d.center.lng);
+    if (name) { d.wayName = name; geocoded++; }
+    else if (!isRealName(d.wayName)) d.wayName = null; // never persist a "way/1234" ref
+    await new Promise(r => setTimeout(r, 120)); // gentle on the geocoder
+  }
+  console.log(`resolved ${geocoded} street names (${need.length - geocoded} left unnamed → null)`);
+
+  if (DRY) { console.log('[dry-run] terrain sample:', JSON.stringify(docs.find(d => d.type === 'terrain'), null, 1)); console.log('[dry-run] structure sample:', JSON.stringify(docs.find(d => d.type === 'structure'), null, 1)); return; }
 
   let written = 0, b = db.batch(), n = 0;
   for (const d of docs) {

@@ -52,6 +52,9 @@ export type PreviewGeometry =
       kind: 'climb';
       center: { lat: number; lng: number };
       bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+      /** The steep sub-line as [lng,lat] tuples. When present it's drawn as a
+       *  turquoise line (like the app map); absent → fall back to bbox rectangle. */
+      line?: [number, number][];
     };
 
 interface ApprovalPreviewMapProps {
@@ -74,8 +77,10 @@ function padBounds(minLng: number, minLat: number, maxLng: number, maxLat: numbe
 }
 
 export default function ApprovalPreviewMap({ geometry }: ApprovalPreviewMapProps) {
-  // Valid finite route points only — never let NaN reach the map.
+  // Valid finite line points only — never let NaN reach the map.
   const routePath = geometry.kind === 'route' ? geometry.path.filter(finitePair) : [];
+  const climbLine = geometry.kind === 'climb' && Array.isArray(geometry.line)
+    ? geometry.line.filter(finitePair) : [];
 
   // Initial center: the point / climb center / first route waypoint. Falls back to
   // Tel Aviv center if the incoming coords are non-finite (defensive — the modal
@@ -98,14 +103,21 @@ export default function ApprovalPreviewMap({ geometry }: ApprovalPreviewMapProps
       map.on?.('style.load', () => applyHebrewLabels(map));
 
       // Frame line / bbox geometries so the whole thing is visible.
+      const boundsOf = (pts: [number, number][]) => {
+        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+        for (const [lng, lat] of pts) {
+          if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+        }
+        return { minLng, minLat, maxLng, maxLat };
+      };
       try {
         if (geometry.kind === 'route' && routePath.length >= 2) {
-          let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-          for (const [lng, lat] of routePath) {
-            if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
-            if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
-          }
-          map.fitBounds(padBounds(minLng, minLat, maxLng, maxLat), { padding: 40, duration: 0 });
+          const b = boundsOf(routePath);
+          map.fitBounds(padBounds(b.minLng, b.minLat, b.maxLng, b.maxLat), { padding: 40, duration: 0 });
+        } else if (geometry.kind === 'climb' && climbLine.length >= 2) {
+          const b = boundsOf(climbLine);
+          map.fitBounds(padBounds(b.minLng, b.minLat, b.maxLng, b.maxLat), { padding: 48, duration: 0 });
         } else if (geometry.kind === 'climb') {
           const { minLat, maxLat, minLng, maxLng } = geometry.bbox;
           if ([minLat, maxLat, minLng, maxLng].every(isFiniteNum)) {
@@ -114,7 +126,7 @@ export default function ApprovalPreviewMap({ geometry }: ApprovalPreviewMapProps
         }
       } catch { /* fitBounds best-effort */ }
     },
-    [geometry, routePath],
+    [geometry, routePath, climbLine],
   );
 
   if (!MAPBOX_TOKEN) {
@@ -135,8 +147,15 @@ export default function ApprovalPreviewMap({ geometry }: ApprovalPreviewMapProps
     && isFiniteNum(geometry.center?.lat) && isFiniteNum(geometry.center?.lng)
     && [geometry.bbox?.minLat, geometry.bbox?.maxLat, geometry.bbox?.minLng, geometry.bbox?.maxLng].every(isFiniteNum);
 
+  // Preferred: draw the steep sub-line as a turquoise line (like the app map).
+  const climbLineFeature =
+    geometry.kind === 'climb' && climbLine.length >= 2
+      ? { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: climbLine } }
+      : null;
+
+  // Fallback (docs without stored geometry): the bbox rectangle.
   const climbBox =
-    climbValid && geometry.kind === 'climb'
+    climbValid && geometry.kind === 'climb' && !climbLineFeature
       ? {
           type: 'Feature' as const,
           properties: {},
@@ -175,7 +194,19 @@ export default function ApprovalPreviewMap({ geometry }: ApprovalPreviewMapProps
         </Source>
       )}
 
-      {/* Climb bbox rectangle */}
+      {/* Climb steep sub-line — turquoise, like the app map */}
+      {climbLineFeature && (
+        <Source id="preview-climb-line" type="geojson" data={climbLineFeature}>
+          <Layer id="preview-climb-line-outline" type="line"
+            paint={{ 'line-color': '#ffffff', 'line-width': 8, 'line-opacity': 0.4 }}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+          <Layer id="preview-climb-line-core" type="line"
+            paint={{ 'line-color': '#06b6d4', 'line-width': 5, 'line-opacity': 0.9 }}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+        </Source>
+      )}
+
+      {/* Fallback climb bbox rectangle (docs without stored geometry) */}
       {climbBox && (
         <Source id="preview-climb-bbox" type="geojson" data={climbBox}>
           <Layer id="preview-climb-fill" type="fill"
@@ -196,8 +227,10 @@ export default function ApprovalPreviewMap({ geometry }: ApprovalPreviewMapProps
 
       {climbValid && geometry.kind === 'climb' && (
         <Marker longitude={geometry.center.lng} latitude={geometry.center.lat} anchor="bottom">
-          <div className="text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]">
-            <Mountain size={34} />
+          <div className={climbLineFeature
+            ? 'text-cyan-500 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]'
+            : 'text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.8)]'}>
+            <Mountain size={climbLineFeature ? 28 : 34} />
           </div>
         </Marker>
       )}

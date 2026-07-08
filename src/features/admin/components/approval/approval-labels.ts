@@ -37,3 +37,17 @@ export function formatDistance(distance: unknown): string {
   if (typeof distance !== 'number' || !isFinite(distance)) return '';
   return distance >= 1000 ? `${(distance / 1000).toFixed(1)} ק״מ` : `${Math.round(distance)}מ׳`;
 }
+
+/** A raw OSM way ref like "way/160415171" is NOT a human street name. */
+export const isRealStreetName = (name: unknown): name is string =>
+  typeof name === 'string' && name.trim().length > 0 && !/^way\/\d+$/i.test(name.trim());
+
+/**
+ * Climb display title: "עליית [street]" when a real street name is known,
+ * otherwise the climb-type label (never the raw "way/1234" OSM ref).
+ */
+export function climbDisplayName(x: any): string {
+  const raw = typeof x?.wayName === 'string' ? x.wayName.trim() : '';
+  if (isRealStreetName(raw)) return `עליית ${raw}`;
+  return CLIMB_TYPE_LABELS[x?.climbType] || 'עלייה';
+}

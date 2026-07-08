@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { Route } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
+import { normalizeStoredRoutePath } from '../utils/routePath';
 import { getParksByAuthority } from './parks.service';
 import {
     broadcastRouteToStreetSegments,
@@ -271,9 +272,10 @@ export const InventoryService = {
         const normalise = (docSnap: any): Route | null => {
             const data = docSnap.data();
             if (publishedOnly && data.published === false) return null;
-            const rawPath = data.path;
-            if (!Array.isArray(rawPath) || rawPath.length < 2) return null;
-            const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+            // Shared stored-path normaliser (handles {lng,lat} objects + [lng,lat]
+            // tuples, drops non-finite points) — single source of truth.
+            const path = normalizeStoredRoutePath(data.path);
+            if (path.length < 2) return null;
             return { ...data, id: docSnap.id, path } as Route;
         };
 

@@ -19,8 +19,9 @@ import {
 import type { ModerationEntityType } from '@/features/admin/services/moderation.service';
 import dynamicImport from 'next/dynamic';
 import type { PreviewGeometry } from './ApprovalPreviewMap';
+import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
 import {
-  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, ACTIVITY_LABELS, formatDistance,
+  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, ACTIVITY_LABELS, formatDistance, isRealStreetName,
 } from './approval-labels';
 
 // Map is client-only (react-map-gl) — load lazily so the drawer shell renders instantly.
@@ -94,13 +95,14 @@ function buildGeometry(entityType: ModerationEntityType, id: string, x: any): Ge
       return { status: 'ok', geometry: { kind: 'point', lat, lng } };
     }
     case 'route': {
-      if (!Array.isArray(x.path) || x.path.length === 0) return { status: 'invalid' };
-      const valid = x.path.filter(
-        (p: any) => Array.isArray(p) && isFiniteNum(p[0]) && isFiniteNum(p[1]),
-      ) as [number, number][];
-      if (valid.length < x.path.length) console.warn(`[ApprovalCenter] route ${id}: dropped ${x.path.length - valid.length} non-finite path point(s)`);
-      if (valid.length < 2) return warn({ pathLen: x.path.length, validLen: valid.length });
-      return { status: 'ok', geometry: { kind: 'route', path: valid } };
+      // Reuse the SAME normaliser the app/inventory uses — official_routes.path is
+      // stored as {lng,lat} objects, so a raw read must go through this or it
+      // false-positives as corrupt. Only genuinely broken geometry hits `warn`.
+      const path = normalizeStoredRoutePath(x.path);
+      const rawLen = Array.isArray(x.path) ? x.path.length : 0;
+      if (path.length < rawLen) console.warn(`[ApprovalCenter] route ${id}: dropped ${rawLen - path.length} non-finite path point(s)`);
+      if (path.length < 2) return warn({ rawLen, validLen: path.length });
+      return { status: 'ok', geometry: { kind: 'route', path } };
     }
     case 'climb': {
       const c = x.center, b = x.bbox;
@@ -108,7 +110,10 @@ function buildGeometry(entityType: ModerationEntityType, id: string, x: any): Ge
       if (!isFiniteNum(c?.lat) || !isFiniteNum(c?.lng)
         || !isFiniteNum(b?.minLat) || !isFiniteNum(b?.maxLat)
         || !isFiniteNum(b?.minLng) || !isFiniteNum(b?.maxLng)) return warn({ center: c, bbox: b });
-      return { status: 'ok', geometry: { kind: 'climb', center: c, bbox: b } };
+      // Steep sub-line (stored as [lng,lat]); reuse the route normaliser. Absent on
+      // pre-backfill docs → line omitted, preview falls back to the bbox rectangle.
+      const line = normalizeStoredRoutePath(x.geometry);
+      return { status: 'ok', geometry: { kind: 'climb', center: c, bbox: b, line: line.length >= 2 ? line : undefined } };
     }
   }
 }
@@ -141,7 +146,7 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
         ['שיפוע ממוצע', x.avgGrade != null ? `${x.avgGrade}%` : undefined],
         ['שיפוע מקסימלי', x.maxGrade != null ? `${x.maxGrade}%` : undefined],
         ['כיוון', x.dir],
-        ['שם רחוב (OSM)', x.wayName],
+        ['רחוב', isRealStreetName(x.wayName) ? x.wayName : undefined],
         ['מדרגות', x.stepCount != null ? String(x.stepCount) : undefined],
         ['עיר', x.city],
       );
