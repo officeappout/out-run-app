@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
-  X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2,
+  X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2, AlertTriangle,
 } from 'lucide-react';
 import type { ModerationEntityType } from '@/features/admin/services/moderation.service';
 import dynamicImport from 'next/dynamic';
@@ -58,26 +58,57 @@ interface ApprovalDetailModalProps {
   onClose: () => void;
 }
 
-// Build the read-only map geometry from a raw doc, per entity type. Returns null
-// when the doc carries no usable coordinates (e.g. a review/report contribution).
-function geometryOf(entityType: ModerationEntityType, x: any): PreviewGeometry | null {
-  if (!x) return null;
+// NaN is typeof 'number' — so coordinate guards MUST use Number.isFinite, not typeof.
+const isFiniteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * Geometry build result:
+ *   'ok'      — valid, renderable geometry
+ *   'none'    — the entity legitimately has no map geometry (e.g. a review/report)
+ *   'invalid' — coordinates were present but corrupt (NaN / non-finite) — a DATA
+ *               problem the reviewer should NOT approve blindly. Logged with the id.
+ */
+type GeometryResult =
+  | { status: 'ok'; geometry: PreviewGeometry }
+  | { status: 'none' }
+  | { status: 'invalid' };
+
+// Build the read-only map geometry from a raw doc, per entity type. Logs and flags
+// corrupt coordinates instead of forwarding NaN to a <Marker> (which throws).
+function buildGeometry(entityType: ModerationEntityType, id: string, x: any): GeometryResult {
+  if (!x) return { status: 'none' };
+  const warn = (detail: unknown) => {
+    console.warn(`[ApprovalCenter] corrupt geometry — ${entityType} ${id}:`, detail);
+    return { status: 'invalid' as const };
+  };
+
   switch (entityType) {
-    case 'park': {
-      const lat = x.location?.lat ?? x.lat;
-      const lng = x.location?.lng ?? x.lng;
-      return typeof lat === 'number' && typeof lng === 'number' ? { kind: 'point', lat, lng } : null;
-    }
-    case 'route':
-      return Array.isArray(x.path) && x.path.length >= 2 ? { kind: 'route', path: x.path } : null;
-    case 'climb':
-      return x.center && x.bbox ? { kind: 'climb', center: x.center, bbox: x.bbox } : null;
+    case 'park':
     case 'contribution': {
-      // Only new-location contributions carry a point worth showing.
       const loc = x.location || x.coordinates || null;
       const lat = loc?.lat ?? x.lat;
       const lng = loc?.lng ?? x.lng;
-      return typeof lat === 'number' && typeof lng === 'number' ? { kind: 'point', lat, lng } : null;
+      // A contribution with no coords at all is legitimately map-less; a park is not.
+      if (lat == null && lng == null) return { status: entityType === 'contribution' ? 'none' : 'invalid' };
+      if (!isFiniteNum(lat) || !isFiniteNum(lng)) return warn({ lat, lng });
+      return { status: 'ok', geometry: { kind: 'point', lat, lng } };
+    }
+    case 'route': {
+      if (!Array.isArray(x.path) || x.path.length === 0) return { status: 'invalid' };
+      const valid = x.path.filter(
+        (p: any) => Array.isArray(p) && isFiniteNum(p[0]) && isFiniteNum(p[1]),
+      ) as [number, number][];
+      if (valid.length < x.path.length) console.warn(`[ApprovalCenter] route ${id}: dropped ${x.path.length - valid.length} non-finite path point(s)`);
+      if (valid.length < 2) return warn({ pathLen: x.path.length, validLen: valid.length });
+      return { status: 'ok', geometry: { kind: 'route', path: valid } };
+    }
+    case 'climb': {
+      const c = x.center, b = x.bbox;
+      if (!c && !b) return { status: 'invalid' };
+      if (!isFiniteNum(c?.lat) || !isFiniteNum(c?.lng)
+        || !isFiniteNum(b?.minLat) || !isFiniteNum(b?.maxLat)
+        || !isFiniteNum(b?.minLng) || !isFiniteNum(b?.maxLng)) return warn({ center: c, bbox: b });
+      return { status: 'ok', geometry: { kind: 'climb', center: c, bbox: b } };
     }
   }
 }
@@ -154,7 +185,7 @@ export default function ApprovalDetailModal({
   if (!item) return null;
 
   const meta = ENTITY_META[item.entityType];
-  const geometry = geometryOf(item.entityType, data);
+  const geo = buildGeometry(item.entityType, item.id, data);
   const rows = infoRows(item.entityType, data);
   const isProcessing = processingId === item.id;
 
@@ -185,8 +216,14 @@ export default function ApprovalDetailModal({
           <div className="flex-1 overflow-y-auto">
             {/* Map preview */}
             <div className="h-64 w-full bg-gray-100 flex-shrink-0">
-              {geometry ? (
-                <ApprovalPreviewMap key={item.id} geometry={geometry} />
+              {geo.status === 'ok' ? (
+                <ApprovalPreviewMap key={item.id} geometry={geo.geometry} />
+              ) : geo.status === 'invalid' ? (
+                <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-red-500 bg-red-50/50">
+                  <AlertTriangle size={32} />
+                  <p className="text-sm font-black">מיקום לא תקין — דאטה פגומה</p>
+                  <p className="text-xs text-red-400 px-6 text-center">הקואורדינטות חסרות או פגומות (NaN). לא מומלץ לאשר פריט זה.</p>
+                </div>
               ) : (
                 <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-gray-400">
                   <MapPin size={32} />
