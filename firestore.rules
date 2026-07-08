@@ -722,6 +722,18 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // CLIMB SEGMENTS — topography-derived climbs (DEM) + OSM
+    // structural ramps + stairs. Public read so the client route
+    // generator can query climbsNear(); admin-only write (populated
+    // via the DEM importer script; status pending→published/rejected
+    // moderated in /admin/approval-center). Mirrors official_routes.
+    // ============================================================
+    match /climb_segments/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
     // STREET SEGMENTS — OSM-imported scored road/path segments
     // used by the dynamic route generator (fetchScoredWaypoints).
     // Public read so the client-side generator can query by city,

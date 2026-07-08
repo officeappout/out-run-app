@@ -23,7 +23,7 @@ const EDIT_REQUESTS_COLLECTION = 'edit_requests';
 
 export type EditRequestStatus = 'pending' | 'approved' | 'rejected';
 
-export type EditRequestEntityType = 'park' | 'route';
+export type EditRequestEntityType = 'park' | 'route' | 'climb';
 
 export interface EditRequest {
   id: string;
@@ -262,6 +262,23 @@ export async function approveEditRequest(
         targetEntity: 'Route',
         targetId: request.entityId,
         details: `Approved edit request for route: ${request.entityName}`,
+      });
+    } else if (request.entityType === 'climb') {
+      const climbRef = doc(db, 'climb_segments', request.entityId);
+      await updateDoc(climbRef, {
+        ...(request.originalData === null ? {} : request.newData),
+        status: 'published',
+        publishedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await logAction({
+        adminId: adminInfo.adminId,
+        adminName: adminInfo.adminName,
+        actionType: 'UPDATE',
+        targetEntity: 'ClimbSegment',
+        targetId: request.entityId,
+        details: `Approved edit request for climb: ${request.entityName}`,
       });
     }
 
