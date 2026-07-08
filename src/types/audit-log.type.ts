@@ -29,6 +29,9 @@ export type AuditTargetEntity =
   | 'ProductTask'
   | 'ProductTag'
   | 'PushMessage'
+  // Climb layer + moderation entities (feat/climb-layer-moderation)
+  | 'ClimbSegment'
+  | 'Contribution'
   | 'System';
 
 export interface AuditLog {
