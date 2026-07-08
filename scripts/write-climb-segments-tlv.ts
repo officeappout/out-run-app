@@ -119,6 +119,7 @@ function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KE
 async function build() {
   const docs: any[] = [];
   const rejectedTerrain: { id: string; wayName: string; center: { lat: number; lng: number }; reason: string }[] = [];
+  const escalators: { id: string; label: string }[] = []; // conveying=yes moving stairs — not training stairs
   // 1) terrain — validate each against a real walkable way + reject water/private artifacts.
   // Two bbox fetches (padded), then LOCAL geometry per climb — fast + rate-limit friendly.
   const pad = 0.004;
@@ -175,8 +176,18 @@ async function build() {
   for (const w of ds.elements) { if (!w.geometry || w.geometry.length < 2 || seenS.has(w.id)) continue; seenS.add(w.id); const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const inc = w.tags.incline || ''; const pct = /^-?\d+(\.\d+)?%$/.test(inc) ? Math.abs(parseFloat(inc)) : null; docs.push({ _id: `structure_${w.id}`, type: 'structure', climbType: 'structure-ramp', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM: Math.round(len(g)), avgGrade: pct, maxGrade: pct, dir: inc === 'down' ? 'down' : 'up', geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: `osm:${w.tags.highway}${w.tags.ramp === 'yes' ? '+ramp' : ''}`, inclineTag: inc || (w.tags.ramp === 'yes' ? 'ramp=yes' : null) }); }
   // 3) stairs — highway=steps
   const dst = await overpass(`[out:json][timeout:120];way["highway"="steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});out geom tags;`);
-  for (const w of dst.elements) { if (!w.geometry || w.geometry.length < 2) continue; const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue; docs.push({ _id: `stairs_${w.id}`, type: 'stairs', climbType: 'stairs', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM, stepCount, avgGrade: null, maxGrade: null, dir: w.tags.incline || null, geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: 'osm:steps' }); }
-  return { docs, rejectedTerrain };
+  for (const w of dst.elements) {
+    if (!w.geometry || w.geometry.length < 2) continue;
+    const _id = `stairs_${w.id}`;
+    // Escalators / moving walkways (conveying=yes|forward|backward|reversible) are NOT
+    // training stairs — drop + delete any that a prior run wrote. conveying=no is a real
+    // (explicitly non-moving) staircase, so keep it.
+    if (w.tags.conveying && w.tags.conveying !== 'no') { escalators.push({ id: _id, label: w.tags.name || `way/${w.id}` }); continue; }
+    const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue;
+    docs.push({ _id, type: 'stairs', climbType: 'stairs', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM, stepCount, avgGrade: null, maxGrade: null, dir: w.tags.incline || null, geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: 'osm:steps' });
+  }
+  console.log(`stairs: filtered ${escalators.length} escalator(s) (conveying=yes)`);
+  return { docs, rejectedTerrain, escalators };
 }
 
 async function main() {
@@ -193,7 +204,7 @@ async function main() {
     return;
   }
 
-  const { docs, rejectedTerrain } = await build();
+  const { docs, rejectedTerrain, escalators } = await build();
   const byType: any = {}; docs.forEach(d => byType[d.type] = (byType[d.type] || 0) + 1);
   console.log(`built ${docs.length} climb_segments →`, JSON.stringify(byType));
 
@@ -212,8 +223,9 @@ async function main() {
   console.log(`resolved ${geocoded} street names (${need.length - geocoded} left unnamed → null)`);
 
   if (DRY) {
-    console.log(`[dry-run] ${rejectedTerrain.length} terrain artifact(s) would be dropped + deleted:`);
-    rejectedTerrain.forEach(r => console.log(`   - ${r.wayName} (${r.center.lat.toFixed(5)},${r.center.lng.toFixed(5)}) — ${r.reason}`));
+    console.log(`[dry-run] ${rejectedTerrain.length} terrain artifact(s) + ${escalators.length} escalator(s) would be dropped + deleted:`);
+    rejectedTerrain.forEach(r => console.log(`   - terrain ${r.wayName} (${r.center.lat.toFixed(5)},${r.center.lng.toFixed(5)}) — ${r.reason}`));
+    escalators.forEach(e => console.log(`   - escalator ${e.label} (${e.id})`));
     console.log('[dry-run] terrain sample:', JSON.stringify(docs.find(d => d.type === 'terrain'), null, 1));
     return;
   }
@@ -235,10 +247,12 @@ async function main() {
   await b.commit();
   console.log(`✅ ${COL}: wrote ${written} docs (${JSON.stringify(byType)}), status defaulted to 'pending' where unset. ADDITIVE — official_routes untouched.`);
 
-  // Remove terrain artifacts that were written by a previous run (before this filter existed).
-  if (rejectedTerrain.length) {
-    let db2 = db.batch(); for (const r of rejectedTerrain) db2.delete(col.doc(r.id)); await db2.commit();
-    console.log(`🧹 deleted ${rejectedTerrain.length} terrain artifact doc(s): ${rejectedTerrain.map(r => `${r.wayName} (${r.reason})`).join(', ')}`);
+  // Remove filtered docs a previous run may have written (before these filters existed):
+  // terrain artifacts (over water/private) + escalators (conveying=yes).
+  const toDelete = [...rejectedTerrain.map(r => r.id), ...escalators.map(e => e.id)];
+  if (toDelete.length) {
+    let db2 = db.batch(); for (const id of toDelete) db2.delete(col.doc(id)); await db2.commit();
+    console.log(`🧹 deleted ${rejectedTerrain.length} terrain artifact(s) + ${escalators.length} escalator(s)`);
   }
 }
 main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });

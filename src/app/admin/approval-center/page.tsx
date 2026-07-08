@@ -50,6 +50,7 @@ interface QueueItem {
   origin?: string;
   authorityId?: string;
   createdByUser?: string;
+  climbType?: string;
 }
 
 export default function ApprovalCenterPage() {
@@ -64,6 +65,7 @@ export default function ApprovalCenterPage() {
   const [ugc, setUgc] = useState<QueueItem[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
+  const [climbFilter, setClimbFilter] = useState<string>('all');
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -174,7 +176,7 @@ export default function ApprovalCenterPage() {
             x.lengthM ? `${x.lengthM}מ׳` : '',
             x.avgGrade != null ? `${x.avgGrade}%` : '',
           ].filter(Boolean).join(' · '),
-          origin: x.origin,
+          origin: x.origin, climbType: x.climbType,
         };
       });
     } catch { return []; }
@@ -244,6 +246,13 @@ export default function ApprovalCenterPage() {
   ];
   const active = TABS.find(t => t.id === activeTab)!;
 
+  // climbType sub-filter (climbs tab) — find the ~real training climbs without scrolling 196.
+  const CLIMB_FILTERS = ['all', 'short-sharp', 'repeats', 'long-gentle', 'structure-ramp', 'stairs'];
+  const climbCount = (t: string) => t === 'all' ? climbs.length : climbs.filter(c => c.climbType === t).length;
+  const shownItems = activeTab === 'climbs' && climbFilter !== 'all'
+    ? active.items.filter(i => i.climbType === climbFilter)
+    : active.items;
+
   return (
     <div className="space-y-6 pb-12" dir="rtl">
       {/* Header */}
@@ -296,9 +305,32 @@ export default function ApprovalCenterPage() {
         ))}
       </div>
 
+      {/* climbType sub-filter — only on the climbs tab */}
+      {activeTab === 'climbs' && climbs.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {CLIMB_FILTERS.map(t => {
+            const count = climbCount(t);
+            if (t !== 'all' && count === 0) return null;
+            const label = t === 'all' ? 'הכל' : (CLIMB_TYPE_LABELS[t] || t);
+            return (
+              <button
+                key={t}
+                onClick={() => setClimbFilter(t)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                  climbFilter === t ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-orange-50'
+                }`}
+              >
+                {label}
+                <span className={`text-[10px] font-black ${climbFilter === t ? 'text-white/90' : 'text-gray-400'}`}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Active tab list */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        {active.items.length === 0 ? (
+        {shownItems.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-4 text-center">
             <CheckCircle2 size={40} className="text-green-400" />
             <p className="text-lg font-black text-gray-700">אין {active.label} ממתינים</p>
@@ -308,7 +340,7 @@ export default function ApprovalCenterPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {active.items.map(item => (
+            {shownItems.map(item => (
               <div key={item.id} className="px-6 py-4 flex items-center gap-4 hover:bg-amber-50/30 transition-colors">
                 <button
                   type="button"
