@@ -26,7 +26,9 @@
     "_comment_preflight": "── Pre-flight ── Run before every TestFlight / release build to catch missing native config (GoogleService-Info.plist, REVERSED_CLIENT_ID, SHA fingerprints, etc.).",
     "preflight": "node scripts/preflight-native-check.mjs",
     "preflight:testflight": "node scripts/preflight-native-check.mjs && npm run cap:sync:ios",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor-firebase/app-check": "^6.3.0",
@@ -117,6 +119,7 @@
     "tailwindcss": "^3.4.1",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vercel": "^54.1.0"
+    "vercel": "^54.1.0",
+    "vitest": "^4.1.10"
   }
 }
