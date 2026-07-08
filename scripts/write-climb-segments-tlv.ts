@@ -78,16 +78,71 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   return null;
 }
 
+// A DEM-terrain climb is only real if it sits on (≤15m from) a walkable OSM way AND
+// is NOT over water / inside a pool / marina / private area — the DEM slope model
+// produces false climbs over e.g. the Tel Aviv Marina basin. Validated LOCALLY against
+// two bbox Overpass fetches (all walkable ways + all blocking polygons) so a run is 2
+// queries, not one-per-climb (which rate-limits). [lat,lng] geometry helpers:
+const WALKABLE = 'footway|path|pedestrian|steps|residential|track|living_street|service|cycleway|unclassified';
+const mPerDegLat = 110540;
+const mPerDegLng = (lat: number) => 111320 * Math.cos(lat * Math.PI / 180);
+function distToSegM(p: number[], a: number[], b: number[]): number {
+  const mx = mPerDegLng(p[0]), my = mPerDegLat;
+  const px = (p[1] - a[1]) * mx, py = (p[0] - a[0]) * my, bx = (b[1] - a[1]) * mx, by = (b[0] - a[0]) * my;
+  const l2 = bx * bx + by * by; let t = l2 > 0 ? (px * bx + py * by) / l2 : 0; t = Math.max(0, Math.min(1, t));
+  const dx = px - t * bx, dy = py - t * by; return Math.sqrt(dx * dx + dy * dy);
+}
+function inPoly(p: number[], poly: number[][]): boolean {
+  let ins = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
+    if (((yi > p[0]) !== (yj > p[0])) && (p[1] < (xj - xi) * (p[0] - yi) / (yj - yi) + xi)) ins = !ins;
+  }
+  return ins;
+}
+const wayGeom = (e: any): number[][] => (e.geometry || []).map((p: any) => [p.lat, p.lon]);
+
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 
 async function build() {
   const docs: any[] = [];
-  // 1) terrain
+  const rejectedTerrain: { id: string; wayName: string; center: { lat: number; lng: number }; reason: string }[] = [];
+  // 1) terrain — validate each against a real walkable way + reject water/private artifacts.
+  // Two bbox fetches (padded), then LOCAL geometry per climb — fast + rate-limit friendly.
+  const pad = 0.004;
+  const bb = `${BBOX.latMin - pad},${BBOX.lonMin - pad},${BBOX.latMax + pad},${BBOX.lonMax + pad}`;
+  console.log('fetching walkable ways + blocking polygons for terrain validation (2 bbox queries) ...');
+  const walkData = await overpass(`[out:json][timeout:120];way["highway"~"^(${WALKABLE})$"](${bb});out geom;`);
+  const walkWays: number[][][] = walkData.elements.filter((e: any) => e.type === 'way' && e.geometry).map(wayGeom);
+  const blockData = await overpass(`[out:json][timeout:120];(way["natural"="water"](${bb});way["leisure"~"^(marina|swimming_pool|water_park)$"](${bb});way["access"="private"](${bb});relation["natural"="water"](${bb});relation["leisure"="marina"](${bb}););out geom;`);
+  const blockPolys: { poly: number[][]; label: string }[] = [];
+  for (const e of blockData.elements) {
+    const label = e.tags?.name || e.tags?.natural || e.tags?.leisure || 'private';
+    if (e.type === 'way' && e.geometry) blockPolys.push({ poly: wayGeom(e), label });
+    else if (e.type === 'relation' && e.members) for (const m of e.members) if (m.geometry) blockPolys.push({ poly: m.geometry.map((p: any) => [p.lat, p.lon]), label });
+  }
+  console.log(`  walkable ways=${walkWays.length}  blocking polygons=${blockPolys.length}`);
+  const validateTerrain = (lat: number, lng: number): { keep: boolean; reason: string } => {
+    const p = [lat, lng];
+    const block = blockPolys.find(b => b.poly.length >= 3 && inPoly(p, b.poly));
+    if (block) return { keep: false, reason: `over ${block.label}` };
+    for (const w of walkWays) for (let i = 1; i < w.length; i++) if (distToSegM(p, w[i - 1], w[i]) <= 15) return { keep: true, reason: 'on-way' };
+    return { keep: false, reason: 'no walkable way ≤15m' };
+  };
+
   const terr = JSON.parse(fs.readFileSync('/tmp/tlv_climb_segments.json', 'utf8'));
   for (const c of terr) {
     const center = { lat: c.center[0], lng: c.center[1] };
-    docs.push({ _id: `terrain_${c.id.split(':')[1]}_${Math.round(c.center[0] * 1e4)}`, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf([c.start, c.end]), geometry: toLine([c.start, c.end]), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
+    const _id = `terrain_${c.id.split(':')[1]}_${Math.round(c.center[0] * 1e4)}`;
+    const v = validateTerrain(center.lat, center.lng);
+    if (!v.keep) {
+      rejectedTerrain.push({ id: _id, wayName: c.wayName, center, reason: v.reason });
+      console.log(`  ✗ ${c.wayName} (${center.lat.toFixed(5)},${center.lng.toFixed(5)}) — ${v.reason}`);
+      continue;
+    }
+    docs.push({ _id, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf([c.start, c.end]), geometry: toLine([c.start, c.end]), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
   }
+  console.log(`terrain: ${terr.length} → kept ${terr.length - rejectedTerrain.length}, rejected ${rejectedTerrain.length} artifact(s)`);
   // 2) structure — incline / ramp foot ways
   const ds = await overpass(`[out:json][timeout:90];(way["highway"~"footway|path|pedestrian"]["incline"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});way["ramp"="yes"]["highway"~"footway|path|pedestrian|steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax}););out geom tags;`);
   const seenS = new Set<number>();
@@ -95,7 +150,7 @@ async function build() {
   // 3) stairs — highway=steps
   const dst = await overpass(`[out:json][timeout:120];way["highway"="steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});out geom tags;`);
   for (const w of dst.elements) { if (!w.geometry || w.geometry.length < 2) continue; const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue; docs.push({ _id: `stairs_${w.id}`, type: 'stairs', climbType: 'stairs', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM, stepCount, avgGrade: null, maxGrade: null, dir: w.tags.incline || null, geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: 'osm:steps' }); }
-  return docs;
+  return { docs, rejectedTerrain };
 }
 
 async function main() {
@@ -112,7 +167,7 @@ async function main() {
     return;
   }
 
-  const docs = await build();
+  const { docs, rejectedTerrain } = await build();
   const byType: any = {}; docs.forEach(d => byType[d.type] = (byType[d.type] || 0) + 1);
   console.log(`built ${docs.length} climb_segments →`, JSON.stringify(byType));
 
@@ -130,7 +185,12 @@ async function main() {
   }
   console.log(`resolved ${geocoded} street names (${need.length - geocoded} left unnamed → null)`);
 
-  if (DRY) { console.log('[dry-run] terrain sample:', JSON.stringify(docs.find(d => d.type === 'terrain'), null, 1)); console.log('[dry-run] structure sample:', JSON.stringify(docs.find(d => d.type === 'structure'), null, 1)); return; }
+  if (DRY) {
+    console.log(`[dry-run] ${rejectedTerrain.length} terrain artifact(s) would be dropped + deleted:`);
+    rejectedTerrain.forEach(r => console.log(`   - ${r.wayName} (${r.center.lat.toFixed(5)},${r.center.lng.toFixed(5)}) — ${r.reason}`));
+    console.log('[dry-run] terrain sample:', JSON.stringify(docs.find(d => d.type === 'terrain'), null, 1));
+    return;
+  }
 
   let written = 0, b = db.batch(), n = 0;
   for (const d of docs) {
@@ -148,5 +208,11 @@ async function main() {
   }
   await b.commit();
   console.log(`✅ ${COL}: wrote ${written} docs (${JSON.stringify(byType)}), status defaulted to 'pending' where unset. ADDITIVE — official_routes untouched.`);
+
+  // Remove terrain artifacts that were written by a previous run (before this filter existed).
+  if (rejectedTerrain.length) {
+    let db2 = db.batch(); for (const r of rejectedTerrain) db2.delete(col.doc(r.id)); await db2.commit();
+    console.log(`🧹 deleted ${rejectedTerrain.length} terrain artifact doc(s): ${rejectedTerrain.map(r => `${r.wayName} (${r.reason})`).join(', ')}`);
+  }
 }
 main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
