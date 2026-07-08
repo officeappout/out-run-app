@@ -43,11 +43,14 @@ export const isRealStreetName = (name: unknown): name is string =>
   typeof name === 'string' && name.trim().length > 1 && !/^\d+$/.test(name.trim()) && !/^way\/\d+$/i.test(name.trim());
 
 /**
- * Climb display title: "עליית [street]" when a real street name is known,
- * otherwise the climb-type label (never the raw "way/1234" OSM ref).
+ * Climb display title. Stairs read "מדרגות [מקום]"; every other climb reads
+ * "עליית [רחוב]". Uses the real place name when known, else the type label
+ * (never the raw "way/1234" OSM ref).
  */
 export function climbDisplayName(x: any): string {
+  const isStairs = x?.type === 'stairs' || x?.climbType === 'stairs';
+  const prefix = isStairs ? 'מדרגות' : 'עליית';
   const raw = typeof x?.wayName === 'string' ? x.wayName.trim() : '';
-  if (isRealStreetName(raw)) return `עליית ${raw}`;
-  return CLIMB_TYPE_LABELS[x?.climbType] || 'עלייה';
+  if (isRealStreetName(raw)) return `${prefix} ${raw}`;
+  return CLIMB_TYPE_LABELS[x?.climbType] || (isStairs ? 'מדרגות' : 'עלייה');
 }

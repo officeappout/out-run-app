@@ -101,6 +101,18 @@ function inPoly(p: number[], poly: number[][]): boolean {
   return ins;
 }
 const wayGeom = (e: any): number[][] => (e.geometry || []).map((p: any) => [p.lat, p.lon]);
+// Index of the way vertex nearest a target [lat,lng].
+const nearestIdx = (full: number[][], t: number[]): number => { let bi = 0, bd = Infinity; for (let i = 0; i < full.length; i++) { const d = hav(full[i], t); if (d < bd) { bd = d; bi = i; } } return bi; };
+// The curved sub-path of a way between the climb's start & end points (follows the
+// road geometry, not a straight start→end chord). Falls back to [start,end] if the
+// way geometry is missing or the slice degenerates.
+function subLine(full: number[][] | undefined, start: number[], end: number[]): number[][] {
+  if (!full || full.length < 2) return [start, end];
+  let i = nearestIdx(full, start), j = nearestIdx(full, end);
+  if (i > j) { const t = i; i = j; j = t; }
+  const seg = full.slice(i, j + 1);
+  return seg.length >= 2 ? seg : [start, end];
+}
 
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 
@@ -113,7 +125,8 @@ async function build() {
   const bb = `${BBOX.latMin - pad},${BBOX.lonMin - pad},${BBOX.latMax + pad},${BBOX.lonMax + pad}`;
   console.log('fetching walkable ways + blocking polygons for terrain validation (2 bbox queries) ...');
   const walkData = await overpass(`[out:json][timeout:120];way["highway"~"^(${WALKABLE})$"](${bb});out geom;`);
-  const walkWays: number[][][] = walkData.elements.filter((e: any) => e.type === 'way' && e.geometry).map(wayGeom);
+  const walkWays: { id: string; geom: number[][] }[] = walkData.elements.filter((e: any) => e.type === 'way' && e.geometry).map((e: any) => ({ id: String(e.id), geom: wayGeom(e) }));
+  const walkById = new Map(walkWays.map(w => [w.id, w.geom]));
   const blockData = await overpass(`[out:json][timeout:120];(way["natural"="water"](${bb});way["leisure"~"^(marina|swimming_pool|water_park)$"](${bb});way["access"="private"](${bb});relation["natural"="water"](${bb});relation["leisure"="marina"](${bb}););out geom;`);
   const blockPolys: { poly: number[][]; label: string }[] = [];
   for (const e of blockData.elements) {
@@ -126,11 +139,19 @@ async function build() {
     const p = [lat, lng];
     const block = blockPolys.find(b => b.poly.length >= 3 && inPoly(p, b.poly));
     if (block) return { keep: false, reason: `over ${block.label}` };
-    for (const w of walkWays) for (let i = 1; i < w.length; i++) if (distToSegM(p, w[i - 1], w[i]) <= 15) return { keep: true, reason: 'on-way' };
+    for (const w of walkWays) for (let i = 1; i < w.geom.length; i++) if (distToSegM(p, w.geom[i - 1], w.geom[i]) <= 15) return { keep: true, reason: 'on-way' };
     return { keep: false, reason: 'no walkable way ≤15m' };
+  };
+  // Nearest walkable-way polyline to a point (fallback when the DEM way isn't in the
+  // walkable set) — used to source the curved line the climb sits on.
+  const nearestWalkway = (lat: number, lng: number): number[][] | undefined => {
+    let best: number[][] | undefined, bd = Infinity;
+    for (const w of walkWays) for (let i = 1; i < w.geom.length; i++) { const d = distToSegM([lat, lng], w.geom[i - 1], w.geom[i]); if (d < bd) { bd = d; best = w.geom; } }
+    return best;
   };
 
   const terr = JSON.parse(fs.readFileSync('/tmp/tlv_climb_segments.json', 'utf8'));
+  let curved = 0;
   for (const c of terr) {
     const center = { lat: c.center[0], lng: c.center[1] };
     const _id = `terrain_${c.id.split(':')[1]}_${Math.round(c.center[0] * 1e4)}`;
@@ -140,9 +161,14 @@ async function build() {
       console.log(`  ✗ ${c.wayName} (${center.lat.toFixed(5)},${center.lng.toFixed(5)}) — ${v.reason}`);
       continue;
     }
-    docs.push({ _id, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf([c.start, c.end]), geometry: toLine([c.start, c.end]), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
+    // Curved line = the sub-path of the DEM way (or nearest walkable way) between
+    // start & end, sourced from the already-fetched walkable ways (no extra query).
+    const full = walkById.get(c.id.split(':')[1]) || nearestWalkway(center.lat, center.lng);
+    const line = subLine(full, c.start, c.end);
+    if (line.length > 2) curved++;
+    docs.push({ _id, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf(line), geometry: toLine(line), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
   }
-  console.log(`terrain: ${terr.length} → kept ${terr.length - rejectedTerrain.length}, rejected ${rejectedTerrain.length} artifact(s)`);
+  console.log(`terrain: ${terr.length} → kept ${terr.length - rejectedTerrain.length}, rejected ${rejectedTerrain.length} artifact(s); ${curved} curved lines (>2 pts)`);
   // 2) structure — incline / ramp foot ways
   const ds = await overpass(`[out:json][timeout:90];(way["highway"~"footway|path|pedestrian"]["incline"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});way["ramp"="yes"]["highway"~"footway|path|pedestrian|steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax}););out geom tags;`);
   const seenS = new Set<number>();
