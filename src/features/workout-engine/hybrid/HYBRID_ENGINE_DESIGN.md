@@ -147,6 +147,46 @@ perStationMin = clamp(T_str / S, 8, 12)         // default window 8-12 min
 Order stations by `neglectedDomains` first (weekly_smart), else push → pull → legs_core.
 Skill/CNS-heavy work goes to the EARLIEST station (freshest — mirrors Golden Slot law).
 
+### Step 4b — GENERIC STOP MODEL (vision guardrail, David 08.07.2026)
+A stop is generic on TWO independent axes — never hard-code "stop = strength
+station":
+
+```ts
+export type StopLocationKind =
+  | 'gym' | 'bench' | 'stairs' | 'viewpoint' | 'spring'
+  | 'scenic' | 'dog_park' | 'open_area';
+export type StopActivityKind =
+  | 'strength' | 'mobility' | 'stretch' | 'core' | 'yoga'
+  | 'meditation' | 'rest_view';
+
+export interface HybridStop {
+  stopId: string; parkId?: string;
+  location: { kind: StopLocationKind; lat: number; lng: number; waypointIndex: number };
+  activityType: StopActivityKind;
+  /** Gear-id list available at THIS stop (normalized). Bodyweight-only = []. */
+  availableEquipment: string[];
+  /** Produced by the activity-type dispatcher below. */
+  content: StrengthBlockResult /* | MobilityBlock | YogaContent | … (future) */;
+}
+```
+
+**Content dispatch by activityType** — the composer routes each stop to a
+content generator; TODAY only one exists: `strength → generateStrengthBlock`.
+Future kinds (mobility / yoga / rest_view → other generators or curated
+content, incl. agent-pulled POIs) plug into the same dispatch WITHOUT engine
+rewrites. Experience stops (יוגה בתצפית) are a content plugin, not a fork.
+
+**Equipment flow (verified in code, 08.07.2026):** the equipment axis is
+ALREADY generic end-to-end. `ContextualEngine.filterAndScore` receives
+`availableEquipment: string[]` (normalized gear-ids, ContextualEngine.ts:534-538)
+and filters execution methods against it. The composer therefore builds a
+PER-STOP pool — `filterAndScore(masterPool, { …, location: 'park',
+availableEquipment: stop.availableEquipment })` — and hands it to
+`generateStrengthBlock`, which by contract takes a pre-filtered pool and
+never builds pools. A bench/stairs stop passes `['bench']` / `['stairs']`
+(+ implicit bodyweight) and yields only matching exercises — no
+block-service change needed.
+
 ### Step 5 — Strength block per station (reuse the generator)
 Call WorkoutGenerator in a new **block mode** (build item — see §5):
 - `availableTime = perStationMin` → existing DURATION_SCALING ≤10 tier: 2-3 exercises, no accessories.
