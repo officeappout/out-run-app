@@ -27,6 +27,7 @@ import {
   approveSuggestEdit,
 } from '@/features/parks/core/services/contribution.service';
 import type { UserContribution } from '@/types/contribution.types';
+import type { AuditTargetEntity } from '@/types/audit-log.type';
 
 export type ModerationEntityType = 'park' | 'route' | 'climb' | 'contribution';
 
@@ -35,7 +36,7 @@ export interface ModeratorInfo {
   adminName: string;
 }
 
-const AUDIT_ENTITY: Record<ModerationEntityType, string> = {
+const AUDIT_ENTITY: Record<ModerationEntityType, AuditTargetEntity> = {
   park: 'Park',
   route: 'Route',
   climb: 'ClimbSegment',
