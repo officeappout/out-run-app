@@ -50,6 +50,14 @@ let _goodFixCount = 0;
 // escape hatch. Reset on every successful accumulation or tracking restart.
 let _rejectBuffer: Array<{ lat: number; lng: number; ts: number }> = [];
 
+// Raw GPS trace recorder (B.2). Records EVERY sample that reaches the
+// subscription callback — BEFORE any filtering — so filter changes can be
+// replayed offline against real recordings. ~70 bytes/sample; the cap keeps
+// the serialized trace well under Firestore's 1 MB doc limit. Reset at
+// workout start (initializeRunningData); upload is manual via GpsDebugHud.
+const TRACE_MAX_SAMPLES = 10_000;
+let _traceBuffer: Array<{ t: number; lat: number; lng: number; acc: number; alt?: number }> = [];
+
 // ── Route-deviation tuning constants ─────────────────────────────────────────
 // 40 m matches what consumer-grade GPS can reliably distinguish in urban
 // canyons (typical accuracy is 5–15 m, worst-case 25–30 m). Tighter and we
@@ -324,6 +332,13 @@ interface RunningPlayerState {
   clearRunningData: () => void;
   finishWorkout: () => Promise<void>;
   deleteLastWorkout: () => Promise<boolean>;
+  /**
+   * B.2 — uploads the raw pre-filter GPS trace of the current/last session to
+   * users/{uid}/gps_traces (covered by the user-subcollection rules catch-all;
+   * no firestore.rules change). Manual trigger from GpsDebugHud only.
+   * Returns the new doc id, or null when there is no trace / no user.
+   */
+  uploadGpsTrace: () => Promise<string | null>;
 
   // Map follow (Pillar 6)
   setMapFollowEnabled: (v: boolean) => void;
@@ -770,9 +785,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
     let lastPos: { lat: number; lng: number } | null = null;
     let lastTimestamp: number | null = null;
-    // Movement gate: 5 m suppresses urban GPS jitter while still responding
-    // to slow walking. Satellite jumps > MAX_JUMP_M are discarded entirely.
-    const DISTANCE_THRESHOLD = 5;
+    // Movement gate (B.2): measured from the PINNED anchor (displacement),
+    // not between consecutive samples — sub-gate samples do NOT advance the
+    // anchor, so slow movement is deferred until it crosses the gate instead
+    // of being deleted ~1.3 m at a time (the bug that swallowed walks).
+    // Walking gets a tighter gate than running (first-class mode since
+    // hybrid Phase 0). Satellite jumps > MAX_JUMP_M are discarded entirely.
+    const DISTANCE_THRESHOLD_RUNNING = 5;
+    const DISTANCE_THRESHOLD_WALKING = 4;
     const MAX_JUMP_M = 80; // tightened from 200 m — urban canyon multipath stays < 80 m
     const WARMUP_MIN_GOOD_FIXES = 2;   // fixes required before accumulation starts
     const WARMUP_MAX_ACCURACY_M = 30;  // accuracy threshold for warm-up counting
@@ -804,6 +824,16 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         console.warn('[useRunningPlayer] Dropping invalid GPS sample:', coords);
         return;
       }
+
+      // ── Trace recorder (B.2) — raw sample, pre-filter ────────────────────
+      if (_traceBuffer.length >= TRACE_MAX_SAMPLES) _traceBuffer.shift();
+      _traceBuffer.push({
+        t: Date.now(),
+        lat: Number(lat.toFixed(6)),
+        lng: Number(lng.toFixed(6)),
+        acc: Math.round(coords.accuracy ?? 999),
+        ...(coords.altitude != null ? { alt: Math.round(coords.altitude) } : {}),
+      });
 
       // Phase 2 — accuracy gate: process every fix; mark quality instead of
       // discarding. The previous location.service watcher rejected fixes with
@@ -883,6 +913,19 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
       const currentPos = { lat, lng };
 
+      // ── Pause gate (B.2) ──────────────────────────────────────────────────
+      // While the session is not active (paused / finished) keep the map
+      // marker live and move the anchor WITH the user, but never accumulate —
+      // movement during a pause (e.g. a strength stop in a combined workout)
+      // must not count as run distance. Because the anchor tracks the user
+      // through the pause, resume measures from the resume position.
+      if (useSessionStore.getState().status !== 'active') {
+        lastPos = currentPos;
+        lastTimestamp = Date.now();
+        set({ lastPosition: currentPos, lastFilterAction: '⏸ paused (no accumulation)' });
+        return;
+      }
+
       // ── Warm-up gate ──────────────────────────────────────────────────────
       // Don't accumulate distance or route coords until GPS has a stable lock
       // (≥ WARMUP_MIN_GOOD_FIXES fixes at accuracy ≤ WARMUP_MAX_ACCURACY_M).
@@ -913,6 +956,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
       if (lastPos) {
         const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
+        const distanceThreshold = get().activityType === 'walking'
+          ? DISTANCE_THRESHOLD_WALKING
+          : DISTANCE_THRESHOLD_RUNNING;
 
         // Discard satellite jump artefacts — a single sample > 200 m from the
         // last known-good position is almost always a GPS cold-start glitch or
@@ -942,14 +988,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           return;
         }
 
-        if (process.env.NODE_ENV !== 'production' && distanceDelta <= DISTANCE_THRESHOLD) {
+        if (process.env.NODE_ENV !== 'production' && distanceDelta <= distanceThreshold) {
           const totalDist = useSessionStore.getState().totalDistance;
           console.log(
-            `[GPS 🔇] below threshold: delta=${Math.round(distanceDelta)}m (<${DISTANCE_THRESHOLD}m) | total=${totalDist.toFixed(3)}km`
+            `[GPS 🔇] below threshold: displacement=${Math.round(distanceDelta)}m (<${distanceThreshold}m from anchor) | total=${totalDist.toFixed(3)}km`
           );
         }
 
-        if (distanceDelta > DISTANCE_THRESHOLD) {
+        if (distanceDelta > distanceThreshold) {
           const now = Date.now();
           const timeDeltaSeconds = lastTimestamp ? (now - lastTimestamp) / 1000 : 0;
 
@@ -984,6 +1030,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             return;
           }
 
+          // Drift guard (B.2): the displacement crossed the gate but the
+          // average speed since the anchor is below a slow walk — that's
+          // stationary GPS drift integrating over a pinned anchor, not
+          // movement. Re-anchor to the drifted position WITHOUT accumulating,
+          // so drift can never snowball into phantom distance.
+          if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds < MIN_SPEED_MS) {
+            lastPos = currentPos;
+            lastTimestamp = now;
+            set({ lastPosition: currentPos, lastFilterAction: `🧲 drift ${Math.round(distanceDelta)}m re-anchored` });
+            return;
+          }
+
           if (process.env.NODE_ENV !== 'production') {
             const totalDistBefore = useSessionStore.getState().totalDistance;
             console.log(
@@ -1012,18 +1070,26 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             }
           }
           lastTimestamp = now;
+          // Displacement-anchor (B.2): the anchor advances ONLY here, after
+          // its full displacement was accumulated.
+          lastPos = currentPos;
         } else {
           _rejectBuffer = []; // Non-rejected sample — consecutive reject streak broken
-          set({ lastFilterAction: `🔇 <${DISTANCE_THRESHOLD}m (${Math.round(distanceDelta)}m)` });
+          // Displacement-anchor (B.2): do NOT advance lastPos. The anchor
+          // stays pinned so sub-gate movement keeps integrating until it
+          // crosses the gate — deferred, never deleted. (The old per-sample
+          // model advanced the anchor here, permanently swallowing walking
+          // at ~1.3 m/sample.)
+          set({ lastFilterAction: `🔇 <${distanceThreshold}m (${Math.round(distanceDelta)}m from anchor)` });
         }
       } else {
         if (accuracy <= 40) {
           get().addCoord([lng, lat]);
         }
         lastTimestamp = Date.now();
+        lastPos = currentPos;
       }
 
-      lastPos = currentPos;
       set({ lastPosition: currentPos });
 
       // ── Elevation gain accumulation ────────────────────────────────
@@ -1196,6 +1262,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _lastDistanceUpdateMs = 0;
     _goodFixCount = 0;
     _rejectBuffer = [];
+    _traceBuffer = [];
     set({
       laps: [seedLap],
       currentPace: 0,
@@ -1269,6 +1336,35 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       // FreeRunDrawer.handleStartCta will push a fresh one.
       sessionGoal: null,
     });
+  },
+
+  // ── uploadGpsTrace (B.2) ──────────────────────────────────────────────────
+  // The trace lets us replay filter changes offline against real recordings
+  // (acceptance fixtures for the GPS pipeline). filteredDistanceKm captures
+  // what the LIVE filter accumulated — the baseline every replay compares to.
+  uploadGpsTrace: async () => {
+    if (_traceBuffer.length === 0) return null;
+    try {
+      const { auth, db } = await import('@/lib/firebase');
+      const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+      const uid = auth.currentUser?.uid;
+      if (!uid) return null;
+      const samples = _traceBuffer;
+      const ref = await addDoc(collection(db, 'users', uid, 'gps_traces'), {
+        userId: uid,
+        createdAt: serverTimestamp(),
+        startedAtMs: samples[0].t,
+        endedAtMs: samples[samples.length - 1].t,
+        activityType: get().activityType,
+        sampleCount: samples.length,
+        filteredDistanceKm: useSessionStore.getState().totalDistance,
+        samplesJson: JSON.stringify(samples),
+      });
+      return ref.id;
+    } catch (e) {
+      console.error('[useRunningPlayer] GPS trace upload failed:', e);
+      return null;
+    }
   },
 
   // ── finishWorkout ─────────────────────────────────────────────────────────
