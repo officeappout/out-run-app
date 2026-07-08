@@ -183,8 +183,10 @@ interface WeeklyVolumeState {
 /**
  * Get the Sunday of the current calendar week as 'YYYY-MM-DD'.
  * Uses local date (not UTC) so the boundary matches the user's timezone.
+ * Exported: weekly-load.service (hybrid engine) reuses this exact boundary
+ * so "this week" means the same thing everywhere — single source of truth.
  */
-function getCurrentWeekStart(): string {
+export function getCurrentWeekStart(): string {
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
   const sunday = new Date(now);
