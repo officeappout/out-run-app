@@ -17,7 +17,12 @@
  * generator — future kinds plug into dispatchStopContent without rewrites.
  *
  * ISOMORPHIC + STATELESS: pure TypeScript, no hooks, no Firebase, no
- * Date.now/random. Same input → same plan.
+ * Date.now(). NOTE (code-review 08.07.2026): the composition logic itself is
+ * deterministic, but the underlying generator randomises exercise count,
+ * sets, reps and rest within tier ranges (Math.random in
+ * workout-budgeting.utils) — so two calls with identical input return
+ * structurally similar but NOT identical plans. Tests must assert on
+ * invariants (segment structure, budgets, tolerances), not output equality.
  */
 
 import type { Exercise } from '@/features/content/exercises';
@@ -350,6 +355,12 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   // ── Step 7 prep: route geometry (item 3 utils) ────────────────────────────
   const prefixKm = buildRoutePrefixKm(input.routePath);
   const routeKm = totalRouteKm(prefixKm);
+  // Degenerate-route guard (code-review): with routeKm≈0 the ±25% gate
+  // becomes unsatisfiable and legs would carry duration with zero distance.
+  // Surface it loudly so the orchestrator/UI can reject before starting.
+  if (input.routePath.length < 2 || routeKm < 0.2) {
+    log.push(`⚠️ degenerate route: ${input.routePath.length} vertices, ${routeKm.toFixed(3)}km — plan is not startable`);
+  }
   const candidatesByKm = input.stopCandidates
     .map((candidate) => ({ candidate, km: kmAtIndex(prefixKm, candidate.waypointIndex) }))
     .sort((a, b) => a.km - b.km);
