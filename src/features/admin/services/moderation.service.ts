@@ -25,7 +25,6 @@ import { InventoryService } from '@/features/parks/core/services/inventory.servi
 import {
   approveNewLocation,
   approveSuggestEdit,
-  rejectContribution,
 } from '@/features/parks/core/services/contribution.service';
 import type { UserContribution } from '@/types/contribution.types';
 
@@ -127,9 +126,10 @@ export async function rejectEntity(
       break;
 
     case 'contribution':
-      // Reuse the existing reject, then enrich with reason (existing fn takes no reason).
-      await rejectContribution(id);
-      await updateDoc(doc(db, 'user_contributions', id), { rejectionReason: reason || null, reviewedBy: admin.adminId, reviewedAt: serverTimestamp() });
+      // Single atomic write: status + reason + reviewer together (rejectContribution
+      // only sets status, so we inline the equivalent write to avoid a partial-failure
+      // window where a rejected contribution has no rejectionReason/reviewer).
+      await updateDoc(doc(db, 'user_contributions', id), { status: 'rejected', ...reviewFields });
       break;
   }
 

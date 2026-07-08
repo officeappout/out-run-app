@@ -9,6 +9,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  writeBatch,
   query,
   where,
   orderBy,
@@ -227,6 +228,16 @@ export async function approveEditRequest(
       throw new Error('Edit request is not pending');
     }
 
+    const requestRef = doc(db, EDIT_REQUESTS_COLLECTION, requestId);
+    const requestApprovedFields = {
+      status: 'approved' as EditRequestStatus,
+      reviewedBy: adminInfo.adminId,
+      reviewedByName: adminInfo.adminName,
+      reviewNote: reviewNote || null,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
     // Update the main document based on entity type
     if (request.entityType === 'park') {
       if (request.originalData === null) {
@@ -247,13 +258,18 @@ export async function approveEditRequest(
         const parkRef = doc(db, 'parks', request.entityId);
         await updateDoc(parkRef, { contentStatus: 'published', updatedAt: serverTimestamp() });
       }
+      // updatePark runs its own writes, so it can't join the batch — mark approved separately.
+      await updateDoc(requestRef, requestApprovedFields);
     } else if (request.entityType === 'route') {
-      const routeRef = doc(db, 'official_routes', request.entityId);
-      await updateDoc(routeRef, {
+      // Atomic: publish route + mark request approved together (all-or-nothing).
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'official_routes', request.entityId), {
         ...(request.originalData === null ? {} : request.newData),
         contentStatus: 'published',
         updatedAt: serverTimestamp(),
       });
+      batch.update(requestRef, requestApprovedFields);
+      await batch.commit();
 
       await logAction({
         adminId: adminInfo.adminId,
@@ -264,13 +280,16 @@ export async function approveEditRequest(
         details: `Approved edit request for route: ${request.entityName}`,
       });
     } else if (request.entityType === 'climb') {
-      const climbRef = doc(db, 'climb_segments', request.entityId);
-      await updateDoc(climbRef, {
+      // Atomic: publish climb + mark request approved together (all-or-nothing).
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'climb_segments', request.entityId), {
         ...(request.originalData === null ? {} : request.newData),
         status: 'published',
         publishedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      batch.update(requestRef, requestApprovedFields);
+      await batch.commit();
 
       await logAction({
         adminId: adminInfo.adminId,
@@ -281,17 +300,6 @@ export async function approveEditRequest(
         details: `Approved edit request for climb: ${request.entityName}`,
       });
     }
-
-    // Mark request as approved
-    const requestRef = doc(db, EDIT_REQUESTS_COLLECTION, requestId);
-    await updateDoc(requestRef, {
-      status: 'approved' as EditRequestStatus,
-      reviewedBy: adminInfo.adminId,
-      reviewedByName: adminInfo.adminName,
-      reviewNote: reviewNote || null,
-      reviewedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
 
     // Log audit action
     await logAction({

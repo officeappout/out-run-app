@@ -135,7 +135,11 @@ export default function ApprovalCenterPage() {
   const loadPendingParks = async (sa: boolean, aids: string[], uid: string | null): Promise<QueueItem[]> => {
     try {
       const snap = await getDocs(query(collection(db, 'parks'), where('published', '==', false)));
-      const items = snap.docs.map(d => {
+      const items = snap.docs
+        // Guard: a rejected park is published:false + contentStatus:'draft' — keep it out of
+        // the pending queue. Legacy parks with no contentStatus still show (backward compat).
+        .filter(d => { const cs = (d.data() as any).contentStatus; return cs !== 'draft' && cs !== 'rejected'; })
+        .map(d => {
         const x: any = d.data();
         return {
           entityType: 'park' as const, id: d.id,
@@ -151,7 +155,11 @@ export default function ApprovalCenterPage() {
   const loadPendingRoutes = async (sa: boolean, aids: string[], uid: string | null): Promise<QueueItem[]> => {
     try {
       const snap = await getDocs(query(collection(db, 'official_routes'), where('published', '==', false)));
-      const items = snap.docs.map(d => {
+      const items = snap.docs
+        // Guard: a rejected route is published:false + status:'archived' — keep it out of the
+        // pending queue. Legacy routes with no status still show (backward compat).
+        .filter(d => { const st = (d.data() as any).status; return st !== 'archived' && st !== 'rejected'; })
+        .map(d => {
         const x: any = d.data();
         const dist = typeof x.distance === 'number'
           ? (x.distance >= 1000 ? `${(x.distance / 1000).toFixed(1)} ק״מ` : `${Math.round(x.distance)}מ׳`)
