@@ -37,8 +37,13 @@ import {
 import {
   ROUTES_BACKGROUND, ROUTES_ACTIVE_GLOW, ROUTES_ACTIVE_OUTLINE, ROUTES_ACTIVE,
   GHOST_PATH_GLOW, GHOST_PATH_LINE, TRACE_PATH_LINE,
+  TRAIL_FADE_LINE, ROUTE_PASSED_LINE, ROUTE_DEVIATION_LINE,
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
+// Store read for the off-route flag only — same cross-read precedent as
+// useWorkoutSession.ts. Subscribing to the boolean means AppMap re-renders
+// on off-route flips, not on every GPS sample.
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 
 if (typeof window !== 'undefined') {
   // Reduce Mapbox worker threads from 2 → 1 on iOS WKWebView.
@@ -306,6 +311,10 @@ export default function AppMap({
   // filter the ground-arrow GeoJSON to a SINGLE feature so the icon never
   // appears on every turn at once.
   const activeTurnIdx = useMapStore((s) => s.activeTurnIdx);
+  // Off-route flag from the running player — drives the dashed deviation
+  // connector during an active guided run. Boolean selector: AppMap
+  // re-renders on off-route flips only, not on every GPS sample.
+  const isOffRoute = useRunningPlayer((s) => s.isOffRoute);
 
   // Consume TurnCarousel camera requests:
   //   • flyTo     → center the camera on a single turn vertex (peek-one-turn).
@@ -1004,6 +1013,52 @@ export default function AppMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActiveWorkout, focusedRoute?.id, focusedRoute?.path, livePath?.length]);
 
+  // ── Zone-segment gate for ALL trail additions ──────────────────────────────
+  // A zone-coloured planned run (livePathZones non-null) must render exactly
+  // as before this feature: no fading trail, no gray passed slice, no
+  // deviation connector. One shared flag guards all three (code-review
+  // finding: gating only the fade layer left the other two mounting on
+  // interval runs that carry a guided route).
+  const hasZoneSegments = !!livePathZones?.some((z) => z != null);
+
+  // ── Passed path: the route slice BEHIND the user ──────────────────────────
+  // Complements the ghost path (ahead slice): together they draw the full
+  // planned route split at the user's position — gray behind, cyan ahead.
+  // Depends on ghostPathGeoJSON so it always reads ghostStartIdxRef AFTER the
+  // ghost memo (declared above) advanced it this render. +1 keeps the split
+  // vertex shared, so the two slices connect without a gap.
+  const passedPathGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!isActiveWorkout || hasZoneSegments || !ghostPathGeoJSON || !focusedRoute?.path) return null;
+    const passed = focusedRoute.path.slice(0, ghostStartIdxRef.current + 1);
+    if (passed.length < 2) return null;
+    return {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: passed } }],
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActiveWorkout, hasZoneSegments, focusedRoute?.id, focusedRoute?.path, ghostPathGeoJSON]);
+
+  // ── Off-route connector: user → route split point ─────────────────────────
+  // Store flag subscribed at the top of the component (isOffRoute) — not the
+  // per-sample deviation meters — so this only exists while genuinely
+  // off-route. currentLocation as a dep is fine here: off-route episodes are
+  // rare and short-lived.
+  const deviationGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!isActiveWorkout || hasZoneSegments || !isOffRoute || !ghostPathGeoJSON || !focusedRoute?.path) return null;
+    if (!isFiniteLatLng(currentLocation)) return null;
+    const target = focusedRoute.path[ghostStartIdxRef.current];
+    if (!target || !isFiniteLngLat(target)) return null;
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [[currentLocation!.lng, currentLocation!.lat], target] },
+      }],
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActiveWorkout, hasZoneSegments, isOffRoute, ghostPathGeoJSON, focusedRoute?.path, currentLocation]);
+
   // ── Navigation turn arrow GeoJSON (curve-following) ──────────────────────
   // Builds a short LineString that traces the actual route geometry around
   // the active turn vertex (3 path-points before + the turn + 3 after, where
@@ -1081,7 +1136,8 @@ export default function AppMap({
     const CUSTOM_LAYER_IDS = new Set([
       'park-clusters-glow', 'park-clusters', 'park-pins', 'park-minor-pins', 'park-cluster-count',
       'routes-background', 'routes-active-glow', 'routes-active-outline', 'routes-active',
-      'live-path-trace', 'ghost-path-glow', 'ghost-path-line', 'sim-walk-trail',
+      'live-path-trace', 'live-path-trail-fade', 'ghost-path-glow', 'ghost-path-line', 'sim-walk-trail',
+      'route-passed-line', 'route-deviation-line',
       // Navigation ground visuals (curve + tip) — exempt from the Hebrew
       // label pass so it doesn't try to set text-field on a line/icon layer.
       'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
@@ -1205,16 +1261,43 @@ export default function AppMap({
             {/* Trace path: always mounted so the imperative setData effect above
                 can update it without waiting for the Source to be conditionally
                 added. Starts with an empty FeatureCollection; the effect hydrates
-                it on the first accepted GPS coord. */}
-            <Source id="live-path" type="geojson" data={EMPTY_FEATURE_COLLECTION as any}>
-              <Layer id="live-path-trace" type="line" paint={TRACE_PATH_LINE.paint as any} layout={TRACE_PATH_LINE.layout} />
+                it on the first accepted GPS coord.
+                lineMetrics is required for the free-run fading gradient below —
+                harmless for the flat-paint variants.
+                Two mutually-exclusive layer ids (never a paint-shape swap on one
+                layer): the fading comet-tail renders only for a FREE session
+                (no route, no zone segments); guided routes keep the subtle
+                trace, and zone-segmented planned runs are untouched (a
+                per-feature gradient would restart the fade every zone). */}
+            <Source id="live-path" type="geojson" data={EMPTY_FEATURE_COLLECTION as any} lineMetrics>
+              {!ghostPathGeoJSON && !hasZoneSegments ? (
+                <Layer id="live-path-trail-fade" type="line" paint={TRAIL_FADE_LINE.paint as any} layout={TRAIL_FADE_LINE.layout} />
+              ) : (
+                <Layer id="live-path-trace" type="line" paint={TRACE_PATH_LINE.paint as any} layout={TRACE_PATH_LINE.layout} />
+              )}
             </Source>
+
+            {/* Passed route slice: gray line BEHIND the user — drawn before the
+                ghost source so the bright remaining slice sits on top. */}
+            {passedPathGeoJSON && (
+              <Source id="route-passed" type="geojson" data={passedPathGeoJSON as any}>
+                <Layer id="route-passed-line" type="line" paint={ROUTE_PASSED_LINE.paint as any} layout={ROUTE_PASSED_LINE.layout} />
+              </Source>
+            )}
 
             {/* Ghost path: the full planned route — vibrant cyan goal line, drawn on top */}
             {ghostPathGeoJSON && (
               <Source id="ghost-path" type="geojson" data={ghostPathGeoJSON as any}>
                 <Layer id="ghost-path-glow" type="line" paint={GHOST_PATH_GLOW.paint as any} layout={GHOST_PATH_GLOW.layout} />
                 <Layer id="ghost-path-line" type="line" paint={GHOST_PATH_LINE.paint as any} layout={GHOST_PATH_LINE.layout} />
+              </Source>
+            )}
+
+            {/* Off-route connector: dashed gray link from the user back to the
+                route split point — mounted only while isOffRoute. */}
+            {deviationGeoJSON && (
+              <Source id="route-deviation" type="geojson" data={deviationGeoJSON as any}>
+                <Layer id="route-deviation-line" type="line" paint={ROUTE_DEVIATION_LINE.paint as any} layout={ROUTE_DEVIATION_LINE.layout} />
               </Source>
             )}
           </>

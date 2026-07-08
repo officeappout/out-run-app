@@ -88,7 +88,55 @@ export const TRACE_PATH_LINE = {
   layout: ROUTE_LINE_LAYOUT,
 };
 
+// ── FREE-RUN FADING TRAIL — live trail when there is NO planned route ─
+// line-gradient over line-progress: 0 = oldest sample → 1 = newest, so the
+// trail reads as a comet tail (new segment bright → old transparent).
+// REQUIRES lineMetrics: true on the 'live-path' Source — without it Mapbox
+// silently ignores line-gradient. Alpha lives in the gradient stops, so no
+// line-opacity here (they multiply).
+export const TRAIL_FADE_LINE = {
+  paint: {
+    'line-gradient': [
+      'interpolate', ['linear'], ['line-progress'],
+      0,    'rgba(0, 229, 255, 0)',
+      0.55, 'rgba(0, 229, 255, 0.35)',
+      1,    'rgba(0, 229, 255, 0.95)',
+    ],
+    'line-width': 5,
+  },
+  layout: ROUTE_LINE_LAYOUT,
+};
+
+// ── ROUTE PASSED SLICE — the planned-route part already behind the user ─
+// Faded gray drawn under the bright ghost-path (the remaining slice), same
+// width family so the split point reads as one continuous line.
+export const ROUTE_PASSED_LINE = {
+  paint: {
+    'line-color': '#9aa3a1',
+    'line-width': 5,
+    'line-opacity': 0.45,
+  },
+  layout: ROUTE_LINE_LAYOUT,
+};
+
+// ── OFF-ROUTE CONNECTOR — dashed link from the user back to the route ──
+// Mounted only while isOffRoute: ties the live position to the route split
+// point so the map explains where the planned line continues.
+export const ROUTE_DEVIATION_LINE = {
+  paint: {
+    'line-color': '#9aa3a1',
+    'line-width': 3,
+    'line-opacity': 0.8,
+    'line-dasharray': [2, 2],
+  },
+  layout: ROUTE_LINE_LAYOUT,
+};
+
 // ── Legacy live-path paint kept for zone-coloured planned runs ──────
+// ⚠️ The 'live-path' source now has lineMetrics: true (for TRAIL_FADE_LINE).
+// Do NOT add a line-gradient to these zone paints: the zone GeoJSON is
+// multi-feature, and line-progress restarts at 0 on every feature — a
+// gradient here would visibly reset at each zone boundary.
 export const LIVE_PATH_OUTLINE = {
   paint: {
     'line-color': '#ffffff',
