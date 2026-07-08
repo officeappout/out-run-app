@@ -99,6 +99,7 @@ import {
 } from './program-hierarchy.utils';
 import { prependWarmupExercises } from './warmup.service';
 import { appendCooldownExercises } from './cooldown.service';
+import { resolveEffectiveBoltTime } from '../logic/bolt-time.utils';
 import {
   annotateRepRanges,
   enforceVolumeCap,
@@ -664,19 +665,29 @@ export async function generateHomeWorkoutTrio(
     // has already chosen Intense.
     const optionDifficulty: DifficultyLevel = cfg.difficulty;
 
-    // ── Bolt-specific availableTime override ──────────────────────────────
-    // Each bolt gets its own time budget so WorkoutGenerator's
-    // getExerciseCountForDuration sizes the exercise pool correctly:
-    //   Bolt 1 → 30 min → 4-5 exercises
-    //   Bolt 2 → 45 min → 6-8 exercises
-    //   Bolt 3 → 60 min → 7-10 exercises
+    // ── Bolt-specific availableTime CEILING (not override) ────────────────
+    // Each bolt has a duration ceiling so WorkoutGenerator's
+    // getExerciseCountForDuration never over-sizes the pool:
+    //   Bolt 1 → ≤30 min · Bolt 2 → ≤45 min · Bolt 3 → ≤60 min
+    // The user's requested time is HONOURED below the ceiling — previously
+    // the cap silently REPLACED the request (builder asked 20 min, engine
+    // generated 45), which was the "duration ignored" bug in the custom
+    // builder. min(requested, cap) keeps both guarantees.
     const boltDurationCap = BOLT_DURATION_CAPS[optionDifficulty];
+    const effectiveTime = resolveEffectiveBoltTime(
+      options.availableTime,
+      options.isManualOverride,
+      boltDurationCap,
+    );
+    if (effectiveTime !== boltDurationCap) {
+      console.log(`[WorkoutTrio] Bolt${optionDifficulty}: honouring requested ${effectiveTime}min (ceiling ${boltDurationCap}min)`);
+    }
 
     // Build per-option generator context (inherits all Sprint 3 context)
     const optionContext: WorkoutGenerationContext = {
       ...pipeline.baseGeneratorContext,
       difficulty: optionDifficulty,
-      availableTime: boltDurationCap,
+      availableTime: effectiveTime,
       recentExerciseIds: sessionBlacklist.size > 0
         ? new Set([
             ...Array.from(pipeline.baseGeneratorContext.recentExerciseIds ?? []),
@@ -765,7 +776,9 @@ export async function generateHomeWorkoutTrio(
     // sets down to a floor of 2 by ascending tier priority.  Rest seconds
     // are never touched — the staircase is physiologically fixed.
     enforceVolumeCap(workout, {
-      durationCap: boltDurationCap,
+      // Trim against the EFFECTIVE time (user request honoured above), not
+      // the bolt ceiling — otherwise a 20-min request still ships 45 min.
+      durationCap: effectiveTime,
       diagnosticLabel: `Bolt${optionDifficulty}`,
     });
 
@@ -1611,7 +1624,40 @@ async function _buildSharedPipeline(
     poolStrategy,
   );
 
-  const scoredExercises = candidatePool.candidates.get('__shared__') ?? [];
+  let scoredExercises = candidatePool.candidates.get('__shared__') ?? [];
+
+  // ── Precedence rule: explicit muscle intent WINS over program filter ─────
+  // (Stability fix ד׳, 08.07.2026.) When BOTH a strict program filter and
+  // explicit requiredDomains are active and their intersection empties the
+  // pool (program keeps only X-domain exercises, chips demand Y), the old
+  // behavior fell through to the rest-day fallback ("יום מנוחה") — a dead
+  // end for the custom builder. Defined order: the user's EXPLICIT muscle
+  // choice drives the session; the program filter is dropped for this
+  // generation only (levels degrade gracefully to domain-level resolution).
+  if (
+    scoredExercises.length === 0 &&
+    (filterContext.activeProgramFilters?.length ?? 0) > 0 &&
+    strictDomains &&
+    (requiredDomainsOverride?.length ?? 0) > 0
+  ) {
+    console.warn(
+      '[WorkoutTrio] program↔domain conflict emptied the pool — ' +
+      'retrying WITHOUT program filter (explicit domains win)',
+    );
+    const rescuePool = createPoolFactory().build(
+      exercises,
+      {
+        ...filterContext,
+        activeProgramFilters: undefined,
+        activeDomains: requiredDomainsOverride,
+      },
+      userProgramLevels,
+      poolStrategy,
+    );
+    scoredExercises = rescuePool.candidates.get('__shared__') ?? [];
+    console.warn(`[WorkoutTrio] domain-precedence rescue recovered ${scoredExercises.length} exercises`);
+  }
+
   const filterResult = {
     exercises: scoredExercises,
     excludedCount: candidatePool.excludedCount,
