@@ -688,9 +688,6 @@ export default function HomePage() {
         const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial } =
           resolveExerciseMedia(ex.exercise as any, ex.method as any);
 
-        // TEMP DIAGNOSTIC — confirms which builder runs + whether fullTutorial resolves.
-        console.log('[FT build/home]', glt(ex.exercise.name), '| fullTutorial:', resolvedFullTutorial?.videoId ?? null, '| execMethods:', (ex.exercise.execution_methods || ex.exercise.executionMethods || []).length);
-
         if (!resolvedImageUrl && !resolvedVideoUrl) {
           const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];
           console.error(`[Media FAIL] No media found for exercise: ${glt(ex.exercise.name)} (${ex.exercise.id}), method: ${ex.method?.methodName || 'none'}, allMethods: ${allMethods.length}`);

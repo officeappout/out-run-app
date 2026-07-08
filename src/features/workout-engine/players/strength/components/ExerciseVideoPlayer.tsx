@@ -76,9 +76,6 @@ export default function ExerciseVideoPlayer({
   const [showTutorial, setShowTutorial] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // TEMP DIAGNOSTIC — confirms whether fullTutorial reaches the live player.
-  console.log('[FT player]', exerciseName, '| fullTutorial.videoId:', fullTutorial?.videoId ?? null, '| CTA renders:', !!fullTutorial?.videoId);
-
   // ── Global audio state (set by the user in WorkoutPreviewDrawer) ──
   const isAudioEnabled = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -345,13 +342,14 @@ export default function ExerciseVideoPlayer({
       )}
 
       {/* "צפה בהסבר המלא" CTA — shown only when a long-form tutorial exists.
-          Lives in the always-visible top strip (above the white metrics card),
-          where the scrollable overlay's spacer is pointer-events-none so this
-          button stays tappable. */}
+          Positioned in the visible video band just ABOVE the white metrics card
+          (which peeks ~220px up from the bottom — see ActiveExerciseView spacer)
+          and BELOW the RunnerHeader top overlay. z-[46] lifts it above the
+          header (z-[45]) and the scroll card (z-10) so it is never covered. */}
       {fullTutorial?.videoId && !showTutorial && (
         <button
           onClick={() => setShowTutorial(true)}
-          className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 px-3.5 py-2 bg-black/55 hover:bg-black/75 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
+          className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
           style={{ fontFamily: 'var(--font-simpler)' }}
           dir="rtl"
         >
