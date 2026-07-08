@@ -44,20 +44,39 @@ const len = (pts: number[][]) => pts.reduce((s, _, i) => i ? s + hav(pts[i - 1],
 // [lng,lat] tuples for Mapbox.
 const toLine = (pts: number[][]) => pts.map(p => ({ lng: p[1], lat: p[0] }));
 
-// Reverse-geocode a center to a street name for climbs whose OSM way had no name
-// tag (wayName missing or a bare "way/1234" ref). Mapbox token comes from .env.local.
+// Reverse-geocode a center to a human place name for climbs whose OSM way had no
+// name tag (wayName missing or a bare "way/1234" ref). Prefers a real STREET, then
+// a POI (e.g. a promenade/park), then the neighbourhood/locality — never a bare
+// house number (Mapbox address `text` is sometimes just "1285"). Token from .env.local.
 const MAPBOX = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+// A usable place label: non-empty, not a bare number, not a "way/1234" ref.
+const isRealName = (n: unknown): n is string =>
+  typeof n === 'string' && n.trim().length > 1 && !/^\d+$/.test(n.trim()) && !/^way\/\d+$/i.test(n.trim());
+
+// One reverse-geocode request for a SINGLE type. Mapbox reverse geocoding rejects
+// limit>1 with multiple types, so we query one type at a time (limit=1). Returns the
+// feature's name only if it's real (rejects bare house numbers like "1285").
+async function geocodeOne(lat: number, lng: number, type: string): Promise<string | null> {
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=${type}&language=he&limit=1&access_token=${MAPBOX}`;
+  const buf: Buffer = await new Promise((res, rej) => { https.get(url, r => { const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode))); }).on('error', rej); });
+  const f = JSON.parse(buf.toString()).features?.[0];
+  return f && isRealName(f.text) ? (f.text as string).trim() : null;
+}
+
+// Priority: real STREET → POI (promenade/park) → neighbourhood → locality → place
+// (city). `place` is the guaranteed area-level fallback for feature-sparse coastal
+// /park points, so a climb never falls back to a type-only title (David's rule).
+// Each type retried once on transient failure so a rate-limit blip can't drop a name.
 async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   if (!MAPBOX) return null;
-  try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=address&language=he&limit=1&access_token=${MAPBOX}`;
-    const buf: Buffer = await new Promise((res, rej) => { https.get(url, r => { const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode))); }).on('error', rej); });
-    const j = JSON.parse(buf.toString());
-    const f = j.features?.[0];
-    return (f?.text as string) || (f?.place_name as string)?.split(',')[0] || null;
-  } catch { return null; }
+  for (const t of ['address', 'poi', 'neighborhood', 'locality', 'place']) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { const name = await geocodeOne(lat, lng, t); if (name) return name; break; }
+      catch { await new Promise(r => setTimeout(r, 500)); /* retry once, then next type */ }
+    }
+  }
+  return null;
 }
-const isRealName = (n: unknown): n is string => typeof n === 'string' && n.trim().length > 0 && !/^way\/\d+$/i.test(n.trim());
 
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 

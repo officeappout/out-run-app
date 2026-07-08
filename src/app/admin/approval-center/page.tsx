@@ -165,11 +165,15 @@ export default function ApprovalCenterPage() {
       const snap = await getDocs(query(collection(db, 'climb_segments'), where('status', '==', 'pending')));
       return snap.docs.map(d => {
         const x: any = d.data();
-        const grade = x.avgGrade != null ? ` @ ${x.avgGrade}%` : '';
         return {
           entityType: 'climb' as const, id: d.id,
           title: climbDisplayName(x),
-          subtitle: [CLIMB_TYPE_LABELS[x.climbType] || x.climbType, x.lengthM ? `${x.lengthM}מ׳${grade}` : '', x.dir].filter(Boolean).join(' · '),
+          // Secondary line: type · length · grade% (climbType stays a field, not the title).
+          subtitle: [
+            CLIMB_TYPE_LABELS[x.climbType] || x.climbType,
+            x.lengthM ? `${x.lengthM}מ׳` : '',
+            x.avgGrade != null ? `${x.avgGrade}%` : '',
+          ].filter(Boolean).join(' · '),
           origin: x.origin,
         };
       });

@@ -38,9 +38,9 @@ export function formatDistance(distance: unknown): string {
   return distance >= 1000 ? `${(distance / 1000).toFixed(1)} ק״מ` : `${Math.round(distance)}מ׳`;
 }
 
-/** A raw OSM way ref like "way/160415171" is NOT a human street name. */
+/** A real place label: not a raw "way/160415171" ref and not a bare house number. */
 export const isRealStreetName = (name: unknown): name is string =>
-  typeof name === 'string' && name.trim().length > 0 && !/^way\/\d+$/i.test(name.trim());
+  typeof name === 'string' && name.trim().length > 1 && !/^\d+$/.test(name.trim()) && !/^way\/\d+$/i.test(name.trim());
 
 /**
  * Climb display title: "עליית [street]" when a real street name is known,
