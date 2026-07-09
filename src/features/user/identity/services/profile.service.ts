@@ -181,7 +181,7 @@ export function mapAnswersToProfile(
           id: `program-${result.programId}-${Date.now()}`,
           templateId: result.programId,
           name: 'Active Program', // Will be fetched from program doc
-          startDate: new Date(),
+          startDate: new Date().toISOString(), // ISO — one startDate format everywhere (crash fix 09.07.2026)
           durationWeeks: 12, // Default
           currentWeek: 1,
           focusDomains: ['full_body'], // Default, will be updated from program doc
@@ -239,7 +239,7 @@ export function mapAnswersToProfile(
         id: `program-${assignedProgramId}-${Date.now()}`,
         templateId: assignedProgramId,
         name: 'Active Program', // Will be fetched from program doc
-        startDate: new Date(),
+        startDate: new Date().toISOString(), // ISO — one startDate format everywhere (crash fix 09.07.2026)
         durationWeeks: 12, // Default
         currentWeek: 1,
         focusDomains: ['full_body'], // Default, will be updated from program doc

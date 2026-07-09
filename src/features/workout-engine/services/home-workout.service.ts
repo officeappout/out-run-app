@@ -980,7 +980,11 @@ async function _persistCycleRestart(userProfile: UserFullProfile): Promise<void>
   }
 
   const updated = activePrograms.map((ap, idx) =>
-    idx === 0 ? { ...ap, startDate: new Date(), currentWeek: 1 } : ap,
+    // ISO string on purpose (crash fix, 09.07.2026): writing a Date here
+    // stored a Firestore Timestamp, while the assignment path
+    // (progression.service:926) writes ISO strings — the mixed formats broke
+    // the profile reader after a cycle restart. One format everywhere.
+    idx === 0 ? { ...ap, startDate: new Date().toISOString(), currentWeek: 1 } : ap,
   );
 
   // Lazy-import Firestore primitives to keep this hot path lean.

@@ -57,7 +57,13 @@ export interface UserActiveProgram {
   id: string;          // מזהה ייחודי להרשמה (למשל: 'wedding_prep_2026')
   templateId: string;  // מזהה התבנית המקורית ממאגר התוכניות
   name: string;        // שם התצוגה: "אימון חתונה"
-  startDate: Date;
+  /**
+   * Stored in Firestore as an ISO string (single write format since the
+   * 09.07.2026 crash fix — mixed Date/Timestamp writes broke the reader).
+   * The profile reader (useUserStore → normalizeDateField) converts to Date,
+   * so post-store consumers see Date; raw Firestore payloads carry string.
+   */
+  startDate: Date | string;
   durationWeeks: number;
   currentWeek: number;
 

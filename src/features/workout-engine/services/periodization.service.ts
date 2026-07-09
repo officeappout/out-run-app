@@ -78,6 +78,22 @@ export function derivePeriodizationWeek(
   }
 
   const start = new Date(activeProgram.startDate);
+  // Invalid-date guard (crash fix, 09.07.2026): a Firestore Timestamp (or
+  // any malformed value) that slipped past upstream normalization parses to
+  // Invalid Date — which is TRUTHY, so it passed the null-guard above and
+  // blew up on toISOString() below. Log the RAW value + its shape so the
+  // offending field is always identifiable, then fall back to Week 1
+  // (Build) — the same safe default as a missing startDate.
+  if (isNaN(start.getTime())) {
+    console.warn(
+      '[Periodization] ⚠️ INVALID startDate — raw:',
+      JSON.stringify(activeProgram.startDate),
+      `(typeof=${typeof activeProgram.startDate}, ` +
+      `constructor=${(activeProgram.startDate as unknown as object)?.constructor?.name ?? 'n/a'}) ` +
+      '→ defaulting to Week 1 (Build)',
+    );
+    return 1;
+  }
   start.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
