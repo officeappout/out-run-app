@@ -11,6 +11,7 @@ interface ProcessedTranscript {
   actionItems: string[];
   concepts: string[];
   entityType: string;
+  category: string;
   authorityId: string | null;
   authorityName: string | null;
   transcriptUrl: string;
@@ -23,6 +24,13 @@ interface SkippedTranscript {
   fileName: string;
   reason: string;
 }
+
+const CATEGORY_META: Record<string, { label: string; className: string }> = {
+  client_meeting: { label: 'פגישת לקוח', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  strategy:       { label: 'אסטרטגיה',  className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  training:       { label: 'אימון',      className: 'bg-orange-100 text-orange-700 border-orange-200' },
+  other:          { label: 'כללי',       className: 'bg-gray-100 text-gray-600 border-gray-200' },
+};
 
 interface ScanResult {
   processed: ProcessedTranscript[];
@@ -119,7 +127,17 @@ export default function TranscriptScanPanel() {
               {/* File name + authority */}
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">📄 {t.fileName}</p>
+                  <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                    📄 {t.fileName}
+                    {(() => {
+                      const meta = CATEGORY_META[t.category] ?? CATEGORY_META.other;
+                      return (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${meta.className}`}>
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </p>
                   {t.authorityName ? (
                     <p className="text-xs text-violet-700 mt-0.5 font-medium flex items-center gap-2">
                       <span>🏛 {t.authorityName}</span>

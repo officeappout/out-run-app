@@ -4,7 +4,15 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getDriveClient, PRIMARY_MAILBOX } from '@/lib/google-service-account';
 import { createInsight } from './insights.service';
-import type { InsightSource } from '@/types/admin-types';
+import type { InsightSource, InsightCategory } from '@/types/admin-types';
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const EXTRACTION_MODEL = 'claude-sonnet-4-6';   // clean ID — no date suffix
+// Hebrew tokenizes ~1.33 chars/token (measured). 120K chars ≈ 90K tokens ≈ a ~2h meeting —
+// a single call at that size must still finish inside the 60s function window. Over this we fail
+// gracefully (chunking not yet implemented). Measured baseline: 40K chars / 30K tokens = ~32s.
+const MAX_TRANSCRIPT_CHARS = 120_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +21,7 @@ export interface TranscriptExtraction {
   actionItems: string[];
   entityType: 'authority' | 'user' | 'general';
   authorityName: string | null;
+  category: InsightCategory;
   concepts: string[];
 }
 
@@ -21,6 +30,7 @@ export interface ProcessedTranscript {
   summary: string;
   actionItems: string[];
   entityType: string;
+  category: InsightCategory;
   authorityId: string | null;
   authorityName: string | null;
   concepts: string[];
@@ -71,38 +81,62 @@ export async function readTranscriptFromDrive(fileId: string): Promise<string> {
 
 // ─── Claude: extract structured info from transcript text ─────────────────────
 
+// JSON schema for structured outputs — guarantees schema-valid JSON, no regex cleanup.
+const EXTRACTION_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    summary:       { type: 'string' },
+    actionItems:   { type: 'array', items: { type: 'string' } },
+    entityType:    { enum: ['authority', 'user', 'general'] },
+    authorityName: { type: ['string', 'null'] },
+    category:      { enum: ['client_meeting', 'strategy', 'training', 'other'] },
+    concepts:      { type: 'array', items: { type: 'string' } },
+  },
+  required: ['summary', 'actionItems', 'entityType', 'authorityName', 'category', 'concepts'],
+};
+
 export async function extractFromTranscript(text: string): Promise<TranscriptExtraction> {
   const client = new Anthropic();
   const msg = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
+    model: EXTRACTION_MODEL,
+    max_tokens: 3072,
+    thinking: { type: 'disabled' },   // keep fast for the 60s scan window; enable adaptive if substance-classification underperforms
+    output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
     messages: [{
       role: 'user',
       content: `אתה עוזר CRM של חברת OUT (אפליקציית כושר לרשויות ישראליות).
-קרא את התמלול הבא וחלץ:
+קרא את *כל* התמלול — מהתחלה ועד הסוף — וחלץ:
 
-1. סיכום בעברית — 3-5 משפטים
-2. action items — רשימה, כל אחד משפט אחד
-3. סוג ישות: "authority" (רשות מקומית/עירייה), "user" (משתמש/ספורטאי), "general"
-4. שם הרשות — שם מלא כפי שמופיע, או null
-5. קונספטים — בחר רלוונטיים: "פנייה לנשים", "בקשת פיצ'ר", "תקצוב", "חוזה", "מדידה/KPI", "שיווק", "מוניציפלי", "משתמש פעיל", "תלונה", "שבח", "תחרות"
+1. summary — סיכום בעברית, 3-5 משפטים, המכסה את כל הפגישה (לא רק הפתיחה).
+2. actionItems — רשימת משימות, כל אחת משפט אחד.
+3. entityType — ציר ניתוב: "authority" (רשות/עירייה) · "user" (ספורטאי/משתמש) · "general".
+4. authorityName — שם הרשות המלא כפי שמופיע, או null.
+5. category — ציר המהות של הפגישה. סווג לפי ה*מהות הדומיננטית*, לא לפי הפתיחה:
+   • "client_meeting" — עסקה, מחיר, אחוזים, חוזה, רכש, תקצוב, מו"מ מסחרי.
+   • "strategy" — כיוון, החלטות פנימיות, תכנון.
+   • "training" — תוכן אימון/ספורט, שיחת מאמן↔ספורטאי.
+   • "other" — לא מתאים לאף אחד.
+   כלל הכרעה: מהות עסקית מנצחת מסגור חברתי/אימוני. פגישה שנפתחה
+   ב-8 דקות שיחת כושר ואז עברה למו"מ על עסקה = "client_meeting", לא "training".
+6. concepts — בחר רלוונטיים: "פנייה לנשים", "בקשת פיצ'ר", "תקצוב", "חוזה", "מדידה/KPI", "שיווק", "מוניציפלי", "משתמש פעיל", "תלונה", "שבח", "תחרות".
 
-החזר JSON בלבד (ללא טקסט נוסף):
-{"summary":"...","actionItems":["..."],"entityType":"authority"|"user"|"general","authorityName":"..."|null,"concepts":["..."]}
+התמלול עשוי לכלול תוויות דובר (למשל "דוד:", "נציג העירייה:"). השתמש בהן
+כדי לזהות מי אמר מה — במיוחד מי הציע עסקה/מחיר — לצורך סיווג המהות.
 
 תמלול:
 ---
-${text.slice(0, 8000)}
+${text}
 ---`,
     }],
   });
 
-  const raw = msg.content[0].type === 'text' ? msg.content[0].text : '';
-  const cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
+  const raw = msg.content[0]?.type === 'text' ? msg.content[0].text : '';
+  // structured outputs guarantees schema-valid JSON; parse directly, defensive fallback just in case.
   try {
-    return JSON.parse(cleaned) as TranscriptExtraction;
+    return JSON.parse(raw) as TranscriptExtraction;
   } catch {
-    return { summary: raw.slice(0, 500), actionItems: [], entityType: 'general', authorityName: null, concepts: [] };
+    return { summary: raw.slice(0, 500), actionItems: [], entityType: 'general', authorityName: null, category: 'other', concepts: [] };
   }
 }
 
@@ -233,6 +267,14 @@ export async function processTranscript({
   date?: Date;
   hintAuthorityId?: string;
 }): Promise<ProcessedTranscript> {
+  // Soft ceiling — chunking not yet implemented. Fail gracefully BEFORE any Claude call or Firestore write.
+  if (text.length > MAX_TRANSCRIPT_CHARS) {
+    throw new Error(
+      `תמלול חורג מהתקרה (${text.length.toLocaleString()} תווים, מקס' ${MAX_TRANSCRIPT_CHARS.toLocaleString()}). ` +
+      `עיבוד chunking עדיין לא ממומש — יש לפצל את הקובץ ידנית.`
+    );
+  }
+
   const log: string[] = [];
   const push = (s: string) => log.push(s);
   const transcriptUrl = fileId ? `https://drive.google.com/file/d/${fileId}/view` : '';
@@ -240,7 +282,7 @@ export async function processTranscript({
 
   push('🧠 מחלץ סיכום...');
   const extraction = await extractFromTranscript(text);
-  push(`✅ entityType=${extraction.entityType} | concepts: ${extraction.concepts.join(', ') || 'none'}`);
+  push(`✅ entityType=${extraction.entityType} | category=${extraction.category} | concepts: ${extraction.concepts.join(', ') || 'none'}`);
 
   let authorityId = hintAuthorityId ?? null;
   let authorityName: string | null = extraction.authorityName;
@@ -265,6 +307,7 @@ export async function processTranscript({
     summary: extraction.summary,
     actionItems: extraction.actionItems,
     entityType: authorityId ? 'authority' : extraction.entityType,
+    category: extraction.category,
     authorityId: authorityId ?? undefined,
     authorityName: authorityName ?? undefined,
     concepts: extraction.concepts,
@@ -299,6 +342,7 @@ export async function processTranscript({
     summary: extraction.summary,
     actionItems: extraction.actionItems,
     entityType: authorityId ? 'authority' : extraction.entityType,
+    category: extraction.category,
     authorityId,
     authorityName,
     concepts: extraction.concepts,

@@ -6,7 +6,11 @@ import { readTranscriptFromDrive, processTranscript } from '@/features/admin/ser
 
 export const maxDuration = 60;
 
-const MAX_PER_SCAN = 5;      // cap to stay within 60s Hobby limit
+// One full-meeting extraction (Sonnet 4.6, full transcript) measured at ~32s.
+// A second sequential call would risk the 60s function limit, so we process one file per scan.
+// The scan is idempotent: each processed file is moved to "מעובד", so re-running picks up the rest.
+const MAX_PER_SCAN = 1;
+const LIST_PAGE_SIZE = 25;   // list more than we process, only to report the backlog
 const PROCESSED_FOLDER_NAME = 'מעובד';
 
 // ─── Drive helpers ────────────────────────────────────────────────────────────
@@ -40,7 +44,7 @@ async function listInboxFiles(drive: any, folderId: string) {
     orderBy: 'createdTime',
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
-    pageSize: MAX_PER_SCAN,
+    pageSize: LIST_PAGE_SIZE,
   });
   return (res.data.files ?? []) as { id: string; name: string; mimeType: string; createdTime: string }[];
 }
@@ -71,6 +75,7 @@ export async function POST(request: NextRequest) {
   const log: string[] = [];
   const push = (s: string) => log.push(s);
 
+  try {
   const drive = await getDriveClient(PRIMARY_MAILBOX);
 
   // Find/create "מעובד" subfolder
@@ -82,6 +87,9 @@ export async function POST(request: NextRequest) {
   push('📋 סורק תיבת נכנס...');
   const files = await listInboxFiles(drive, TRANSCRIPTS_INBOX_FOLDER_ID);
   push(`📄 נמצאו ${files.length} קבצים לעיבוד`);
+  if (files.length > MAX_PER_SCAN) {
+    push(`ℹ️ מעבד ${MAX_PER_SCAN} בסריקה זו — ${files.length - MAX_PER_SCAN} נותרו, הרץ שוב כדי להמשיך`);
+  }
 
   const processed: Array<{
     fileId: string;
@@ -91,6 +99,7 @@ export async function POST(request: NextRequest) {
     actionItems: string[];
     concepts: string[];
     entityType: string;
+    category: string;
     authorityId: string | null;
     authorityName: string | null;
     transcriptUrl: string;
@@ -139,6 +148,7 @@ export async function POST(request: NextRequest) {
         actionItems: result.actionItems,
         concepts: result.concepts,
         entityType: result.entityType,
+        category: result.category,
         authorityId: result.authorityId,
         authorityName: result.authorityName,
         transcriptUrl: result.transcriptUrl,
@@ -154,4 +164,20 @@ export async function POST(request: NextRequest) {
   push(`\n✅ סיום — עובדו ${processed.length}, דולגו ${skipped.length}`);
 
   return NextResponse.json({ processed, skipped, log });
+  } catch (err: any) {
+    // Always return valid JSON — never an empty body — so the panel can show
+    // the real reason instead of "Unexpected end of JSON input".
+    console.error('[transcripts/scan] fatal error:', err);
+    push(`💥 שגיאה קריטית: ${err?.message ?? 'לא ידועה'}`);
+    return NextResponse.json(
+      {
+        error: err?.message ?? 'שגיאה לא ידועה בסריקת תמלולים',
+        stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
+        processed: [],
+        skipped: [],
+        log,
+      },
+      { status: 500 }
+    );
+  }
 }

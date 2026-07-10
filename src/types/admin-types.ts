@@ -314,6 +314,9 @@ export const INSTALLMENT_STATUS_LABELS: Record<InstallmentStatus, string> = {
 
 export type InsightSource = 'meeting' | 'user_call' | 'note';
 export type InsightEntityType = 'authority' | 'user' | 'general';
+// Substance axis — orthogonal to entityType (which is the routing axis).
+// Classified by the dominant substance of the meeting, not its opening framing.
+export type InsightCategory = 'client_meeting' | 'strategy' | 'training' | 'other';
 
 export interface Insight {
   id: string;
@@ -323,6 +326,7 @@ export interface Insight {
   summary: string;             // Hebrew summary (3-5 sentences)
   actionItems: string[];
   entityType: InsightEntityType;
+  category?: InsightCategory;   // substance axis — optional (back-compatible with older insights)
   authorityId?: string;
   authorityName?: string;
   concepts: string[];          // e.g. "פנייה לנשים", "בקשת פיצ'ר", "תקצוב"

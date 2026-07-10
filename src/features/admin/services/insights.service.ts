@@ -1,7 +1,7 @@
 import 'server-only';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
-import type { Insight, InsightSource, InsightEntityType } from '@/types/admin-types';
+import type { Insight, InsightSource, InsightEntityType, InsightCategory } from '@/types/admin-types';
 
 const COLLECTION = 'insights';
 
@@ -12,6 +12,7 @@ export interface CreateInsightInput {
   summary: string;
   actionItems: string[];
   entityType: InsightEntityType;
+  category?: InsightCategory;
   authorityId?: string;
   authorityName?: string;
   concepts: string[];
@@ -30,6 +31,7 @@ export async function createInsight(input: CreateInsightInput): Promise<string> 
     summary: input.summary,
     actionItems: input.actionItems,
     entityType: input.entityType,
+    category: input.category ?? 'other',
     concepts: input.concepts,
     createdBy: 'transcript-agent',
     createdAt: FieldValue.serverTimestamp(),
@@ -43,6 +45,7 @@ export async function createInsight(input: CreateInsightInput): Promise<string> 
 
 export interface InsightQueryFilters {
   entityType?: InsightEntityType;
+  category?: InsightCategory;
   authorityId?: string;
   concept?: string;
   source?: InsightSource;
@@ -54,6 +57,7 @@ export async function queryInsights(filters: InsightQueryFilters = {}): Promise<
   let q = db.collection(COLLECTION).orderBy('date', 'desc') as FirebaseFirestore.Query;
 
   if (filters.entityType) q = q.where('entityType', '==', filters.entityType);
+  if (filters.category)    q = q.where('category', '==', filters.category);
   if (filters.authorityId) q = q.where('authorityId', '==', filters.authorityId);
   if (filters.concept)     q = q.where('concepts', 'array-contains', filters.concept);
   if (filters.source)      q = q.where('source', '==', filters.source);
