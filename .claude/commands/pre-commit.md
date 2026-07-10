@@ -15,13 +15,29 @@ git diff main..HEAD --stat
 ```
 If the branch is empty or already merged → stop and report.
 
-### 2 — Run the code-reviewer agent
+### 2 — Workout invariants gate (conditional)
+Run ONLY when the branch diff touches the workout engine:
+```bash
+if git diff main..HEAD --name-only | grep -q '^src/features/workout-engine/'; then
+  npm run test:invariants
+fi
+```
+- Hermetic gate over generated workouts (`tests/invariants/runner.ts`) — see
+  `tests/invariants/README.md`. Known engine bugs are marked `xfail` and do NOT
+  fail it; only a NEW regression (a HARD FAILURE) makes it exit non-zero.
+- **If it exits non-zero → BLOCK.** List the `HARD FAILURES` lines, do NOT push/PR.
+  Either fix the regression, or — if the change intentionally alters that
+  behavior — update/relax the specific invariant in `runner.ts` with justification
+  and surface it to David. Then re-run.
+- If the workout engine wasn't touched, skip this step.
+
+### 3 — Run the code-reviewer agent
 Invoke the `code-reviewer` agent with this context:
 - Diff scope: `git diff main..HEAD`
 - It loads axioms.md and runs its 3 checks
 - Wait for its VERDICT
 
-### 3 — Gate on verdict
+### 4 — Gate on verdict
 
 **If VERDICT: ✅ PASS:**
 Report the clean result. Proceed with push/PR when ready.
@@ -36,5 +52,7 @@ Report the clean result. Proceed with push/PR when ready.
 - This reviews the FULL branch diff (main..HEAD), not just staged files.
 - Static checks (safety-check.sh) run automatically on each agent commit.
   This command adds the AI reasoning layer for axiom violations and edge cases.
+- The workout invariants gate (step 2) needs `.env.local` (firebase init) and,
+  in a worktree, `node_modules` symlinked from the main checkout.
 - If the reviewer returns ambiguous findings, surface them to David — do not
   auto-resolve blocking status.
