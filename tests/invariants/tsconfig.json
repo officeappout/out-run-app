@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "paths": {
+      "@/features/content/exercises/core/exercise.service": ["./mocks/exercise.service.ts"],
+      "@/features/content/programs/core/program.service": ["./mocks/program.service.ts"],
+      "@/features/content/equipment/gym/core/gym-equipment.service": ["./mocks/gym-equipment.service.ts"],
+      "@/features/content/programs/core/programLevelSettings.service": ["./mocks/programLevelSettings.service.ts"],
+      "@/*": ["../../src/*"]
+    }
+  }
+}

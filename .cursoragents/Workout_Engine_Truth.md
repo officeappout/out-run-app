@@ -303,13 +303,20 @@ When the user swaps an exercise, the engine infers the REASON:
 
 | Concern | File |
 |---------|------|
-| Pure generator (Brain) | `src/features/workout-engine/generator/services/workout-generator.service.ts` |
+| **Live entry point (trio + warmup/cooldown/cap)** | `src/features/workout-engine/services/home-workout.service.ts` → `generateHomeWorkoutTrio()` / `generateHomeWorkout()` |
+| **Orchestrator (empty-pool + blueprint guards)** | `src/features/workout-engine/core/pipeline/PipelineOrchestrator.ts` → `run()` |
+| **Pure generator (Brain)** | `src/features/workout-engine/logic/WorkoutGenerator.ts` → `WorkoutGenerator.generateWorkout()` |
 | Contextual filter + scoring | `ContextualEngine.ts` |
 | Execution method cascade | `generator/services/execution-method-selector.service.ts` |
 | Exercise replacement (Smart Swap) | `generator/services/exercise-replacement.service.ts` |
 | Fragmenter (blueprint split) | `workout-engine/logic/Fragmenter.ts` |
 | Active session state | `workout-engine/core/store/useSessionStore.ts` |
 | Per-level tuning (sets/gain) | Firestore `program_level_settings` (see `XP_Progression_Truth.md`) |
+
+> ⚠️ **Stale-path note (verified 09.07.2026):** `generator/services/workout-generator.service.ts`
+> does NOT exist — the `generator/` dir holds only utilities (execution-method-selector,
+> exercise-replacement). The live generation path is
+> `generateHomeWorkoutTrio()` → `PipelineOrchestrator.run()` → `WorkoutGenerator.generateWorkout()`.
 
 ---
 
