@@ -11,11 +11,25 @@ silently pushes a 15-min request to 30 min — not one-off data problems.
 ## Run
 
 ```bash
-npm run test:invariants      # run the gate (needs .env.local for firebase init)
+npm run test:invariants      # run the gate
 npm run snapshot:corpus      # refresh the frozen corpus (see below)
 ```
 
 Wired into `/pre-commit` when a diff touches `src/features/workout-engine/**`.
+
+### Requirement: `.env.local` (firebase init)
+
+The gate loads firebase initialization from `.env.local` at the repo root. It is a
+**hard requirement** — `preflight.mjs` runs first and, if the file is missing/empty,
+aborts with a clear message and **exit code 2** (configuration error), distinct from
+an invariant failure (**exit code 1**). This is deliberate: a missing `.env.local`
+must never be mistaken for an engine regression.
+
+In a worktree, copy `.env.local` from the main checkout (it is gitignored). The gate
+does not read live app data — the file is only needed so the client firebase graph
+initializes; all structural inputs come from the frozen fixture.
+
+**Exit codes:** `0` = green · `1` = invariant regression (hard failure) · `2` = config error (missing `.env.local`).
 
 ## The fixture is a FROZEN SNAPSHOT — refresh it periodically
 

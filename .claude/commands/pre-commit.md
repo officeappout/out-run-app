@@ -24,11 +24,13 @@ fi
 ```
 - Hermetic gate over generated workouts (`tests/invariants/runner.ts`) — see
   `tests/invariants/README.md`. Known engine bugs are marked `xfail` and do NOT
-  fail it; only a NEW regression (a HARD FAILURE) makes it exit non-zero.
-- **If it exits non-zero → BLOCK.** List the `HARD FAILURES` lines, do NOT push/PR.
-  Either fix the regression, or — if the change intentionally alters that
-  behavior — update/relax the specific invariant in `runner.ts` with justification
-  and surface it to David. Then re-run.
+  fail it; only a NEW regression (a HARD FAILURE) makes it fail.
+- **Exit codes:** `0` = green (proceed) · `1` = invariant regression → **BLOCK**:
+  list the `HARD FAILURES` lines, do NOT push/PR; fix the regression, or — if the
+  change intentionally alters that behavior — update/relax the specific invariant
+  in `runner.ts` with justification and surface it to David, then re-run · `2` =
+  **config error** (missing/empty `.env.local`) → NOT a regression: report the
+  preflight message, restore `.env.local`, re-run. Do not touch invariants for this.
 - If the workout engine wasn't touched, skip this step.
 
 ### 3 — Run the code-reviewer agent

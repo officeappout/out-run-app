@@ -9,7 +9,7 @@
     "lint": "next lint",
     "upload-media": "npx tsx scripts/upload-local-media.ts",
     "_comment_invariants": "── Workout invariants gate ── test:invariants runs the hermetic workout-validity check; snapshot:corpus refreshes the frozen data fixture. See tests/invariants/README.md.",
-    "test:invariants": "node --env-file=.env.local ./node_modules/.bin/tsx --tsconfig tests/invariants/tsconfig.json tests/invariants/runner.ts",
+    "test:invariants": "node tests/invariants/preflight.mjs && node --env-file=.env.local ./node_modules/.bin/tsx --tsconfig tests/invariants/tsconfig.json tests/invariants/runner.ts",
     "snapshot:corpus": "node --env-file=.env.local ./node_modules/.bin/tsx --tsconfig tests/invariants/tsconfig.json scripts/snapshot-workout-corpus.ts",
     "_comment_deploy": "── Deployment ── Run 'deploy' to push web app to Vercel (updates the live iOS/Android content). 'cap:sync' is for native plugin/config changes only — it does NOT update web content.",
     "deploy": "vercel --prod",
