@@ -36,6 +36,7 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { inferSegmentProtocol } from '@/features/workout-engine/players/strength/protocols/advance-registry';
+import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
@@ -765,9 +766,16 @@ export default function HomePage() {
       });
 
       const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
-      const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
+      const allMainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
       const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
       const recoveryExercises = exercises.filter((ex: any) => ex.exerciseRole === 'recovery');
+
+      // Stage 3.1: generator-decided tabata block → its own segment. Plan-level
+      // fields (appliedProtocol/blastMode) never reach the player; the SEGMENT
+      // is the only channel the runner executes. Defensive partition dissolves
+      // a degenerate block (<2 members after swaps) back into seg-main.
+      const { tabata: tabataExercises, rest: mainExercises } =
+        partitionByTabataBlock(allMainExercises, gw.tabataBlock);
 
       const segments: any[] = [];
       if (warmupExercises.length > 0) {
@@ -795,6 +803,24 @@ export default function HomePage() {
           isCompleted: false,
           restBetweenExercises: 10,
           protocol: inferSegmentProtocol(mainExercises),
+          kind: 'strength' as const,
+        });
+      }
+      if (tabataExercises.length > 0 && gw.tabataBlock) {
+        const tabataCfg = gw.tabataBlock.config;
+        segments.push({
+          id: 'seg-tabata',
+          type: 'station' as const,
+          title: 'טבטה — פיניש',
+          icon: '🔥',
+          target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
+          exercises: tabataExercises,
+          isCompleted: false,
+          // In-block rest is the CLOCK's job (config.restSec via RESTING) —
+          // restBetweenExercises must not add a second rest layer.
+          restBetweenExercises: 0,
+          protocol: 'tabata' as const,
+          protocolConfig: tabataCfg,
           kind: 'strength' as const,
         });
       }

@@ -453,6 +453,9 @@ export function enforceVolumeCap(
   // re-estimates.  Stops as soon as we are within cap.
   const isExpendable = (ex: WorkoutExercise): boolean => {
     if (ex.exerciseRole !== 'main') return false;
+    // Tabata block members (Stage 3.1) are priced as one fixed 4-min
+    // constant — removing one saves no time and mutilates the block.
+    if (ex.protocolBlock) return false;
     const mg = ex.exercise.movementGroup ?? '';
     if (CORE_MGS.has(mg)) return true;       // core removed first
     if (ex.priority === 'isolation' || ex.priority === 'accessory') return true;
@@ -488,7 +491,8 @@ export function enforceVolumeCap(
   // ── Phase B: trim sets on remaining exercises ───────────────────────────
   while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
     const trimCandidate = workout.exercises
-      .filter(ex => ex.exerciseRole === 'main' && ex.sets > minSets)
+      // protocolBlock members excluded: block duration is set-count-independent
+      .filter(ex => ex.exerciseRole === 'main' && !ex.protocolBlock && ex.sets > minSets)
       .sort((a, b) => {
         const trimPriority = (ex: WorkoutExercise): number => {
           if (ex.tier === 'flow' || ex.tier === 'easy') return 0;
@@ -525,9 +529,13 @@ export function enforceVolumeCap(
     estimatedMin > config.durationCap + VOLUME_CAP_TOLERANCE_MIN &&
     guardIterations < maxIterations
   ) {
+    // protocolBlock members are undroppable (fixed 4-min block, Stage 3.1) —
+    // they still count toward the MIN_MAIN_EXERCISES floor.
     const mains = workout.exercises.filter(e => e.exerciseRole === 'main');
     if (mains.length <= MIN_MAIN_EXERCISES) break;
-    const dropCandidate = [...mains].sort((a, b) => a.score - b.score)[0];
+    const droppable = mains.filter(e => !e.protocolBlock);
+    if (droppable.length === 0) break;
+    const dropCandidate = [...droppable].sort((a, b) => a.score - b.score)[0];
     workout.exercises = workout.exercises.filter(e => e !== dropCandidate);
     workout.exercises = clearOrphanedPairings(workout.exercises);
     console.log(

@@ -10,6 +10,7 @@
 
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
+import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constants';
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import {
@@ -916,9 +917,19 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
 
   const warmupExercises:  WorkoutExercise[] = [];
   const cooldownExercises: WorkoutExercise[] = [];
+  const tabataMembers:     WorkoutExercise[] = [];
 
   for (const ex of exercises) {
     const role = ex.exerciseRole ?? 'main';
+
+    // ── Tabata block members (Stage 3.1) ───────────────────────────────────
+    // The block's wall-clock is a fixed (work+rest)×rounds constant — sets
+    // and reps of the members are IRRELEVANT to its duration. Collect and
+    // price once after the loop; per-set math here would double-count.
+    if (ex.protocolBlock === 'tabata') {
+      tabataMembers.push(ex);
+      continue;
+    }
 
     if (role === 'warmup') {
       warmupExercises.push(ex);
@@ -967,13 +978,27 @@ export function calculateEstimatedDuration(exercises: WorkoutExercise[]): number
     }
   }
 
-  // ── Transitions: warmup items use 5 s; all others use 30 s ──────────────
-  const mainAndCooldownExercises = exercises.filter(ex => (ex.exerciseRole ?? 'main') !== 'warmup');
-  const mainTransitionSeconds = mainAndCooldownExercises.length > 1
-    ? (mainAndCooldownExercises.length - 1) * 30
-    : 0;
+  // ── Tabata block: one fixed cost, regardless of member count ────────────
+  let tabataBlockSec = 0;
+  if (tabataMembers.length > 0) {
+    tabataBlockSec = TABATA_BLOCK_SECONDS;
+    rows.push({
+      role: 'tabata',
+      name: `בלוק טבטה (${tabataMembers.length} תרגילים)`,
+      sets: TABATA_CLASSIC.rounds,
+      workSec: TABATA_CLASSIC.workSec * TABATA_CLASSIC.rounds,
+      restSec: TABATA_CLASSIC.restSec * TABATA_CLASSIC.rounds,
+    });
+  }
 
-  const totalSeconds = rawWarmupSec + mainWorkSec + mainRestSec + cooldownWorkSec + cooldownRestSec;
+  // ── Transitions: warmup items use 5 s; all others use 30 s ──────────────
+  // The tabata block counts as ONE unit (members flow 20/10 internally).
+  const mainAndCooldownExercises = exercises.filter(ex =>
+    (ex.exerciseRole ?? 'main') !== 'warmup' && ex.protocolBlock !== 'tabata');
+  const transitionUnits = mainAndCooldownExercises.length + (tabataMembers.length > 0 ? 1 : 0);
+  const mainTransitionSeconds = transitionUnits > 1 ? (transitionUnits - 1) * 30 : 0;
+
+  const totalSeconds = rawWarmupSec + mainWorkSec + mainRestSec + cooldownWorkSec + cooldownRestSec + tabataBlockSec;
   const finalSeconds = totalSeconds + mainTransitionSeconds;
   const finalMinutes = Math.ceil(finalSeconds / 60);
 

@@ -80,6 +80,7 @@ import {
 
 // Protocol registry — dispatcher replaces hard-coded protocol if-tree
 import { findProcessor } from './protocols/protocol-processor.registry';
+import { buildTabataBlock } from './protocols/tabata.block';
 
 // StructureDirector — declarative session topology + strategy detection
 import { createStructureDirector } from '../core/pipeline/StructureDirector';
@@ -1069,6 +1070,17 @@ export class WorkoutGenerator {
     const description = this.generateDescription(context, difficulty);
     const aiCue = this.generateAICue(context, workoutExercises.length, difficulty);
 
+    // Step 6b (Stage 3.1): Tabata block assembly — runs AFTER every list
+    // mutation (dedup, guarantees, budget distribution) and BEFORE duration
+    // pricing, so the estimator sees the members' protocolBlock markers and
+    // prices the block as a fixed (work+rest)×rounds constant. When the
+    // lottery rolled tabata but no block can be assembled (blast precedence,
+    // <2 eligible mains), setType reverts so appliedProtocol stays honest.
+    const tabataBlock = buildTabataBlock(protocolResult.setType, workoutExercises, context);
+    if (protocolResult.setType === 'tabata' && !tabataBlock) {
+      protocolResult.setType = 'straight';
+    }
+
     // Step 7: Duration
     const estimatedDuration = calculateEstimatedDuration(workoutExercises);
 
@@ -1191,6 +1203,7 @@ export class WorkoutGenerator {
       isRecovery,
       totalPlannedSets,
       appliedProtocol: protocolResult.setType !== 'straight' ? protocolResult.setType : undefined,
+      tabataBlock,
       pipelineLog,
     };
   }
