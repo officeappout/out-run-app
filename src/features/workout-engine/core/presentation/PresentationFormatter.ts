@@ -395,6 +395,14 @@ export interface VolumeCapConfig {
 const CORE_MGS = new Set(['core', 'anti_extension', 'anti_rotation']);
 /** Lower-body movement groups counted by the "extra leg" expendability rule. */
 const LEGS_MGS = new Set(['squat', 'hinge', 'lunge']);
+/**
+ * The availableTime contract window (±3 min, product decision 10.07.2026).
+ * Phase C only fires beyond cap + this tolerance, so plans already inside
+ * the promised window are never trimmed further.
+ */
+const VOLUME_CAP_TOLERANCE_MIN = 3;
+/** Phase C never drops the session below this many main exercises. */
+const MIN_MAIN_EXERCISES = 2;
 
 /**
  * Enforce the bolt duration cap on the final exercise list.
@@ -494,6 +502,34 @@ export function enforceVolumeCap(
     trimCandidate.sets -= 1;
     trimCandidate.reasoning.push(
       `volume_guard:sets_trimmed(${label}cap=${config.durationCap}m)`,
+    );
+    estimatedMin = calculateEstimatedDuration(workout.exercises);
+    guardIterations++;
+  }
+
+  // ── Phase C: convergence for ultra-short budgets ────────────────────────
+  // Phases A+B respect expendability classes and the 2-set floor — which
+  // cannot fit 4 compounds + the fixed rest staircase into a 15-minute
+  // request (measured 11.07.2026: request 15 → 26m after A+B found nothing
+  // to trim). When the plan still exceeds the CONTRACT WINDOW (cap + 3min,
+  // the same ±3 tolerance the user was promised), drop the lowest-scored
+  // main exercise — never below MIN_MAIN_EXERCISES — until it fits. Because
+  // this only fires beyond cap+3, plans that already honour the contract
+  // (e.g. 17m for a 15m request, or the historical 30/45/60 outputs) are
+  // untouched.
+  while (
+    estimatedMin > config.durationCap + VOLUME_CAP_TOLERANCE_MIN &&
+    guardIterations < maxIterations
+  ) {
+    const mains = workout.exercises.filter(e => e.exerciseRole === 'main');
+    if (mains.length <= MIN_MAIN_EXERCISES) break;
+    const dropCandidate = [...mains].sort((a, b) => a.score - b.score)[0];
+    workout.exercises = workout.exercises.filter(e => e !== dropCandidate);
+    workout.exercises = clearOrphanedPairings(workout.exercises);
+    console.log(
+      `[PresentationFormatter.volumeCap] PhaseC: dropped ` +
+      `"${(dropCandidate.exercise.name as any)?.he || dropCandidate.exercise.id}" ` +
+      `(score=${dropCandidate.score}) — still ${estimatedMin}m > ${config.durationCap}+${VOLUME_CAP_TOLERANCE_MIN}m`,
     );
     estimatedMin = calculateEstimatedDuration(workout.exercises);
     guardIterations++;
