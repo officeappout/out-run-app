@@ -382,7 +382,11 @@ export interface VolumeCapConfig {
   durationCap: number;
   /** Floor for Phase B set trimming.  Defaults to 2. */
   minSets?: number;
-  /** Hard ceiling on guard iterations to prevent infinite loops.  Defaults to 30. */
+  /**
+   * Hard ceiling on guard iterations to prevent infinite loops. Defaults to 30.
+   * SHARED across Phases A+B+C — a custom value must be large enough to cover
+   * all three (too small silently starves Phase C, the short-budget converger).
+   */
   maxIterations?: number;
   /**
    * Diagnostic label prefixed to console group / pipeline log lines, e.g.

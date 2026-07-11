@@ -86,7 +86,9 @@ export function derivePeriodizationWeek(
   // unification is not deployed everywhere. new Date(TimestampShape) is
   // Invalid — which used to freeze those accounts at Week 1 forever.
   // Decode the instant instead: instance (.toDate), client shape ({seconds}),
-  // JSON round-trip shape ({_seconds}); else parse as before.
+  // JSON round-trip shape ({_seconds} — an SDK-INTERNAL field name that may
+  // change between SDK versions; belt-and-suspenders only, the public shapes
+  // are covered first); else parse as before.
   const raw: unknown = activeProgram.startDate;
   const shape = raw as { toDate?: () => Date; seconds?: number; _seconds?: number };
   const start =

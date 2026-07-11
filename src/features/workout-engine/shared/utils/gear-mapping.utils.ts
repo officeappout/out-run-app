@@ -9,7 +9,6 @@ import type { RequiredGearType, EquipmentType } from '@/features/content/exercis
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
-import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
 // Cache for gear data
