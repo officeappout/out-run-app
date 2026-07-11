@@ -135,6 +135,26 @@ export interface CommuteContext {
   label?: string;
 }
 
+/**
+ * Phase 0 "Loop ×N" — an active curated-loop repeat plan.
+ *
+ * The user picks a curated loop of length `loopKm` and a lap count `laps`; the
+ * run targets `targetKm = loopKm × laps`. Lap counting is fully recycled from
+ * the existing distance auto-lap (autoLapMode:'distance', autoLapValue:loopKm)
+ * so a lap fires every loop-length covered; the sessionGoal(distance,targetKm)
+ * drives the existing progress bar + "target reached" toast (run continues).
+ *
+ * `_prevAutoLap*` capture the user's auto-lap settings so they are RESTORED when
+ * the run ends — a loop session must not silently change the next free run.
+ */
+export interface LoopPlan {
+  loopKm: number;
+  laps: number;
+  targetKm: number;
+  _prevAutoLapMode: WorkoutSettings['autoLapMode'];
+  _prevAutoLapValue: number;
+}
+
 interface RunningPlayerState {
   // Running Mode
   runMode: 'free' | 'plan' | 'my_routes';
@@ -250,6 +270,14 @@ interface RunningPlayerState {
   // See SessionGoal jsdoc for unit conventions.
   sessionGoal: SessionGoal | null;
 
+  // ── Loop ×N (curated-loop repeat) ────────────────────────────────
+  // `pendingLoopLaps` is staged by RouteDetailSheet BEFORE startActiveWorkout
+  // (preserved across clearRunningData, like commuteContext) and consumed in
+  // _doStartActiveWorkout. `loopPlan` is the active plan (null when the run is
+  // not a loop-repeat). Non-loop runs never touch either field.
+  pendingLoopLaps: number | null;
+  loopPlan: LoopPlan | null;
+
   // ── Commute Mode (A-to-B navigation) ─────────────────────────────
   // sessionMode is the SINGLE switch that all commute-vs-workout UI
   // and reward branching reads from. It is intentionally separate from
@@ -302,6 +330,16 @@ interface RunningPlayerState {
   setGuidedRouteDistanceKm: (km: number | null) => void;
   setGuidedRouteTurns: (turns: RouteTurn[] | null) => void;
   setSessionGoal: (goal: SessionGoal | null) => void;
+  /** Stage a curated-loop ×N repeat (lap count) BEFORE startActiveWorkout. */
+  setPendingLoopLaps: (laps: number | null) => void;
+  /**
+   * Apply a loop ×N plan: recycle distance auto-lap (a lap per loopKm) + set a
+   * distance sessionGoal of loopKm×laps. Captures the user's prior auto-lap
+   * settings so clearLoopPlan can restore them. No-op guard: laps ≤ 1.
+   */
+  startLoopPlan: (loopKm: number, laps: number) => void;
+  /** Restore the user's prior auto-lap settings + clear the active loop plan. */
+  clearLoopPlan: () => void;
   /**
    * Stage a commute session. Sets sessionMode → 'commute' AND stashes
    * the destination context. Must be called BEFORE startActiveWorkout
@@ -419,6 +457,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // Free-Run Session Goal — null until FreeRunDrawer pushes one.
   sessionGoal: null,
 
+  // Loop ×N — null until RouteDetailSheet stages a curated-loop repeat.
+  pendingLoopLaps: null,
+  loopPlan: null,
+
   // Commute mode — defaults to 'workout' so existing flows are untouched.
   sessionMode: 'workout',
   commuteContext: null,
@@ -504,6 +546,29 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   setGuidedRouteDistanceKm: (km) => set({ guidedRouteDistanceKm: km }),
   setGuidedRouteTurns: (turns) => set({ guidedRouteTurns: turns }),
   setSessionGoal: (goal) => set({ sessionGoal: goal }),
+
+  // ── Loop ×N ──────────────────────────────────────────────────────
+  setPendingLoopLaps: (laps) => set({ pendingLoopLaps: laps && laps > 1 ? laps : null }),
+
+  startLoopPlan: (loopKm, laps) => {
+    if (!(loopKm > 0) || !(laps > 1)) return; // guard: only real repeats
+    const { settings } = get();
+    const targetKm = +(loopKm * laps).toFixed(2);
+    // Recycle distance auto-lap → one lap per loop-length; remember prior prefs.
+    get().updateSettings({ autoLapMode: 'distance', autoLapValue: loopKm });
+    set({
+      sessionGoal: { type: 'distance', value: targetKm },
+      loopPlan: { loopKm, laps, targetKm, _prevAutoLapMode: settings.autoLapMode, _prevAutoLapValue: settings.autoLapValue },
+    });
+  },
+
+  clearLoopPlan: () => {
+    const { loopPlan } = get();
+    if (!loopPlan) return;
+    // Restore the auto-lap settings the user had before the loop run.
+    get().updateSettings({ autoLapMode: loopPlan._prevAutoLapMode, autoLapValue: loopPlan._prevAutoLapValue });
+    set({ loopPlan: null });
+  },
 
   setCommuteContext: (ctx) =>
     set({
@@ -1293,6 +1358,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   clearRunningData: () => {
     const { stopGPSTracking } = get();
     stopGPSTracking();
+    // Restore auto-lap prefs if a prior loop run was abandoned without finishing
+    // (no-op when there is no active loop plan).
+    get().clearLoopPlan();
     _coordBuffer = [];
     _zoneBuffer  = [];
     // Clear shared session state so no stale groupId persists into the
@@ -1750,6 +1818,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       } finally {
         _finishInFlight = false;
         set({ guidedRouteId: null, guidedRouteName: null, guidedRouteDistanceKm: null, guidedRouteTurns: null });
+        // Restore the user's auto-lap prefs after a loop ×N run (no-op otherwise).
+        get().clearLoopPlan();
+        set({ pendingLoopLaps: null });
         // Drop commute intent + map pin once the session is persisted.
         // The slim FreeRunSummary reads the commute flag from
         // `savedWorkoutSnapshot.sessionKind`, not from this in-memory

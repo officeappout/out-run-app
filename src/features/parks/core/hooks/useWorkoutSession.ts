@@ -204,6 +204,9 @@ export function useWorkoutSession(
     // Preserve any sessionGoal set by FreeRunDrawer before the clear so it
     // survives the clearRunningData() wipe and remains active for the bar.
     const pendingGoal = rp.sessionGoal;
+    // Loop ×N (curated-loop repeat) staged by RouteDetailSheet — captured here
+    // because we apply it AFTER the clear/initialise pre-flight (see below).
+    const pendingLoopLaps = rp.pendingLoopLaps;
     rp.clearRunningData();
     rp.initializeRunningData();
     if (pendingGoal) rp.setSessionGoal(pendingGoal);
@@ -226,6 +229,15 @@ export function useWorkoutSession(
         ? focusedRoute.distance
         : null,
     );
+    // Loop ×N: if the user staged a repeat on a loop route, apply it now (after
+    // clear/initialise so it isn't wiped). startLoopPlan sets a distance
+    // sessionGoal (loopKm×laps) + distance auto-lap (one lap per loopKm); it
+    // overrides pendingGoal for this run. No-op / untouched for non-loop runs
+    // (pendingLoopLaps is null) — fully field-guarded.
+    if (pendingLoopLaps && pendingLoopLaps > 1 && typeof focusedRoute?.distance === 'number' && focusedRoute.distance > 0) {
+      rp.startLoopPlan(focusedRoute.distance, pendingLoopLaps);
+    }
+    rp.setPendingLoopLaps(null);
     rp.setGuidedRouteTurns(
       focusedRoute?.path && focusedRoute.path.length >= 3
         ? computeRouteTurns(focusedRoute.path)

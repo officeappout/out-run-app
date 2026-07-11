@@ -23,6 +23,7 @@ import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
 import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -159,6 +160,24 @@ export default function RouteDetailSheet({
   const [localSessions, setLocalSessions] = useState<SessionEnrichment[]>([]);
 
   const currentUid = auth.currentUser?.uid;
+
+  // ── Loop ×N (Phase 0) ────────────────────────────────────────────
+  // A curated loop can be repeated N laps to reach a longer target distance
+  // (e.g. a 1.8 km loop ×9 ≈ 16 km). Detected from geometry (start ≈ end) so it
+  // works for any loop regardless of whether the doc carries an isLoop flag.
+  // path is [lng,lat] tuples; haversineKm takes (lat,lng,lat,lng).
+  const isLoopRoute = useMemo(() => {
+    const p = route?.path;
+    if (!p || p.length < 3 || (route?.distance ?? 0) <= 0) return false;
+    const a = p[0], b = p[p.length - 1];
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    return haversineKm(a[1], a[0], b[1], b[0]) * 1000 < 60; // start↔end < 60 m
+  }, [route]);
+  const [loopLaps, setLoopLaps] = useState(1);
+  // Reset the lap count whenever a different route is opened.
+  useEffect(() => { setLoopLaps(1); }, [route?.id]);
+  const loopKm = route?.distance ?? 0;
+  const loopTargetKm = +(loopKm * loopLaps).toFixed(2);
 
   const handlePublishArrival = useCallback(async () => {
     const user = auth.currentUser;
@@ -529,6 +548,46 @@ export default function RouteDetailSheet({
                       </div>
                     )}
                   </div>
+
+                  {/* ── Loop ×N selector — loops only (Phase 0) ────────────
+                      A curated loop can be repeated N laps to reach a longer
+                      target distance. Hidden entirely for non-loop routes. */}
+                  {isLoopRoute && (
+                    <div
+                      className="mb-4 rounded-2xl px-3 py-2.5 bg-cyan-50/60 flex items-center justify-between gap-3"
+                      style={{ border: '0.5px solid #C7ECF5' }}
+                      dir="rtl"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <RefreshCw size={15} className="text-cyan-600 flex-shrink-0" />
+                        <div className="flex flex-col leading-tight min-w-0">
+                          <span className="text-[13px] font-bold text-gray-800">חזרות על הלולאה</span>
+                          <span className="text-[11px] text-gray-500 truncate">
+                            {loopLaps > 1 ? `${loopLaps} הקפות · ${formatDistance(loopTargetKm)}` : `הקפה אחת · ${formatDistance(loopKm)}`}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setLoopLaps((n) => Math.max(1, n - 1))}
+                          disabled={loopLaps <= 1}
+                          aria-label="פחות הקפות"
+                          className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-700 font-black text-lg shadow-sm active:scale-90 transition-transform disabled:opacity-40"
+                          style={{ border: '0.5px solid #E0E9FF' }}
+                        >−</button>
+                        <span className="w-9 text-center text-[15px] font-black text-cyan-700 tabular-nums">×{loopLaps}</span>
+                        <button
+                          type="button"
+                          onClick={() => setLoopLaps((n) => Math.min(20, n + 1))}
+                          disabled={loopLaps >= 20}
+                          aria-label="עוד הקפות"
+                          className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-700 font-black text-lg shadow-sm active:scale-90 transition-transform disabled:opacity-40"
+                          style={{ border: '0.5px solid #E0E9FF' }}
+                        >+</button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Secondary inline stats — calories + monthly popularity.
                       Smaller, no pill chrome, so the eye separates them
@@ -1079,12 +1138,17 @@ export default function RouteDetailSheet({
 
                 <div className="flex items-center gap-2" dir="rtl">
                   <button
-                    onClick={() => { onStartWorkout?.(route); }}
+                    onClick={() => {
+                      // Stage the loop ×N repeat (consumed in _doStartActiveWorkout);
+                      // always clear first so a non-loop / ×1 start behaves exactly as before.
+                      useRunningPlayer.getState().setPendingLoopLaps(isLoopRoute && loopLaps > 1 ? loopLaps : null);
+                      onStartWorkout?.(route);
+                    }}
                     className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
                     <Play size={18} fill="currentColor" />
-                    <span>התחל אימון</span>
+                    <span>{isLoopRoute && loopLaps > 1 ? `התחל · ${formatDistance(loopTargetKm)}` : 'התחל אימון'}</span>
                   </button>
                   <button
                     onClick={() => onNavigate ? onNavigate(route) : handleNavigate()}
