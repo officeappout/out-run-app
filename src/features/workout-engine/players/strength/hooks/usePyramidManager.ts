@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+import { resolvePyramidStep } from '../logic/set-target.utils';
 
 /**
  * usePyramidManager — pure pyramid-protocol computation hook (Step SM-1).
@@ -78,11 +79,13 @@ export function usePyramidManager({
   currentSetIndex,
 }: PyramidManagerInput): PyramidManagerResult {
   // ── Active step for the current exercise + set ──────────────────────────
-  const pyramidStep = useMemo<PyramidStep | null>(() => {
-    const seq = (activeExercise as any)?.pyramidSequence as PyramidStep[] | undefined;
-    if (!seq || seq.length === 0) return null;
-    return seq[currentSetIndex] ?? null;
-  }, [activeExercise, currentSetIndex]);
+  // Delegates to the SINGLE lookup in set-target.utils (Stage 0) — the same
+  // resolution used by auto-save logging and the look-ahead preview, so the
+  // per-step name/video/image can never drift between consumers again.
+  const pyramidStep = useMemo<PyramidStep | null>(
+    () => resolvePyramidStep(activeExercise, currentSetIndex),
+    [activeExercise, currentSetIndex],
+  );
 
   const isPyramidActive = pyramidStep !== null;
 
@@ -101,13 +104,8 @@ export function usePyramidManager({
   // autoSaveTargetReps to include it in its dependency array without
   // triggering spurious re-creations.
   const resolveStepFor = useMemo(
-    () =>
-      (exercise: unknown, setIndex: number): PyramidStep | null => {
-        const seq = (exercise as any)?.pyramidSequence as PyramidStep[] | undefined;
-        if (!seq || seq.length === 0) return null;
-        return seq[setIndex] ?? null;
-      },
-    [], // pure function — no external deps
+    () => resolvePyramidStep, // stable ref to the single shared lookup
+    [],
   );
 
   return {

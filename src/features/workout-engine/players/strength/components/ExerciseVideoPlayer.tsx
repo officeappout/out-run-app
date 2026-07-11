@@ -291,7 +291,12 @@ export default function ExerciseVideoPlayer({
           {/* Direct Video File (MP4/MOV) */}
           {!isYouTubeVideo && hasValidDirectVideoUrl && (
             <video
-              key={`video-${exerciseId}`}
+              // Key includes the URL (Stage 0 stuck-video fix): pyramid steps
+              // share ONE exerciseId, so an id-only key never remounted the
+              // element and <video> ignores src-attribute changes without a
+              // load() — every set played step 1's video. URL in the key
+              // forces a clean remount per step variant.
+              key={`video-${exerciseId}-${effectiveVideoUrl ?? 'none'}`}
               ref={videoRef}
               src={effectiveVideoUrl}
               className="absolute inset-0 w-full h-full object-contain"

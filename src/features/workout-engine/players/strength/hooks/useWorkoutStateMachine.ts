@@ -5,6 +5,7 @@ import { WorkoutPlan, WorkoutSegment, Exercise as WorkoutExercise } from '@/feat
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import { useWorkoutTimers } from './useWorkoutTimers';
 import { usePyramidManager } from './usePyramidManager';
+import { effectiveSetsForExercise } from '../logic/set-target.utils';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
@@ -255,16 +256,15 @@ export function useWorkoutStateMachine(
   // HELPERS — Per-exercise sets count
   // --------------------------------------------------------------------------
 
-  const getSetsForExercise = useCallback((ex: WorkoutExercise | null | undefined): number => {
-    if (!ex) return 1;
-    if (typeof ex.sets === 'number' && ex.sets > 1) return ex.sets;
-    const repsStr = ex.reps;
-    if (repsStr) {
-      const m = repsStr.match(/^(\d+)\s*[xX×]/);
-      if (m) return parseInt(m[1], 10);
-    }
-    return 1;
-  }, []);
+  // Stage 0: sequence length is now authoritative (with a desync warn) — a
+  // sets↔sequence mismatch previously orphaned tail steps (null targets,
+  // stuck step-1 video/name) or silently truncated the pyramid. Legacy
+  // behavior preserved exactly for non-sequence exercises. Single source:
+  // set-target.utils.
+  const getSetsForExercise = useCallback(
+    (ex: WorkoutExercise | null | undefined): number => effectiveSetsForExercise(ex),
+    [],
+  );
 
   // ── SM-4: Exercise log — ref, version counter, write API ─────────────────
   // Placed here (before moveToNext) so exerciseLogRef is in scope for the
@@ -435,7 +435,11 @@ export function useWorkoutStateMachine(
       // handles the per-step name / target / video overrides downstream.
       console.log('[Engine] moveToNext (straight sets)', { currentSegmentIndex, setIdx });
 
-      if ((workout as any).appliedProtocol === 'pyramid' && (currentEx as any)?.pyramidSequence) {
+      // Stage 0: pyramid detection keys on the EXERCISE's own pyramidSequence —
+      // the workout-level appliedProtocol read was the only place the player
+      // consulted workout-level protocol, and it dies ahead of the per-segment
+      // protocol work (Stage 1).
+      if ((currentEx as any)?.pyramidSequence) {
         console.log(
           `[Engine] Processing Pyramid Step via native straight-sets. ` +
           `Set: ${setIdx + 1}/${(currentEx as any).pyramidSequence.length}`,

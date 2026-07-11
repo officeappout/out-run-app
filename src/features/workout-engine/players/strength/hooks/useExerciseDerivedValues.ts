@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+import { resolveSetTarget, resolvePyramidStep } from '../logic/set-target.utils';
 import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
@@ -195,27 +196,20 @@ export function useExerciseDerivedValues({
   }, [activeExercise]);
 
   // ── Target reps ─────────────────────────────────────────────────────────
+  // Delegates to the SINGLE resolution in set-target.utils (Stage 0): pyramid
+  // step → repsSequence → reps-string. The reps-string tier keeps its legacy
+  // gate (reps-type exercises only) plus the segment-target fallback, which
+  // are display-only concerns and stay here.
   const targetReps = useMemo(() => {
-    // Pyramid step takes absolute priority — each set has its own target.
-    const step = pyramidStep as PyramidStep | null;
-    if (step) {
-      if (typeof step.targetReps === 'number') return step.targetReps;
-      if (typeof step.targetHold === 'number') return step.targetHold;
-    }
-    // Repetition Pyramid (same exercise, varying reps via repsSequence)
-    const repsSeq = (activeExercise as any)?.repsSequence as number[] | undefined;
-    if (repsSeq && repsSeq.length > 0 && currentSetIndex < repsSeq.length) {
-      return repsSeq[currentSetIndex];
-    }
+    const t = resolveSetTarget(activeExercise, currentSetIndex);
+    if (t.source === 'pyramid') return t.reps ?? t.hold;
+    if (t.source === 'repsSequence') return t.reps;
     if (exerciseType === 'reps') {
-      if (strippedReps) {
-        const match = strippedReps.match(/(\d+)/);
-        return match ? parseInt(match[1], 10) : null;
-      }
+      if (t.source === 'repsString') return t.reps;
       if ((currentSegment as any)?.target?.type === 'reps') return (currentSegment as any).target.value;
     }
     return null;
-  }, [exerciseType, currentSegment, strippedReps, pyramidStep, activeExercise, currentSetIndex]);
+  }, [exerciseType, currentSegment, activeExercise, currentSetIndex]);
 
   /**
    * Upper bound of the reps range.
@@ -462,12 +456,8 @@ export function useExerciseDerivedValues({
     // When the next exercise is the SAME object (continuing pyramid), override
     // name/video with the upcoming pyramid step so the rest-screen preview
     // shows the next variant rather than the current one.
-    const nextPyramidStep: PyramidStep | null = (() => {
-      if (exercise !== currentEx) return null;
-      const seq = (currentEx as any)?.pyramidSequence as PyramidStep[] | undefined;
-      if (!seq || seq.length === 0) return null;
-      return seq[currentSetIndex + 1] ?? null;
-    })();
+    const nextPyramidStep: PyramidStep | null =
+      exercise !== currentEx ? null : resolvePyramidStep(currentEx, currentSetIndex + 1);
 
     const nextSteps: string[] = (() => {
       if (Array.isArray(exercise?.highlights)) return exercise.highlights as string[];

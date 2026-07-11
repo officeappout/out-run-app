@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
-import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
+import { resolveSetTarget } from '../logic/set-target.utils';
 import type { ExerciseResultLog } from './useWorkoutStateMachine';
 
 /**
@@ -112,25 +112,15 @@ export function useExerciseLog({
 
       const segId = workout.segments[currentSegmentIndex]?.id || String(currentSegmentIndex);
 
-      // Pyramid/Max-Set: read the per-step target rather than parsing the
-      // base exercise reps string.  The reps string holds the SHAPE's first
-      // step value (e.g. "8") but each step has its own structural value —
-      // using the raw string would log the wrong baseline for sets 2 and 3.
-      const stepTarget = (
-        (exercise as any)?.pyramidSequence as PyramidStep[] | undefined
-      )?.[currentSetIndex] ?? null;
+      // Unified per-set target (Stage 0, set-target.utils): pyramid step →
+      // repsSequence → stripped reps-string. Fixes the repetition-pyramid
+      // logging bug — this path previously skipped repsSequence entirely, so
+      // sets 2+ of a reps-pyramid auto-logged the shape's first value.
+      const target = resolveSetTarget(exercise, currentSetIndex);
 
       let reps = overrideReps ?? 0;
       if (overrideReps === undefined) {
-        if (stepTarget) {
-          reps = stepTarget.targetReps ?? stepTarget.targetHold ?? 0;
-        } else {
-          const repsStr = (exercise.reps as string | undefined)?.replace(/^\d+\s*[xX×]\s*/, '') ?? '';
-          if (repsStr) {
-            const match = repsStr.match(/(\d+)/);
-            reps = match ? parseInt(match[1], 10) : 0;
-          }
-        }
+        reps = target.reps ?? target.hold ?? 0;
       }
 
       const existing = exerciseLogRef.current.find(
@@ -171,7 +161,7 @@ export function useExerciseLog({
       console.log(
         `[Engine] Auto-saved set ${currentSetIndex + 1}: ${exercise.name} → ${reps}` +
           `${sideData ? ` (R:${sideData.right} L:${sideData.left})` : ''}` +
-          `${stepTarget ? ` (pyramid step ${currentSetIndex})` : ''}` +
+          `${target.source !== 'none' && overrideReps === undefined ? ` (target: ${target.source})` : ''}` +
           `${overrideReps !== undefined ? ' [override]' : ''}`,
       );
     },
