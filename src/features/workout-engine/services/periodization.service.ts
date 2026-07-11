@@ -62,6 +62,9 @@ export interface SessionPolicy {
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
+/** Dates before this are periodization-impossible — treated as missing. */
+const CYCLE_SANITY_FLOOR_MS = new Date('2024-01-01T00:00:00Z').getTime();
+
 /**
  * Compute the current cycle week (1-5) from a program's startDate.
  *
@@ -77,13 +80,27 @@ export function derivePeriodizationWeek(
     return 1;
   }
 
-  const start = new Date(activeProgram.startDate);
-  // Invalid-date guard (crash fix, 09.07.2026): a Firestore Timestamp (or
-  // any malformed value) that slipped past upstream normalization parses to
-  // Invalid Date — which is TRUTHY, so it passed the null-guard above and
-  // blew up on toISOString() below. Log the RAW value + its shape so the
-  // offending field is always identifiable, then fall back to Week 1
-  // (Build) — the same safe default as a missing startDate.
+  // ── Shape normalization (12.07.2026) ──────────────────────────────────
+  // Real user docs still carry Firestore-Timestamp startDates: writers that
+  // pass `new Date()` to Firestore get stored as Timestamps, and the ISO
+  // unification is not deployed everywhere. new Date(TimestampShape) is
+  // Invalid — which used to freeze those accounts at Week 1 forever.
+  // Decode the instant instead: instance (.toDate), client shape ({seconds}),
+  // JSON round-trip shape ({_seconds}); else parse as before.
+  const raw: unknown = activeProgram.startDate;
+  const shape = raw as { toDate?: () => Date; seconds?: number; _seconds?: number };
+  const start =
+    typeof shape?.toDate === 'function'
+      ? shape.toDate()
+      : typeof (shape?.seconds ?? shape?._seconds) === 'number'
+        ? new Date(((shape.seconds ?? shape._seconds) as number) * 1000)
+        : new Date(raw as string | number | Date);
+
+  // Invalid-date guard (crash fix, 09.07.2026): a malformed value that
+  // slipped past upstream normalization parses to Invalid Date — which is
+  // TRUTHY, so it passed the null-guard above and blew up on toISOString()
+  // below. Log the RAW value + its shape so the offending field is always
+  // identifiable, then fall back to Week 1 (Build).
   if (isNaN(start.getTime())) {
     console.warn(
       '[Periodization] ⚠️ INVALID startDate — raw:',
@@ -91,6 +108,19 @@ export function derivePeriodizationWeek(
       `(typeof=${typeof activeProgram.startDate}, ` +
       `constructor=${(activeProgram.startDate as unknown as object)?.constructor?.name ?? 'n/a'}) ` +
       '→ defaulting to Week 1 (Build)',
+    );
+    return 1;
+  }
+
+  // ── Sanity floor (David-approved, 12.07.2026) ─────────────────────────
+  // A VALID but ancient date (epoch artifacts, pre-app data) passes both
+  // guards above and lands the cycle clock on an arbitrary week — worst
+  // case permanent Deload (protocolProbability × 0: no protocols, ever).
+  // Anything before the app had periodization is treated as missing.
+  if (start.getTime() < CYCLE_SANITY_FLOOR_MS) {
+    console.warn(
+      `[Periodization] ⚠️ ANCIENT startDate (${start.toISOString().slice(0, 10)}) ` +
+      '— pre-2024 is treated as missing → Week 1 (Build)',
     );
     return 1;
   }
