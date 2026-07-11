@@ -674,11 +674,7 @@ export async function generateHomeWorkoutTrio(
     // generated 45), which was the "duration ignored" bug in the custom
     // builder. min(requested, cap) keeps both guarantees.
     const boltDurationCap = BOLT_DURATION_CAPS[optionDifficulty];
-    const effectiveTime = resolveEffectiveBoltTime(
-      options.availableTime,
-      options.isManualOverride,
-      boltDurationCap,
-    );
+    const effectiveTime = resolveEffectiveBoltTime(options.availableTime, boltDurationCap);
     if (effectiveTime !== boltDurationCap) {
       console.log(`[WorkoutTrio] Bolt${optionDifficulty}: honouring requested ${effectiveTime}min (ceiling ${boltDurationCap}min)`);
     }
@@ -740,6 +736,7 @@ export async function generateHomeWorkoutTrio(
       mainExercises,
       workout.difficulty,
       pipeline.baseGeneratorContext.availableEquipment,
+      effectiveTime, // time-aware warmup: included in the user's budget
     );
 
     // Cooldown
@@ -748,6 +745,7 @@ export async function generateHomeWorkoutTrio(
       pipeline.allExercises,
       pipeline.filterContext,
       pipeline.effectiveFilterLocation,
+      effectiveTime, // time-aware cooldown: included in the user's budget
     );
 
     // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts

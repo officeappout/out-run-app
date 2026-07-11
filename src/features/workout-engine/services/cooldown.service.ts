@@ -12,6 +12,7 @@ import { Exercise, ExecutionLocation } from '@/features/content/exercises/core/e
 import type { ContextualFilterContext } from '../logic/ContextualEngine';
 import type { GeneratedWorkout } from '../logic/WorkoutGenerator';
 import { isWarmupEquipmentAllowed } from './warmup.service';
+import { cooldownCountBudget } from '../logic/session-frame.utils';
 
 // ============================================================================
 // COOLDOWN APPEND
@@ -26,6 +27,12 @@ export function appendCooldownExercises(
   allExercises: Exercise[],
   filterContext: ContextualFilterContext,
   location: ExecutionLocation,
+  /**
+   * Session time budget (minutes) — cooldown is part of the user's budget
+   * (product decision 10.07.2026): <20min → 1 stretch, 20-39 → 2, 40+ → 3.
+   * Omitted → 2 (today's typical output).
+   */
+  availableTimeMin?: number,
 ): void {
   const usedMuscles = new Set<string>();
   for (const ex of workout.exercises) {
@@ -113,9 +120,10 @@ export function appendCooldownExercises(
     return { exercise: ex, method: bestMethod, score };
   });
 
-  // Sort by score descending, pick 2-3
+  // Sort by score descending, pick per the session's time budget
+  // (<20min → 1 · 20-39 → 2 · 40+ → 3; omitted → 2).
   scored.sort((a, b) => b.score - a.score);
-  const targetCount = Math.min(3, Math.max(2, scored.length));
+  const targetCount = Math.min(cooldownCountBudget(availableTimeMin), Math.max(1, scored.length));
   const selected = scored.slice(0, targetCount);
 
   // Convert to WorkoutExercise format and append
