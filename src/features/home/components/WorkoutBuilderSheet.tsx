@@ -499,6 +499,40 @@ export default function WorkoutBuilderSheet({
     return found?.id ?? null;
   }, [selectedChips, selectedProgramIds, displayPrograms]);
 
+  // ── Auto-applied program (UI-visible, enters generation) ─────────────────
+  // Resolution order (stability fix, 08.07.2026):
+  //   explicit pill  >  CU master arbitration  >  chip-suggested program.
+  // Previously the CU arbitration lived inside handleGenerate with ZERO UI
+  // feedback, and suggestedProgramId was a visual badge that never reached
+  // the engine. Both now flow through this single memo: the note below the
+  // pills shows the user exactly which program will drive generation.
+  const autoAppliedProgram = useMemo<{ ids: string[]; label: string; reason: 'cu' | 'suggested' } | null>(() => {
+    if (resolvedScheduledProgramIds) return null; // explicit pill wins — never override
+    const toSlug = (id: string): string => {
+      const p = programs.find(pr => pr.id === id);
+      return p?.slug || p?.movementPattern || resolveToSlug(id) || id;
+    };
+    const chipsTargetUpperBody = (derivedRequiredDomains ?? []).some(d => d === 'push' || d === 'pull');
+    const cuProgram = displayPrograms.find(p => p.id === 'calisthenics_upper');
+    if (cuProgram && chipsTargetUpperBody) {
+      return {
+        ids: ['calisthenics_upper', ...cuProgram.children.map(toSlug)],
+        label: cuProgram.label,
+        reason: 'cu',
+      };
+    }
+    if (suggestedProgramId) {
+      const prog = displayPrograms.find(p => p.id === suggestedProgramId);
+      if (prog) {
+        const ids = prog.isMaster && prog.children.length > 0
+          ? [toSlug(prog.id), ...prog.children.map(toSlug)]
+          : [toSlug(prog.id)];
+        return { ids: Array.from(new Set(ids)), label: prog.label, reason: 'suggested' };
+      }
+    }
+    return null;
+  }, [resolvedScheduledProgramIds, derivedRequiredDomains, displayPrograms, suggestedProgramId, programs]);
+
   // Maps each coarse movement domain to the program slugs that constitute enrollment
   // in that domain.  If none of these slugs appear in enrolledIds, the user hasn't
   // completed a setup questionnaire for that training area and should be redirected
@@ -561,28 +595,17 @@ export default function WorkoutBuilderSheet({
         ? await resolveParkEquipmentIds(profile)
         : undefined;
 
-      // ── Calisthenics-upper arbitration ──────────────────────────────────
-      // When the user selects upper-body muscle chips (push / pull domains)
-      // WITHOUT explicitly choosing a program pill, and they are enrolled in
-      // calisthenics_upper, auto-promote the master to scheduledProgramIds.
-      // This ensures the engine evaluates constraints against the user's
-      // calibrated skill-track levels (e.g., planche L5 / front_lever L5)
-      // rather than bleeding into the global level fallback.
-      // The guard `!resolvedScheduledProgramIds` makes sure this only fires
-      // when no pill was explicitly chosen — user-selected pills are never overridden.
-      const cuProgram = displayPrograms.find(p => p.id === 'calisthenics_upper');
-      const chipsTargetUpperBody = (derivedRequiredDomains ?? []).some(
-        d => d === 'push' || d === 'pull',
-      );
+      // ── Effective program: explicit pill > CU arbitration > suggested ────
+      // Single source: the UI-visible autoAppliedProgram memo (see above).
+      // The user sees the exact same program the engine receives — no more
+      // silent CU promotion, and the chip-suggested program actually
+      // reaches generation instead of being a badge-only hint.
       const effectiveScheduledProgramIds: string[] | undefined =
-        cuProgram && chipsTargetUpperBody && !resolvedScheduledProgramIds
-          ? ['calisthenics_upper', ...cuProgram.children]
-          : resolvedScheduledProgramIds;
-
-      if (cuProgram && chipsTargetUpperBody && !resolvedScheduledProgramIds) {
+        resolvedScheduledProgramIds ?? autoAppliedProgram?.ids;
+      if (autoAppliedProgram) {
         console.log(
-          '[WorkoutBuilder] CU arbitration: promoted scheduledProgramIds → ' +
-          `[${effectiveScheduledProgramIds!.join(', ')}]`,
+          `[WorkoutBuilder] auto-applied program (${autoAppliedProgram.reason}): ` +
+          `[${autoAppliedProgram.ids.join(', ')}]`,
         );
       }
 
@@ -617,7 +640,7 @@ export default function WorkoutBuilderSheet({
     } finally {
       setIsLoading(false);
     }
-  }, [profile, location, availableTime, difficulty, resolvedScheduledProgramIds, derivedRequiredDomains, equipmentOverride, displayPrograms]);
+  }, [profile, location, availableTime, difficulty, resolvedScheduledProgramIds, autoAppliedProgram, derivedRequiredDomains, equipmentOverride, displayPrograms]);
 
   // ── Schedule save (schedule mode) ─────────────────────────────────────
   const [isSaving, setIsSaving] = useState(false);
@@ -927,6 +950,19 @@ export default function WorkoutBuilderSheet({
                 ))}
               </div>
             </div>
+
+            {/* Auto-applied program feedback (stability fix ב׳): the engine
+                will train by this program — say so instead of deciding
+                silently. Tapping a pill above overrides it. */}
+            {autoAppliedProgram && (
+              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-blue-600 bg-blue-50 rounded-xl px-3 py-2">
+                <span className="text-sm leading-none">✦</span>
+                <span>
+                  יאומן לפי <b>{autoAppliedProgram.label}</b> — הותאם אוטומטית לשרירים שבחרת.
+                  אפשר לבחור תוכנית אחרת למעלה.
+                </span>
+              </div>
+            )}
 
             {selectedProgramIds.length > 0 && (() => {
               const masterProgs = selectedProgramIds

@@ -4,6 +4,7 @@ import { UserFullProfile, AccessTier } from '../../core/types/user.types';
 import { auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { getUserAccessLevel, isUserVerified } from '../services/access-control.service';
+import { normalizeDateField } from '../utils/normalize-date';
 
 // ==========================================
 // State Interface
@@ -72,17 +73,20 @@ function reviveDates(state: any): any {
   }
 
   if (state.profile.progression?.activePrograms) {
+    // normalizeDateField handles ISO strings, Firestore Timestamps AND
+    // serialized {seconds} objects — the bare `new Date(raw)` here turned
+    // Timestamps (written by the cycle-restart path) into Invalid Date,
+    // which crashed toISOString() inside derivePeriodizationWeek.
     state.profile.progression.activePrograms =
       state.profile.progression.activePrograms.map((program: any) => ({
         ...program,
-        startDate: new Date(program.startDate),
+        startDate: normalizeDateField(program.startDate),
       }));
   }
 
   if (state.profile.running?.activeProgram?.startDate) {
-    state.profile.running.activeProgram.startDate = new Date(
-      state.profile.running.activeProgram.startDate
-    );
+    state.profile.running.activeProgram.startDate =
+      normalizeDateField(state.profile.running.activeProgram.startDate);
   }
 
   if (state.profile.running?.paceProfile?.qualityWorkoutsHistory) {

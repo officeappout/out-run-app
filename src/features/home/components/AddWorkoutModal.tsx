@@ -33,6 +33,7 @@ import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, ICON_MAP } from '@/fe
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import type { ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
+import { WORKOUT_TYPE_MAPPING, type BuilderWorkoutType } from '@/features/home/constants/workout-type-mapping';
 
 interface AddWorkoutModalProps {
   isOpen: boolean;
@@ -49,12 +50,14 @@ interface AddWorkoutModalProps {
   onOpenBuilder?: (params: { mode: string; date: string; defaultDuration?: string; defaultProgramIds?: string }) => void;
 }
 
-type WorkoutType = 'strength' | 'running' | 'walking';
+type WorkoutType = BuilderWorkoutType;
 
+// Pure type→category contract lives in workout-type-mapping.ts (unit-tested);
+// this array only adds the presentation layer (labels + icons).
 const TYPE_OPTIONS: Array<{ value: WorkoutType; label: string; icon: React.ReactNode; activityCategory: ActivityCategory; scheduleCategory: ScheduleActivityCategory; activityType: ActivityType }> = [
-  { value: 'strength', label: 'כוח',    icon: <MuscleIcon className="w-6 h-6" />,  activityCategory: 'strength', scheduleCategory: 'strength', activityType: 'workout' },
-  { value: 'running',  label: 'ריצה',   icon: <RunIcon className="w-6 h-6" />,     activityCategory: 'cardio',   scheduleCategory: 'cardio',   activityType: 'running' },
-  { value: 'walking',  label: 'הליכה',  icon: <WalkingIcon className="w-6 h-6" />, activityCategory: 'cardio',   scheduleCategory: 'walking',  activityType: 'workout' },
+  { value: 'strength', label: 'כוח',    icon: <MuscleIcon className="w-6 h-6" />,  ...WORKOUT_TYPE_MAPPING.strength },
+  { value: 'running',  label: 'ריצה',   icon: <RunIcon className="w-6 h-6" />,     ...WORKOUT_TYPE_MAPPING.running },
+  { value: 'walking',  label: 'הליכה',  icon: <WalkingIcon className="w-6 h-6" />, ...WORKOUT_TYPE_MAPPING.walking },
 ];
 
 // ── Drum time picker constants kept for reference ───────────────────────────

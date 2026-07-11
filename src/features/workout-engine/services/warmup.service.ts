@@ -21,6 +21,7 @@ import {
   HOME_EXCLUSIVE_GEAR_IDS,
 } from './trio-modifiers.service';
 import { collectMethodGear } from '../shared/constants/domain-mapping.constants';
+import { warmupSlotBudget } from '../logic/session-frame.utils';
 
 // ============================================================================
 // CONSTANTS
@@ -457,6 +458,13 @@ export function prependWarmupExercises(
   selectedMainExercises?: WorkoutExercise[],
   difficulty?: DifficultyLevel,
   availableEquipment?: string[],           // session gear (Layer A — informational)
+  /**
+   * Session time budget (minutes). Warmup is INCLUDED in the user's budget
+   * (product decision 10.07.2026), so the ladder scales with the session:
+   * 15min → ~2min warmup (WARMUP_MIN_SLOTS injury-prevention floor),
+   * 45min+ → the full 6-min ladder. Omitted → legacy ceiling (unchanged).
+   */
+  availableTimeMin?: number,
 ): void {
   const mainExercises = selectedMainExercises
     ?? workout.exercises.filter((ex) => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown');
@@ -838,12 +846,44 @@ export function prependWarmupExercises(
 
   // Part C (domain regressions) intentionally removed — superseded by David Scale.
 
-  if (warmupBlock.length > 0) {
-    workout.exercises.unshift(...warmupBlock);
-    const generalCount = Math.min(1, warmupBlock.length);
+  // ── Time-aware trim (product decision 10.07.2026) ─────────────────────────
+  // Warmup is part of the user's time budget. Trim the built ladder to the
+  // session's slot budget, COVERAGE-FIRST: the first slot of each broad
+  // family survives before extra ladder slots do (so a trimmed warmup still
+  // touches every pattern the workout trains — incl. the Mandatory Legs slot,
+  // which is its family's first). Runs AFTER the full build so all safety
+  // guarantees above are inputs to the trim, never bypassed by it.
+  const maxSlots = warmupSlotBudget(availableTimeMin);
+  let finalBlock = warmupBlock;
+  if (warmupBlock.length > maxSlots) {
+    const familyOf = (we: WorkoutExercise): string =>
+      MG_TO_BROAD_PATTERN[we.exercise.movementGroup ?? ''] ?? 'general';
+    const seen = new Set<string>();
+    const coverage: WorkoutExercise[] = [];
+    const extras: WorkoutExercise[] = [];
+    for (const we of warmupBlock) {
+      const fam = familyOf(we);
+      if (!seen.has(fam)) { seen.add(fam); coverage.push(we); }
+      else extras.push(we);
+    }
+    const keep = new Set<WorkoutExercise>(coverage.slice(0, maxSlots));
+    for (const we of extras) {
+      if (keep.size >= maxSlots) break;
+      keep.add(we);
+    }
+    finalBlock = warmupBlock.filter((we) => keep.has(we)); // original order preserved
+    console.log(
+      `[Warmup] Time-aware trim: ${warmupBlock.length} → ${finalBlock.length} slots ` +
+      `(budget ${maxSlots} for ${availableTimeMin ?? '∞'}min, coverage-first)`,
+    );
+  }
+
+  if (finalBlock.length > 0) {
+    workout.exercises.unshift(...finalBlock);
+    const generalCount = Math.min(1, finalBlock.length);
     console.log(
       `[Warmup] Block finalised: ${generalCount} general + ${potentiationCount} ladder slots ` +
-      `= ${warmupBlock.length} total`,
+      `= ${finalBlock.length} total (budget ${maxSlots})`,
     );
   }
 }

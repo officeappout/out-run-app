@@ -2,12 +2,14 @@
  * Gear Mapping Utilities
  * Maps gear types and IDs to Hebrew labels for UI display
  */
+// Deep imports on purpose — the feature barrels (equipment/gear, equipment/gym)
+// re-export admin React forms, and this file sits in the ENGINE's import graph
+// (must stay pure TS: LAW 0 + node-env unit tests parse no JSX).
 import type { RequiredGearType, EquipmentType } from '@/features/content/exercises/core/exercise.types';
-import { getAllGearDefinitions } from '@/features/content/equipment/gear';
-import { getAllGymEquipment } from '@/features/content/equipment/gym';
-import { GearDefinition } from '@/features/content/equipment/gear';
-import { getLocalizedText } from '@/features/content/shared';
-import { GymEquipment } from '@/features/content/equipment/gym';
+import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
+import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
+import { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
 // Cache for gear data
 let gearDefinitionsCache: GearDefinition[] | null = null;

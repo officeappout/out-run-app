@@ -12,6 +12,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import RunShareBar from '@/features/workout-engine/components/RunShareBar';
 import { createRunInvite } from '@/lib/workoutInvite';
 import type { RunInviteResult } from '@/lib/workoutInvite';
+import { buildRouteGenRequest } from '../services/route-request.utils';
+import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
@@ -723,18 +725,11 @@ export default function FreeRunDrawer({
     onActivityChange?.(activity);
   };
 
-  /** Convert active goal to target km for the route generator. */
-  const computeTargetKm = (): number => {
-    if (goalType === 'distance') return distanceValue;
-    const speedKmh =
-      selectedActivity === 'cycling' ? 20 :
-      selectedActivity === 'running' ? 10 : 5;
-    if (goalType === 'time') return Math.max(0.5, (timeValue / 60) * speedKmh);
-    const kcalPerKm =
-      selectedActivity === 'cycling' ? 25 :
-      selectedActivity === 'running' ? 70 : 50;
-    return Math.max(0.5, caloriesValue / kcalPerKm);
-  };
+  /** Goal + extras → route request. Pure logic extracted to
+      route-request.utils (unit-tested); this stays a thin adapter. */
+  const drawerGoal = (): DrawerGoal => ({ goalType, timeValue, distanceValue, caloriesValue });
+  const drawerActivity = (): DrawerActivity =>
+    selectedActivity === 'cycling' ? 'cycling' : selectedActivity === 'walking' ? 'walking' : 'running';
 
   /** Unlock audio + push goal into the running-player store. */
   const applyGoalToPlayer = async () => {
@@ -771,11 +766,7 @@ export default function FreeRunDrawer({
       onStartWorkout();
       return;
     }
-    onRequestRouteGeneration({
-      targetKm: computeTargetKm(),
-      includeStrength: extras.gymParks,
-      surface: extras.trail ? 'trail' : 'road',
-    });
+    onRequestRouteGeneration(buildRouteGenRequest(drawerGoal(), drawerActivity(), extras));
   };
 
   const canStartWithRoute = !!userPosition && !!onRequestRouteGeneration;
