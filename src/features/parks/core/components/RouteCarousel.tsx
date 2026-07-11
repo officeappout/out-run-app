@@ -77,7 +77,6 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -85,15 +84,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
   Bike,
-  ChevronLeft,
   ChevronRight,
   Footprints,
   Map as MapIcon,
-  MapPin,
-  Play,
   Shuffle,
-  Star,
-  Timer,
   VolumeX,
   X,
   Zap,
@@ -103,6 +97,7 @@ import {
 } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore } from '../store/useMapStore';
+import RouteCard from './RouteCard';
 import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
 
 const ACCENT = '#00ADEF';
@@ -965,12 +960,16 @@ function CardsState({
       >
         {routes.map((route, idx) => {
           const isActive = idx === activeIndex;
+          const meta = route.variant ? VARIANT_CHIP_META[route.variant] : null;
           return (
             <RouteCard
               key={route.id}
               route={route}
               activity={activity}
               isActive={isActive}
+              highlight={routeHighlight(route)}
+              topBadge={meta ? { label: meta.label, Icon: meta.Icon, className: `${meta.bg} ${meta.text}` } : undefined}
+              userLocation={userPosition}
               onStart={() => onSelect(route)}
             />
           );
@@ -1002,135 +1001,9 @@ function CardsState({
   );
 }
 
-// ── Single card ───────────────────────────────────────────────────────────────
-
-function RouteCard({
-  route,
-  activity,
-  isActive,
-  onStart,
-}: {
-  route: Route;
-  activity: ActivityType;
-  isActive: boolean;
-  onStart: () => void;
-}) {
-  const stars = scoreToStars(route.score);
-  const highlight = useMemo(() => routeHighlight(route), [route]);
-  const displayName = route.name?.trim() || 'סיבוב מעגלי';
-  const distanceText = `${route.distance.toFixed(1)} ק״מ`;
-  const durationText = `~${route.duration} דק׳`;
-  const activityEmoji =
-    activity === 'cycling' ? '🚴' : activity === 'running' ? '🏃' : '🚶';
-  const variantMeta = route.variant ? VARIANT_CHIP_META[route.variant] : null;
-
-  // Card width comes EXCLUSIVELY from Tailwind (`w-[85vw] max-w-[340px]`).
-  // The previous inline `style={{ width: '85%' }}` competed with the
-  // viewport-based Tailwind value and produced inconsistent widths across
-  // viewport sizes — the snap target drifted whenever max-w clipped, so
-  // the centre-of-card calc didn't line up with the snap point and the
-  // user would "skip" past a card. One source of truth fixes the snap.
-  //
-  // `snap-always` (= scroll-snap-stop: always) tells the browser it MAY
-  // NOT skip past this card on a fast flick — it has to stop here even
-  // if the user's gesture momentum would carry them further. Without
-  // this, snap-mandatory still allows the browser to leapfrog cards
-  // when scroll velocity is high.
-  return (
-    <div
-      dir="rtl"
-      className={`w-[85vw] max-w-[340px] snap-center snap-always flex-shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
-        isActive
-          ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
-          : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
-      }`}
-    >
-      {/* Variant chip — commute mode only. Sits above the title row so
-          the user immediately reads the semantic ("הכי מהיר" / "מסלול
-          חלופי" / "שקט") before diving into stats. Loop routes leave
-          `route.variant` undefined and the chip is skipped entirely so
-          the existing free-run cards render unchanged. */}
-      {variantMeta && (
-        <div className="flex items-center gap-1.5 mb-2">
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${variantMeta.bg} ${variantMeta.text}`}
-          >
-            <variantMeta.Icon size={10} strokeWidth={3} />
-            {variantMeta.label}
-          </span>
-        </div>
-      )}
-
-      {/* Title row */}
-      <div className="flex items-start gap-2 mb-1">
-        <span
-          className="w-9 h-9 rounded-2xl flex items-center justify-center text-xl shrink-0"
-          style={{ backgroundColor: `${ACCENT}1A` }}
-          aria-hidden="true"
-        >
-          {activityEmoji}
-        </span>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-black text-gray-900 truncate leading-tight">
-            {displayName}
-          </h3>
-          <div className="flex items-center gap-0.5 mt-0.5">
-            {[1, 2, 3].map((i) => (
-              <Star
-                key={i}
-                size={11}
-                fill={i <= stars ? ACCENT : 'transparent'}
-                className={i <= stars ? '' : 'text-gray-300'}
-                style={i <= stars ? { color: ACCENT } : undefined}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Highlight tag */}
-      <p className="text-[12px] text-gray-600 mt-2 mb-3 leading-snug">
-        {highlight}
-      </p>
-
-      {/* Stats row */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="flex items-center gap-1.5">
-          <MapPin size={13} style={{ color: ACCENT }} className="shrink-0" />
-          <span className="text-[13px] font-black text-gray-800" dir="ltr">
-            {distanceText}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Timer size={13} style={{ color: ACCENT }} className="shrink-0" />
-          <span className="text-[13px] font-black text-gray-800" dir="ltr">
-            {durationText}
-          </span>
-        </div>
-      </div>
-
-      {/* Start CTA — same shape as ActivityCarousel CTA */}
-      <button
-        type="button"
-        onClick={onStart}
-        className="w-full text-center py-3 rounded-xl text-white text-sm font-black flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-        style={{ backgroundColor: ACCENT }}
-      >
-        <Play size={14} fill="currentColor" />
-        התחל אימון
-        <ChevronLeft size={14} strokeWidth={3} />
-      </button>
-    </div>
-  );
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function scoreToStars(score: number): number {
-  if (score >= 70) return 3;
-  if (score >= 40) return 2;
-  return 1;
-}
 
 function routeHighlight(route: Route): string {
   const f = route.features;

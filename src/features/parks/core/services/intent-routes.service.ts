@@ -168,6 +168,10 @@ export function selectIntentOptions(routes: Route[], params: IntentParams): Inte
   return {
     here: opts.filter((o) => o.bucket === 'here').sort(rank),
     near: opts.filter((o) => o.bucket === 'near').sort(rank),
+    // TODO(Phase 3 / tweak): a linear (point_to_point) route in the DRIVE bucket
+    // strands the user far from their car. Present drive-bucket linear trails as
+    // out-and-back (mirror the geometry) so every drive option returns to the
+    // parking spot. Loops are already fine.
     drive: opts.filter((o) => o.bucket === 'drive').sort(rank),
   };
 }
@@ -252,19 +256,42 @@ export async function buildOutAndBack(origin: { lat: number; lng: number }, targ
 }
 
 /**
+ * SLOT for the clean generated loop (option 1, priority 2).
+ *
+ * "כאן ועכשיו" priority: curated loop → clean GENERATED loop (returns by a
+ * DIFFERENT way, not a there-and-back) → out-and-back safety net. The generated
+ * loop is produced by route-generator.service (branch feat/route-generator-quality
+ * — "generator A"). Until that returns clean, non-backtracking loops, this stub
+ * returns null and the chain falls through to the out-and-back. Wire it here when
+ * the generator is clean — nothing else in the chain changes.
+ */
+export async function buildGeneratedLoop(
+  _origin: { lat: number; lng: number },
+  _targetKm: number,
+  _activity: ActivityType,
+): Promise<IntentOption | null> {
+  // TODO(generator-clean): call generateDynamicRoutes({ userLocation, targetKm,
+  // activity, ... }) loop mode, take the best clean loop, wrap as an IntentOption
+  // { bucket:'here', shape:'loop', synthetic:true }. Returns null for now.
+  return null;
+}
+
+/**
  * IO shell — fetch published curated routes, rank into buckets, and guarantee
- * option 1 ("here & now"): if no curated loop starts at the user, prepend a
- * synthesized out-and-back so the "here" bucket is never empty.
+ * option 1 ("here & now") via the priority chain:
+ *   curated loop at the user → clean generated loop → out-and-back.
  */
 export async function buildIntentOptions(params: IntentParams): Promise<IntentOptionsResult> {
   const { InventoryService } = await import('./inventory.service');
   const routes = await InventoryService.fetchOfficialRoutes(params.authorityIds, true);
   const result = selectIntentOptions(routes, params);
 
+  // Only synthesize when no curated loop already starts at the user.
   const hasHereLoop = result.here.some((o) => o.shape === 'loop');
   if (!hasHereLoop) {
-    const oab = await buildOutAndBack(params.origin, params.targetKm, params.activity);
-    if (oab) result.here.unshift(oab); // becomes the recommended option 1
+    const generated = await buildGeneratedLoop(params.origin, params.targetKm, params.activity);
+    const fallback = generated ?? await buildOutAndBack(params.origin, params.targetKm, params.activity);
+    if (fallback) result.here.unshift(fallback); // becomes the recommended option 1
   }
   return result;
 }
