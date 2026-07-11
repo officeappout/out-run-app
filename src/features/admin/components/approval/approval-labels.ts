@@ -32,10 +32,15 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   cycling: 'רכיבה',
 };
 
-/** meters → "1.2 ק״מ" / "450מ׳" */
-export function formatDistance(distance: unknown): string {
-  if (typeof distance !== 'number' || !isFinite(distance)) return '';
-  return distance >= 1000 ? `${(distance / 1000).toFixed(1)} ק״מ` : `${Math.round(distance)}מ׳`;
+/**
+ * kilometers → "1.2 ק״מ" / "450 מ׳".
+ * `official_routes.distance` is stored in KM (the unit the client + player expect:
+ * `setGuidedRouteDistanceKm`, `RouteDetailSheet.formatDistance`). Mirrors that
+ * formatter so the approval queue matches what the user sees in-app.
+ */
+export function formatDistance(km: unknown): string {
+  if (typeof km !== 'number' || !isFinite(km)) return '';
+  return km >= 1 ? `${km.toFixed(1)} ק״מ` : `${Math.round(km * 1000)} מ׳`;
 }
 
 /** A real place label: not a raw "way/160415171" ref and not a bare house number. */
