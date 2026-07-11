@@ -808,6 +808,7 @@ interface ProtocolLevelConfig {
   allowRestPause: boolean;
   allowPyramid: boolean;
   allowSupersets: boolean;
+  allowTabata: boolean;
 }
 
 function getDefaultProtocolConfig(lvl: number): ProtocolLevelConfig {
@@ -817,6 +818,10 @@ function getDefaultProtocolConfig(lvl: number): ProtocolLevelConfig {
     allowRestPause: lvl > 10,
     allowPyramid: lvl > 10,
     allowSupersets: lvl > 5,
+    // Tabata rollout (David, 12.07.2026): default OFF at EVERY level —
+    // enable manually per program/level only after the app build carrying
+    // the Stage-2 tabata player ships (older builds degrade to straight).
+    allowTabata: false,
   };
 }
 
@@ -831,6 +836,8 @@ function settingsToProtocolConfig(s: ProgramLevelSettings | undefined, lvl: numb
     allowRestPause: prefs.includes('pyramid') || (!s.preferredProtocols && defaults.allowRestPause),
     allowPyramid: prefs.includes('pyramid') || (!s.preferredProtocols && defaults.allowPyramid),
     allowSupersets: prefs.includes('antagonist_pair') || prefs.includes('superset') || (!s.preferredProtocols && defaults.allowSupersets),
+    // NO defaults fallback — tabata is opt-in only (never auto-on by level tier).
+    allowTabata: prefs.includes('tabata'),
   };
 }
 
@@ -840,6 +847,7 @@ function protocolConfigToSettingsFields(cfg: ProtocolLevelConfig): Partial<Progr
   if (cfg.allowEMOM) preferredProtocols.push('emom');
   if (cfg.allowPyramid) preferredProtocols.push('pyramid');
   if (cfg.allowSupersets) preferredProtocols.push('antagonist_pair');
+  if (cfg.allowTabata) preferredProtocols.push('tabata');
 
   return {
     protocolProbability: cfg.protocolProbability,
@@ -1277,6 +1285,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                               { key: 'allowSupersets' as const, label: 'Supersets', desc: 'סופר-סטים (Push + Pull)' },
                               { key: 'allowPyramid' as const, label: 'Pyramid', desc: 'סטים עולים/יורדים' },
                               { key: 'allowRestPause' as const, label: 'Rest-Pause', desc: 'הפסקה קצרה באמצע סט' },
+                              { key: 'allowTabata' as const, label: 'Tabata', desc: 'בלוק 20/10 × 8 סבבים (פיניש)' },
                             ]).map((item) => (
                               <label
                                 key={item.key}
@@ -1327,7 +1336,7 @@ function LevelGoalsPanel({ program, allPrograms }: { program: Program; allProgra
                             {cfg.protocolProbability === 0
                               ? 'פרוטוקולים כבויים — סטים ישרים בלבד'
                               : `סיכוי של ${Math.round(cfg.protocolProbability * 100)}% שהמנוע יזריק ${
-                                  [cfg.allowEMOM && 'EMOM', cfg.allowPyramid && 'Pyramid', cfg.allowSupersets && 'Supersets']
+                                  [cfg.allowEMOM && 'EMOM', cfg.allowPyramid && 'Pyramid', cfg.allowSupersets && 'Supersets', cfg.allowTabata && 'Tabata']
                                     .filter(Boolean).join(' / ') || 'פרוטוקול'
                                 }`
                             }
