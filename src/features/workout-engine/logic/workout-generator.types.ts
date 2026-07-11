@@ -9,6 +9,7 @@
 
 import { Exercise, MechanicalType } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
+import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 
 // ============================================================================
 // CORE TYPES
@@ -117,6 +118,15 @@ export interface WorkoutExercise {
    * Undefined for standard sets and for rep-only pyramids.
    */
   pyramidSequence?: PyramidStep[];
+  /**
+   * Block-scoped protocol membership (Stage 3.1): set by the generator when
+   * this exercise belongs to a tabata block. Members are priced as one fixed
+   * (work+rest)×rounds block by calculateEstimatedDuration and are exempt
+   * from volume-guard removal — the block's duration is set-count-independent.
+   * Identify membership via THIS marker (structural), never via string
+   * comparison on appliedProtocol (BudgetDistributor convention).
+   */
+  protocolBlock?: 'tabata';
   wasSwapped?: boolean;
   /**
    * UI-ready rep / hold range string, pre-computed by the
@@ -212,8 +222,22 @@ export interface GeneratedWorkout {
    * added, so pairedWith is always present on the final exercise list.
    */
   appliedProtocol?: string;
+  /**
+   * Tabata block emitted by the protocol lottery (Stage 3.1). The mapper
+   * (home/page.tsx) splits these exercises into their own segment with
+   * protocol='tabata' + protocolConfig — plan-level fields alone never
+   * reach the player (proven: appliedProtocol/blastMode have no consumers).
+   * Config is the fixed classic 20/10/8 (David's decision, 12.07.2026).
+   */
+  tabataBlock?: TabataBlockSpec;
   /** Why Logger: end-to-end pipeline summary for debugging/auditing */
   pipelineLog?: string[];
+}
+
+export interface TabataBlockSpec {
+  config: TabataProtocolConfig;
+  /** exercise.id of each block member — the mapper partitions by these. */
+  exerciseIds: string[];
 }
 
 export interface VolumeAdjustment {
@@ -266,7 +290,7 @@ export interface WorkoutGenerationContext {
    *  Undefined = no active program / no cycle anchor. */
   periodizationWeek?: number;
   protocolProbability?: number;
-  preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset')[];
+  preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
   straightArmRatio?: number;
   weeklySASets?: number;
   weeklySACap?: number;

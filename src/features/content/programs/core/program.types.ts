@@ -175,7 +175,7 @@ export interface ProgramLevelSettings {
 
   /** Preferred protocols for this program-level combination.
    *  Engine uses this list when protocol injection triggers. */
-  preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset')[];
+  preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
 
   // ── Assessment Slider (Admin Panel Source of Truth) ─────────────────
   /** Video URL for visual assessment slider. Uploaded via Admin Panel. */

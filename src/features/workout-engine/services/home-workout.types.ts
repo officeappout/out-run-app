@@ -74,7 +74,7 @@ export interface HomeWorkoutOptions {
   /** protocolProbability from ProgramLevelSettings (program-specific) */
   protocolProbability?: number;
   /** preferredProtocols from ProgramLevelSettings (program-specific) */
-  preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset')[];
+  preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
   /** straightArmRatio from ProgramLevelSettings (SA/BA tendonitis guard) */
   straightArmRatio?: number;
   /** Straight-arm sets completed this week (from WeeklyVolumeStore) */
