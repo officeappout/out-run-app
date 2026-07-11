@@ -48,3 +48,11 @@ export type AdvanceDecision =
   | { kind: 'nextSegment'; segmentIndex: number }
   /** No more segments — workout is complete. */
   | { kind: 'workoutComplete' };
+
+/**
+ * An advance head: pure (ctx) → decision. Exercise-scoped heads
+ * (straight/superset/pyramid) are dispatched per-exercise by the registry;
+ * block-scoped heads (tabata/emom/amrap, Stages 2-3) will be dispatched by
+ * segment.protocol instead.
+ */
+export type AdvanceStrategy = (ctx: AdvanceContext) => AdvanceDecision;
