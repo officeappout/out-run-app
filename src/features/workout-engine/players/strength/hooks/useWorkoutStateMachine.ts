@@ -6,6 +6,8 @@ import type { PyramidStep } from '@/features/workout-engine/logic/workout-genera
 import { useWorkoutTimers } from './useWorkoutTimers';
 import { usePyramidManager } from './usePyramidManager';
 import { effectiveSetsForExercise } from '../logic/set-target.utils';
+import { computeAdvanceDecision } from '../protocols/compute-advance';
+import type { AdvanceContext } from '../protocols/advance-strategy.types';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
@@ -317,166 +319,39 @@ export function useWorkoutStateMachine(
     const setIdx = currentSetRef.current;
 
     setCurrentExerciseIndex((prevExerciseIndex) => {
-      const currentSeg = workout.segments[currentSegmentIndex];
-      const exercises = getExercises(currentSeg);
+      // Stage 1a: the decision logic lives in the pure, characterization-
+      // tested computeAdvanceDecision (protocols/compute-advance.ts) —
+      // extracted VERBATIM from the monolith that used to live here. The
+      // decision is computed INSIDE this updater on `prevExerciseIndex`
+      // (React batching semantics preserved); this switch only applies it.
+      const decision = computeAdvanceDecision({
+        segments: workout.segments,
+        currentSegmentIndex,
+        prevExerciseIndex,
+        setIdx,
+        log: exerciseLogRef.current,
+        getExercises: getExercises as unknown as AdvanceContext['getExercises'],
+        getSets: getSetsForExercise as unknown as AdvanceContext['getSets'],
+      });
 
-      if (!exercises || exercises.length === 0) {
-        const nextIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
-        if (nextIdx !== null) {
-          setCurrentSegmentIndex(nextIdx);
+      switch (decision.kind) {
+        case 'sameExercise':
+          setCurrentSetIndex(decision.nextSetIdx);
+          setWorkoutState('ACTIVE');
+          return prevExerciseIndex;
+        case 'goToExercise':
+          if (decision.nextSetIdx !== null) setCurrentSetIndex(decision.nextSetIdx);
+          setWorkoutState('ACTIVE');
+          return decision.exerciseIndex;
+        case 'nextSegment':
+          setCurrentSegmentIndex(decision.segmentIndex);
           setCurrentSetIndex(0);
           setWorkoutState('ACTIVE');
-        } else {
+          return 0;
+        case 'workoutComplete':
           setTimeout(() => onComplete?.(exerciseLogRef.current), 0);
-        }
-        return 0;
+          return 0;
       }
-
-      const currentEx = exercises[prevExerciseIndex];
-      const setsForCurrentEx = getSetsForExercise(currentEx);
-
-      // ── Superset Flow ────────────────────────────────────────────────────
-      const pairedId = (currentEx as any)?.pairedWith as string | null | undefined;
-
-      // Diagnostic: always log what pairedWith is so we can confirm data integrity
-      console.log(
-        `[Engine][moveToNext] seg=${currentSegmentIndex} ex[${prevExerciseIndex}]="${(currentEx as any)?.name}" ` +
-        `pairedWith=${pairedId ?? 'NONE'} setIdx=${setIdx}`,
-      );
-
-      if (pairedId) {
-        const pairedIndex = exercises.findIndex((e) => e.id === pairedId);
-
-        if (pairedIndex === -1) {
-          // Partner not found in this segment — log a clear warning so the user
-          // can identify whether it's a segment-split or ID-mismatch issue.
-          console.warn(
-            `[Engine][Superset] ⚠️ "${(currentEx as any)?.name}" has pairedWith="${pairedId}" ` +
-            `but no exercise with that id was found in segment ${currentSegmentIndex}. ` +
-            `Segment exercises: [${exercises.map((e: any) => `${e.name}(${e.id})`).join(', ')}]. ` +
-            `Falling back to straight sets — check that both paired exercises share the same exerciseRole.`,
-          );
-        } else {
-          // Equalize round count to Math.max(A.sets, B.sets) — mirrors the
-          // WorkoutPlaylist.tsx equalizedSets logic so the engine terminates
-          // after the same number of rounds the UI renders pills for.
-          const pairedPartner = exercises[pairedIndex];
-          const effectiveSets = Math.max(setsForCurrentEx, getSetsForExercise(pairedPartner));
-
-          const isFirstInPair = pairedIndex > prevExerciseIndex;
-
-          if (isFirstInPair) {
-            // Current = A (first), partner = B (second) → go to B, same round
-            console.log(`[Engine][Superset] A→B (round ${setIdx + 1}/${effectiveSets}) "${(currentEx as any)?.name}" → "${(exercises[pairedIndex] as any)?.name}"`);
-            setWorkoutState('ACTIVE');
-            return pairedIndex;
-          } else {
-            // Current = B (second), partner = A (first)
-            if (setIdx < effectiveSets - 1) {
-              // More rounds → go back to A, increment round
-              const nextRound = setIdx + 1;
-              console.log(`[Engine][Superset] B→A (round ${nextRound + 1}/${effectiveSets}) "${(currentEx as any)?.name}" → "${(exercises[pairedIndex] as any)?.name}"`);
-              setCurrentSetIndex(nextRound);
-              setWorkoutState('ACTIVE');
-              return pairedIndex;
-            } else {
-              // All rounds done.
-              // Instead of a blind prevExerciseIndex + 1, scan the segment
-              // for the first exercise that still has sets remaining in the
-              // log.  This handles "sandwich" layouts where the paired
-              // exercises are not adjacent (e.g. [A@0, standalone@1, B@2]):
-              //   blind +1 from B@2 → index 3 (out of bounds, skips @1)
-              //   scan   from @0   → index 1 (correct, continues there)
-              setCurrentSetIndex(0);
-              const segId =
-                workout.segments[currentSegmentIndex]?.id ||
-                String(currentSegmentIndex);
-              const nextIncompleteIndex = exercises.findIndex((ex: any) => {
-                // Superset partners (pairedWith set) are managed exclusively
-                // by the round-counter logic above.  Including them here
-                // would cause the scan to re-enter A or B when their log
-                // count is temporarily below effectiveSets, skipping the
-                // true next target (standalone siblings like "בק לבר בפישוק").
-                if (ex.pairedWith != null) return false;
-                const totalSets = getSetsForExercise(ex);
-                const logEntry = exerciseLogRef.current.find(
-                  (e) => e.exerciseId === ex.id && e.segmentId === segId,
-                );
-                return (logEntry?.confirmedReps.length ?? 0) < totalSets;
-              });
-              console.log(
-                `[Engine][Superset] Pair complete (${effectiveSets} rounds). ` +
-                `Next incomplete index=${nextIncompleteIndex}`,
-              );
-              if (nextIncompleteIndex !== -1) {
-                setWorkoutState('ACTIVE');
-                return nextIncompleteIndex;
-              }
-              const nextIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
-              if (nextIdx !== null) {
-                setCurrentSegmentIndex(nextIdx);
-                setWorkoutState('ACTIVE');
-              } else {
-                setTimeout(() => onComplete?.(exerciseLogRef.current), 0);
-              }
-              return 0;
-            }
-          }
-        }
-      }
-
-      // ── Straight Sets (default) ──────────────────────────────────────────
-      //
-      // Pyramid exercises (pyramidSequence present) intentionally fall through
-      // to this path.  The processor stamps exactly ONE pyramid exercise per
-      // workout; its steps live inside pyramidSequence, not as separate segment
-      // entries.  currentSetIndex advances 0 → 1 → 2 exactly like any other
-      // straight-set exercise, and pyramidStep = pyramidSequence[currentSetIndex]
-      // handles the per-step name / target / video overrides downstream.
-      console.log('[Engine] moveToNext (straight sets)', { currentSegmentIndex, setIdx });
-
-      // Stage 0: pyramid detection keys on the EXERCISE's own pyramidSequence —
-      // the workout-level appliedProtocol read was the only place the player
-      // consulted workout-level protocol, and it dies ahead of the per-segment
-      // protocol work (Stage 1).
-      if ((currentEx as any)?.pyramidSequence) {
-        console.log(
-          `[Engine] Processing Pyramid Step via native straight-sets. ` +
-          `Set: ${setIdx + 1}/${(currentEx as any).pyramidSequence.length}`,
-        );
-      }
-
-      if (setIdx < setsForCurrentEx - 1) {
-        const nextSet = setIdx + 1;
-        console.log(`[Engine] Same exercise, next set ${nextSet + 1}/${setsForCurrentEx}`);
-        setCurrentSetIndex(nextSet);
-        setWorkoutState('ACTIVE');
-        return prevExerciseIndex;
-      }
-
-      setCurrentSetIndex(0);
-      if (prevExerciseIndex < exercises.length - 1) {
-        setWorkoutState('ACTIVE');
-        return prevExerciseIndex + 1;
-      }
-
-      const nextIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
-      if (nextIdx !== null) {
-        // Log the new segment's first exercise so we can verify pairedWith survived
-        const nextSeg = workout.segments[nextIdx];
-        const nextExercises = getExercises(nextSeg);
-        const nextFirst = nextExercises?.[0];
-        const nextFirstPaired = (nextFirst as any)?.pairedWith ?? 'NONE';
-        console.log(
-          `[Engine] ↪ Advancing to segment ${nextIdx} ("${nextSeg?.title ?? 'untitled'}") — ` +
-          `first exercise="${(nextFirst as any)?.name ?? '?'}" pairedWith=${nextFirstPaired}`,
-        );
-        setCurrentSegmentIndex(nextIdx);
-        setWorkoutState('ACTIVE');
-      } else {
-        setTimeout(() => onComplete?.(exerciseLogRef.current), 0);
-      }
-      return 0;
     });
 
     requestAnimationFrame(() => { moveInFlightRef.current = false; });
