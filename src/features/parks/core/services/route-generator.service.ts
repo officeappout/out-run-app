@@ -410,6 +410,38 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * c;
 }
 
+// ── TEMP zigzag diagnostic (change-1 tuning; remove together with the
+//    `[zigzag]` logs once continue_straight is validated on-screen) ───────────
+// While ON, the loop makes a second (legacy) Mapbox call per combo purely to
+// measure the baseline reversal count; that same legacy call ALSO serves as the
+// retry-without-continue_straight fallback. Flip to false to disable both.
+const ZIGZAG_DIAG = true;
+
+/** Compass bearing (deg, -180..180) of the segment a→b. a,b = [lng, lat]. */
+function segBearing(a: [number, number], b: [number, number]): number {
+  const lat1 = a[1] * Math.PI / 180, lat2 = b[1] * Math.PI / 180;
+  const dLng = (b[0] - a[0]) * Math.PI / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return Math.atan2(y, x) * 180 / Math.PI;
+}
+
+/**
+ * Count near-U-turn vertices in a polyline — a proxy for "goes backwards".
+ * A vertex counts when the heading change between its two adjacent segments
+ * exceeds `thresholdDeg` (≈ doubling back). Diagnostic metric only.
+ */
+function countReversals(path: [number, number][], thresholdDeg = 150): number {
+  if (!path || path.length < 3) return 0;
+  let n = 0;
+  for (let i = 1; i < path.length - 1; i++) {
+    let turn = Math.abs(segBearing(path[i], path[i + 1]) - segBearing(path[i - 1], path[i])) % 360;
+    if (turn > 180) turn = 360 - turn;
+    if (turn > thresholdDeg) n++;
+  }
+  return n;
+}
+
 // --- Helper Functions ---
 
 function generateRandomWaypoints(
@@ -679,12 +711,48 @@ export async function generateDynamicRoutes(
     console.log(`[RouteGenerator] Fetching route ${i + 1}/${routeCombinations.length}...`);
 
     try {
-      const result = await MapboxService.getSmartPath(
+      const profile = activity === 'cycling' ? 'cycling' : 'walking';
+
+      // Change 1 — ask Mapbox for a NON-backtracking loop. `continue_straight`
+      // defaults to false for walking/cycling, letting the router U-turn at every
+      // via point (the "חוזרת אחורה" shape). Force it on for the loop call only,
+      // via getSmartPath's existing extraParams — mapbox.service.ts stays untouched
+      // (no clash with the UX-chat work there). alternatives:'false' because a loop
+      // has no use for them and Mapbox dislikes pairing them with continue_straight.
+      let result = await MapboxService.getSmartPath(
         userLocation,
         userLocation, // Loop back home
-        activity === 'cycling' ? 'cycling' : 'walking',
-        waypointsToUse
+        profile,
+        waypointsToUse,
+        { continue_straight: 'true', alternatives: 'false' },
       );
+      let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
+
+      // ── TEMP DIAGNOSTIC (remove with ZIGZAG_DIAG after change-1 tuning) ──────
+      // Fetch the legacy (backtracking-allowed) path for the SAME combo so we can
+      // log a real before/after reversal count. The legacy call doubles as the
+      // retry-without-continue_straight fallback when the primary call returns no
+      // route (continue_straight can yield NoRoute on some waypoint combos).
+      if (ZIGZAG_DIAG) {
+        await delay(700);
+        const legacy = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
+        const before = countReversals(legacy?.path || []);
+        const after = countReversals(result?.path || []);
+        console.log(
+          `[RouteGenerator][zigzag] combo ${i}: reversals before(legacy)=${before} → after(continue_straight)=${after}` +
+          ` · points ${legacy?.path?.length ?? 0}→${result?.path?.length ?? 0}`,
+        );
+        if ((!result || !result.path || result.path.length === 0) && legacy?.path?.length) {
+          result = legacy;
+          csMode = 'fallback';
+        }
+      } else if (!result || !result.path || result.path.length === 0) {
+        // Fallback (retry-without): one retry sans continue_straight.
+        // Worst case = the pre-change behaviour for this single combo.
+        result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
+        csMode = 'fallback';
+      }
+      // ────────────────────────────────────────────────────────────────────────
 
       // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
       if (!result || !result.path || result.path.length < MIN_PATH_POINTS) {
@@ -760,7 +828,7 @@ export async function generateDynamicRoutes(
       };
 
       validRoutes.push(route);
-      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${result.path.length} points, ${routeDistanceKm.toFixed(1)}km)`);
+      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${result.path.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
 
     } catch (err: any) {
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
