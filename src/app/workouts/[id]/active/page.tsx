@@ -8,6 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/StrengthRunner';
 import { clearWorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
+import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
 import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -349,93 +350,9 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
   }
 }
 
-/**
- * Map performed exercises to CompletedExercise format for the summary screen.
- *
- * Log-driven architecture (Block 4): the primary pass iterates the live
- * exerciseLog rather than the WorkoutPlan so that exercises swapped in the
- * preview layer appear in the summary with their real confirmed reps instead
- * of showing 0 sets under the old plan ID.  A secondary pass appends any
- * plan exercises that were never logged (skipped / warmup bypassed) so the
- * summary list stays complete without inflating the rep totals.
- */
-function mapToCompletedExercises(
-  workoutPlan: WorkoutPlan,
-  exerciseLog?: ExerciseResultLog[],
-): CompletedExercise[] {
-  // ── 1. Log map — O(1) lookup for the secondary (unlogged) pass ──────────
-  const logMap = new Map<string, ExerciseResultLog>();
-  if (exerciseLog) {
-    for (const entry of exerciseLog) logMap.set(entry.exerciseId, entry);
-  }
-
-  // ── 2. Plan map — name + category for log entries that have a plan twin,
-  //    and as the source list for the secondary unlogged pass.
-  //    Category detection mirrors the old plan-driven logic exactly so the
-  //    StrengthSummaryPage grouping stays identical.
-  const planMap = new Map<string, { name: string; category: CompletedExercise['category'] }>();
-  for (const segment of workoutPlan.segments) {
-    if (!segment.exercises) continue;
-
-    const isWarmup =
-      segment.id.includes('warmup') || !!segment.title?.includes('חימום');
-    const isCooldown =
-      segment.id.includes('cooldown') ||
-      !!segment.title?.includes('קירור') ||
-      !!segment.title?.includes('מתיחות');
-    const isSuperset =
-      !!segment.title?.includes('סופר') || segment.exercises.length >= 2;
-
-    // Strict mapping to CompletedExercise['category'] union:
-    // 'warmup' | 'superset' | 'stretch' | 'main'
-    const category: CompletedExercise['category'] = isWarmup
-      ? 'warmup'
-      : isCooldown
-        ? 'stretch'
-        : isSuperset
-          ? 'superset'
-          : 'main';
-
-    for (const ex of segment.exercises) {
-      planMap.set(ex.id, { name: ex.name, category });
-    }
-  }
-
-  const completedExercises: CompletedExercise[] = [];
-
-  // ── 3. Primary pass — iterate the actual performed log ───────────────────
-  // This captures swapped-in exercises by their real exerciseId so the
-  // summary shows the variant the user actually trained, not the plan ghost.
-  for (const entry of exerciseLog ?? []) {
-    const planInfo = planMap.get(entry.exerciseId);
-    completedExercises.push({
-      id: entry.exerciseId,
-      name: entry.exerciseName,
-      category: planInfo?.category ?? 'main',
-      sets: entry.confirmedReps,
-      totalReps: entry.confirmedReps.reduce((a, b) => a + b, 0),
-      isPersonalRecord: false,
-    });
-  }
-
-  // ── 4. Secondary pass — append unlogged plan exercises with empty sets ───
-  // Preserves full summary list for exercises that were skipped or stripped
-  // (e.g. warmup bypass) without fabricating rep counts.
-  for (const [planId, info] of planMap) {
-    if (!logMap.has(planId)) {
-      completedExercises.push({
-        id: planId,
-        name: info.name,
-        category: info.category,
-        sets: [],
-        totalReps: 0,
-        isPersonalRecord: false,
-      });
-    }
-  }
-
-  return completedExercises;
-}
+// mapToCompletedExercises now lives in summary-mapping.ts (Stage S):
+// category comes from segment.protocol (legacy fallback: pairedWith — never
+// the "2+ exercises ⇒ superset" heuristic) and keying is segmentId:exerciseId.
 
 // ============================================================================
 // MAIN COMPONENT
