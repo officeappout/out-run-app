@@ -30,6 +30,16 @@ interface IsometricTimerCardProps {
   side?: 'right' | 'left' | null;
   /** When true, hides the pause and reset buttons (challenge booth mode). */
   hideControls?: boolean;
+  /**
+   * Block-protocol mode (tabata): start automatically instead of waiting for
+   * the "התחלה" tap. Default false = zero behavior change.
+   */
+  autoStart?: boolean;
+  /**
+   * Block-protocol mode (tabata): fire onComplete(duration) the moment the
+   * target is reached — no overtime phase, no "סיימתי" tap. Default false.
+   */
+  autoCompleteAtTarget?: boolean;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -101,6 +111,8 @@ export default function IsometricTimerCard({
   onComplete,
   side,
   hideControls = false,
+  autoStart = false,
+  autoCompleteAtTarget = false,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
@@ -112,6 +124,10 @@ export default function IsometricTimerCard({
   const targetAlertedRef = useRef(false);
   const prepAlertedRef = useRef(new Set<number>());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latest onComplete for the auto-complete path — the counting effect only
+  // re-runs on [phase, isPaused, duration], so a direct closure would go stale.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; });
 
   // ── Reset ───────────────────────────────────────────────────────────────
 
@@ -137,6 +153,12 @@ export default function IsometricTimerCard({
       setPhase('preparing');
     }
   }, [phase]);
+
+  // Block-protocol mode: begin the prep countdown without a tap. Re-arms
+  // after resetTimer (duration change) so each tabata interval self-starts.
+  useEffect(() => {
+    if (autoStart && phase === 'idle') start();
+  }, [autoStart, phase, start]);
 
   // ── Preparation tick ──────────────────────────────────────────────────
 
@@ -201,6 +223,13 @@ export default function IsometricTimerCard({
           targetAlertedRef.current = true;
           playLongBeep();
           haptic([80, 40, 120]);
+          if (autoCompleteAtTarget) {
+            // Block-protocol mode: hand the elapsed time to the machine
+            // immediately — no overtime, no "סיימתי" tap. Deferred out of
+            // the setState updater.
+            setTimeout(() => onCompleteRef.current(next), 0);
+            return next;
+          }
           setPhase('overtime');
         }
 
@@ -211,7 +240,7 @@ export default function IsometricTimerCard({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [phase, isPaused, duration]);
+  }, [phase, isPaused, duration, autoCompleteAtTarget]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 

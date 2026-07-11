@@ -61,6 +61,12 @@ export interface ActiveExerciseViewProps {
   isTimeExercise: boolean;
   /** Duration in seconds for time-based exercises (`IsometricTimerCard.duration`). */
   exerciseDuration: number;
+  /**
+   * Block-protocol work interval (tabata): overrides the timer duration and
+   * runs the card in autoStart + autoCompleteAtTarget mode. The orchestrator
+   * forces isTimeExercise=true alongside. Absent = normal flow.
+   */
+  blockWorkSec?: number | null;
   /** Active side for unilateral exercises ("left" / "right" / null) — drives timer remount + side label. */
   currentSide: 'left' | 'right' | null;
   /** Range display text ("6-8 חזרות" / "30 שניות"). */
@@ -115,6 +121,7 @@ export default function ActiveExerciseView({
   exerciseType,
   isTimeExercise,
   exerciseDuration,
+  blockWorkSec,
   currentSide,
   repsOrDurationText,
   targetValue,
@@ -180,11 +187,13 @@ export default function ActiveExerciseView({
       {isTimeExercise && (
         <IsometricTimerCard
           key={`timer-${currentSide || 'bilateral'}`}
-          duration={exerciseDuration > 0 ? exerciseDuration : 30}
+          duration={blockWorkSec ?? (exerciseDuration > 0 ? exerciseDuration : 30)}
           exerciseName={exerciseName}
           repsOrDurationText={repsOrDurationText}
           onComplete={(elapsed) => onComplete(elapsed)}
           side={currentSide}
+          autoStart={!!blockWorkSec}
+          autoCompleteAtTarget={!!blockWorkSec}
         />
       )}
 

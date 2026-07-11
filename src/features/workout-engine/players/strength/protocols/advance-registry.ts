@@ -11,10 +11,13 @@
  *   they land; resolution order will be: explicit segment.protocol →
  *   per-exercise legacy derivation → straight.
  */
+import type { WorkoutSegment } from '@/features/parks/core/types/route.types';
 import type { AdvanceExercise, AdvanceStrategy } from './advance-strategy.types';
 import { straightAdvance } from './straight.advance';
 import { supersetAdvance } from './superset.advance';
 import { pyramidAdvance } from './pyramid.advance';
+import { tabataAdvance } from './tabata.advance';
+import { resolveBlockProtocol, type BlockProtocolInfo } from './block-protocol';
 
 export type ExerciseProtocolKey = 'straight' | 'superset' | 'pyramid';
 
@@ -38,6 +41,20 @@ export function resolveExerciseProtocol(ex: AdvanceExercise | null | undefined):
 
 export function resolveAdvanceStrategy(ex: AdvanceExercise | null | undefined): AdvanceStrategy {
   return REGISTRY[resolveExerciseProtocol(ex)];
+}
+
+// ── Block-scoped registry (Stage 2+) ─────────────────────────────────────────
+// One clock owns the segment; segment.protocol is the dispatch key and is
+// resolved BEFORE the per-exercise derivation (see compute-advance.ts).
+
+const BLOCK_REGISTRY: Record<BlockProtocolInfo['id'], AdvanceStrategy> = {
+  tabata: tabataAdvance,
+};
+
+/** Explicit, validated segment.protocol → block head; null → exercise-scoped flow. */
+export function resolveBlockStrategy(segment: WorkoutSegment | undefined): AdvanceStrategy | null {
+  const info = resolveBlockProtocol(segment);
+  return info ? BLOCK_REGISTRY[info.id] : null;
 }
 
 /**

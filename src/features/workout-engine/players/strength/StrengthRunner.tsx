@@ -438,7 +438,11 @@ export default function StrengthRunner({
     // ACTIVE — video + scrollable lyrics card (extracted to ActiveExerciseView, R-12)
     // Key includes currentRound so React fully remounts when straight sets advance.
     const activeKey = `active-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}-set-${sm.currentRound}`;
-    const isTimeExercise = sm.exerciseType === 'time' && !sm.isFollowAlongMode;
+    // Block-scoped segment (tabata): the work clock replaces reps/CTA for
+    // EVERY exercise in the block — the timer card is forced, auto-started,
+    // and auto-completes at workSec (the machine then skips INPUT).
+    const blockWorkSec = sm.blockProtocol?.id === 'tabata' ? sm.blockProtocol.config.workSec : null;
+    const isTimeExercise = (sm.exerciseType === 'time' && !sm.isFollowAlongMode) || !!blockWorkSec;
 
     return (
       <ActiveExerciseView
@@ -453,6 +457,7 @@ export default function StrengthRunner({
         exerciseType={sm.exerciseType}
         isTimeExercise={isTimeExercise}
         exerciseDuration={sm.exerciseDuration}
+        blockWorkSec={blockWorkSec}
         currentSide={sm.currentSide}
         repsOrDurationText={sm.repsOrDurationText}
         targetValue={pickerTargetValue}

@@ -14,7 +14,7 @@
  * derivation when they land (Stages 2-3).
  */
 import type { AdvanceContext, AdvanceDecision } from './advance-strategy.types';
-import { resolveAdvanceStrategy, resolveExerciseProtocol } from './advance-registry';
+import { resolveAdvanceStrategy, resolveBlockStrategy, resolveExerciseProtocol } from './advance-registry';
 import { advanceOutOfSegment } from './segment-chain';
 
 export { findNextValidSegment } from './segment-chain';
@@ -25,6 +25,14 @@ export function computeAdvanceDecision(ctx: AdvanceContext): AdvanceDecision {
   const exercises = getExercises(segments[currentSegmentIndex]);
   if (!exercises || exercises.length === 0) {
     return advanceOutOfSegment(ctx);
+  }
+
+  // Block-scoped dispatch FIRST (Stage 2): a validated segment.protocol
+  // (tabata/emom/amrap) owns the whole segment — per-exercise markers like
+  // pairedWith are ignored inside a block.
+  const blockStrategy = resolveBlockStrategy(segments[currentSegmentIndex]);
+  if (blockStrategy) {
+    return blockStrategy(ctx);
   }
 
   const currentEx = exercises[prevExerciseIndex];

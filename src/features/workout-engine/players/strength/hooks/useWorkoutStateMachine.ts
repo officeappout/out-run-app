@@ -8,6 +8,8 @@ import { usePyramidManager } from './usePyramidManager';
 import { effectiveSetsForExercise } from '../logic/set-target.utils';
 import { computeAdvanceDecision } from '../protocols/compute-advance';
 import type { AdvanceContext } from '../protocols/advance-strategy.types';
+import { resolveBlockProtocol, type BlockProtocolInfo } from '../protocols/block-protocol';
+import { tabataIntervalInfo } from '../protocols/tabata.advance';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
@@ -140,6 +142,13 @@ export interface WorkoutStateMachineResult {
   pyramidStep: PyramidStep | null;
   /** True when the active exercise is running a Mechanical Pyramid. */
   isPyramidActive: boolean;
+
+  /**
+   * Validated block-scoped protocol of the current segment (tabata), or null.
+   * When set, the UI forces the timer card (autoStart + autoCompleteAtTarget)
+   * for every exercise in the segment and the machine skips INPUT.
+   */
+  blockProtocol: BlockProtocolInfo | null;
 
   handleExerciseComplete: (reps?: number) => void;
   /** Saves reps AND closes the drawer. Pass forceSkipRest to bypass RESTING entirely. Pass editSetIndex to update a specific set in-place (re-edit). */
@@ -464,6 +473,12 @@ export function useWorkoutStateMachine(
     [workout, currentSegmentIndex],
   );
 
+  // ── Block-scoped protocol (Stage 2): tabata clock owns the segment ───────
+  const blockProtocol = useMemo(
+    () => resolveBlockProtocol(currentSegment),
+    [currentSegment],
+  );
+
   // ── SM-1: Pyramid protocol — pure derivations (see usePyramidManager.ts) ──
   const { pyramidStep, isPyramidActive } = usePyramidManager({ activeExercise, currentSetIndex });
 
@@ -561,6 +576,46 @@ export function useWorkoutStateMachine(
         segmentRestTime,
         exercise: activeExercise?.name,
       });
+
+      // ── Block-scoped (tabata): auto-log at transition, skip INPUT ────────
+      // David's quick-log decision: tabata is auto-only — edits happen at
+      // end-of-block/summary, never mid-block. Work interval ends → log →
+      // clocked rest from config → moveToNext; last interval advances
+      // immediately with no trailing rest.
+      if (blockProtocol?.id === 'tabata') {
+        // time-type logs real elapsed from the timer card; reps-type logs the
+        // per-set target (resolveSetTarget) as the editable auto value.
+        autoSaveTargetReps(exerciseType === 'time' ? reps : undefined);
+
+        const { isLastInterval } = tabataIntervalInfo({
+          numExercises: getExercises(currentSegment)?.length ?? 1,
+          exerciseIndex: currentExerciseIndex,
+          setIdx: currentSetRef.current,
+          rounds: blockProtocol.config.rounds,
+        });
+
+        if (isLastInterval || blockProtocol.config.restSec <= 0) {
+          console.log('[Engine][Tabata] work interval done — advancing immediately (no rest)');
+          setFadeIn(false);
+          setTimeout(() => {
+            moveToNextRef.current();
+            setFadeIn(true);
+          }, 100);
+        } else {
+          setFadeIn(false);
+          setTimeout(() => {
+            setWorkoutState('RESTING');
+            setRestTimeLeft(blockProtocol.config.restSec);
+            setFadeIn(true);
+            // Release the lock manually — entering RESTING changes no index,
+            // so the index-change effect won't, and handleRestTimerDone
+            // refuses to advance while the lock is engaged.
+            transitionLock.current = false;
+            console.log(`[Engine][Tabata] clocked rest ${blockProtocol.config.restSec}s → RESTING`);
+          }, 100);
+        }
+        return;
+      }
 
       switch (exerciseType) {
         case 'follow-along': {
@@ -676,10 +731,16 @@ export function useWorkoutStateMachine(
       exerciseDuration,
       activeExercise,
       currentSegmentIndex,
+      currentExerciseIndex,
+      currentSegment,
       workout.segments,
       isUnilateralTimed,
       currentSide,
       bumpLog,
+      blockProtocol,
+      autoSaveTargetReps,
+      getExercises,
+      setRestTimeLeft,
     ],
   );
 
@@ -895,6 +956,7 @@ export function useWorkoutStateMachine(
     isNextPartnerExercise,
     pyramidStep,
     isPyramidActive,
+    blockProtocol,
 
     handleExerciseComplete,
     handleRepetitionSave,
