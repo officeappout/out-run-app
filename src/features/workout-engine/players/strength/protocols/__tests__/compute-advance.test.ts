@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { computeAdvanceDecision, findNextValidSegment } from '../compute-advance';
+import { inferSegmentProtocol, resolveExerciseProtocol } from '../advance-registry';
 import { effectiveSetsForExercise } from '../../logic/set-target.utils';
 import type { AdvanceContext, AdvanceExercise } from '../advance-strategy.types';
 
@@ -138,6 +139,27 @@ describe('computeAdvanceDecision — characterization', () => {
       segments: [seg('s0', [a, b])], prevExerciseIndex: 1, setIdx: 2,
     }));
     expect(d).toEqual({ kind: 'goToExercise', exerciseIndex: 0, nextSetIdx: 3 });
+  });
+});
+
+describe('protocol resolution (Stage 1b/1c)', () => {
+  it('resolveExerciseProtocol: legacy per-exercise derivation', () => {
+    expect(resolveExerciseProtocol(ex('a', { pairedWith: 'b' }))).toBe('superset');
+    expect(resolveExerciseProtocol(ex('p', { pyramidSequence: [{}] }))).toBe('pyramid');
+    expect(resolveExerciseProtocol(ex('s'))).toBe('straight');
+    expect(resolveExerciseProtocol(undefined)).toBe('straight');
+  });
+
+  it('inferSegmentProtocol: segment label = dominant shape, mixed → straight', () => {
+    const a = ex('a', { pairedWith: 'b' });
+    const b = ex('b', { pairedWith: 'a' });
+    const p = ex('p', { pyramidSequence: [{}, {}] });
+    const s = ex('s');
+    expect(inferSegmentProtocol([a, b])).toBe('superset');
+    expect(inferSegmentProtocol([p])).toBe('pyramid');
+    expect(inferSegmentProtocol([a, s, b])).toBe('straight'); // mixed — metadata only
+    expect(inferSegmentProtocol([])).toBe('straight');
+    expect(inferSegmentProtocol(undefined)).toBe('straight');
   });
 });
 

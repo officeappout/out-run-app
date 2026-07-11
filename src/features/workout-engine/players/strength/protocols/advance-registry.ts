@@ -39,3 +39,20 @@ export function resolveExerciseProtocol(ex: AdvanceExercise | null | undefined):
 export function resolveAdvanceStrategy(ex: AdvanceExercise | null | undefined): AdvanceStrategy {
   return REGISTRY[resolveExerciseProtocol(ex)];
 }
+
+/**
+ * Segment-level protocol label (Stage 1c) — stamped by the plan mapper and
+ * used by summary/UI grouping. For exercise-scoped protocols this is
+ * METADATA ONLY (dispatch stays per-exercise): a segment that mixes paired,
+ * pyramid and standalone exercises is labeled by its dominant shape —
+ * 'superset'/'pyramid' only when ALL exercises share the marker, else
+ * 'straight'. Never feed this into the advance dispatch for mixed segments.
+ */
+export function inferSegmentProtocol(
+  exercises: ReadonlyArray<Pick<AdvanceExercise, 'pairedWith' | 'pyramidSequence'>> | null | undefined,
+): ExerciseProtocolKey {
+  if (!exercises || exercises.length === 0) return 'straight';
+  if (exercises.every((e) => e.pairedWith)) return 'superset';
+  if (exercises.every((e) => Array.isArray(e.pyramidSequence) && e.pyramidSequence.length > 0)) return 'pyramid';
+  return 'straight';
+}

@@ -35,6 +35,7 @@ import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerat
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { calculateDaysInactive } from '@/features/workout-engine';
+import { inferSegmentProtocol } from '@/features/workout-engine/players/strength/protocols/advance-registry';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed } from '@/config/feature-flags';
@@ -779,6 +780,8 @@ export default function HomePage() {
           exercises: warmupExercises,
           isCompleted: false,
           restBetweenExercises: 5,
+          protocol: 'straight' as const,
+          kind: 'strength' as const,
         });
       }
       if (mainExercises.length > 0) {
@@ -791,6 +794,8 @@ export default function HomePage() {
           exercises: mainExercises,
           isCompleted: false,
           restBetweenExercises: 10,
+          protocol: inferSegmentProtocol(mainExercises),
+          kind: 'strength' as const,
         });
       }
       if (cooldownExercises.length > 0) {
@@ -803,6 +808,8 @@ export default function HomePage() {
           exercises: cooldownExercises,
           isCompleted: false,
           restBetweenExercises: 5,
+          protocol: 'straight' as const,
+          kind: 'strength' as const,
         });
       }
       if (recoveryExercises.length > 0) {
@@ -815,6 +822,8 @@ export default function HomePage() {
           exercises: recoveryExercises,
           isCompleted: false,
           restBetweenExercises: 0,
+          protocol: 'straight' as const,
+          kind: 'strength' as const,
         });
       }
       if (segments.length === 0) {
@@ -827,6 +836,8 @@ export default function HomePage() {
           exercises,
           isCompleted: false,
           restBetweenExercises: 10,
+          protocol: inferSegmentProtocol(exercises),
+          kind: 'strength' as const,
         });
       }
 

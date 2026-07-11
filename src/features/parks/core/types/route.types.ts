@@ -5,6 +5,11 @@
 
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import type {
+  SegmentKind,
+  SegmentProtocolConfig,
+  SegmentProtocolId,
+} from '@/features/workout-engine/core/types/protocol.types';
 
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
@@ -129,6 +134,16 @@ export interface WorkoutSegment {
   paceTarget?: string;
   /** Rest time between exercises in seconds. Defaults to 10. Set to 0 to skip rest. */
   restBetweenExercises?: number;
+  /**
+   * Execution protocol. Absent = legacy plan → the player derives it per
+   * exercise (pairedWith→superset, pyramidSequence→pyramid, else straight).
+   * For block-scoped protocols (tabata/emom/amrap) this IS the dispatch key.
+   */
+  protocol?: SegmentProtocolId;
+  /** Required for block-scoped protocols; unused for exercise-scoped ones. */
+  protocolConfig?: SegmentProtocolConfig;
+  /** Aligned to the hybrid branch's SessionSegmentKind. Absent = 'strength'. */
+  kind?: SegmentKind;
 }
 
 export interface WorkoutPlan {
