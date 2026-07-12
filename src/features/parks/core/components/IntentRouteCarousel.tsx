@@ -14,10 +14,11 @@
  * Every read is field-guarded.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, ChevronRight, Navigation, MapPin, Car } from 'lucide-react';
+import { Loader2, ChevronRight, Navigation, MapPin, Car, Pencil, Crosshair } from 'lucide-react';
 import type { Route, ActivityType } from '../types/route.types';
 import { buildIntentOptions, type IntentBucket, type IntentOption } from '../services/intent-routes.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import LocationPickMap from '@/features/parks/client/components/LocationPickMap';
 import RouteCard, { type RouteCardBadge } from './RouteCard';
 
 const ACCENT = '#00ADEF';
@@ -58,12 +59,20 @@ export default function IntentRouteCarousel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Origin is FROZEN at mount (default = current location). GPS drift must NOT
+  // re-trigger buildIntentOptions (Firestore + Mapbox); only an explicit edit
+  // via the start-point sheet changes it.
+  const [origin, setOrigin] = useState<{ lat: number; lng: number }>(userPosition);
+  const [originEdited, setOriginEdited] = useState(false);
+  const [editingOrigin, setEditingOrigin] = useState(false);
+  const [draftOrigin, setDraftOrigin] = useState<{ lat: number; lng: number }>(userPosition);
+
   // Build options whenever the intent inputs change. Guard against a stale
   // async resolve overwriting a newer one.
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    buildIntentOptions({ origin: userPosition, targetKm, activity, authorityIds })
+    buildIntentOptions({ origin, targetKm, activity, authorityIds })
       .then((res) => {
         if (!alive) return;
         setBuckets(res);
@@ -73,7 +82,16 @@ export default function IntentRouteCarousel({
       })
       .catch(() => { if (alive) { setBuckets({ here: [], near: [], drive: [] }); setLoading(false); } });
     return () => { alive = false; };
-  }, [userPosition, targetKm, activity, authorityIds]);
+  }, [origin, targetKm, activity, authorityIds]);
+
+  const openOriginEditor = useCallback(() => { setDraftOrigin(origin); setEditingOrigin(true); }, [origin]);
+  const confirmOrigin = useCallback(() => {
+    // "edited" only when meaningfully away from the live location (~>50m).
+    const moved = Math.abs(draftOrigin.lat - userPosition.lat) > 5e-4 || Math.abs(draftOrigin.lng - userPosition.lng) > 5e-4;
+    setOrigin(draftOrigin);
+    setOriginEdited(moved);
+    setEditingOrigin(false);
+  }, [draftOrigin, userPosition]);
 
   // The visible cards: one per non-empty bucket, in access-effort order.
   const cards = BUCKET_ORDER
@@ -150,9 +168,23 @@ export default function IntentRouteCarousel({
         >
           <ChevronRight size={15} /> חזרה
         </button>
-        <span className="bg-white/90 backdrop-blur text-gray-500 text-[12px] font-bold px-3 py-1.5 rounded-full shadow-sm">
-          {targetKm.toFixed(1)} ק״מ{!loading && cards.length > 0 ? ` · ${cards.length} אפשרויות` : ''}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {/* Editable start point — default = current location, light secondary edit. */}
+          <button
+            type="button"
+            onClick={openOriginEditor}
+            className={`flex items-center gap-1 backdrop-blur text-[12px] font-bold px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition-transform ${
+              originEdited ? 'bg-cyan-100/90 text-cyan-700' : 'bg-white/90 text-gray-600'
+            }`}
+          >
+            <MapPin size={12} />
+            {originEdited ? 'מיקום מותאם' : 'מהמיקום שלי'}
+            <Pencil size={11} />
+          </button>
+          <span className="bg-white/90 backdrop-blur text-gray-500 text-[12px] font-bold px-3 py-1.5 rounded-full shadow-sm">
+            {targetKm.toFixed(1)} ק״מ{!loading && cards.length > 0 ? ` · ${cards.length} אפשרויות` : ''}
+          </span>
+        </div>
       </div>
 
       {loading ? (
@@ -187,7 +219,7 @@ export default function IntentRouteCarousel({
                 shapeTag={option.shape}
                 accessLabel={accessLabelFor(bucket, option)}
                 recommended={meta.recommended}
-                userLocation={userPosition}
+                userLocation={origin}
                 onStart={() => start(option)}
                 onSwap={count > 1 ? () => swap(bucket, idx) : undefined}
               />
@@ -196,6 +228,30 @@ export default function IntentRouteCarousel({
         </div>
       )}
       </div>
+
+      {/* Start-point editor — light bottom sheet reusing the shared LocationPickMap. */}
+      {editingOrigin && (
+        <div className="absolute inset-0 z-[100] pointer-events-auto flex flex-col justify-end" dir="rtl">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setEditingOrigin(false)} />
+          <div className="relative bg-white rounded-t-3xl p-4 pb-6 shadow-2xl" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 12px))' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[15px] font-black text-gray-900">נקודת התחלה</h3>
+              <button type="button" onClick={() => setDraftOrigin(userPosition)} className="flex items-center gap-1 text-[12px] font-bold text-cyan-600 active:scale-95 transition-transform">
+                <Crosshair size={13} /> המיקום שלי
+              </button>
+            </div>
+            <LocationPickMap value={draftOrigin} onPick={setDraftOrigin} heightClass="h-[220px]" emptyHint="לחצו על המפה לבחירת נקודת התחלה" />
+            <div className="flex items-center gap-2 mt-4">
+              <button type="button" onClick={confirmOrigin} className="flex-1 py-3 rounded-2xl text-white text-sm font-black active:scale-[0.98] transition-transform" style={{ backgroundColor: ACCENT }}>
+                אישור
+              </button>
+              <button type="button" onClick={() => setEditingOrigin(false)} className="px-5 py-3 rounded-2xl text-sm font-bold bg-gray-100 text-gray-600 active:scale-95 transition-transform">
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,14 +1,12 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import Map, { Marker, MapRef } from 'react-map-gl';
-import { MapPin, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import LocationPickMap from '../LocationPickMap';
 import { checkDuplicateNearby } from '@/features/parks/core/services/contribution.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type { WizardData } from './index';
 import type { Park } from '@/features/parks/core/types/park.types';
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
 interface Props {
   data: WizardData;
@@ -25,7 +23,6 @@ const POI_OPTIONS = [
 ] as const;
 
 export default function Step1LocationPicker({ data, updateData, onNext }: Props) {
-  const mapRef = useRef<MapRef>(null);
   const [duplicate, setDuplicate] = useState<Park | null>(null);
   const [checking, setChecking] = useState(false);
   const [category, setCategory] = useState<LocationCategory>(data.isPointOfInterest ? 'poi' : 'full_park');
@@ -45,8 +42,7 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
     }
   }, [userLocation, data.location, updateData]);
 
-  const handleMapClick = useCallback(async (evt: any) => {
-    const loc = { lat: evt.lngLat.lat, lng: evt.lngLat.lng };
+  const handleMapClick = useCallback(async (loc: { lat: number; lng: number }) => {
     updateData({ location: loc });
     setChecking(true);
     try {
@@ -81,34 +77,11 @@ export default function Step1LocationPicker({ data, updateData, onNext }: Props)
 
   const canProceed = data.location && !duplicate && !checking;
 
-  const center = data.location ?? userLocation ?? { lat: 32.08, lng: 34.78 };
-
   return (
     <div className="flex flex-col h-full px-4 pb-6">
-      {/* Map */}
-      <div className="relative rounded-2xl overflow-hidden h-[240px] mb-4 border border-slate-200">
-        <Map
-          ref={mapRef}
-          initialViewState={{ latitude: center.lat, longitude: center.lng, zoom: 15 }}
-          style={{ width: '100%', height: '100%' }}
-          mapStyle="mapbox://styles/mapbox/streets-v12"
-          mapboxAccessToken={MAPBOX_TOKEN}
-          onClick={handleMapClick}
-          attributionControl={false}
-        >
-          {data.location && (
-            <Marker latitude={data.location.lat} longitude={data.location.lng} anchor="bottom">
-              <div className="animate-bounce">
-                <MapPin size={32} className="text-[#00E5FF] drop-shadow-lg" fill="#00E5FF" />
-              </div>
-            </Marker>
-          )}
-        </Map>
-        {!data.location && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
-            <p className="text-slate-500 text-sm font-medium">לחצו על המפה לבחירת מיקום</p>
-          </div>
-        )}
+      {/* Map — shared pick core (also used by the intent start-point sheet) */}
+      <div className="mb-4">
+        <LocationPickMap value={data.location ?? null} onPick={handleMapClick} />
       </div>
 
       {/* Duplicate warning */}
