@@ -151,12 +151,12 @@ function checkWorkout(cell: CellMeta, w: GeneratedWorkout, bolt: number) {
   assert(c, 'D', 'D2 warmup/cooldown no banned gear', bannedWU.length === 0, `${bannedWU.length} banned`);
 
   // ── E · Sets / Reps / Rest ────────────────────────────────────────────────
-  // E1 xfail: `pyramid_aware_cap` trims sets below the documented 2-set floor
-  // (assignVolume:617 & enforceVolumeCap both floor at 2; the pyramid capper does
-  // not). Non-protocol exercises land at sets=1. Tracked in builder-stability.
+  // E1 — HARD invariant (promoted from xfail 12.07.2026, David-approved):
+  // the 2-set floor holds after the builder-stability merge (0acd234) —
+  // XPASS in every cell. Non-protocol exercises must carry 2-6 sets.
   const setFloor = main.filter(e => !isProtocolVolume(e) && (e.sets < 2 || e.sets > 6));
   assert(c, 'E', 'E1 2≤sets≤6 (non-protocol)', setFloor.length === 0,
-    `offenders: ${setFloor.map(e => `${e.sets}(${e.tier})`).join(',')}`, /* xfail */ true);
+    `offenders: ${setFloor.map(e => `${e.sets}(${e.tier})`).join(',')}`);
   const badReps = main.filter(e => (e.isTimeBased ? e.reps < 3 : e.reps < 1));
   assert(c, 'E', 'E2 reps≥1 / hold≥3s', badReps.length === 0,
     `offenders: ${badReps.map(e => `${e.reps}${e.isTimeBased ? 's' : ''}`).join(',')}`);

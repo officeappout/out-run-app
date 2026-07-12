@@ -309,11 +309,14 @@ export default function GeneratedWorkoutExerciseList({
         </section>
       )}
 
-      {/* ── Exercise Sections (חימום, סופר-סט, סט רגיל, מתיחות) ── */}
+      {/* ── Exercise Sections (חימום, סופר-סט, טבטה, סט רגיל, מתיחות) ── */}
       {sections.map((section) => {
         const isSuperset = section.id.startsWith('superset');
         const isPyramidSection = section.id.startsWith('pyramid');
         const isWarmup = section.id === 'warmup';
+        // Tabata block (Stage 3 UX): field-guarded — workouts without a
+        // tabataBlock never produce a 'tabata' section, so nothing changes.
+        const isTabata = section.id === 'tabata';
         const showCards = !isWarmup || (isWarmupActive && isWarmupExpanded);
 
         return (
@@ -323,6 +326,7 @@ export default function GeneratedWorkoutExerciseList({
               isWarmup={isWarmup}
               isSuperset={isSuperset}
               isPyramidSection={isPyramidSection}
+              tabataConfig={isTabata ? generatedWorkout.tabataBlock?.config : undefined}
               isWarmupActive={isWarmupActive}
               isWarmupExpanded={isWarmupExpanded}
               onToggleWarmupExpanded={onToggleWarmupExpanded}
@@ -334,7 +338,9 @@ export default function GeneratedWorkoutExerciseList({
                 className={
                   isSuperset
                     ? 'border-r-[3px] border-cyan-400/70 dark:border-cyan-600/50 pr-3 mr-1 space-y-2'
-                    : 'space-y-3'
+                    : isTabata
+                      ? 'border-r-[3px] border-orange-400/70 dark:border-orange-600/50 pr-3 mr-1 space-y-2'
+                      : 'space-y-3'
                 }
               >
                 {section.exercises.flatMap((ex, idx) => {

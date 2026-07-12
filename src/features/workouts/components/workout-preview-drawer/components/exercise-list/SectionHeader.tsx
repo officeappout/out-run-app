@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { ArrowDownCircle, Link2 } from 'lucide-react';
+import { ArrowDownCircle, Flame, Link2 } from 'lucide-react';
 import type { ExerciseSection } from '../../types';
+import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 
 export interface SectionHeaderProps {
   section: ExerciseSection;
@@ -12,6 +13,12 @@ export interface SectionHeaderProps {
   isSuperset: boolean;
   /** True when this section is a pyramid (renders step-count instead of rounds). */
   isPyramidSection: boolean;
+  /**
+   * Tabata block config (Stage 3 UX) — presence switches the header to the
+   * tabata badge + format line ("20 שנ' עבודה / 10 מנוחה × 8 סבבים · 4 דק'").
+   * Undefined = every other section renders exactly as before.
+   */
+  tabataConfig?: TabataProtocolConfig;
   /** Warmup-only: whether the warmup actually runs (`false` = greyed/skip). */
   isWarmupActive: boolean;
   /** Warmup-only: whether the cards body is currently expanded. */
@@ -45,11 +52,44 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   isWarmup,
   isSuperset,
   isPyramidSection,
+  tabataConfig,
   isWarmupActive,
   isWarmupExpanded,
   onToggleWarmupExpanded,
   onToggleWarmupActive,
 }) => {
+  // ── Tabata branch (Stage 3 UX) — badge + format line ────────────────────
+  if (tabataConfig) {
+    const totalMin = Math.round(
+      ((tabataConfig.workSec + tabataConfig.restSec) * tabataConfig.rounds) / 60,
+    );
+    return (
+      <div className="w-full mb-3" dir="rtl">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700">
+            <Flame size={13} className="text-orange-500" />
+            <span
+              className="text-xs font-bold text-orange-600 dark:text-orange-300"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              טבטה
+            </span>
+          </span>
+          <h3
+            className="text-[16px] font-semibold text-slate-900 dark:text-white"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            {section.title === 'טבטה' ? 'פיניש' : section.title}
+          </h3>
+        </div>
+        <p className="text-xs font-medium text-orange-600/90 dark:text-orange-400 mt-1">
+          {tabataConfig.workSec} שנ&apos; עבודה / {tabataConfig.restSec} מנוחה
+          {' '}× {tabataConfig.rounds} סבבים · {totalMin} דק&apos;
+        </p>
+      </div>
+    );
+  }
+
   if (isWarmup) {
     return (
       <div className="w-full flex items-center justify-between mb-3" dir="rtl">

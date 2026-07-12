@@ -66,6 +66,14 @@ export function groupExercisesIntoSections(
   let supersetCounter = 0;
   let pyramidCounter = 0;
 
+  // ── Tabata block members (Stage 3 UX) ─────────────────────────────────────
+  // Members carry the generator's structural marker (protocolBlock). They are
+  // pulled OUT of the regular flow into one finisher section — mirroring the
+  // player's execution order (seg-main → seg-tabata). Field-guarded: workouts
+  // without the marker take the exact same path as before.
+  const tabataMembers = main.filter((ex) => (ex as any).protocolBlock === 'tabata');
+  for (const ex of tabataMembers) consumed.add(ex.exercise.id);
+
   for (const ex of main) {
     if (consumed.has(ex.exercise.id)) continue;
 
@@ -78,7 +86,11 @@ export function groupExercisesIntoSections(
       Array.isArray((ex as any).pyramidSequence) && (ex as any).pyramidSequence.length > 0;
 
     if (pairedId) {
-      const partner = byId.get(pairedId);
+      // A partner already consumed by the tabata block is NOT available for
+      // pairing — without this check the member would render twice (once in
+      // the block, once as a superset half).
+      const partnerRaw = byId.get(pairedId);
+      const partner = partnerRaw && !consumed.has(partnerRaw.exercise.id) ? partnerRaw : undefined;
       const partnerPairedId = partner?.pairedWith as string | null | undefined;
       const isMutualPair = !!partner && partnerPairedId === ex.exercise.id;
 
@@ -147,6 +159,17 @@ export function groupExercisesIntoSections(
     sections.push({ id: 'warmup', title: 'חימום', rounds: 1, exercises: warmup });
   }
   sections.push(...mainSections);
+  if (tabataMembers.length > 0) {
+    // Finisher position — after the standard mains, exactly where the player
+    // runs seg-tabata. `rounds` = total work intervals (display only).
+    sections.push({ id: 'tabata', title: 'טבטה', rounds: 8, exercises: tabataMembers });
+    if (VERBOSE_GROUP_LOG) {
+      console.log(
+        `[UI][groupSections] 🔥 Tabata block: ${tabataMembers.length} member(s) — ` +
+        tabataMembers.map(exDisplayName).join(', '),
+      );
+    }
+  }
   if (cooldown.length > 0) {
     sections.push({ id: 'cooldown', title: 'מתיחות', rounds: 1, exercises: cooldown });
   }
