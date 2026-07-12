@@ -214,6 +214,20 @@ function pushCell(name: string, extra: Partial<HomeWorkoutOptions>, meta: Partia
     options: { userProfile: profile, location: 'home', availableTime: 15, difficulty: 2, testLocation: 'home', ...extra },
   });
 }
+// ── Builder time-fidelity family (13.07.2026, David) ────────────────────────
+// The custom builder pins the trio to one option via targetDifficulty (exactly
+// WorkoutBuilderSheet's shape). A request of 15/30/45 must land ≤ request+3
+// (B1, hard); 60 on D2 is capped by the bolt CEILING 45 — the contract there
+// is ≤48, so the cell's B1 anchor is min(request, 45). Locks the whole chain
+// resolveEffectiveBoltTime → compression → Phase C for every picker value.
+for (const t of [15, 30, 45, 60] as const) {
+  pushCell(
+    `builder/${t}min`,
+    { availableTime: t, targetDifficulty: 2, isManualOverride: true },
+    { substantial: true, availableTime: Math.min(t, 45) },
+  );
+}
+
 pushCell('edge/injury-shoulder', { injuryOverride: ['shoulder'] }, { substantial: true });
 pushCell('edge/detraining-5d', { difficulty: 3, daysInactiveOverride: 5 }, { substantial: true, detraining: true });
 pushCell('edge/office', { location: 'office', testLocation: 'office' }, { location: 'office', availGear: [], fullBody: false, expectPush: false, expectPull: false });
