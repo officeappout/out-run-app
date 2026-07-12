@@ -211,43 +211,74 @@ function syntheticRoute(path: [number, number][], distanceKm: number, durationSe
   } as Route;
 }
 
+/** How close the out-and-back road round-trip must land to the target. */
+const OAB_TOLERANCE = 0.1;
+
 /**
- * Build an out-and-back from the origin toward a point at half the target
- * distance, routed there-and-back via Mapbox (existing engine — not the
- * generator). Tries a few bearings and keeps the round-trip whose length is
- * closest to the target. Returns null if Mapbox yields nothing.
+ * Build an out-and-back from the origin toward a turnaround point, routed
+ * there-and-back via Mapbox (existing engine — not the generator).
+ *
+ * The turnaround is placed at an AIR distance, but the ROAD round-trip is
+ * longer (detours), so a naive air = target/2 overshoots (e.g. 4 km → 5.9 km).
+ * We pick the least-detour bearing, then BINARY-SEARCH the air turnaround
+ * distance so the measured road round-trip ≈ target ±10%. Returns null if
+ * Mapbox yields nothing.
  */
 export async function buildOutAndBack(origin: { lat: number; lng: number }, targetKm: number, activity: ActivityType): Promise<IntentOption | null> {
   if (!origin || !(targetKm > 0)) return null;
   const { MapboxService } = await import('./mapbox.service');
   const profile: 'walking' | 'cycling' = activity === 'cycling' ? 'cycling' : 'walking';
-  const halfKm = targetKm / 2;
-  const bearings = [0, 90, 180, 270];
-  let best: { path: [number, number][]; km: number; dur: number } | null = null;
 
-  for (const brng of bearings) {
-    const dest = destPoint(origin, halfKm, brng);
+  type Measure = { path: [number, number][]; km: number; dur: number; airHalf: number; bearing: number };
+  const measure = async (airHalf: number, bearing: number): Promise<Measure | null> => {
+    const dest = destPoint(origin, airHalf, bearing);
     const res = await MapboxService.getSmartPath(
       { lng: origin.lng, lat: origin.lat },
       { lng: origin.lng, lat: origin.lat },
       profile,
       [{ lng: dest.lng, lat: dest.lat }],
     );
-    if (!res?.path || res.path.length < 2) continue;
-    const km = res.distance / 1000;
-    if (!best || Math.abs(km - targetKm) < Math.abs(best.km - targetKm)) {
-      best = { path: res.path, km, dur: res.duration };
+    if (!res?.path || res.path.length < 2) return null;
+    return { path: res.path as [number, number][], km: res.distance / 1000, dur: res.duration, airHalf, bearing };
+  };
+
+  let best: Measure | null = null;
+  const consider = (m: Measure | null) => { if (m && (!best || Math.abs(m.km - targetKm) < Math.abs(best.km - targetKm))) best = m; };
+  const onTarget = () => best != null && Math.abs(best.km - targetKm) <= OAB_TOLERANCE * targetKm;
+
+  // 1) Probe each bearing at air = target/2 → pick the least-detour direction
+  //    (smallest road distance ⇒ ratio closest to 1 ⇒ most predictable to calibrate).
+  const probes: Measure[] = [];
+  for (const bearing of [0, 90, 180, 270]) {
+    const m = await measure(targetKm / 2, bearing);
+    if (m) { probes.push(m); consider(m); }
+  }
+  if (!probes.length) return null;
+
+  // 2) Binary-search the air turnaround on that bearing until the road
+  //    round-trip is within tolerance (or iterations run out — keep the best).
+  if (!onTarget()) {
+    const bearing = probes.reduce((a, b) => (a.km < b.km ? a : b)).bearing;
+    let lo = targetKm * 0.1;
+    let hi = targetKm * 0.6;
+    for (let i = 0; i < 6 && !onTarget(); i++) {
+      const mid = (lo + hi) / 2;
+      const m = await measure(mid, bearing);
+      consider(m);
+      // Unroutable (null) or too long ⇒ turnaround too far ⇒ pull it in.
+      if (!m || m.km > targetKm) hi = mid; else lo = mid;
     }
   }
   if (!best) return null;
+  const b: Measure = best;
 
-  const route = syntheticRoute(best.path, best.km, best.dur, activity, origin, targetKm);
+  const route = syntheticRoute(b.path, b.km, b.dur, activity, origin, targetKm);
   return {
     bucket: 'here',
     route,
     shape: 'out_and_back',
     laps: 1,
-    effectiveKm: +best.km.toFixed(2),
+    effectiveKm: +b.km.toFixed(2),
     accessMeters: 0,
     accessMinutes: 0,
     quality: 0,

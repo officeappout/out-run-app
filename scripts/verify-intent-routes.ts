@@ -52,11 +52,16 @@ async function main() {
     }
   }
 
-  // Live out-and-back check (Mapbox) — origin unlikely to have a curated loop at 0m.
-  console.log('\n── buildOutAndBack (Mapbox live) · Zichron center · walking · 3km ──');
-  const oab = await buildOutAndBack(ZICHRON_CENTER, 3, 'walking');
-  if (oab) console.log(`  ✓ ${oab.shape} ${oab.effectiveKm}km · ${oab.route.path.length} pts · dur ${oab.route.duration}min · ${oab.route.name}`);
-  else console.log('  ✗ Mapbox returned nothing (check NEXT_PUBLIC_MAPBOX_TOKEN)');
+  // Live out-and-back calibration check (Mapbox) — must land within ±10% of target.
+  console.log('\n── buildOutAndBack calibration (Mapbox live) · Zichron center · walking ──');
+  for (const target of [2, 4, 6]) {
+    const oab = await buildOutAndBack(ZICHRON_CENTER, target, 'walking');
+    if (oab) {
+      const err = ((oab.effectiveKm - target) / target) * 100;
+      const ok = Math.abs(err) <= 10 ? '✓' : '✗ OUT OF ±10%';
+      console.log(`  target ${target}km → ${oab.effectiveKm}km (${err >= 0 ? '+' : ''}${err.toFixed(0)}%) ${ok} · ${oab.route.path.length} pts`);
+    } else console.log(`  target ${target}km → ✗ Mapbox returned nothing`);
+  }
 
   process.exit(0);
 }

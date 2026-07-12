@@ -954,6 +954,20 @@ export default function AppMap({
           geometry: { type: 'LineString', coordinates: coords },
         };
       });
+    // Always draw the focused route, even if it isn't in `visibleRoutes` — e.g. a
+    // far "נסיעה" intent option or a synthesized out-and-back (never in the
+    // proximity/viewport-filtered set). Without this the selected card would
+    // highlight nothing on the map, and which cards drew a line would look random.
+    if (focusedRoute?.path && focusedRoute.path.length > 1 && !features.some(f => f.properties.id === focusedRoute.id)) {
+      const coords = (focusedRoute.displayPath && focusedRoute.displayPath.length > 1)
+        ? focusedRoute.displayPath
+        : focusedRoute.path;
+      features.push({
+        type: 'Feature',
+        properties: { id: focusedRoute.id, isFocused: true, isInfrastructure: focusedRoute.isInfrastructure || false },
+        geometry: { type: 'LineString', coordinates: coords },
+      });
+    }
     return { type: 'FeatureCollection', features };
   }, [visibleRoutes, focusedRoute]);
 
