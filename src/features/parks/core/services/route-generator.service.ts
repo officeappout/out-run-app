@@ -298,7 +298,10 @@ async function fetchScoredWaypoints(
       return null;
     }
 
-    const searchRadiusKm = targetDistance / 2;
+    // Tightened from targetDistance/2 → the scored ring was so wide (1.25km for a
+    // 2.5km target) that loops through those waypoints overshot to 4–5km.
+    // See SCORED_WAYPOINT_RADIUS_FACTOR.
+    const searchRadiusKm = targetDistance * SCORED_WAYPOINT_RADIUS_FACTOR;
 
     let officialBiasApplied = 0;
     const scored = snap.docs
@@ -422,6 +425,57 @@ function segBearing(a: [number, number], b: [number, number]): number {
   const y = Math.sin(dLng) * Math.cos(lat2);
   const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
   return Math.atan2(y, x) * 180 / Math.PI;
+}
+
+// ── Target-distance accuracy tunables (feat/route-target-accuracy) ──────────
+// Calibrate against real generations. Defaults pull generated loops close to the
+// requested distance without emptying the carousel. Root cause they address: the
+// old flat window [t-0.5, t+2.5] accepted +100% overshoot on short targets, and
+// scored waypoints were searched within t/2 (=1.25km for 2.5km) → 4–5km loops.
+const SCORED_WAYPOINT_RADIUS_FACTOR = 1 / 3.5;   // scored street_segments search ring (was 1/2)
+const WINDOW_MIN_FACTOR = 0.75;                   // tight window lower bound = target × this …
+const WINDOW_MAX_FACTOR = 1.35;                   // … upper bound = target × this
+const WINDOW_MIN_FLOOR_KM = 0.8;                  // but never below this (short-target feasibility)
+// Widening-fallback: if the tight window has < MIN_REQUIRED_ROUTES candidates, relax
+// [min,max] in these steps and re-select from the SAME fetched candidates (no extra
+// Mapbox calls). The loosest step also caps how absurd an accepted loop may get.
+const WINDOW_RELAX_STEPS: Array<{ min: number; max: number }> = [
+  { min: WINDOW_MIN_FACTOR, max: WINDOW_MAX_FACTOR }, // primary (tight)
+  { min: 0.6, max: 1.7 },                             // medium
+  { min: 0.5, max: 2.2 },                             // loosest (last resort; also the hard cap)
+];
+
+/**
+ * Prefer-closest selection with a widening-fallback. Filters the already-fetched
+ * candidates to each relax window (tight → loose), sorted by |distance − target|,
+ * and returns the first level that yields ≥ `needed`. If none does, returns whatever
+ * fell inside the loosest window (closest-first, may be < needed) — so we never
+ * surface a loop beyond the loosest bound, and never empty the carousel when a
+ * reasonable candidate exists.
+ */
+function selectRoutesByCloseness(
+  candidates: Array<{ route: Route; distKm: number }>,
+  targetKm: number,
+  needed: number,
+): Route[] {
+  const byCloseness = (a: { distKm: number }, b: { distKm: number }) =>
+    Math.abs(a.distKm - targetKm) - Math.abs(b.distKm - targetKm);
+  let widest: Array<{ route: Route; distKm: number }> = [];
+  for (const step of WINDOW_RELAX_STEPS) {
+    const minKm = Math.max(WINDOW_MIN_FLOOR_KM, targetKm * step.min);
+    const maxKm = targetKm * step.max;
+    widest = candidates.filter(c => c.distKm >= minKm && c.distKm <= maxKm).sort(byCloseness);
+    if (widest.length >= needed) {
+      console.log(`[RouteGenerator] Picked ${needed} closest within [${minKm.toFixed(1)}–${maxKm.toFixed(1)}]km of ${candidates.length} candidates (target ${targetKm.toFixed(1)}km).`);
+      return widest.slice(0, needed).map(c => c.route);
+    }
+  }
+  if (widest.length) {
+    console.warn(`[RouteGenerator] Only ${widest.length} route(s) within the widest window (target ${targetKm.toFixed(1)}km) — showing those.`);
+  } else {
+    console.warn(`[RouteGenerator] No routes within the widest window for target ${targetKm.toFixed(1)}km (${candidates.length} candidate(s)).`);
+  }
+  return widest.slice(0, needed).map(c => c.route);
 }
 
 // --- Helper Functions ---
@@ -658,7 +712,10 @@ export async function generateDynamicRoutes(
     }
   }
 
-  const validRoutes: Route[] = [];
+  // Collect every point-valid candidate with its distance; SELECTION happens after
+  // the loop (prefer-closest + widening-fallback via selectRoutesByCloseness), not
+  // first-in-window — that is what stops a 2.5km request surfacing a 4.6km loop.
+  const candidateRoutes: Array<{ route: Route; distKm: number }> = [];
   const MIN_REQUIRED_ROUTES = 3;
   // Adaptive minimum: short loops genuinely return fewer points from Mapbox
   // even when they're geometrically valid (a 1.2km loop with 6 turns can be
@@ -667,11 +724,18 @@ export async function generateDynamicRoutes(
   // really stand out as broken routes.
   const MIN_PATH_POINTS = safeDistance < 2 ? 30 : 50;
 
+  // Tight acceptance window drives the early-stop: once we already hold a few
+  // candidates this close to target, more Mapbox calls add little.
+  const tightMinKm = Math.max(WINDOW_MIN_FLOOR_KM, safeDistance * WINDOW_MIN_FACTOR);
+  const tightMaxKm = safeDistance * WINDOW_MAX_FACTOR;
+  const ENOUGH_TIGHT = MIN_REQUIRED_ROUTES + 1; // one spare so prefer-closest has a real choice
+  const tightCount = () => candidateRoutes.filter(c => c.distKm >= tightMinKm && c.distKm <= tightMaxKm).length;
+
   // 4. ✅ SEQUENTIAL PROCESSING - One at a time with delays (prevents 429 errors)
   for (let i = 0; i < routeCombinations.length; i++) {
-    // Stop if we have enough valid routes
-    if (validRoutes.length >= MIN_REQUIRED_ROUTES) {
-      console.log(`[RouteGenerator] Got ${MIN_REQUIRED_ROUTES} routes, stopping.`);
+    // Stop once we hold enough CLOSE candidates (not just any 3) to pick from.
+    if (tightCount() >= ENOUGH_TIGHT) {
+      console.log(`[RouteGenerator] ${tightCount()} close candidates — stopping early.`);
       break;
     }
 
@@ -729,34 +793,17 @@ export async function generateDynamicRoutes(
         console.warn(`[RouteGenerator] Route ${i} REJECTED: only ${result?.path?.length || 0} points (need ${MIN_PATH_POINTS}+)`);
         
         // ✅ Wait before next attempt to avoid 429
-        if (i < routeCombinations.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
+        if (i < routeCombinations.length - 1 && tightCount() < ENOUGH_TIGHT) {
           await delay(1500);
         }
         continue;
       }
 
       const routeDistanceKm = result.distance / 1000;
-
-      // Flexible but realistic distance window:
-      // Accept anything between (target - 0.5km) and (target + 2.5km),
-      // e.g. for 3km → [2.5km, 5.5km]
-      const minKm = Math.max(0.5, safeDistance - 0.5);
-      const maxKm = safeDistance + 2.5;
-      if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
-        console.warn(
-          `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
-            1,
-          )}km outside allowed range [${minKm.toFixed(1)}–${maxKm.toFixed(1)}]km (target ${safeDistance.toFixed(
-            1,
-          )}km)`,
-        );
-
-        // ✅ Wait before next attempt to avoid 429
-        if (i < routeCombinations.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
-          await delay(1500);
-        }
-        continue;
-      }
+      // No distance rejection here anymore — every point-valid loop becomes a
+      // candidate; the tight window + widening-fallback pick the closest-to-target
+      // ones after the loop (selectRoutesByCloseness). This stops a 2.5km request
+      // from surfacing a 4.6km loop while still never emptying the carousel.
 
       // Use Mapbox API duration (in seconds) as the single source of truth
       const durationMinutes = Math.round(result.duration / 60);
@@ -803,22 +850,23 @@ export async function generateDynamicRoutes(
         includesFitnessStop: hasGym
       };
 
-      validRoutes.push(route);
-      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+      candidateRoutes.push({ route, distKm: routeDistanceKm });
+      console.log(`[RouteGenerator] ✅ Candidate ${i}: ${routeDistanceKm.toFixed(1)}km (${cleanPath.length} points, ${csMode})`);
 
     } catch (err: any) {
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
     }
 
     // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except last or when we have enough routes)
-    if (i < routeCombinations.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
+    if (i < routeCombinations.length - 1 && tightCount() < ENOUGH_TIGHT) {
       console.log('[RouteGenerator] Waiting 1.5s before next API call...');
       await delay(1500);
     }
   }
 
-  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid routes.`);
-  return validRoutes;
+  const selected = selectRoutesByCloseness(candidateRoutes, safeDistance, MIN_REQUIRED_ROUTES);
+  console.log(`[RouteGenerator] Finished. ${candidateRoutes.length} candidate(s) → returning ${selected.length} (target ${safeDistance.toFixed(1)}km).`);
+  return selected;
 }
 
 // ── Commute (A-to-B) branch ────────────────────────────────────────────────
