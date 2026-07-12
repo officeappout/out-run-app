@@ -66,7 +66,15 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   // honest interval count instead of lying about whole cycles.
   if (tabataConfig) {
     const n = section.exercises.length;
-    const cycles = n > 0 && tabataConfig.rounds % n === 0 ? tabataConfig.rounds / n : null;
+    // Weighted cycle cost: a unilateral member occupies TWO intervals
+    // (right→left consecutive, David's rule 12.07.2026).
+    const cycleCost = section.exercises.reduce(
+      (s, ex) =>
+        s +
+        ((ex as { exercise?: { symmetry?: string } })?.exercise?.symmetry === 'unilateral' ? 2 : 1),
+      0,
+    );
+    const cycles = cycleCost > 0 && tabataConfig.rounds % cycleCost === 0 ? tabataConfig.rounds / cycleCost : null;
     const cyclesLabel =
       cycles === null
         ? `${tabataConfig.rounds} אינטרוולים`

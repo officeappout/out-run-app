@@ -9,7 +9,7 @@ import { effectiveSetsForExercise } from '../logic/set-target.utils';
 import { computeAdvanceDecision } from '../protocols/compute-advance';
 import type { AdvanceContext } from '../protocols/advance-strategy.types';
 import { resolveBlockProtocol, type BlockProtocolInfo } from '../protocols/block-protocol';
-import { tabataIntervalInfo } from '../protocols/tabata.advance';
+import { tabataIntervalInfo, tabataMemberCosts } from '../protocols/tabata.advance';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
@@ -233,6 +233,9 @@ export function useWorkoutStateMachine(
   const [currentSide, setCurrentSide] = useState<'right' | 'left' | null>(null);
   const [pendingSideData, setPendingSideData] = useState<{ right: number; left: number } | null>(null);
   const pendingRightElapsed = useRef<number | null>(null);
+  // Tabata unilateral: the clocked rest BETWEEN the two sides of the SAME
+  // exercise must resume ACTIVE (left side) instead of advancing the cursor.
+  const tabataSideRestRef = useRef(false);
 
   // --------------------------------------------------------------------------
   // HELPERS — Exercise Access (stable callbacks)
@@ -378,6 +381,18 @@ export function useWorkoutStateMachine(
 
   const handleRestTimerDone = useCallback(() => {
     if (transitionLock.current || moveInFlightRef.current) return;
+    // Tabata unilateral side-rest: resume ACTIVE on the left side of the
+    // SAME exercise — no cursor advance, no lock (no index will change).
+    if (tabataSideRestRef.current) {
+      tabataSideRestRef.current = false;
+      console.log('[Engine][Tabata] side rest done — left side starts');
+      setFadeIn(false);
+      setTimeout(() => {
+        setWorkoutState('ACTIVE');
+        setFadeIn(true);
+      }, 100);
+      return;
+    }
     transitionLock.current = true;
     // Log is already committed by handleExerciseComplete before RESTING,
     // so the rest-timer callback only needs to advance the cursor.
@@ -583,12 +598,52 @@ export function useWorkoutStateMachine(
       // clocked rest from config → moveToNext; last interval advances
       // immediately with no trailing rest.
       if (blockProtocol?.id === 'tabata') {
+        // ── Unilateral member = TWO intervals (David's rule, 12.07.2026):
+        // right side works → clocked rest → LEFT side of the SAME exercise
+        // → then the normal advance. The right side logs nothing yet — both
+        // sides log together (sideData) when the left completes.
+        if (isUnilateralTimed && currentSide === 'right') {
+          pendingRightElapsed.current = reps ?? blockProtocol.config.workSec;
+          setCurrentSide('left'); // remounts the timer card (key: timer-left)
+          if (blockProtocol.config.restSec > 0) {
+            setFadeIn(false);
+            setTimeout(() => {
+              tabataSideRestRef.current = true; // rest-done resumes ACTIVE, no advance
+              setWorkoutState('RESTING');
+              setRestTimeLeft(blockProtocol.config.restSec);
+              setFadeIn(true);
+              transitionLock.current = false;
+              console.log('[Engine][Tabata] side interval done (right) — clocked rest → left side');
+            }, 100);
+          } else {
+            transitionLock.current = false;
+            console.log('[Engine][Tabata] side interval done (right) — left side starts immediately');
+          }
+          return;
+        }
+
+        // Left side just finished → log BOTH sides on one entry.
+        const sideData =
+          isUnilateralTimed && currentSide === 'left'
+            ? {
+                right: pendingRightElapsed.current ?? blockProtocol.config.workSec,
+                left: reps ?? blockProtocol.config.workSec,
+              }
+            : undefined;
+
         // time-type logs real elapsed from the timer card; reps-type logs the
         // per-set target (resolveSetTarget) as the editable auto value.
-        autoSaveTargetReps(exerciseType === 'time' ? reps : undefined);
+        autoSaveTargetReps(
+          exerciseType === 'time'
+            ? (sideData ? Math.min(sideData.right, sideData.left) : reps)
+            : undefined,
+          sideData,
+        );
 
         const { isLastInterval } = tabataIntervalInfo({
-          numExercises: getExercises(currentSegment)?.length ?? 1,
+          costs: tabataMemberCosts(
+            (getExercises(currentSegment) ?? []) as unknown as Array<Record<string, unknown>>,
+          ),
           exerciseIndex: currentExerciseIndex,
           setIdx: currentSetRef.current,
           rounds: blockProtocol.config.rounds,
@@ -861,6 +916,18 @@ export function useWorkoutStateMachine(
   const skipRest = useCallback(() => {
     if (transitionLock.current) {
       console.warn('[Engine] skipRest BLOCKED');
+      return;
+    }
+    // Tabata unilateral side-rest: skipping must start the LEFT side, not
+    // advance past it.
+    if (tabataSideRestRef.current) {
+      tabataSideRestRef.current = false;
+      console.log('[Engine][Tabata] side rest skipped — left side starts');
+      setFadeIn(false);
+      setTimeout(() => {
+        setWorkoutState('ACTIVE');
+        setFadeIn(true);
+      }, 150);
       return;
     }
     transitionLock.current = true;

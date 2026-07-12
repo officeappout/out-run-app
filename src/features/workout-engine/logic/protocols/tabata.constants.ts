@@ -26,3 +26,14 @@ export const TABATA_BLOCK_SECONDS =
 /** Block size limits — how many exercises rotate inside the block. */
 export const TABATA_MIN_EXERCISES = 2;
 export const TABATA_MAX_EXERCISES = 4;
+
+/**
+ * Interval cost of one exercise visit inside the block (David's rule,
+ * 12.07.2026): a unilateral exercise runs right side then left side as
+ * two CONSECUTIVE intervals — it occupies 2 of the block's `rounds`.
+ * Shared by the generator (subset selection), the player (interval
+ * arithmetic) and the preview (cycle display). Pure — no imports.
+ */
+export function tabataIntervalCost(symmetry: string | null | undefined): 1 | 2 {
+  return symmetry === 'unilateral' ? 2 : 1;
+}

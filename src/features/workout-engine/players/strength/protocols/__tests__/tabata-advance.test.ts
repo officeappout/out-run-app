@@ -39,24 +39,37 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe('tabataIntervalInfo', () => {
-  it('maps [cycle, exerciseIndex] to a linear interval index', () => {
-    expect(tabataIntervalInfo({ numExercises: 2, exerciseIndex: 0, setIdx: 0, rounds: 8 }))
+describe('tabataIntervalInfo (weighted — unilateral costs 2)', () => {
+  it('all-bilateral: prefix sums reduce to the linear index', () => {
+    expect(tabataIntervalInfo({ costs: [1, 1], exerciseIndex: 0, setIdx: 0, rounds: 8 }))
       .toEqual({ intervalIndex: 0, isLastInterval: false });
-    expect(tabataIntervalInfo({ numExercises: 2, exerciseIndex: 1, setIdx: 3, rounds: 8 }))
+    expect(tabataIntervalInfo({ costs: [1, 1], exerciseIndex: 1, setIdx: 3, rounds: 8 }))
       .toEqual({ intervalIndex: 7, isLastInterval: true });
   });
 
-  it('handles rounds that are not a multiple of the exercise count', () => {
-    // 3 exercises, 8 rounds: A,B,C,A,B,C,A,B — the 8th interval is B on cycle 2
-    expect(tabataIntervalInfo({ numExercises: 3, exerciseIndex: 1, setIdx: 2, rounds: 8 }))
+  it('handles rounds that are not a multiple of the cycle cost', () => {
+    // 3 bilaterals, 8 rounds: A,B,C,A,B,C,A,B — the 8th interval is B on cycle 2
+    expect(tabataIntervalInfo({ costs: [1, 1, 1], exerciseIndex: 1, setIdx: 2, rounds: 8 }))
       .toEqual({ intervalIndex: 7, isLastInterval: true });
-    expect(tabataIntervalInfo({ numExercises: 3, exerciseIndex: 0, setIdx: 2, rounds: 8 }))
+    expect(tabataIntervalInfo({ costs: [1, 1, 1], exerciseIndex: 0, setIdx: 2, rounds: 8 }))
       .toEqual({ intervalIndex: 6, isLastInterval: false });
   });
 
-  it('guards a zero exercise count', () => {
-    expect(tabataIntervalInfo({ numExercises: 0, exerciseIndex: 0, setIdx: 4, rounds: 8 }))
+  it('UNILATERAL member occupies two intervals (right→left)', () => {
+    // [bi, uni]: cycle cost 3. Cycle 0: bi@0, uni@1-2. Cycle 2 starts at 6.
+    expect(tabataIntervalInfo({ costs: [1, 2], exerciseIndex: 1, setIdx: 0, rounds: 8 }))
+      .toEqual({ intervalIndex: 1, isLastInterval: false }); // completes 3/8
+    expect(tabataIntervalInfo({ costs: [1, 2], exerciseIndex: 1, setIdx: 2, rounds: 8 }))
+      .toEqual({ intervalIndex: 7, isLastInterval: true }); // 7 + 2 = 9 ≥ 8
+    // [uni, uni]: cycle cost 4 → exactly 2 cycles of 8.
+    expect(tabataIntervalInfo({ costs: [2, 2], exerciseIndex: 1, setIdx: 1, rounds: 8 }))
+      .toEqual({ intervalIndex: 6, isLastInterval: true });
+    expect(tabataIntervalInfo({ costs: [2, 2], exerciseIndex: 0, setIdx: 1, rounds: 8 }))
+      .toEqual({ intervalIndex: 4, isLastInterval: false });
+  });
+
+  it('guards an empty cost list', () => {
+    expect(tabataIntervalInfo({ costs: [], exerciseIndex: 0, setIdx: 4, rounds: 8 }))
       .toEqual({ intervalIndex: 4, isLastInterval: false });
   });
 });

@@ -394,7 +394,9 @@ export default function GeneratedWorkoutExerciseList({
                       onSwap={onSwap}
                       volumeOverride={
                         isTabata && generatedWorkout.tabataBlock
-                          ? `${generatedWorkout.tabataBlock.config.workSec} שנ'`
+                          ? ex.exercise.symmetry === 'unilateral'
+                            ? `${generatedWorkout.tabataBlock.config.workSec} שנ' לכל צד`
+                            : `${generatedWorkout.tabataBlock.config.workSec} שנ'`
                           : undefined
                       }
                     />,

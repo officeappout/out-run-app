@@ -12,10 +12,12 @@
  * tabata — two timed modes must never double-fire.
  */
 import type { TabataBlockSpec, WorkoutExercise } from '../workout-generator.types';
+import { getIsometricTimeCap } from '../workout-budgeting.utils';
 import {
   TABATA_CLASSIC,
   TABATA_MIN_EXERCISES,
   TABATA_MAX_EXERCISES,
+  tabataIntervalCost,
 } from './tabata.constants';
 
 /**
@@ -41,41 +43,75 @@ export function buildTabataBlock(
     return undefined;
   }
 
-  const candidates = exercises
+  // ── Eligibility (David's rules, 12.07.2026) ───────────────────────────
+  // A candidate must be sustainable for a full 20s work interval AT THE
+  // USER'S LEVEL. Rep exercises (pushups/squats/lunges) and sustainable
+  // holds (plank, side plank) are IN; only max-effort skill work is OUT:
+  // - tier 'elite' (Δ≥+2, near-max) — existing rule;
+  // - getIsometricTimeCap < workSec — the engine's own skill-lever ceiling
+  //   (planche/'פלאנץ', front lever/'פרונט', flag/'דגל', one-arm/'יד אחת',
+  //   level≥8) caps at 15s: cannot hold 20s, for holds AND rep variants.
+  //   NOTE: this is the DETERMINISTIC encoding — assigned hold seconds
+  //   (ex.reps) are a random draw per bolt and would flip planks in/out.
+  //   priority==='skill' misses planche entirely (corpus spells 'פלאנץ׳',
+  //   the skill pattern matches 'פלאנש') — do not "simplify" to it.
+  // - time-based at tier 'hard' (Δ=+1): prescribed 5-10s holds, capped 15s.
+  // Unilateral is ELIGIBLE and costs 2 intervals (right→left consecutive).
+  const eligible = exercises
     .filter(
       (ex) =>
         (ex.exerciseRole ?? 'main') === 'main' &&
+        !Array.isArray(ex.pyramidSequence) &&
         ex.tier !== 'elite' &&
-        // A mechanical pyramid cannot rotate inside 20s intervals (belt-and-
-        // suspenders: the lottery picks ONE protocol, so pyramid stamps
-        // should never coexist with a tabata roll in the same generation).
-        !Array.isArray(ex.pyramidSequence),
+        getIsometricTimeCap(ex.exercise) >= TABATA_CLASSIC.workSec &&
+        !(ex.isTimeBased && ex.tier === 'hard'),
     )
-    .sort((a, b) => b.score - a.score)
-    .slice(0, TABATA_MAX_EXERCISES);
+    .sort((a, b) => b.score - a.score);
 
-  if (candidates.length < TABATA_MIN_EXERCISES) {
+  // ── Composition: interval costs must tile `rounds` exactly ─────────────
+  // Σ member costs (uni=2, bi=1) must DIVIDE rounds so no cycle truncates
+  // mid-exercise (or mid-side). Brute-force the best-scoring valid subset
+  // from the top candidates (pool ≤ 6 → ≤ 63 subsets).
+  const pool = eligible.slice(0, 6);
+  let best: WorkoutExercise[] | null = null;
+  let bestScore = -1;
+  for (let mask = 1; mask < 1 << pool.length; mask++) {
+    const subset = pool.filter((_, i) => mask & (1 << i));
+    if (subset.length < TABATA_MIN_EXERCISES || subset.length > TABATA_MAX_EXERCISES) continue;
+    const cycleCost = subset.reduce((s, e) => s + tabataIntervalCost(e.exercise.symmetry), 0);
+    if (cycleCost > TABATA_CLASSIC.rounds || TABATA_CLASSIC.rounds % cycleCost !== 0) continue;
+    const score = subset.reduce((s, e) => s + e.score, 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = subset;
+    }
+  }
+
+  if (!best) {
     console.log(
-      `[TabataBlock] Only ${candidates.length} eligible main(s) (need ≥${TABATA_MIN_EXERCISES}) ` +
-      '— reverting to straight sets',
+      `[TabataBlock] No valid composition from ${eligible.length} eligible candidate(s) ` +
+      `(need ${TABATA_MIN_EXERCISES}-${TABATA_MAX_EXERCISES} members whose interval costs tile ` +
+      `${TABATA_CLASSIC.rounds}) — reverting to straight sets`,
     );
     return undefined;
   }
 
-  for (const ex of candidates) {
+  for (const ex of best) {
     ex.protocolBlock = 'tabata';
     ex.reasoning.push('tabata_block:member');
   }
 
+  const cycleCost = best.reduce((s, e) => s + tabataIntervalCost(e.exercise.symmetry), 0);
   console.log(
-    `[TabataBlock] ✅ Block assembled: ${candidates.length} exercises × ` +
-    `${TABATA_CLASSIC.rounds} intervals (${TABATA_CLASSIC.workSec}/${TABATA_CLASSIC.restSec}) — ` +
-    `[${candidates.map((c) => (c.exercise.name as { he?: string })?.he ?? c.exercise.id).join(', ')}]`,
+    `[TabataBlock] ✅ Block assembled: ${best.length} exercises (cycle cost ${cycleCost} → ` +
+    `${TABATA_CLASSIC.rounds / cycleCost} cycles of ${TABATA_CLASSIC.rounds} intervals, ` +
+    `${TABATA_CLASSIC.workSec}/${TABATA_CLASSIC.restSec}) — ` +
+    `[${best.map((c) => (c.exercise.name as { he?: string })?.he ?? c.exercise.id).join(', ')}]`,
   );
 
   return {
     config: TABATA_CLASSIC,
-    exerciseIds: candidates.map((c) => c.exercise.id),
+    exerciseIds: best.map((c) => c.exercise.id),
   };
 }
 

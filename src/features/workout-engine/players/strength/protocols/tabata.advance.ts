@@ -16,26 +16,47 @@
 import type { AdvanceContext, AdvanceDecision, AdvanceStrategy } from './advance-strategy.types';
 import { advanceOutOfSegment } from './segment-chain';
 import { resolveBlockProtocol } from './block-protocol';
+import { tabataIntervalCost } from '@/features/workout-engine/logic/protocols/tabata.constants';
 
 export interface TabataIntervalInfo {
-  /** 0-based index of the work interval at [setIdx, exerciseIndex]. */
+  /** 0-based index of the FIRST interval of this exercise visit. */
   intervalIndex: number;
-  /** True when this interval is the block's last — no trailing rest. */
+  /** True when this visit finishes the block — no trailing rest after it. */
   isLastInterval: boolean;
 }
 
-/** Pure interval arithmetic — used by the head AND the state machine. */
+/** Per-exercise interval costs (unilateral = 2: right→left consecutive). */
+export function tabataMemberCosts(
+  exercises: ReadonlyArray<{ symmetry?: string | null } | Record<string, unknown>>,
+): number[] {
+  return exercises.map((ex) =>
+    tabataIntervalCost(
+      ((ex as { symmetry?: string })?.symmetry ??
+        (ex as { exercise?: { symmetry?: string } })?.exercise?.symmetry) as string | undefined,
+    ),
+  );
+}
+
+/**
+ * Pure WEIGHTED interval arithmetic — used by the head AND the state
+ * machine. A unilateral member consumes 2 of the block's `rounds`
+ * (David's rule 12.07.2026), so positions are prefix sums of the member
+ * costs, not a linear index.
+ */
 export function tabataIntervalInfo(args: {
-  numExercises: number;
+  costs: number[];
   exerciseIndex: number;
   setIdx: number;
   rounds: number;
 }): TabataIntervalInfo {
-  const n = Math.max(1, args.numExercises);
-  const intervalIndex = args.setIdx * n + args.exerciseIndex;
+  const costs = args.costs.length > 0 ? args.costs : [1];
+  const cycleCost = costs.reduce((s, c) => s + c, 0);
+  const prefix = costs.slice(0, args.exerciseIndex).reduce((s, c) => s + c, 0);
+  const intervalIndex = args.setIdx * cycleCost + prefix;
+  const completedAfterVisit = intervalIndex + (costs[args.exerciseIndex] ?? 1);
   return {
     intervalIndex,
-    isLastInterval: intervalIndex + 1 >= args.rounds,
+    isLastInterval: completedAfterVisit >= args.rounds,
   };
 }
 
@@ -54,7 +75,7 @@ export const tabataAdvance: AdvanceStrategy = (ctx): AdvanceDecision => {
   }
 
   const { isLastInterval, intervalIndex } = tabataIntervalInfo({
-    numExercises: exercises.length,
+    costs: tabataMemberCosts(exercises),
     exerciseIndex: prevExerciseIndex,
     setIdx,
     rounds: block.config.rounds,

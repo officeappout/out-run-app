@@ -64,6 +64,64 @@ describe('buildTabataBlock', () => {
     expect(buildTabataBlock('tabata', [mainEx('a', 50)], {})).toBeUndefined();
     expect(buildTabataBlock('tabata', [mainEx('a', 50), mainEx('b', 60, { tier: 'elite' })], {})).toBeUndefined();
   });
+
+  it("ELIGIBILITY (David 12.07): max-effort skills are OUT via the engine's isometric cap", () => {
+    // Corpus-faithful shapes: planche is spelled פלאנץ׳ and filed under
+    // horizontal_push; one-arm holds are mislabeled bilateral — only the
+    // name heuristic in getIsometricTimeCap catches them (cap 15 < 20).
+    const planche = mainEx('planche-tuck', 95, {
+      isTimeBased: true,
+      exercise: { id: 'planche-tuck', name: { he: 'פלאנץ׳ בטאק' }, movementGroup: 'horizontal_push', symmetry: 'bilateral' },
+    });
+    const frontLeverRaise = mainEx('fl-raise', 90, {
+      exercise: { id: 'fl-raise', name: { he: 'הרמות פרונט לבר' }, movementGroup: 'horizontal_pull', symmetry: 'bilateral' },
+    });
+    const oneArmHold = mainEx('oa-90', 85, {
+      isTimeBased: true,
+      exercise: { id: 'oa-90', name: { he: 'החזקת מתח יד אחת ב-90°' }, movementGroup: 'vertical_pull', symmetry: 'bilateral' },
+    });
+    const plank = mainEx('plank', 60, {
+      isTimeBased: true,
+      tier: 'easy',
+      exercise: { id: 'plank', name: { he: 'פלאנק' }, movementGroup: 'core', symmetry: 'bilateral' },
+    });
+    const pushups = mainEx('pushups', 55, {
+      exercise: { id: 'pushups', name: { he: 'שכיבות סמיכה' }, movementGroup: 'horizontal_push', symmetry: 'bilateral' },
+    });
+
+    const block = buildTabataBlock('tabata', [planche, frontLeverRaise, oneArmHold, plank, pushups], {});
+    expect(block).toBeDefined();
+    // The three skills are OUT despite outscoring everyone; plank+pushups IN.
+    expect(block!.exerciseIds.sort()).toEqual(['plank', 'pushups']);
+  });
+
+  it('ELIGIBILITY: a hard-tier HOLD is out (5-10s prescription), hard-tier REPS stay in', () => {
+    const hardHold = mainEx('hard-hold', 90, {
+      isTimeBased: true, tier: 'hard',
+      exercise: { id: 'hard-hold', name: { he: 'החזקת ליבה' }, movementGroup: 'core', symmetry: 'bilateral' },
+    });
+    const hardReps = mainEx('hard-reps', 80, { tier: 'hard' });
+    const easyA = mainEx('easy-a', 70);
+    const block = buildTabataBlock('tabata', [hardHold, hardReps, easyA], {});
+    expect(block).toBeDefined();
+    expect(block!.exerciseIds.sort()).toEqual(['easy-a', 'hard-reps']);
+  });
+
+  it('COMPOSITION: interval costs must tile rounds — unilateral counts double', () => {
+    const uni = (id: string, score: number) =>
+      mainEx(id, score, { exercise: { id, name: { he: id }, movementGroup: 'core', symmetry: 'unilateral' } });
+
+    // [bi(90), uni(80), bi(70)]: best subset = all three (cycle cost 4 | 8).
+    const b1 = buildTabataBlock('tabata', [mainEx('a', 90), uni('u', 80), mainEx('b', 70)], {});
+    expect(b1!.exerciseIds.sort()).toEqual(['a', 'b', 'u']);
+
+    // [bi(90), uni(80)] alone: cycle cost 3 ∤ 8 and no smaller valid subset → revert.
+    expect(buildTabataBlock('tabata', [mainEx('a', 90), uni('u', 80)], {})).toBeUndefined();
+
+    // Two unilaterals: cycle cost 4 | 8 → valid pair.
+    const b2 = buildTabataBlock('tabata', [uni('u1', 90), uni('u2', 80)], {});
+    expect(b2!.exerciseIds.sort()).toEqual(['u1', 'u2']);
+  });
 });
 
 describe('partitionByTabataBlock (mapper side)', () => {
