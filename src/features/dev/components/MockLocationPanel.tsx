@@ -5,6 +5,11 @@ import type { DevSimulationState, CityPreset } from '@/features/parks/core/hooks
 
 const CITY_PRESETS: CityPreset[] = [
   { id: 'tel-aviv',      name: 'תל אביב',     lat: 32.0853, lng: 34.7818 },
+  // Curated-route test areas — land inside the 26 published Zichron routes so
+  // the intent-first near/drive buckets populate (Ramat HaNadiv sits ~200-500m
+  // from several curated loop starts).
+  { id: 'ramat-hanadiv', name: 'רמת הנדיב (מסלולים)', lat: 32.5520, lng: 34.9430 },
+  { id: 'zichron',       name: 'זכרון יעקב (מסלולים)', lat: 32.5736, lng: 34.9518 },
   { id: 'jerusalem',     name: 'ירושלים',     lat: 31.7683, lng: 35.2137 },
   { id: 'haifa',         name: 'חיפה',        lat: 32.7940, lng: 34.9896 },
   { id: 'rishon-lezion', name: 'ראשון לציון', lat: 31.9730, lng: 34.7925 },
