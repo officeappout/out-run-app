@@ -6,6 +6,7 @@ import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
+import { rdpSimplify } from '@/utils/pathSimplify';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -696,14 +697,19 @@ export async function generateDynamicRoutes(
     const combination = routeCombinations[i];
     const [wp1, wp2, wp3] = combination.waypoints;
 
-    // Build waypoint list
-    const waypointsToUse: Array<{ lat: number; lng: number }> = [
-      { lat: wp1.lat, lng: wp1.lng },
-      { lat: wp2.lat, lng: wp2.lng },
-      { lat: wp3.lat, lng: wp3.lng }
-    ];
+    // Change 2 — order the 3 chosen waypoints by their bearing around the user so
+    // the visit sequence sweeps monotonically around the origin (a convex-ish fan)
+    // instead of the score-ranked order, which jumps across the user and makes the
+    // loop cross itself / look boxy. Selection stays score-based — only the ORDER
+    // of the three changes.
+    const bearingFromUser = (wp: { lat: number; lng: number }) =>
+      (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
+    const waypointsToUse: Array<{ lat: number; lng: number }> = [wp1, wp2, wp3]
+      .map(wp => ({ lat: wp.lat, lng: wp.lng }))
+      .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
 
-    // Add fitness anchor if available
+    // Add fitness anchor if available (kept at index 1 — a must-visit gym; its slot
+    // in the sweep is not critical to loop convexity).
     if (fitnessAnchor) {
       waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
     }
@@ -728,31 +734,14 @@ export async function generateDynamicRoutes(
       );
       let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
 
-      // ── TEMP DIAGNOSTIC (remove with ZIGZAG_DIAG after change-1 tuning) ──────
-      // Fetch the legacy (backtracking-allowed) path for the SAME combo so we can
-      // log a real before/after reversal count. The legacy call doubles as the
-      // retry-without-continue_straight fallback when the primary call returns no
-      // route (continue_straight can yield NoRoute on some waypoint combos).
-      if (ZIGZAG_DIAG) {
-        await delay(700);
-        const legacy = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
-        const before = countReversals(legacy?.path || []);
-        const after = countReversals(result?.path || []);
-        console.log(
-          `[RouteGenerator][zigzag] combo ${i}: reversals before(legacy)=${before} → after(continue_straight)=${after}` +
-          ` · points ${legacy?.path?.length ?? 0}→${result?.path?.length ?? 0}`,
-        );
-        if ((!result || !result.path || result.path.length === 0) && legacy?.path?.length) {
-          result = legacy;
-          csMode = 'fallback';
-        }
-      } else if (!result || !result.path || result.path.length === 0) {
-        // Fallback (retry-without): one retry sans continue_straight.
-        // Worst case = the pre-change behaviour for this single combo.
+      // Fallback (retry-without): continue_straight can yield NoRoute on some
+      // waypoint combos. One retry without it — worst case = the pre-change-1
+      // behaviour for this single combo. (Change 2's bearing-ordering makes this
+      // even rarer, since ordered waypoints are more routable.)
+      if (!result || !result.path || result.path.length === 0) {
         result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
         csMode = 'fallback';
       }
-      // ────────────────────────────────────────────────────────────────────────
 
       // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
       if (!result || !result.path || result.path.length < MIN_PATH_POINTS) {
@@ -793,6 +782,23 @@ export async function generateDynamicRoutes(
       const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
       const hasGym = !!fitnessAnchor;
 
+      // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
+      // overall shape but removes the dense near-collinear wiggle Mapbox emits at
+      // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
+      // from Mapbox — do NOT recompute them from the simplified path.
+      const cleanPath = rdpSimplify(result.path, 4);
+
+      // TEMP diagnostic (remove with ZIGZAG_DIAG before merge): reversal count shows
+      // change-2's effect (should keep dropping from change-1's ~6); the points
+      // drop shows change-3's cleanup. RDP removes collinear points, not U-turns,
+      // so reversals stay ~flat across the → arrow.
+      if (ZIGZAG_DIAG) {
+        console.log(
+          `[RouteGenerator][zigzag] combo ${i}: reversals ${countReversals(result.path)}→${countReversals(cleanPath)}` +
+          ` · points ${result.path.length}→${cleanPath.length} · ${csMode}`,
+        );
+      }
+
       const route: Route = {
         id: `gen-${Date.now()}-${i}-${routeGenerationIndex}`,
         name: hasGym ? 'סיבוב כושר' : 'סיבוב אורבני',
@@ -803,7 +809,7 @@ export async function generateDynamicRoutes(
         type: activity,
         activityType: activity,
         difficulty: 'easy',
-        path: result.path,
+        path: cleanPath,
         segments: [],
         rating: 4.5 + (Math.random() * 0.5),
         calories: calories,
@@ -828,7 +834,7 @@ export async function generateDynamicRoutes(
       };
 
       validRoutes.push(route);
-      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${result.path.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
 
     } catch (err: any) {
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
