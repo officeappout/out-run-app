@@ -967,7 +967,6 @@ function CardsState({
               route={route}
               activity={activity}
               isActive={isActive}
-              highlight={routeHighlight(route)}
               topBadge={meta ? { label: meta.label, Icon: meta.Icon, className: `${meta.bg} ${meta.text}` } : undefined}
               onStart={() => onSelect(route)}
             />
@@ -1001,14 +1000,3 @@ function CardsState({
 }
 
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-
-function routeHighlight(route: Route): string {
-  const f = route.features;
-  if (f?.hasGym) return 'עובר ליד גינת כושר';
-  if (f?.scenic) return 'מסלול ירוק ונופי';
-  if (f?.hasBenches) return 'יש ספסלים בדרך';
-  if (f?.lit) return 'מואר היטב';
-  return 'מסלול מעגלי חוזר אליך';
-}
