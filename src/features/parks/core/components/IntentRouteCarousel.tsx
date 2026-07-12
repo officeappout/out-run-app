@@ -79,6 +79,13 @@ export default function IntentRouteCarousel({
         setSwapIdx({ here: 0, near: 0, drive: 0 });
         setActiveIndex(0);
         setLoading(false);
+        // VERIFICATION BREADCRUMB (remove before final merge) — proves the
+        // intent-first curated flow ran (NOT the generator carousel).
+        console.log('[intent-routes] built 3-option carousel', {
+          targetKm, activity,
+          here: res.here.length, near: res.near.length, drive: res.drive.length,
+          option1: res.here[0]?.shape ?? null,
+        });
       })
       .catch(() => { if (alive) { setBuckets({ here: [], near: [], drive: [] }); setLoading(false); } });
     return () => { alive = false; };
