@@ -411,36 +411,17 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * c;
 }
 
-// ── TEMP zigzag diagnostic (change-1 tuning; remove together with the
-//    `[zigzag]` logs once continue_straight is validated on-screen) ───────────
-// While ON, the loop makes a second (legacy) Mapbox call per combo purely to
-// measure the baseline reversal count; that same legacy call ALSO serves as the
-// retry-without-continue_straight fallback. Flip to false to disable both.
-const ZIGZAG_DIAG = true;
-
-/** Compass bearing (deg, -180..180) of the segment a→b. a,b = [lng, lat]. */
+/**
+ * Compass bearing (deg, -180..180) of the segment a→b. a,b = [lng, lat].
+ * Used to order loop waypoints by angle around the user (change 2), so the
+ * visit sequence sweeps monotonically and the loop doesn't cross itself.
+ */
 function segBearing(a: [number, number], b: [number, number]): number {
   const lat1 = a[1] * Math.PI / 180, lat2 = b[1] * Math.PI / 180;
   const dLng = (b[0] - a[0]) * Math.PI / 180;
   const y = Math.sin(dLng) * Math.cos(lat2);
   const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
   return Math.atan2(y, x) * 180 / Math.PI;
-}
-
-/**
- * Count near-U-turn vertices in a polyline — a proxy for "goes backwards".
- * A vertex counts when the heading change between its two adjacent segments
- * exceeds `thresholdDeg` (≈ doubling back). Diagnostic metric only.
- */
-function countReversals(path: [number, number][], thresholdDeg = 150): number {
-  if (!path || path.length < 3) return 0;
-  let n = 0;
-  for (let i = 1; i < path.length - 1; i++) {
-    let turn = Math.abs(segBearing(path[i], path[i + 1]) - segBearing(path[i - 1], path[i])) % 360;
-    if (turn > 180) turn = 360 - turn;
-    if (turn > thresholdDeg) n++;
-  }
-  return n;
 }
 
 // --- Helper Functions ---
@@ -787,17 +768,6 @@ export async function generateDynamicRoutes(
       // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
       // from Mapbox — do NOT recompute them from the simplified path.
       const cleanPath = rdpSimplify(result.path, 4);
-
-      // TEMP diagnostic (remove with ZIGZAG_DIAG before merge): reversal count shows
-      // change-2's effect (should keep dropping from change-1's ~6); the points
-      // drop shows change-3's cleanup. RDP removes collinear points, not U-turns,
-      // so reversals stay ~flat across the → arrow.
-      if (ZIGZAG_DIAG) {
-        console.log(
-          `[RouteGenerator][zigzag] combo ${i}: reversals ${countReversals(result.path)}→${countReversals(cleanPath)}` +
-          ` · points ${result.path.length}→${cleanPath.length} · ${csMode}`,
-        );
-      }
 
       const route: Route = {
         id: `gen-${Date.now()}-${i}-${routeGenerationIndex}`,
