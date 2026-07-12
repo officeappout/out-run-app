@@ -607,7 +607,23 @@ export default function HomePage() {
     generatedWorkoutRef.current = workout;
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
+    // ── Race fix (12.07.2026, tabata start bug) ─────────────────────────
+    // On a date-change tap the preview opens BEFORE generation resolves:
+    // openWorkoutPreview ran with gw=null, skipped the plan build, and
+    // active_workout_data stayed empty — "התחל אימון" then had nothing to
+    // hand the player and bounced to home. Now that gw exists, re-run the
+    // preview build for the SAME date: rewrites active_workout_data (incl.
+    // seg-tabata) and refreshes the drawer's title/duration.
+    if (selectedWorkoutOpenRef.current) {
+      openWorkoutPreviewRef.current?.(lastPreviewDateRef.current ?? undefined);
+    }
   }, []);
+
+  // Stable mirrors so handleWorkoutGenerated (identity-stable, passed deep
+  // into StatsOverview) can consult live state without dependency churn.
+  const selectedWorkoutOpenRef = useRef(false);
+  const lastPreviewDateRef = useRef<string | null>(null);
+  const openWorkoutPreviewRef = useRef<((targetDate?: string) => void) | null>(null);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
@@ -645,6 +661,7 @@ export default function HomePage() {
     const today = targetDate ?? new Date().toISOString().split('T')[0];
     const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
     const gw = generatedWorkoutRef.current;
+    lastPreviewDateRef.current = today; // race fix: handleWorkoutGenerated re-runs for this date
 
     if (gw?.exercises && typeof window !== 'undefined') {
       const { getLocalizedText: glt } = require('@/features/content/exercises');
@@ -903,6 +920,14 @@ export default function HomePage() {
       segments: [],
     });
   }, [profile, scheduleState]);
+
+  // Keep the mirrors current (see handleWorkoutGenerated race fix above).
+  useEffect(() => {
+    openWorkoutPreviewRef.current = openWorkoutPreview;
+  }, [openWorkoutPreview]);
+  useEffect(() => {
+    selectedWorkoutOpenRef.current = selectedWorkout !== null;
+  }, [selectedWorkout]);
 
   // Hero Card Press Handler — goes through JIT equipment/health check.
   //

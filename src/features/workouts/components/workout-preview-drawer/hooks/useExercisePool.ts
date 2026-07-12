@@ -60,6 +60,18 @@ export function useExercisePool({
     };
   }, [isOpen, generatedWorkout, exercisePool.length]);
 
+  // Un-poison (12.07.2026, tabata start bug): the legacy skeleton plan is
+  // armed whenever the drawer opens pre-generation, but the drawer never
+  // unmounts (stable key in home/page.tsx) — so one skeleton exposure used
+  // to shadow every REAL generated workout for the rest of the session.
+  // The generated payload is the source of truth; drop the skeleton the
+  // moment it arrives.
+  useEffect(() => {
+    if (generatedWorkout && workoutPlan) {
+      setWorkoutPlan(null);
+    }
+  }, [generatedWorkout, workoutPlan]);
+
   useEffect(() => {
     if (isOpen && !generatedWorkout && !workoutPlan && !isLoadingExercises) {
       setIsLoadingExercises(true);

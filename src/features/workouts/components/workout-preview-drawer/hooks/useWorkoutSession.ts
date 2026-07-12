@@ -47,24 +47,37 @@ export function useWorkoutSession({
       sessionStorage.removeItem('currentWorkoutPlanId');
       sessionStorage.removeItem('currentWorkoutLocation');
 
-      if (workoutPlan) {
-        sessionStorage.removeItem('active_workout_data');
-        const planWithCorrectId = { ...workoutPlan, id: workoutId, isWarmupActive };
-        sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(planWithCorrectId));
-        sessionStorage.setItem('currentWorkoutPlanId', workoutId);
-      } else {
-        const existing = sessionStorage.getItem('active_workout_data');
-        if (existing) {
-          try {
-            const existingPlan = JSON.parse(existing);
+      // ── Precedence fix (12.07.2026, tabata start bug) ──────────────────
+      // The GENERATED plan in active_workout_data is the source of truth.
+      // The drawer's legacy `workoutPlan` is a last-8-exercises skeleton
+      // armed whenever the drawer was ever open pre-generation — it used to
+      // WIN here and DELETE active_workout_data, silently replacing a real
+      // plan (incl. seg-tabata + protocolConfig) with the skeleton. Now the
+      // legacy plan is used only when no generated plan exists at all
+      // (the favorites flow it was built for).
+      const existing = sessionStorage.getItem('active_workout_data');
+      let handedOff = false;
+      if (existing) {
+        try {
+          const existingPlan = JSON.parse(existing);
+          if (Array.isArray(existingPlan?.segments) && existingPlan.segments.length > 0) {
             const snapshot = { ...existingPlan, id: workoutId, isWarmupActive };
             sessionStorage.setItem('active_workout_data', JSON.stringify(snapshot));
             sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(snapshot));
             sessionStorage.setItem('currentWorkoutPlanId', workoutId);
-          } catch {
-            console.error('[useWorkoutSession] Could not serialize workout snapshot — payload corrupt');
+            handedOff = true;
           }
+        } catch {
+          console.error('[useWorkoutSession] Could not serialize workout snapshot — payload corrupt');
         }
+      }
+
+      if (!handedOff && workoutPlan) {
+        sessionStorage.removeItem('active_workout_data');
+        const planWithCorrectId = { ...workoutPlan, id: workoutId, isWarmupActive };
+        sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(planWithCorrectId));
+        sessionStorage.setItem('currentWorkoutPlanId', workoutId);
+        console.log('[useWorkoutSession] No generated plan in storage — legacy fallback plan handed off');
       }
 
       if (workoutLocation) {
