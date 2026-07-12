@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDownCircle, Flame, Link2 } from 'lucide-react';
+import { ArrowDownCircle, Link2 } from 'lucide-react';
 import type { ExerciseSection } from '../../types';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 
@@ -58,34 +58,42 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   onToggleWarmupExpanded,
   onToggleWarmupActive,
 }) => {
-  // ── Tabata branch (Stage 3 UX) — badge + format line ────────────────────
+  // ── Tabata branch (Stage 3 UX, David's design 12.07) ────────────────────
+  // Clean title + compact work/rest chip; the right-side meta reflects the
+  // ACTUAL composition — the block varies (8 ex × 1 cycle / 4×2 / 2×4, all
+  // = 8 intervals), so cycles are computed from rounds ÷ exercise count.
+  // Non-divisible splits (e.g. 3 exercises × 8 intervals) fall back to an
+  // honest interval count instead of lying about whole cycles.
   if (tabataConfig) {
-    const totalMin = Math.round(
-      ((tabataConfig.workSec + tabataConfig.restSec) * tabataConfig.rounds) / 60,
-    );
+    const n = section.exercises.length;
+    const cycles = n > 0 && tabataConfig.rounds % n === 0 ? tabataConfig.rounds / n : null;
+    const cyclesLabel =
+      cycles === null
+        ? `${tabataConfig.rounds} אינטרוולים`
+        : cycles === 1
+          ? 'סבב אחד'
+          : `${cycles} סבבים`;
+    const exercisesLabel = n === 1 ? 'תרגיל אחד' : `${n} תרגילים`;
     return (
-      <div className="w-full mb-3" dir="rtl">
+      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700">
-            <Flame size={13} className="text-orange-500" />
-            <span
-              className="text-xs font-bold text-orange-600 dark:text-orange-300"
-              style={{ fontFamily: 'var(--font-simpler)' }}
-            >
-              טבטה
-            </span>
-          </span>
           <h3
-            className="text-[16px] font-semibold text-slate-900 dark:text-white"
+            className="text-[16px] font-semibold text-orange-600 dark:text-orange-400"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {section.title === 'טבטה' ? 'פיניש' : section.title}
+            טבטה
           </h3>
+          <span
+            className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-300"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+            title={`${tabataConfig.workSec} שנ' עבודה / ${tabataConfig.restSec} שנ' מנוחה`}
+          >
+            {tabataConfig.workSec}/{tabataConfig.restSec}
+          </span>
         </div>
-        <p className="text-xs font-medium text-orange-600/90 dark:text-orange-400 mt-1">
-          {tabataConfig.workSec} שנ&apos; עבודה / {tabataConfig.restSec} מנוחה
-          {' '}× {tabataConfig.rounds} סבבים · {totalMin} דק&apos;
-        </p>
+        <span className="text-sm font-medium text-slate-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {cyclesLabel} · {exercisesLabel}
+        </span>
       </div>
     );
   }

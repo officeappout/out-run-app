@@ -392,6 +392,11 @@ export default function GeneratedWorkoutExerciseList({
                       isSuperset={isSuperset}
                       onTap={onExerciseTap}
                       onSwap={onSwap}
+                      volumeOverride={
+                        isTabata && generatedWorkout.tabataBlock
+                          ? `${generatedWorkout.tabataBlock.config.workSec} שנ'`
+                          : undefined
+                      }
                     />,
                   ];
                 })}

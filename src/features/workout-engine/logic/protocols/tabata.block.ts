@@ -42,7 +42,15 @@ export function buildTabataBlock(
   }
 
   const candidates = exercises
-    .filter((ex) => (ex.exerciseRole ?? 'main') === 'main' && ex.tier !== 'elite')
+    .filter(
+      (ex) =>
+        (ex.exerciseRole ?? 'main') === 'main' &&
+        ex.tier !== 'elite' &&
+        // A mechanical pyramid cannot rotate inside 20s intervals (belt-and-
+        // suspenders: the lottery picks ONE protocol, so pyramid stamps
+        // should never coexist with a tabata roll in the same generation).
+        !Array.isArray(ex.pyramidSequence),
+    )
     .sort((a, b) => b.score - a.score)
     .slice(0, TABATA_MAX_EXERCISES);
 

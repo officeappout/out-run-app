@@ -21,6 +21,12 @@ interface ExerciseCardProps {
   onTap?: (exercise: EngineWorkoutExercise) => void;
   /** Swap handler.  Stable reference required for memoisation. */
   onSwap?: (exercise: FirestoreExercise, level: number) => void;
+  /**
+   * Replaces the sets/reps volume line (Stage 3 UX): tabata members show
+   * the work-interval ("20 שנ'") instead of strength language — sets/reps
+   * are irrelevant to a time-based block. Undefined = normal volume label.
+   */
+  volumeOverride?: string;
 }
 
 /**
@@ -37,6 +43,7 @@ function ExerciseCardImpl({
   isSuperset,
   onTap,
   onSwap,
+  volumeOverride,
 }: ExerciseCardProps) {
   const name = typeof exercise.exercise.name === 'string'
     ? exercise.exercise.name
@@ -44,7 +51,7 @@ function ExerciseCardImpl({
 
   const isGoal = exercise.isGoalExercise === true;
   const uniLabel = exercise.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
-  const volume = buildExerciseVolumeLabel(exercise, uniLabel);
+  const volume = volumeOverride ?? buildExerciseVolumeLabel(exercise, uniLabel);
 
   // Bound click handlers — stable as long as `onTap` / `onSwap` / `exercise`
   // references stay the same.  Eliminates the inline arrow allocations that
