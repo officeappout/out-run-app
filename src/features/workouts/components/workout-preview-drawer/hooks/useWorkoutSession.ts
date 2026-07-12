@@ -3,11 +3,19 @@
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { WorkoutPlan } from '@/features/parks';
+import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { resolveStartHandOff } from '@/features/workout-engine/services/workout-plan.mapper';
 import type { WorkoutData } from '../types';
 
 interface UseWorkoutSessionParams {
   workout: WorkoutData | null;
   workoutPlan: WorkoutPlan | null;
+  /**
+   * The live generated workout the drawer is rendering (custom builder +
+   * home flow). When present it is THE hand-off source — built fresh via
+   * the shared mapper, never read from storage leftovers.
+   */
+  generatedWorkout?: GeneratedWorkout | null;
   isWarmupActive: boolean;
   workoutLocation: string | undefined;
   onStartWorkout?: (workoutId: string) => void;
@@ -33,6 +41,7 @@ interface UseWorkoutSessionReturn {
 export function useWorkoutSession({
   workout,
   workoutPlan,
+  generatedWorkout,
   isWarmupActive,
   workoutLocation,
   onStartWorkout,
@@ -47,37 +56,33 @@ export function useWorkoutSession({
       sessionStorage.removeItem('currentWorkoutPlanId');
       sessionStorage.removeItem('currentWorkoutLocation');
 
-      // ── Precedence fix (12.07.2026, tabata start bug) ──────────────────
-      // The GENERATED plan in active_workout_data is the source of truth.
-      // The drawer's legacy `workoutPlan` is a last-8-exercises skeleton
-      // armed whenever the drawer was ever open pre-generation — it used to
-      // WIN here and DELETE active_workout_data, silently replacing a real
-      // plan (incl. seg-tabata + protocolConfig) with the skeleton. Now the
-      // legacy plan is used only when no generated plan exists at all
-      // (the favorites flow it was built for).
-      const existing = sessionStorage.getItem('active_workout_data');
-      let handedOff = false;
-      if (existing) {
-        try {
-          const existingPlan = JSON.parse(existing);
-          if (Array.isArray(existingPlan?.segments) && existingPlan.segments.length > 0) {
-            const snapshot = { ...existingPlan, id: workoutId, isWarmupActive };
-            sessionStorage.setItem('active_workout_data', JSON.stringify(snapshot));
-            sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(snapshot));
-            sessionStorage.setItem('currentWorkoutPlanId', workoutId);
-            handedOff = true;
-          }
-        } catch {
-          console.error('[useWorkoutSession] Could not serialize workout snapshot — payload corrupt');
-        }
-      }
+      // Hand-off precedence (13.07.2026, custom-builder 15→45 bug): the
+      // LIVE generatedWorkout prop is built fresh via the shared mapper and
+      // always wins — the custom builder never serialized its result, so
+      // the runner used to execute HOME's stale dashboard plan (60→bolt
+      // cap) under the builder's id. Storage re-stamp and the legacy
+      // skeleton are fallbacks only. Pure logic in resolveStartHandOff
+      // (unit-tested).
+      const handOff = resolveStartHandOff({
+        generatedWorkout,
+        storedActivePlanJson: sessionStorage.getItem('active_workout_data'),
+        legacyPlan: workoutPlan as Record<string, unknown> | null,
+        workoutId,
+        isWarmupActive,
+        location: workoutLocation,
+      });
 
-      if (!handedOff && workoutPlan) {
-        sessionStorage.removeItem('active_workout_data');
-        const planWithCorrectId = { ...workoutPlan, id: workoutId, isWarmupActive };
-        sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(planWithCorrectId));
+      if (handOff.source !== 'none') {
+        const json = JSON.stringify(handOff.plan);
+        if (handOff.source === 'legacy') {
+          // The skeleton must not shadow future generated plans.
+          sessionStorage.removeItem('active_workout_data');
+        } else {
+          sessionStorage.setItem('active_workout_data', json);
+        }
+        sessionStorage.setItem('currentWorkoutPlan', json);
         sessionStorage.setItem('currentWorkoutPlanId', workoutId);
-        console.log('[useWorkoutSession] No generated plan in storage — legacy fallback plan handed off');
+        console.log(`[useWorkoutSession] hand-off source=${handOff.source} → ${workoutId}`);
       }
 
       if (workoutLocation) {
@@ -90,7 +95,7 @@ export function useWorkoutSession({
     } else {
       router.push(`/workouts/${workoutId}/active`);
     }
-  }, [workout?.id, workoutPlan, isWarmupActive, workoutLocation, onStartWorkout, router]);
+  }, [workout?.id, workoutPlan, generatedWorkout, isWarmupActive, workoutLocation, onStartWorkout, router]);
 
   return { handleStartWorkout };
 }
