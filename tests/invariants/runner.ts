@@ -13,12 +13,11 @@
  * not yet honor. They do NOT break the gate — they keep it usable while the bug is
  * fixed in the engine (builder-stability). If an xfail ever PASSES ("xpass") the
  * gate shouts: the engine was fixed, promote it to a hard invariant.
- *   • B1 — duration should ≈ requested availableTime, but the trio pins each bolt
- *     to a fixed cap (home-workout.service.ts:499), ignoring availableTime.
  *   • F2 — detraining (daysInactive>3) should cap D3→D2, but the trio forces
  *     cfg.difficulty per option, bypassing the lock.
  *   • D1 — a no-gear home user should get bodyweight/improvised methods only, but
  *     some selected methods require gear the user lacks.
+ * PROMOTED to hard: B1 (12.07.2026 — availableTime honored via Phase C, 0acd234).
  */
 
 // ── Seed Math.random BEFORE importing the engine graph ──────────────────────
@@ -99,13 +98,15 @@ function checkWorkout(cell: CellMeta, w: GeneratedWorkout, bolt: number) {
   const recomputed = calculateEstimatedDuration(w.exercises);
 
   // ── B · Duration ─────────────────────────────────────────────────────────
-  // B1 is checked on bolt2 only — the "balanced" workout generateHomeWorkout()
-  // actually returns (cap 45 ≫ a 15min request), so it fails cleanly until the
-  // engine honors availableTime (rather than bolt1 sometimes landing short).
+  // B1 — HARD invariant (promoted from xfail 12.07.2026, David-approved):
+  // availableTime is a product contract (±3min, approved 10.07.2026), fixed
+  // by builder-stability (Phase C convergence, merged to main as 0acd234)
+  // and verified XPASS in every cell. Checked on bolt2 only — the "balanced"
+  // workout is what generateHomeWorkout() actually returns.
   if (cell.substantial && bolt === 2) {
     assert(c, 'B', `B1 duration≈availableTime(${cell.availableTime}±${DUR_TOL})`,
       recomputed <= cell.availableTime + DUR_TOL,
-      `got ${recomputed}min for a ${cell.availableTime}min request`, /* xfail */ true);
+      `got ${recomputed}min for a ${cell.availableTime}min request`);
   }
   const cap = BOLT_DURATION_CAPS[bolt] + DUR_TOL;
   assert(c, 'B', `B2 duration≤boltCap(${cap})`, recomputed <= cap, `${recomputed}min > ${cap}min`);

@@ -808,6 +808,11 @@ export default function HomePage() {
       }
       if (tabataExercises.length > 0 && gw.tabataBlock) {
         const tabataCfg = gw.tabataBlock.config;
+        // Smoke anchor: proves the block survived generation → plan-build.
+        console.log(
+          `[TabataBlock] 🔥 seg-tabata built: ${tabataExercises.length} exercises, ` +
+          `${tabataCfg.workSec}/${tabataCfg.restSec}×${tabataCfg.rounds} — [${tabataExercises.map((e: any) => e.name).join(', ')}]`,
+        );
         segments.push({
           id: 'seg-tabata',
           type: 'station' as const,
