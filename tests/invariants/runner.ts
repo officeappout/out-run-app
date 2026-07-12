@@ -13,12 +13,12 @@
  * not yet honor. They do NOT break the gate — they keep it usable while the bug is
  * fixed in the engine (builder-stability). If an xfail ever PASSES ("xpass") the
  * gate shouts: the engine was fixed, promote it to a hard invariant.
- *   • B1 — duration should ≈ requested availableTime, but the trio pins each bolt
- *     to a fixed cap (home-workout.service.ts:499), ignoring availableTime.
  *   • F2 — detraining (daysInactive>3) should cap D3→D2, but the trio forces
  *     cfg.difficulty per option, bypassing the lock.
  *   • D1 — a no-gear home user should get bodyweight/improvised methods only, but
  *     some selected methods require gear the user lacks.
+ * PROMOTED to hard: B1 + E1 (12.07.2026 — availableTime honored + 2-set floor
+ * hold via the builder-stability merge, 0acd234).
  */
 
 // ── Seed Math.random BEFORE importing the engine graph ──────────────────────
@@ -99,13 +99,15 @@ function checkWorkout(cell: CellMeta, w: GeneratedWorkout, bolt: number) {
   const recomputed = calculateEstimatedDuration(w.exercises);
 
   // ── B · Duration ─────────────────────────────────────────────────────────
-  // B1 is checked on bolt2 only — the "balanced" workout generateHomeWorkout()
-  // actually returns (cap 45 ≫ a 15min request), so it fails cleanly until the
-  // engine honors availableTime (rather than bolt1 sometimes landing short).
+  // B1 — HARD invariant (promoted from xfail 12.07.2026, David-approved):
+  // availableTime is a product contract (±3min, approved 10.07.2026), fixed
+  // by builder-stability (Phase C convergence, merged to main as 0acd234)
+  // and verified XPASS in every cell. Checked on bolt2 only — the "balanced"
+  // workout is what generateHomeWorkout() actually returns.
   if (cell.substantial && bolt === 2) {
     assert(c, 'B', `B1 duration≈availableTime(${cell.availableTime}±${DUR_TOL})`,
       recomputed <= cell.availableTime + DUR_TOL,
-      `got ${recomputed}min for a ${cell.availableTime}min request`, /* xfail */ true);
+      `got ${recomputed}min for a ${cell.availableTime}min request`);
   }
   const cap = BOLT_DURATION_CAPS[bolt] + DUR_TOL;
   assert(c, 'B', `B2 duration≤boltCap(${cap})`, recomputed <= cap, `${recomputed}min > ${cap}min`);
@@ -150,12 +152,12 @@ function checkWorkout(cell: CellMeta, w: GeneratedWorkout, bolt: number) {
   assert(c, 'D', 'D2 warmup/cooldown no banned gear', bannedWU.length === 0, `${bannedWU.length} banned`);
 
   // ── E · Sets / Reps / Rest ────────────────────────────────────────────────
-  // E1 xfail: `pyramid_aware_cap` trims sets below the documented 2-set floor
-  // (assignVolume:617 & enforceVolumeCap both floor at 2; the pyramid capper does
-  // not). Non-protocol exercises land at sets=1. Tracked in builder-stability.
+  // E1 — HARD invariant (promoted from xfail 12.07.2026, David-approved):
+  // the 2-set floor holds after the builder-stability merge (0acd234) —
+  // XPASS in every cell. Non-protocol exercises must carry 2-6 sets.
   const setFloor = main.filter(e => !isProtocolVolume(e) && (e.sets < 2 || e.sets > 6));
   assert(c, 'E', 'E1 2≤sets≤6 (non-protocol)', setFloor.length === 0,
-    `offenders: ${setFloor.map(e => `${e.sets}(${e.tier})`).join(',')}`, /* xfail */ true);
+    `offenders: ${setFloor.map(e => `${e.sets}(${e.tier})`).join(',')}`);
   const badReps = main.filter(e => (e.isTimeBased ? e.reps < 3 : e.reps < 1));
   assert(c, 'E', 'E2 reps≥1 / hold≥3s', badReps.length === 0,
     `offenders: ${badReps.map(e => `${e.reps}${e.isTimeBased ? 's' : ''}`).join(',')}`);
@@ -213,6 +215,20 @@ function pushCell(name: string, extra: Partial<HomeWorkoutOptions>, meta: Partia
     options: { userProfile: profile, location: 'home', availableTime: 15, difficulty: 2, testLocation: 'home', ...extra },
   });
 }
+// ── Builder time-fidelity family (13.07.2026, David) ────────────────────────
+// The custom builder pins the trio to one option via targetDifficulty (exactly
+// WorkoutBuilderSheet's shape). A request of 15/30/45 must land ≤ request+3
+// (B1, hard); 60 on D2 is capped by the bolt CEILING 45 — the contract there
+// is ≤48, so the cell's B1 anchor is min(request, 45). Locks the whole chain
+// resolveEffectiveBoltTime → compression → Phase C for every picker value.
+for (const t of [15, 30, 45, 60] as const) {
+  pushCell(
+    `builder/${t}min`,
+    { availableTime: t, targetDifficulty: 2, isManualOverride: true },
+    { substantial: true, availableTime: Math.min(t, 45) },
+  );
+}
+
 pushCell('edge/injury-shoulder', { injuryOverride: ['shoulder'] }, { substantial: true });
 pushCell('edge/detraining-5d', { difficulty: 3, daysInactiveOverride: 5 }, { substantial: true, detraining: true });
 pushCell('edge/office', { location: 'office', testLocation: 'office' }, { location: 'office', availGear: [], fullBody: false, expectPush: false, expectPull: false });
