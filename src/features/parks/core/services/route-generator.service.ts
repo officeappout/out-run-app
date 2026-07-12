@@ -6,6 +6,7 @@ import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
+import { rdpSimplify } from '@/utils/pathSimplify';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -410,6 +411,19 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * c;
 }
 
+/**
+ * Compass bearing (deg, -180..180) of the segment a→b. a,b = [lng, lat].
+ * Used to order loop waypoints by angle around the user (change 2), so the
+ * visit sequence sweeps monotonically and the loop doesn't cross itself.
+ */
+function segBearing(a: [number, number], b: [number, number]): number {
+  const lat1 = a[1] * Math.PI / 180, lat2 = b[1] * Math.PI / 180;
+  const dLng = (b[0] - a[0]) * Math.PI / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return Math.atan2(y, x) * 180 / Math.PI;
+}
+
 // --- Helper Functions ---
 
 function generateRandomWaypoints(
@@ -664,14 +678,19 @@ export async function generateDynamicRoutes(
     const combination = routeCombinations[i];
     const [wp1, wp2, wp3] = combination.waypoints;
 
-    // Build waypoint list
-    const waypointsToUse: Array<{ lat: number; lng: number }> = [
-      { lat: wp1.lat, lng: wp1.lng },
-      { lat: wp2.lat, lng: wp2.lng },
-      { lat: wp3.lat, lng: wp3.lng }
-    ];
+    // Change 2 — order the 3 chosen waypoints by their bearing around the user so
+    // the visit sequence sweeps monotonically around the origin (a convex-ish fan)
+    // instead of the score-ranked order, which jumps across the user and makes the
+    // loop cross itself / look boxy. Selection stays score-based — only the ORDER
+    // of the three changes.
+    const bearingFromUser = (wp: { lat: number; lng: number }) =>
+      (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
+    const waypointsToUse: Array<{ lat: number; lng: number }> = [wp1, wp2, wp3]
+      .map(wp => ({ lat: wp.lat, lng: wp.lng }))
+      .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
 
-    // Add fitness anchor if available
+    // Add fitness anchor if available (kept at index 1 — a must-visit gym; its slot
+    // in the sweep is not critical to loop convexity).
     if (fitnessAnchor) {
       waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
     }
@@ -679,12 +698,31 @@ export async function generateDynamicRoutes(
     console.log(`[RouteGenerator] Fetching route ${i + 1}/${routeCombinations.length}...`);
 
     try {
-      const result = await MapboxService.getSmartPath(
+      const profile = activity === 'cycling' ? 'cycling' : 'walking';
+
+      // Change 1 — ask Mapbox for a NON-backtracking loop. `continue_straight`
+      // defaults to false for walking/cycling, letting the router U-turn at every
+      // via point (the "חוזרת אחורה" shape). Force it on for the loop call only,
+      // via getSmartPath's existing extraParams — mapbox.service.ts stays untouched
+      // (no clash with the UX-chat work there). alternatives:'false' because a loop
+      // has no use for them and Mapbox dislikes pairing them with continue_straight.
+      let result = await MapboxService.getSmartPath(
         userLocation,
         userLocation, // Loop back home
-        activity === 'cycling' ? 'cycling' : 'walking',
-        waypointsToUse
+        profile,
+        waypointsToUse,
+        { continue_straight: 'true', alternatives: 'false' },
       );
+      let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
+
+      // Fallback (retry-without): continue_straight can yield NoRoute on some
+      // waypoint combos. One retry without it — worst case = the pre-change-1
+      // behaviour for this single combo. (Change 2's bearing-ordering makes this
+      // even rarer, since ordered waypoints are more routable.)
+      if (!result || !result.path || result.path.length === 0) {
+        result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
+        csMode = 'fallback';
+      }
 
       // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
       if (!result || !result.path || result.path.length < MIN_PATH_POINTS) {
@@ -725,6 +763,12 @@ export async function generateDynamicRoutes(
       const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
       const hasGym = !!fitnessAnchor;
 
+      // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
+      // overall shape but removes the dense near-collinear wiggle Mapbox emits at
+      // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
+      // from Mapbox — do NOT recompute them from the simplified path.
+      const cleanPath = rdpSimplify(result.path, 4);
+
       const route: Route = {
         id: `gen-${Date.now()}-${i}-${routeGenerationIndex}`,
         name: hasGym ? 'סיבוב כושר' : 'סיבוב אורבני',
@@ -735,7 +779,7 @@ export async function generateDynamicRoutes(
         type: activity,
         activityType: activity,
         difficulty: 'easy',
-        path: result.path,
+        path: cleanPath,
         segments: [],
         rating: 4.5 + (Math.random() * 0.5),
         calories: calories,
@@ -760,7 +804,7 @@ export async function generateDynamicRoutes(
       };
 
       validRoutes.push(route);
-      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${result.path.length} points, ${routeDistanceKm.toFixed(1)}km)`);
+      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
 
     } catch (err: any) {
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
