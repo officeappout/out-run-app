@@ -6,6 +6,7 @@ import BottomJourneyContainer from '@/features/parks/core/components/BottomJourn
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
+import IntentRouteCarousel from '@/features/parks/core/components/IntentRouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
 import RouteGenerationLoader from '@/features/parks/core/components/RouteGenerationLoader';
@@ -887,39 +888,24 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
               freeRunStep === 'route' &&
               userLocation &&
               routeCarouselConfig && (
-                <RouteCarousel
+                // Intent-first: 3 distinct options from CURATED data (not the
+                // generator) — here / near / drive. RouteCard carries the
+                // ×N-loop laps via useRunningPlayer.pendingLoopLaps (staged
+                // inside IntentRouteCarousel), consumed by _doStartActiveWorkout.
+                <IntentRouteCarousel
                   userPosition={userLocation}
                   activity={logic.preferences.activity}
                   targetKm={routeCarouselConfig.targetKm}
-                  includeStrength={routeCarouselConfig.includeStrength}
-                  surface={routeCarouselConfig.surface}
-                  cityName={userCityName}
-                  // Bidirectional sync: when the user taps a route line on
-                  // the map, the parent's focusedRoute updates and the
-                  // carousel scrolls to the matching card. The carousel
-                  // filters self-emitted ids via its own ref so this
-                  // doesn't create an echo loop with onFocusChange below.
+                  // Sync the centered card to `focusedRoute` so useCameraController
+                  // reframes the map onto the previewed route.
                   focusedRouteId={logic.focusedRoute?.id ?? null}
-                  onFocusChange={(route) => {
-                    // Sync the centered card to `focusedRoute` so the
-                    // camera fitBounds-debounce in useCameraController
-                    // reframes the map. Debounced inside the carousel so
-                    // a fast multi-card flick fires this exactly once at
-                    // the destination — not N times during the swipe.
-                    logic.setFocusedRoute(route);
-                  }}
+                  onFocusChange={(route) => logic.setFocusedRoute(route)}
                   onBack={() => {
-                    // Drop the carousel and return to the config drawer.
-                    // Clearing `focusedRoute` keeps the map in its
-                    // pre-route state so the user doesn't see a stray
-                    // highlight on the empty map.
                     logic.setFocusedRoute(null);
                     setFreeRunStep('config');
                   }}
                   onSelect={(route) => {
-                    // Pin the chosen route as the focus so the active-workout
-                    // overlay opens with it pre-selected, then exit free-run
-                    // mode and kick off the same start path as discover.
+                    // Same start path as discover; pendingLoopLaps already staged.
                     logic.setFocusedRoute(route);
                     setMapMode('idle');
                     logic.startActiveWorkout();

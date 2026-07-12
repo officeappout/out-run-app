@@ -969,7 +969,6 @@ function CardsState({
               isActive={isActive}
               highlight={routeHighlight(route)}
               topBadge={meta ? { label: meta.label, Icon: meta.Icon, className: `${meta.bg} ${meta.text}` } : undefined}
-              userLocation={userPosition}
               onStart={() => onSelect(route)}
             />
           );
