@@ -111,19 +111,23 @@ export default function RouteCard(props: RouteCardProps) {
   return (
     <div
       dir="rtl"
-      className={`w-[74vw] max-w-[290px] snap-center snap-always flex-shrink-0 bg-white rounded-2xl overflow-hidden border border-gray-100 transition-all duration-300 ${
+      role={onOpenDetail ? 'button' : undefined}
+      onClick={onOpenDetail}
+      className={`w-[74vw] max-w-[290px] snap-center snap-always flex-shrink-0 bg-white rounded-2xl overflow-hidden border border-gray-100 transition-all duration-300 ${onOpenDetail ? 'cursor-pointer' : ''} ${
         isActive ? 'shadow-2xl ring-2 ring-cyan-400/70 scale-[1.01]' : 'shadow-lg opacity-95 scale-[0.98]'
       }`}
     >
-      {/* Hero — photo only. No photo → collapse to a clean white card. */}
+      {/* Hero — photo only. No photo → collapse to a clean white card. Tapping
+          anywhere on the card body opens detail (outer onClick); the CTA/swap
+          buttons stopPropagation so they don't trigger it. */}
       {photo && (
-        <button type="button" onClick={onOpenDetail} className="relative block w-full h-[88px] bg-gradient-to-br from-cyan-100 to-slate-200">
+        <div className="relative block w-full h-[88px] bg-gradient-to-br from-cyan-100 to-slate-200">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
           <TopBadges overlay />
           {/* Fade into the card body — park-card signature */}
           <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-b from-transparent to-white pointer-events-none" />
-        </button>
+        </div>
       )}
 
       <div className={`px-3 ${photo ? '-mt-3' : 'pt-3'} pb-3 relative`}>
@@ -155,7 +159,7 @@ export default function RouteCard(props: RouteCardProps) {
         <div className="flex items-center gap-2 mt-2.5">
           <button
             type="button"
-            onClick={onStart}
+            onClick={(e) => { e.stopPropagation(); onStart?.(); }}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500 text-white text-[14px] font-bold active:bg-cyan-600 transition-colors"
             style={{ height: 38 }}
           >
@@ -166,7 +170,7 @@ export default function RouteCard(props: RouteCardProps) {
           {onSwap && (
             <button
               type="button"
-              onClick={onSwap}
+              onClick={(e) => { e.stopPropagation(); onSwap(); }}
               title="החלף"
               aria-label="החלף מסלול"
               className="w-10 rounded-xl flex items-center justify-center bg-gray-100 text-gray-500 active:bg-gray-200 transition-colors shrink-0"

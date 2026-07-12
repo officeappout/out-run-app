@@ -19,6 +19,7 @@ import type { Route, ActivityType } from '../types/route.types';
 import { buildIntentOptions, type IntentBucket, type IntentOption } from '../services/intent-routes.service';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import LocationPickMap from '@/features/parks/client/components/LocationPickMap';
+import RouteDetailSheet from '@/features/parks/client/components/route-preview/RouteDetailSheet';
 import RouteCard, { type RouteCardBadge } from './RouteCard';
 
 const ACCENT = '#00ADEF';
@@ -66,6 +67,8 @@ export default function IntentRouteCarousel({
   const [originEdited, setOriginEdited] = useState(false);
   const [editingOrigin, setEditingOrigin] = useState(false);
   const [draftOrigin, setDraftOrigin] = useState<{ lat: number; lng: number }>(userPosition);
+  // Route opened in the detail sheet (tap on a card body). null = closed.
+  const [detailRoute, setDetailRoute] = useState<Route | null>(null);
 
   // Build options whenever the intent inputs change. Guard against a stale
   // async resolve overwriting a newer one.
@@ -159,8 +162,9 @@ export default function IntentRouteCarousel({
   }, [onSelect]);
 
   return (
-    // Same tier + placement as RouteCarousel (z-[60], bottom, safe-area aware)
-    // so the one-card map law + z-index budget hold.
+    <>
+    {/* Same tier + placement as RouteCarousel (z-[60], bottom, safe-area aware)
+        so the one-card map law + z-index budget hold. */}
     <div className="fixed inset-0 z-[60] pointer-events-none" dir="rtl">
       <div
         className="absolute bottom-0 left-0 right-0 pointer-events-none"
@@ -229,6 +233,7 @@ export default function IntentRouteCarousel({
                 userLocation={origin}
                 onStart={() => start(option)}
                 onSwap={count > 1 ? () => swap(bucket, idx) : undefined}
+                onOpenDetail={() => setDetailRoute(option.route)}
               />
             );
           })}
@@ -260,5 +265,17 @@ export default function IntentRouteCarousel({
         </div>
       )}
     </div>
+
+    {/* Route detail sheet — opened by tapping a card body. It stages its own
+        ×N loop plan (Phase 0) before onStartWorkout, so we just forward the
+        start through onSelect (no double-staging). */}
+    <RouteDetailSheet
+      isOpen={!!detailRoute}
+      route={detailRoute}
+      userLocation={origin}
+      onClose={() => setDetailRoute(null)}
+      onStartWorkout={(r) => { setDetailRoute(null); onSelect(r); }}
+    />
+    </>
   );
 }

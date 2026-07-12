@@ -287,8 +287,12 @@ export default function BottomJourneyContainer({
                       {sourceName}
                     </span>
 
-                    {/* Community session badge */}
-                    {route.linkedSessions?.nextStartTime && (
+                    {/* Community session badge — only with REAL sign-ups
+                        (currentRegistrations > 0). Hides seeded/demo group
+                        sessions that have no actual participants yet, so we
+                        don't show hollow "social proof" before there's a
+                        real community. */}
+                    {route.linkedSessions?.nextStartTime && (route.linkedSessions?.currentRegistrations ?? 0) > 0 && (
                       <div className="flex items-center gap-1.5 self-start">
                         <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                           <Users size={10} className="text-emerald-600" />
