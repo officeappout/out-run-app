@@ -34,6 +34,7 @@ import {
   type BlockDomainFocus,
   type StrengthBlockResult,
 } from '../core/pipeline/strength-block.service';
+import { MIN_STATION_EXERCISES } from './station-source';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
 import type { PaceZoneRule, RunZoneType, PaceProfile } from '../core/types/running.types';
 import {
@@ -289,16 +290,41 @@ function dispatchStopContent(
   const activity = candidate.activityType ?? 'strength';
   switch (activity) {
     case 'strength': {
-      // Per-stop pool (§4b): the ONLY per-stop delta is availableEquipment.
+      // Per-stop pool (§4b): the ONLY per-stop delta is availableEquipment. A
+      // BODYWEIGHT stop (no equipment) filters in FIELD mode (`intentMode:'field'`
+      // → fieldReady/no-equipment only), or a park location would exclude every
+      // bodyweight exercise and the station comes out empty (Q6 — never silent).
+      const isBodyweight = candidate.availableEquipment.length === 0;
       const pool = filterExercisesContextually(input.masterExercises, {
         ...input.filterContext,
         availableEquipment: candidate.availableEquipment,
+        ...(isBodyweight ? { intentMode: 'field' as const } : {}),
       });
+      // Top-up (Phase א.3): count AFTER level/program filtering. If a real park
+      // pool comes back thin, merge fieldReady bodyweight exercises so the station
+      // is never empty.
+      let scoredPool = pool.exercises;
+      if (scoredPool.length < MIN_STATION_EXERCISES && !isBodyweight) {
+        const bodyweight = filterExercisesContextually(input.masterExercises, {
+          ...input.filterContext,
+          availableEquipment: [],
+          intentMode: 'field',
+        });
+        const seen = new Set(scoredPool.map((e) => e.exercise.id));
+        scoredPool = [...scoredPool];
+        for (const e of bodyweight.exercises) {
+          if (!seen.has(e.exercise.id)) { scoredPool.push(e); seen.add(e.exercise.id); }
+        }
+        log.push(`[${candidate.stopId}] thin park pool (${pool.exercises.length}) → topped up to ${scoredPool.length} w/ bodyweight`);
+      }
       const block = generateStrengthBlock({
         blockMinutes,
-        scoredPool: pool.exercises,
+        scoredPool,
+        // Bodyweight → MIXED focus: a single-domain focus like 'pull' is
+        // impossible with zero equipment (a bar is required) and yields an empty
+        // block. Equipment stops keep their weekly-deficit domain focus.
+        domainFocus: isBodyweight ? undefined : focus,
         context: input.generationContext,
-        domainFocus: focus,
         rest: STATION_REST,
       });
       log.push(...block.log.map((l) => `[${candidate.stopId}] ${l}`));

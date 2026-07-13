@@ -26,6 +26,7 @@ import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import HybridStationLayer from '@/features/workout-engine/hybrid/HybridStationLayer';
 import GpsDebugHud from '@/features/workout-engine/players/running/components/FreeRun/GpsDebugHud';
 import LiveSessionShell from '@/features/workout-engine/shared/components/LiveSessionShell';
 import FreeRunOverlay, { RunMiniDockContent } from '@/features/workout-engine/players/running/components/FreeRun/FreeRunOverlay';
@@ -264,6 +265,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               partnerPositions={partnerPositions}
             />
           </div>
+
+          {/* Hybrid station overlay — inert (null) unless a hybrid session is active. */}
+          {isWorkoutActive && <HybridStationLayer />}
 
           {isWorkoutActive ? (
             /* ── Workout mode ─────────────────────────────────────────────── */

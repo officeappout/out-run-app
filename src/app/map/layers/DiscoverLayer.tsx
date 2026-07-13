@@ -880,6 +880,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setRouteCarouselConfig({ targetKm, includeStrength, surface });
                   setFreeRunStep('route');
                 }}
+                onStartHybrid={(intent) => {
+                  import('@/features/workout-engine/hybrid/start-hybrid-session').then(
+                    ({ startHybridSession }) => {
+                      startHybridSession(intent, {
+                        userPosition: userLocation,
+                        cityName: userCityName,
+                        startRun: logic.startActiveWorkout,
+                      });
+                    },
+                  );
+                }}
               />
             )}
 

@@ -5,6 +5,13 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Play, Loader2 } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
+import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
+import AerobicStrengthSlider from './hybrid/AerobicStrengthSlider';
+import {
+  shareToEmphasis,
+  RECOMMENDED_AEROBIC_SHARE,
+  type HybridStartIntent,
+} from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user';
 import { db, auth } from '@/lib/firebase';
@@ -59,6 +66,12 @@ interface FreeRunDrawerProps {
   userPosition?: { lat: number; lng: number } | null;
   /** Resolved city — surfaced below the route button as confirmation. */
   cityName?: string;
+  /**
+   * Hybrid (aerobic + strength) start. When the "תחנות כוח" toggle is on, the
+   * CTA hands the parent the captured intent to compose + run a sandwich session.
+   * When absent, hybrid gracefully degrades to a normal free start.
+   */
+  onStartHybrid?: (intent: HybridStartIntent) => void;
 }
 
 // ── Activity data ──────────────────────────────────────────────────────────────
@@ -654,6 +667,7 @@ export default function FreeRunDrawer({
   onRequestRouteGeneration,
   userPosition,
   cityName,
+  onStartHybrid,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
 
@@ -677,6 +691,10 @@ export default function FreeRunDrawer({
   const [extras, setExtras] = useState<ExtrasState>({
     circular: false, gymParks: false, benches: false, stairs: false, trail: false,
   });
+
+  // ── Hybrid (aerobic + strength) state — additive, defaults OFF ─────────────
+  const [hybridEnabled, setHybridEnabled] = useState(false);
+  const [aerobicShare,  setAerobicShare]  = useState(RECOMMENDED_AEROBIC_SHARE);
 
   // ── Scheduled run state ────────────────────────────────────────────────────
   const [timing,    setTiming]    = useState<'now' | 'later'>('now');
@@ -776,6 +794,30 @@ export default function FreeRunDrawer({
       includeStrength: extras.gymParks,
       surface: extras.trail ? 'trail' : 'road',
     });
+  };
+
+  /**
+   * Hybrid start — capture drawer intent and hand off to the parent (which
+   * composes the sandwich plan + drives the run↔station runner). Until the
+   * parent wires `onStartHybrid`, degrade to a normal free start.
+   */
+  const handleStartHybrid = async () => {
+    await applyGoalToPlayer();
+    const speedKmh =
+      selectedActivity === 'cycling' ? 20 :
+      selectedActivity === 'running' ? 10 : 5;
+    const timeBudgetMin =
+      goalType === 'time'     ? timeValue :
+      goalType === 'distance' ? Math.max(10, Math.round((distanceValue / speedKmh) * 60)) :
+      Math.max(10, Math.round(caloriesValue / (selectedActivity === 'running' ? 11 : 7)));
+    const intent: HybridStartIntent = {
+      timeBudgetMin,
+      aerobicShare,
+      emphasis: shareToEmphasis(aerobicShare),
+      aerobicKind: selectedActivity === 'walking' ? 'walking' : 'running',
+    };
+    if (onStartHybrid) onStartHybrid(intent);
+    else onStartWorkout();
   };
 
   const canStartWithRoute = !!userPosition && !!onRequestRouteGeneration;
@@ -893,6 +935,19 @@ export default function FreeRunDrawer({
               onEdit={() => setGoalSheetOpen(true)}
             />
 
+            {/* ── Block 2c: Hybrid toggle + ratio slider (design §4.1/§4.2) ── */}
+            <StrengthStationsToggle enabled={hybridEnabled} onToggle={setHybridEnabled} accent={ACCENT} />
+            {hybridEnabled && (
+              <AerobicStrengthSlider
+                aerobicShare={aerobicShare}
+                onChange={setAerobicShare}
+                goalType={goalType}
+                timeBudgetMin={goalType === 'time' ? timeValue : 40}
+                stations={1}
+                accent={ACCENT}
+              />
+            )}
+
             {/* ── Block 2b: Invite + broadcast (RunShareBar) ───────────────── */}
             <RunShareBar
               activityType={selectedActivity === 'walking' ? 'walking' : 'running'}
@@ -919,6 +974,18 @@ export default function FreeRunDrawer({
                 >
                   {isSaving && <Loader2 size={16} className="animate-spin" />}
                   <span>{isSaving ? 'שומר...' : '✓ שמור לאימונים'}</span>
+                </button>
+              </div>
+            ) : hybridEnabled ? (
+              <div className="px-5 pb-2">
+                <button
+                  type="button"
+                  onClick={handleStartHybrid}
+                  aria-label="התחל אימון משולב"
+                  className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl"
+                  style={{ height: 52, backgroundColor: ACCENT }}
+                >
+                  <span>💪🏃 התחל משולב</span>
                 </button>
               </div>
             ) : (
