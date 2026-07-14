@@ -237,108 +237,106 @@ export default function BottomJourneyContainer({
                     onRouteFocus(route);
                   }
                 }}
-                className={`w-[85vw] max-w-[340px] snap-center snap-always flex-shrink-0 bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 ${
+                className={`w-[200px] snap-center snap-always flex-shrink-0 bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 border-[0.5px] border-[#E0E9FF] ${
                   isFocused
                     ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_10px_28px_rgba(0,0,0,0.16)] scale-[1.02]'
                     : isActive
                       ? 'shadow-[0_0_0_2px_rgba(0,229,255,0.65),0_8px_24px_rgba(0,0,0,0.14)]'
-                      : 'shadow-md opacity-88 scale-[0.97]'
+                      : 'shadow-sm opacity-88 scale-[0.97]'
                 }`}
               >
-                {/* ── Horizontal content row ── */}
-                <div className="flex flex-row-reverse items-stretch min-h-[96px]" dir="rtl">
+                {/* ── Cover image on top, fading into the card body (park-card style) ── */}
+                <div className="relative w-full h-[120px] overflow-hidden bg-cyan-50">
+                  {coverImage ? (
+                    <Image
+                      src={coverImage}
+                      alt={route.name || 'מסלול'}
+                      fill
+                      className="object-cover"
+                      sizes="200px"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                      <ActivityIcon type={activityType} size={30} />
+                      <span className="text-[10px] font-bold text-cyan-400 text-center leading-tight px-1">
+                        {activityType === 'running' ? 'ריצה'
+                          : activityType === 'cycling' ? 'רכיבה'
+                          : activityType === 'workout' ? 'כושר'
+                          : 'הליכה'}
+                      </span>
+                    </div>
+                  )}
 
-                  {/* ── Image / Placeholder (right side in RTL) ── */}
-                  <div className="w-[96px] shrink-0 relative self-stretch">
-                    {coverImage ? (
-                      <Image
-                        src={coverImage}
-                        alt={route.name || 'מסלול'}
-                        fill
-                        className="object-cover"
-                        sizes="96px"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-cyan-50 flex flex-col items-center justify-center gap-1">
-                        <ActivityIcon type={activityType} size={28} />
-                        <span className="text-[9px] font-bold text-cyan-400 text-center leading-tight px-1">
-                          {activityType === 'running' ? 'ריצה'
-                            : activityType === 'cycling' ? 'רכיבה'
-                            : activityType === 'workout' ? 'כושר'
-                            : 'הליכה'}
+                  {/* Fade into card body — reused verbatim from the park card (ParkCardImage) */}
+                  <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+
+                  {/* Reachability badge pinned top-left of the image */}
+                  {!isReachable && (
+                    <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-gray-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
+                      <Car size={8} />
+                      נסיעה
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Text content below the image ── */}
+                <div className="px-4 pt-2 pb-2 flex flex-col gap-1.5 min-w-0" dir="rtl">
+                  {/* Source pill */}
+                  <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full self-start leading-tight">
+                    {sourceName}
+                  </span>
+
+                  {/* Community session badge */}
+                  {route.linkedSessions?.nextStartTime && (
+                    <div className="flex items-center gap-1.5 self-start">
+                      <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        <Users size={10} className="text-emerald-600" />
+                        <span className="text-[10px] font-bold text-emerald-700 leading-tight">
+                          {formatSessionTime(route.linkedSessions.nextStartTime)}
                         </span>
-                      </div>
-                    )}
-
-                    {/* Reachability badge pinned top-left of the image */}
-                    {!isReachable && (
-                      <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-gray-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
-                        <Car size={8} />
-                        נסיעה
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── Text content (left side in RTL) ── */}
-                  <div className="flex-1 px-4 py-3 flex flex-col justify-center gap-1.5 min-w-0" dir="rtl">
-                    {/* Source pill */}
-                    <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full self-start leading-tight">
-                      {sourceName}
-                    </span>
-
-                    {/* Community session badge */}
-                    {route.linkedSessions?.nextStartTime && (
-                      <div className="flex items-center gap-1.5 self-start">
-                        <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                          <Users size={10} className="text-emerald-600" />
-                          <span className="text-[10px] font-bold text-emerald-700 leading-tight">
-                            {formatSessionTime(route.linkedSessions.nextStartTime)}
+                        {route.linkedSessions.spotsLeft != null && (
+                          <span className="text-[9px] font-bold text-emerald-500">
+                            · {route.linkedSessions.spotsLeft > 0 ? `${route.linkedSessions.spotsLeft} מקומות` : 'מלא'}
                           </span>
-                          {route.linkedSessions.spotsLeft != null && (
-                            <span className="text-[9px] font-bold text-emerald-500">
-                              · {route.linkedSessions.spotsLeft > 0 ? `${route.linkedSessions.spotsLeft} מקומות` : 'מלא'}
-                            </span>
-                          )}
-                        </div>
-                        {route.linkedSessions.avatars && route.linkedSessions.avatars.length > 0 && (
-                          <ParticipantAvatars avatars={route.linkedSessions.avatars} />
                         )}
                       </div>
-                    )}
-
-                    {/* Route name */}
-                    <h3 className="text-sm font-black text-gray-900 leading-tight line-clamp-2">
-                      {route.name}
-                    </h3>
-
-                    {/* Stats row */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <MapPin size={11} className="text-[#00E5FF] shrink-0" />
-                        <span className="text-xs font-bold text-gray-700">{totalDistKm.toFixed(1)}</span>
-                        <span className="text-[10px] text-gray-400">{"ק״מ"}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Timer size={11} className="text-[#00E5FF] shrink-0" />
-                        <span className="text-xs font-bold text-gray-700">{durationMin}</span>
-                        <span className="text-[10px] text-gray-400">{"דק׳"}</span>
-                      </div>
-                      {distFromUser > 0.1 && isReachable && (
-                        <span className="text-[10px] text-gray-400 mr-auto">
-                          {distFromUser.toFixed(1)} ממך
-                        </span>
+                      {route.linkedSessions.avatars && route.linkedSessions.avatars.length > 0 && (
+                        <ParticipantAvatars avatars={route.linkedSessions.avatars} />
                       )}
                     </div>
+                  )}
 
-                    {/* Walk-to-route time — shown only on the focused card */}
+                  {/* Route name */}
+                  <h3 className="text-sm font-black text-gray-900 leading-tight line-clamp-2">
+                    {route.name}
+                  </h3>
+
+                  {/* Stats + walk-to-route on a single line — keeps the card compact (park-card height) */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <MapPin size={11} className="text-[#00E5FF] shrink-0" />
+                      <span className="text-xs font-bold text-gray-700">{totalDistKm.toFixed(1)}</span>
+                      <span className="text-[10px] text-gray-400">{"ק״מ"}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Timer size={11} className="text-[#00E5FF] shrink-0" />
+                      <span className="text-xs font-bold text-gray-700">{durationMin}</span>
+                      <span className="text-[10px] text-gray-400">{"דק׳"}</span>
+                    </div>
+                    {/* Walk-to-route — inline, shown only on the focused card */}
                     {isFocused && walkToRouteMinutes != null && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-400">🚶</span>
-                        <span className="text-[10px] font-bold text-gray-500">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-[10px] text-gray-400 shrink-0">🚶</span>
+                        <span className="text-[10px] font-bold text-gray-500 truncate">
                           {walkToRouteMinutes} דק׳ הליכה למסלול
                         </span>
                       </div>
+                    )}
+                    {distFromUser > 0.1 && isReachable && (
+                      <span className="text-[10px] text-gray-400 shrink-0 mr-auto">
+                        {distFromUser.toFixed(1)} ממך
+                      </span>
                     )}
                   </div>
                 </div>
