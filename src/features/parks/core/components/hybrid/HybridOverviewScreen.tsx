@@ -12,7 +12,7 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { Ruler, Clock, Flame, Dumbbell, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
+import { Ruler, Clock, Flame, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core/program-icon.util';
@@ -59,7 +59,6 @@ interface Props {
 export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise }: Props) {
   const { plan, fallbackHint, aerobicKind } = composed;
   const t = plan.totals;
-  const exCount = plan.segments.reduce((n, s) => n + (s.kind === 'strength' ? s.content?.exercises?.length ?? 0 : 0), 0);
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
 
   // Estimated finish = now + total workout minutes → "HH:MM" (24h, zero-padded —
@@ -172,16 +171,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
               <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
               <Chip icon={<Flame size={15} />}>{t.estCalories} קק״ל</Chip>
-              <Chip icon={<Dumbbell size={15} />} tint={STR}>{exCount} תרגילים</Chip>
             </div>
 
             {/* meta row */}
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
               <span className="inline-flex items-center bg-white rounded-lg" style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
                 <DifficultyBolts difficulty={2} size="sm" />
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg text-[11.5px] font-extrabold" style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '6px 10px' }}>
-                <Flame size={13} /> אימון איכות משולב
               </span>
             </div>
 
