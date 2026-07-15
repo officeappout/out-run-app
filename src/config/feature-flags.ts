@@ -23,6 +23,14 @@ export const IS_COMMUNITY_FEED_ENABLED = false;
 // toggle+slider hybrid path is untouched.
 export const HYBRID_SLOTS_ENABLED = true;
 
+// HYBRID_SLOT_PREVIEW: Draw a slot's route on the map the moment the carousel
+// settles on its card (compose-on-settle), matching discover cards — instead of
+// only on the "צא לדרך" CTA. READ-ONLY: composes + draws (setFocusedRoute) only;
+// never saves, never touches runHybridPlan/finishHybrid (single-save invariant
+// intact). While false, the slot layer is BYTE-IDENTICAL — the route appears
+// only on the CTA (current behaviour). Sub-flag of HYBRID_SLOTS_ENABLED.
+export const HYBRID_SLOT_PREVIEW_ENABLED = true;
+
 // UNIFIED_ROUTE_CARDS: Text-only, aerobic-style route cards across all three
 // bottom carousels (RouteCarousel · BottomJourneyContainer · HybridSlotCarousel).
 // While false, each carousel renders its current production card (no regression).
