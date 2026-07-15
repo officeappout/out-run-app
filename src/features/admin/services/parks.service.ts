@@ -10,6 +10,7 @@ import { serverTimestamp } from 'firebase/firestore';
 export {
   getAllParks,
   getParksByAuthority,
+  getParksByNeighborhood,
   getPark,
   deletePark,
   approvePark,
@@ -59,6 +60,8 @@ function sanitizeParkData(
     gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : [],
     amenities: data.amenities ?? null,
     authorityId: data.authorityId ?? null,
+    neighborhoodId: (data as any).neighborhoodId ?? null,
+    neighborhoodName: (data as any).neighborhoodName ?? null,
     status: data.status ?? 'open',
     contentStatus,
     published: contentStatus === 'published',
@@ -187,6 +190,8 @@ export async function updatePark(
     if (data.gymEquipment !== undefined) updateData.gymEquipment = Array.isArray(data.gymEquipment) ? data.gymEquipment : [];
     if (data.amenities !== undefined) updateData.amenities = data.amenities ?? null;
     if (data.authorityId !== undefined) updateData.authorityId = data.authorityId ?? null;
+    if ((data as any).neighborhoodId !== undefined) updateData.neighborhoodId = (data as any).neighborhoodId ?? null;
+    if ((data as any).neighborhoodName !== undefined) updateData.neighborhoodName = (data as any).neighborhoodName ?? null;
     if (data.status !== undefined) {
       updateData.status = data.status;
       const oldStatus = park?.status || 'unknown';

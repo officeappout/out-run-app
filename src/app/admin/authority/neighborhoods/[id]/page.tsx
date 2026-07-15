@@ -19,7 +19,7 @@ import {
   PopularPark,
 } from '@/features/admin/services/analytics.service';
 import { getReportsByAuthority } from '@/features/admin/services/maintenance.service';
-import { getParksByAuthority } from '@/features/admin/services/parks.service';
+import { getParksByNeighborhood } from '@/features/admin/services/parks.service';
 import type { Authority, KpiSettings, DEFAULT_KPI_SETTINGS as DefaultKpiType } from '@/types/admin-types';
 import { DEFAULT_KPI_SETTINGS } from '@/types/admin-types';
 import type { MaintenanceReport } from '@/types/maintenance.types';
@@ -205,7 +205,7 @@ export default function NeighborhoodProfilePage() {
           getPopularParks(neighborhoodId, 5),
           getReportsByAuthority(neighborhoodId).catch(() => [] as MaintenanceReport[]),
           parentAuthId ? getNeighborhoodBreakdown(parentAuthId, { min: parentKpi.targetAgeMin, max: parentKpi.targetAgeMax }) : Promise.resolve([]),
-          getParksByAuthority(neighborhoodId).catch(() => [] as Park[]),
+          getParksByNeighborhood(neighborhoodId).catch(() => [] as Park[]),
         ]);
 
         setNeighborhood(neighborhoodDoc);
