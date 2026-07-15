@@ -22,6 +22,13 @@ export const IS_COMMUNITY_FEED_ENABLED = false;
 // constant mirrors the feed pattern for any future compile-time guard.
 export const IS_LEAGUES_ENABLED = true;
 
+// UNIFIED_ROUTE_CARDS: Text-only, aerobic-style route cards across all three
+// bottom carousels (RouteCarousel · BottomJourneyContainer · HybridSlotCarousel).
+// While false, each carousel renders its current production card (no regression).
+// Set to true to switch to the unified text-only design (name + distance + time
+// + DifficultyBolts + CTA, no top image). Rollout-safe compile-time guard.
+export const UNIFIED_ROUTE_CARDS_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

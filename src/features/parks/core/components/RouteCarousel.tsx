@@ -104,6 +104,9 @@ import {
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore } from '../store/useMapStore';
 import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
+import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
+import RouteCardUnified from './RouteCardUnified';
+import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -1036,10 +1039,34 @@ function RouteCard({
   // if the user's gesture momentum would carry them further. Without
   // this, snap-mandatory still allows the browser to leapfrog cards
   // when scroll velocity is high.
+
+  // Unified text-only card (flag-gated). Label + onStart pass through unchanged;
+  // only the shell/layout and the CTA *style* are unified across surfaces.
+  if (UNIFIED_ROUTE_CARDS_ENABLED) {
+    return (
+      <RouteCardUnified
+        name={displayName}
+        distanceText={distanceText}
+        durationText={durationText}
+        difficulty={route.difficulty}
+        isActive={isActive}
+        className="snap-center snap-always"
+        onCta={onStart}
+        ctaContent={
+          <>
+            <Play size={14} fill="currentColor" />
+            התחל אימון
+            <ChevronLeft size={14} strokeWidth={3} />
+          </>
+        }
+      />
+    );
+  }
+
   return (
     <div
       dir="rtl"
-      className={`w-[85vw] max-w-[340px] snap-center snap-always flex-shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
+      className={`${ROUTE_CARD_WIDTH} snap-center snap-always flex-shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
