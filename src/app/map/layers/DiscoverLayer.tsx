@@ -111,6 +111,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // ── Viewport-search ("חפש באזור זה") state ───────────────────────────────
   const viewportBounds = useMapStore((s) => s.viewportBounds);
   const viewportSearchActive = useMapStore((s) => s.viewportSearchActive);
+  // Splash gate — the single flag every on-map control below reads so nothing
+  // pokes through the MapLoadingSkeleton during load. Mirrors AppMap's
+  // isVisuallyReady; reveals all controls together the moment the map paints.
+  const isMapVisuallyReady = useMapStore((s) => s.isMapVisuallyReady);
   // Baseline bounds — set once viewportBounds first arrives (map loaded).
   // When the user taps "חפש באזור זה" this is reset to the current bounds so
   // the button only reappears after a subsequent pan.
@@ -358,6 +362,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       setMapMode('idle');
       return;
     }
+    // Empty-map tap dismisses the discover route carousel → idle, so the
+    // BottomJourneyContainer unmounts and the on-map entry button returns
+    // (mirrors the slot-layer dismiss below).
+    if (mapMode === 'discover') {
+      logic.setFocusedRoute(null);
+      setMapMode('idle');
+      return;
+    }
     // Tapping the map (outside a card) dismisses the hybrid slot layer and
     // resets the flow so re-entry always shows fresh slots (never a stale overview).
     if (mapMode === 'freeRun' && freeRunStep === 'slots') {
@@ -434,6 +446,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // "התחל משולב" and the recommended slot: composes ONCE, then runs the SAME
   // object (no re-compose). fallbackStep = where to return if no route builds.
   const composeAndShowOverview = useCallback((intent: HybridStartIntent, fallbackStep: FreeRunStep = 'config') => {
+    // eslint-disable-next-line no-console
+    console.log('[compose-trigger]', 'composeAndShowOverview', 'from=', fallbackStep, 'kind=', intent.aerobicKind);
     const flowId = ++hybridFlowIdRef.current; // this compose owns the flow
     setHybridComposing(true);
     import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeHybridPlan }) => {
@@ -466,6 +480,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
   // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
   const handleSelectSlot = useCallback((slot: HybridSlot) => {
+    // eslint-disable-next-line no-console
+    console.log('[compose-trigger]', 'handleSelectSlot', slot.kind, slot.id);
     if (slot.kind === 'hybrid') {
       composeAndShowOverview(presetToIntent(slot.preset, slot.timeBudgetMin), 'slots');
       return;
@@ -696,6 +712,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
   // ── Handle mode changes ──
   const handleMapModeChange = (mode: MapMode) => {
+    // Any mode chip dismisses a selected park — otherwise selectedPark keeps the
+    // Screen SM pinned to PARK_CARD and the chip's surface never appears.
+    useMapStore.getState().setSelectedPark(null);
     setMapMode(mode);
     // Entering free-run via the mode chip → the drawer (explicit SM; the slot
     // entry button sets 'slots' itself).
@@ -726,7 +745,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   }, [viewportBounds]);
 
   // ── THE LAW: SINGLE SCREEN STATE ──
-  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'COMMUTE' | 'DISCOVERY';
+  const selectedPark = useMapStore((s) => s.selectedPark);
+  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'PARK_CARD' | 'COMMUTE' | 'DISCOVERY';
   const screen: Screen = (() => {
     if (logic.navState === 'searching') return 'SEARCH';
     // 'navigating' is now a no-op (NavigationHub returns null on this
@@ -739,12 +759,25 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       if (mapMode !== 'idle' && mapMode !== 'discover') setMapMode('idle');
       return 'ROUTE_CARD';
     }
+    // selectedPark is its own exclusive screen (mirrors ROUTE_CARD) so a park
+    // card can NEVER co-exist with the entry button / slot carousel / free-run
+    // surfaces (all under DISCOVERY). Selecting a park replaces them; closing it
+    // (ParkPreview's × → setSelectedPark(null)) returns to DISCOVERY → the entry
+    // button reappears. General fix — intentionally applies with the hybrid flag
+    // OFF too (the park↔free-run mixing predates the flag).
+    if (selectedPark) {
+      if (mapMode !== 'idle' && mapMode !== 'discover') setMapMode('idle');
+      return 'PARK_CARD';
+    }
     if (mapMode === 'commute' && commuteRouteConfig) return 'COMMUTE';
     return 'DISCOVERY';
   })();
 
   // ── Shared top bar: glassmorphic search + saved-places quick row + mode pills ──
   function renderTopBar() {
+    // Keep the search bar (z-[70]) + mode chips out of the loading splash —
+    // they sit ABOVE the z-[50] skeleton, so without this they poke through.
+    if (!isMapVisuallyReady) return null;
     return (
       <div
         className="absolute left-0 right-0 z-[70] px-4 pointer-events-none"
@@ -850,6 +883,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         );
       }
 
+      case 'PARK_CARD':
+        // Park card as an exclusive bottom surface — no entry button, no slot
+        // carousel, no free-run drawer behind it. Top bar stays so the user can
+        // still search / change mode. ParkPreview self-gates on selectedPark.
+        return (
+          <>
+            {renderTopBar()}
+            <ParkPreview userLocation={logic.currentUserPos ?? null} />
+          </>
+        );
+
       case 'COMMUTE': {
         // The unified RouteCarousel mounted in commute mode. Top bar
         // stays visible (just the floating search) so the user can
@@ -936,13 +980,16 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 Hidden while the partner overlay is open so the layers icon
                 doesn't visually attach itself to the partners pill area —
                 the overlay owns the top-right slot in that mode. */}
-            {partnerTab === null && (
+            {partnerTab === null && isMapVisuallyReady && (
               <div className="absolute right-4 z-[50] pointer-events-none" style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}>
                 <MapLayersControl liveCount={live.length} />
               </div>
             )}
 
-            {/* HUD — z-[40]. Bottom offset accounts for carousel height + safe-area. */}
+            {/* HUD — z-[40]. Bottom offset accounts for carousel height + safe-area.
+                Splash-gated so the FAB (+) and recenter button reveal with the
+                rest, rather than sitting hidden behind the skeleton during load. */}
+            {isMapVisuallyReady && (
             <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
               <ActionSpeedDial
                 onAdd={() => setWizardOpen(true)}
@@ -962,6 +1009,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 <Navigation size={20} fill={logic.isFollowing ? BRAND_COLOR : 'none'} color={logic.isFollowing ? BRAND_COLOR : GRAY_COLOR} />
               </button>
             </div>
+            )}
 
             {/* ── Bottom content: single premium carousel for ALL route types ── */}
             {mapMode === 'discover' && allDisplayRoutes.length > 0 && (
@@ -983,7 +1031,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
             {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
                 Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
-            {HYBRID_SLOTS_ENABLED && mapMode === 'idle' && (
+            {HYBRID_SLOTS_ENABLED && mapMode === 'idle' && isMapVisuallyReady && (
               <div
                 className="absolute left-0 right-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
@@ -995,6 +1043,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                     // sets freeRunStep='slots' explicitly (no effect race, no
                     // 'config' flash) and clears any prior composed plan. NO
                     // compose here — that happens only on a card's "צא לדרך" CTA.
+                    // eslint-disable-next-line no-console
+                    console.log('[compose-trigger]', 'entry-open (passive, no compose)');
                     resetHybridFlow('slots');
                     setMapMode('freeRun');
                   }}
@@ -1181,8 +1231,6 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 />
               )}
             </AnimatePresence>
-
-            <ParkPreview userLocation={logic.currentUserPos ?? null} />
           </>
         );
     }

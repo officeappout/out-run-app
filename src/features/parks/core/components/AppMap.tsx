@@ -302,6 +302,18 @@ export default function AppMap({
   // the same session skips the skeleton entirely.
   const [isVisuallyReady, setIsVisuallyReady] = useState(() => mapHasInitializedInSession);
 
+  // Publish the splash-gate state to the store so sibling map layers
+  // (DiscoverLayer's search / mode chips / FAB / recenter / entry button)
+  // hide during the MapLoadingSkeleton and reveal together when the map
+  // paints — all reading this ONE flag, no re-detection. `markReady`
+  // (Mapbox render/idle or the 900ms safety timeout) stays the only source;
+  // this merely mirrors it. Warm re-mounts init isVisuallyReady=true and the
+  // store persists true across them, so the controls never re-flash.
+  const setMapVisuallyReady = useMapStore((s) => s.setMapVisuallyReady);
+  useEffect(() => {
+    setMapVisuallyReady(isVisuallyReady);
+  }, [isVisuallyReady, setMapVisuallyReady]);
+
   const [parks, setParks] = useState<any[]>([]);
   const { setSelectedPark, visibleLayers, selectedPark } = useMapStore();
   // Selected park id powers the cyan-ring highlight on ParkPhotoMarker so

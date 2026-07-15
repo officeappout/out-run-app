@@ -323,6 +323,18 @@ interface MapStore {
    */
   viewportSearchActive: boolean;
   setViewportSearchActive: (v: boolean) => void;
+
+  /**
+   * Mirror of AppMap's local `isVisuallyReady` — the flag that gates the
+   * MapLoadingSkeleton splash. Published to the store so sibling layers
+   * (DiscoverLayer's on-map controls) can hide during the splash and reveal
+   * together when the map paints, WITHOUT re-detecting map load. AppMap is
+   * the single writer (mirrors its state in a useEffect). Stays `true` for
+   * the rest of the session after first paint — warm re-mounts start ready —
+   * so controls never re-flash on tab switches back to /map.
+   */
+  isMapVisuallyReady: boolean;
+  setMapVisuallyReady: (v: boolean) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -413,4 +425,6 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setViewportBounds: (b) => set({ viewportBounds: b }),
   viewportSearchActive: false,
   setViewportSearchActive: (v) => set({ viewportSearchActive: v }),
+  isMapVisuallyReady: false,
+  setMapVisuallyReady: (v) => set({ isMapVisuallyReady: v }),
 }));

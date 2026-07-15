@@ -74,7 +74,7 @@ export default function RouteCardUnified({
     <div
       dir="rtl"
       onClick={onClick}
-      className={`${ROUTE_CARD_WIDTH} bg-white rounded-3xl p-5 transition-all duration-300 ${
+      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
@@ -85,17 +85,14 @@ export default function RouteCardUnified({
         {name}
       </h3>
 
-      {/* Meta — distance + time (routes) or subtitle (slots) */}
+      {/* Meta — distance + time on ONE inline row (· separated), or subtitle (slots) */}
       {hasStats ? (
-        <div className="flex items-center gap-4 mt-2 mb-3">
-          <div className="flex items-center gap-1.5">
-            <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
-            <span className="text-[13px] font-black text-gray-800" dir="ltr">{distanceText}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
-            <span className="text-[13px] font-black text-gray-800" dir="ltr">{durationText}</span>
-          </div>
+        <div className="flex items-center gap-1.5 mt-1.5 mb-3 text-[13px] font-black text-gray-800" dir="ltr">
+          <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
+          <span>{distanceText}</span>
+          <span className="mx-1 text-gray-300 font-normal">·</span>
+          <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
+          <span>{durationText}</span>
         </div>
       ) : subtitle ? (
         <p className="text-[13px] font-semibold text-gray-500 mt-1.5 mb-3 leading-snug truncate">
