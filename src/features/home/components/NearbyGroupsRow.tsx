@@ -100,8 +100,13 @@ export default function NearbyGroupsRow() {
     let cancelled = false;
 
     const applyFallback = () => {
-      const city = (profile as any)?.core?.city ?? (profile as any)?.city ?? '';
-      const fallback = (city && CITY_FALLBACK_COORDS[city]) ? CITY_FALLBACK_COORDS[city] : DEFAULT_FALLBACK;
+      // Prefer the user's onboarding/authority anchor over any hard-coded default —
+      // no teleport to a fixed demo city when GPS is unavailable.
+      const core = (profile as any)?.core;
+      const anchor = (typeof core?.anchorLat === 'number' && typeof core?.anchorLng === 'number')
+        ? { lat: core.anchorLat, lng: core.anchorLng } : null;
+      const city = core?.city ?? (profile as any)?.city ?? '';
+      const fallback = anchor ?? ((city && CITY_FALLBACK_COORDS[city]) ? CITY_FALLBACK_COORDS[city] : DEFAULT_FALLBACK);
       setUserPos(fallback);
     };
 

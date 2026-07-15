@@ -5,6 +5,19 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
+import HybridOverviewScreen from '@/features/parks/core/components/hybrid/HybridOverviewScreen';
+import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview-drawer/components/ExerciseDetailDrawer';
+import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
+import type { ExecutionLocation } from '@/features/content/exercises';
+import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
+import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
+import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
+import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
+import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
+import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import { HYBRID_SLOTS_ENABLED } from '@/config/feature-flags';
+import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
@@ -85,9 +98,11 @@ interface DiscoverLayerProps {
   flyoverComplete: boolean;
   devSim?: DevSimulationState;
   initialOpenRun?: string | null;
+  /** Center the camera on the best-available fix (live GPS or fallback dot). */
+  onRecenter?: () => void;
 }
 
-export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, onRecenter }: DiscoverLayerProps) {
   const { setMode } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -139,8 +154,19 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   //   drawer "עם מסלול"    → config → route (with carousel-config payload)
   //   route carousel back  → route  → config
   //   route carousel start → route  → idle (workout starts)
-  type FreeRunStep = 'config' | 'route';
+  type FreeRunStep = 'config' | 'overview' | 'route' | 'slots';
   const [freeRunStep, setFreeRunStep] = useState<FreeRunStep>('config');
+  // Hybrid overview (phase ב) — composed once, shown, then run (no re-compose).
+  const [hybridComposed, setHybridComposed] = useState<ComposedHybridSession | null>(null);
+  const [hybridComposing, setHybridComposing] = useState(false);
+  // Where the overview's back button returns to: 'slots' (came from a slot) or
+  // 'config' (came from the build-yourself drawer) — never re-opens the drawer
+  // when the user arrived via a slot.
+  const [overviewBackStep, setOverviewBackStep] = useState<FreeRunStep>('config');
+  // Hybrid station exercise detail (tap) + replacement (swap) — the REAL preview drawers.
+  const [hybridDetailEx, setHybridDetailEx] = useState<any | null>(null);
+  const [hybridSwap, setHybridSwap] = useState<{ segIndex: number; exIndex: number; exercise: any; level: number } | null>(null);
+  const { programMap: hybridProgramMap } = useProgramMap();
 
   // Carousel-config payload — captured when the user taps "Generate" in the
   // drawer so the floating RouteCarousel knows what targetKm to feed into
@@ -153,12 +179,35 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     surface: 'road' | 'trail';
   } | null>(null);
 
-  // Reset to config stage every time we re-enter free-run mode.
+  // ── Hybrid slot layer state ("מה עושים היום?") — Phase 1, flag-gated ───────
+  // EXPLICIT state machine: `freeRunStep` is the single source of truth and is
+  // set ONLY by entry handlers (never by an effect racing the mapMode change):
+  //   chip / openRun deep-link → 'config' (drawer)
+  //   slot entry button        → 'slots'  (passive carousel — NO compose)
+  //   card CTA "צא לדרך"        → compose → 'overview'
+  //   back / dismiss           → resetHybridFlow(...)
+  // slotActivity drives the resolver + the in-layer activity toggle. The
+  // resolver + handlers that need userLocation/userCityName are defined lower.
+  const [slotActivity, setSlotActivity] = useState<AerobicKind>('walking');
+
+  // Flow token — bumped on every reset so a stale/late composeHybridPlan (e.g.
+  // the user dismissed while it was in flight) can't force the overview after a
+  // re-entry. Reset drops the composed plan + focused route + step so the entry
+  // button always opens a FRESH slot layer, never a leftover overview.
+  const hybridFlowIdRef = useRef(0);
+  const resetHybridFlow = useCallback((nextStep: FreeRunStep = 'config') => {
+    hybridFlowIdRef.current += 1;
+    setHybridComposing(false);
+    setHybridComposed(null);
+    setFreeRunStep(nextStep);
+    logic.setFocusedRoute(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logic]);
+
+  // Only clears stale route-carousel config on (re-)entering free-run mode.
+  // Does NOT touch freeRunStep — the entry handlers own that (explicit SM).
   useEffect(() => {
-    if (mapMode === 'freeRun') {
-      setFreeRunStep('config');
-      setRouteCarouselConfig(null);
-    }
+    if (mapMode === 'freeRun') setRouteCarouselConfig(null);
   }, [mapMode]);
 
   // ── Run-invite deep-link: open FreeRunDrawer pre-configured ───────────────
@@ -176,6 +225,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // Pre-select host's activity type (default, not locked — user can change it)
     logic.handleActivityChange(initialOpenRun as ActivityType);
     setMapMode('freeRun');
+    setFreeRunStep('config'); // deep-link → the drawer (explicit SM)
 
     // Consume pending_run_invite — restore partner context after Zustand reset (iOS hard-close).
     // Normal navigation path: Zustand already has groupId + membershipReady=true from the
@@ -299,15 +349,23 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   useEffect(() => {
     if (mapEmptyTapTick === lastEmptyTapTickRef.current) return;
     lastEmptyTapTickRef.current = mapEmptyTapTick;
-    if (mapMode !== 'commute') return;
-    // Same teardown as the carousel's onBack — keeps the two exit
-    // paths bit-identical so the user never lands in a half-state.
-    logic.setFocusedRoute(null);
-    setCommuteRouteConfig(null);
-    useMapStore.getState().setCommuteDestination(null);
-    setMapMode('idle');
+    if (mapMode === 'commute') {
+      // Same teardown as the carousel's onBack — keeps the two exit
+      // paths bit-identical so the user never lands in a half-state.
+      logic.setFocusedRoute(null);
+      setCommuteRouteConfig(null);
+      useMapStore.getState().setCommuteDestination(null);
+      setMapMode('idle');
+      return;
+    }
+    // Tapping the map (outside a card) dismisses the hybrid slot layer and
+    // resets the flow so re-entry always shows fresh slots (never a stale overview).
+    if (mapMode === 'freeRun' && freeRunStep === 'slots') {
+      resetHybridFlow();
+      setMapMode('idle');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapEmptyTapTick, mapMode]);
+  }, [mapEmptyTapTick, mapMode, freeRunStep]);
 
   // Pending-commute consumer. Entity cards (ParkPreview /
   // RouteDetailSheet) write to `useMapStore.pendingCommute` when the
@@ -363,6 +421,62 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
   const { profile } = useUserStore();
   const myGroupIds = profile?.social?.groupIds ?? [];
+
+  // ── Hybrid slot resolver + handlers (need userLocation/userCityName) ───────
+  // nearbyParkCount is optimistic here — the real A3 (bodyweight) determination
+  // surfaces at the overview via the composer's fallbackHint.
+  const slots = useMemo<HybridSlot[]>(
+    () => resolveSlots({ hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity }),
+    [userLocation, slotActivity],
+  );
+
+  // Compose a hybrid plan → show the overview. Shared by the drawer's
+  // "התחל משולב" and the recommended slot: composes ONCE, then runs the SAME
+  // object (no re-compose). fallbackStep = where to return if no route builds.
+  const composeAndShowOverview = useCallback((intent: HybridStartIntent, fallbackStep: FreeRunStep = 'config') => {
+    const flowId = ++hybridFlowIdRef.current; // this compose owns the flow
+    setHybridComposing(true);
+    import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeHybridPlan }) => {
+      const composed = await composeHybridPlan(intent, {
+        userPosition: userLocation,
+        cityName: userCityName,
+        startRun: logic.startActiveWorkout,
+      });
+      // Dismissed / superseded while composing → drop this result silently.
+      if (hybridFlowIdRef.current !== flowId) return;
+      setHybridComposing(false);
+      if (!composed) { setFreeRunStep(fallbackStep); return; }
+      // Show the generated route on the LIVE map behind the peekable overview;
+      // carry the station location so MapShell drops a marker on it.
+      logic.setFocusedRoute({
+        id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
+        distance: composed.plan.totals.distanceKm,
+        stationMarker: composed.station ? { lat: composed.station.lat, lng: composed.station.lng, name: composed.station.name, image: composed.station.image } : null,
+      } as unknown as Route);
+      console.log(
+        `[hybrid:diag] route drawn → setFocusedRoute pts=${composed.routePath.length}` +
+        ` station=${composed.station ? `${composed.station.lat.toFixed(5)},${composed.station.lng.toFixed(5)}` : 'none(A3)'}`,
+      );
+      setOverviewBackStep(fallbackStep);
+      setHybridComposed(composed);
+      setFreeRunStep('overview');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, userCityName, logic]);
+
+  // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
+  const handleSelectSlot = useCallback((slot: HybridSlot) => {
+    if (slot.kind === 'hybrid') {
+      composeAndShowOverview(presetToIntent(slot.preset, slot.timeBudgetMin), 'slots');
+      return;
+    }
+    // Aerobic quick-start — the session mode is read synchronously from
+    // useRunningPlayer.activityType in _doStartActiveWorkout, so set it on the
+    // store BEFORE start. Clear any guided route, then launch immediately.
+    useRunningPlayer.getState().setActivityType(slot.aerobicKind);
+    logic.setFocusedRoute(null);
+    logic.startActiveWorkout();
+  }, [composeAndShowOverview, logic]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 
@@ -583,6 +697,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // ── Handle mode changes ──
   const handleMapModeChange = (mode: MapMode) => {
     setMapMode(mode);
+    // Entering free-run via the mode chip → the drawer (explicit SM; the slot
+    // entry button sets 'slots' itself).
+    if (mode === 'freeRun') setFreeRunStep('config');
     if (mode !== 'discover') {
       logic.setFocusedRoute(null);
       logic.setSelectedRoute(null);
@@ -837,7 +954,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   // so the button only reappears after the next deliberate pan.
                   useMapStore.getState().setViewportSearchActive(false);
                   if (viewportBounds) refBoundsRef.current = viewportBounds;
-                  logic.handleLocationClick();
+                  logic.handleLocationClick(); // GPS refresh + permission prompt when no fix
+                  onRecenter?.();                // center the camera on the best-available fix
                 }}
                 className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white pointer-events-auto active:scale-95 transition-all"
               >
@@ -863,6 +981,28 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
               />
             )}
 
+            {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
+                Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
+            {HYBRID_SLOTS_ENABLED && mapMode === 'idle' && (
+              <div
+                className="absolute left-0 right-0 z-[100] pointer-events-none"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+              >
+                <ShimmerPhraseButton
+                  messages={ENTRY_PHRASES}
+                  onTap={() => {
+                    // Passive entry: open the slot carousel only. resetHybridFlow
+                    // sets freeRunStep='slots' explicitly (no effect race, no
+                    // 'config' flash) and clears any prior composed plan. NO
+                    // compose here — that happens only on a card's "צא לדרך" CTA.
+                    resetHybridFlow('slots');
+                    setMapMode('freeRun');
+                  }}
+                  className="px-6 pointer-events-auto"
+                />
+              </div>
+            )}
+
             {/* ── Free-run flow — two stages, mutually exclusive ─────────
                 Stage 1: FreeRunDrawer (activity chips + goal + start CTAs).
                 Stage 2: RouteCarousel (floating route cards over the map) —
@@ -880,7 +1020,88 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setRouteCarouselConfig({ targetKm, includeStrength, surface });
                   setFreeRunStep('route');
                 }}
+                onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => composeAndShowOverview(intent, 'config') : undefined}
               />
+            )}
+
+            {/* ── Hybrid slot layer (Phase 1) — "מה עושים היום?" floating carousel.
+                Shares the z-[100] free-run overlay tier with HybridOverviewScreen
+                (mutually exclusive freeRunStep). Flag-gated → byte-identical when off. */}
+            {HYBRID_SLOTS_ENABLED && mapMode === 'freeRun' && freeRunStep === 'slots' && (
+              <HybridSlotCarousel
+                slots={slots}
+                loading={hybridComposing}
+                aerobicKind={slotActivity}
+                onActivityChange={setSlotActivity}
+                onSelectSlot={handleSelectSlot}
+                onBuildYourself={() => setFreeRunStep('config')}
+                onClose={() => { resetHybridFlow(); setMapMode('idle'); }}
+              />
+            )}
+
+            {/* Hybrid overview (phase ב) — bottom sheet over the map; route shown behind. */}
+            {mapMode === 'freeRun' && freeRunStep === 'overview' && hybridComposed && (
+              <HybridOverviewScreen
+                composed={hybridComposed}
+                cityName={userCityName}
+                onExerciseTap={(we) => setHybridDetailEx(we)}
+                onSwapExercise={(segIndex, exIndex, we) =>
+                  setHybridSwap({ segIndex, exIndex, exercise: we?.exercise, level: we?.programLevel ?? we?.exercise?.level ?? 1 })
+                }
+                onBack={() => { setFreeRunStep(overviewBackStep); logic.setFocusedRoute(null); }}
+                onStart={() => {
+                  const c = hybridComposed;
+                  import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ runHybridPlan }) => {
+                    runHybridPlan(c, logic.startActiveWorkout);
+                  });
+                }}
+              />
+            )}
+
+            {/* Real preview detail drawer (tap) — same component the workout preview uses. */}
+            {mapMode === 'freeRun' && freeRunStep === 'overview' && (
+              <ExerciseDetailDrawer
+                detailExercise={hybridDetailEx}
+                programMap={hybridProgramMap}
+                onDismiss={() => setHybridDetailEx(null)}
+              />
+            )}
+
+            {/* Real replacement modal (swap) — choose an alternative → mutate the plan. */}
+            {mapMode === 'freeRun' && freeRunStep === 'overview' && hybridSwap && profile && (
+              <ExerciseReplacementModal
+                isOpen
+                onClose={() => setHybridSwap(null)}
+                currentExercise={hybridSwap.exercise}
+                currentLevel={hybridSwap.level}
+                location={'park' as ExecutionLocation}
+                park={null}
+                userProfile={profile as any}
+                onReplace={(newExercise, executionMethod) => {
+                  // Stability: mutate hybridComposed at [segIndex][exIndex], keeping the
+                  // prescription (sets/reps/rest). runHybridPlan runs the swapped plan.
+                  const { segIndex, exIndex } = hybridSwap;
+                  setHybridComposed((prev) => {
+                    if (!prev) return prev;
+                    const seg: any = prev.plan.segments[segIndex];
+                    if (!seg || seg.kind !== 'strength' || !seg.content) return prev;
+                    const exercises: any[] = [...(seg.content.exercises ?? [])];
+                    const current = exercises[exIndex];
+                    if (!current) return prev;
+                    exercises[exIndex] = { ...current, exercise: newExercise, method: executionMethod, wasSwapped: true };
+                    const newSeg = { ...seg, content: { ...seg.content, exercises } };
+                    const segments = prev.plan.segments.map((s, i) => (i === segIndex ? newSeg : s));
+                    return { ...prev, plan: { ...prev.plan, segments } };
+                  });
+                  setHybridSwap(null);
+                }}
+              />
+            )}
+
+            {mapMode === 'freeRun' && hybridComposing && (
+              <div className="absolute inset-0 z-[101] flex items-center justify-center bg-black/20 pointer-events-auto">
+                <div className="bg-white rounded-2xl px-5 py-3 text-[14px] font-black text-gray-800 shadow-xl">מכין אימון משולב…</div>
+              </div>
             )}
 
             {mapMode === 'freeRun' &&

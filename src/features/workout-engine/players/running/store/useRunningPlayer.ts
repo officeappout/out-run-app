@@ -12,6 +12,7 @@ import type RunWorkout from '../types/run-workout.type';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
 import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
+import { runnerShouldSelfSave } from '@/features/workout-engine/hybrid/hybrid-finish-policy';
 // Direct sibling import — both stores live under workout-engine/* with no
 // circular concern (core never imports from players). Using a static import
 // instead of the previous `require()`-inside-try/catch eliminates the silent
@@ -139,7 +140,9 @@ interface RunningPlayerState {
   // Running Mode
   runMode: 'free' | 'plan' | 'my_routes';
   activityType: 'running' | 'walking';
-  
+  /** Hybrid (aerobic+strength) mode — suppresses finishWorkout's self-save (Phase 3c). */
+  hybridMode: boolean;
+
   // Running-specific Metrics
   laps: Lap[];
   currentPace: number;
@@ -279,6 +282,7 @@ interface RunningPlayerState {
   // Actions
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
   setActivityType: (type: 'running' | 'walking') => void;
+  setHybridMode: (on: boolean) => void;
   setSuggestedRoutes: (routes: Route[]) => void;
   setActiveRoutePath: (path: number[][]) => void;
   // ── Route Deviation actions ──────────────────────────────────────────────
@@ -424,9 +428,13 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   commuteContext: null,
   isGroupRun: false,
 
+  // Hybrid mode — defaults false; set true only for a hybrid session start.
+  hybridMode: false,
+
   // Setters
   setRunMode: (mode) => set({ runMode: mode }),
   setActivityType: (type) => set({ activityType: type }),
+  setHybridMode: (on) => set({ hybridMode: on }),
   setSuggestedRoutes: (routes) => set({ suggestedRoutes: routes }),
   setActiveRoutePath: (path) => set({
     activeRoutePath: path,
@@ -1391,6 +1399,21 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       return;
     }
     _finishInFlight = true;
+
+    // ── Hybrid suppression (flag-gated, hybrid-only) ───────────────────────
+    // In a hybrid session the hybrid layer owns finalize + the SINGLE save
+    // (saveHybridWorkout); the runner must NOT self-save here, or the session
+    // is written twice / XP double-counted. runnerShouldSelfSave encodes the
+    // single-save invariant. Normal runs are byte-identical: hybridMode is
+    // false → this branch is skipped entirely.
+    if (!runnerShouldSelfSave(get().hybridMode)) {
+      get().stopGPSTracking();
+      const { useSessionStore } = await import('@/features/workout-engine/core/store/useSessionStore');
+      useSessionStore.getState().endSession();
+      set({ hybridMode: false });
+      _finishInFlight = false;
+      return;
+    }
 
     // Flush any GPS samples that accumulated in the buffer since the last
     // FLUSH_EVERY threshold — guarantees the final segment is not lost.

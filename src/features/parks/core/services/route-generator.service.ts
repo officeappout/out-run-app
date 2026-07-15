@@ -63,6 +63,14 @@ interface RouteGenerationOptions {
   preferences: {
     includeStrength: boolean;
     surface?: 'road' | 'trail';
+    /**
+     * Additive, hybrid-only option (dormant): the hybrid session builder passes
+     * `qualityRoute: true`. This generator applies its route-quality passes
+     * (continue_straight + bearing-order + RDP-simplify) UNCONDITIONALLY, so the
+     * flag is a no-op here — kept solely so `start-hybrid-session.ts` type-checks
+     * while HYBRID_SLOTS_ENABLED is false. See merge note (hybrid → main).
+     */
+    qualityRoute?: boolean;
   };
   parks: MapPark[];
   /** City name used to query street_segments from Firestore. Falls back to random waypoints when absent. */

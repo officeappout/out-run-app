@@ -42,7 +42,7 @@ import {
 } from '../services/segregation.service';
 import type { PrivacyMode } from '../store/usePrivacyStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
-import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
+import { useGPSStore, DEV_FALLBACK_LOCATION } from '@/features/parks/core/store/useGPSStore';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -267,7 +267,7 @@ export function usePresenceLayer(
       // fixed Tel-Aviv coordinate so two browser tabs can test group presence
       // without a real device. Has zero effect in production (IS_DEV is false).
       if (!loc && IS_DEV) {
-        loc = { lat: 32.0673, lng: 34.7726 };
+        loc = { ...DEV_FALLBACK_LOCATION };
         console.log('[PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick', tickCount);
       }
 
