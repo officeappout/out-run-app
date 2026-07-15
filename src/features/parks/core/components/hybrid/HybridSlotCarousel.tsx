@@ -22,12 +22,16 @@ import { motion, type PanInfo } from 'framer-motion';
 import { ArrowRight, Play } from 'lucide-react';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
+import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
+import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 
-const CARD_MAX_W = 300;
-const CARD_VW = 78;
-const CARD_HEIGHT = 190;
+// When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
+// (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
+const CARD_MAX_W = UNIFIED_ROUTE_CARDS_ENABLED ? 340 : 300;
+const CARD_VW = UNIFIED_ROUTE_CARDS_ENABLED ? 85 : 78;
+const CARD_HEIGHT = 190; // legacy slot-card height (flag off); unified = content-height
 const GAP = 12;
 const ACTIVE_SCALE = 1.0;
 const SIDE_SCALE = 0.9;
@@ -86,12 +90,49 @@ function ActivityToggle({
 }
 
 // ── Single slot card ─────────────────────────────────────────────────────────
-function SlotCard({ slot, onSelect }: { slot: HybridSlot; onSelect: () => void }) {
-  // Arm on pointerdown so a "ghost click" — a click whose pointerdown happened on
-  // the on-map entry button, before this card mounted — is ignored. Compose fires
-  // ONLY on a genuine press that both starts and ends on this CTA. The card body
-  // is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-  const armedRef = useRef(false);
+// Compose fires ONLY from the CTA, and ONLY when THIS card's CTA was the one that
+// received the pointerdown (onArm sets the carousel's armed slot-id; consumeArmed
+// checks + clears it). This rejects: (a) ghost clicks — a click whose pointerdown
+// landed on the on-map entry button before this card mounted; (b) cross-card arms
+// — pointerdown on card A must not let a click on card B fire (id match); (c) stale
+// arms from a carousel drag — the track's onDragStart clears the armed id. The card
+// body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
+  slot: HybridSlot;
+  onSelect: () => void;
+  onArm: () => void;
+  consumeArmed: () => boolean;
+  isActive: boolean;
+}) {
+  // Unified text-only card (flag-gated). Reuses the shared RouteCardUnified so
+  // the slot matches the discover/aerobic cards. The anti-ghost-click arming
+  // (onArm/consumeArmed) is preserved verbatim on the CTA.
+  if (UNIFIED_ROUTE_CARDS_ENABLED) {
+    return (
+      <RouteCardUnified
+        name={slot.title}
+        subtitle={slot.subtitle}
+        difficulty={slot.bolts}
+        isActive={isActive}
+        onCtaPointerDown={onArm}
+        onCta={(e) => {
+          e.stopPropagation();
+          const armed = consumeArmed();
+          // eslint-disable-next-line no-console
+          console.log('[compose-trigger]', 'cta', slot.kind, slot.id, 'armed=', armed);
+          if (!armed) return;
+          onSelect();
+        }}
+        ctaContent={
+          <>
+            {slot.kind === 'aerobic_quick' ? <Play size={16} /> : null}
+            {slot.kind === 'aerobic_quick' ? 'יוצאים מיד' : 'צא לדרך'}
+          </>
+        }
+      />
+    );
+  }
+
   return (
     <div
       className="relative w-full h-full bg-white overflow-hidden flex flex-col justify-between"
@@ -122,13 +163,13 @@ function SlotCard({ slot, onSelect }: { slot: HybridSlot; onSelect: () => void }
       {/* CTA — the ONLY trigger for compose / start */}
       <button
         type="button"
-        onPointerDown={() => { armedRef.current = true; }}
-        onPointerCancel={() => { armedRef.current = false; }}
-        onPointerLeave={() => { armedRef.current = false; }}
+        onPointerDown={onArm}
         onClick={(e) => {
           e.stopPropagation();
-          if (!armedRef.current) return; // ghost click (no pointerdown here) → ignore
-          armedRef.current = false;
+          const armed = consumeArmed();
+          // eslint-disable-next-line no-console
+          console.log('[compose-trigger]', 'cta', slot.kind, slot.id, 'armed=', armed);
+          if (!armed) return; // ghost / cross-card / stale-drag click → ignore
           onSelect();
         }}
         className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black rounded-full active:scale-[0.97] transition-transform"
@@ -173,6 +214,9 @@ export default function HybridSlotCarousel({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [cardW, setCardW] = useState(CARD_MAX_W);
   const [viewportW, setViewportW] = useState(390);
+  // Which card's CTA received the most recent pointerdown (by slot.id, or null).
+  // Single source of truth for "armed" — matched per card, cleared on drag-start.
+  const armedSlotIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const sync = () => {
@@ -223,7 +267,7 @@ export default function HybridSlotCarousel({
       <ActivityToggle activity={aerobicKind} onChange={onActivityChange} />
 
       {/* carousel */}
-      <div ref={viewportRef} className="overflow-hidden w-full" style={{ height: CARD_HEIGHT + 16 }}>
+      <div ref={viewportRef} className="overflow-hidden w-full" style={{ height: UNIFIED_ROUTE_CARDS_ENABLED ? undefined : CARD_HEIGHT + 16 }}>
         {loading ? (
           <div className="pt-2"><SlotSkeleton /></div>
         ) : (
@@ -235,6 +279,7 @@ export default function HybridSlotCarousel({
             drag="x"
             dragConstraints={{ left: centerX - lastIndex * stride, right: centerX }}
             dragElastic={0.1}
+            onDragStart={() => { armedSlotIdRef.current = null; }} // a drag is not a tap → disarm
             onDragEnd={handleDragEnd}
           >
             {slots.map((slot, i) => {
@@ -243,12 +288,28 @@ export default function HybridSlotCarousel({
                 <motion.div
                   key={slot.id}
                   className="flex-shrink-0 pointer-events-auto"
-                  style={{ width: cardW, height: CARD_HEIGHT }}
-                  animate={{ scale: isActive ? ACTIVE_SCALE : SIDE_SCALE, opacity: isActive ? 1 : 0.7, zIndex: isActive ? 20 : 0 }}
+                  style={{ width: cardW, height: UNIFIED_ROUTE_CARDS_ENABLED ? undefined : CARD_HEIGHT }}
+                  // When unified, RouteCardUnified owns the active ring/scale/opacity,
+                  // so the wrapper must not double-apply the legacy scale-fade.
+                  animate={
+                    UNIFIED_ROUTE_CARDS_ENABLED
+                      ? { scale: 1, opacity: 1, zIndex: isActive ? 20 : 0 }
+                      : { scale: isActive ? ACTIVE_SCALE : SIDE_SCALE, opacity: isActive ? 1 : 0.7, zIndex: isActive ? 20 : 0 }
+                  }
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                   onClick={() => !isActive && handleSelect(i)}
                 >
-                  <SlotCard slot={slot} onSelect={() => onSelectSlot(slot)} />
+                  <SlotCard
+                    slot={slot}
+                    isActive={isActive}
+                    onSelect={() => onSelectSlot(slot)}
+                    onArm={() => { armedSlotIdRef.current = slot.id; }}
+                    consumeArmed={() => {
+                      const ok = armedSlotIdRef.current === slot.id;
+                      armedSlotIdRef.current = null;
+                      return ok;
+                    }}
+                  />
                 </motion.div>
               );
             })}
