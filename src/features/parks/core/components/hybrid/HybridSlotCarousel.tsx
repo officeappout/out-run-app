@@ -199,6 +199,15 @@ interface HybridSlotCarouselProps {
   onSelectSlot: (slot: HybridSlot) => void;
   onBuildYourself: () => void;
   onClose?: () => void;
+  /**
+   * READ-ONLY preview channel — fired ~300ms after the carousel SETTLES on a
+   * card (drag-end / tap / dot), never mid-swipe. Separate from the CTA (which
+   * owns compose→overview): the consumer composes + draws the settled slot's
+   * route on the map. No-op when omitted → byte-identical.
+   */
+  onSettleSlot?: (slot: HybridSlot) => void;
+  /** Subtle "computing route…" chip above the cards (cards stay interactive). */
+  computingPreview?: boolean;
 }
 
 export default function HybridSlotCarousel({
@@ -209,6 +218,8 @@ export default function HybridSlotCarousel({
   onSelectSlot,
   onBuildYourself,
   onClose,
+  onSettleSlot,
+  computingPreview = false,
 }: HybridSlotCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -233,6 +244,23 @@ export default function HybridSlotCarousel({
   useEffect(() => {
     setActiveIndex((i) => Math.min(i, Math.max(0, slots.length - 1)));
   }, [slots.length]);
+
+  // ── Preview-on-settle ──────────────────────────────────────────────────────
+  // Fire onSettleSlot ~300ms after the carousel rests on a card. Every change to
+  // activeIndex (drag-end / card tap / dot) resets the timer, so a fast swipe
+  // through several cards fires ONCE — at the destination — never mid-swipe. Ref
+  // holds the latest handler so the effect keys only on [activeIndex, slots]
+  // (a re-created handler must not re-fire the debounce). Runs on mount too →
+  // index 0 (the recommended slot) auto-previews the instant the layer opens.
+  const onSettleSlotRef = useRef(onSettleSlot);
+  onSettleSlotRef.current = onSettleSlot;
+  useEffect(() => {
+    if (!onSettleSlotRef.current) return;
+    const slot = slots[activeIndex];
+    if (!slot) return;
+    const t = setTimeout(() => onSettleSlotRef.current?.(slot), 300);
+    return () => clearTimeout(t);
+  }, [activeIndex, slots]);
 
   const stride = cardW + GAP;
   const centerX = viewportW / 2 - cardW / 2;
@@ -265,6 +293,18 @@ export default function HybridSlotCarousel({
       )}
 
       <ActivityToggle activity={aerobicKind} onChange={onActivityChange} />
+
+      {/* computing-preview chip — subtle, non-blocking (cards stay interactive) */}
+      {computingPreview && (
+        <div className="flex justify-center mb-1 pointer-events-none">
+          <div
+            className="flex items-center gap-1.5 rounded-full text-[11.5px] font-black animate-pulse"
+            style={{ padding: '4px 12px', background: 'rgba(255,255,255,0.92)', color: BRAND, boxShadow: '0 2px 10px rgba(0,0,0,.06)', backdropFilter: 'blur(6px)' }}
+          >
+            <span aria-hidden>✨</span> מחשב מסלול…
+          </div>
+        </div>
+      )}
 
       {/* carousel */}
       <div ref={viewportRef} className="overflow-hidden w-full" style={{ height: UNIFIED_ROUTE_CARDS_ENABLED ? undefined : CARD_HEIGHT + 16 }}>

@@ -21,8 +21,17 @@ export const IS_COMMUNITY_FEED_ENABLED = false;
 // (recommended hybrid + aerobic quick-start). While false, the free-run flow is
 // BYTE-IDENTICAL — no entry button, no 'slots' step; the existing FreeRunDrawer
 // toggle+slider hybrid path is untouched.
-// ⚠️ MUST stay false until invariant A (single-save) closes — enabling risks XP double-count.
-export const HYBRID_SLOTS_ENABLED = false;
+// Live before single-save (Phase 2): hybrid is display-only (0 XP credit) and has no active users.
+// ⚠️ Do NOT wire real XP until single-save closes — else double-count.
+export const HYBRID_SLOTS_ENABLED = true;
+
+// HYBRID_SLOT_PREVIEW: Draw a slot's route on the map the moment the carousel
+// settles on its card (compose-on-settle), matching discover cards — instead of
+// only on the "צא לדרך" CTA. READ-ONLY: composes + draws (setFocusedRoute) only;
+// never saves, never touches runHybridPlan/finishHybrid (single-save invariant
+// intact). While false, the slot layer is BYTE-IDENTICAL — the route appears
+// only on the CTA (current behaviour). Sub-flag of HYBRID_SLOTS_ENABLED.
+export const HYBRID_SLOT_PREVIEW_ENABLED = true;
 
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime
