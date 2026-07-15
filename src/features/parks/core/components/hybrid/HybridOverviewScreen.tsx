@@ -62,6 +62,11 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const exCount = plan.segments.reduce((n, s) => n + (s.kind === 'strength' ? s.content?.exercises?.length ?? 0 : 0), 0);
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
 
+  // Estimated finish = now + total workout minutes → "HH:MM" (24h, zero-padded —
+  // mirrors the run commute's formatArrivalClock convention). Estimate → "~" prefix.
+  const finishAt = new Date(Date.now() + totalMin * 60_000);
+  const finishClock = `${finishAt.getHours().toString().padStart(2, '0')}:${finishAt.getMinutes().toString().padStart(2, '0')}`;
+
   // Moovit-style at-a-glance sequence (RTL): walk-leg (mins) › station (program icon
   // + "כוח") › walk-leg … Built from the SAME composed segments the axis renders, and
   // both icons come from the shared program-icon map — no new icon logic.
@@ -136,6 +141,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           {/* scroll body */}
           <div className="flex-1 overflow-y-auto px-4 pt-2">
             <div className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</div>
+            {/* total workout time + estimated finish (Moovit-style "18 דקות | שעת הגעה 19:58") */}
+            <div className="flex items-center gap-1.5 text-[13px] mt-1" style={{ color: '#374151' }}>
+              <span className="font-black">{totalMin} דק׳</span>
+              <span style={{ color: '#D1D5DB' }}>·</span>
+              <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+            </div>
             <div className="flex items-center gap-1.5 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
               <MapPin size={14} /> {cityName ?? 'קרוב אליך'} · לולאה עם תחנת כוח אחת
             </div>
